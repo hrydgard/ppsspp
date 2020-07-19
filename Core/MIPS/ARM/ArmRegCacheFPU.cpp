@@ -561,7 +561,7 @@ int ArmRegCacheFPU::GetTempR() {
 	}
 
 	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
-	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	_assert_msg_(false, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
 }
 

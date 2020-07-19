@@ -104,7 +104,7 @@ void IRJit::Compile(u32 em_address) {
 bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
 	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
 	if (instructions.empty()) {
-		_dbg_assert_(JIT, preload);
+		_dbg_assert_(preload);
 		// We return true when preloading so it doesn't abort.
 		return preload;
 	}

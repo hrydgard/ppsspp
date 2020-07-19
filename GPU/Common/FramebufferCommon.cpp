@@ -746,7 +746,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				break;
 
 			case GE_FORMAT_INVALID:
-				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				_dbg_assert_msg_(false, "Invalid pixelFormat passed to DrawPixels().");
 				break;
 			}
 		}
@@ -1441,7 +1441,7 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
 		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
 		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
-		default: _dbg_assert_(G3D, 0); break;
+		default: _dbg_assert_(0); break;
 		}
 		clearBits = clear16 | (clear16 << 16);
 	}

@@ -866,7 +866,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 }
 
 void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
+	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	if (framebufferManager_->UseBufferedRendering()) {
@@ -1181,7 +1181,7 @@ static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, con
 		ConvertRGB565ToRGBA8888(dst, src, numPixels);
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "Incorrect texture format.");
+		_dbg_assert_msg_(false, "Incorrect texture format.");
 		break;
 	}
 }

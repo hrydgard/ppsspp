@@ -82,7 +82,7 @@ struct ThreadQueueList {
 			cur = cur->next;
 		}
 
-		_dbg_assert_msg_(SCEKERNEL, false, "ThreadQueueList should not be empty.");
+		_dbg_assert_msg_(false, "ThreadQueueList should not be empty.");
 		return 0;
 	}
 
@@ -127,7 +127,7 @@ struct ThreadQueueList {
 
 	inline void remove(u32 priority, const SceUID threadID) {
 		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
+		_dbg_assert_msg_(cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
 		for (int i = cur->first; i < cur->end; ++i) {
 			if (cur->data[i] == threadID) {
@@ -148,7 +148,7 @@ struct ThreadQueueList {
 
 	inline void rotate(u32 priority) {
 		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
+		_dbg_assert_msg_(cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
 		if (cur->size() > 1) {
 			// Grab the front and push it on the end.
@@ -222,7 +222,7 @@ private:
 
 	// Initialize a priority level and link to other queues.
 	void link(u32 priority, int size) {
-		_dbg_assert_msg_(SCEKERNEL, queues[priority].data == nullptr, "ThreadQueueList::Queue should only be initialized once.");
+		_dbg_assert_msg_(queues[priority].data == nullptr, "ThreadQueueList::Queue should only be initialized once.");
 
 		// Make sure we stay a multiple of INITIAL_CAPACITY.
 		if (size <= INITIAL_CAPACITY)

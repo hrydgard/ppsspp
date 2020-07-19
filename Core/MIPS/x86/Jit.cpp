@@ -633,7 +633,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 void Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
-	_dbg_assert_msg_(JIT, (MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
+	_dbg_assert_msg_((MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
 
 	if (func)
 	{
@@ -663,7 +663,7 @@ static void HitInvalidBranch(uint32_t dest) {
 }
 
 void Jit::WriteExit(u32 destination, int exit_num) {
-	_dbg_assert_msg_(JIT, exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
+	_dbg_assert_msg_(exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
 
 	if (!Memory::IsValidAddress(destination)) {
 		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);

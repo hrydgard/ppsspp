@@ -222,7 +222,7 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
-	_dbg_assert_msg_(G3D, enabled_, "Replacement not enabled");
+	_dbg_assert_msg_(enabled_, "Replacement not enabled");
 
 	if (!LookupHashRange(addr, w, h)) {
 		// There wasn't any hash range, let's fall back to maxSeenV logic.
@@ -398,7 +398,7 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 #endif
 
 void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
-	_assert_msg_(G3D, enabled_, "Replacement not enabled");
+	_assert_msg_(enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
 		// Ignore.
 		return;
@@ -595,8 +595,8 @@ bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
 }
 
 void ReplacedTexture::Load(int level, void *out, int rowPitch) {
-	_assert_msg_(G3D, (size_t)level < levels_.size(), "Invalid miplevel");
-	_assert_msg_(G3D, out != nullptr && rowPitch > 0, "Invalid out/pitch");
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	const ReplacedTextureLevel &info = levels_[level];
 

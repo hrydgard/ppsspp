@@ -218,7 +218,7 @@ void D3D9Context::Resize() {
 		HRESULT hr = device_->Reset(&presentParams_);
 		if (FAILED(hr)) {
 			// Had to remove DXGetErrorStringA calls here because dxerr.lib is deprecated and will not link with VS 2015.
-			PanicAlert("Unable to reset D3D9 device");
+			_assert_msg_(false, "Unable to reset D3D9 device");
 		}
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	}

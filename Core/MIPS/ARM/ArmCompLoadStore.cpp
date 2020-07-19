@@ -182,7 +182,7 @@ namespace MIPSComp
 		// This gets hit in a few games, as a result of never-taken delay slots (some branch types
 		// conditionally execute the delay slot instructions). Ignore in those cases.
 		if (!js.inDelaySlot) {
-			_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
+			_dbg_assert_msg_(!gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
 		}
 
 		if (load) {
@@ -339,7 +339,7 @@ namespace MIPSComp
 					addrReg = R0;
 				}
 			} else {
-				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+				_dbg_assert_msg_(!gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {

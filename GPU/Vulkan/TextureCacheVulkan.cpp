@@ -654,9 +654,9 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 
 	if (g_Config.bTexHardwareScaling) {
 		uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
-		_dbg_assert_msg_(G3D, uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
+		_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
 		copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
-		_dbg_assert_msg_(G3D, copyCS_!= VK_NULL_HANDLE, "failed to compile copy shader");
+		_dbg_assert_msg_(copyCS_!= VK_NULL_HANDLE, "failed to compile copy shader");
 	}
 
 	computeShaderManager_.DeviceRestore(vulkan);

@@ -280,7 +280,7 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[25
 		return;
 	}
 
-	_assert_msg_(G3D, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
+	_assert_msg_(primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:

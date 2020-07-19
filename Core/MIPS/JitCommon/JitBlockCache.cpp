@@ -420,7 +420,7 @@ void JitBlockCache::LinkBlock(int i) {
 	if (ppp.first == ppp.second)
 		return;
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
-		// PanicAlert("Linking block %i to block %i", iter->second, i);
+		// INFO_LOG(JIT, "Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }

@@ -325,7 +325,7 @@ public:
 	}
 
 	void Take(GLDeleter &other) {
-		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
+		_assert_msg_(IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
 		buffers = std::move(other.buffers);
@@ -437,7 +437,7 @@ public:
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initalizers;
 		step.create_program.support_dual_source = supportDualSource;
-		_assert_msg_(G3D, shaders.size() > 0, "Can't create a program with zero shaders");
+		_assert_msg_(shaders.size() > 0, "Can't create a program with zero shaders");
 		for (size_t i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
@@ -531,8 +531,8 @@ public:
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
 		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
-		_dbg_assert_(G3D, offset >= 0);
-		_dbg_assert_(G3D, offset <= buffer->size_ - size);
+		_dbg_assert_(offset >= 0);
+		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
 		step.buffer_subdata.size = (int)size;
@@ -556,7 +556,7 @@ public:
 	}
 
 	void TextureSubImage(GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData _data{ GLRRenderCommand::TEXTURE_SUBIMAGE };
 		_data.texture_subimage.texture = texture;
 		_data.texture_subimage.data = data;
@@ -579,18 +579,18 @@ public:
 	}
 
 	void BindTexture(int slot, GLRTexture *tex) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
-		_dbg_assert_(G3D, slot < 16);
+		_dbg_assert_(slot < 16);
 		data.texture.slot = slot;
 		data.texture.texture = tex;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindProgram(GLRProgram *program) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
-		_dbg_assert_(G3D, program != nullptr);
+		_dbg_assert_(program != nullptr);
 		data.program.program = program;
 		curRenderStep_->commands.push_back(data);
 #ifdef _DEBUG
@@ -599,7 +599,7 @@ public:
 	}
 
 	void BindPixelPackBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
 		data.bind_buffer.buffer = buffer;
 		data.bind_buffer.target = GL_PIXEL_PACK_BUFFER;
@@ -607,7 +607,7 @@ public:
 	}
 
 	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER};
 		data.bind_buffer.buffer = buffer;
 		data.bind_buffer.target = GL_ELEMENT_ARRAY_BUFFER;
@@ -615,7 +615,7 @@ public:
 	}
 
 	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		assert(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
 		data.bindVertexBuffer.inputLayout = inputLayout;
@@ -625,7 +625,7 @@ public:
 	}
 
 	void SetDepth(bool enabled, bool write, GLenum func) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DEPTH };
 		data.depth.enabled = enabled;
 		data.depth.write = write;
@@ -634,21 +634,21 @@ public:
 	}
 
 	void SetViewport(const GLRViewport &vp) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::VIEWPORT };
 		data.viewport.vp = vp;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetScissor(const GLRect2D &rc) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::SCISSOR };
 		data.scissor.rc = rc;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformI(const GLint *loc, int count, const int *udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -660,7 +660,7 @@ public:
 	}
 
 	void SetUniformI1(const GLint *loc, int udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -672,7 +672,7 @@ public:
 	}
 
 	void SetUniformF(const GLint *loc, int count, const float *udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -684,7 +684,7 @@ public:
 	}
 
 	void SetUniformF1(const GLint *loc, const float udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -696,7 +696,7 @@ public:
 	}
 
 	void SetUniformF(const char *name, int count, const float *udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -708,7 +708,7 @@ public:
 	}
 
 	void SetUniformM4x4(const GLint *loc, const float *udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -719,7 +719,7 @@ public:
 	}
 
 	void SetUniformM4x4(const char *name, const float *udata) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
 #endif
@@ -730,7 +730,7 @@ public:
 	}
 
 	void SetBlendAndMask(int colorMask, bool blendEnabled, GLenum srcColor, GLenum dstColor, GLenum srcAlpha, GLenum dstAlpha, GLenum funcColor, GLenum funcAlpha) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLEND };
 		data.blend.mask = colorMask;
 		data.blend.enabled = blendEnabled;
@@ -744,7 +744,7 @@ public:
 	}
 
 	void SetNoBlendAndMask(int colorMask) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLEND };
 		data.blend.mask = colorMask;
 		data.blend.enabled = false;
@@ -753,7 +753,7 @@ public:
 
 #ifndef USING_GLES2
 	void SetLogicOp(bool enabled, GLenum logicOp) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::LOGICOP };
 		data.logic.enabled = enabled;
 		data.logic.logicOp = logicOp;
@@ -762,7 +762,7 @@ public:
 #endif
 
 	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCILFUNC };
 		data.stencilFunc.enabled = enabled;
 		data.stencilFunc.func = func;
@@ -772,7 +772,7 @@ public:
 	}
 
 	void SetStencilOp(uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCILOP };
 		data.stencilOp.writeMask = writeMask;
 		data.stencilOp.sFail = sFail;
@@ -782,7 +782,7 @@ public:
 	}
 
 	void SetStencilDisabled() {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data;
 		data.cmd = GLRRenderCommand::STENCILFUNC;
 		data.stencilFunc.enabled = false;
@@ -790,14 +790,14 @@ public:
 	}
 
 	void SetBlendFactor(const float color[4]) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLENDCOLOR };
 		CopyFloat4(data.blendColor.color, color);
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::RASTER };
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
@@ -808,7 +808,7 @@ public:
 	
 	// Modifies the current texture as per GL specs, not global state.
 	void SetTextureSampler(int slot, GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
 		data.textureSampler.slot = slot;
 		data.textureSampler.wrapS = wrapS;
@@ -820,7 +820,7 @@ public:
 	}
 
 	void SetTextureLod(int slot, float minLod, float maxLod, float lodBias) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
 		data.textureLod.slot = slot;
 		data.textureLod.minLod = minLod;
@@ -831,7 +831,7 @@ public:
 
 	// If scissorW == 0, no scissor is applied (the whole render target is cleared).
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask, int scissorX, int scissorY, int scissorW, int scissorH) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		if (!clearMask)
 			return;
 		GLRRenderData data{ GLRRenderCommand::CLEAR };
@@ -848,14 +848,14 @@ public:
 	}
 
 	void Invalidate(int invalidateMask) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::INVALIDATE };
 		data.clear.clearMask = invalidateMask;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void Draw(GLenum mode, int first, int count) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW };
 		data.draw.mode = mode;
 		data.draw.first = first;
@@ -866,7 +866,7 @@ public:
 	}
 
 	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.mode = mode;
 		data.drawIndexed.count = count;

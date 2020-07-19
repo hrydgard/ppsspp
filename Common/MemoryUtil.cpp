@@ -19,12 +19,13 @@
 
 #include "base/logging.h"
 
-#include "Common.h"
-#include "MemoryUtil.h"
-#include "StringUtils.h"
+#include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 
 #ifdef _WIN32
-#include "CommonWindows.h"
+#include "Common/CommonWindows.h"
 #else
 #include <errno.h>
 #include <stdio.h>
@@ -53,7 +54,7 @@ static SYSTEM_INFO sys_info;
 #define ppsspp_round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
 
 #ifdef _WIN32
-// Win32 flags are odd...
+// Win32 memory protection flags are odd...
 static uint32_t ConvertProtFlagsWin32(uint32_t flags) {
 	uint32_t protect = 0;
 	switch (flags) {
@@ -185,7 +186,6 @@ void *AllocateExecutableMemory(size_t size) {
 	if (ptr == failed_result) {
 		ptr = nullptr;
 		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
-		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 
 #if defined(_M_X64) && !defined(_WIN32)
@@ -214,13 +214,15 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 #else
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
 #endif
-	if (!ptr)
-		PanicAlert("Failed to allocate raw memory");
+	if (!ptr) {
+		ERROR_LOG(MEMMAP, "Failed to allocate raw memory pages");
+		return nullptr;
+	}
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	void *ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
 	if (ptr == MAP_FAILED) {
-		ERROR_LOG(MEMMAP, "Failed to allocate memory pages: errno=%d", errno);
+		ERROR_LOG(MEMMAP, "Failed to allocate raw memory pages: errno=%d", errno);
 		return nullptr;
 	}
 #endif
@@ -232,23 +234,19 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 
 void *AllocateAlignedMemory(size_t size, size_t alignment) {
 #ifdef _WIN32
-	void* ptr =  _aligned_malloc(size,alignment);
+	void* ptr = _aligned_malloc(size,alignment);
 #else
 	void* ptr = NULL;
 #ifdef __ANDROID__
 	ptr = memalign(alignment, size);
 #else
-	if (posix_memalign(&ptr, alignment, size) != 0)
-		ptr = NULL;
+	if (posix_memalign(&ptr, alignment, size) != 0) {
+		ptr = nullptr;
+	}
 #endif
 #endif
 
-	// printf("Mapped memory at %p (size %ld)\n", ptr,
-	//	(unsigned long)size);
-
-	if (ptr == NULL)
-		PanicAlert("Failed to allocate aligned memory");
-
+	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory");
 	return ptr;
 }
 
@@ -258,8 +256,9 @@ void FreeMemoryPages(void *ptr, size_t size) {
 	uintptr_t page_size = GetMemoryProtectPageSize();
 	size = (size + page_size - 1) & (~(page_size - 1));
 #ifdef _WIN32
-	if (!VirtualFree(ptr, 0, MEM_RELEASE))
-		PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
+	if (!VirtualFree(ptr, 0, MEM_RELEASE)) {
+		ERROR_LOG(MEMMAP, "FreeMemoryPages failed!\n%s", GetLastErrorMsg());
+	}
 #else
 	munmap(ptr, size);
 #endif
@@ -292,8 +291,7 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 
 	if (PlatformIsWXExclusive()) {
 		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC)) {
-			ERROR_LOG(MEMMAP, "Bad memory protection %d!", memProtFlags);
-			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
+			_assert_msg_(false, "Bad memory protect flags %d: W^X is in effect, can't both write and exec", memProtFlags);
 		}
 	}
 	// Note - VirtualProtect will affect the full pages containing the requested range.
@@ -304,13 +302,13 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 #if PPSSPP_PLATFORM(UWP)
 	DWORD oldValue;
 	if (!VirtualProtectFromApp((void *)ptr, size, protect, &oldValue)) {
-		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 		return false;
 	}
 #else
 	DWORD oldValue;
 	if (!VirtualProtect((void *)ptr, size, protect, &oldValue)) {
-		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 		return false;
 	}
 #endif

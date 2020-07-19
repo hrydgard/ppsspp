@@ -730,7 +730,7 @@ void ArmJit::CompNEON_Mftv(MIPSOpcode op) {
 			}
 		} else {
 			//ERROR
-			_dbg_assert_msg_(CPU,0,"mtv - invalid register");
+			_dbg_assert_msg_(false,"mtv - invalid register");
 		}
 		break;
 
@@ -808,7 +808,7 @@ void ArmJit::CompNEON_VMatrixInit(MIPSOpcode op) {
 			// NEONTranspose4x4(cols);
 			break;
 		default:
-			_assert_msg_(JIT, 0, "Bad matrix size");
+			_assert_msg_(false, "Bad matrix size");
 			break;
 		}
 		break;
@@ -1159,7 +1159,7 @@ void ArmJit::CompNEON_VIdt(MIPSOpcode op) {
 		}
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Bad vidt instruction");
+		_dbg_assert_msg_(false,"Bad vidt instruction");
 		break;
 	}
 

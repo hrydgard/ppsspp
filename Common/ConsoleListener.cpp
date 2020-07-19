@@ -232,7 +232,7 @@ bool ConsoleListener::IsOpen()
 */
 void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst)
 {
-	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 #if defined(USING_WIN_UI)
 	BOOL SB, SW;
 	if (BufferFirst)
@@ -257,7 +257,7 @@ void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int S
 }
 void ConsoleListener::LetterSpace(int Width, int Height)
 {
-	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 #if defined(USING_WIN_UI)
 	// Get console info
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
@@ -392,7 +392,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 		// Not ANSI, since the console doesn't support it, but ANSI-like.
 		snprintf(ColorAttr, 16, "\033%d", Level);
 		// For now, rather than properly support it.
-		_dbg_assert_msg_(COMMON, strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
+		_dbg_assert_msg_(strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
 		ColorLen = (int)strlen(ColorAttr);
 	}
 
@@ -455,7 +455,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 
 void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len)
 {
-	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 
 	/*
 	const int MAX_BYTES = 1024*10;
@@ -510,7 +510,7 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 
 void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool Resize)
 {
-	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 #if defined(USING_WIN_UI)
 	// Check size
 	if (Width < 8 || Height < 12) return;
@@ -632,7 +632,7 @@ void ConsoleListener::Log(const LogMessage &msg) {
 // Clear console screen
 void ConsoleListener::ClearScreen(bool Cursor)
 { 
-	_dbg_assert_msg_(COMMON, IsOpen(), "Don't call this before opening the console.");
+	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 #if defined(USING_WIN_UI)
 	COORD coordScreen = { 0, 0 }; 
 	DWORD cCharsWritten; 

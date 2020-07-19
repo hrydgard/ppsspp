@@ -292,7 +292,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 		break;
 	case HLSL_D3D11_LEVEL9:
 	default:
-		_assert_msg_(G3D, false, "Depal shader language not supported: %d", (int)language);
+		_assert_msg_(false, "Depal shader language not supported: %d", (int)language);
 	}
 }
 

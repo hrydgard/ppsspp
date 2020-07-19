@@ -133,17 +133,17 @@ public:
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter, const char *tag);
 
 	void BindPipeline(VkPipeline pipeline) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_(G3D, pipeline != VK_NULL_HANDLE);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetViewport(const VkViewport &vp) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_(G3D, (int)vp.width >= 0);
-		_dbg_assert_(G3D, (int)vp.height >= 0);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_((int)vp.width >= 0);
+		_dbg_assert_((int)vp.height >= 0);
 		VkRenderData data{ VKRRenderCommand::VIEWPORT };
 		data.viewport.vp.x = vp.x;
 		data.viewport.vp.y = vp.y;
@@ -159,9 +159,9 @@ public:
 	}
 
 	void SetScissor(const VkRect2D &rc) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_(G3D, (int)rc.extent.width >= 0);
-		_dbg_assert_(G3D, (int)rc.extent.height >= 0);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_((int)rc.extent.width >= 0);
+		_dbg_assert_((int)rc.extent.height >= 0);
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
 		data.scissor.scissor = rc;
 		curRenderStep_->commands.push_back(data);
@@ -169,7 +169,7 @@ public:
 	}
 
 	void SetStencilParams(uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::STENCIL };
 		data.stencil.stencilWriteMask = writeMask;
 		data.stencil.stencilCompareMask = compareMask;
@@ -178,14 +178,14 @@ public:
 	}
 
 	void SetBlendFactor(uint32_t color) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::BLEND };
 		data.blendColor.color = color;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		assert(size + offset < 40);
 		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
 		data.push.pipelineLayout = pipelineLayout;
@@ -199,7 +199,7 @@ public:
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
 	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
 		data.draw.offset = offset;
@@ -216,7 +216,7 @@ public:
 	}
 
 	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;

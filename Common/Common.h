@@ -64,7 +64,7 @@
 	#if defined(_DEBUG)
 		#include <crtdbg.h>
 		#undef CHECK_HEAP_INTEGRITY
-		#define CHECK_HEAP_INTEGRITY() {if (!_CrtCheckMemory()) PanicAlert("memory corruption detected. see log.");}
+		#define CHECK_HEAP_INTEGRITY() {if (!_CrtCheckMemory()) _assert_msg_(false, "Memory corruption detected. See log.");}
 	#endif
 #else
 

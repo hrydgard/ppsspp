@@ -126,7 +126,7 @@ bool MemoryMap_Setup(u32 flags);
 void MemoryMap_Shutdown(u32 flags);
 
 // Init and Shutdown
-void Init();
+bool Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();

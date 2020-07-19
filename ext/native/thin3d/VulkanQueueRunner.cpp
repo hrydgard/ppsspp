@@ -289,7 +289,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected color layout %d", (int)key.prevColorLayout);
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected color layout %d", (int)key.prevColorLayout);
 		break;
 	}
 
@@ -313,7 +313,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "PerformBindRT: Unexpected depth layout %d", (int)key.prevDepthLayout);
+		_dbg_assert_msg_(false, "PerformBindRT: Unexpected depth layout %d", (int)key.prevDepthLayout);
 		break;
 	}
 
@@ -346,7 +346,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		// Nothing to do.
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected final color layout %d", (int)key.finalColorLayout);
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected final color layout %d", (int)key.finalColorLayout);
 		break;
 	}
 
@@ -976,7 +976,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			default:
-				_assert_msg_(G3D, false, "PerformRenderPass: Unexpected oldLayout: %d", (int)barrier.oldLayout);
+				_assert_msg_(false, "PerformRenderPass: Unexpected oldLayout: %d", (int)barrier.oldLayout);
 				break;
 			}
 			barrier.newLayout = iter.targetLayout;
@@ -986,7 +986,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			default:
-				_assert_msg_(G3D, false, "PerformRenderPass: Unexpected newLayout: %d", (int)barrier.newLayout);
+				_assert_msg_(false, "PerformRenderPass: Unexpected newLayout: %d", (int)barrier.newLayout);
 				break;
 			}
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1081,8 +1081,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				const VkRect2D &rc = c.scissor.scissor;
 				DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
 				RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-				_dbg_assert_(G3D, rotated_rc.x >= 0);
-				_dbg_assert_(G3D, rotated_rc.y >= 0);
+				_dbg_assert_(rotated_rc.x >= 0);
+				_dbg_assert_(rotated_rc.y >= 0);
 				VkRect2D finalRect = VkRect2D{ { rotated_rc.x, rotated_rc.y }, { (uint32_t)rotated_rc.w, (uint32_t)rotated_rc.h} };
 				vkCmdSetScissor(cmd, 0, 1, &finalRect);
 			}
@@ -1185,7 +1185,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	int w;
 	int h;
 	if (step.render.framebuffer) {
-		_dbg_assert_(G3D, step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->framebuf;
@@ -1429,7 +1429,7 @@ void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageMemor
 		stage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "Transition from this layout to transfer src not supported (%d)", (int)img.layout);
+		_dbg_assert_msg_(false, "Transition from this layout to transfer src not supported (%d)", (int)img.layout);
 		break;
 	}
 	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -1488,7 +1488,7 @@ void VulkanQueueRunner::SetupTransitionToTransferDst(VKRImage &img, VkImageMemor
 		stage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "Transition from this layout to transfer dst not supported (%d)", (int)img.layout);
+		_dbg_assert_msg_(false, "Transition from this layout to transfer dst not supported (%d)", (int)img.layout);
 		break;
 	}
 	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1553,7 +1553,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		} else if (step.readback.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 			srcImage = &step.readback.src->depth;
 		} else {
-			_dbg_assert_msg_(G3D, false, "No image aspect to readback?");
+			_dbg_assert_msg_(false, "No image aspect to readback?");
 			return;
 		}
 

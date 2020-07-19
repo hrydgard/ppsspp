@@ -307,7 +307,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 			// Bad return value seen on Adreno in Burnout :(  Try to ignore?
 			// TODO: Log all the information we can here!
 		} else {
-			_dbg_assert_msg_(G3D, false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+			_dbg_assert_msg_(false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		}
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
@@ -335,7 +335,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	}
 
 	VulkanPipelineKey key{};
-	_assert_msg_(G3D, renderPass, "Can't create a pipeline with a null renderpass");
+	_assert_msg_(renderPass, "Can't create a pipeline with a null renderpass");
 
 	key.raster = rasterKey;
 	key.renderPass = renderPass;

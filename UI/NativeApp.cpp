@@ -808,7 +808,7 @@ void RenderOverlays(UIContext *dc, void *userdata);
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
-	_assert_msg_(G3D, graphicsContext, "No graphics context!");
+	_assert_msg_(graphicsContext, "No graphics context!");
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
@@ -816,8 +816,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
-	_assert_msg_(G3D, g_draw, "No draw context available!");
-	_assert_msg_(G3D, g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
+	_assert_msg_(g_draw, "No draw context available!");
+	_assert_msg_(g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
 
 	// Load the atlas.
 
@@ -825,7 +825,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (!g_ui_atlas.IsMetadataLoaded()) {
 		const uint8_t *atlas_data = VFSReadFile("ui_atlas.meta", &atlas_data_size);
 		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
-		_assert_msg_(G3D, load_success, "Failed to load ui_atlas.meta");
+		_assert_msg_(load_success, "Failed to load ui_atlas.meta");
 		delete[] atlas_data;
 	}
 	ui_draw2d.SetAtlas(&g_ui_atlas);

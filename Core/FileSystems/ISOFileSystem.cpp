@@ -535,7 +535,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		u32 secNum = (u32)(positionOnIso / 2048);
 		u8 theSector[2048];
 
-		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
+		if ((middleSize & 2047) != 0) {
+			ERROR_LOG(FILESYS, "Remaining size should be aligned");
+		}
 
 		const u8 *const start = pointer;
 		if (firstBlockSize > 0) {

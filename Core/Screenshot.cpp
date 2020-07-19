@@ -229,7 +229,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 		a = (src >> 8) & 0xFF;
 		break;
 	default:
-		_assert_msg_(SYSTEM, false, "Unsupported framebuffer format for screenshot: %d", fmt);
+		_assert_msg_(false, "Unsupported framebuffer format for screenshot: %d", fmt);
 		return false;
 	}
 

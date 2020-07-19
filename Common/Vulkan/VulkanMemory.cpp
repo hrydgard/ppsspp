@@ -47,7 +47,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	VkResult res = vkCreateBuffer(device, &b, nullptr, &info.buffer);
 	if (VK_SUCCESS != res) {
-		_assert_msg_(G3D, false, "vkCreateBuffer failed! result=%d", (int)res);
+		_assert_msg_(false, "vkCreateBuffer failed! result=%d", (int)res);
 		return false;
 	}
 
@@ -62,7 +62,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
-		_assert_msg_(G3D, false, "vkAllocateMemory failed! size=%d result=%d", (int)reqs.size, (int)res);
+		_assert_msg_(false, "vkAllocateMemory failed! size=%d result=%d", (int)reqs.size, (int)res);
 		vkDestroyBuffer(device, info.buffer, nullptr);
 		return false;
 	}
@@ -136,14 +136,14 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 }
 
 void VulkanPushBuffer::Map() {
-	_dbg_assert_(G3D, !writePtr_);
+	_dbg_assert_(!writePtr_);
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
-	_dbg_assert_(G3D, writePtr_);
+	_dbg_assert_(writePtr_);
 	assert(VK_SUCCESS == res);
 }
 
 void VulkanPushBuffer::Unmap() {
-	_dbg_assert_(G3D, writePtr_ != 0);
+	_dbg_assert_(writePtr_ != 0);
 
 	if ((memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
 		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
@@ -177,7 +177,7 @@ void VulkanDeviceAllocator::Destroy() {
 			if (slabUsage == 1) {
 				ERROR_LOG(G3D, "VulkanDeviceAllocator detected memory leak of size %d", (int)pair.second);
 			} else {
-				_dbg_assert_msg_(G3D, slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
+				_dbg_assert_msg_(slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
 			}
 		}
 
@@ -314,13 +314,13 @@ void VulkanDeviceAllocator::DoTouch(VkDeviceMemory deviceMemory, size_t offset) 
 		}
 	}
 
-	_assert_msg_(G3D, found, "Failed to find allocation to touch - use after free?");
+	_assert_msg_(found, "Failed to find allocation to touch - use after free?");
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	assert(!destroyed_);
 
-	_assert_msg_(G3D, !slabs_.empty(), "No slabs - can't be anything to free! double-freed?");
+	_assert_msg_(!slabs_.empty(), "No slabs - can't be anything to free! double-freed?");
 
 	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
 	size_t start = offset >> SLAB_GRAIN_SHIFT;
@@ -331,9 +331,9 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 		}
 
 		auto it = slab.allocSizes.find(start);
-		_assert_msg_(G3D, it != slab.allocSizes.end(), "Double free?");
+		_assert_msg_(it != slab.allocSizes.end(), "Double free?");
 		// This means a double free, while queued to actually free.
-		_assert_msg_(G3D, slab.usage[start] == 1, "Double free when queued to free!");
+		_assert_msg_(slab.usage[start] == 1, "Double free when queued to free!");
 
 		// Mark it as "free in progress".
 		slab.usage[start] = 2;
@@ -342,7 +342,7 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	_assert_msg_(G3D, found, "Failed to find allocation to free! Double-freed?");
+	_assert_msg_(found, "Failed to find allocation to free! Double-freed?");
 
 	// Okay, now enqueue.  It's valid.
 	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
@@ -383,7 +383,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 			}
 		} else {
 			// Ack, a double free?
-			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", (int)userdata->offset);
+			_assert_msg_(false, "Double free? Block missing at offset %d", (int)userdata->offset);
 		}
 		auto itTag = slab.tags.find(start);
 		if (itTag != slab.tags.end()) {
@@ -394,7 +394,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	_assert_msg_(G3D, found, "ExecuteFree: Block not found (offset %d)", (int)offset);
+	_assert_msg_(found, "ExecuteFree: Block not found (offset %d)", (int)offset);
 	delete userdata;
 }
 

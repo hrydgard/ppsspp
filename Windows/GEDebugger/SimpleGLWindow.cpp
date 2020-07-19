@@ -296,7 +296,7 @@ void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt
 			glfmt = GL_UNSIGNED_BYTE;
 			components = GL_RED;
 		} else {
-			_dbg_assert_msg_(COMMON, false, "Invalid SimpleGLWindow format.");
+			_dbg_assert_msg_(false, "Invalid SimpleGLWindow format.");
 		}
 	}
 

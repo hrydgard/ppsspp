@@ -47,7 +47,7 @@ public:
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
-		_assert_msg_(G3D, success, "Failed to compile preset shaders");
+		_assert_msg_(success, "Failed to compile preset shaders");
 	}
 	~IOSGraphicsContext() {
 		delete draw_;

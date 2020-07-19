@@ -69,7 +69,7 @@ bool PointerWrap::ExpectVoid(void *data, int size) {
 	case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
 	case MODE_VERIFY:
 		for (int i = 0; i < size; i++)
-			_dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
+			_dbg_assert_msg_(((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
 		break;
 	default: break;  // throw an error?
 	}
@@ -84,7 +84,7 @@ void PointerWrap::DoVoid(void *data, int size) {
 	case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
 	case MODE_VERIFY:
 		for (int i = 0; i < size; i++)
-			_dbg_assert_msg_(COMMON, ((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
+			_dbg_assert_msg_(((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
 		break;
 	default: break;  // throw an error?
 	}
@@ -99,7 +99,7 @@ void PointerWrap::Do(std::string &x) {
 	case MODE_READ:		x = (char*)*ptr; break;
 	case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
 	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(COMMON, !strcmp(x.c_str(), (char*)*ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char*)*ptr, ptr); break;
+	case MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char*)*ptr, ptr); break;
 	}
 	(*ptr) += stringLen;
 }
@@ -112,7 +112,7 @@ void PointerWrap::Do(std::wstring &x) {
 	case MODE_READ:		x = (wchar_t*)*ptr; break;
 	case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
 	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(COMMON, x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
+	case MODE_VERIFY: _dbg_assert_msg_(x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
 	}
 	(*ptr) += stringLen;
 }
@@ -125,7 +125,7 @@ void PointerWrap::Do(std::u16string &x) {
 	case MODE_READ: x = (char16_t*)*ptr; break;
 	case MODE_WRITE: memcpy(*ptr, x.c_str(), stringLen); break;
 	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(COMMON, x == (char16_t*)*ptr, "Savestate verification failure: (at %p).\n", x.c_str()); break;
+	case MODE_VERIFY: _dbg_assert_msg_(x == (char16_t*)*ptr, "Savestate verification failure: (at %p).\n", x.c_str()); break;
 	}
 	(*ptr) += stringLen;
 }
@@ -168,7 +168,7 @@ void PointerWrap::DoMarker(const char *prevName, u32 arbitraryNumber) {
 	u32 cookie = arbitraryNumber;
 	Do(cookie);
 	if (mode == PointerWrap::MODE_READ && cookie != arbitraryNumber) {
-		PanicAlert("Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
+		_assert_msg_(false, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
 		SetError(ERROR_FAILURE);
 	}
 }

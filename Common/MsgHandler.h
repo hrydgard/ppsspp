@@ -31,7 +31,5 @@ bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* fo
 #endif
 	;
 
-#define PanicAlert(...) MsgAlert(false, WARNING, __FILE__, __LINE__, __VA_ARGS__)
-
 // Used only for asserts.
 #define PanicYesNo(...) MsgAlert(true, CRITICAL, __FILE__, __LINE__, __VA_ARGS__)

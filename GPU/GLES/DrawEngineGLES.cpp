@@ -109,7 +109,7 @@ void DrawEngineGLES::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void DrawEngineGLES::InitDeviceObjects() {
-	_assert_msg_(G3D, render_ != nullptr, "Render manager must be set");
+	_assert_msg_(render_ != nullptr, "Render manager must be set");
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 1024 * 1024);
@@ -416,7 +416,7 @@ void DrawEngineGLES::DoFlush() {
 					}
 
 					if (vai->vbo == nullptr) {
-						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						// We'll populate the cache this time around, use it next time.
 						populateCache = true;

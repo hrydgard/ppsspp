@@ -183,7 +183,7 @@ void AntiCrashCallback(u64 userdata, int cyclesLate)
 
 void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
 {
-	_assert_msg_(CORETIMING, event_type >= 0, "Invalid event type %d", event_type)
+	_assert_msg_(event_type >= 0, "Invalid event type %d", event_type)
 	if (event_type >= (int) event_types.size())
 		event_types.resize(event_type + 1, EventType(AntiCrashCallback, "INVALID EVENT"));
 
@@ -192,8 +192,7 @@ void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callba
 
 void UnregisterAllEvents()
 {
-	if (first)
-		PanicAlert("Cannot unregister events with events pending");
+	_dbg_assert_msg_(first == nullptr, "Unregistering events with events pending - this isn't good.");
 	event_types.clear();
 }
 
@@ -572,7 +571,7 @@ void ForceCheck()
 	slicelength = -1;
 
 #ifdef _DEBUG
-	_dbg_assert_msg_(CPU, cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
+	_dbg_assert_msg_( cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
 #endif
 }
 
@@ -647,17 +646,18 @@ void Idle(int maxIdle)
 		currentMIPS->downcount = -1;
 }
 
-std::string GetScheduledEventsSummary()
-{
+std::string GetScheduledEventsSummary() {
 	Event *ptr = first;
 	std::string text = "Scheduled events\n";
 	text.reserve(1000);
-	while (ptr)
-	{
+	while (ptr) {
 		unsigned int t = ptr->type;
-		if (t >= event_types.size())
-			PanicAlert("Invalid event type"); // %i", t);
-		const char *name = event_types[ptr->type].name;
+		if (t >= event_types.size()) {
+			_dbg_assert_msg_(false, "Invalid event type %d", t);
+			ptr = ptr->next;
+			continue;
+		}
+		const char *name = event_types[t].name;
 		if (!name)
 			name = "[unknown]";
 		char temp[512];

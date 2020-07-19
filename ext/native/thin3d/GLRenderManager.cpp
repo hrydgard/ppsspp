@@ -320,7 +320,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 }
 
 void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
-	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 	GLRRenderData data{ GLRRenderCommand::BIND_FB_TEXTURE };
 	data.bind_fb_texture.slot = binding;
 	data.bind_fb_texture.framebuffer = fb;
@@ -675,7 +675,7 @@ void GLPushBuffer::Unmap() {
 
 void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
-	_dbg_assert_(G3D, OnRenderThread());
+	_dbg_assert_(OnRenderThread());
 
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
@@ -760,7 +760,7 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 }
 
 void GLPushBuffer::Defragment() {
-	_dbg_assert_msg_(G3D, !OnRenderThread(), "Defragment must not run on the render thread");
+	_dbg_assert_msg_(!OnRenderThread(), "Defragment must not run on the render thread");
 
 	if (buffers_.size() <= 1) {
 		// Let's take this chance to jetison localMemory we don't need.
@@ -780,7 +780,7 @@ void GLPushBuffer::Defragment() {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	_assert_msg_(G3D, res, "AddBuffer failed");
+	_assert_msg_(res, "AddBuffer failed");
 }
 
 size_t GLPushBuffer::GetTotalSize() const {
@@ -792,7 +792,7 @@ size_t GLPushBuffer::GetTotalSize() const {
 }
 
 void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
-	_dbg_assert_msg_(G3D, OnRenderThread(), "MapDevice must run on render thread");
+	_dbg_assert_msg_(OnRenderThread(), "MapDevice must run on render thread");
 
 	strategy_ = strategy;
 	if (strategy_ == GLBufferStrategy::SUBDATA) {
@@ -815,7 +815,7 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 			mapChanged = true;
 		}
 
-		_dbg_assert_msg_(G3D, info.localMemory || info.deviceMemory, "Local or device memory must succeed");
+		_dbg_assert_msg_(info.localMemory || info.deviceMemory, "Local or device memory must succeed");
 	}
 
 	if (writePtr_ && mapChanged) {
@@ -826,7 +826,7 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 }
 
 void GLPushBuffer::UnmapDevice() {
-	_dbg_assert_msg_(G3D, OnRenderThread(), "UnmapDevice must run on render thread");
+	_dbg_assert_msg_(OnRenderThread(), "UnmapDevice must run on render thread");
 
 	for (auto &info : buffers_) {
 		if (info.deviceMemory) {

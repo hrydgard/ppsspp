@@ -398,7 +398,7 @@ u32 DiskCachingFileLoaderCache::AllocateBlock(u32 indexPos) {
 		}
 	}
 
-	_dbg_assert_msg_(LOADER, false, "Not enough free blocks");
+	_dbg_assert_msg_(false, "Not enough free blocks");
 	return INVALID_BLOCK;
 }
 

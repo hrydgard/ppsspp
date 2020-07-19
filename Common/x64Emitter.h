@@ -292,7 +292,7 @@ template<> inline u32 PtrOffsetTpl<8>(const void *ptr, const void* base) {
 	if (distance >= 0x80000000LL ||
 	    distance < -0x80000000LL)
 	{
-		_assert_msg_(DYNA_REC, 0, "pointer offset out of range");
+		_assert_msg_(false, "pointer offset out of range");
 		return 0;
 	}
 

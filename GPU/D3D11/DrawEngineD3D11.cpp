@@ -437,7 +437,7 @@ void DrawEngineD3D11::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
-						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						// TODO: Combine these two into one buffer?
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();

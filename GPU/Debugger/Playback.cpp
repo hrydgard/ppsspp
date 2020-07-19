@@ -664,7 +664,7 @@ static void ReplayStop() {
 }
 
 bool RunMountedReplay(const std::string &filename) {
-	_assert_msg_(SYSTEM, !GPURecord::IsActivePending(), "Cannot run replay while recording.");
+	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
 	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
