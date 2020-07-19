@@ -356,8 +356,8 @@ void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
 
 	if (!regs[i].away || (regs[i].away && regs[i].location.IsImm())) {
 		X64Reg xr = GetFreeXReg();
-		if (xregs[xr].dirty) PanicAlert("Xreg already dirty");
-		if (xregs[xr].allocLocked) PanicAlert("GetFreeXReg returned locked register");
+		_assert_msg_(!xregs[xr].dirty, "Xreg already dirty");
+		_assert_msg_(!xregs[xr].allocLocked, "GetFreeXReg returned locked register");
 		xregs[xr].free = false;
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty || regs[i].location.IsImm();
@@ -371,8 +371,7 @@ void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
 		}
 		for (int j = 0; j < 32; j++) {
 			if (i != MIPSGPReg(j) && regs[j].location.IsSimpleReg(xr)) {
-				ERROR_LOG(JIT, "BindToRegister: Strange condition");
-				Crash();
+				_assert_msg_(false, "BindToRegister: Strange condition");
 			}
 		}
 		regs[i].away = true;
