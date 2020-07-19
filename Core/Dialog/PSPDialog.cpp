@@ -198,6 +198,16 @@ bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThr
 	return false;
 }
 
+PPGeStyle PSPDialog::FadedStyle(PPGeAlign align, float scale) {
+	PPGeStyle textStyle;
+	textStyle.align = align;
+	textStyle.scale = scale;
+	textStyle.color = CalcFadedColor(textStyle.color);
+	textStyle.hasShadow = true;
+	textStyle.shadowColor = CalcFadedColor(textStyle.shadowColor);
+	return textStyle;
+}
+
 void PSPDialog::DisplayButtons(int flags, const char *caption)
 {
 	bool useCaption = false;
@@ -207,6 +217,8 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		truncate_cpy(safeCaption, caption);
 	}
 
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, FONT_SCALE);
+
 	auto di = GetI18NCategory("Dialog");
 	float x1 = 183.5f, x2 = 261.5f;
 	if (GetCommonParam()->buttonSwap == 1) {
@@ -215,16 +227,12 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 	}
 	if (flags & DS_BUTTON_OK) {
 		const char *text = useCaption ? safeCaption : di->T("Enter");
-		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
-		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(text, x2 + 15.5f, 254, PPGeAlign::BOX_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(text, x2 + 14.5f, 252, PPGeAlign::BOX_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawText(text, x2 + 14.5f, 252, textStyle);
 	}
 	if (flags & DS_BUTTON_CANCEL) {
 		const char *text = useCaption ? safeCaption : di->T("Back");
-		PPGeDrawText(text, x1 + 15.5f, 254, PPGeAlign::BOX_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(text, x1 + 14.5f, 252, PPGeAlign::BOX_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
-		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}
 }

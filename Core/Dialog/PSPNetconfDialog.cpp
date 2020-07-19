@@ -65,10 +65,13 @@ void PSPNetconfDialog::DrawBanner() {
 
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
 
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
+	textStyle.hasShadow = false;
+
 	// TODO: Draw a hexagon icon
-	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, textStyle.color);
 	auto di = GetI18NCategory("Dialog");
-	PPGeDrawText(di->T("Network Connection"), 30, 11, PPGeAlign::BOX_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Network Connection"), 30, 11, textStyle);
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
@@ -83,14 +86,17 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	const ImageID confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? ImageID("I_CROSS") : ImageID("I_CIRCLE");
 	const int confirmBtn = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, 0.5f);
+	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
+
 	if (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET || request.netAction == NETCONF_CONNECT_APNET_LAST) {
 		UpdateFade(animSpeed);
 		StartDraw();
 		DrawBanner();
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
-		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, 0, PPGeAlign::BOX_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(di->T("OK"), 225, 252, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, 0, textStyle);
+		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, buttonStyle);
+		PPGeDrawText(di->T("OK"), 225, 252, buttonStyle);
 
 		if (IsButtonPressed(confirmBtn)) {
 			StartFade(false);
