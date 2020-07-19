@@ -397,7 +397,7 @@ public:
 	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
 
 	bool AllocateStack(u32 &stackSize) {
-		_assert_msg_(SCEKERNEL, stackSize >= 0x200, "thread stack should be 256 bytes or larger");
+		_assert_msg_(stackSize >= 0x200, "thread stack should be 256 bytes or larger");
 
 		FreeStack();
 
@@ -1046,7 +1046,7 @@ static void __KernelFireThreadEnd(SceUID threadID)
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
 static void __KernelChangeReadyState(PSPThread *thread, SceUID threadID, bool ready) {
 	// Passing the id as a parameter is just an optimization, if it's wrong it will cause havoc.
-	_dbg_assert_msg_(SCEKERNEL, thread->GetUID() == threadID, "Incorrect threadID");
+	_dbg_assert_msg_(thread->GetUID() == threadID, "Incorrect threadID");
 	int prio = thread->nt.currentPriority;
 
 	if (thread->isReady())
@@ -1422,7 +1422,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 			break;
 
 		default:
-			_dbg_assert_msg_(SCEKERNEL, false, "Unexpected type %d", type);
+			_dbg_assert_msg_(false, "Unexpected type %d", type);
 		}
 
 		for (size_t i = 0; i < threadqueue.size(); i++) {
@@ -2132,7 +2132,7 @@ void __KernelReturnFromThread()
 
 	int exitStatus = currentMIPS->r[MIPS_REG_V0];
 	PSPThread *thread = __GetCurrentThread();
-	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Returned from a NULL thread.");
+	_dbg_assert_msg_(thread != NULL, "Returned from a NULL thread.");
 
 	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromThread: %d", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread returned");
@@ -2147,7 +2147,7 @@ void __KernelReturnFromThread()
 
 void sceKernelExitThread(int exitStatus) {
 	PSPThread *thread = __GetCurrentThread();
-	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Exited from a NULL thread.");
+	_dbg_assert_msg_(thread != NULL, "Exited from a NULL thread.");
 
 	INFO_LOG(SCEKERNEL, "sceKernelExitThread(%d)", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread exited");
@@ -2162,7 +2162,7 @@ void sceKernelExitThread(int exitStatus) {
 
 void _sceKernelExitThread(int exitStatus) {
 	PSPThread *thread = __GetCurrentThread();
-	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "_Exited from a NULL thread.");
+	_dbg_assert_msg_(thread != NULL, "_Exited from a NULL thread.");
 
 	ERROR_LOG_REPORT(SCEKERNEL, "_sceKernelExitThread(%d): should not be called directly", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread _exited");
@@ -3133,7 +3133,7 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 		WARN_LOG_REPORT(SCEKERNEL, "Running mipscall on dormant thread");
 	}
 
-	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
+	_dbg_assert_msg_(numargs <= 6, "MipsCalls can only take 6 args.");
 
 	if (thread) {
 		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
@@ -3338,7 +3338,7 @@ void __KernelReturnFromMipsCall()
 
 // First arg must be current thread, passed to avoid perf cost of a lookup.
 bool __KernelExecutePendingMipsCalls(PSPThread *thread, bool reschedAfter) {
-	_dbg_assert_msg_(SCEKERNEL, thread->GetUID() == __KernelGetCurThread(), "__KernelExecutePendingMipsCalls() should be called only with the current thread.");
+	_dbg_assert_msg_(thread->GetUID() == __KernelGetCurThread(), "__KernelExecutePendingMipsCalls() should be called only with the current thread.");
 
 	if (thread->pendingMipsCalls.empty()) {
 		// Nothing to do

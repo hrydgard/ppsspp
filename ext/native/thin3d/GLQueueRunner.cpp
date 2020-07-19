@@ -180,10 +180,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			CHECK_GL_ERROR_IF_DEBUG();
 			GLRProgram *program = step.create_program.program;
 			program->program = glCreateProgram();
-			_assert_msg_(G3D, step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
+			_assert_msg_(step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
 			bool anyFailed = false;
 			for (int j = 0; j < step.create_program.num_shaders; j++) {
-				_dbg_assert_msg_(G3D, step.create_program.shaders[j]->shader, "Can't create a program with a null shader");
+				_dbg_assert_msg_(step.create_program.shaders[j]->shader, "Can't create a program with a null shader");
 				anyFailed = anyFailed || step.create_program.shaders[j]->failed;
 				glAttachShader(program->program, step.create_program.shaders[j]->shader);
 			}
@@ -1310,7 +1310,7 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 		break;
 	case GL_DEPTH_BUFFER_BIT:
 		// TODO: Support depth copies.
-		_assert_msg_(G3D, false, "Depth copies not yet supported - soon");
+		_assert_msg_(false, "Depth copies not yet supported - soon");
 		target = GL_RENDERBUFFER;
 		/*
 		srcTex = src->depth.texture;
@@ -1319,8 +1319,8 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 		break;
 	}
 
-	_dbg_assert_(G3D, srcTex);
-	_dbg_assert_(G3D, dstTex);
+	_dbg_assert_(srcTex);
+	_dbg_assert_(dstTex);
 
 #if defined(USING_GLES2)
 #ifndef IOS

@@ -249,7 +249,7 @@ struct ConfigSetting {
 			}
 			return true;
 		default:
-			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Unexpected ini setting type");
 			return false;
 		}
 	}
@@ -282,7 +282,7 @@ struct ConfigSetting {
 			}
 			return;
 		default:
-			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Unexpected ini setting type");
 			return;
 		}
 	}
@@ -306,7 +306,7 @@ struct ConfigSetting {
 			// Doesn't report.
 			return;
 		default:
-			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
+			_dbg_assert_msg_(false, "Unexpected ini setting type");
 			return;
 		}
 	}

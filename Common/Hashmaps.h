@@ -53,7 +53,7 @@ public:
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos) {
-				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Get()");
+				_assert_msg_(false, "DenseHashMap: Hit full on Get()");
 			}
 		}
 		return NullValue;
@@ -72,7 +72,7 @@ public:
 			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
 					// Bad! We already got this one. Let's avoid this case.
-					_assert_msg_(SYSTEM, false, "DenseHashMap: Duplicate key inserted");
+					_assert_msg_(false, "DenseHashMap: Duplicate key inserted");
 					return false;
 				}
 				// continue looking....
@@ -83,7 +83,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Insert()");
+				_assert_msg_(false, "DenseHashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -111,7 +111,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen.
-				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Remove()");
+				_assert_msg_(false, "DenseHashMap: Hit full on Remove()");
 			}
 		}
 		return false;
@@ -168,7 +168,7 @@ private:
 				Insert(old[i].key, old[i].value);
 			}
 		}
-		_assert_msg_(SYSTEM, oldCount == count_, "DenseHashMap: count should not change in Grow()");
+		_assert_msg_(oldCount == count_, "DenseHashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		Key key;
@@ -204,7 +204,7 @@ public:
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos) {
-				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Get()");
+				_assert_msg_(false, "PrehashMap: Hit full on Get()");
 			}
 		}
 		return NullValue;
@@ -230,7 +230,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Insert()");
+				_assert_msg_(false, "PrehashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -257,7 +257,7 @@ public:
 			}
 			p = (p + 1) & mask;
 			if (p == pos) {
-				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Remove()");
+				_assert_msg_(false, "PrehashMap: Hit full on Remove()");
 			}
 		}
 		return false;
@@ -317,7 +317,7 @@ private:
 			}
 		}
 		INFO_LOG(G3D, "Grew hashmap capacity from %d to %d", oldCapacity, capacity_);
-		_assert_msg_(SYSTEM, oldCount == count_, "PrehashMap: count should not change in Grow()");
+		_assert_msg_(oldCount == count_, "PrehashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		uint32_t hash;

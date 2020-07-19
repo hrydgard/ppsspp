@@ -2541,7 +2541,7 @@ std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 
 void GPUCommon::ResetListPC(int listID, u32 pc) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 
@@ -2550,7 +2550,7 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 
 void GPUCommon::ResetListStall(int listID, u32 stall) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 
@@ -2559,7 +2559,7 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 
 void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 

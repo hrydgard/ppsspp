@@ -183,7 +183,7 @@ void AntiCrashCallback(u64 userdata, int cyclesLate)
 
 void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
 {
-	_assert_msg_(CORETIMING, event_type >= 0, "Invalid event type %d", event_type)
+	_assert_msg_(event_type >= 0, "Invalid event type %d", event_type)
 	if (event_type >= (int) event_types.size())
 		event_types.resize(event_type + 1, EventType(AntiCrashCallback, "INVALID EVENT"));
 
@@ -572,7 +572,7 @@ void ForceCheck()
 	slicelength = -1;
 
 #ifdef _DEBUG
-	_dbg_assert_msg_(CPU, cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
+	_dbg_assert_msg_( cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
 #endif
 }
 

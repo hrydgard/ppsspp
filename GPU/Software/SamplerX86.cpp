@@ -97,7 +97,7 @@ alignas(16) static const float by256[4] = { 1.0f / 256.0f, 1.0f / 256.0f, 1.0f /
 alignas(16) static const float ones[4] = { 1.0f, 1.0f, 1.0f, 1.0f, };
 
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
-	_assert_msg_(G3D, id.linear, "Linear should be set on sampler id");
+	_assert_msg_(id.linear, "Linear should be set on sampler id");
 	BeginWrite();
 
 	// We'll first write the nearest sampler, which we will CALL.

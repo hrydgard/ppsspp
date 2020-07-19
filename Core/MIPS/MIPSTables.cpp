@@ -948,7 +948,7 @@ void MIPSInterpret(MIPSOpcode op) {
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm);
-		_dbg_assert_msg_(CPU, 0, "%s", disasm);
+		_dbg_assert_msg_( 0, "%s", disasm);
 		currentMIPS->pc += 4;
 	}
 }

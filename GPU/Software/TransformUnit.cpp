@@ -54,7 +54,7 @@ void SoftwareDrawEngine::DispatchFlush() {
 }
 
 void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(G3D, cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
@@ -398,7 +398,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 
 				default:
-					_dbg_assert_msg_(G3D, false, "Unexpected prim type: %d", prim_type);
+					_dbg_assert_msg_(false, "Unexpected prim type: %d", prim_type);
 				}
 			}
 			break;

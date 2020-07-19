@@ -1107,15 +1107,15 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	_dbg_assert_msg_(G3D, curVBuffers_[0], "Can't call Draw without a vertex buffer");
+	_dbg_assert_msg_(curVBuffers_[0], "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	_dbg_assert_msg_(G3D, curVBuffers_[0], "Can't call DrawIndexed without a vertex buffer");
-	_dbg_assert_msg_(G3D, curIBuffer_, "Can't call DrawIndexed without an index buffer");
+	_dbg_assert_msg_(curVBuffers_[0], "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(curIBuffer_, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
 	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
 	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);

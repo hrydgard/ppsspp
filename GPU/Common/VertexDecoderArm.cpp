@@ -543,7 +543,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 	for (int i = 1; i < dec_->nweights; ++i) {
-		_dbg_assert_msg_(JIT, weightRegs[i - 1] + 1 == weightRegs[i], "VertexDecoder weightRegs must be in order.");
+		_dbg_assert_msg_(weightRegs[i - 1] + 1 == weightRegs[i], "VertexDecoder weightRegs must be in order.");
 	}
 
 	// Weights are always first, so we can use srcReg directly.
@@ -1210,8 +1210,8 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
-	_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
-	_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
+	_dbg_assert_msg_(fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
+	_dbg_assert_msg_(fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
 
 	// TODO: SIMD
 	LDRSB(tempReg1, srcReg, dec_->posoff);
@@ -1236,8 +1236,8 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
-	_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
+	_dbg_assert_msg_(fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
+	_dbg_assert_msg_(fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
 
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
@@ -1301,7 +1301,7 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 	for (int i = 1; i < 3; ++i) {
-		_dbg_assert_msg_(JIT, src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
+		_dbg_assert_msg_(src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
 	}
 
 	ADD(tempReg1, srcReg, dec_->nrmoff);
@@ -1325,8 +1325,8 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 		}
 		VST1(F_32, accNEON, scratchReg, 2);
 	} else {
-		_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
-		_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
+		_dbg_assert_msg_(fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
+		_dbg_assert_msg_(fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
 
 		MOVP2R(tempReg1, skinMatrix);
 		VLDMIA(tempReg1, true, fpScratchReg, 3);
@@ -1364,7 +1364,7 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
 	for (int i = 1; i < 3; ++i) {
-		_dbg_assert_msg_(JIT, src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
+		_dbg_assert_msg_(src[i - 1] + 1 == src[i], "VertexDecoder src regs must be in order.");
 	}
 
 	ADD(tempReg1, srcReg, dec_->posoff);

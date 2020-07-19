@@ -418,13 +418,12 @@ public:
 	virtual int GetIDType() const = 0;
 	virtual void GetQuickInfo(char *ptr, int size);
 
-	// Implement this in all subclasses:
+	// Implement the following in all subclasses:
 	// static u32 GetMissingErrorCode()
 	// static int GetStaticIDType()
 
-	virtual void DoState(PointerWrap &p)
-	{
-		_dbg_assert_msg_(SCEKERNEL, false, "Unable to save state: bad kernel object.");
+	virtual void DoState(PointerWrap &p) {
+		_dbg_assert_msg_(false, "Unable to save state: bad kernel object.");
 	}
 };
 
@@ -482,7 +481,7 @@ public:
 	template <class T>
 	T *GetFast(SceUID handle) {
 		const SceUID realHandle = handle - handleOffset;
-		_dbg_assert_(SCEKERNEL, realHandle >= 0 && realHandle < maxCount && occupied[realHandle]);
+		_dbg_assert_(realHandle >= 0 && realHandle < maxCount && occupied[realHandle]);
 		return static_cast<T *>(pool[realHandle]);
 	}
 

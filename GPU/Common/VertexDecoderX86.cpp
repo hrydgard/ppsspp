@@ -1452,8 +1452,8 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
-	_dbg_assert_msg_(JIT, bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
+	_dbg_assert_msg_((bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
+	_dbg_assert_msg_(bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));
@@ -1484,8 +1484,8 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
-	_dbg_assert_msg_(JIT, bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
+	_dbg_assert_msg_((bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
+	_dbg_assert_msg_(bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));

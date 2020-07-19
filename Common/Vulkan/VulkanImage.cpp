@@ -101,7 +101,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem_);
 		if (res != VK_SUCCESS) {
 			ELOG("vkAllocateMemory failed: %s", VulkanResultToString(res));
-			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
+			_assert_msg_(res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 			return false;
 		}
@@ -178,8 +178,8 @@ void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mi
 }
 
 void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
-	_assert_msg_(G3D, mip != 0, "Cannot generate the first level");
-	_assert_msg_(G3D, mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
+	_assert_msg_(mip != 0, "Cannot generate the first level");
+	_assert_msg_(mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
 	VkImageBlit blit{};
 	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	blit.srcSubresource.layerCount = 1;

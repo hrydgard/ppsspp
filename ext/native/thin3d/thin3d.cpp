@@ -78,13 +78,13 @@ bool RefCountedObject::Release() {
 		}
 	}
 	else {
-		_dbg_assert_msg_(G3D, false, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
 	}
 	return false;
 }
 
 bool RefCountedObject::ReleaseAssertLast() {
-	_dbg_assert_msg_(G3D, refcount_ == 1, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(refcount_ == 1, "RefCountedObject: Expected to be the last reference, but isn't!");
 	if (refcount_ > 0 && refcount_ < 10000) {
 		refcount_--;
 		if (refcount_ == 0) {

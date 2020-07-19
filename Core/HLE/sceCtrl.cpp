@@ -306,7 +306,7 @@ static void __CtrlVblank()
 static void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 {
 	// This only runs in timer mode (ctrlCycle > 0.)
-	_dbg_assert_msg_(SCECTRL, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+	_dbg_assert_msg_(ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
 
 	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle) - cyclesLate, ctrlTimer, 0);
 

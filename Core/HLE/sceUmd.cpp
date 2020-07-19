@@ -189,7 +189,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		if (umdPausedWaits.find(pauseKey) != umdPausedWaits.end())
 			return;
 
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
 		if (cyclesLeft != 0)
 			umdPausedWaits[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
@@ -234,7 +234,7 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	else
 	{
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		CoreTiming::ScheduleEvent(cyclesLeft, umdStatTimeoutEvent, __KernelGetCurThread());
 
 		umdWaitingThreads.push_back(threadID);

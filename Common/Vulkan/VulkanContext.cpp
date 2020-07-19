@@ -781,7 +781,7 @@ VkResult VulkanContext::ReinitSurface() {
 #endif
 
 	default:
-		_assert_msg_(G3D, false, "Vulkan support for chosen window system not implemented");
+		_assert_msg_(false, "Vulkan support for chosen window system not implemented");
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
@@ -843,7 +843,7 @@ bool VulkanContext::ChooseQueue() {
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount = 0;
 	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, nullptr);
-	_assert_msg_(G3D, res == VK_SUCCESS, "Failed to get formats for device %d: %d", physical_device_, (int)res);
+	_assert_msg_(res == VK_SUCCESS, "Failed to get formats for device %d: %d", physical_device_, (int)res);
 	if (res != VK_SUCCESS) {
 		return false;
 	}

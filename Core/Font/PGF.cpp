@@ -37,7 +37,7 @@ static bool isJPCSPFont(const char *fontName) {
 
 // Gets a number of bits from an offset.
 static int getBits(int numBits, const u8 *buf, size_t pos) {
-	_dbg_assert_msg_(SCEFONT, numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
+	_dbg_assert_msg_(numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
 
 	const size_t wordpos = pos >> 5;
 	const u32 *wordbuf = (const u32 *)buf;

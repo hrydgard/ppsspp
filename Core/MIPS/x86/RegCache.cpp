@@ -198,7 +198,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 	}
 
 	//Still no dice? Die!
-	_assert_msg_(JIT, 0, "Regcache ran out of regs");
+	_assert_msg_(false, "Regcache ran out of regs");
 	return (X64Reg) -1;
 }
 
@@ -302,7 +302,7 @@ bool GPRRegCache::IsImm(MIPSGPReg preg) const {
 }
 
 u32 GPRRegCache::GetImm(MIPSGPReg preg) const {
-	_dbg_assert_msg_(JIT, IsImm(preg), "Reg %d must be an immediate.", preg);
+	_dbg_assert_msg_(IsImm(preg), "Reg %d must be an immediate.", preg);
 	// Always 0 for ZERO.
 	if (preg == MIPS_REG_ZERO)
 		return 0;
@@ -411,15 +411,12 @@ void GPRRegCache::StoreFromRegister(MIPSGPReg i) {
 
 void GPRRegCache::Flush() {
 	for (int i = 0; i < NUM_X_REGS; i++) {
-		if (xregs[i].allocLocked)
-			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
+		_assert_msg_(!xregs[i].allocLocked, "Someone forgot to unlock X64 reg %i.", i);
 	}
 	SetImm(MIPS_REG_ZERO, 0);
 	for (int i = 1; i < NUM_MIPS_GPRS; i++) {
 		const MIPSGPReg r = MIPSGPReg(i);
-		if (regs[i].locked) {
-			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
-		}
+		_assert_msg_(!regs[i].locked, "Somebody forgot to unlock MIPS reg %i.", i);
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
 				X64Reg xr = RX(r);
@@ -429,7 +426,7 @@ void GPRRegCache::Flush() {
 			else if (regs[i].location.IsImm()) {
 				StoreFromRegister(r);
 			} else {
-				_assert_msg_(JIT,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
 		}
 	}

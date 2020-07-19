@@ -215,7 +215,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 					mr[mipsReg].loc = ML_ARMREG_IMM;
 				break;
 			default:
-				_assert_msg_(JIT, mr[mipsReg].loc != ML_ARMREG_AS_PTR, "MapRegTo with a pointer?");
+				_assert_msg_(mr[mipsReg].loc != ML_ARMREG_AS_PTR, "MapRegTo with a pointer?");
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
 			}

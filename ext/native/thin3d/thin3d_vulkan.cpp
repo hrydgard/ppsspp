@@ -1451,9 +1451,9 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) { _assert_msg_(G3D, fb, "Null fb in VKFramebuffer constructor"); }
+	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) { _assert_msg_(fb, "Null fb in VKFramebuffer constructor"); }
 	~VKFramebuffer() {
-		_assert_msg_(G3D, buf_, "Null buf_ in VKFramebuffer - double delete?");
+		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
 		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
 			delete vfb;

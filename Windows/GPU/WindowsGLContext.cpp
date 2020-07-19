@@ -409,7 +409,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
-	_assert_msg_(G3D, success, "Failed to compile preset shaders");
+	_assert_msg_(success, "Failed to compile preset shaders");
 	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
 	if (wglSwapIntervalEXT) {
 		// glew loads wglSwapIntervalEXT if available
