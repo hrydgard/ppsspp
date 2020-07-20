@@ -258,8 +258,14 @@ bool IsRAMAddress(const u32 address);
 bool IsVRAMAddress(const u32 address);
 bool IsScratchpadAddress(const u32 address);
 
+// Used for auto-converted char * parameters, which can sometimes legitimately be null -
+// so we don't want to get caught in GetPointer's crash reporting.
 inline const char* GetCharPointer(const u32 address) {
-	return (const char *)GetPointer(address);
+	if (address) {
+		return (const char *)GetPointer(address);
+	} else {
+		return nullptr;
+	}
 }
 
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
