@@ -93,7 +93,8 @@ struct FPL : public KernelObject
 		}
 	}
 	const char *GetName() override { return nf.name; }
-	const char *GetTypeName() override { return "FPL"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "FPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }
@@ -375,7 +376,8 @@ struct SceKernelVplHeader {
 struct VPL : public KernelObject
 {
 	const char *GetName() override { return nv.name; }
-	const char *GetTypeName() override { return "VPL"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "VPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Vpl; }
@@ -899,7 +901,8 @@ class PartitionMemoryBlock : public KernelObject
 {
 public:
 	const char *GetName() override { return name; }
-	const char *GetTypeName() override { return "MemoryPart"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "MemoryPart"; }
 	void GetQuickInfo(char *ptr, int size) override
 	{
 		int sz = alloc->GetBlockSizeFromAddress(address);
@@ -1869,7 +1872,8 @@ struct NativeTlspl
 struct TLSPL : public KernelObject
 {
 	const char *GetName() override { return ntls.name; }
-	const char *GetTypeName() override { return "TLS"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "TLS"; }
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLSPL_ID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Tlspl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Tlspl; }

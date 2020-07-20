@@ -112,7 +112,7 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 		__KernelReSchedule("woke from hle delay");
 	}
 	else
-		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
+		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread %d?", threadID);
 }
 
 void HLEInit() {

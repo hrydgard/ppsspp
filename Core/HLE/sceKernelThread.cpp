@@ -138,7 +138,8 @@ struct NativeCallback
 class PSPCallback : public KernelObject {
 public:
 	const char *GetName() override { return nc.name; }
-	const char *GetTypeName() override { return "CallBack"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "CallBack"; }
 
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "thread=%i, argument= %08x",
@@ -376,9 +377,9 @@ public:
 	PSPThread() : debug(currentMIPS, context) {}
 
 	const char *GetName() override { return nt.name; }
-	const char *GetTypeName() override { return "Thread"; }
-	void GetQuickInfo(char *ptr, int size) override
-	{
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Thread"; }
+	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "pc= %08x sp= %08x %s %s %s %s %s %s (wt=%i wid=%i wv= %08x )",
 			context.pc, context.r[MIPS_REG_SP],
 			(nt.status & THREADSTATUS_RUNNING) ? "RUN" : "", 
@@ -3659,7 +3660,8 @@ struct NativeThreadEventHandler {
 
 struct ThreadEventHandler : public KernelObject {
 	const char *GetName() { return nteh.name; }
-	const char *GetTypeName() { return "ThreadEventHandler"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "ThreadEventHandler"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_TEID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_ThreadEventHandler; }
 	int GetIDType() const { return SCE_KERNEL_TMID_ThreadEventHandler; }

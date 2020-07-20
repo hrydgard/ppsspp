@@ -65,7 +65,8 @@ struct NativeMutex
 struct PSPMutex : public KernelObject
 {
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "Mutex"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mutex"; }
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
@@ -130,7 +131,8 @@ struct NativeLwMutex
 struct LwMutex : public KernelObject
 {
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "LwMutex"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "LwMutex"; }
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_LwMutex; }

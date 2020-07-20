@@ -53,7 +53,8 @@ struct EventFlagTh {
 class EventFlag : public KernelObject {
 public:
 	const char *GetName() override { return nef.name; }
-	const char *GetTypeName() override { return "EventFlag"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "EventFlag"; }
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "init=%08x cur=%08x numwait=%i",
 			nef.initPattern,
