@@ -22,6 +22,7 @@
 #define WHEEL_DELTA                     120
 #define ID_DEBUG_LOG                    121
 #define ID_DEBUG_BREAKPOINTS            122
+#define ID_FILE_OPEN_NEW_INSTANCE       123
 #define ID_FILE_LOADSTATEFILE           126
 #define ID_FILE_SAVESTATEFILE           127
 #define ID_EMULATION_RESET              130

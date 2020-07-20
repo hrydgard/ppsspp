@@ -65,6 +65,7 @@ IDB_IMAGE_PSP           IMAGE                   "pspmode.png"
 IDR_ACCELS ACCELERATORS
 BEGIN
     "O",            ID_FILE_LOAD,           VIRTKEY, CONTROL, NOINVERT
+    "I",            ID_FILE_OPEN_NEW_INSTANCE, VIRTKEY, CONTROL, NOINVERT
     "W",            ID_EMULATION_STOP,      VIRTKEY, CONTROL, NOINVERT
     "B",            ID_EMULATION_RESET,     VIRTKEY, CONTROL, NOINVERT
     "T",            ID_EMULATION_CHEATS,    VIRTKEY, CONTROL, NOINVERT
@@ -479,6 +480,8 @@ BEGIN
         MENUITEM "Open from MS:/PSP/GAME...",               ID_FILE_LOAD_MEMSTICK
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Open Memory Stick",                       ID_FILE_MEMSTICK
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Open New Instance",                       ID_FILE_OPEN_NEW_INSTANCE
         MENUITEM "", 0, MFT_SEPARATOR
 
         POPUP "Savestate Slot",                             ID_FILE_SAVESTATE_SLOT_MENU

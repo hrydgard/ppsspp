@@ -12,6 +12,7 @@ namespace W32Util
 	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext);
 	void MakeTopMost(HWND hwnd, bool topMost);
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
+	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
 }
 

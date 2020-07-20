@@ -227,6 +227,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_FILE_LOAD);
 		TranslateMenuItem(menu, ID_FILE_LOAD_DIR);
 		TranslateMenuItem(menu, ID_FILE_LOAD_MEMSTICK);
+		TranslateMenuItem(menu, ID_FILE_OPEN_NEW_INSTANCE);
 		TranslateMenuItem(menu, ID_FILE_MEMSTICK);
 		TranslateMenuItem(menu, ID_FILE_SAVESTATE_SLOT_MENU, useDefHotkey(VIRTKEY_NEXT_SLOT) ? L"\tF3" : L"");
 		TranslateMenuItem(menu, ID_FILE_QUICKLOADSTATE, useDefHotkey(VIRTKEY_LOAD_STATE) ? L"\tF4" : L"");
@@ -567,6 +568,10 @@ namespace MainWindow {
 
 		case ID_FILE_LOAD_MEMSTICK:
 			BrowseAndBoot(GetSysDirectory(DIRECTORY_GAME));
+			break;
+
+		case ID_FILE_OPEN_NEW_INSTANCE:
+			W32Util::SpawnNewInstance(false);
 			break;
 
 		case ID_FILE_MEMSTICK:
