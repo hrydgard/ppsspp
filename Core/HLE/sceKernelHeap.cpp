@@ -23,6 +23,8 @@ struct Heap : public KernelObject {
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Heap; }
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_Heap; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Heap"; }
 
 	void DoState(PointerWrap &p) override {
 		p.Do(uid);

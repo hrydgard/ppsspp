@@ -43,7 +43,8 @@ struct NativeVTimer {
 
 struct VTimer : public KernelObject {
 	const char *GetName() override { return nvt.name; }
-	const char *GetTypeName() override { return "VTimer"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "VTimer"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_VTimer; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_VTimer; }

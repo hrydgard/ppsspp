@@ -39,7 +39,8 @@ struct NativeAlarm
 
 struct PSPAlarm : public KernelObject {
 	const char *GetName() override {return "[Alarm]";}
-	const char *GetTypeName() override {return "Alarm";}
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Alarm"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Alarm; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Alarm; }

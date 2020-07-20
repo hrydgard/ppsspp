@@ -209,7 +209,8 @@ public:
 		pgd_close(pgdInfo);
 	}
 	const char *GetName() override { return fullpath.c_str(); }
-	const char *GetTypeName() override { return "OpenFile"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "OpenFile"; }
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
@@ -2232,7 +2233,8 @@ static u32 sceIoPollAsync(int id, u32 address) {
 class DirListing : public KernelObject {
 public:
 	const char *GetName() override { return name.c_str(); }
-	const char *GetTypeName() override { return "DirListing"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "DirListing"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_DirList; }
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_DirList; }

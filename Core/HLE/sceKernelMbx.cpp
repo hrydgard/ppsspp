@@ -61,7 +61,8 @@ struct NativeMbx
 struct Mbx : public KernelObject
 {
 	const char *GetName() override { return nmb.name; }
-	const char *GetTypeName() override { return "Mbx"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mbx"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MBXID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mbox; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mbox; }

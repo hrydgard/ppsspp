@@ -131,7 +131,8 @@ static bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgP
 struct MsgPipe : public KernelObject
 {
 	const char *GetName() override { return nmp.name; }
-	const char *GetTypeName() override { return "MsgPipe"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "MsgPipe"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mpipe; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mpipe; }

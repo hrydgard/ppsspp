@@ -244,7 +244,8 @@ public:
 		}
 	}
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "Module"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Module"; }
 	void GetQuickInfo(char *ptr, int size) override
 	{
 		// ignore size

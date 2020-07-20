@@ -26,7 +26,7 @@
 #include <map>
 
 struct Heap {
-	Heap():alloc(4) {}
+	Heap() : alloc(4) {}
 
 	u32 size;
 	u32 address;

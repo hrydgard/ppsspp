@@ -55,7 +55,8 @@ struct NativeSemaphore
 
 struct PSPSemaphore : public KernelObject {
 	const char *GetName() override { return ns.name; }
-	const char *GetTypeName() override { return "Semaphore"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Semaphore"; }
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
