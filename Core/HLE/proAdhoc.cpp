@@ -1622,6 +1622,9 @@ int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBU
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
+#if !defined(TCP_KEEPIDLE)
+#define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
+#endif
 int setSockKeepAlive(int sock, bool keepalive, const int keepcnt, const int keepidle, const int keepinvl) {
 	int optval = keepalive ? 1 : 0;
 	int optlen = sizeof(optval);
