@@ -107,13 +107,15 @@ void InitInstanceCounter() {
 
 	if ((ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size 
 		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
-		return 1;
+		PPSSPP_ID = 1;
+		return;
 	}
 
 	pIDBuf = (int32_t*)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
 	if (pIDBuf == MAP_FAILED) {    // Set the size 
 		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
 		pIDBuf = NULL;
+		PPSSPP_ID = 1;
 		return 1;
 	}
 
@@ -128,7 +130,7 @@ void InitInstanceCounter() {
 	//status = close(hIDMapFile);                   //   Close file, should be called when program exits?
 	//status = shm_unlink(ID_SHM_NAME);     // Unlink [& delete] shared-memory object, should be called when program exits
 
-	return id;
+	PPSSPP_ID = id;
 #endif
 }
 
