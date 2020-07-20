@@ -116,7 +116,7 @@ void InitInstanceCounter() {
 		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
 		pIDBuf = NULL;
 		PPSSPP_ID = 1;
-		return 1;
+		return;
 	}
 
 	int id = 1;
