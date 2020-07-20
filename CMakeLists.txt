@@ -1449,6 +1449,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CwCheat.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
+	Core/Instance.cpp
+	Core/Instance.h
 	Core/ThreadEventQueue.h
 	Core/WebServer.cpp
 	Core/WebServer.h

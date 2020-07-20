@@ -432,6 +432,7 @@
     <ClInclude Include="..\..\Core\FileSystems\VirtualDiscFileSystem.h" />
     <ClInclude Include="..\..\Core\Font\PGF.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
+    <ClInclude Include="..\..\Core\Instance.h" />
     <ClInclude Include="..\..\Core\HLE\FunctionWrappers.h" />
     <ClInclude Include="..\..\Core\HLE\HLE.h" />
     <ClInclude Include="..\..\Core\HLE\HLEHelperThread.h" />
@@ -648,6 +649,7 @@
     <ClCompile Include="..\..\Core\FileSystems\VirtualDiscFileSystem.cpp" />
     <ClCompile Include="..\..\Core\Font\PGF.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
+    <ClCompile Include="..\..\Core\Instance.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLE.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLEHelperThread.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLETables.cpp" />

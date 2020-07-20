@@ -46,6 +46,8 @@
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/Instance.h"
+
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "Windows/WindowsHost.h"
@@ -101,8 +103,9 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 
 void WindowsHost::SetConsolePosition() {
 	HWND console = GetConsoleWindow();
-	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
 		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 }
 
 void WindowsHost::UpdateConsolePosition() {
@@ -167,6 +170,9 @@ void WindowsHost::SetWindowTitle(const char *message) {
 #ifdef _DEBUG
 	winTitle.append(L" (debug)");
 #endif
+	if (PPSSPP_ID >= 1) {
+		winTitle.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
+	}
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
@@ -280,7 +286,7 @@ static std::string SymbolMapFilename(const char *currentFilename, const char* ex
 
 		return result + ".ppsspp-symbols" + ext;
 	} else {
-		size_t dot = result.rfind('.');
+		const size_t dot = result.rfind('.');
 		if (dot == result.npos)
 			return result + ext;
 
@@ -360,8 +366,8 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
-		for (size_t c = 0; c < strlen(bannedChars); c++) {
-			if (gameTitle[i] == bannedChars[c]) {
+		for (char c : bannedChars) {
+			if (gameTitle[i] == c) {
 				gameTitle[i] = '_';
 				break;
 			}
