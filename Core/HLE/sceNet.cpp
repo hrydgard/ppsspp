@@ -42,6 +42,7 @@
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/Reporting.h"
+#include "Core/Instance.h"
 
 static bool netInited;
 static bool netInetInited;
@@ -55,124 +56,6 @@ u32 netThread2Addr = 0;
 static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
-
-#ifdef _WIN32
-static HANDLE hIDMapFile = NULL;
-#elif __linux__ || __APPLE__
-static int hIDMapFile = 0;
-#endif
-static int32_t* pIDBuf = NULL;
-#define ID_SHM_NAME "/PPSSPP_ID"
-
-// Get current number of instance of PPSSPP running.
-// Must be called only once during init.
-static uint8_t getPPSSPPInstanceNumber() {
-#ifdef _WIN32
-	uint32_t BUF_SIZE = 4096;
-	SYSTEM_INFO sysInfo;
-
-	GetSystemInfo(&sysInfo);
-	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
-	BUF_SIZE = (BUF_SIZE + gran - 1) & ~(gran - 1);
-
-	hIDMapFile = CreateFileMapping(
-		INVALID_HANDLE_VALUE,    // use paging file
-		NULL,                    // default security
-		PAGE_READWRITE,          // read/write access
-		0,                       // maximum object size (high-order DWORD)
-		BUF_SIZE,                // maximum object size (low-order DWORD)
-		TEXT(ID_SHM_NAME));       // name of mapping object
-
-	DWORD lasterr = GetLastError();
-	if (hIDMapFile == NULL)
-	{
-		ERROR_LOG(SCENET, "Could not create %s file mapping object (%d).", ID_SHM_NAME, lasterr);
-		return 1;
-	}
-	pIDBuf = (int32_t*)MapViewOfFile(hIDMapFile,   // handle to map object
-		FILE_MAP_ALL_ACCESS, // read/write permission
-		0,
-		0,
-		sizeof(int32_t)); //BUF_SIZE
-
-	if (pIDBuf == NULL)
-	{
-		ERROR_LOG(SCENET, "Could not map view of file %s (%d).", ID_SHM_NAME, GetLastError());
-		//CloseHandle(hIDMapFile);
-		return 1;
-	}
-
-	(*pIDBuf)++;
-	int id = *pIDBuf;
-	UnmapViewOfFile(pIDBuf);
-	//CloseHandle(hIDMapFile); //Should be called when program exits
-	//hIDMapFile = NULL;
-
-	return id;
-#elif __ANDROID__
-	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
-	return 1;
-#elif __linux__ || __APPLE__
-	long BUF_SIZE = 4096;
-	//caddr_t pIDBuf;
-	int status;
-
-	// Create shared memory object 
-
-	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, 0);
-	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
-
-	if ((ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size 
-		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
-		return 1;
-	}
-
-	pIDBuf = (int32_t*)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
-	if (pIDBuf == MAP_FAILED) {    // Set the size 
-		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
-		pIDBuf = NULL;
-		return 1;
-	}
-
-	int id = 1;
-	if (mlock(pIDBuf, BUF_SIZE) == 0) {
-		(*pIDBuf)++;
-		id = *pIDBuf;
-		munlock(pIDBuf, BUF_SIZE);
-	}
-
-	status = munmap(pIDBuf, BUF_SIZE);  // Unmap the page 
-	//status = close(hIDMapFile);                   //   Close file, should be called when program exits?
-	//status = shm_unlink(ID_SHM_NAME);     // Unlink [& delete] shared-memory object, should be called when program exits
-
-	return id;
-#else
-	return 1;
-#endif
-}
-
-static void PPSSPPIDCleanup() {
-#ifdef _WIN32
-	if (hIDMapFile != NULL) {
-		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
-		hIDMapFile = NULL;
-	}
-#elif __ANDROID__
-	if (hIDMapFile != 0) {
-		close(hIDMapFile);
-		// TODO : replace shm_unlink with ashmem or android-shmem
-		//shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
-		hIDMapFile = 0;
-	}
-#elif __linux__ || __APPLE__
-	// TODO : This unlink should be called when program exits instead of everytime the game reset.
-	if (hIDMapFile != 0) {
-		close(hIDMapFile);
-		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
-		hIDMapFile = 0;
-	}
-#endif
-}
 
 static int InitLocalIP() {
 	// find local IP
@@ -232,10 +115,6 @@ static void __ResetInitNetLib() {
 
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
-	if (PPSSPP_ID == 0) // For persistent ID/IP, New instances may have a possibility to have the same ID/IP if PPSSPPIDCleanup() being called on every reset
-	{
-		PPSSPP_ID = getPPSSPPInstanceNumber(); // This should be called when program started instead of when the game started/reseted
-	}
 
 	net::Init();
 	InitLocalIP();

@@ -32,6 +32,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/Instance.h"
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
 
@@ -68,7 +69,6 @@ bool updateChatScreen = false;
 int newChat = 0;
 
 bool isLocalServer = false;
-uint8_t PPSSPP_ID = 0;
 sockaddr localIP; // This might serves the same purpose with existing "localip" above, but since this is copied from my old code so here it is (too lazy to rewrite the code)
 
 int isLocalMAC(const SceNetEtherAddr * addr) {

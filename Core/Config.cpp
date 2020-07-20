@@ -42,6 +42,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Instance.h"
 #include "GPU/Common/FramebufferCommon.h"
 
 // TODO: Find a better place for this.
@@ -1107,8 +1108,13 @@ static void IterateSettings(IniFile &iniFile, std::function<void(IniFile::Sectio
 	}
 }
 
-Config::Config() : bGameSpecific(false) { }
-Config::~Config() { }
+Config::Config() : bGameSpecific(false) {
+	InitInstanceCounter();
+}
+
+Config::~Config() {
+	ShutdownInstanceCounter();
+}
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
@@ -1290,9 +1296,18 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		jitForcedOff = true;
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
+
+	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
 void Config::Save(const char *saveReason) {
+	if (!IsFirstInstance()) {
+		// TODO: Should we allow saving config if started from a different directory?
+		// How do we tell?
+		WARN_LOG(LOADER, "Not saving config - secondary instances don't.");
+		return;
+	}
+
 	if (jitForcedOff) {
 		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
 		g_Config.iCpuCore = (int)CPUCore::JIT;

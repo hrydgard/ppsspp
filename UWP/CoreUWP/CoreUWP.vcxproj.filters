@@ -80,6 +80,7 @@
     <ClCompile Include="..\..\Core\CoreTiming.cpp" />
     <ClCompile Include="..\..\Core\CwCheat.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
+    <ClCompile Include="..\..\Core\Instance.cpp" />
     <ClCompile Include="..\..\Core\Host.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
     <ClCompile Include="..\..\Core\MemFault.cpp" />
@@ -718,6 +719,7 @@
     <ClInclude Include="..\..\Core\CoreTiming.h" />
     <ClInclude Include="..\..\Core\CwCheat.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
+    <ClInclude Include="..\..\Core\Instance.h" />
     <ClInclude Include="..\..\Core\Host.h" />
     <ClInclude Include="..\..\Core\Loaders.h" />
     <ClInclude Include="..\..\Core\MemFault.h" />

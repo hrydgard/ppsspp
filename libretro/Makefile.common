@@ -342,6 +342,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
 	       $(COREDIR)/HDRemaster.cpp \
+	       $(COREDIR)/Instance.cpp \
 	       $(COREDIR)/Debugger/Breakpoints.cpp \
 	       $(COREDIR)/Debugger/SymbolMap.cpp \
 	       $(COREDIR)/Dialog/PSPDialog.cpp \
