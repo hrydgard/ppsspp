@@ -239,13 +239,8 @@ void __NetInit() {
 	{
 		PPSSPP_ID = getPPSSPPInstanceNumber(); // This should be called when program started instead of when the game started/reseted
 	}
-#ifdef _WIN32
-	WSADATA data;
-	int iResult = WSAStartup(MAKEWORD(2, 2), &data);
-	if (iResult != NOERROR) {
-		ERROR_LOG(SCENET, "WSA Failed");
-	}
-#endif
+
+	net::Init();
 	InitLocalIP();
 	INFO_LOG(SCENET, "LocalHost IP will be %s", inet_ntoa(((sockaddr_in*)&localIP)->sin_addr));
 	//net::Init();
@@ -254,10 +249,8 @@ void __NetInit() {
 
 void __NetShutdown() {
 	__ResetInitNetLib();
-	//net::Shutdown();
-#ifdef _WIN32
-	WSACleanup();
-#endif
+
+	net::Shutdown();
 	//PPSSPPIDCleanup(); // To make the ID/IP persistent on every reset, we should just let the OS closes all open handles instead of calling PPSSPPIDCleanup() on every reset
 }
 
