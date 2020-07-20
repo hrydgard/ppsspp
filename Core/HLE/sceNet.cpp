@@ -65,18 +65,15 @@ static int32_t* pIDBuf = NULL;
 #define ID_SHM_NAME "/PPSSPP_ID"
 
 // Get current number of instance of PPSSPP running.
+// Must be called only once during init.
 static uint8_t getPPSSPPInstanceNumber() {
 #ifdef _WIN32
-#if defined(_XBOX)
-	uint32_t BUF_SIZE = 0x10000; // 64k in 360;
-#else
 	uint32_t BUF_SIZE = 4096;
 	SYSTEM_INFO sysInfo;
 
 	GetSystemInfo(&sysInfo);
 	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
 	BUF_SIZE = (BUF_SIZE + gran - 1) & ~(gran - 1);
-#endif
 
 	hIDMapFile = CreateFileMapping(
 		INVALID_HANDLE_VALUE,    // use paging file

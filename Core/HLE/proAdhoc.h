@@ -36,10 +36,7 @@
 class PointerWrap;
 
 // Net stuff
-#ifdef _XBOX
-#include <winsockx.h>
-typedef int socklen_t;
-#elif defined(_WIN32)
+#if defined(_WIN32)
 #include <WS2tcpip.h>
 #else
 #include <unistd.h>
