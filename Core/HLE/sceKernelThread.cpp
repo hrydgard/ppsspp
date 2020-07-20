@@ -3659,14 +3659,14 @@ struct NativeThreadEventHandler {
 };
 
 struct ThreadEventHandler : public KernelObject {
-	const char *GetName() { return nteh.name; }
+	const char *GetName() override { return nteh.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "ThreadEventHandler"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_TEID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_ThreadEventHandler; }
-	int GetIDType() const { return SCE_KERNEL_TMID_ThreadEventHandler; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_ThreadEventHandler; }
 
-	virtual void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("ThreadEventHandler", 1);
 		if (!s)
 			return;
