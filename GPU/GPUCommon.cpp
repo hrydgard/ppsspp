@@ -467,7 +467,7 @@ void GPUCommon::Reinitialize() {
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {
-#if !(PPSSPP_PLATFORM(ANDROID) || USING_QT_UI || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
+#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if (PSP_CoreParameter().unthrottle) {
 		desiredVSyncInterval = 0;
