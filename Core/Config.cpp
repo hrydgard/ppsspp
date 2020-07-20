@@ -1297,6 +1297,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
 
+	// Automatically silence secondary instances. Could be an option I guess, but meh.
+	if (PPSSPP_ID > 1) {
+		g_Config.iGlobalVolume = 0;
+	}
+
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
 }
 
