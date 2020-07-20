@@ -106,8 +106,11 @@ bool isPTPPortInUse(uint16_t port) {
 char* mac2str(SceNetEtherAddr* mac) {
 #if defined(_WIN32)
 	static __declspec(thread) char str[18] = ":::::";
-#else
+#elif !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
 	static __thread char str[18] = ":::::";
+#else
+	// Temporary hack to avoid huge rebase conflicts. Remove this when applying the mac2str rewrite.
+	static char str[18] = ":::::";
 #endif
 	if (mac == NULL) return str;
 	snprintf(str, sizeof(str), "%02x:%02x:%02x:%02x:%02x:%02x", mac->data[0], mac->data[1], mac->data[2], mac->data[3], mac->data[4], mac->data[5]);
