@@ -154,6 +154,12 @@ namespace W32Util
 	}
 
 	void ExitAndRestart(bool overrideArgs, const std::string &args) {
+		SpawnNewInstance(overrideArgs, args);
+
+		ExitProcess(0);
+	}
+
+	void SpawnNewInstance(bool overrideArgs, const std::string &args) {
 		// This preserves arguments (for example, config file) and working directory.
 		std::wstring workingDirectory;
 		std::wstring moduleFilename;
@@ -168,12 +174,8 @@ namespace W32Util
 			cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
 		}
 		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
-
-		ExitProcess(0);
 	}
 }
-
-
 
 GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
