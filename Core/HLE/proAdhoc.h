@@ -443,7 +443,7 @@ typedef struct SceNetAdhocMatchingContext {
   SceNetAdhocMatchingHandler handler;
 
   // Event Handler Args
-  u32_le handlerArgs[6]; // actual arguments only 5, the 6th one is just for borrowing a space to store the callback address to use later
+  u32_le handlerArgs[6]; //MatchingArgs handlerArgs; // actual arguments only 5, the 6th one is just for borrowing a space to store the callback address to use later
   //SceNetAdhocMatchingHandlerArgs handlerArgs;
 
   // Hello Data Length
@@ -776,11 +776,13 @@ public:
 		//context = NULL;
 	}
 	void run(MipsCall &call) override;
-	void SetContextID(u32 ContextID, u32 eventId);
+	void SetContextID(u32 ContextID, u32 eventId, u32_le BufAddr);
+	void SetContext(SceNetAdhocMatchingContext* Context, u32 eventId, u32_le BufAddr) { context = Context; EventID = eventId; bufAddr = BufAddr; }
 
 private:
 	u32 EventID = 0;
 	SceNetAdhocMatchingContext *context = nullptr;
+	u32_le bufAddr = 0;
 };
 
 extern int actionAfterMatchingMipsCall;

@@ -50,7 +50,7 @@ SceUID threadAdhocID;
 
 std::mutex adhocEvtMtx;
 std::vector<std::pair<u32, u32>> adhocctlEvents;
-std::vector<u64> matchingEvents;
+std::vector<MatchingArgs> matchingEvents;
 u32 dummyThreadHackAddr = 0;
 u32_le dummyThreadCode[3];
 
@@ -124,7 +124,7 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 }
 
 // TODO: MipsCall needs to be called from it's own PSP Thread instead of from any random PSP Thread
-void __UpdateMatchingHandler(u64 ArgsPtr) {
+void __UpdateMatchingHandler(MatchingArgs ArgsPtr) {
 	std::lock_guard<std::mutex> adhocGuard(adhocEvtMtx);
 	matchingEvents.push_back(ArgsPtr);
 }
@@ -168,15 +168,6 @@ u32 sceNetAdhocInit() {
 		// Library initialized
 		netAdhocInited = true;
 
-		// Create fake PSP Thread for callback
-		// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
-		#define PSP_THREAD_ATTR_KERNEL 0x00001000 // PSP_THREAD_ATTR_KERNEL is located in sceKernelThread.cpp instead of sceKernelThread.h :(
-		// TODO: This should probably be a user thread, but maybe from sceNetAdhocctlInit?
-		threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x10, 0x1000, PSP_THREAD_ATTR_KERNEL, 0, true);
-		if (threadAdhocID > 0) {
-			__KernelStartThread(threadAdhocID, 0, 0);
-		}
-
 		// Return Success
 		return hleLogSuccessInfoI(SCENET, 0, "at %08x", currentMIPS->pc);
 	}
@@ -189,9 +180,20 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+
+	// Create fake PSP Thread for callback
+	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
+#define PSP_THREAD_ATTR_KERNEL 0x00001000 // Using constants instead of numbers for readability reason, since PSP_THREAD_ATTR_KERNEL/USER is located in sceKernelThread.cpp instead of sceKernelThread.h
+#define PSP_THREAD_ATTR_USER 0x80000000
+
+	threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, prio, stackSize, PSP_THREAD_ATTR_USER, 0, false);
+	if (threadAdhocID > 0) {
+		__KernelStartThread(threadAdhocID, 0, 0);
+	}
 	
 	if(g_Config.bEnableWlan) {
 		if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0) {
+			// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 			if (!friendFinderRunning) {
 				friendFinderRunning = true;
 				friendFinderThread = std::thread(friendFinder);
@@ -1138,6 +1140,12 @@ int sceNetAdhocctlTerm() {
 		// Free stuff here
 		closesocket(metasocket);
 		metasocket = (int)INVALID_SOCKET;
+		// Delete fake PSP Thread
+		if (threadAdhocID != 0) {
+			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
+			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
+			threadAdhocID = 0;
+		}
 /*#ifdef _MSC_VER
 		WSACleanup(); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
 #endif*/
@@ -1426,12 +1434,6 @@ int sceNetAdhocTerm() {
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Delete fake PSP Thread
-		if (threadAdhocID != 0) {
-			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
-			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
-		}
-
 		// Delete PDP Sockets
 		deleteAllPDP();
 
@@ -2665,7 +2667,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								context->hello_int = hello_int; // client might set this to 0
 								if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 								context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
-								context->timeout = (keepalive_int * init_count);
+								context->timeout = ((u64_le)keepalive_int * (u64_le)init_count);
 								if (context->timeout < 5000000) context->timeout = 5000000; // For internet play we need higher timeout than what the game wanted
 								context->handler = handler;
 
@@ -3489,19 +3491,24 @@ void __NetTriggerCallbacks()
 
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 				args[2] = it->second.argument;
-				__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
+				__KernelSwitchToThread(threadAdhocID, "AdhocctlHandler Mipscall"); // it's not guaranteed to switch successfully tho
+				//while (__KernelInCallback()) sleep_ms(1);
+				__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, false);
 			}
 		}
-		adhocctlEvents.clear();
+		adhocctlEvents.clear(); // We should only clear this after making sure all callbacks are placed on the right thread tho
 
 		for (auto &param : matchingEvents)
 		{
-			u32_le *args = (u32_le *) param;
+			u32_le *args = (u32_le*)&param;
 			AfterMatchingMipsCall *after = (AfterMatchingMipsCall *) __KernelCreateAction(actionAfterMatchingMipsCall);
-			after->SetContextID(args[0], args[1]);
-			__KernelDirectMipsCall(args[5], after, args, 5, true);
+			after->SetContextID(args[0], args[1], args[2]);
+			// Need to make sure currentThread is AdhocMatching's eventThread before calling the callback, and not in the middle of callback
+			__KernelSwitchToThread(threadAdhocID, "AdhocMatchingEvent Mipscall"); // it's not guaranteed to switch successfully tho
+			//while (__KernelInCallback()) sleep_ms(1);
+			__KernelDirectMipsCall(args[5], after, args, 5, false);
 		}
-		matchingEvents.clear();
+		matchingEvents.clear(); // We should only clear this after making sure all callbacks are placed on the right thread tho
 	}
 	//magically make this work
 	hleDelayResult(0, "Prevent Adhoc thread from blocking", 1000);
@@ -4770,9 +4777,6 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 */
 int matchingEventThread(int matchingId) 
 {
-	u32 bufLen = 0;
-	u32 bufAddr = 0;
-
 	// Multithreading Lock
 	peerlock.lock();
 	// Cast Context
@@ -4785,6 +4789,8 @@ int matchingEventThread(int matchingId)
 
 	// Run while needed...
 	if (context != NULL) {
+		u32 bufLen = context->rxbuflen; //0;
+		u32 bufAddr = 0; //userMemory.Alloc(bufLen);
 		//static u32_le args[5] = { 0, 0, 0, 0, 0 }; // Need to be global/static so it can be accessed from a different thread
 		u32_le * args = context->handlerArgs;
 
@@ -4862,15 +4868,15 @@ int matchingEventThread(int matchingId)
 			context->eventlock->unlock();
 		}
 
+		// Free memory
+		//if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
+
 		// Delete Pointer Reference (and notify caller about finished cleanup)
 		//context->eventThread = NULL;
 	}
 
 	// Log Shutdown
 	INFO_LOG(SCENET, "EventLoop: End of EventLoop[%i] Thread", matchingId);
-
-	// Free memory
-	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 
 	// Return Zero to shut up Compiler (never reached anyway)
 	return 0;

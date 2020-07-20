@@ -17,6 +17,10 @@
 
 #pragma once
 
+typedef struct MatchingArgs {
+	u32_le data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
+} PACK;
+
 class PointerWrap;
 
 void Register_sceNetAdhoc();
@@ -25,7 +29,7 @@ void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
 void __UpdateAdhocctlHandlers(u32 flags, u32 error);
-void __UpdateMatchingHandler(u64 params);
+void __UpdateMatchingHandler(MatchingArgs params);
 
 // I have to call this from netdialog
 int sceNetAdhocctlCreate(const char * groupName);
