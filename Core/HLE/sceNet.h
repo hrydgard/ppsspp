@@ -55,12 +55,15 @@ enum {
 	PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST	= 5,
 };
 
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
 // Sockaddr
 typedef struct SceNetInetSockaddr {
 	uint8_t sa_len;
 	uint8_t sa_family;
 	uint8_t sa_data[14];
-} SceNetInetSockaddr;
+} PACK SceNetInetSockaddr;
 
 // Sockaddr_in
 typedef struct SceNetInetSockaddrIn {
@@ -69,19 +72,22 @@ typedef struct SceNetInetSockaddrIn {
 	u16_le sin_port; //uint16_t
 	u32_le sin_addr; //uint32_t
 	uint8_t sin_zero[8];
-} SceNetInetSockaddrIn;
+} PACK SceNetInetSockaddrIn;
 
 // Polling Event Field
 typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
 	s32_le fd;
 	s16_le events;
 	s16_le revents;
-} SceNetInetPollfd;
+} PACK SceNetInetPollfd;
 
-struct ProductStruct {
+typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
 	s32_le unknown; // Unknown, set to 0 // Product Type ?
 	char product[PRODUCT_CODE_LENGTH]; // Game ID (Example: ULUS10000)
-};
+} PACK ProductStruct;
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 struct ApctlHandler {
 	u32 entryPoint;
@@ -89,6 +95,9 @@ struct ApctlHandler {
 };
 
 class PointerWrap;
+
+extern bool netInetInited;
+extern bool netApctlInited;
 
 void Register_sceNet();
 void Register_sceWlanDrv();
@@ -101,3 +110,6 @@ void __NetShutdown();
 void __NetDoState(PointerWrap &p);
 
 int sceNetInetPoll(void *fds, u32 nfds, int timeout);
+int sceNetInetTerm();
+int sceNetApctlTerm();
+static u32 sceNetTerm();

@@ -17,14 +17,23 @@
 
 #pragma once
 
+#include "Core/HLE/proAdhoc.h"
+
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
 typedef struct MatchingArgs {
 	u32_le data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
-} PACK;
+} PACK MatchingArgs;
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 class PointerWrap;
 
 void Register_sceNetAdhoc();
 
+u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
@@ -37,5 +46,12 @@ int sceNetAdhocctlCreate(const char * groupName);
 // May need to use these from sceNet.cpp
 extern bool netAdhocInited;
 extern bool netAdhocctlInited;
+extern int adhocDefaultTimeout;
+extern int adhocEventPollDelayMS;
+extern int adhocMatchingEventDelayMS;
+extern int adhocEventDelayMS;
+extern std::recursive_mutex adhocEvtMtx;
+extern int IsAdhocctlInCB;
+
 int sceNetAdhocctlTerm();
 int sceNetAdhocTerm();
