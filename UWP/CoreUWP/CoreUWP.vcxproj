@@ -565,6 +565,7 @@
     <ClInclude Include="..\..\Core\System.h" />
     <ClInclude Include="..\..\Core\TextureReplacer.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
+    <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormatNEON.h" />
@@ -804,6 +805,7 @@
     <ClCompile Include="..\..\Core\Screenshot.cpp" />
     <ClCompile Include="..\..\Core\System.cpp" />
     <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
+    <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormatNEON.cpp" />
@@ -946,6 +948,9 @@
   <ItemGroup>
     <ProjectReference Include="..\CommonUWP\CommonUWP.vcxproj">
       <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\miniupnpc_UWP\miniupnpc_UWP.vcxproj">
+      <Project>{d31fd4f0-53eb-477c-9dc7-149796f628e2}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
