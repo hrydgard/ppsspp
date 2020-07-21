@@ -90,5 +90,13 @@
     <Filter Include="src">
       <UniqueIdentifier>{3e20a98f-6a6c-4ba1-8b5a-d44430460dd1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="scripts">
+      <UniqueIdentifier>{f940ecfb-a971-43b3-9f9d-afe3545e9798}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\ext\miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs">
+      <Filter>scripts</Filter>
+    </None>
   </ItemGroup>
 </Project>

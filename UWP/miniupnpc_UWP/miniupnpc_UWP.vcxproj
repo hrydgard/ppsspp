@@ -212,6 +212,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -227,6 +232,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
     <ClCompile>
@@ -242,6 +252,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
     <ClCompile>
@@ -257,6 +272,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
@@ -272,6 +292,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
     <ClCompile>
@@ -287,6 +312,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
@@ -302,6 +332,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|arm'">
     <ClCompile>
@@ -317,6 +352,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
     <ClCompile>
@@ -332,6 +372,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -347,6 +392,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -362,6 +412,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
     <ClCompile>
@@ -377,6 +432,11 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
+    <PreBuildEvent>
+      <Command>cd ..\..\ext\miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\connecthostport.h" />
@@ -420,6 +480,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">Create</PrecompiledHeader>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\ext\miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

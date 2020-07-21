@@ -77,7 +77,7 @@
     <RootNamespace>miniupnpc</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\Windows\fix_2017.props" />
   </ImportGroup>
@@ -287,6 +287,34 @@ cd..\..\..</Command>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
     </Lib>
+    <PreBuildEvent>
+      <Command>cd miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd..\..\..</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <PreBuildEvent>
+      <Command>cd miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd..\..\..</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <PreBuildEvent>
+      <Command>cd miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd..\..\..</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <PreBuildEvent>
+      <Command>cd miniupnp\miniupnpc\msvc
+genminiupnpcstrings.vbs
+cd..\..\..</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <PreBuildEvent>
       <Command>cd miniupnp\miniupnpc\msvc
 genminiupnpcstrings.vbs
