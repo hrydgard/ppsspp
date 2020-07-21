@@ -421,6 +421,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitState.cpp \
   $(SRC)/Core/Util/AudioFormat.cpp \
+  $(SRC)/Core/Util/PortManager.cpp \
   $(SRC)/Core/Util/GameManager.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
