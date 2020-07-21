@@ -4,7 +4,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := libupnp-build
+LOCAL_MODULE    := libminiupnp-build
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
     ../miniupnp/miniupnpc/connecthostport.c \
