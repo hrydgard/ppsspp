@@ -593,6 +593,7 @@ endif
 $(call import-module,libzip)
 $(call import-module,native)
 $(call import-module,glslang-build)
+$(call import-module,miniupnp-build)
 
 ifeq ($(ANDROID_NDK_PROFILER),1)
   $(call import-module,android-ndk-profiler)
