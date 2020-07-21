@@ -30,4 +30,4 @@
 	url = https://github.com/hrydgard/ppsspp-freetype.git
 [submodule "ext/miniupnp"]
 	path = ext/miniupnp
-	url = https://github.com/miniupnp/miniupnp.git
+	url = https://github.com/hrydgard/miniupnp.git
