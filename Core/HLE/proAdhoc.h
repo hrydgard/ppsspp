@@ -964,7 +964,7 @@ void deleteFriendByIP(uint32_t ip);
  */
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo* node, int32_t* count);
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
 
 /**
  * Friend Finder Thread (Receives Peer Information)
@@ -1094,7 +1094,7 @@ s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTim
 * @param context Matching Context Pointer
 * @param peer Internal Peer Reference
 */
-void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
+void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal *& peer);
 
 /**
 * Find Peer in Context by MAC
