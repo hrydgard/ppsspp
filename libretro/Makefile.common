@@ -605,6 +605,22 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
+INCFLAGS += -I$(EXTDIR)/miniupnp-build
+SOURCES_C += \
+    $(EXTDIR)/miniupnp/miniupnpc/connecthostport.c \
+    $(EXTDIR)/miniupnp/miniupnpc/igd_desc_parse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minisoap.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minissdpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/miniupnpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/miniwget.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minixml.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minixmlvalid.c \
+    $(EXTDIR)/miniupnp/miniupnpc/portlistingparse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/receivedata.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpcommands.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpdev.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnperrors.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpreplyparse.c
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Vulkan/VulkanContext.cpp \
