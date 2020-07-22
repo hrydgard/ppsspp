@@ -708,6 +708,9 @@
     <ClCompile Include="..\..\Core\HW\Camera.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Util\PortManager.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1306,6 +1309,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\HW\Camera.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Util\PortManager.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

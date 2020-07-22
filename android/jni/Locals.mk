@@ -11,6 +11,8 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext \
   $(LOCAL_PATH)/../../ext/snappy \
   $(LOCAL_PATH)/../../ext/glslang \
+  $(LOCAL_PATH)/../../ext/miniupnp \
+  $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libpng17 \
@@ -18,7 +20,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 
-LOCAL_STATIC_LIBRARIES := native libzip glslang-build
+LOCAL_STATIC_LIBRARIES := native libzip glslang-build miniupnp-build
 LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
   # Prettier stack traces are nice on other platforms.

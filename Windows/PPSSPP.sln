@@ -83,6 +83,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AtlasTool", "..\ext\native\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZimTool", "..\ext\native\tools\ZimTool\ZimTool.vcxproj", "{B7DED405-40A2-48F8-9382-538F10D442F1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "miniupnpc", "..\ext\miniupnpc.vcxproj", "{D8A71225-178B-424E-96C1-CC3BE2C1B047}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -337,6 +339,18 @@ Global
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|Win32.ActiveCfg = Release|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|x64.ActiveCfg = Release|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|x64.Build.0 = Release|x64
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|ARM.ActiveCfg = Debug|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|ARM64.ActiveCfg = Debug|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|Win32.Build.0 = Debug|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|x64.ActiveCfg = Debug|x64
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Debug|x64.Build.0 = Debug|x64
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|ARM.ActiveCfg = Release|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|ARM64.ActiveCfg = Release|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|Win32.ActiveCfg = Release|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|Win32.Build.0 = Release|Win32
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|x64.ActiveCfg = Release|x64
+		{D8A71225-178B-424E-96C1-CC3BE2C1B047}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
