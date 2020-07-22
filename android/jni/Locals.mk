@@ -12,6 +12,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/snappy \
   $(LOCAL_PATH)/../../ext/glslang \
   $(LOCAL_PATH)/../../ext/miniupnp \
+  $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libpng17 \
