@@ -65,6 +65,7 @@
 #undef EINPROGRESS
 #undef EISCONN
 #undef EALREADY
+#undef ETIMEDOUT
 #define errno WSAGetLastError()
 #define ECONNABORTED WSAECONNABORTED
 #define ECONNRESET WSAECONNRESET
@@ -73,12 +74,13 @@
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
 #define EALREADY WSAEALREADY
+#define ETIMEDOUT WSAETIMEDOUT
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
-inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS || errcode == EALREADY); }
+inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
 #endif
 
 #ifndef POLL_ERR
@@ -240,10 +242,10 @@ typedef struct SceNetAdhocctlNickname {
   uint8_t data[ADHOCCTL_NICKNAME_LEN];
 } PACK SceNetAdhocctlNickname;
 
-// Active Virtual Network Information
+// Active Virtual Network Information (Adhoc Group Host/Creator's device info, similar to AP?)
 typedef struct SceNetAdhocctlParameter {
   s32_le channel;
-  SceNetAdhocctlGroupName group_name;
+  SceNetAdhocctlGroupName group_name; // This group name is probably similar to SSID name on AP
   SceNetAdhocctlBSSId bssid;
   SceNetAdhocctlNickname nickname;
 } PACK SceNetAdhocctlParameter;
@@ -841,9 +843,11 @@ extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 
 extern uint16_t portOffset;
+extern uint32_t minSocketTimeoutUS;
 extern bool isLocalServer;
 extern sockaddr LocalhostIP; // Used to differentiate localhost IP on multiple-instance
 extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
+extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
@@ -1156,6 +1160,11 @@ int getLocalIp(sockaddr_in * SocketAddress);
 uint32_t getLocalIp(int sock);
 
 /*
+ * Get UDP Socket Max Message Size
+ */
+int getSockMaxSize(int udpsock);
+
+/*
  * Get Socket Buffer Size (opt = SO_RCVBUF/SO_SNDBUF)
  */
 int getSockBufferSize(int sock, int opt);
@@ -1166,9 +1175,24 @@ int getSockBufferSize(int sock, int opt);
 int setSockBufferSize(int sock, int opt, int size);
 
 /*
+* Set Socket TimeOut (opt = SO_SNDTIMEO/SO_RCVTIMEO)
+*/
+int setSockTimeout(int sock, int opt, unsigned long timeout_usec);
+
+/*
+ * Get TCP Socket TCP_NODELAY (Nagle Algo)
+ */
+int getSockNoDelay(int tcpsock);
+
+/*
+* Set TCP Socket TCP_NODELAY (Nagle Algo)
+*/
+int setSockNoDelay(int tcpsock, int flag);
+
+/*
 * Set Socket KeepAlive (opt = SO_KEEPALIVE)
 */
-int setSockKeepAlive(int sock, bool keepalive, const int keepcnt = 20, const int keepidle = 180, const int keepinvl = 60);
+int setSockKeepAlive(int sock, bool keepalive, const int keepinvl = 60, const int keepcnt = 20, const int keepidle = 180);
 
 /**
 * Return the Number of Players with the chosen Nickname in the Local Users current Network

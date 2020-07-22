@@ -104,6 +104,7 @@ bool PortManager::Init(const unsigned int timeout) {
 			break;
 		}
 	}
+
 	m_leaseDuration = "43200"; // 12 hours
 	m_InitState = UPNP_INITSTATE_BUSY;
 	urls = (UPNPUrls*)malloc(sizeof(struct UPNPUrls));
@@ -165,6 +166,7 @@ bool PortManager::Init(const unsigned int timeout) {
 		RefreshPortList();
 		return true;
 	}
+
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	auto n = GetI18NCategory("Networking");
 	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 6.0f, 0x0000ff);

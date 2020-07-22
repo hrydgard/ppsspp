@@ -42,7 +42,8 @@
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
 
-uint16_t portOffset = g_Config.iPortOffset;
+uint16_t portOffset;
+uint32_t minSocketTimeoutUS;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
 int one                               = 1;
@@ -75,6 +76,7 @@ int newChat = 0;
 bool isLocalServer = false;
 sockaddr LocalhostIP;
 sockaddr LocalIP;
+int defaultWlanChannel = 1;
 
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -215,8 +217,8 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 void changeBlockingMode(int fd, int nonblocking) {
 	unsigned long on = 1;
 	unsigned long off = 0;
-#ifdef _WIN32
-	if (nonblocking){
+#if defined(_WIN32)
+	if (nonblocking) {
 		// Change to Non-Blocking Mode
 		ioctlsocket(fd, FIONBIO, &on);
 	}
@@ -224,14 +226,31 @@ void changeBlockingMode(int fd, int nonblocking) {
 		// Change to Blocking Mode
 		ioctlsocket(fd, FIONBIO, &off);
 	}
+// If they have O_NONBLOCK, use the POSIX way to do it. On POSIX sockets Error code would be EINPROGRESS instead of EAGAIN
+//#elif defined(O_NONBLOCK)
 #else
-	if(nonblocking == 1) fcntl(fd, F_SETFL, O_NONBLOCK);
+	int flags = fcntl(fd, F_GETFL, 0);
+	// Fixme: O_NONBLOCK is defined but broken on SunOS 4.1.x and AIX 3.2.5.
+	if (flags == -1)
+		flags = 0;
+	if (nonblocking) {
+		// Set Non-Blocking Flag
+		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+	}
 	else {
-		// Get Flags
-		int flags = fcntl(fd, F_GETFL);
 		// Remove Non-Blocking Flag
 		fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 	}
+// Otherwise, use the old way of doing it (UNIX way). On UNIX sockets Error code would be EAGAIN instead of EINPROGRESS
+/*#else
+	if (nonblocking) {
+		// Change to Non - Blocking Mode
+		ioctl(fd, FIONBIO, (char*)&on);
+	}
+	else {
+		// Change to Blocking Mode
+		ioctl(fd, FIONBIO, (char*)&off);
+	}*/
 #endif
 }
 
@@ -1221,7 +1240,7 @@ int friendFinder(){
 					}*/
 					
 					// Update User BSSID
-					//parameter.bssid.mac_addr = packet->mac; // The MAC address in this packet seems to Always be the First player joining the Group (group Creator?), Shouldn't it be it self?
+					//parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 					// Notify Event Handlers
 					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					// Change State
@@ -1398,7 +1417,8 @@ int friendFinder(){
 							group->bssid.mac_addr = packet->mac;
 
 							// Set group parameters
-							group->channel = parameter.channel;
+							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
+							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
 							group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
 
 							// Link into Group List
@@ -1613,6 +1633,16 @@ uint16_t getLocalPort(int sock) {
 	return ntohs(localAddr.sin_port);
 }
 
+int getSockMaxSize(int udpsock) {
+#if !defined(SO_MAX_MSG_SIZE)
+#define SO_MAX_MSG_SIZE   0x2003
+#endif
+	int n = 1500; // Typical MTU size as default
+	socklen_t m = sizeof(n);
+	getsockopt(udpsock, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&n, &m);
+	return n;
+}
+
 int getSockBufferSize(int sock, int opt) { // opt = SO_RCVBUF/SO_SNDBUF
 	int n = 16384;
 	socklen_t m = sizeof(n);
@@ -1625,22 +1655,49 @@ int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBU
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
+int setSockTimeout(int sock, int opt, unsigned long timeout_usec) { // opt = SO_SNDTIMEO/SO_RCVTIMEO
+	if (timeout_usec > 0 && timeout_usec < minSocketTimeoutUS) timeout_usec = minSocketTimeoutUS; // Override timeout for high latency multiplayer
+#if defined(_WIN32)
+	unsigned long optval = timeout_usec / 1000UL;
+	if (timeout_usec > 0 && optval == 0) optval = 1; // Since there are games that use 100 usec timeout, we should set it to minimum value on Windows (1 msec) instead of using 0 (0 = indefinitely timeout)
+#elif defined(__APPLE__)
+	struct timeval optval;
+	optval.tv_sec = static_cast<long>(timeout_usec) / 1000000L;
+	optval.tv_usec = static_cast<long>(timeout_usec) % 1000000L;
+#else
+	struct timeval optval = { static_cast<long>(timeout_usec) / 1000000L, static_cast<long>(timeout_usec) % 1000000L };
+#endif
+	return setsockopt(sock, SOL_SOCKET, opt, (char*)&optval, sizeof(optval));
+}
+
+int getSockNoDelay(int tcpsock) { 
+	int opt = 0;
+	socklen_t optlen = sizeof(opt);
+	getsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, &optlen);
+	return opt;
+}
+
+int setSockNoDelay(int tcpsock, int flag) {
+	int opt = flag;
+	return setsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt));
+}
+
 #if !defined(TCP_KEEPIDLE)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif
-int setSockKeepAlive(int sock, bool keepalive, const int keepcnt, const int keepidle, const int keepinvl) {
+int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int keepcnt, const int keepidle) {
 	int optval = keepalive ? 1 : 0;
 	int optlen = sizeof(optval);
 	int result = setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, optlen);
 	if (result == 0 && keepalive) {
 		if (getsockopt(sock, SOL_SOCKET, SO_TYPE, (char*)&optval, (socklen_t*)&optlen) == 0 && optval == SOCK_STREAM) {
 			optlen = sizeof(optval);
+			optval = keepidle; //180 sec
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&optval, optlen);		
+			optval = keepinvl; //60 sec
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&optval, optlen);
 			optval = keepcnt; //20
 			setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&optval, optlen);
-			optval = keepidle; //180
-			setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&optval, optlen);
-			optval = keepinvl; //60
-			setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&optval, optlen);
 		}
 	}
 	return result;
@@ -1757,8 +1814,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	memset(&parameter, 0, sizeof(parameter));
 	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	parameter.channel = g_Config.iWlanAdhocChannel; // Fake Channel, 0 = Auto where JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
-	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = 1;
+	parameter.channel = g_Config.iWlanAdhocChannel;
+	// Assign a Valid Channel when connected to AP/AdhocGroup if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
+	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
 	getLocalMac(&parameter.bssid.mac_addr);
 	
 	// Default ProductId

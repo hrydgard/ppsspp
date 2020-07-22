@@ -112,10 +112,13 @@ static void __ResetInitNetLib() {
 	netInetInited = false;
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
+	memset(&parameter, 0, sizeof(parameter));
 }
 
 void __NetInit() {
+	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
+	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
 
 	InitLocalhostIP();
 
@@ -149,8 +152,6 @@ void __NetShutdown() {
 		g_PortManager.Restore();
 		g_PortManager.Deinit();
 	}
-
-	//PPSSPPIDCleanup(); // To make the ID/IP persistent on every reset, we should just let the OS closes all open handles instead of calling PPSSPPIDCleanup() on every reset
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
@@ -251,6 +252,8 @@ static u32 sceNetTerm() {
 	FreeUser(netThread1Addr);
 	FreeUser(netThread2Addr);
 
+	// Give time to make sure everything are cleaned up
+	hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
 	return 0;
 }
 
