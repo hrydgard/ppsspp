@@ -485,6 +485,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
+	       $(COREDIR)/Util/PortManager.cpp \
           $(EXTDIR)/disarm.cpp \
           $(CORE_DIR)/UI/TextureUtil.cpp \
           $(CORE_DIR)/UI/GameInfoCache.cpp
