@@ -1685,13 +1685,13 @@ int proAdhocServerThread(int port) // (int argc, char * argv[])
 		INFO_LOG(SCENET, "AdhocServer: Listening for Connections on TCP Port %u", port); //SERVER_PORT
 
 		// Port forward
-		g_PortManager.Add(port, IP_PROTOCOL_TCP);
+		g_PortManager.Add(IP_PROTOCOL_TCP, port);
 
 		// Enter Server Loop
 		result = server_loop(server);
 
 		// Remove Port mapping
-		g_PortManager.Remove(port, IP_PROTOCOL_TCP);
+		g_PortManager.Remove(IP_PROTOCOL_TCP, port);
 
 		// Notify User
 		INFO_LOG(SCENET, "AdhocServer: Shutdown complete");

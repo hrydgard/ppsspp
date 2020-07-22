@@ -118,6 +118,7 @@ static void __ResetInitNetLib() {
 void __NetInit() {
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
+	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
 	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
 
 	InitLocalhostIP();
@@ -129,28 +130,24 @@ void __NetInit() {
 
 	// Only initialize when UPnP is enabled since it takes a few seconds to detect UPnP device (may affect people who don't have UPnP device)
 	if (g_Config.bEnableUPnP) {
-		g_PortManager.Init();
+		// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
+		g_PortManager.Initialize();
 	}
 
 	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
-	// Checks to avoid confusing logspam
-	if (netAdhocctlInited) sceNetAdhocctlTerm();
-	if (netAdhocInited) sceNetAdhocTerm();
-
-	if (netApctlInited) sceNetApctlTerm();
-	if (netInetInited) sceNetInetTerm();
-
-	if (netInited) sceNetTerm();
+	// Network Cleanup
+	Net_Term();
 	
 	__ResetInitNetLib();
 
-	if (g_Config.bEnableUPnP) {
+	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
+	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
 		g_PortManager.Clear();
 		g_PortManager.Restore();
-		g_PortManager.Deinit();
+		g_PortManager.Terminate();
 	}
 }
 
@@ -219,13 +216,14 @@ static inline void FreeUser(u32 &addr) {
 	addr = 0;
 }
 
-static u32 sceNetTerm() {
+u32 Net_Term() {
 	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
-	if (netAdhocctlInited) sceNetAdhocctlTerm();
-	if (netAdhocInited) sceNetAdhocTerm();
+	NetAdhocctl_Term();
+	NetAdhoc_Term();
 
-	if (netApctlInited) sceNetApctlTerm();
-	if (netInetInited) sceNetInetTerm();
+	// TODO: Not implemented yet
+	//sceNetApctl_Term();
+	//NetInet_Term();
 
 	// Library is initialized
 	if (netInited) {
@@ -246,15 +244,21 @@ static u32 sceNetTerm() {
 		// Library shutdown
 	}
 
-	WARN_LOG(SCENET, "sceNetTerm()");
-	netInited = false;
 	FreeUser(netPoolAddr);
 	FreeUser(netThread1Addr);
 	FreeUser(netThread2Addr);
+	netInited = false;
+
+	return 0;
+}
+
+static u32 sceNetTerm() {
+	WARN_LOG(SCENET, "sceNetTerm()");
+	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
-	hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
-	return 0;
+	hleDelayResult(retval, "give time to init/cleanup", adhocEventDelayMS * 1000);
+	return retval;
 }
 
 /*
@@ -270,7 +274,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
 	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
 	if (netInited)
-		sceNetTerm(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
+		Net_Term(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
 
 	if (poolSize == 0) {
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");

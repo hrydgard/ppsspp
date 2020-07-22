@@ -479,12 +479,14 @@ typedef struct SceNetAdhocMatchingContext {
   SceUID matching_thid;
 
   // Event Caller Thread
-  std::thread eventThread; // s32_le event_thid;
+  std::thread eventThread;
+  //s32_le event_thid;
   bool eventRunning = false;
   bool IsMatchingInCB = false;
 
   // IO Handler Thread
-  std::thread inputThread; // s32_le input_thid;
+  std::thread inputThread;
+  //s32_le input_thid;
   bool inputRunning = false;
 
   // Event Caller Thread Message Stack
@@ -844,6 +846,7 @@ extern SceNetAdhocPtpStat * ptp[255];
 
 extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
+extern bool isOriPort;
 extern bool isLocalServer;
 extern sockaddr LocalhostIP; // Used to differentiate localhost IP on multiple-instance
 extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
@@ -1158,6 +1161,11 @@ int getActivePeerCount(const bool excludeTimedout = true);
  */
 int getLocalIp(sockaddr_in * SocketAddress);
 uint32_t getLocalIp(int sock);
+
+/*
+ * Check if an IP (big-endian/network order) is Private or Public IP
+ */
+bool isPrivateIP(uint32_t ip);
 
 /*
  * Get UDP Socket Max Message Size

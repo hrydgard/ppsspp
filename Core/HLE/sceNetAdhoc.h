@@ -53,5 +53,6 @@ extern int adhocEventDelayMS; // This will affect the duration of "Connecting...
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
 
-int sceNetAdhocctlTerm();
-int sceNetAdhocTerm();
+int NetAdhocMatching_Term();
+int NetAdhocctl_Term();
+int NetAdhoc_Term();

@@ -73,6 +73,7 @@ std::string message = "";
 bool chatScreenVisible = false;
 bool updateChatScreen = false;
 int newChat = 0;
+bool isOriPort = false;
 bool isLocalServer = false;
 sockaddr LocalhostIP;
 sockaddr LocalIP;
@@ -82,11 +83,7 @@ bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
 	getLocalMac(&saddr);
 
-	// Compare MAC Addresses
-	int match = memcmp((const void *)addr, (const void *)&saddr, ETHER_ADDR_LEN);
-
-	// Return Result
-	return (match == 0);
+	return (memcmp((const void*)addr, (const void*)&saddr, ETHER_ADDR_LEN) == 0);
 }
 
 bool isPDPPortInUse(uint16_t port) {
@@ -163,7 +160,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	if (peer != NULL) {
 		char tmpmac[18];
 		u32 tmpip = packet->ip;
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", packet->name.data, mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip)); //inet_ntoa(*(in_addr*)&packet->ip)
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -1010,7 +1007,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", contextID, EventID);
 	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
-	SetMatchingInCallback(context, false);
+	//SetMatchingInCallback(context, false);
 	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", contextID, EventID, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
@@ -1303,13 +1300,11 @@ int friendFinder(){
 					// Cast Packet
 					SceNetAdhocctlConnectPacketS2C * packet = (SceNetAdhocctlConnectPacketS2C *)rx;
 
-					DEBUG_LOG(SCENET, "FriendFinder: OPCODE_CONNECT");
-
 					// Fix strings with null-terminated
 					packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 
 					// Log Incoming Peer
-					INFO_LOG(SCENET, "Incoming Peer Data...");
+					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac), inet_ntoa(*(in_addr*)&packet->ip), packet->name.data);
 
 					// Add User
 					addFriend(packet);
@@ -1604,6 +1599,33 @@ uint32_t getLocalIp(int sock) {
 	return localAddr.sin_addr.s_addr;
 }
 
+static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
+	struct sockaddr_in saNet, saMask;
+	std::vector<std::pair<uint32_t, uint32_t>> ip_ranges;
+
+	if (1 == inet_pton(AF_INET, "192.168.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
+		ip_ranges.push_back({saNet.sin_addr.s_addr, saMask.sin_addr.s_addr});
+	if (1 == inet_pton(AF_INET, "172.16.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.240.0.0", &(saMask.sin_addr)))
+		ip_ranges.push_back({ saNet.sin_addr.s_addr, saMask.sin_addr.s_addr });
+	if (1 == inet_pton(AF_INET, "10.0.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.0.0.0", &(saMask.sin_addr)))
+		ip_ranges.push_back({ saNet.sin_addr.s_addr, saMask.sin_addr.s_addr });
+	if (1 == inet_pton(AF_INET, "127.0.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.0.0.0", &(saMask.sin_addr)))
+		ip_ranges.push_back({ saNet.sin_addr.s_addr, saMask.sin_addr.s_addr });
+	if (1 == inet_pton(AF_INET, "169.254.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
+		ip_ranges.push_back({ saNet.sin_addr.s_addr, saMask.sin_addr.s_addr });
+
+	return ip_ranges;
+}
+
+bool isPrivateIP(uint32_t ip) {
+	static const std::vector<std::pair<uint32_t, uint32_t>> ip_ranges = InitPrivateIPRanges();
+	for (auto ipRange : ip_ranges) {
+		if ((ip & ipRange.second) == (ipRange.first & ipRange.second)) // We can just use ipRange.first directly if it's already correctly formatted
+			return true;
+	}
+	return false;
+}
+
 void getLocalMac(SceNetEtherAddr * addr){
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
@@ -1859,10 +1881,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 }
 
 bool isBroadcastMAC(const SceNetEtherAddr * addr) {
-	// Broadcast MAC
-	if (memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0) return true;
-	// Normal MAC
-	return false;
+	return (memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0);
 }
 
 bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {

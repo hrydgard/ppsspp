@@ -30,9 +30,10 @@
 #include <Core/System.h>
 #include <Core/Host.h>
 #include <Core/ELF/ParamSFO.h>
-#include "Core/HLE/proAdhoc.h" // This import is only used to get product id that was used to connect to adhoc server
 #include "Core/Util/PortManager.h"
+#include <Common/Log.h>
 #include "i18n/i18n.h"
+#include "net/resolve.h"
 
 
 PortManager g_PortManager;
@@ -43,15 +44,20 @@ PortManager::PortManager():
 	m_InitState(UPNP_INITSTATE_NONE),
 	m_LocalPort(UPNP_LOCAL_PORT_ANY),
 	m_leaseDuration("43200") {
+	// Since WSAStartup can be used multiple times it should be safe to do this right?
+	net::Init();
 }
 
 PortManager::~PortManager() {
+	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
 	Clear();
 	Restore();
-	Deinit();
+	Terminate();
+	net::Shutdown();
 }
 
-void PortManager::Deinit() {
+void PortManager::Terminate() {
+	INFO_LOG(SCENET, "PortManager::Terminate()");
 	if (urls) {
 		FreeUPNPUrls(urls);
 		free(urls);
@@ -67,24 +73,24 @@ void PortManager::Deinit() {
 	m_defaultDesc.clear();
 	m_leaseDuration.clear();
 	m_LocalPort = UPNP_LOCAL_PORT_ANY;
-	m_InitState = UPNP_INITSTATE_DONE;
+	m_InitState = UPNP_INITSTATE_NONE;
 }
 
-bool PortManager::Init(const unsigned int timeout) {
+bool PortManager::Initialize(const unsigned int timeout) {
 	// Windows: Assuming WSAStartup already called beforehand
 	struct UPNPDev* devlist;
 	struct UPNPDev* dev;
 	char* descXML;
 	int descXMLsize = 0;
 	int descXMLstatus = 0;
-	int localport = m_LocalPort; // UPNP_LOCAL_PORT_ANY (0), or UPNP_LOCAL_PORT_SAME (1) as an alias for 1900 for backwards compatability?
+	int localport = m_LocalPort; // UPNP_LOCAL_PORT_ANY (0), or UPNP_LOCAL_PORT_SAME (1) as an alias for 1900 (for backwards compatability?)
 	int ipv6 = 0; // 0 = IPv4, 1 = IPv6
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
 	
-	INFO_LOG(SCENET, "PortManager::Init(%d)", timeout);
+	INFO_LOG(SCENET, "PortManager::Initialize(%d)", timeout);
 	if (!g_Config.bEnableUPnP) {
-		ERROR_LOG(SCENET, "PortManager::Init - UPnP is Disabled on Networking Settings");
+		ERROR_LOG(SCENET, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
 	}
 
@@ -95,12 +101,11 @@ bool PortManager::Init(const unsigned int timeout) {
 			WARN_LOG(SCENET, "PortManager - Initialization already in progress");
 			return false;
 		}
-		// We should redetect UPnP just in case the player switched to a different network in the middle
-		/*case UPNP_INITSTATE_DONE: {
+		// Should we redetect UPnP? just in case the player switched to a different network in the middle
+		case UPNP_INITSTATE_DONE: {
 			WARN_LOG(SCENET, "PortManager - Already Initialized");
-			return false;
+			return true;
 		}
-		*/
 		default:
 			break;
 		}
@@ -151,14 +156,9 @@ bool PortManager::Init(const unsigned int timeout) {
 			INFO_LOG(SCENET, "PortManager - Connection Type: %s", connectionType);
 		}
 
-		// Using Game ID & Player Name as default description for mapping (prioritizing the ID sent by the game to Adhoc server)
-		char productid[10] = { 0 };
-		memcpy(productid, product_code.data, sizeof(product_code.data));
-		std::string gameID = std::string(productid);
-		if (productid[0] == '\0') {
-			gameID = g_paramSFO.GetDiscID();
-		}
-		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName;
+		// Using Game ID & Player Name as default description for mapping
+		std::string gameID = g_paramSFO.GetDiscID();
+		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
 
 		freeUPNPDevlist(devlist);
 
@@ -179,17 +179,21 @@ int PortManager::GetInitState() {
 	return m_InitState;
 }
 
-bool PortManager::Add(unsigned short port, const char* protocol) {
+bool PortManager::Add(const char* protocol, unsigned short port, unsigned short intport) {
 	char port_str[16];
+	char intport_str[16];
 	int r;
 	
-	INFO_LOG(SCENET, "PortManager::Add(%d, %s)", port, protocol);
+	if (intport == 0)
+		intport = port;
+	INFO_LOG(SCENET, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
 		return false;
 	}
 	sprintf(port_str, "%d", port);
+	sprintf(intport_str, "%d", intport);
 	// Only add new port map if it's not previously created by PPSSPP for current IP
 	auto el_it = std::find_if(m_portList.begin(), m_portList.end(),
 		[port_str, protocol](const std::pair<std::string, std::string> &el) { return el.first == port_str && el.second == protocol; });
@@ -201,11 +205,11 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 			r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 		}
 		r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
-			port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+			port_str, intport_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
 		if (r == 725 && m_leaseDuration != "0") {
 			m_leaseDuration = "0";
 			r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
-				port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+				port_str, intport_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
 		}
 		if (r != 0)
 		{
@@ -213,7 +217,7 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
 				auto n = GetI18NCategory("Networking");
 				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-				Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 				return false;
 			}
 		}
@@ -224,10 +228,10 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 	return true;
 }
 
-bool PortManager::Remove(unsigned short port, const char* protocol) {
+bool PortManager::Remove(const char* protocol, unsigned short port) {
 	char port_str[16];
 
-	INFO_LOG(SCENET, "PortManager::Remove(%d, %s)", port, protocol);
+	INFO_LOG(SCENET, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
@@ -241,7 +245,7 @@ bool PortManager::Remove(unsigned short port, const char* protocol) {
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
 			auto n = GetI18NCategory("Networking");
 			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-			Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 			return false;
 		}
 	}
@@ -317,8 +321,9 @@ bool PortManager::Clear() {
 	do {
 		snprintf(index, 6, "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
-		duration[0] = '\0'; desc[0] = '\0';
+		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
+		// May gets UPNPCOMMAND_HTTP_ERROR when called while exiting PPSSPP (ie. used in destructor)
 		r = UPNP_GetGenericPortMappingEntry(urls->controlURL,
 			datas->first.servicetype,
 			index,
@@ -326,7 +331,7 @@ bool PortManager::Clear() {
 			protocol, desc, enabled,
 			rHost, duration);
 		// Only removes port mappings created by PPSSPP for current LAN IP
-		if (r == 0 && intAddr == m_lanip && std::strncmp(desc, "PPSSPP", 6) == 0) {
+		if (r == 0 && intAddr == m_lanip && std::string(desc).find("PPSSPP:") != std::string::npos) {
 			int r2 = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, extPort, protocol, rHost);
 			if (r2 != 0)
 			{
@@ -372,7 +377,7 @@ bool PortManager::RefreshPortList() {
 	do {
 		snprintf(index, 6, "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
-		duration[0] = '\0'; desc[0] = '\0';
+		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
 		r = UPNP_GetGenericPortMappingEntry(urls->controlURL,
 			datas->first.servicetype,
@@ -381,13 +386,17 @@ bool PortManager::RefreshPortList() {
 			protocol, desc, enabled,
 			rHost, duration);
 		if (r == 0) {
+			std::string desc_str = std::string(desc);
+			// Some router might prefix the description with "UPnP:" so we may need to truncate it to prevent it from getting multiple prefix when restored later
+			if (desc_str.find("UPnP:") == 0)
+				desc_str = desc_str.substr(5);
 			// Only include port mappings created by PPSSPP for current LAN IP
-			if (intAddr == m_lanip && std::strncmp(desc, "PPSSPP", 6) == 0) {
+			if (intAddr == m_lanip && desc_str.find("PPSSPP:") != std::string::npos) {
 				m_portList.push_back({ extPort, protocol });
 			}
 			// Port mappings belong to others that might be taken by PPSSPP later
 			else {
-				m_otherPortList.push_back({ false, protocol, extPort, intPort, intAddr, rHost, desc, duration, enabled });
+				m_otherPortList.push_back({ false, protocol, extPort, intPort, intAddr, rHost, desc_str, duration, enabled });
 			}
 		}
 		i++;
