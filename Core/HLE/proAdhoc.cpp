@@ -1660,6 +1660,10 @@ int setSockTimeout(int sock, int opt, unsigned long timeout_usec) { // opt = SO_
 #if defined(_WIN32)
 	unsigned long optval = timeout_usec / 1000UL;
 	if (timeout_usec > 0 && optval == 0) optval = 1; // Since there are games that use 100 usec timeout, we should set it to minimum value on Windows (1 msec) instead of using 0 (0 = indefinitely timeout)
+#elif defined(__APPLE__)
+	struct timeval optval;
+	optval.tv_sec = static_cast<long>(timeout_usec) / 1000000L;
+	optval.tv_usec = static_cast<long>(timeout_usec) % 1000000L;
 #else
 	struct timeval optval = { static_cast<long>(timeout_usec) / 1000000L, static_cast<long>(timeout_usec) % 1000000L };
 #endif
