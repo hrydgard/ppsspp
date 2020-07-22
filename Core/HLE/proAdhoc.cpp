@@ -76,7 +76,7 @@ int newChat = 0;
 bool isLocalServer = false;
 sockaddr LocalhostIP;
 sockaddr LocalIP;
-int defaultWlanChannel = 1;
+int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -845,8 +845,8 @@ uint32_t countConnectedPeers(SceNetAdhocMatchingContext * context, const bool ex
 		// Connected to Parent
 		if (findParent(context) != NULL)
 		{
-			// Add Number of Siblings + 1 Parents
-			count += countChildren(context, excludeTimedout) + 1;
+			// Add Number of Siblings + 1 Parent
+			count += countChildren(context, excludeTimedout) + 1; // Since count is already started from 1, Do we need to +1 here? Ys vs. Sora no Kiseki seems to show wrong number of players without +1 here
 		}
 	}
 
@@ -1186,8 +1186,8 @@ int friendFinder(){
 		//_acquireNetworkLock();
 
 		// Ping Server
-		now = real_time_now() * 1000000.0; // CoreTiming::GetGlobalTimeUsScaled(); // Use real_time_now()*1000000.0 if the game gets disconnected from AdhocServer too fast when FPS wasn't stable
-		if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { //100 // We need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+		now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
+		if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
 			// Update Ping Time
 			lastping = now;
@@ -1230,7 +1230,7 @@ int friendFinder(){
 
 					char tmpmac[18];
 					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac, tmpmac));
-					// from JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
+					// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
 					/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 						setState(ADHOCCTL_STATE_GAMEMODE);
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
@@ -1241,7 +1241,7 @@ int friendFinder(){
 					}*/
 					
 					// Update User BSSID
-					//parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
+					parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 					// Notify Event Handlers
 					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					// Change State
@@ -1706,7 +1706,7 @@ int getNicknameCount(const char * nickname)
 	int count = 0;
 
 	// Local Nickname Matches
-	if (strcmp((char *)parameter.nickname.data, nickname) == 0) count++;
+	if (strncmp((char *)&parameter.nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
@@ -1715,7 +1715,7 @@ int getNicknameCount(const char * nickname)
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Match found
-		if (strcmp((char *)peer->nickname.data, nickname) == 0) count++;
+		if (strncmp((char *)&peer->nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
 	}
 
 	// Return Result
@@ -1802,12 +1802,12 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		}
 	}
 	
-	// Default/Initial Network
+	// Default/Initial Network Parameters
 	memset(&parameter, 0, sizeof(parameter));
 	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	parameter.channel = g_Config.iWlanAdhocChannel;
-	// Assign a Valid Channel when connected to AP/AdhocGroup if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
+	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
 	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
 	getLocalMac(&parameter.bssid.mac_addr);
 	

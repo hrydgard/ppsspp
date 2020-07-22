@@ -49,7 +49,7 @@ extern bool netAdhocctlInited;
 extern int adhocDefaultTimeout;
 extern int adhocEventPollDelayMS;
 extern int adhocMatchingEventDelayMS;
-extern int adhocEventDelayMS;
+extern int adhocEventDelayMS; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
 
