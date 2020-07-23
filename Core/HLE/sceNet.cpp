@@ -123,10 +123,9 @@ void __NetInit() {
 
 	InitLocalhostIP();
 
-	char tmpmac[18];
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
+	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
@@ -417,7 +416,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)));
+		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}
