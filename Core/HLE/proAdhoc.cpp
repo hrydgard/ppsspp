@@ -1641,12 +1641,11 @@ uint16_t getLocalPort(int sock) {
 }
 
 int getSockMaxSize(int udpsock) {
-#if !defined(SO_MAX_MSG_SIZE)
-#define SO_MAX_MSG_SIZE   0x2003
-#endif
 	int n = 1500; // Typical MTU size as default
+#if defined(SO_MAX_MSG_SIZE) // May not be available on all platform
 	socklen_t m = sizeof(n);
 	getsockopt(udpsock, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&n, &m);
+#endif
 	return n;
 }
 
