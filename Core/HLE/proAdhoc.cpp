@@ -102,27 +102,14 @@ bool isPTPPortInUse(uint16_t port) {
 	return false;
 }
 
-char* mac2str(SceNetEtherAddr* mac) {
-#if defined(_WIN32)
-	static __declspec(thread) char str[18] = ":::::";
-#elif !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
-	static __thread char str[18] = ":::::";
-#else
-	// Temporary hack to avoid huge rebase conflicts. Remove this when applying the mac2str rewrite.
-	static char str[18] = ":::::";
-#endif
-	if (mac == NULL) return str;
-	snprintf(str, sizeof(str), "%02x:%02x:%02x:%02x:%02x:%02x", mac->data[0], mac->data[1], mac->data[2], mac->data[3], mac->data[4], mac->data[5]);
+std::string mac2str(SceNetEtherAddr* mac) {
+	char str[18] = ":::::";
 
-	return str;
-}
+	if (mac != NULL) {
+		snprintf(str, sizeof(str), "%02x:%02x:%02x:%02x:%02x:%02x", mac->data[0], mac->data[1], mac->data[2], mac->data[3], mac->data[4], mac->data[5]);
+	}
 
-char* mac2str(SceNetEtherAddr* mac, char* str, size_t size) {
-	if (mac == NULL || str == NULL || size < 18) return NULL;
-
-	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x", mac->data[0], mac->data[1], mac->data[2], mac->data[3], mac->data[4], mac->data[5]);
-
-	return str;
+	return std::string(str);
 }
 
 SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac) {
@@ -131,8 +118,7 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 	// Already existed
 	if (peer != NULL) {
-		char tmpmac[18];
-		WARN_LOG(SCENET, "Member Peer Already Existed! Updating [%s]", mac2str(mac, tmpmac));
+		WARN_LOG(SCENET, "Member Peer Already Existed! Updating [%s]", mac2str(mac).c_str());
 		peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 	}
 	// Member is not added yet
@@ -158,9 +144,8 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	SceNetAdhocctlPeerInfo * peer = findFriend(&packet->mac);
 	// Already existed
 	if (peer != NULL) {
-		char tmpmac[18];
 		u32 tmpip = packet->ip;
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -348,9 +333,8 @@ void deleteFriendByIP(uint32_t ip) {
 			else prev->next = peer->next;
 			*/
 
-			char tmpmac[18];
 			u32 tmpip = peer->ip_addr;
-			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr, tmpmac), inet_ntoa(*(struct in_addr *)&tmpip)); //inet_ntoa(*(in_addr*)&peer->ip_addr)
+			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(struct in_addr *)&tmpip)); //inet_ntoa(*(in_addr*)&peer->ip_addr)
 
 			// Free Memory
 			//free(peer);
@@ -501,8 +485,7 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 			// Spawn Established Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 
-			char tmpmac[18];
-			INFO_LOG(SCENET, "Accepting Peer %s", mac2str(&sibling->mac, tmpmac));
+			INFO_LOG(SCENET, "Accepting Peer %s", mac2str(&sibling->mac).c_str());
 		}
 	}
 }
@@ -628,8 +611,7 @@ void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberI
 			// Beginning Item
 			else context->peerlist = item->next;
 
-			char tmpmac[18];
-			INFO_LOG(SCENET, "Removing Member Peer %s", mac2str(&peer->mac, tmpmac));
+			INFO_LOG(SCENET, "Removing Member Peer %s", mac2str(&peer->mac).c_str());
 		}
 
 		// Free Peer Memory
@@ -904,8 +886,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL); // This is the only code that use PSP_ADHOC_MATCHING_EVENT_TIMEOUT, should we let it timedout?
 			}
 
-			char tmpmac[18];
-			INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac, tmpmac), (context->timeout/1000));
+			INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout/1000));
 
 			// Delete Peer from List
 			deletePeer(context, peer);
@@ -1236,8 +1217,7 @@ int friendFinder(){
 						// Cast Packet
 						SceNetAdhocctlConnectBSSIDPacketS2C* packet = (SceNetAdhocctlConnectBSSIDPacketS2C*)rx;
 
-						char tmpmac[18];
-						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac, tmpmac));
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac).c_str());
 						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
 						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							setState(ADHOCCTL_STATE_GAMEMODE);
@@ -1316,7 +1296,7 @@ int friendFinder(){
 
 						// Log Incoming Peer
                         u32_le ipaddr = packet->ip;
-						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
 
 						// Add User
 						addFriend(packet);
