@@ -297,8 +297,7 @@ static int sceNetAdhocctlGetState(u32 ptrToStatus) {
  */
 // When choosing AdHoc menu in Wipeout Pulse sometimes it's saying that "WLAN is turned off" on game screen and getting "kUnityCommandCode_MediaDisconnected" error in the Log Console when calling sceNetAdhocPdpCreate, probably it needed to wait something from the thread before calling this (ie. need to receives 7 bytes from adhoc server 1st?)
 static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 unknown) {
-	char tmpmac[18];
-	INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac, tmpmac), port, bufferSize, unknown, currentMIPS->pc);
+	INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), port, bufferSize, unknown, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -384,7 +383,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 
 								// Forward Port on Router
 								//sceNetPortOpen("UDP", port);
-								g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
+								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
 								
 								// Success
 								return i + 1;
@@ -430,10 +429,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG
  */
 static int sceNetAdhocctlGetParameter(u32 paramAddr) {
-	char grpName[9] = { 0 }; char tmpmac[18];
+	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN);
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	DEBUG_LOG(SCENET, "sceNetAdhocctlGetParameter(%08x) [Ch=%i][Group=%s][BSSID=%s][name=%s]", paramAddr, parameter.channel, grpName, mac2str(&parameter.bssid.mac_addr, tmpmac), parameter.nickname.data);
+	DEBUG_LOG(SCENET, "sceNetAdhocctlGetParameter(%08x) [Ch=%i][Group=%s][BSSID=%s][name=%s]", paramAddr, parameter.channel, grpName, mac2str(&parameter.bssid.mac_addr).c_str(), parameter.nickname.data);
 	if (!g_Config.bEnableWlan) {
 		return ERROR_NET_ADHOCCTL_DISCONNECTED;
 	}
@@ -468,11 +467,10 @@ static int sceNetAdhocctlGetParameter(u32 paramAddr) {
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_INVALID_DATALEN, ADHOC_SOCKET_ALERTED, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_WOULD_BLOCK, NET_NO_SPACE, NET_INTERNAL
  */
 static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, int timeout, int flag) {
-	char tmpmac[18];
 	if (flag == 0) { // Prevent spamming Debug Log with retries of non-bocking socket
-		DEBUG_LOG(SCENET, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac, tmpmac), port, data, len, timeout, flag, currentMIPS->pc);
+		DEBUG_LOG(SCENET, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac).c_str(), port, data, len, timeout, flag, currentMIPS->pc);
 	} else {
-		VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac, tmpmac), port, data, len, timeout, flag, currentMIPS->pc);
+		VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac).c_str(), port, data, len, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
 		return -1;
@@ -1361,8 +1359,7 @@ int sceNetAdhocctlTerm() {
 }
 
 static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
-	char tmpmac[18];
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocctlGetNameByAddr(%s, %08x)", mac2str((SceNetEtherAddr*)mac, tmpmac), nameAddr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocctlGetNameByAddr(%s, %08x)", mac2str((SceNetEtherAddr*)mac).c_str(), nameAddr);
 	
 	// Library initialized
 	if (netAdhocctlInited)
@@ -1457,8 +1454,7 @@ static int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 }
 
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
-	char tmpmac[18];
-	VERBOSE_LOG(SCENET, "sceNetAdhocctlGetPeerInfo(%s, %i, %08x) at %08x", mac2str((SceNetEtherAddr*)mac, tmpmac), size, peerInfoAddr, currentMIPS->pc);
+	VERBOSE_LOG(SCENET, "sceNetAdhocctlGetPeerInfo(%s, %i, %08x) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), size, peerInfoAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -1657,8 +1653,7 @@ static int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *ma
 	char grpName[9] = { 0 };
 	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 
-	char tmpmac[18];
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)macAddr, tmpmac), timeout, unknown2, currentMIPS->pc);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)macAddr).c_str(), timeout, unknown2, currentMIPS->pc);
 
 	return 0;
 }
@@ -1889,8 +1884,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT
  */
 static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int unknown) {
-	char tmpmac[18];
-	INFO_LOG(SCENET, "sceNetAdhocPtpOpen(%s, %d, %s, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac), sport, mac2str((SceNetEtherAddr*)dstmac, tmpmac),dport,bufsize, rexmt_int, rexmt_cnt, unknown, currentMIPS->pc);
+	INFO_LOG(SCENET, "sceNetAdhocPtpOpen(%s, %d, %s, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport, mac2str((SceNetEtherAddr*)dstmac).c_str(),dport,bufsize, rexmt_int, rexmt_cnt, unknown, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -1992,7 +1986,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 									// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
 									//sceNetPortOpen("TCP", sport);
 									if (!isClient)
-										g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
+										UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset); // g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 									
 									// Return PTP Socket Pointer
 									return i + 1;
@@ -2050,11 +2044,10 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	if (Memory::IsValidAddress(peerPortPtr)) {
 		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
 	}
-	char tmpmac[18];
 	if (flag == 0) { // Prevent spamming Debug Log with retries of non-bocking socket
-		DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr, tmpmac), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
+		DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
 	} else {
-		VERBOSE_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr, tmpmac), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
+		VERBOSE_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
 		return 0;
@@ -2422,8 +2415,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_PORT_NOT_AVAIL, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
 static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int unk) {
-	char tmpmac[18];
-	INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac, tmpmac), sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk, currentMIPS->pc);
+	INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -2525,7 +2517,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 										
 										// Add Port Forward to Router
 										//sceNetPortOpen("TCP", sport);
-										g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
+										UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset); // g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 										
 										// Return PTP Socket Pointer
 										return i + 1;
@@ -2624,8 +2616,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						// Save Length
 						*len = sent;
 
-						char tmpmac[18];
-						DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u", id, socket->lport, sent, mac2str(&socket->paddr, tmpmac), socket->pport);
+						DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u", id, socket->lport, sent, mac2str(&socket->paddr).c_str(), socket->pport);
 						
 						// Return Success
 						return 0;
@@ -2738,8 +2729,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 					peerlock.unlock();
 
-					char tmpmac[18];
-					DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u", id, socket->lport, received, mac2str(&socket->paddr, tmpmac), socket->pport);
+					DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u", id, socket->lport, received, mac2str(&socket->paddr).c_str(), socket->pport);
 					
 					// Return Success
 					return 0;
@@ -2832,8 +2822,7 @@ static int sceNetAdhocGameModeCreateMaster(u32 data, int size) {
 }
 
 static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 data, int size) {
-	char tmpmac[18];
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateReplica(%s, %08x, %i) at %08x", mac2str((SceNetEtherAddr*)mac, tmpmac), data, size, currentMIPS->pc);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateReplica(%s, %08x, %i) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), data, size, currentMIPS->pc);
 	return 0;
 }
 
@@ -3316,8 +3305,7 @@ static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartit
 
 
 static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
-	char tmpmac[18];
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress, tmpmac), optLen, optDataPtr, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -3470,8 +3458,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 }
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
-	char tmpmac[18];
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress, tmpmac), optLen, optDataPtr, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -3550,8 +3537,7 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 }
 
 int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
-	char tmpmac[18];
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)macAddress, tmpmac));
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str());
 	if (!g_Config.bEnableWlan)
 		return -1;
 	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, 0);
@@ -3749,7 +3735,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 						// Add Local MAC
 						buf2[filledpeers++].mac_addr = context->mac;
 
-						DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac));
+						DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac).c_str());
 
 						// Room for more than local peer
 						if (requestedpeers > 1)
@@ -3770,7 +3756,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Add P2P Brother MAC
 									buf2[filledpeers++].mac_addr = p2p->mac;
 
-									DEBUG_LOG(SCENET, "MemberP2P [%s]", mac2str(&p2p->mac));
+									DEBUG_LOG(SCENET, "MemberP2P [%s]", mac2str(&p2p->mac).c_str());
 								}
 							}
 
@@ -3794,7 +3780,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 												// Add Child MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac));
+												DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 
@@ -3806,7 +3792,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 												// Add Peer MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac));
+												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 									}
@@ -3848,8 +3834,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 }
 
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
-	char tmpmac[18];
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac2str((SceNetEtherAddr*)mac, tmpmac), dataLen, dataAddr);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), dataLen, dataAddr);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -3925,8 +3910,7 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
-	char tmpmac[18];
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)mac, tmpmac));
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)mac).c_str());
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -4216,7 +4200,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 							discovered++;
 
 							u32_le ipaddr = peer->ip_addr;
-							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
+							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
 						}
 					}
 
@@ -4746,11 +4730,10 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 				context->socketlock->unlock();
 
 				// Log Send Success
-				char tmpmac[18];
 				if (sent >= 0) 
-					INFO_LOG(SCENET, "InputLoop: Sending BIRTH to %s", mac2str(&peer->mac, tmpmac));
+					INFO_LOG(SCENET, "InputLoop: Sending BIRTH to %s", mac2str(&peer->mac).c_str());
 				else
-					WARN_LOG(SCENET, "InputLoop: Failed to Send BIRTH to %s", mac2str(&peer->mac, tmpmac));
+					WARN_LOG(SCENET, "InputLoop: Failed to Send BIRTH to %s", mac2str(&peer->mac).c_str());
 			}
 		}
 	}
@@ -5647,8 +5630,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					if (peer != NULL) {
 						now = CoreTiming::GetGlobalTimeUsScaled();
 						u64_le delta = now - peer->last_recv;
-						char tmpmac[18];
-						DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac, tmpmac));
+						DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
 						if (/*context->rxbuf[0] > 0 &&*/ peer->last_recv != 0) peer->last_recv = now - 1; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
 					}
 					peerlock.unlock();

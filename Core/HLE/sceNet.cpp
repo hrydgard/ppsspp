@@ -123,16 +123,12 @@ void __NetInit() {
 
 	InitLocalhostIP();
 
-	char tmpmac[18];
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [MAC: %s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
-
-	// Only initialize when UPnP is enabled since it takes a few seconds to detect UPnP device (may affect people who don't have UPnP device)
-	if (g_Config.bEnableUPnP) {
-		// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
-		g_PortManager.Initialize();
-	}
+	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac).c_str());
+	
+	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
+	__UPnPInit();
 
 	__ResetInitNetLib();
 }
@@ -140,15 +136,11 @@ void __NetInit() {
 void __NetShutdown() {
 	// Network Cleanup
 	Net_Term();
-	
+
 	__ResetInitNetLib();
 
 	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
-	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
-		g_PortManager.Clear();
-		g_PortManager.Restore();
-		g_PortManager.Terminate();
-	}
+	__UPnPShutdown();
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
@@ -424,7 +416,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)));
+		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}

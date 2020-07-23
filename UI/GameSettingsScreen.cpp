@@ -688,7 +688,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord Presence information")));
 
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address (localhost = multiple instance)"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	static const char* wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
@@ -1391,17 +1391,9 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-	auto sy = GetI18NCategory("System");
+	auto n = GetI18NCategory("Networking");
 
-#if defined(__ANDROID__)
-	System_InputBoxGetString(sy->T("proAdhocServer Address:"), g_Config.proAdhocServer, [](bool result, const std::string &value) {
-		if (result) {
-			g_Config.proAdhocServer = value;
-		}
-	});
-#else
-	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
-#endif
+	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
 
 	return UI::EVENT_DONE;
 }
@@ -1698,9 +1690,34 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+#if defined(__ANDROID__)
+	buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick); // Since we don't have OnClick Event triggered from TextEdit's Touch().. here we go!
+#endif
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
+	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+
+	std::vector<std::string> listIP = {"localhost","myneighborsushicat.com"};
+	net::GetIPList(listIP);
+	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout* innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	if (listIP.size() > 0) {
+		for (const auto& label : listIP) {
+			// Filter out IP prefixed with "127." and "169.254." also "0." since they can be rendundant or unusable
+			if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
+				auto button = innerView->Add(new Button(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+				button->OnClick.Handle(this, &HostnameSelectScreen::OnIPClick);
+				button->SetTag(label);
+			}
+		}
+	}
+	scrollView->Add(innerView);
+	ipRows_->Add(scrollView);
+	ipRows_->SetVisibility(V_GONE);
+	parent->Add(ipRows_);
+	listIP.clear(); listIP.shrink_to_fit();
 
 	errorView_ = parent->Add(new TextView(n->T("Invalid IP or hostname"), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
 	errorView_->SetTextColor(0xFF3030FF);
@@ -1738,6 +1755,38 @@ UI::EventReturn HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
 
 UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 	addrView_->SetText("");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
+	auto n = GetI18NCategory("Networking");
+#if defined(__ANDROID__)
+	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](bool result, const std::string& value) {
+		if (result) {
+		    addrView_->SetText(value);
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn HostnameSelectScreen::OnShowIPListClick(UI::EventParams& e) {
+	if (ipRows_->GetVisibility() == UI::V_GONE) {
+		ipRows_->SetVisibility(UI::V_VISIBLE);
+	}
+	else {
+		ipRows_->SetVisibility(UI::V_GONE);
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn HostnameSelectScreen::OnIPClick(UI::EventParams& e) {
+	std::string text = e.v ? e.v->Tag() : "";
+	if (text.length() > 0) {
+		addrView_->SetText(text);
+		// TODO: Copy the IP to clipboard for the host to easily share their IP through chatting apps.
+		System_SendMessage("setclipboardtext", text.c_str()); // Doesn't seems to be working on windows (yet?)
+	}
 	return UI::EVENT_DONE;
 }
 

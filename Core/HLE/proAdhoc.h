@@ -893,8 +893,7 @@ bool isPDPPortInUse(uint16_t port);
  */
 bool isPTPPortInUse(uint16_t port);
 
-char* mac2str(SceNetEtherAddr* mac);
-char* mac2str(SceNetEtherAddr* mac, char* str, size_t size = 18);
+std::string mac2str(SceNetEtherAddr* mac);
 
 /*
  * Matching Members
