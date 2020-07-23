@@ -468,7 +468,7 @@ public:
 			// see the Wrong type object error below, but we'll just have to live with that danger.
 			T* t = static_cast<T*>(pool[handle - handleOffset]);
 			if (t == nullptr || t->GetIDType() != T::GetStaticIDType()) {
-				WARN_LOG(SCEKERNEL, "Kernel: Wrong object type for %d (%08x), was %s, should have been %s", handle, handle, t->GetTypeName(), T::GetStaticTypeName());
+				WARN_LOG(SCEKERNEL, "Kernel: Wrong object type for %d (%08x), was %s, should have been %s", handle, handle, t ? t->GetTypeName() : "null", T::GetStaticTypeName());
 				outError = T::GetMissingErrorCode();
 				return 0;
 			}
