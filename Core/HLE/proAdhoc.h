@@ -97,6 +97,10 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 #define POLLPRI POLL_PRI
 #endif
 
+#ifndef SD_BOTH
+#define SD_BOTH 0x02
+#endif
+
 #define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)
 
 // Server Listening Port
@@ -789,7 +793,7 @@ public:
 	AfterAdhocMipsCall() {}
 	static PSPAction* Create() { return new AfterAdhocMipsCall(); }
 	void DoState(PointerWrap& p) override {
-		auto s = p.Section("AfterAdhocMipsCall", 4, 4);
+		auto s = p.Section("AfterAdhocMipsCall", 3, 4);
 		if (!s)
 			return;
 

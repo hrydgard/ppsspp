@@ -1182,279 +1182,292 @@ int friendFinder(){
 		// Acquire Network Lock
 		//_acquireNetworkLock();
 
-		// Ping Server
-		now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
-		if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
-			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
-			// Update Ping Time
-			lastping = now;
-
-			// Prepare Packet
-			uint8_t opcode = OPCODE_PING;
-
-			// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-			int iResult = send(metasocket, (const char *)&opcode, 1, 0);
-			/*if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", errno);
-			//friendFinderRunning = false;
-			}*/
+		// Reconnect when disconnected while Adhocctl is still inited
+		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited) {
+			if (g_Config.bEnableWlan && initNetwork(&product_code) == 0) {
+				networkInited = true;
+			}
 		}
 
-		// Wait for Incoming Data
-		int received = recv(metasocket, (char *)(rx + rxpos), sizeof(rx) - rxpos, 0);
+		if (networkInited) {
+			// Ping Server
+			now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
+			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+				// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
+				// Update Ping Time
+				lastping = now;
 
-		// Free Network Lock
-		//_freeNetworkLock();
+				// Prepare Packet
+				uint8_t opcode = OPCODE_PING;
 
-		// Received Data
-		if (received > 0) {
-			// Fix Position
-			rxpos += received;
-
-			// Log Incoming Traffic
-			//printf("Received %d Bytes of Data from Server\n", received);
-			INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
-		}
-
-		// Handle Packets
-		if (rxpos > 0) {
-			// BSSID Packet
-			if (rx[0] == OPCODE_CONNECT_BSSID) {
-				// Enough Data available
-				if (rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
-					// Cast Packet
-					SceNetAdhocctlConnectBSSIDPacketS2C * packet = (SceNetAdhocctlConnectBSSIDPacketS2C *)rx;
-
-					char tmpmac[18];
-					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac, tmpmac));
-					// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
-					/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-						setState(ADHOCCTL_STATE_GAMEMODE);
-						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-					}
-					else {
-						setState(ADHOCCTL_STATE_CONNECTED);
-						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-					}*/
-					
-					// Update User BSSID
-					parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
-					// Notify Event Handlers
-					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-					// Change State
-					threadStatus = ADHOCCTL_STATE_CONNECTED;
-					// Give time a little time
-					//sceKernelDelayThread(adhocEventDelayMS * 1000);
-					//sleep_ms(adhocEventDelayMS);
-					
-					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
-
-					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C);
+				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
+				int iResult = send(metasocket, (const char*)&opcode, 1, 0);
+				if (iResult == SOCKET_ERROR) {
+					ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", errno);
+					networkInited = false;
+					shutdown(metasocket, SD_BOTH);
+					closesocket(metasocket);
+					metasocket = (int)INVALID_SOCKET;
 				}
 			}
 
-			// Chat Packet
-			else if (rx[0] == OPCODE_CHAT) {
-				// Enough Data available
-				if (rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
-					// Cast Packet
-					SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
-					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CHAT");
-					
-					// Fix strings with null-terminated
-					packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-					packet->base.message[ADHOCCTL_MESSAGE_LEN - 1] = 0;
+			// Wait for Incoming Data
+			int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, 0);
 
-					// Add Incoming Chat to HUD
-					NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
-					incoming = "";
-					name = (char *)packet->name.data;
-					incoming.append(name.substr(0, 8));
-					incoming.append(": ");
-					incoming.append((char *)packet->base.message);
-					chatLog.push_back(incoming);
-					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-					if (chatScreenVisible) {
-						updateChatScreen = true;
-					}
-					else {
-						if (newChat < 50) {
-							newChat += 1;
+			// Free Network Lock
+			//_freeNetworkLock();
+
+			// Received Data
+			if (received > 0) {
+				// Fix Position
+				rxpos += received;
+
+				// Log Incoming Traffic
+				//printf("Received %d Bytes of Data from Server\n", received);
+				INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
+			}
+
+			// Handle Packets
+			if (rxpos > 0) {
+				// BSSID Packet
+				if (rx[0] == OPCODE_CONNECT_BSSID) {
+					// Enough Data available
+					if (rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
+						// Cast Packet
+						SceNetAdhocctlConnectBSSIDPacketS2C* packet = (SceNetAdhocctlConnectBSSIDPacketS2C*)rx;
+
+						char tmpmac[18];
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac, tmpmac));
+						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
+						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+							setState(ADHOCCTL_STATE_GAMEMODE);
+							notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
 						}
+						else {
+							setState(ADHOCCTL_STATE_CONNECTED);
+							notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+						}*/
+
+						// Update User BSSID
+						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
+						// Notify Event Handlers
+						//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+						// Change State
+						threadStatus = ADHOCCTL_STATE_CONNECTED;
+						// Give time a little time
+						//sceKernelDelayThread(adhocEventDelayMS * 1000);
+						//sleep_ms(adhocEventDelayMS);
+
+						// Move RX Buffer
+						memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
+
+						// Fix RX Buffer Length
+						rxpos -= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C);
 					}
-
-					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
-
-					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlChatPacketS2C);
 				}
-			}
 
-			// Connect Packet
-			else if (rx[0] == OPCODE_CONNECT) {
-				// Enough Data available
-				if (rxpos >= (int)sizeof(SceNetAdhocctlConnectPacketS2C)) {
-					// Cast Packet
-					SceNetAdhocctlConnectPacketS2C * packet = (SceNetAdhocctlConnectPacketS2C *)rx;
+				// Chat Packet
+				else if (rx[0] == OPCODE_CHAT) {
+					// Enough Data available
+					if (rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
+						// Cast Packet
+						SceNetAdhocctlChatPacketS2C* packet = (SceNetAdhocctlChatPacketS2C*)rx;
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CHAT");
 
-					// Fix strings with null-terminated
-					packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+						// Fix strings with null-terminated
+						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+						packet->base.message[ADHOCCTL_MESSAGE_LEN - 1] = 0;
 
-					// Log Incoming Peer
-					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac), inet_ntoa(*(in_addr*)&packet->ip), packet->name.data);
+						// Add Incoming Chat to HUD
+						NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
+						incoming = "";
+						name = (char*)packet->name.data;
+						incoming.append(name.substr(0, 8));
+						incoming.append(": ");
+						incoming.append((char*)packet->base.message);
+						chatLog.push_back(incoming);
+						//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+						if (chatScreenVisible) {
+							updateChatScreen = true;
+						}
+						else {
+							if (newChat < 50) {
+								newChat += 1;
+							}
+						}
 
-					// Add User
-					addFriend(packet);
+						// Move RX Buffer
+						memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
 
-					/* // Make sure GameMode participants are all joined (including self MAC)
-					if (adhocctlCurrentMode == PSP_ADHOCCTL_MODE_GAMEMODE) {
-						// From JPCSP: Join complete when all the required MACs have joined
-					}*/
-
-					// Update HUD User Count
-					incoming = "";
-					incoming.append((char *)packet->name.data);
-					incoming.append(" Joined ");
-					//do we need ip?
-					//joined.append((char *)packet->ip);
-					chatLog.push_back(incoming);
-					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-					if (chatScreenVisible) {
-						updateChatScreen = true;
+						// Fix RX Buffer Length
+						rxpos -= sizeof(SceNetAdhocctlChatPacketS2C);
 					}
-				
+				}
+
+				// Connect Packet
+				else if (rx[0] == OPCODE_CONNECT) {
+					// Enough Data available
+					if (rxpos >= (int)sizeof(SceNetAdhocctlConnectPacketS2C)) {
+						// Cast Packet
+						SceNetAdhocctlConnectPacketS2C* packet = (SceNetAdhocctlConnectPacketS2C*)rx;
+
+						// Fix strings with null-terminated
+						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+
+						// Log Incoming Peer
+                        u32_le ipaddr = packet->ip;
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
+
+						// Add User
+						addFriend(packet);
+
+						/* // Make sure GameMode participants are all joined (including self MAC)
+						if (adhocctlCurrentMode == PSP_ADHOCCTL_MODE_GAMEMODE) {
+							// From JPCSP: Join complete when all the required MACs have joined
+						}*/
+
+						// Update HUD User Count
+						incoming = "";
+						incoming.append((char*)packet->name.data);
+						incoming.append(" Joined ");
+						//do we need ip?
+						//joined.append((char *)packet->ip);
+						chatLog.push_back(incoming);
+						//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+						if (chatScreenVisible) {
+							updateChatScreen = true;
+						}
+
 #ifdef LOCALHOST_AS_PEER
-					setUserCount(getActivePeerCount());
+						setUserCount(getActivePeerCount());
 #else
-					// setUserCount(getActivePeerCount()+1);
+						// setUserCount(getActivePeerCount()+1);
 #endif
 
 					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
+						memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
 
-					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
+						// Fix RX Buffer Length
+						rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
+					}
 				}
-			}
 
-			// Disconnect Packet
-			else if (rx[0] == OPCODE_DISCONNECT) {
-				// Enough Data available
-				if (rxpos >= (int)sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
-					// Cast Packet
-					SceNetAdhocctlDisconnectPacketS2C * packet = (SceNetAdhocctlDisconnectPacketS2C *)rx;
+				// Disconnect Packet
+				else if (rx[0] == OPCODE_DISCONNECT) {
+					// Enough Data available
+					if (rxpos >= (int)sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
+						// Cast Packet
+						SceNetAdhocctlDisconnectPacketS2C* packet = (SceNetAdhocctlDisconnectPacketS2C*)rx;
 
-					DEBUG_LOG(SCENET, "FriendFinder: OPCODE_DISCONNECT");
+						DEBUG_LOG(SCENET, "FriendFinder: OPCODE_DISCONNECT");
 
-					// Log Incoming Peer Delete Request
-					INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
+						// Log Incoming Peer Delete Request
+						INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
 
-					// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
-					deleteFriendByIP(packet->ip);
+						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
+						deleteFriendByIP(packet->ip);
 
-					// Update HUD User Count
+						// Update HUD User Count
 #ifdef LOCALHOST_AS_PEER
-					setUserCount(_getActivePeerCount());
+						setUserCount(_getActivePeerCount());
 #else
 					//setUserCount(_getActivePeerCount()+1);
 #endif
 
 					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlDisconnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlDisconnectPacketS2C));
+						memmove(rx, rx + sizeof(SceNetAdhocctlDisconnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlDisconnectPacketS2C));
 
-					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlDisconnectPacketS2C);
-				}
-			}
-
-			// Scan Packet
-			else if (rx[0] == OPCODE_SCAN) {
-				// Enough Data available
-				if (rxpos >= (int)sizeof(SceNetAdhocctlScanPacketS2C)) {
-					// Cast Packet
-					SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
-
-					DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN");
-
-					// Log Incoming Network Information
-					INFO_LOG(SCENET, "Incoming Group Information...");
-
-					// Multithreading Lock
-					peerlock.lock();
-
-					// Allocate Structure Data
-					SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));
-
-					// Allocated Structure Data
-					if (group != NULL) {
-						// Clear Memory, should this be done only when allocating new group?
-						memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
-
-						// Link to existing Groups
-						group->next = newnetworks;
-
-						// Copy Group Name
-						group->group_name = packet->group;
-
-						// Set Group Host
-						group->bssid.mac_addr = packet->mac;
-
-						// Set group parameters
-						// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
-						group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-						group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
-
-						// Link into Group List
-						newnetworks = group;
+						// Fix RX Buffer Length
+						rxpos -= sizeof(SceNetAdhocctlDisconnectPacketS2C);
 					}
+				}
 
-					// Multithreading Unlock
+				// Scan Packet
+				else if (rx[0] == OPCODE_SCAN) {
+					// Enough Data available
+					if (rxpos >= (int)sizeof(SceNetAdhocctlScanPacketS2C)) {
+						// Cast Packet
+						SceNetAdhocctlScanPacketS2C* packet = (SceNetAdhocctlScanPacketS2C*)rx;
+
+						DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN");
+
+						// Log Incoming Network Information
+						INFO_LOG(SCENET, "Incoming Group Information...");
+
+						// Multithreading Lock
+						peerlock.lock();
+
+						// Allocate Structure Data
+						SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));
+
+						// Allocated Structure Data
+						if (group != NULL) {
+							// Clear Memory, should this be done only when allocating new group?
+							memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+
+							// Link to existing Groups
+							group->next = newnetworks;
+
+							// Copy Group Name
+							group->group_name = packet->group;
+
+							// Set Group Host
+							group->bssid.mac_addr = packet->mac;
+
+							// Set group parameters
+							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
+							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
+							group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
+
+							// Link into Group List
+							newnetworks = group;
+						}
+
+						// Multithreading Unlock
+						peerlock.unlock();
+
+						// Move RX Buffer
+						memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
+
+						// Fix RX Buffer Length
+						rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
+					}
+				}
+
+				// Scan Complete Packet
+				else if (rx[0] == OPCODE_SCAN_COMPLETE) {
+					DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN_COMPLETE");
+					// Log Scan Completion
+					INFO_LOG(SCENET, "FriendFinder: Incoming Scan complete response...");
+
+					// Reset current networks to prevent disbanded host to be listed again
+					peerlock.lock();
+					if (networks != newnetworks) {
+						freeGroupsRecursive(networks);
+						networks = newnetworks;
+					}
+					newnetworks = NULL;
 					peerlock.unlock();
 
+					// Notify Event Handlers
+					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+					//int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+					//{
+					//        // Active Handler
+					//        if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
+					//}
+					// Change State
+					threadStatus = ADHOCCTL_STATE_DISCONNECTED;
+					// Give time a little time
+					//sceKernelDelayThread(adhocEventDelayMS * 1000);
+					//sleep_ms(adhocEventDelayMS);
+
 					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
+					memmove(rx, rx + 1, sizeof(rx) - 1);
 
 					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
+					rxpos -= 1;
 				}
-			}
-
-			// Scan Complete Packet
-			else if (rx[0] == OPCODE_SCAN_COMPLETE) {
-				DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN_COMPLETE");
-				// Log Scan Completion
-				INFO_LOG(SCENET, "FriendFinder: Incoming Scan complete response...");
-
-				// Reset current networks to prevent disbanded host to be listed again
-				peerlock.lock();
-				if (networks != newnetworks) {
-					freeGroupsRecursive(networks);
-					networks = newnetworks;
-				}
-				newnetworks = NULL;
-				peerlock.unlock();
-
-				// Notify Event Handlers
-				//notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-				//int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-				//{
-				//        // Active Handler
-				//        if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
-				//}
-				// Change State
-				threadStatus = ADHOCCTL_STATE_DISCONNECTED;
-				// Give time a little time
-				//sceKernelDelayThread(adhocEventDelayMS * 1000);
-				//sleep_ms(adhocEventDelayMS);
-
-				// Move RX Buffer
-				memmove(rx, rx + 1, sizeof(rx) - 1);
-
-				// Fix RX Buffer Length
-				rxpos -= 1;
 			}
 		}
 		// This delay time should be 100ms when there is an event otherwise 500ms ?
@@ -1795,7 +1808,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
 	if (iResult != 0) {
 		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
-		host->NotifyUserMessage(n->T("DNS Error connecting to ") + g_Config.proAdhocServer, 5.0f, 0x0000ff);
+		host->NotifyUserMessage(n->T("DNS Error connecting to ") + g_Config.proAdhocServer, 2.0f, 0x0000ff);
 		return iResult;
 	}
 	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
@@ -1820,7 +1833,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		iResult = bind(metasocket, (struct sockaddr*) & LocalhostIP, sizeof(sockaddr));
 		if (iResult == SOCKET_ERROR) {
 			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), iResult);
-			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), 3.0, 0x0000ff);
+			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), 2.0, 0x0000ff);
 		}
 	}
 	
@@ -1853,7 +1866,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		char buffer[512];
 		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
 		ERROR_LOG(SCENET, "%s", buffer);
-		host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 6.0f, 0x0000ff);
+		host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
 		return iResult;
 	}
 
