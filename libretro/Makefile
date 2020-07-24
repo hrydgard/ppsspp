@@ -374,7 +374,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
 
 # Windows MSVC 2019 all architectures
 else ifneq (,$(findstring windows_msvc2019,$(platform)))
@@ -481,7 +481,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
 
 # Windows
 else ifneq (,$(findstring win,$(platform)))   
@@ -512,7 +512,7 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DGLEW_STATIC -DGLEW_NO_GLU
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
 
 ifeq ($(DEBUG), 1)
 	ifneq (,$(findstring msvc,$(platform)))
