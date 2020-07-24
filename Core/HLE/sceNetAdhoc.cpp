@@ -2277,7 +2277,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					int errorcode = errno;
 
 					if (connectresult == SOCKET_ERROR) {
-						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", id, errorcode);
+						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), socket->pport);
 					}
 					
 					// Restore Blocking Behaviour
@@ -2292,7 +2292,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Set Connected State
 						socket->state = ADHOC_PTP_STATE_ESTABLISHED;
 						
-						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
+						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, socket->lport, inet_ntoa(sin.sin_addr), socket->pport);
 						// Success
 						return 0;
 					}
