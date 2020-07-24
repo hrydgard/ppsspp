@@ -3775,12 +3775,12 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 
 										// Parent Mode
 										if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-											// Interested in Children (Michael Jackson Style)
+											// Interested in Children
 											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
 												// Add Child MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
+												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 
@@ -3792,7 +3792,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 												// Add Peer MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
+												if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)
+													DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
+												else
+													DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 									}
