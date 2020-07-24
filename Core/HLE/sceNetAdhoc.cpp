@@ -4875,9 +4875,11 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 						// Initialize Ping Timer
 						peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+						peerlock.lock();
 						// Link Peer into List
 						peer->next = context->peerlist;
 						context->peerlist = peer;
+						peerlock.unlock();
 					}
 				}
 
@@ -4950,9 +4952,11 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 							// Initialize Ping Timer
 							peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+							peerlock.lock();
 							// Link Peer into List
 							peer->next = context->peerlist;
 							context->peerlist = peer;
+							peerlock.unlock();
 
 							// Spawn Request Event
 							spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);

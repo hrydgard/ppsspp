@@ -478,9 +478,11 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 			// Initialize Ping Timer
 			sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+			peerlock.lock();
 			// Link Peer, should check whether it's already added before
 			sibling->next = context->peerlist;
 			context->peerlist = sibling;
+			peerlock.unlock();
 
 			// Spawn Established Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
