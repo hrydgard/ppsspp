@@ -2277,7 +2277,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					int errorcode = errno;
 
 					if (connectresult == SOCKET_ERROR) {
-						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", id, errorcode);
+						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), socket->pport);
 					}
 					
 					// Restore Blocking Behaviour
@@ -2292,7 +2292,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Set Connected State
 						socket->state = ADHOC_PTP_STATE_ESTABLISHED;
 						
-						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
+						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, socket->lport, inet_ntoa(sin.sin_addr), socket->pport);
 						// Success
 						return 0;
 					}
@@ -3775,12 +3775,12 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 
 										// Parent Mode
 										if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-											// Interested in Children (Michael Jackson Style)
+											// Interested in Children
 											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
 												// Add Child MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
+												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 
@@ -3792,7 +3792,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 												// Add Peer MAC
 												buf2[filledpeers++].mac_addr = peer->mac;
 
-												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
+												if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)
+													DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
+												else
+													DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
 											}
 										}
 									}
@@ -4872,9 +4875,11 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 						// Initialize Ping Timer
 						peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+						peerlock.lock();
 						// Link Peer into List
 						peer->next = context->peerlist;
 						context->peerlist = peer;
+						peerlock.unlock();
 					}
 				}
 
@@ -4947,9 +4952,11 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 							// Initialize Ping Timer
 							peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+							peerlock.lock();
 							// Link Peer into List
 							peer->next = context->peerlist;
 							context->peerlist = peer;
+							peerlock.unlock();
 
 							// Spawn Request Event
 							spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
@@ -5261,7 +5268,7 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 				sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
 				// Initialize Ping Timer
-				peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
 				peerlock.lock();
 
