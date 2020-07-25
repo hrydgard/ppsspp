@@ -4063,7 +4063,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 
 		//if (/*__KernelGetCurThread() == context->matching_thid &&*/ (!__IsInInterrupt() && __KernelIsDispatchEnabled() && !__KernelInCallback()) /*&& !IsMatchingInCallback(context)*/) 
 		{
-			DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i]", args[0], args[1]);
+			DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetData(args[0], args[1], args[2]);
 			//SetMatchingInCallback(context, true);
@@ -4734,9 +4734,9 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Log Send Success
 				if (sent >= 0) 
-					INFO_LOG(SCENET, "InputLoop: Sending BIRTH to %s", mac2str(&peer->mac).c_str());
+					INFO_LOG(SCENET, "InputLoop: Sending BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
 				else
-					WARN_LOG(SCENET, "InputLoop: Failed to Send BIRTH to %s", mac2str(&peer->mac).c_str());
+					WARN_LOG(SCENET, "InputLoop: Failed to Send BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
 			}
 		}
 	}
@@ -5422,7 +5422,7 @@ int matchingEventThread(int matchingId)
 					if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage); //&msg[1]
 
 					// Log Matching Events
-					INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), msg->optlen);
+					INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s][%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), mac2str(&msg->mac).c_str(), msg->optlen);
 
 					// Unlock to prevent race-condition with other threads due to recursive lock
 					context->eventlock->unlock();
