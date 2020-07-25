@@ -666,6 +666,9 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1287,6 +1290,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h">

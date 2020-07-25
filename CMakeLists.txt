@@ -1482,6 +1482,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/HLESubscriber.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
 	Core/Debugger/WebSocket/LogBroadcaster.h
+	Core/Debugger/WebSocket/MemorySubscriber.cpp
+	Core/Debugger/WebSocket/MemorySubscriber.h
 	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
 	Core/Debugger/WebSocket/SteppingBroadcaster.h
 	Core/Debugger/WebSocket/SteppingSubscriber.cpp

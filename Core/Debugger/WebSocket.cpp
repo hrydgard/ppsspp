@@ -55,6 +55,7 @@
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
+#include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
 typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
@@ -66,6 +67,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketGPUBufferInit,
 	&WebSocketGPURecordInit,
 	&WebSocketHLEInit,
+	&WebSocketMemoryInit,
 	&WebSocketSteppingInit,
 });
 
