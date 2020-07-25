@@ -484,8 +484,8 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 			context->peerlist = sibling;
 			peerlock.unlock();
 
-			// Spawn Established Event
-			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+			// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
+			//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 
 			INFO_LOG(SCENET, "Accepting Peer %s", mac2str(&sibling->mac).c_str());
 		}
@@ -989,9 +989,9 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	}
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", contextID, EventID);
-	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 	//SetMatchingInCallback(context, false);
-	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", contextID, EventID, call.cbId, v0);
+	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d][%s] [cbId: %u][retV0: %08x]", contextID, EventID, mac2str((SceNetEtherAddr*)Memory::GetPointer(bufAddr)).c_str(), call.cbId, v0);
+	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 	//call.setReturnValue(v0);
 }
 
