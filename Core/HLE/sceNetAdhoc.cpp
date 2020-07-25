@@ -5278,8 +5278,8 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 
 				peerlock.unlock();
 
-				// Spawn Established Event
-				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+				// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
+				//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 			}
 		}
 	}
