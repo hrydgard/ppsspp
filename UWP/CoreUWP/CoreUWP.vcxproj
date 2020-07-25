@@ -400,6 +400,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.h" />
@@ -618,6 +619,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.cpp" />
