@@ -303,6 +303,7 @@ void RegisterAllModules() {
 	Register_sceUsbAcc();
 	Register_sceUsbMic();
 	Register_sceOpenPSID_driver();
+	Register_semaphore();
 	// add new modules here.
 }
 

@@ -26,6 +26,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelSemaphore.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/FunctionWrappers.h"
 
 #define PSP_SEMA_ATTR_FIFO 0
 #define PSP_SEMA_ATTR_PRIORITY 0x100
@@ -457,3 +458,22 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	}
 }
 
+static u32 hleUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd)
+{
+		sceUtilsBufferCopyWithRange((u8*)outAddr, outSize, (u8*)inAddr, inSize, cmd);
+		return 0;	
+}
+
+
+
+const HLEFunction semaphore[] = {
+	{0x4C537C72, &WrapU_UIUII<hleUtilsBufferCopyWithRange>,                        "sceUtilsBufferCopyWithRange",                   'x', "xixii" },
+	{0x77E97079, &WrapU_UIUII<hleUtilsBufferCopyWithRange>,                        "sceUtilsBufferCopyWithRange",                   'x', "xixii"  },
+	
+};
+
+
+
+void Register_semaphore() {
+	RegisterModule("semaphore", ARRAY_SIZE(semaphore), semaphore);
+}
