@@ -6,6 +6,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.Presentation;
 import android.app.UiModeManager;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -19,11 +20,14 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.hardware.display.DisplayManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.MediaStore;
@@ -90,6 +94,10 @@ public abstract class NativeActivity extends Activity {
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
 	private PowerManager powerManager;
+	private DisplayManager displayManager;
+	private NativeDisplayListener nativeDisplayListener;
+
+	private Presentation mPresentation;
 
 	private Vibrator vibrator;
 
@@ -341,6 +349,39 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
+	// Reference: https://developer.android.com/reference/android/app/Presentation
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+	public void updatePresentation(Display display) {
+		if (mPresentation != null && mPresentation.getDisplay() != display) {
+			mPresentation.dismiss();
+			mPresentation = null;
+		}
+
+		if (mPresentation == null && display != null) {
+			Log.i(TAG, "show presentation on display: " + display);
+			mPresentation = new Presentation(this, display);
+			mPresentation.show();
+			if (javaGL) {
+				mGLSurfaceView.setVisibility(View.INVISIBLE);
+				mGLSurfaceView.onPause();
+			} else {
+				mSurfaceView.setVisibility(View.INVISIBLE);
+				mSurfaceView.onPause();
+			}
+			View dummyView = new View(this);
+			setContentView(dummyView);
+			if (javaGL) {
+				mPresentation.setContentView(mGLSurfaceView);
+				mGLSurfaceView.onResume();
+				mGLSurfaceView.setVisibility(View.VISIBLE);
+			} else {
+				mPresentation.setContentView(mSurfaceView);
+				mSurfaceView.onResume();
+				mSurfaceView.setVisibility(View.VISIBLE);
+			}
+		}
+	}
+
 	@TargetApi(Build.VERSION_CODES.N)
 	private void updateSustainedPerformanceMode() {
 		if (sustainedPerfSupported) {
@@ -531,6 +572,17 @@ public abstract class NativeActivity extends Activity {
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			ensureRenderLoop();
+		}
+		// Setup external display listener
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
+			nativeDisplayListener = new NativeDisplayListener(displayManager, this);
+			displayManager.registerDisplayListener(nativeDisplayListener, new Handler(Looper.getMainLooper()));
+			Display[] displays = displayManager.getDisplays();
+			Log.i(TAG, String.format("%d displays connected", displays.length));
+			if (displays.length > 1) {
+				nativeDisplayListener.onDisplayAdded(displays[1].getDisplayId());
+			}
 		}
 	}
 
