@@ -461,14 +461,18 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 static u32 hleUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd)
 {
 		sceUtilsBufferCopyWithRange((u8*)outAddr, outSize, (u8*)inAddr, inSize, cmd);
+		// Fake a successful operation
 		return 0;	
 }
 
-
+static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd)
+{
+	return sceUtilsBufferCopyWithRange((u8*)outAddr, outSize, (u8*)inAddr, inSize, cmd);
+}
 
 const HLEFunction semaphore[] = {
 	{0x4C537C72, &WrapU_UIUII<hleUtilsBufferCopyWithRange>,                        "sceUtilsBufferCopyWithRange",                   'x', "xixii" },
-	{0x77E97079, &WrapU_UIUII<hleUtilsBufferCopyWithRange>,                        "sceUtilsBufferCopyWithRange",                   'x', "xixii"  },
+	{0x77E97079, &WrapI_UIUII<sceUtilsBufferCopyByPollingWithRange>,               "sceUtilsBufferCopyByPollingWithRange",          'i', "xixii"  },
 	
 };
 
