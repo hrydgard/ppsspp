@@ -301,6 +301,8 @@ enum class Event {
 	PRESENTED,
 };
 
+constexpr uint32_t MAX_TEXTURE_SLOTS = 2;
+
 struct FramebufferDesc {
 	int width;
 	int height;
@@ -610,7 +612,7 @@ public:
 	// Binding a zero render target means binding the backbuffer.
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
 
-	// color must be 0, for now.
+	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 
 	// deprecated
