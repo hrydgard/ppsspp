@@ -127,17 +127,13 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	u32 psar_offset = 0, psar_id = 0;
 	u32 _id = id;
-	switch (_id) {
-	case 'PBP\x00':
+	if (!memcmp(&_id, "PK\x03\x04", 4) || !memcmp(&_id, "PK\x05\x06", 4) || !memcmp(&_id, "PK\x07\x08", 4)) {
+		return IdentifiedFileType::ARCHIVE_ZIP;
+	} else if (!memcmp(&_id, "\x00PBP", 4)) {
 		fileLoader->ReadAt(0x24, 4, 1, &psar_offset);
 		fileLoader->ReadAt(psar_offset, 4, 1, &psar_id);
-		break;
-	case '!raR':
+	} else if (!memcmp(&_id, "Rar!", 4)) {
 		return IdentifiedFileType::ARCHIVE_RAR;
-	case '\x04\x03KP':
-	case '\x06\x05KP':
-	case '\x08\x07KP':
-		return IdentifiedFileType::ARCHIVE_ZIP;
 	}
 
 	if (id == 'FLE\x7F') {

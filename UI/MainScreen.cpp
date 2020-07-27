@@ -52,6 +52,7 @@
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
+#include "UI/InstallZipScreen.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "GPU/GPUInterface.h"
@@ -73,6 +74,27 @@
 #include <sstream>
 
 bool MainScreen::showHomebrewTab = false;
+
+bool LaunchFile(ScreenManager *screenManager, std::string path) {
+	// Depending on the file type, we don't want to launch EmuScreen at all.
+	auto loader = ConstructFileLoader(path);
+	if (!loader) {
+		return false;
+	}
+
+	IdentifiedFileType type = Identify_File(loader);
+	delete loader;
+
+	switch (type) {
+	case IdentifiedFileType::ARCHIVE_ZIP:
+		screenManager->push(new InstallZipScreen(path));
+		break;
+	default:
+		// Let the EmuScreen take care of it.
+		screenManager->switchScreen(new EmuScreen(path));
+		break;
+	}
+}
 
 static bool IsTempPath(const std::string &str) {
 	std::string item = str;
@@ -1155,7 +1177,7 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (screenManager()->topScreen() == this) {
 		if (!strcmp(message, "boot")) {
-			screenManager()->switchScreen(new EmuScreen(value));
+			LaunchFile(screenManager(), std::string(value));
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
 			int tab = tabHolder_->GetCurrentTab();
@@ -1304,8 +1326,7 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 #else
 	std::string path = e.s;
 #endif
-	// Go directly into the game.
-	screenManager()->switchScreen(new EmuScreen(path));
+	LaunchFile(screenManager(), path);
 	return UI::EVENT_DONE;
 }
 

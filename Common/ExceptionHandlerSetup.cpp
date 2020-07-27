@@ -77,9 +77,7 @@ static LONG NTAPI GlobalExceptionHandler(PEXCEPTION_POINTERS pPtrs) {
 }
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
-	// Make sure this is only called once per process execution
-	// Instead, could make a Uninstall function, but whatever..
-	if (g_badAccessHandler) {
+	if (g_vectoredExceptionHandle) {
 		g_badAccessHandler = badAccessHandler;
 		return;
 	}
@@ -90,9 +88,12 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 }
 
 void UninstallExceptionHandler() {
-	RemoveVectoredExceptionHandler(g_vectoredExceptionHandle);
+	if (g_vectoredExceptionHandle) {
+		RemoveVectoredExceptionHandler(g_vectoredExceptionHandle);
+		INFO_LOG(SYSTEM, "Removed exception handler");
+		g_vectoredExceptionHandle = nullptr;
+	}
 	g_badAccessHandler = nullptr;
-	INFO_LOG(SYSTEM, "Removed exception handler");
 }
 
 #elif defined(__APPLE__)
@@ -275,11 +276,15 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 }
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+	if (!badAccessHandler) {
+		return;
+	}
 	if (g_badAccessHandler) {
 		g_badAccessHandler = badAccessHandler;
 		return;
 	}
-	NOTICE_LOG(SYSTEM, "Installed exception handler");
+
+	INFO_LOG(SYSTEM, "Installed exception handler");
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack;
@@ -305,6 +310,9 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 }
 
 void UninstallExceptionHandler() {
+	if (!g_badAccessHandler) {
+		return;
+	}
 	stack_t signal_stack, old_stack;
 	signal_stack.ss_flags = SS_DISABLE;
 	if (!sigaltstack(&signal_stack, &old_stack) && !(old_stack.ss_flags & SS_DISABLE)) {
@@ -314,7 +322,7 @@ void UninstallExceptionHandler() {
 #ifdef __APPLE__
 	sigaction(SIGBUS, &old_sa_bus, nullptr);
 #endif
-	NOTICE_LOG(SYSTEM, "Uninstalled exception handler");
+	INFO_LOG(SYSTEM, "Uninstalled exception handler");
 	g_badAccessHandler = nullptr;
 }
 

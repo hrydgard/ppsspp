@@ -77,7 +77,6 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/GameSettingsScreen.h"
-#include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
@@ -1163,14 +1162,6 @@ void EmuScreen::update() {
 	}
 
 	if (errorMessage_.size()) {
-		// Special handling for ZIP files. It's not very robust to check an error message but meh,
-		// at least it's pre-translation.
-		if (errorMessage_.find("ZIP") != std::string::npos) {
-			screenManager()->push(new InstallZipScreen(gamePath_));
-			errorMessage_ = "";
-			quit_ = true;
-			return;
-		}
 		auto err = GetI18NCategory("Error");
 		std::string errLoadingFile = gamePath_ + "\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
