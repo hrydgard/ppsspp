@@ -87,8 +87,6 @@ bool LaunchFile(ScreenManager *screenManager, std::string path) {
 
 	switch (type) {
 	case IdentifiedFileType::ARCHIVE_ZIP:
-		// Special handling for ZIP files. It's not very robust to check an error message but meh,
-		// at least it's pre-translation.
 		screenManager->push(new InstallZipScreen(path));
 		break;
 	default:
