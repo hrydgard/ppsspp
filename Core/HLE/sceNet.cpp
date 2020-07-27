@@ -48,6 +48,7 @@
 static bool netInited;
 bool netInetInited;
 bool netApctlInited;
+int netApctlStatus;
 u32 netDropRate = 0;
 u32 netDropDuration = 0;
 u32 netPoolAddr = 0;
@@ -57,6 +58,8 @@ u32 netThread2Addr = 0;
 static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
+
+static struct SceNetApctlInfoInternal netApctlInfo;
 
 static int InitLocalhostIP() {
 	// find local IP
@@ -152,6 +155,7 @@ static void __UpdateApctlHandlers(int oldState, int newState, int flag, int erro
 
 	for(std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
 		args[4] = it->second.argument;
+		// TODO: Need to make sure netApctlState is updated before calling the callback's mipscall so the game handler's subroutine can Get and make use the new state/info
 		hleEnqueueCall(it->second.entryPoint, 5, args);
 	}
 }
@@ -193,6 +197,101 @@ void __NetDoState(PointerWrap &p) {
 		netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
 	}
+}
+
+template <typename I> std::string num2hex(I w, size_t hex_len) {
+	static const char* digits = "0123456789ABCDEF";
+	std::string rc(hex_len, '0');
+	for (size_t i = 0, j = (hex_len - 1) * 4; i < hex_len; ++i, j -= 4)
+		rc[i] = digits[(w >> j) & 0x0f];
+	return rc;
+}
+
+std::string error2str(u32 errorCode) {
+	std::string str = "";
+	if (((errorCode >> 31) & 1) != 0)
+		str += "ERROR ";
+	if (((errorCode >> 30) & 1) != 0)
+		str += "CRITICAL ";
+	switch ((errorCode >> 16) & 0xfff) {
+	case 0x41:
+		str += "NET ";
+		break;
+	default:
+		str += "UNK"+num2hex(u16((errorCode >> 16) & 0xfff), 3)+" ";
+	}
+	switch ((errorCode >> 8) & 0xff) {
+	case 0x00:
+		str += "COMMON ";
+		break;
+	case 0x01:
+		str += "CORE ";
+		break;
+	case 0x02:
+		str += "INET ";
+		break;
+	case 0x03:
+		str += "POECLIENT ";
+		break;
+	case 0x04:
+		str += "RESOLVER ";
+		break;
+	case 0x05:
+		str += "DHCP ";
+		break;
+	case 0x06:
+		str += "ADHOC_AUTH ";
+		break;
+	case 0x07:
+		str += "ADHOC ";
+		break;
+	case 0x08:
+		str += "ADHOC_MATCHING ";
+		break;
+	case 0x09:
+		str += "NETCNF ";
+		break;
+	case 0x0a:
+		str += "APCTL ";
+		break;
+	case 0x0b:
+		str += "ADHOCCTL ";
+		break;
+	case 0x0c:
+		str += "UNKNOWN1 ";
+		break;
+	case 0x0d:
+		str += "WLAN ";
+		break;
+	case 0x0e:
+		str += "EAPOL ";
+		break;
+	case 0x0f:
+		str += "8021x ";
+		break;
+	case 0x10:
+		str += "WPA ";
+		break;
+	case 0x11:
+		str += "UNKNOWN2 ";
+		break;
+	case 0x12:
+		str += "TRANSFER ";
+		break;
+	case 0x13:
+		str += "ADHOC_DISCOVER ";
+		break;
+	case 0x14:
+		str += "ADHOC_DIALOG ";
+		break;
+	case 0x15:
+		str += "WISPR ";
+		break;
+	default:
+		str += "UNKNOWN"+num2hex(u8((errorCode >> 8) & 0xff))+" ";
+	}
+	str += num2hex(u8(errorCode & 0xff));
+	return str;
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -449,11 +548,38 @@ int sceNetInetTerm() {
 	return 0;
 }
 
-static int sceNetApctlInit() {
+static int sceNetApctlInit(int stackSize, int initPriority) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetApctlInit()");
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
+
+	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
+	// Set default values
+	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), "Wifi");
+	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), "Wifi");
+	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid));
+	netApctlInfo.ssidLength = 4;
+	netApctlInfo.strength = 99;
+	netApctlInfo.channel = g_Config.iWlanAdhocChannel;
+	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;
+	// Get Local IP Address
+	sockaddr_in sockAddr;
+	getLocalIp(&sockAddr);
+	char ipstr[INET_ADDRSTRLEN] = "127.0.0.1"; // default
+	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
+	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), ipstr);
+	// Change the last number to 1 to indicate a common dns server/internet gateway
+	((u8*)&sockAddr.sin_addr.s_addr)[3] = 1;
+	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
+	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
+	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "8.8.8.8");
+	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "255.255.255.0");
+
+	// TODO: Create APctl fake-Thread
+
 	netApctlInited = true;
+	netApctlStatus = PSP_NET_APCTL_STATE_DISCONNECTED;
 
 	return 0;
 }
@@ -461,8 +587,94 @@ static int sceNetApctlInit() {
 int sceNetApctlTerm() {
 	ERROR_LOG(SCENET, "UNIMPL sceNeApctlTerm()");
 	netApctlInited = false;
+	netApctlStatus = PSP_NET_APCTL_STATE_DISCONNECTED;
 	
 	return 0;
+}
+
+static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+
+	if (!netApctlInited)
+		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
+
+	if (!Memory::IsValidAddress(pInfoAddr))
+		return hleLogError(SCENET, -1, "apctl invalid arg");
+
+	u8* info = Memory::GetPointer(pInfoAddr); // FIXME: Points to a union instead of a struct thus each field have the same address
+
+	switch (code) {
+	case PSP_NET_APCTL_INFO_PROFILE_NAME:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.name);
+		DEBUG_LOG(SCENET, "ApctlInfo - ProfileName: %s", netApctlInfo.name);
+		break;
+	case PSP_NET_APCTL_INFO_BSSID:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.bssid);
+		DEBUG_LOG(SCENET, "ApctlInfo - BSSID: %s", mac2str((SceNetEtherAddr*)&netApctlInfo.bssid).c_str());
+		break;
+	case PSP_NET_APCTL_INFO_SSID:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.ssid);
+		DEBUG_LOG(SCENET, "ApctlInfo - SSID: %s", netApctlInfo.ssid);
+		break;
+	case PSP_NET_APCTL_INFO_SSID_LENGTH:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.ssidLength);
+		break;
+	case PSP_NET_APCTL_INFO_SECURITY_TYPE:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.securityType);
+		break;
+	case PSP_NET_APCTL_INFO_STRENGTH:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.strength);
+		break;
+	case PSP_NET_APCTL_INFO_CHANNEL:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.channel);
+		break;
+	case PSP_NET_APCTL_INFO_POWER_SAVE:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.powerSave);
+		break;
+	case PSP_NET_APCTL_INFO_IP:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.ip);
+		DEBUG_LOG(SCENET, "ApctlInfo - IP: %s", netApctlInfo.ip);
+		break;
+	case PSP_NET_APCTL_INFO_SUBNETMASK:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.subNetMask);
+		DEBUG_LOG(SCENET, "ApctlInfo - SubNet Mask: %s", netApctlInfo.subNetMask);
+		break;
+	case PSP_NET_APCTL_INFO_GATEWAY:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.gateway);
+		DEBUG_LOG(SCENET, "ApctlInfo - Gateway IP: %s", netApctlInfo.gateway);
+		break;
+	case PSP_NET_APCTL_INFO_PRIMDNS:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.primaryDns);
+		DEBUG_LOG(SCENET, "ApctlInfo - Primary DNS: %s", netApctlInfo.primaryDns);
+		break;
+	case PSP_NET_APCTL_INFO_SECDNS:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.secondaryDns);
+		DEBUG_LOG(SCENET, "ApctlInfo - Secondary DNS: %s", netApctlInfo.secondaryDns);
+		break;
+	case PSP_NET_APCTL_INFO_USE_PROXY:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.useProxy);
+		break;
+	case PSP_NET_APCTL_INFO_PROXY_URL:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.proxyUrl);
+		DEBUG_LOG(SCENET, "ApctlInfo - Proxy URL: %s", netApctlInfo.proxyUrl);
+		break;
+	case PSP_NET_APCTL_INFO_PROXY_PORT:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.proxyPort);
+		break;
+	case PSP_NET_APCTL_INFO_8021_EAP_TYPE:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.eapType);
+		break;
+	case PSP_NET_APCTL_INFO_START_BROWSER:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.startBrowser);
+		break;
+	case PSP_NET_APCTL_INFO_WIFISP:
+		Memory::WriteStruct(pInfoAddr, &netApctlInfo.wifisp);
+		break;
+	default:
+		return hleLogError(SCENET, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
+	}
+
+	return hleLogSuccessI(SCENET, 0);
 }
 
 // TODO: How many handlers can the PSP actually have for Apctl?
@@ -615,18 +827,199 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 	return -1;
 }
 
+static int sceNetApctlConnect(int connIndex) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, connIndex);
+
+	netApctlStatus = PSP_NET_APCTL_STATE_JOINING;
+	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
+	return 0;
+}
+
 static int sceNetApctlDisconnect() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
+	netApctlStatus = PSP_NET_APCTL_STATE_DISCONNECTED;
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
 	return 0;
+}
+
+static int sceNetApctlGetState(u32 pStateAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, pStateAddr);
+	
+	//if (!netApctlInited) return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
+
+	// Valid Arguments
+	if (Memory::IsValidAddress(pStateAddr)) {
+		// Return Thread Status
+		Memory::Write_U32(netApctlStatus, pStateAddr);
+		// Return Success
+		return hleLogSuccessI(SCENET, 0);
+	}
+
+	return hleLogError(SCENET, -1, "apctl invalid arg");
+}
+
+static int sceNetApctlScanUser() {
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+
+	// Scan probably only works when not in connected state, right?
+	if (netApctlStatus != PSP_NET_APCTL_STATE_DISCONNECTED)
+		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+
+	netApctlStatus = PSP_NET_APCTL_STATE_SCANNING;
+	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
+	return 0;
+}
+
+static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
+
+	const int userInfoSize = 8;
+	int entries = 1;
+	if (!Memory::IsValidAddress(sizeAddr))
+		hleLogError(SCENET, -1, "apctl invalid arg");
+
+	int size = Memory::Read_U32(sizeAddr);
+	// Return size required
+	Memory::Write_U32(entries * userInfoSize, sizeAddr);
+
+	if (bufAddr != 0 && Memory::IsValidAddress(sizeAddr)) {
+		int offset = 0;
+		for (int i = 0; i < entries; i++) {
+			// Check if enough space available to write the next structure
+			if (offset + userInfoSize > size) {
+				break;
+			}
+
+			DEBUG_LOG(SCENET, "%s returning %d at %08x", __FUNCTION__, i, bufAddr + offset);
+
+			// Pointer to next Network structure in list
+			Memory::Write_U32((i+1)*userInfoSize + bufAddr, bufAddr + offset);
+			offset += 4;
+
+			// Entry ID
+			Memory::Write_U32(i, bufAddr + offset);
+			offset += 4;
+		}
+		// Fix the last Pointer
+		if (offset > 0)
+			Memory::Write_U32(0, bufAddr + offset - userInfoSize);
+	}
+
+	return hleLogWarning(SCENET, 0, "untested");
+}
+
+static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+
+	if (!Memory::IsValidAddress(resultAddr))
+		hleLogError(SCENET, -1, "apctl invalid arg");
+
+	switch (infoId) {
+	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
+		Memory::WriteStruct(resultAddr, &netApctlInfo.bssid);
+		break;
+	case PSP_NET_APCTL_DESC_SSID_NAME:
+		// Return 32 bytes
+		Memory::WriteStruct(resultAddr, &netApctlInfo.ssid);
+		break;
+	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
+		// Return one 32-bit value
+		Memory::WriteStruct(resultAddr, &netApctlInfo.ssidLength);
+		break;
+	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
+		// Return 1 byte
+		Memory::WriteStruct(resultAddr, &netApctlInfo.strength);
+		break;
+	case PSP_NET_APCTL_DESC_SECURITY:
+		// Return one 32-bit value
+		Memory::WriteStruct(resultAddr, &netApctlInfo.securityType);
+		break;
+	default:
+		return hleLogError(SCENET, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
+	}
+
+	return hleLogWarning(SCENET, 0, "untested");
+}
+
+static int sceNetApctlScanSSID2() {
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+
+	// Scan probably only works when not in connected state, right?
+	if (netApctlStatus != PSP_NET_APCTL_STATE_DISCONNECTED)
+		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+
+	netApctlStatus = PSP_NET_APCTL_STATE_SCANNING;
+	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
+	return 0;
+}
+
+static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
+	return hleLogError(SCENET, 0, "unimplemented");
+}
+
+static int sceNetApctlGetBSSDescEntry2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
+	return hleLogError(SCENET, 0, "unimplemented");
 }
 
 static int sceNetResolverInit()
 {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	return 0;
+}
+
+static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	// This seems to be a 2nd kind of handler
+	return sceNetApctlAddHandler(handlerPtr, handlerArg);
+}
+
+static int sceNetApctlDelInternalHandler(u32 handlerID) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
+	// This seems to be a 2nd kind of handler
+	return sceNetApctlDelHandler(handlerID);
+}
+
+static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	// This seems to be a 3rd kind of handler
+	return sceNetApctlAddHandler(handlerPtr, handlerArg);
+}
+
+static int sceNetApctl_6F5D2981(u32 handlerID) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
+	// This seems to be a 3rd kind of handler
+	return sceNetApctlDelHandler(handlerID);
+}
+
+static int sceNetApctl_lib2_69745F0A(int handlerId) {
+	return hleLogError(SCENET, 0, "unimplemented");
+}
+
+static int sceNetApctl_lib2_4C19731F(int code, u32 pInfoAddr) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+	return sceNetApctlGetInfo(code, pInfoAddr);
+}
+
+static int sceNetApctlScan() {
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return sceNetApctlScanUser();
+}
+
+static int sceNetApctlGetBSSDescIDList(u32 sizeAddr, u32 bufAddr) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
+	return sceNetApctlGetBSSDescIDListUser(sizeAddr, bufAddr);
+}
+
+static int sceNetApctlGetBSSDescEntry(int entryId, int infoId, u32 resultAddr) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+	return sceNetApctlGetBSSDescEntryUser(entryId, infoId, resultAddr);
+}
+
+static int sceNetApctl_lib2_C20A144C(int connIndex, u32 ps3MacAddressPtr) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, connIndex, ps3MacAddressPtr);
+	return sceNetApctlConnect(connIndex);
 }
 
 
@@ -734,20 +1127,30 @@ const HLEFunction sceNetInet[] = {
 };
 
 const HLEFunction sceNetApctl[] = {
-	{0XCFB957C6, nullptr,                            "sceNetApctlConnect",              '?', ""     },
+	{0XCFB957C6, &WrapI_I<sceNetApctlConnect>,       "sceNetApctlConnect",              'i', "i"    },
 	{0X24FE91A1, &WrapI_V<sceNetApctlDisconnect>,    "sceNetApctlDisconnect",           'i', ""     },
-	{0X5DEAC81B, nullptr,                            "sceNetApctlGetState",             '?', ""     },
+	{0X5DEAC81B, &WrapI_U<sceNetApctlGetState>,      "sceNetApctlGetState",             'i', "x"    },
 	{0X8ABADD51, &WrapU_UU<sceNetApctlAddHandler>,   "sceNetApctlAddHandler",           'x', "xx"   },
-	{0XE2F91F9B, &WrapI_V<sceNetApctlInit>,          "sceNetApctlInit",                 'i', ""     },
+	{0XE2F91F9B, &WrapI_II<sceNetApctlInit>,          "sceNetApctlInit",                'i', "ii"   },
 	{0X5963991B, &WrapI_U<sceNetApctlDelHandler>,    "sceNetApctlDelHandler",           'i', "x"    },
 	{0XB3EDD0EC, &WrapI_V<sceNetApctlTerm>,          "sceNetApctlTerm",                 'i', ""     },
-	{0X2BEFDF23, nullptr,                            "sceNetApctlGetInfo",              '?', ""     },
-	{0XA3E77E13, nullptr,                            "sceNetApctlScanSSID2",            '?', ""     },
-	{0XE9B2E5E6, nullptr,                            "sceNetApctlScanUser",             '?', ""     },
-	{0XF25A5006, nullptr,                            "sceNetApctlGetBSSDescIDList2",    '?', ""     },
-	{0X2935C45B, nullptr,                            "sceNetApctlGetBSSDescEntry2",     '?', ""     },
-	{0X04776994, nullptr,                            "sceNetApctlGetBSSDescEntryUser",  '?', ""     },
-	{0X6BDDCB8C, nullptr,                            "sceNetApctlGetBSSDescIDListUser", '?', ""     },
+	{0X2BEFDF23, &WrapI_IU<sceNetApctlGetInfo>,      "sceNetApctlGetInfo",              'i', "ix"   },
+	{0XA3E77E13, &WrapI_V<sceNetApctlScanSSID2>,     "sceNetApctlScanSSID2",            'i', ""     },
+	{0XE9B2E5E6, &WrapI_V<sceNetApctlScanUser>,                 "sceNetApctlScanUser",             'i', ""     },
+	{0XF25A5006, &WrapI_UUUU<sceNetApctlGetBSSDescIDList2>,     "sceNetApctlGetBSSDescIDList2",    'i', "xxxx" },
+	{0X2935C45B, &WrapI_UUUU<sceNetApctlGetBSSDescEntry2>,      "sceNetApctlGetBSSDescEntry2",     'i', "xxxx" },
+	{0X04776994, &WrapI_IIU<sceNetApctlGetBSSDescEntryUser>,    "sceNetApctlGetBSSDescEntryUser",  'i', "iix"  },
+	{0X6BDDCB8C, &WrapI_UU<sceNetApctlGetBSSDescIDListUser>,    "sceNetApctlGetBSSDescIDListUser", 'i', "xx"   },
+	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
+	{0XE11BAFAB, &WrapI_U<sceNetApctlDelInternalHandler>,       "sceNetApctlDelInternalHandler",   'i', "x"    },
+	{0XA7BB73DF, &WrapI_UU<sceNetApctl_A7BB73DF>,               "sceNetApctl_A7BB73DF",            'i', "xx"   },
+	{0X6F5D2981, &WrapI_U<sceNetApctl_6F5D2981>,                "sceNetApctl_6F5D2981",            'i', "x"    },
+	{0X69745F0A, &WrapI_I<sceNetApctl_lib2_69745F0A>,           "sceNetApctl_lib2_69745F0A",       'i', "i"    },
+	{0X4C19731F, &WrapI_IU<sceNetApctl_lib2_4C19731F>,          "sceNetApctl_lib2_4C19731F",       'i', "ix"   },
+	{0XB3CF6849, &WrapI_V<sceNetApctlScan>,                     "sceNetApctlScan",                 'i', ""     },
+	{0X0C7FFA5C, &WrapI_UU<sceNetApctlGetBSSDescIDList>,        "sceNetApctlGetBSSDescIDList",     'i', "xx"   },
+	{0X96BEB231, &WrapI_IIU<sceNetApctlGetBSSDescEntry>,        "sceNetApctlGetBSSDescEntry",      'i', "iix"  },
+	{0XC20A144C, &WrapI_IU<sceNetApctl_lib2_C20A144C>,          "sceNetApctl_lib2_C20A144C",       'i', "ix"    },
 };
 
 const HLEFunction sceWlanDrv[] = {
