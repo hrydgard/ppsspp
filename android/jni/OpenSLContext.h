@@ -3,20 +3,7 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
-typedef int (*AndroidAudioCallback)(short *buffer, int num_samples);
-
-class AudioContext {
-public:
-	AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate);
-	virtual bool Init() { return false; }
-	virtual ~AudioContext() {}
-
-protected:
-	AndroidAudioCallback audioCallback;
-
-	int framesPerBuffer;
-	int sampleRate;
-};
+#include "AndroidAudio.h"
 
 class OpenSLContext : public AudioContext {
 public:

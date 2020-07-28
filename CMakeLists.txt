@@ -730,10 +730,10 @@ if(ANDROID)
 		android/jni/AndroidVulkanContext.cpp
 		android/jni/AndroidVulkanContext.h
 		android/jni/AndroidGraphicsContext.h
-		android/jni/native_audio.cpp
-		android/jni/native_audio.h
-		android/jni/native-audio-so.cpp
-		android/jni/native-audio-so.h
+		android/jni/AndroidAudio.cpp
+		android/jni/AndroidAudio.h
+		android/jni/OpenSLContext.cpp
+		android/jni/OpenSLContext.h
 	)
 	# No target
 elseif(IOS)

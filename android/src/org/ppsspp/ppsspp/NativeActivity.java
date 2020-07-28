@@ -630,19 +630,22 @@ public abstract class NativeActivity extends Activity {
 			}
 			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
-			audioFocusChangeListener = null;
-			audioManager = null;
 		} else {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+
+		// Probably vain attempt to help the garbage collector...
+		audioFocusChangeListener = null;
+		audioManager = null;
+
 		sizeManager.setSurfaceView(null);
 		if (mPowerSaveModeReceiver != null) {
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
 		}
+
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
@@ -697,6 +700,7 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
+
 		// OK, config should be initialized, we can query for screen rotation.
 		if (javaGL || Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 			updateScreenRotation("onResume");

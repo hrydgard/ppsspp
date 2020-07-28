@@ -499,8 +499,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/AndroidEGLContext.cpp \
   $(SRC)/android/jni/AndroidJavaGLContext.cpp \
   $(SRC)/android/jni/AndroidVulkanContext.cpp \
-  $(SRC)/android/jni/native_audio.cpp \
-  $(SRC)/android/jni/native-audio-so.cpp \
+  $(SRC)/android/jni/AndroidAudio.cpp \
+  $(SRC)/android/jni/OpenSLContext.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \

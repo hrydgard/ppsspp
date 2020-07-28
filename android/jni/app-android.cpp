@@ -63,7 +63,7 @@ struct JNIEnv {};
 #include "math/math_util.h"
 #include "net/resolve.h"
 #include "util/text/parsers.h"
-#include "android/jni/native_audio.h"
+#include "android/jni/AndroidAudio.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 

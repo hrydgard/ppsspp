@@ -1,7 +1,21 @@
 #pragma once
 
-#include "native-audio-so.h"
 #include <string>
+
+typedef int (*AndroidAudioCallback)(short *buffer, int num_samples);
+
+class AudioContext {
+public:
+	AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate);
+	virtual bool Init() { return false; }
+	virtual ~AudioContext() {}
+
+protected:
+	AndroidAudioCallback audioCallback;
+
+	int framesPerBuffer;
+	int sampleRate;
+};
 
 struct AndroidAudioState;
 
