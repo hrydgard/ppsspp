@@ -94,6 +94,7 @@ bool LaunchFile(ScreenManager *screenManager, std::string path) {
 		screenManager->switchScreen(new EmuScreen(path));
 		break;
 	}
+	return true;
 }
 
 static bool IsTempPath(const std::string &str) {
@@ -1326,7 +1327,8 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 #else
 	std::string path = e.s;
 #endif
-	LaunchFile(screenManager(), path);
+	ScreenManager *screen = screenManager();
+	LaunchFile(screen, path);
 	return UI::EVENT_DONE;
 }
 
