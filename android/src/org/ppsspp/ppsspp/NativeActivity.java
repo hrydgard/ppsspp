@@ -616,6 +616,7 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		Log.i(TAG, "onDestroy");
 		if (javaGL) {
 			if (nativeRenderer.isRenderingFrame()) {
 				Log.i(TAG, "Waiting for renderer to finish.");
@@ -628,7 +629,6 @@ public abstract class NativeActivity extends Activity {
 					tries--;
 				} while (nativeRenderer.isRenderingFrame() && tries > 0);
 			}
-			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
 			mGLSurfaceView = null;
 		} else {

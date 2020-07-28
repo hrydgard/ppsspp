@@ -13,6 +13,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static String TAG = "NativeRenderer";
 	private NativeActivity mActivity;
 	private boolean inFrame;
+	private boolean failed = false;
 
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
@@ -21,6 +22,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	public boolean isRenderingFrame() {
 		return inFrame;
 	}
+	public boolean hasFailedInit() { return failed; }
 
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
 		inFrame = true;
@@ -29,6 +31,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	}
 
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+		failed = false;
 		Log.i(TAG, "NativeRenderer: onSurfaceCreated");
 
 		EGL10 egl = (EGL10)EGLContext.getEGL();
@@ -49,7 +52,10 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		}
 		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
-		displayInit();
+		if (!displayInit()) {
+			Log.e(TAG, "Display init failed");
+			failed = true;
+		}
 	}
 
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
@@ -57,7 +63,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects.
-	public native void displayInit();
+	public native boolean displayInit();
 
 	public native void displayRender();
 }

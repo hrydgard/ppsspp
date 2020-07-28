@@ -71,7 +71,6 @@ bool AndroidVulkanContext::InitAPI() {
 	}
 
 	g_Vulkan->ChooseDevice(physicalDevice);
-	// Here we can enable device extensions if we like.
 
 	ILOG("Creating Vulkan device");
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
@@ -82,6 +81,7 @@ bool AndroidVulkanContext::InitAPI() {
 		g_Vulkan = nullptr;
 		return false;
 	}
+
 	ILOG("Vulkan device created!");
 	return true;
 }

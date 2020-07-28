@@ -399,17 +399,23 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	pauseRequested = false;
 	resumeRequested = false;
 
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
+	if (!success) {
+		delete draw_;
+		draw_ = nullptr;
+		ReleaseGLContext();
+		return false;
+	}
+
 	// These are auto-reset events.
 	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
-	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
-	_assert_msg_(success, "Failed to compile preset shaders");
 	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
 	if (wglSwapIntervalEXT) {
 		// glew loads wglSwapIntervalEXT if available
@@ -430,14 +436,10 @@ void WindowsGLContext::Shutdown() {
 	glslang::FinalizeProcess();
 }
 
-void WindowsGLContext::ShutdownFromRenderThread() {
-	delete draw_;
-	draw_ = nullptr;
-	CloseHandle(pauseEvent);
-	CloseHandle(resumeEvent);
+void WindowsGLContext::ReleaseGLContext() {
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
-		if (!wglMakeCurrent(NULL,NULL)) {
+		if (!wglMakeCurrent(NULL, NULL)) {
 			MessageBox(NULL, L"Release of DC and RC failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 
@@ -456,6 +458,14 @@ void WindowsGLContext::ShutdownFromRenderThread() {
 		hDC = NULL;
 	}
 	hWnd_ = NULL;
+}
+
+void WindowsGLContext::ShutdownFromRenderThread() {
+	delete draw_;
+	draw_ = nullptr;
+	CloseHandle(pauseEvent);
+	CloseHandle(resumeEvent);
+	ReleaseGLContext();
 }
 
 void WindowsGLContext::Resize() {

@@ -3,7 +3,6 @@
 #include <string>
 #include <algorithm>
 #include <map>
-#include <cassert>
 
 #include "base/logging.h"
 #include "math/dataconv.h"
