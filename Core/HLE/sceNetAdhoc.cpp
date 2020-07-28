@@ -45,14 +45,6 @@
 #include "Core/HLE/proAdhocServer.h"
 #include "i18n/i18n.h"
 
-// Using constants instead of numbers for readability reason, since PSP_THREAD_ATTR_KERNEL/USER is located in sceKernelThread.cpp instead of sceKernelThread.h
-#ifndef PSP_THREAD_ATTR_KERNEL
-#define PSP_THREAD_ATTR_KERNEL 0x00001000
-#endif
-#ifndef PSP_THREAD_ATTR_USER
-#define PSP_THREAD_ATTR_USER 0x80000000
-#endif
-
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;

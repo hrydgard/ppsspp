@@ -796,10 +796,11 @@ public:
 		auto s = p.Section("AfterAdhocMipsCall", 3, 4);
 		if (!s)
 			return;
-
-		p.Do(HandlerID);
-		p.Do(EventID);
-		p.Do(argsAddr);
+		if (s >= 3) {
+			p.Do(HandlerID);
+			p.Do(EventID);
+			p.Do(argsAddr);
+		}
 	}
 	void run(MipsCall& call) override;
 	void SetData(int handlerID, int eventId, u32_le argsAddr);
@@ -818,13 +819,13 @@ public:
 		auto s = p.Section("AfterMatchingMipsCall", 1, 4);
 		if (!s)
 			return;
-
-		p.Do(EventID);
+		if (s >= 1) {
+			p.Do(EventID);
+		}
 		if (s >= 4) {
 			p.Do(contextID);
 			p.Do(bufAddr);
 		}
-		//context = NULL;
 	}
 	void run(MipsCall &call) override;
 	void SetData(int ContextID, int eventId, u32_le BufAddr);

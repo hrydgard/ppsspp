@@ -48,6 +48,7 @@ extern bool netAdhocInited;
 extern bool netAdhocctlInited;
 extern bool networkInited;
 extern int adhocDefaultTimeout;
+extern int adhocExtraPollDelayMS;
 extern int adhocEventPollDelayMS;
 extern int adhocMatchingEventDelayMS;
 extern int adhocEventDelayMS; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
