@@ -102,6 +102,7 @@ static u32 sceKernelPartitionMaxFreeMemSize(int partitionId) {
 static u32 SysMemForKernel_536AD5E1()
 {
 	ERROR_LOG(SCEKERNEL, "UNIMP SysMemForKernel_536AD5E1");
+	return 0;
 }
 
 
