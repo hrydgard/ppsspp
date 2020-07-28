@@ -1065,7 +1065,7 @@ public abstract class NativeActivity extends Activity {
 		else
 			bld = createDialogBuilderNew();
 
-		AlertDialog dlg = bld
+		AlertDialog.Builder builder = bld
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
@@ -1081,15 +1081,17 @@ public abstract class NativeActivity extends Activity {
 					NativeApp.sendInputBox(seqID, false, "");
 					d.cancel();
 				}
-			})
-			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			});
+		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
 					NativeApp.sendInputBox(seqID, false, "");
 					updateSystemUiVisibility();
 				}
-			})
-			.create();
+			});
+		}
+		AlertDialog dlg = builder.create();
 
 		dlg.setCancelable(true);
 		dlg.show();
