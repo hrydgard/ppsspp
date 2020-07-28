@@ -99,6 +99,12 @@ static u32 sceKernelPartitionMaxFreeMemSize(int partitionId) {
 	return userMemory.GetLargestFreeBlockSize();
 }
 
+static u32 SysMemForKernel_536AD5E1()
+{
+	ERROR_LOG(SCEKERNEL, "UNIMP SysMemForKernel_536AD5E1");
+}
+
+
 const HLEFunction SysMemForKernel[] = {
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>, "sceKernelAllocHeapMemory", 'x', "ii",                                  HLE_KERNEL_SYSCALL },
 	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,       "sceKernelDeleteHeap",      'i', "i" ,                                  HLE_KERNEL_SYSCALL },
@@ -108,6 +114,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0X9D9A5BA1, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",             'x', "i",          HLE_KERNEL_SYSCALL },
 	{ 0x9697CD32, &WrapU_I<sceKernelPartitionTotalFreeMemSize>,           "sceKernelPartitionTotalFreeMemSize",       'x', "i",HLE_KERNEL_SYSCALL },
 	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,             "sceKernelPartitionMaxFreeMemSize",         'x', "i",HLE_KERNEL_SYSCALL },
+	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",                'x', ""           ,HLE_KERNEL_SYSCALL },
+	{ 0x536AD5E1, &WrapU_V<SysMemForKernel_536AD5E1>,       "SysMemForKernel_536AD5E1",      'i', "i"                         ,HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
