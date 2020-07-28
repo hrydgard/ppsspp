@@ -605,7 +605,7 @@ retry:
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	sampleRate = optimalSampleRate;
-	if (NativeQueryConfig("force44khz") != "0" || optimalSampleRate == 0) {
+	if (optimalSampleRate == 0) {
 		sampleRate = 44100;
 	}
 	if (optimalFramesPerBuffer > 0) {

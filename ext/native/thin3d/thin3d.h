@@ -136,6 +136,7 @@ enum class Primitive {
 	TRIANGLE_STRIP_ADJ,
 
 	UNDEFINED,
+	PRIMITIVE_TYPE_COUNT,
 };
 
 enum VertexShaderPreset : int {
