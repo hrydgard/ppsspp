@@ -2,6 +2,7 @@ package org.ppsspp.ppsspp;
 
 import android.opengl.GLSurfaceView;
 import android.util.Log;
+import android.widget.Toast;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -12,7 +13,7 @@ import javax.microedition.khronos.opengles.GL10;
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static String TAG = "NativeRenderer";
 	private NativeActivity mActivity;
-	private boolean inFrame;
+	private boolean inFrame = false;
 	private boolean failed = false;
 
 	NativeRenderer(NativeActivity act) {
@@ -22,6 +23,8 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	public boolean isRenderingFrame() {
 		return inFrame;
 	}
+
+	// TODO: Make use of this somehow.
 	public boolean hasFailedInit() { return failed; }
 
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
@@ -50,20 +53,18 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		} else {
 			Log.e(TAG, "egl == null");
 		}
-		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
-		// Actually, it seems that it is here we should recreate lost GL objects.
+
 		if (!displayInit()) {
 			Log.e(TAG, "Display init failed");
+			Toast.makeText(mActivity, "Failed to initialize rendering. Close the app and try again.", Toast.LENGTH_LONG);
 			failed = true;
 		}
 	}
 
-	public void onSurfaceChanged(GL10 unused, int width, int height) {
-	}
+	public void onSurfaceChanged(GL10 unused, int width, int height) {}
 
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects.
 	public native boolean displayInit();
-
 	public native void displayRender();
 }
