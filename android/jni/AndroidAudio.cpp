@@ -1,6 +1,18 @@
 #include "base/logging.h"
-#include "android/jni/native_audio.h"
-#include "android/jni/native-audio-so.h"
+#include "android/jni/AndroidAudio.h"
+#include "android/jni/OpenSLContext.h"
+
+AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)
+	: audioCallback(cb), framesPerBuffer(_FramesPerBuffer), sampleRate(_SampleRate) {
+	if (framesPerBuffer == 0)
+		framesPerBuffer = 256;
+	if (framesPerBuffer < 32)
+		framesPerBuffer = 32;
+	if (framesPerBuffer > 4096)
+		framesPerBuffer = 4096;
+
+	sampleRate = _SampleRate;
+}
 
 struct AndroidAudioState {
 	AudioContext *ctx = nullptr;

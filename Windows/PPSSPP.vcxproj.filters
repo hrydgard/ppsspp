@@ -205,12 +205,6 @@
     <ClCompile Include="..\android\jni\app-android.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\native_audio.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\native-audio-so.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
     <ClCompile Include="..\ios\SmartKeyboardMap.cpp">
       <Filter>Other Platforms\iOS</Filter>
     </ClCompile>
@@ -270,6 +264,12 @@
     </ClCompile>
     <ClCompile Include="..\UWP\pch.cpp">
       <Filter>Other Platforms\UWP</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\AndroidAudio.cpp">
+      <Filter>Other Platforms\Android</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\OpenSLContext.cpp">
+      <Filter>Other Platforms\Android</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -430,12 +430,6 @@
     <ClInclude Include="..\android\jni\app-android.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
-    <ClInclude Include="..\android\jni\native_audio.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\native-audio-so.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
     <ClInclude Include="..\ios\ViewController.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
@@ -537,6 +531,12 @@
     </ClInclude>
     <ClInclude Include="..\UWP\pch.h">
       <Filter>Other Platforms\UWP</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidAudio.h">
+      <Filter>Other Platforms\Android</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\OpenSLContext.h">
+      <Filter>Other Platforms\Android</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

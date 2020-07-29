@@ -4,7 +4,6 @@
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
 
-#include <cassert>
 #include <cstdlib>
 #include <cstdint>
 
@@ -63,7 +62,7 @@ struct JNIEnv {};
 #include "math/math_util.h"
 #include "net/resolve.h"
 #include "util/text/parsers.h"
-#include "android/jni/native_audio.h"
+#include "android/jni/AndroidAudio.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
@@ -594,7 +593,6 @@ retry:
 		ELOG("NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		goto retry;
-		// Crash();
 	}
 
 	if (useCPUThread) {
@@ -605,7 +603,7 @@ retry:
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	sampleRate = optimalSampleRate;
-	if (NativeQueryConfig("force44khz") != "0" || optimalSampleRate == 0) {
+	if (optimalSampleRate == 0) {
 		sampleRate = 44100;
 	}
 	if (optimalFramesPerBuffer > 0) {
@@ -688,7 +686,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 }
 
 // JavaEGL
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
@@ -712,21 +710,34 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 
 		ILOG("Shut down both threads. Now let's bring it up again!");
 
-		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
+		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
+			SystemToast("Graphics initialization failed. Quitting.");
+			return false;
+		}
+
 		if (useCPUThread) {
 			EmuThreadStart();
 		} else {
-			NativeInitGraphics(graphicsContext);
+			if (!NativeInitGraphics(graphicsContext)) {
+				// Gonna be in a weird state here, not good.
+				SystemToast("Failed to initialize graphics.");
+				return false;
+			}
 		}
+
 		graphicsContext->ThreadStart();
 		ILOG("Restored.");
 	} else {
 		ILOG("NativeApp.displayInit() first time");
-		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
+		if (!graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0)) {
+			SystemToast("Graphics initialization failed. Quitting.");
+			return false;
+		}
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}
 	NativeMessageReceived("recreateviews", "");
+	return true;
 }
 
 static void recalculateDpi() {
@@ -1156,6 +1167,11 @@ static void ProcessFrameCommands(JNIEnv *env) {
 }
 
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	if (!graphicsContext) {
+		ELOG("runEGLRenderLoop: Tried to enter without a created graphics context.");
+		return false;
+	}
+
 	// Needed for Vulkan, even if we're not using the old EGL path.
 
 	exitRenderLoop = false;
@@ -1175,10 +1191,11 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	auto tryInit = [&]() {
 		if (graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 			return true;
+		} else {
+			ELOG("Failed to initialize graphics context.");
+			SystemToast("Failed to initialize graphics context.");
+			return false;
 		}
-
-		ELOG("Failed to initialize graphics context.");
-		return false;
 	};
 
 	bool initSuccess = tryInit();
@@ -1202,7 +1219,10 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	if (!exitRenderLoop) {
 		if (!useCPUThread) {
-			NativeInitGraphics(graphicsContext);
+			if (!NativeInitGraphics(graphicsContext)) {
+				ELOG("Failed to initialize graphics.");
+				// Gonna be in a weird state here..
+			}
 		}
 		graphicsContext->ThreadStart();
 		renderer_inited = true;

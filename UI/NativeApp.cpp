@@ -255,8 +255,6 @@ std::string NativeQueryConfig(std::string query) {
 		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
 		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
 		return std::string(temp);
-	} else if (query == "force44khz") {
-		return std::string("0");
 	} else if (query == "androidJavaGL") {
 		// If we're using Vulkan, we say no... need C++ to use Vulkan.
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -805,29 +803,34 @@ static void UIThemeInit() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata);
+bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
-	_assert_msg_(graphicsContext, "No graphics context!");
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
 
-	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
-	_assert_msg_(g_draw, "No draw context available!");
-	_assert_msg_(g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
+
+	if (!CreateGlobalPipelines()) {
+		ERROR_LOG(G3D, "Failed to create global pipelines");
+		return false;
+	}
 
 	// Load the atlas.
-
 	size_t atlas_data_size = 0;
 	if (!g_ui_atlas.IsMetadataLoaded()) {
 		const uint8_t *atlas_data = VFSReadFile("ui_atlas.meta", &atlas_data_size);
 		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
-		_assert_msg_(load_success, "Failed to load ui_atlas.meta");
+		if (!load_success) {
+			ERROR_LOG(G3D, "Failed to load ui_atlas.meta - graphics will be broken.");
+			// Stumble along with broken visuals instead of dying.
+		}
 		delete[] atlas_data;
 	}
+
 	ui_draw2d.SetAtlas(&g_ui_atlas);
 	ui_draw2d_front.SetAtlas(&g_ui_atlas);
 
@@ -836,43 +839,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
-	Draw::BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
-	Draw::DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
-	Draw::RasterState *rasterNoCull = g_draw->CreateRasterState({});
-
-	PipelineDesc colorDesc{
-		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
-	};
-	PipelineDesc texColorDesc{
-		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
-	};
-
-	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
-	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
-
-	_assert_(colorPipeline);
-	_assert_(texColorPipeline);
-
-	// Release these now, reference counting should ensure that they get completely released
-	// once we delete both pipelines.
-	inputLayout->Release();
-	rasterNoCull->Release();
-	blendNormal->Release();
-	depth->Release();
-
 	ui_draw2d.Init(g_draw, texColorPipeline);
 	ui_draw2d_front.Init(g_draw, texColorPipeline);
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
-	RasterStateDesc desc;
-	desc.cull = CullMode::NONE;
-	desc.frontFace = Facing::CCW;
-
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
@@ -899,10 +869,51 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_gameInfoCache = new GameInfoCache();
 
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceRestore();
+	}
 
 	ILOG("NativeInitGraphics completed");
+	return true;
+}
+
+bool CreateGlobalPipelines() {
+	using namespace Draw;
+
+	InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
+	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
+	RasterState *rasterNoCull = g_draw->CreateRasterState({});
+
+	PipelineDesc colorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
+	};
+	PipelineDesc texColorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
+	};
+
+	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
+	if (!colorPipeline) {
+		// Something really critical is wrong, don't care much about correct releasing of the states.
+		return false;
+	}
+
+	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
+	if (!texColorPipeline) {
+		// Something really critical is wrong, don't care much about correct releasing of the states.
+		return false;
+	}
+
+	// Release these now, reference counting should ensure that they get completely released
+	// once we delete both pipelines.
+	inputLayout->Release();
+	rasterNoCull->Release();
+	blendNormal->Release();
+	depth->Release();
 	return true;
 }
 
@@ -914,12 +925,12 @@ void NativeShutdownGraphics() {
 
 	ILOG("NativeShutdownGraphics");
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	delete winAudioBackend;
 	winAudioBackend = nullptr;
 #endif
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
 		while (!winCamera->isShutDown()) {};// Wait for shutting down.
@@ -1088,7 +1099,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		screenManager->resized();
 
 		// TODO: Move this to the GraphicsContext objects for each backend.
-#if !defined(_WIN32) && !defined(ANDROID)
+#if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
 		PSP_CoreParameter().pixelWidth = pixel_xres;
 		PSP_CoreParameter().pixelHeight = pixel_yres;
 		NativeMessageReceived("gpu_resized", "");
@@ -1135,7 +1146,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
 			auto sy = GetI18NCategory("System");
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
 			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
@@ -1144,7 +1155,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		Core_SetPowerSaving(value != "false");
 	}
 	if (msg == "permission_granted" && value == "storage") {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 		CreateDirectoriesAndroid();
 #endif
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config

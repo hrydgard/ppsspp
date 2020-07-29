@@ -3,7 +3,6 @@
 #include <string>
 #include <algorithm>
 #include <map>
-#include <cassert>
 
 #include "base/logging.h"
 #include "math/dataconv.h"
@@ -961,6 +960,15 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ELOG("Pipeline requires at least one shader");
 		return nullptr;
 	}
+	if ((int)desc.prim >= (int)Primitive::PRIMITIVE_TYPE_COUNT) {
+		ELOG("Invalid primitive type");
+		return nullptr;
+	}
+	if (!desc.depthStencil || !desc.blend || !desc.raster || !desc.inputLayout) {
+		ELOG("Incomplete prim desciption");
+		return nullptr;
+	}
+
 	OpenGLPipeline *pipeline = new OpenGLPipeline(&renderManager_);
 	for (auto iter : desc.shaders) {
 		if (iter) {
@@ -1045,9 +1053,21 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguag
 
 bool OpenGLPipeline::LinkShaders() {
 	std::vector<GLRShader *> linkShaders;
-	for (auto iter : shaders) {
-		linkShaders.push_back(iter->GetShader());
+	for (auto shaderModule : shaders) {
+		if (shaderModule) {
+			GLRShader *shader = shaderModule->GetShader();
+			if (shader) {
+				linkShaders.push_back(shader);
+			} else {
+				ELOG("LinkShaders: Bad shader module");
+				return false;
+			}
+		} else {
+			ELOG("LinkShaders: Bad shader in module");
+			return false;
+		}
 	}
+
 	std::vector<GLRProgram::Semantic> semantics;
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });

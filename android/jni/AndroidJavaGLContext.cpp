@@ -4,6 +4,7 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
+#include "Common/Log.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
@@ -17,12 +18,11 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	// OpenGL handles rotated rendering in the driver.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext();  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-	bool success = draw_->CreatePresets();
-	_assert_msg_(success, "Failed to compile preset shaders");
-	return success;
+	draw_->CreatePresets();
+	return true;
 }
 
 void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
