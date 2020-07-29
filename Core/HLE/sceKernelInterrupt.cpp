@@ -666,7 +666,7 @@ const HLEFunction Kernel_Library[] =
 	{0X5F10D406, &WrapV_U<sceKernelCpuResumeIntr>,             "sceKernelCpuResumeIntr",              'v', "x"    },
 	{0X3B84732D, &WrapV_U<sceKernelCpuResumeIntrWithSync>,     "sceKernelCpuResumeIntrWithSync",      'v', "x"    },
 	{0X47A0B729, &WrapI_I<sceKernelIsCpuIntrSuspended>,        "sceKernelIsCpuIntrSuspended",         'i', "i"    },
-	{0xb55249d2, &WrapI_V<sceKernelIsCpuIntrEnable>,           "sceKernelIsCpuIntrEnable",            'i', ""     },
+	{0xb55249d2, &WrapI_V<sceKernelIsCpuIntrEnable>,           "sceKernelIsCpuIntrEnable",            'i', "",    },
 	{0XA089ECA4, &WrapU_UUU<sceKernelMemset>,                  "sceKernelMemset",                     'x', "xxx"  },
 	{0XDC692EE3, &WrapI_UI<sceKernelTryLockLwMutex>,           "sceKernelTryLockLwMutex",             'i', "xi"   },
 	{0X37431849, &WrapI_UI<sceKernelTryLockLwMutex_600>,       "sceKernelTryLockLwMutex_600",         'i', "xi"   },
