@@ -887,6 +887,8 @@ const HLEFunction ThreadManForKernel[] =
 	{0X9944F31F, &WrapI_I<sceKernelSuspendThread>,                   "sceKernelSuspendThread",                    'i', "i",      HLE_KERNEL_SYSCALL },
 	{0X75156E8F, &WrapI_I<sceKernelResumeThread>,                    "sceKernelResumeThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
 	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
+	{0X28B6489C, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XEF9E4C70, &WrapU_I<sceKernelDeleteEventFlag>,                 "sceKernelDeleteEventFlag",                  'x', "i",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()
