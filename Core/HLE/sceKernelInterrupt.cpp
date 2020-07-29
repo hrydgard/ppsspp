@@ -678,6 +678,8 @@ const HLEFunction Kernel_Library[] =
 	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""     },
 	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx"  },
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"    },
+	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""     },
+	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"    },
 };
 
 static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {	
