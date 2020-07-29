@@ -65,11 +65,7 @@ static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, 
 // 4xBRZ shader - Copyright (C) 2014-2016 DeSmuME team (GPL2+)
 // Hyllian's xBR-vertex code and texel mapping
 // Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com
-// TODO: Handles alpha badly for PSP.
 const char *shader4xbrz = R"(
-vec4 premultiply_alpha(vec4 c) { float a = clamp(c.a, 0.0, 1.0); return vec4(c.rgb * a, a); }
-vec4 postdivide_alpha(vec4 c) { return c.a < 0.001? vec4(0.0,0.0,0.0,0.0) : vec4(c.rgb / c.a, c.a); }
-
 #define BLEND_ALPHA 1
 #define BLEND_NONE 0
 #define BLEND_NORMAL 1
@@ -84,15 +80,16 @@ float reduce(vec4 color) {
 }
 
 float DistYCbCr(vec4 pixA, vec4 pixB) {
-	const vec3 w = vec3(0.2627, 0.6780, 0.0593);
-	const float scaleB = 0.5 / (1.0 - w.b);
-	const float scaleR = 0.5 / (1.0 - w.r);
+	// https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
+	const vec3 K = vec3(0.2627, 0.6780, 0.0593);
+	const mat3 MATRIX = mat3(K, 
+							-.5 * K.r / (1.0 - K.b),	-.5 * K.g / (1.0 - K.b),	.5,
+							.5,							-.5 * K.g / (1.0 - K.r),	-.5 * K.b / (1.0 - K.r));
 	vec4 diff = pixA - pixB;
-	float Y = dot(diff.rgb, w);
-	float Cb = scaleB * (diff.b - Y);
-	float Cr = scaleR * (diff.r - Y);
-
-	return sqrt( ((LUMINANCE_WEIGHT * Y) * (LUMINANCE_WEIGHT * Y)) + (Cb * Cb) + (Cr * Cr) + (diff.a * diff.a));
+	vec3 YCbCr = diff.rgb * MATRIX;
+	YCbCr.x *= LUMINANCE_WEIGHT;
+	float d = length(YCbCr);
+	return sqrt(pixA.a * pixB.a * d * d + diff.a * diff.a);
 }
 
 bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
@@ -133,27 +130,27 @@ vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
 
 	vec4 src[25];
 
-	src[21] = premultiply_alpha(readColorf(t1.xw));
-	src[22] = premultiply_alpha(readColorf(t1.yw));
-	src[23] = premultiply_alpha(readColorf(t1.zw));
-	src[ 6] = premultiply_alpha(readColorf(t2.xw));
-	src[ 7] = premultiply_alpha(readColorf(t2.yw));
-	src[ 8] = premultiply_alpha(readColorf(t2.zw));
-	src[ 5] = premultiply_alpha(readColorf(t3.xw));
-	src[ 0] = premultiply_alpha(readColorf(t3.yw));
-	src[ 1] = premultiply_alpha(readColorf(t3.zw));
-	src[ 4] = premultiply_alpha(readColorf(t4.xw));
-	src[ 3] = premultiply_alpha(readColorf(t4.yw));
-	src[ 2] = premultiply_alpha(readColorf(t4.zw));
-	src[15] = premultiply_alpha(readColorf(t5.xw));
-	src[14] = premultiply_alpha(readColorf(t5.yw));
-	src[13] = premultiply_alpha(readColorf(t5.zw));
-	src[19] = premultiply_alpha(readColorf(t6.xy));
-	src[18] = premultiply_alpha(readColorf(t6.xz));
-	src[17] = premultiply_alpha(readColorf(t6.xw));
-	src[ 9] = premultiply_alpha(readColorf(t7.xy));
-	src[10] = premultiply_alpha(readColorf(t7.xz));
-	src[11] = premultiply_alpha(readColorf(t7.xw));
+	src[21] = readColorf(t1.xw);
+	src[22] = readColorf(t1.yw);
+	src[23] = readColorf(t1.zw);
+	src[ 6] = readColorf(t2.xw);
+	src[ 7] = readColorf(t2.yw);
+	src[ 8] = readColorf(t2.zw);
+	src[ 5] = readColorf(t3.xw);
+	src[ 0] = readColorf(t3.yw);
+	src[ 1] = readColorf(t3.zw);
+	src[ 4] = readColorf(t4.xw);
+	src[ 3] = readColorf(t4.yw);
+	src[ 2] = readColorf(t4.zw);
+	src[15] = readColorf(t5.xw);
+	src[14] = readColorf(t5.yw);
+	src[13] = readColorf(t5.zw);
+	src[19] = readColorf(t6.xy);
+	src[18] = readColorf(t6.xz);
+	src[17] = readColorf(t6.xw);
+	src[ 9] = readColorf(t7.xy);
+	src[10] = readColorf(t7.xz);
+	src[11] = readColorf(t7.xw);
 
 	float v[9];
 	v[0] = reduce(src[0]);
@@ -339,7 +336,7 @@ vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
 				step(0.75, f.y)),
 		step(0.50, f.y));
 
-	return postdivide_alpha(res);
+	return res;
 }
 
 uint applyScalingu(uvec2 origxy, uvec2 xy) {
