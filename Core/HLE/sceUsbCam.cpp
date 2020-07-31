@@ -23,6 +23,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
 
@@ -112,7 +113,7 @@ static int getCameraResolution(Camera::ConfigType type, int *width, int *height)
 
 
 static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupMic");
+	INFO_LOG(HLE, "sceUsbCamSetupMic");
 	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupMicParam))) {
 		Memory::ReadStruct(paramAddr, &config->micParam);
 	}
@@ -131,13 +132,7 @@ static int sceUsbCamStopMic() {
 
 static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMicBlocking: size: %d", size);
-	for (unsigned int i = 0; i < size; i++) {
-		if (Memory::IsValidAddress(bufAddr + i)) {
-			Memory::Write_U8(i & 0xFF, bufAddr + i);
-		}
-	}
-	hleEatMicro(1000000 / config->micParam.frequency * (size / 2));
-	return size;
+	return __MicInputBlocking(size >> 1, config->micParam.frequency, bufAddr);
 }
 
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
