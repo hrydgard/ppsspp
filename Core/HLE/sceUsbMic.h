@@ -24,6 +24,7 @@ void Register_sceUsbMic();
 
 void __UsbMicInit();
 void __UsbMicShutdown();
+void __UsbMicDoState(PointerWrap &p);
 
 struct MicWaitInfo {
 	SceUID threadID;
@@ -37,9 +38,13 @@ public:
 	QueueBuf(u32 size);
 	~QueueBuf();
 
+	QueueBuf(const QueueBuf &buf);
+	QueueBuf& operator=(const QueueBuf &buf);
+
 	void push(u8 *buf, u32 size);
 	u32 pop(u8 *buf, u32 size);
 	void resize(u32 newSize);
+	void flush();
 	u32 getAvailableSize();
 	u32 getRemainingSize();
 

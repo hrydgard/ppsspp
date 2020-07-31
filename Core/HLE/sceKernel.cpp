@@ -272,6 +272,7 @@ void __KernelDoState(PointerWrap &p)
 		__UmdDoState(p);
 		__UtilityDoState(p);
 		__UsbDoState(p);
+		__UsbMicDoState(p);
 		__VaudioDoState(p);
 		__HeapDoState(p);
 

@@ -39,11 +39,13 @@ enum {
 int eventUsbMicAudioUpdate = -1;
 
 QueueBuf *audioBuf = nullptr;
-u32 audioBufSize = 0;
 u32 numNeedSamples = 0;
 static std::vector<MicWaitInfo> waitingThreads;
 std::mutex wtMutex;
 bool isNeedInput = false;
+u32 curSampleRate = 44100;
+u32 curChannels = 1;
+int micState = 0; // 0 means stopped, 1 means started, for save state.
 
 static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
@@ -107,12 +109,61 @@ void __UsbMicShutdown() {
 	Microphone::stopMic();
 }
 
+void __UsbMicDoState(PointerWrap &p) {
+	auto s = p.Section("sceUsbMic", 1, 1);
+	if (!s) {
+		return;
+	}
+	p.Do(numNeedSamples);
+	p.Do(waitingThreads);
+	p.Do(isNeedInput);
+	p.Do(curSampleRate);
+	p.Do(curChannels);
+	p.Do(micState);
+	// Maybe also need to save the state of audioBuf.
+	if (waitingThreads.size() != 0 && p.mode == PointerWrap::MODE_READ) {
+		u64 waitTimeus = (waitingThreads[0].needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThreads[0].sampleRate;
+		CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, waitingThreads[0].threadID);
+	}
+	if (micState == 0) {
+		if (Microphone::isMicStarted())
+			Microphone::stopMic();
+	} else if (micState == 1) {
+		if (Microphone::isMicStarted()) {
+			Microphone::stopMic();
+			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
+		} else {
+			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
+		}
+	}
+}
+
 QueueBuf::QueueBuf(u32 size) : start(0), end(0), capacity(size) {
 	buf_ = new u8[size];
 }
 
 QueueBuf::~QueueBuf() {
 	delete[] buf_;
+}
+
+QueueBuf::QueueBuf(const QueueBuf &buf) {
+	buf_ = new u8[buf.capacity];
+	memcpy(buf_, buf.buf_, buf.capacity);
+	start = buf.start;
+	end = buf.end;
+	capacity = buf.capacity;
+}
+
+QueueBuf& QueueBuf::operator=(const QueueBuf &buf) {
+	if (capacity < buf.capacity) {
+		resize(buf.capacity);
+	}
+	std::unique_lock<std::mutex> lock(mutex);
+	memcpy(buf_, buf.buf_, buf.capacity);
+	start = buf.start;
+	end = buf.end;
+	lock.unlock();
+	return *this;
 }
 
 void QueueBuf::push(u8 *buf, u32 size) {
@@ -171,6 +222,13 @@ void QueueBuf::resize(u32 newSize) {
 	lock.unlock();
 }
 
+void QueueBuf::flush() {
+	std::unique_lock<std::mutex> lock(mutex);
+	start = 0;
+	end = 0;
+	lock.unlock();
+}
+
 u32 QueueBuf::getAvailableSize() {
 	u32 availableSize = 0;
 	if (end >= start) {
@@ -199,6 +257,8 @@ static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
 		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
 	}
+	curSampleRate = sampleRate;
+	curChannels = 1;
 	return __MicInputBlocking(maxSamples, sampleRate, bufAddr);
 }
 
@@ -232,7 +292,7 @@ int Microphone::startMic(void *param) {
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::START, param });
 #endif
-
+	micState = 1;
 	return 0;
 }
 
@@ -241,6 +301,7 @@ int Microphone::stopMic() {
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 #endif
+	micState = 0;
 	return 0;
 }
 
@@ -306,14 +367,13 @@ void Microphone::onMicDeviceChange() {
 
 u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	u32 size = maxSamples << 1;
-	numNeedSamples = maxSamples;
-	if (size != audioBufSize) {
+	if (size != numNeedSamples << 1) {
 		if (audioBuf) {
 			delete audioBuf;
 		}
 		audioBuf = new QueueBuf(size);
-		audioBufSize = size;
 	}
+	numNeedSamples = maxSamples;
 	if (!Microphone::isMicStarted()) {
 		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
 		Microphone::startMic(param);
