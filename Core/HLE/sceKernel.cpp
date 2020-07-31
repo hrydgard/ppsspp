@@ -77,12 +77,13 @@
 #include "sceImpose.h"
 #include "sceUsb.h"
 #include "sceUsbGps.h"
+#include "sceUsbCam.h"
+#include "sceUsbMic.h"
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
-#include "sceUsbCam.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -146,6 +147,7 @@ void __KernelInit()
 	__VideoPmpInit();
 	__UsbGpsInit();
 	__UsbCamInit();
+	__UsbMicInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -170,6 +172,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__UsbCamShutdown();
+	__UsbMicShutdown();
 	__UsbGpsShutdown();
 
 	__AudioCodecShutdown();

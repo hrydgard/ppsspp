@@ -16,4 +16,55 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include "sceKernel.h"
+#include <mutex>
+
 void Register_sceUsbMic();
+
+void __UsbMicInit();
+void __UsbMicShutdown();
+
+struct MicWaitInfo {
+	SceUID threadID;
+	u32 addr;
+	u32 needSize;
+	u32 sampleRate;
+};
+
+class QueueBuf {
+public:
+	QueueBuf(u32 size);
+	~QueueBuf();
+
+	void push(u8 *buf, u32 size);
+	u32 pop(u8 *buf, u32 size);
+	void resize(u32 newSize);
+	u32 getAvailableSize();
+	u32 getRemainingSize();
+
+private:
+	u32 start;
+	u32 end;
+	u32 capacity;
+	u8 *buf_;
+	std::mutex mutex;
+};
+
+namespace Microphone {
+	int startMic(void *param);
+	int stopMic();
+	bool isHaveDevice();
+	bool isMicStarted();
+	bool isNeedInput();
+	u32 numNeedSamples();
+	u32 availableAudioBufSize();
+
+	int addAudioData(u8 *buf, u32 size);
+	u32 getAudioData(u8 *buf, u32 size);
+
+	std::vector<std::string> getDeviceList();
+	void onMicDeviceChange();
+}
+
+u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr);

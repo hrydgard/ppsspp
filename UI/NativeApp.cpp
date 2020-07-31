@@ -894,6 +894,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (IsWin7OrHigher()) {
 		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::AUDIO);
+		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
 	}
 #endif
 
@@ -925,6 +927,12 @@ void NativeShutdownGraphics() {
 		while (!winCamera->isShutDown()) {};// Wait for shutting down.
 		delete winCamera;
 		winCamera = nullptr;
+	}
+	if (winMic) {
+		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
+		while (!winMic->isShutDown()) {};// Wait for shutting down.
+		delete winMic;
+		winMic = nullptr;
 	}
 #endif
 

@@ -849,7 +849,10 @@ namespace MainWindow
 #ifndef _M_ARM
 			DinputDevice::CheckDevices();
 #endif
-			WindowsCaptureDevice::CheckDevices();
+			if (winCamera)
+				winCamera->CheckDevices();
+			if (winMic)
+				winMic->CheckDevices();
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:

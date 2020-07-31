@@ -79,6 +79,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_TLSPL,           "TLS" },
 	{ WAITTYPE_VMEM,            "Volatile Mem" },
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
+	{ WAITTYPE_MICINPUT,        "Microphone input"},
 };
 
 const char *getWaitTypeName(WaitType type)
