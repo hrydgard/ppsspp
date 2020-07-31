@@ -204,6 +204,9 @@ u32 QueueBuf::pop(u8 *buf, u32 size) {
 }
 
 void QueueBuf::resize(u32 newSize) {
+	if (capacity >= newSize) {
+		return;
+	}
 	u32 availableSize = getAvailableSize();
 	u8 *oldbuf = buf_;
 
@@ -348,6 +351,10 @@ u32 Microphone::getAudioData(u8 *buf, u32 size) {
 	return 0;
 }
 
+void Microphone::flushAudioData() {
+	audioBuf->flush();
+}
+
 std::vector<std::string> Microphone::getDeviceList() {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic) {
@@ -367,13 +374,18 @@ void Microphone::onMicDeviceChange() {
 
 u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	u32 size = maxSamples << 1;
-	if (size != numNeedSamples << 1) {
-		if (audioBuf) {
-			delete audioBuf;
+	if (size > numNeedSamples << 1) {
+		if (!audioBuf) {
+			audioBuf = new QueueBuf(size);
+		} else {
+			audioBuf->resize(size);
 		}
-		audioBuf = new QueueBuf(size);
 	}
+	if (!audioBuf)
+		return 0;
+
 	numNeedSamples = maxSamples;
+	Microphone::flushAudioData();
 	if (!Microphone::isMicStarted()) {
 		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
 		Microphone::startMic(param);

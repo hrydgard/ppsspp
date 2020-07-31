@@ -473,7 +473,7 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 }
 
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
-	ERROR_LOG(HLE, "sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	return __MicInputBlocking(maxSamples, sampleRate, bufAddr);
 }
 

@@ -67,6 +67,7 @@ namespace Microphone {
 
 	int addAudioData(u8 *buf, u32 size);
 	u32 getAudioData(u8 *buf, u32 size);
+	void flushAudioData();
 
 	std::vector<std::string> getDeviceList();
 	void onMicDeviceChange();
