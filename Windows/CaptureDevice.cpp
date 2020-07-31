@@ -735,13 +735,13 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(bool forceEnum, int
 
 		if (SUCCEEDED(hr)) {
 			// Get the size needed first
-			dwMinSize = WideCharToMultiByte(CP_OEMCP, NULL, pwstrName, -1, nullptr, 0, nullptr, FALSE);
+			dwMinSize = WideCharToMultiByte(CP_UTF8, NULL, pwstrName, -1, nullptr, 0, nullptr, FALSE);
 			if (dwMinSize == 0)
 				hr = -1;
 		}
 		if (SUCCEEDED(hr)) {
 			cstrName = new char[dwMinSize];
-			WideCharToMultiByte(CP_OEMCP, NULL, pwstrName, -1, cstrName, dwMinSize, NULL, FALSE);
+			WideCharToMultiByte(CP_UTF8, NULL, pwstrName, -1, cstrName, dwMinSize, NULL, FALSE);
 			strName = cstrName;
 			delete[] cstrName;
 
