@@ -3333,7 +3333,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 					if (peer != NULL)
 					{
 						// Valid Optional Data Length
-						if ((optLen == 0 && optDataPtr == 0) || (optLen > 0 && optDataPtr != 0))
+						if ((optLen == 0) || (optLen > 0 && optDataPtr != 0))
 						{
 							void * opt = NULL;
 							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
@@ -3470,7 +3470,7 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 		if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
 
 		// Valid Arguments
-		if (target != NULL && ((optLen == 0 && opt == NULL) || (optLen > 0 && opt != NULL)))
+		if (target != NULL && ((optLen == 0) || (optLen > 0 && opt != NULL)))
 		{
 			// Find Matching Context
 			SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
@@ -3602,7 +3602,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 			if (context->running)
 			{
 				// Valid Optional Data Length
-				if ((optLenAddr == 0 && optDataAddr == 0) || (optLenAddr > 0 && optDataAddr != 0))
+				if ((optLenAddr == 0) || (optLenAddr > 0 && optDataAddr != 0))
 				{
 					// Grab Existing Hello Data
 					void * hello = context->hello;
