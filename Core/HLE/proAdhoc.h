@@ -1231,8 +1231,8 @@ u64 join32(u32 num1, u32 num2);
 void split64(u64 num, int buff[]);
 
 /**
- * Returns the local mac, TODO: Read from Config file
- * @param addr OUT: Local Mac
+ * Returns the local mac
+ * @param addr OUT: 6-bytes of Local Mac
  */
 void getLocalMac(SceNetEtherAddr * addr);
 
