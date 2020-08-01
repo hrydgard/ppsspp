@@ -42,13 +42,13 @@ enum {
 int eventUsbMicAudioUpdate = -1;
 
 QueueBuf *audioBuf = nullptr;
-u32 numNeedSamples = 0;
+u32 numNeedSamples;
 static std::vector<MicWaitInfo> waitingThreads;
 std::mutex wtMutex;
-bool isNeedInput = false;
-u32 curSampleRate = 44100;
-u32 curChannels = 1;
-int micState = 0; // 0 means stopped, 1 means started, for save state.
+bool isNeedInput;
+u32 curSampleRate;
+u32 curChannels;
+int micState; // 0 means stopped, 1 means started, for save state.
 
 static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
@@ -64,12 +64,7 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 				if (Microphone::availableAudioBufSize() >= waitingThread.needSize) {
 					u8 *tempbuf8 = new u8[waitingThread.needSize];
 					Microphone::getAudioData(tempbuf8, waitingThread.needSize);
-					u16 *tempbuf16 = (u16*)tempbuf8;
-					for (u32 i = 0; i < waitingThread.needSize / 2; i++) {
-						if (Memory::IsValidAddress(waitingThread.addr + i * 2)) {
-							Memory::Write_U16(tempbuf16[i] & 0xFFFF, waitingThread.addr + i * 2);
-						}
-					}
+					Memory::Memcpy(waitingThread.addr, tempbuf8, waitingThread.needSize);
 					delete[] tempbuf8;
 					u32 ret = __KernelGetWaitValue(threadID, error);
 					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
@@ -101,6 +96,16 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 }
 
 void __UsbMicInit() {
+	if (audioBuf) {
+		delete audioBuf;
+		audioBuf = nullptr;
+	}
+	numNeedSamples = 0;
+	waitingThreads.clear();
+	isNeedInput = false;
+	curSampleRate = 44100;
+	curChannels = 1;
+	micState = 0; 
 	eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
 }
 
