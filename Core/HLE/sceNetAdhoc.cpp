@@ -3508,6 +3508,8 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 							// Delete Peer from List
 							// Can't delete here, Threads still need this data.
 							// deletePeer(context, peer);
+							// Marking peer to be timedout instead of deleting immediately
+							peer->lastping = 0;
 
 							// Return Success
 							return 0;
@@ -3750,7 +3752,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 								if (p2p != NULL)
 								{
 									// Faking lastping
-									if (p2p->lastping != 0)
+									auto friendpeer = findFriend(&p2p->mac);
+									if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
 									// Add P2P Brother MAC
@@ -3770,7 +3773,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Should we exclude timedout members?
 									if (!excludeTimedout || peer->lastping != 0) {
 										// Faking lastping
-										if (peer->lastping != 0)
+										auto friendpeer = findFriend(&peer->mac);
+										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 											peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
 										// Parent Mode
@@ -4929,7 +4933,10 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					// If we got the peer in the table already and are a parent, there is nothing left to be done.
 					// This is because the only way a parent can know of a child is via a join request...
 					// If we thus know of a possible child, then we already had a previous join request thus no need for double tapping.
-					if (peer != NULL && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) return;
+					if (peer != NULL && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+						WARN_LOG(SCENET, "Join Event(2) Ignored");
+						return;
+					}
 
 					// New Peer
 					if (peer == NULL)
@@ -4981,7 +4988,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 				}
 			}
 		}
-		INFO_LOG(SCENET, "Join Event(2) Rejected");
+		WARN_LOG(SCENET, "Join Event(2) Rejected");
 		// Auto-Reject Player
 		sendCancelPacket(context, sendermac, 0, NULL);
 	}
