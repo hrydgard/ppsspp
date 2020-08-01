@@ -23,6 +23,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/Reporting.h"
 
@@ -471,6 +472,11 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	return hleLogSuccessI(SCEAUDIO, result);
 }
 
+static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	return __MicInputBlocking(maxSamples, sampleRate, bufAddr);
+}
+
 static u32 sceAudioRoutingSetMode(u32 mode) {
 	ERROR_LOG_REPORT(SCEAUDIO, "sceAudioRoutingSetMode(%08x)", mode);
 	int previousMode = defaultRoutingMode;
@@ -535,7 +541,7 @@ const HLEFunction sceAudio[] =
 	{0X7DE61688, nullptr,                                   "sceAudioInputInit",             '?', ""    },
 	{0XE926D3FB, nullptr,                                   "sceAudioInputInitEx",           '?', ""    },
 	{0X6D4BEC68, nullptr,                                   "sceAudioInput",                 '?', ""    },
-	{0X086E5895, nullptr,                                   "sceAudioInputBlocking",         '?', ""    },
+	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx"    },
 	{0XA708C6A6, nullptr,                                   "sceAudioGetInputLength",        '?', ""    },
 	{0XA633048E, nullptr,                                   "sceAudioPollInputEnd",          '?', ""    },
 	{0X87B2E651, nullptr,                                   "sceAudioWaitInputEnd",          '?', ""    },

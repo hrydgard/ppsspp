@@ -60,6 +60,7 @@
 #include "Core/TextureReplacer.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -546,6 +547,13 @@ void GameSettingsScreen::CreateViews() {
 		audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
 	}
 #endif
+
+	std::vector<std::string> micList = Microphone::getDeviceList();
+	if (micList.size() >= 1) {
+		audioSettings->Add(new ItemHeader(gr->T("Microphone")));
+		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, gr->T("Microphone Device"), micList, nullptr, screenManager()));
+		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
+	}
 
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
@@ -1309,6 +1317,11 @@ UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
 	Camera::onCameraDeviceChange();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnMicDeviceChange(UI::EventParams& e) {
+	Microphone::onMicDeviceChange();
 	return UI::EVENT_DONE;
 }
 

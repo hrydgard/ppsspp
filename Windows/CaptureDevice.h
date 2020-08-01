@@ -26,10 +26,13 @@
 #include <queue>
 #include <thread>
 
+#include "Core/HLE/sceUsbMic.h"
+
 #ifdef __cplusplus
 extern "C" {
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 #include "libavutil/imgutils.h"
 }
 #endif // __cplusplus
@@ -37,6 +40,12 @@ extern "C" {
 struct VideoFormatTransform {
 	GUID MFVideoFormat;
 	AVPixelFormat AVVideoFormat;
+};
+
+struct AudioFormatTransform {
+	GUID MFAudioFormat;
+	u32 bitsPerSample;
+	AVSampleFormat AVAudioFormat;
 };
 
 enum class CAPTUREDEVIDE_TYPE {
@@ -90,8 +99,8 @@ union MediaParam {
 	struct  {
 		UINT32 sampleRate;
 		UINT32 channels;
-		LONG   padding;
-		GUID   audioFomat;
+		LONG bitsPerSample;
+		GUID   audioFormat;
 	};
 };
 
@@ -127,9 +136,10 @@ public:
 	STDMETHODIMP OnFlush(DWORD) { return S_OK; }
 
 	AVPixelFormat getAVVideoFormatbyMFVideoFormat(const GUID &MFVideoFormat);
+	AVSampleFormat getAVAudioFormatbyMFAudioFormat(const GUID &MFAudioFormat, const u32 &bitsPerSample);
 
 	/*
-	 * Always convet the image to RGB24
+	 * Always convert the image to RGB24
 	 * @param dst/src pointer to destination/source image
 	 * @param dstW/srcW, dstH/srcH destination/source image's width and height in pixels
 	 * @param dstLineSizes get the linesize of each plane by av_image_fill_linesizes()
@@ -149,10 +159,20 @@ public:
 	void imgInvertYUY2(unsigned char *dst, int &dstStride, unsigned char *src, const int &srcStride, const int &h);
 	void imgInvertNV12(unsigned char *dst, int &dstStride, unsigned char *src, const int &srcStride, const int &h);
 
+	/*
+	 * Always resample to uncompressed signed 16bits
+	 * @param dst pointer to pointer of dst buffer could be a nullptr, would be overwritten by a new pointer if space too small or a nullptr, should be freed by av_free/av_freep by caller
+	 * @param dstSize pointer to size of the dst buffer, could be modified after this func
+	 * @param srcFormat MF_MT_SUBTYPE attribute of the source audio data
+	 * @param srcSize size of valid data in the source buffer, in bytes
+	 * @return size of output in bytes 
+	 */
+	u32 doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u32 *dstSize, u8 *src, const u32 &srcSampleRate, const u32 &srcChannels, const GUID &srcFormat, const u32 &srcSize, const u32& srcBitsPerSamples);
 
 protected:
 	WindowsCaptureDevice *device;
 	SwsContext *img_convert_ctx;
+	SwrContext *resample_ctx;
 };
 
 class WindowsCaptureDevice {
@@ -160,10 +180,10 @@ public:
 	WindowsCaptureDevice(CAPTUREDEVIDE_TYPE type);
 	~WindowsCaptureDevice();
 
-	static void CheckDevices();
+	void CheckDevices();
 
 	bool init();
-	bool start(UINT32 width, UINT32 height);
+	bool start(void *startParam);
 	bool stop();
 
 	CAPTUREDEVIDE_ERROR getError() const { return error; }
@@ -178,11 +198,14 @@ public:
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
 	bool isShutDown() const { return state == CAPTUREDEVIDE_STATE::SHUTDOWN; }
+	bool isStarted() const { return state == CAPTUREDEVIDE_STATE::STARTED; }
 
 	void sendMessage(CAPTUREDEVIDE_MESSAGE message);
 	CAPTUREDEVIDE_MESSAGE getMessage();
 
 	HRESULT enumDevices();
+
+	bool needResample();
 
 	friend class ReaderCallback;
 
@@ -198,6 +221,8 @@ protected:
 
 	CAPTUREDEVIDE_ERROR error;
 	std::string errorMessage;
+
+	bool isDeviceChanged;
 
 // MF interface.
 	ReaderCallback *m_pCallback;
@@ -220,6 +245,12 @@ protected:
 	int imgRGBLineSizes[4];
 	unsigned char *imageJpeg;
 	int imgJpegSize;
+
+//Microphone only
+	u8 *resampleBuf;
+	u32 resampleBufSize;
+	QueueBuf *rawAudioBuf;
 };
 
 extern WindowsCaptureDevice *winCamera;
+extern WindowsCaptureDevice *winMic;

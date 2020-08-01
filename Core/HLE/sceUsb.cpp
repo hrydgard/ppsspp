@@ -83,7 +83,7 @@ static int sceUsbGetState() {
 			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
 			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
 	}
-	INFO_LOG(HLE, "sceUsbGetState: 0x%x", state);
+	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
 	return state;
 }
 

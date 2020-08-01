@@ -142,6 +142,7 @@ public:
 	std::string sVulkanDevice;
 	std::string sD3D11Device;  // Windows only
 	std::string sCameraDevice;
+	std::string sMicDevice;
 
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
