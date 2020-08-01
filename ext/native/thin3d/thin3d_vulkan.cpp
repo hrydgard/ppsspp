@@ -1409,11 +1409,6 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 
 	features.push_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));
 
-	// Also list texture formats and their properties.
-	for (int i = VK_FORMAT_BEGIN_RANGE; i <= VK_FORMAT_END_RANGE; i++) {
-		// TODO
-	}
-
 	return features;
 }
 
