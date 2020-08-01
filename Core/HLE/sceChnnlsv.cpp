@@ -99,7 +99,7 @@ static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 	*(int*)(data+12) = num;
 	*(int*)(data+16) = length;
 
-	if (sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_0 : KIRK_CMD_DECRYPT_IV_0))
+	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_0 : KIRK_CMD_DECRYPT_IV_0))
 		return -257;
 
 	return 0;
@@ -114,7 +114,7 @@ static int kirkSendFuseCmd(u8* data, int length, bool encrypt)
 	*(int*)(data+16) = length;
 
 	// Note: CMD 5 and 8 are not available, will always return -1
-	if (sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_FUSE : KIRK_CMD_DECRYPT_IV_FUSE))
+	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_FUSE : KIRK_CMD_DECRYPT_IV_FUSE))
 		return -258;
 
 	return 0;
@@ -209,7 +209,7 @@ static int sub_1510(u8* data, int size, u8* result , int num)
 
 static int sub_17A8(u8* data)
 {
-	if (sceUtilsBufferCopyWithRange(data, 20, 0, 0, 14) == 0)
+	if (kirk_sceUtilsBufferCopyWithRange(data, 20, 0, 0, 14) == 0)
 		return 0;
 	return -261;
 }

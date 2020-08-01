@@ -41,7 +41,7 @@ static int do_kirk4(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
 
 	if(retv)
 		return 0x80510311;
@@ -60,7 +60,7 @@ static int do_kirk7(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
 	if(retv)
 		return 0x80510311;
 
@@ -78,7 +78,7 @@ static int kirk5(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
 	if(retv)
 		return 0x80510312;
 
@@ -96,7 +96,7 @@ static int kirk8(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
 	if(retv)
 		return 0x80510312;
 
@@ -107,7 +107,7 @@ static int kirk14(u8 *buf)
 {
 	int retv;
 
-	retv = sceUtilsBufferCopyWithRange(buf, 0x14, 0, 0, 14);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, 0x14, 0, 0, 14);
 	if(retv)
 		return 0x80510315;
 
