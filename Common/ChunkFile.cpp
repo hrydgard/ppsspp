@@ -30,23 +30,26 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	char marker[16] = {0};
 	int foundVersion = ver;
 
-	// This is strncpy because we rely on its weird non-null-terminating truncation behaviour.
+	// This is strncpy because we rely on its weird non-null-terminating zero-filling truncation behaviour.
 	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
-	if (!ExpectVoid(marker, sizeof(marker)))
-	{
+	if (!ExpectVoid(marker, sizeof(marker))) {
 		// Might be before we added name markers for safety.
-		if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion)))
+		if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion))) {
 			DoMarker(title);
-		// Wasn't found, but maybe we can still load the state.
-		else
+		} else {
+			// Wasn't found, but maybe we can still load the state.
 			foundVersion = 0;
-	}
-	else
+		}
+	} else {
 		Do(foundVersion);
+	}
 
 	if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
-		WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for %s", foundVersion, title);
+		if (!firstBadSectionTitle_) {
+			firstBadSectionTitle_ = title;
+		}
+		WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
 		SetError(ERROR_FAILURE);
 		return PointerWrapSection(*this, -1, title);
 	}
@@ -58,6 +61,7 @@ void PointerWrap::SetError(Error error_) {
 		error = error_;
 	}
 	if (error > ERROR_WARNING) {
+		// For the rest of this run, just measure.
 		mode = PointerWrap::MODE_MEASURE;
 	}
 }

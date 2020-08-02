@@ -820,7 +820,8 @@ bool retro_unserialize(const void *data, size_t size)
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   retVal = CChunkFileReader::LoadPtr((u8 *)data, state) 
+   std::string errorString;
+   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString) 
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)

@@ -58,10 +58,10 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	vulkan->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex);
 
 	VkResult res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
@@ -435,7 +435,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	renderStepOffset_ = 0;
 
 	frameData.profile.timestampDescriptions.clear();
-	if (frameData_->profilingEnabled_) {
+	if (frameData.profilingEnabled_) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
 		// unless we want to limit ourselves to only measure the main cmd buffer.
 		// Reserve the first two queries for initCmd.
@@ -466,7 +466,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
-	assert(insideFrame_);
+	_dbg_assert_(insideFrame_);
 	// Eliminate dupes, instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
@@ -581,7 +581,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 }
 
 bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
-	assert(insideFrame_);
+	_dbg_assert_(insideFrame_);
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -643,7 +643,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
-	assert(insideFrame_);
+	_dbg_assert_(insideFrame_);
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK_IMAGE };
 	step->readback_image.image = image;
 	step->readback_image.srcRect.offset = { x, y };
@@ -679,7 +679,7 @@ bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		attachments[0] = swapchainImages_[i].view;
 		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 		if (res != VK_SUCCESS) {
 			framebuffers_.clear();
 			return false;
@@ -714,7 +714,7 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	VkDevice device = vulkan_->GetDevice();
 	res = vkCreateImage(device, &image_info, nullptr, &depth_.image);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
@@ -736,17 +736,17 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits,
 		0, /* No requirements */
 		&mem_alloc.memoryTypeIndex);
-	assert(pass);
+	_dbg_assert_(pass);
 	if (!pass)
 		return false;
 
 	res = vkAllocateMemory(device, &mem_alloc, NULL, &depth_.mem);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
 	res = vkBindImageMemory(device, depth_.image, depth_.mem, 0);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
@@ -772,7 +772,7 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	depth_view_info.flags = 0;
 
 	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
@@ -1076,7 +1076,6 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	int numCmdBufs = 0;
 	if (frameData.hasInitCommands) {
 		cmdBufs[numCmdBufs++] = frameData.initCmd;
-		frameData.hasInitCommands = false;
 		if (splitSubmit_) {
 			// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
 			VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
@@ -1120,6 +1119,8 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 		frameData.readyForFence = true;
 		frameData.push_condVar.notify_all();
 	}
+
+	frameData.hasInitCommands = false;
 }
 
 void VulkanRenderManager::EndSubmitFrame(int frame) {
@@ -1177,7 +1178,7 @@ void VulkanRenderManager::Run(int frame) {
 		break;
 
 	default:
-		assert(false);
+		_dbg_assert_(false);
 	}
 
 	VLOG("PULL: Finished running frame %d", frame);
@@ -1229,7 +1230,7 @@ void VulkanRenderManager::FlushSync() {
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.readyForRun = true;
-		assert(frameData.readyForFence == false);
+		_dbg_assert_(!frameData.readyForFence);
 		frameData.type = VKRRunType::SYNC;
 		frameData.pull_condVar.notify_all();
 	}

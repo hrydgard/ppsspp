@@ -91,9 +91,9 @@ namespace SaveState
 		return CChunkFileReader::SavePtr(&data[0], state);
 	}
 
-	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data) {
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
 		SaveStart state;
-		return CChunkFileReader::LoadPtr(&data[0], state);
+		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
 	}
 
 	struct StateRingbuffer
@@ -135,7 +135,7 @@ namespace SaveState
 			return err;
 		}
 
-		CChunkFileReader::Error Restore()
+		CChunkFileReader::Error Restore(std::string *errorString)
 		{
 			std::lock_guard<std::mutex> guard(lock_);
 
@@ -149,7 +149,7 @@ namespace SaveState
 
 			static std::vector<u8> buffer;
 			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
-			return LoadFromRam(buffer);
+			return LoadFromRam(buffer, errorString);
 		}
 
 		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
@@ -632,13 +632,14 @@ namespace SaveState
 		return copy;
 	}
 
-	bool HandleFailure()
+	bool HandleLoadFailure()
 	{
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
 		CChunkFileReader::Error result;
 		do {
-			result = rewindStates.Restore();
+			std::string errorString;
+			result = rewindStates.Restore(&errorString);
 		} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
 		if (result == CChunkFileReader::ERROR_NONE) {
@@ -728,7 +729,6 @@ namespace SaveState
 			Status callbackResult;
 			bool tempResult;
 			std::string callbackMessage;
-			std::string reason;
 			std::string title;
 
 			auto sc = GetI18NCategory("Screen");
@@ -740,13 +740,14 @@ namespace SaveState
 				i18nSaveFailure = sc->T("Failed to save state");
 
 			std::string slot_prefix = op.slot >= 0 ? StringFromFormat("(%d) ", op.slot + 1) : "";
+			std::string errorString;
 
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Loading state from '%s'", op.filename.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
-				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
+				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = slot_prefix + sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
@@ -777,12 +778,12 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
-					callbackMessage = i18nLoadFailure;
-					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
+					HandleLoadFailure();
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
+					ERROR_LOG(SAVESTATE, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
+					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
 				break;
@@ -812,9 +813,9 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
+					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Save state failure");
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -834,24 +835,24 @@ namespace SaveState
 
 			case SAVESTATE_REWIND:
 				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
-				result = rewindStates.Restore();
+				result = rewindStates.Restore(&errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					if (HandleFailure()) {
+					if (HandleLoadFailure()) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
 					} else {
-						callbackMessage = i18nLoadFailure;
+						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 						callbackResult = Status::FAILURE;
 					}
 				} else {
-					callbackMessage = i18nLoadFailure;
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 					callbackResult = Status::FAILURE;
 				}
 				break;

@@ -33,13 +33,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 
 	const char *pMessage = pCallbackData->pMessage;
 
-	// Apparent bugs around timestamp validation in the validation layers
-	if (strstr(pMessage, "vkCmdBeginQuery(): VkQueryPool"))
-		return false;
-	if (strstr(pMessage, "vkGetQueryPoolResults() on VkQueryPool"))
-		return false;
-
 	int messageCode = pCallbackData->messageIdNumber;
+	if (messageCode == 101294395) {
+		// UNASSIGNED-CoreValidation-Shader-OutputNotConsumed - benign perf warning
+		return false;
+	}
+
 	const char *pLayerPrefix = "";
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		message << "ERROR(";
@@ -58,7 +57,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	} else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
 		message << "validation";
 	}
-	message << ":" << pCallbackData->messageIdNumber << ") " << pMessage << "\n";
+	message << ":" << messageCode << ") " << pMessage << "\n";
 
 	std::string msg = message.str();
 
