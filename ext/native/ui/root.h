@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include "ui/ui_context.h"
 #include "input/input_state.h"
 
@@ -25,5 +26,15 @@ void UpdateViewHierarchy(ViewGroup *root);
 bool KeyEvent(const KeyInput &key, ViewGroup *root);
 bool TouchEvent(const TouchInput &touch, ViewGroup *root);
 bool AxisEvent(const AxisInput &axis, ViewGroup *root);
+
+enum class UISound {
+	SELECT,
+	BACK,
+	CONFIRM,
+};
+
+void SetSoundCallback(std::function<void(UISound)> func);
+
+void PlayUISound(UISound sound);
 
 }  // namespace UI

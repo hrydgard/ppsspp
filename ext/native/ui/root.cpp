@@ -17,6 +17,9 @@ static bool focusMovementEnabled;
 bool focusForced;
 static std::mutex eventMutex_;
 
+static std::function<void(UISound)> soundCallback;
+
+
 struct DispatchQueueItem {
 	Event *e;
 	EventParams params;
@@ -133,6 +136,18 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
+
+		PlayUISound(UISound::SELECT);
+	}
+}
+
+void SetSoundCallback(std::function<void(UISound)> func) {
+	soundCallback = func;
+}
+
+void PlayUISound(UISound sound) {
+	if (soundCallback) {
+		soundCallback(UISound::SELECT);
 	}
 }
 

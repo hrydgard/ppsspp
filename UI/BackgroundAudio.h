@@ -45,6 +45,8 @@ private:
 	struct PlayInstance {
 		MenuSFX sound;
 		int offset;
+		int volume; // 0..255
+		bool done;
 	};
 
 	struct Sample {

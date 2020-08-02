@@ -5,6 +5,7 @@
 #include "base/timeutil.h"
 #include "file/chunk_file.h"
 #include "file/vfs.h"
+#include "ui/root.h"
 
 #include "Common/CommonTypes.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -260,10 +261,12 @@ BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 		return nullptr;
 	}
 
-	WavData wave;
-	wave.Read(RIFFReader(data, (int)bytes));
+	RIFFReader reader(data, (int)bytes);
 
-	if (wave.num_channels != 2) {
+	WavData wave;
+	wave.Read(reader);
+
+	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame_ != 4) {
 		ELOG("Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;
 	}
@@ -279,10 +282,23 @@ void BackgroundAudio::LoadSamples() {
 	samples_[(size_t)MenuSFX::BACK] = std::unique_ptr<Sample>(LoadSample("sfx_back.wav"));
 	samples_[(size_t)MenuSFX::SELECT] = std::unique_ptr<Sample>(LoadSample("sfx_select.wav"));
 	samples_[(size_t)MenuSFX::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
+
+	UI::SetSoundCallback([](UI::UISound sound) {
+		MenuSFX sfx;
+		switch (sound) {
+		case UI::UISound::BACK: sfx = MenuSFX::BACK; break;
+		case UI::UISound::CONFIRM: sfx = MenuSFX::CONFIRM; break;
+		case UI::UISound::SELECT: sfx = MenuSFX::SELECT; break;
+		default: return;
+		}
+
+		g_BackgroundAudio.PlaySFX(sfx);
+	});
 }
 
 void BackgroundAudio::PlaySFX(MenuSFX sfx) {
-	plays_.push_back(PlayInstance{ sfx, 0 });
+	std::lock_guard<std::mutex> lock(g_bgMutex);
+	plays_.push_back(PlayInstance{ sfx, 0, 64, false });
 }
 
 void BackgroundAudio::Clear(bool hard) {
@@ -332,33 +348,58 @@ int BackgroundAudio::Play() {
 	}
 
 	double now = time_now_d();
+	int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
+	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader) {
-		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
-		sz = std::min(BUFSIZE / 2, sz);
 		if (sz >= 16) {
 			if (at3Reader->Read(buffer, sz)) {
-				if (!fadingOut) {
-					__PushExternalAudio(buffer, sz);
-				} else {
+				if (fadingOut) {
 					for (int i = 0; i < sz*2; i += 2) {
 						buffer[i] *= volume;
 						buffer[i + 1] *= volume;
 						volume += delta;
 					}
-					__PushExternalAudio(buffer, sz);
-					if (volume <= 0.0f) {
-						Clear(true);
-						fadingOut = false;
-						gameLastChanged = 0;
-					}
 				}
 			}
-			lastPlaybackTime = now;
 		}
 	} else {
-		__PushExternalAudio(0, 0);
-		lastPlaybackTime = now;
+		for (int i = 0; i < sz * 2; i += 2) {
+			buffer[i] = 0;
+			buffer[i + 1] = 0;
+		}
 	}
+
+	// Mix in menu sound effects
+	if (!plays_.empty()) {
+		for (int i = 0; i < sz * 2; i += 2) {
+			std::vector<PlayInstance>::iterator iter = plays_.begin();
+			while (iter != plays_.end()) {
+				PlayInstance inst = *iter;
+				auto sample = samples_[(int)inst.sound].get();
+				if (iter->offset >= sample->length_) {
+					iter->done = true;
+					iter = plays_.erase(iter);
+				} else {
+					if (!iter->done) {
+						buffer[i] += sample->data_[inst.offset * 2] * inst.volume >> 8;
+						buffer[i + 1] += sample->data_[inst.offset * 2 + 1] * inst.volume >> 8;
+					}
+					iter->offset++;
+					iter++;
+				}
+			}
+		}
+	}
+
+	__PushExternalAudio(buffer, sz);
+
+	if (at3Reader && fadingOut && volume <= 0.0f) {
+		Clear(true);
+		fadingOut = false;
+		gameLastChanged = 0;
+	}
+
+	lastPlaybackTime = now;
 
 	return 0;
 }
