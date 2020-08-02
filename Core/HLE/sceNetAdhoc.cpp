@@ -199,12 +199,6 @@ void __NetAdhocInit() {
 	adhocctlHandlers.clear();
 	__AdhocServerInit();
 
-	// Init Adhoc Callbacks
-	dummyThreadHackAddr = __CreateHLELoop(dummyThreadCode, "sceNetAdhoc", "__NetTriggerCallbacks", "dummythreadhack");
-	matchingThreadHackAddr = __CreateHLELoop(matchingThreadCode, "sceNetAdhocMatching", "__NetMatchingCallbacks", "matchingThreadHack");
-	actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
-	actionAfterAdhocMipsCall = __KernelRegisterActionType(AfterAdhocMipsCall::Create);
-
 	// Create built-in AdhocServer Thread
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 		adhocServerRunning = true;

@@ -55,6 +55,11 @@ extern int adhocEventDelayMS; // This will affect the duration of "Connecting...
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
 
+extern u32 dummyThreadHackAddr;
+extern u32_le dummyThreadCode[3];
+extern u32 matchingThreadHackAddr;
+extern u32_le matchingThreadCode[3];
+
 int NetAdhocMatching_Term();
 int NetAdhocctl_Term();
 int NetAdhoc_Term();

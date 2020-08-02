@@ -141,10 +141,6 @@ void __NetApctlInit() {
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 	apctlHandlers.clear();
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
-
-	// Init Apctl Callbacks
-	apctlThreadHackAddr = __CreateHLELoop(apctlThreadCode, "sceNetApctl", "__NetApctlCallbacks", "apctlThreadHack");
-	actionAfterApctlMipsCall = __KernelRegisterActionType(AfterApctlMipsCall::Create);
 }
 
 static void __ResetInitNetLib() {
@@ -153,6 +149,18 @@ static void __ResetInitNetLib() {
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	memset(&parameter, 0, sizeof(parameter));
+}
+
+void __NetCallbackInit() {
+	// Init Network Callbacks
+	dummyThreadHackAddr = __CreateHLELoop(dummyThreadCode, "sceNetAdhoc", "__NetTriggerCallbacks", "dummythreadhack");
+	matchingThreadHackAddr = __CreateHLELoop(matchingThreadCode, "sceNetAdhocMatching", "__NetMatchingCallbacks", "matchingThreadHack");
+	apctlThreadHackAddr = __CreateHLELoop(apctlThreadCode, "sceNetApctl", "__NetApctlCallbacks", "apctlThreadHack");
+
+	// Newer one should be placed last to prevent callbacks going to the wrong after action after loading from old save state
+	actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
+	actionAfterAdhocMipsCall = __KernelRegisterActionType(AfterAdhocMipsCall::Create);
+	actionAfterApctlMipsCall = __KernelRegisterActionType(AfterApctlMipsCall::Create);
 }
 
 void __NetInit() {
@@ -172,6 +180,7 @@ void __NetInit() {
 
 	__ResetInitNetLib();
 	__NetApctlInit();
+	__NetCallbackInit();
 }
 
 void __NetApctlShutdown() {
