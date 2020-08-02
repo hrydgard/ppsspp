@@ -479,8 +479,8 @@ typedef struct SceNetAdhocMatchingContext {
   u64_le timeout;
 
   // Helper Thread (fake PSP Thread) needed to execute callback
-  HLEHelperThread *matchingThread;
-  SceUID matching_thid;
+  //HLEHelperThread *matchingThread;
+  int matching_thid;
 
   // Event Caller Thread
   std::thread eventThread;
@@ -793,13 +793,19 @@ public:
 	AfterAdhocMipsCall() {}
 	static PSPAction* Create() { return new AfterAdhocMipsCall(); }
 	void DoState(PointerWrap& p) override {
-		auto s = p.Section("AfterAdhocMipsCall", 3, 4);
+		auto s = p.Section("AfterAdhocMipsCall", 1, 4);
 		if (!s)
 			return;
-
-		p.Do(HandlerID);
-		p.Do(EventID);
-		p.Do(argsAddr);
+		if (s >= 3) {
+			p.Do(HandlerID);
+			p.Do(EventID);
+			p.Do(argsAddr);
+		}
+		else {
+			HandlerID = -1;
+			EventID = -1;
+			argsAddr = 0;
+		}
 	}
 	void run(MipsCall& call) override;
 	void SetData(int handlerID, int eventId, u32_le argsAddr);
@@ -818,13 +824,20 @@ public:
 		auto s = p.Section("AfterMatchingMipsCall", 1, 4);
 		if (!s)
 			return;
-
-		p.Do(EventID);
+		if (s >= 1) {
+			p.Do(EventID);
+		}
+		else {
+			EventID = -1;
+		}
 		if (s >= 4) {
 			p.Do(contextID);
 			p.Do(bufAddr);
 		}
-		//context = NULL;
+		else {
+			contextID = -1;
+			bufAddr = 0;
+		}
 	}
 	void run(MipsCall &call) override;
 	void SetData(int ContextID, int eventId, u32_le BufAddr);

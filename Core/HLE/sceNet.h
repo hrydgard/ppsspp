@@ -20,6 +20,14 @@
 #include <StringUtils.h>
 #include "Core/HLE/proAdhoc.h"
 
+// Using constants instead of numbers for readability reason, since PSP_THREAD_ATTR_KERNEL/USER is located in sceKernelThread.cpp instead of sceKernelThread.h
+#ifndef PSP_THREAD_ATTR_KERNEL
+#define PSP_THREAD_ATTR_KERNEL 0x00001000
+#endif
+#ifndef PSP_THREAD_ATTR_USER
+#define PSP_THREAD_ATTR_USER 0x80000000
+#endif
+
 // Option Names
 #define PSP_SO_REUSEPORT		0x0200
 #define PSP_SO_NBIO				0x1009
@@ -186,11 +194,52 @@ struct ApctlHandler {
 	u32 argument;
 };
 
+struct ApctlArgs {
+	u32_le data[5]; // OldState, NewState, Event, Error, ArgsAddr
+};
+
 class PointerWrap;
+
+class AfterApctlMipsCall : public PSPAction {
+public:
+	AfterApctlMipsCall() {}
+	static PSPAction* Create() { return new AfterApctlMipsCall(); }
+	void DoState(PointerWrap& p) override {
+		auto s = p.Section("AfterApctlMipsCall", 1, 1);
+		if (!s)
+			return;
+		// Just in case there are "s" corruption in the future where s.ver is a negative number
+		if (s >= 1) {
+			p.Do(handlerID);
+			p.Do(oldState);
+			p.Do(newState);
+			p.Do(event);
+			p.Do(error);
+			p.Do(argsAddr);
+		}
+		else {
+			handlerID = -1;
+			oldState = 0;
+			newState = 0;
+			event = 0;
+			error = 0;
+			argsAddr = 0;
+		}
+	}
+	void run(MipsCall& call) override;
+	void SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32_le ArgsAddr);
+
+private:
+	int handlerID = -1;
+	int oldState = 0;
+	int newState = 0;
+	int event = 0;
+	int error = 0;
+	u32_le argsAddr = 0;
+};
 
 extern bool netInetInited;
 extern bool netApctlInited;
-extern int netApctlStatus;
 
 template <typename I> std::string num2hex(I w, size_t hex_len = sizeof(I) << 1);
 std::string error2str(u32 errorcode);
@@ -204,8 +253,6 @@ void Register_sceNetIfhandle();
 void __NetInit();
 void __NetShutdown();
 void __NetDoState(PointerWrap &p);
-
-u32 Net_Term();
 
 int sceNetInetPoll(void *fds, u32 nfds, int timeout);
 int sceNetInetTerm();

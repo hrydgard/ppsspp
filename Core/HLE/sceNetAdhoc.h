@@ -48,11 +48,17 @@ extern bool netAdhocInited;
 extern bool netAdhocctlInited;
 extern bool networkInited;
 extern int adhocDefaultTimeout;
+extern int adhocExtraPollDelayMS;
 extern int adhocEventPollDelayMS;
 extern int adhocMatchingEventDelayMS;
 extern int adhocEventDelayMS; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
+
+extern u32 dummyThreadHackAddr;
+extern u32_le dummyThreadCode[3];
+extern u32 matchingThreadHackAddr;
+extern u32_le matchingThreadCode[3];
 
 int NetAdhocMatching_Term();
 int NetAdhocctl_Term();
