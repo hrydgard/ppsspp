@@ -11,12 +11,13 @@
 #include "Common/FixedSizeQueue.h"
 #include "GameInfoCache.h"
 #include "Core/Config.h"
+#include "UI/BackgroundAudio.h"
 
 // Really simple looping in-memory AT3 player that also takes care of reading the file format.
 // Turns out that AT3 files used for this are modified WAVE files so fairly easy to parse.
 class AT3PlusReader {
 public:
-	AT3PlusReader(const std::string &data)
+	explicit AT3PlusReader(const std::string &data)
 	: file_((const uint8_t *)&data[0], (int32_t)data.size()) {
 		// Normally 8k but let's be safe.
 		buffer_ = new short[32 * 1024];
@@ -223,18 +224,9 @@ private:
 	SimpleAudio *decoder_ = nullptr;
 };
 
-static std::mutex g_bgMutex;
-static std::string bgGamePath;
-static int playbackOffset;
-static AT3PlusReader *at3Reader;
-static double gameLastChanged;
-static double lastPlaybackTime;
-static int buffer[44100];
-static bool fadingOut = true;
-static float volume;
-static float delta = -0.0001f;
+BackgroundAudio g_BackgroundAudio;
 
-static void ClearBackgroundAudio(bool hard) {
+void BackgroundAudio::Clear(bool hard) {
 	if (!hard) {
 		fadingOut = true;
 		volume = 1.0f;
@@ -248,7 +240,7 @@ static void ClearBackgroundAudio(bool hard) {
 	playbackOffset = 0;
 }
 
-void SetBackgroundAudioGame(const std::string &path) {
+void BackgroundAudio::SetGame(const std::string &path) {
 	time_update();
 
 	std::lock_guard<std::mutex> lock(g_bgMutex);
@@ -258,10 +250,10 @@ void SetBackgroundAudioGame(const std::string &path) {
 	}
 
 	if (path.size() == 0) {
-		ClearBackgroundAudio(false);
+		Clear(false);
 		fadingOut = true;
 	} else {
-		ClearBackgroundAudio(true);
+		Clear(true);
 		gameLastChanged = time_now_d();
 		fadingOut = false;
 	}
@@ -269,14 +261,14 @@ void SetBackgroundAudioGame(const std::string &path) {
 	bgGamePath = path;
 }
 
-int PlayBackgroundAudio() {
+int BackgroundAudio::Play() {
 	time_update();
 
 	std::lock_guard<std::mutex> lock(g_bgMutex);
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
-		ClearBackgroundAudio(true);
+		Clear(true);
 		__PushExternalAudio(0, 0);
 		return 0;
 	}
@@ -297,7 +289,7 @@ int PlayBackgroundAudio() {
 					}
 					__PushExternalAudio(buffer, sz);
 					if (volume <= 0.0f) {
-						ClearBackgroundAudio(true);
+						Clear(true);
 						fadingOut = false;
 						gameLastChanged = 0;
 					}
@@ -313,9 +305,7 @@ int PlayBackgroundAudio() {
 	return 0;
 }
 
-// Stuff that should be on the UI thread only, like anything to do with
-// g_gameInfoCache.
-void UpdateBackgroundAudio() {
+void BackgroundAudio::Update() {
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
 	if (bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {

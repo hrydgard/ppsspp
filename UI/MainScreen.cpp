@@ -935,12 +935,12 @@ UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 
 MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
-	SetBackgroundAudioGame("");
+	g_BackgroundAudio.SetGame("");
 	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
-	SetBackgroundAudioGame("");
+	g_BackgroundAudio.SetGame("");
 }
 
 void MainScreen::CreateViews() {
@@ -1283,7 +1283,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 
 	// Restore focus if it was highlighted (e.g. by gamepad.)
 	restoreFocusGamePath_ = highlightedGamePath_;
-	SetBackgroundAudioGame(path);
+	g_BackgroundAudio.SetGame(path);
 	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
@@ -1314,7 +1314,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 	}
 
 	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
-		SetBackgroundAudioGame(highlightedGamePath_);
+		g_BackgroundAudio.SetGame(highlightedGamePath_);
 	}
 
 	lockBackgroundAudio_ = false;
@@ -1401,7 +1401,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			restoreFocusGamePath_.clear();
 		} else {
 			// Not refocusing, so we need to stop the audio.
-			SetBackgroundAudioGame("");
+			g_BackgroundAudio.SetGame("");
 		}
 	}
 }

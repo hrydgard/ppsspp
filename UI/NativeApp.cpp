@@ -271,7 +271,7 @@ std::string NativeQueryConfig(std::string query) {
 
 int NativeMix(short *audio, int num_samples) {
 	if (GetUIState() != UISTATE_INGAME) {
-		PlayBackgroundAudio();
+		g_BackgroundAudio.Play();
 	}
 
 	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
@@ -1040,7 +1040,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	if (GetUIState() != UISTATE_INGAME) {
 		// Note: We do this from NativeRender so that the graphics context is
 		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
-		UpdateBackgroundAudio();
+		g_BackgroundAudio.Update();
 	}
 
 	float xres = dp_xres;

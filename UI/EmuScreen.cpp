@@ -193,7 +193,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		return;
 	}
 
-	SetBackgroundAudioGame("");
+	g_BackgroundAudio.SetGame("");
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
