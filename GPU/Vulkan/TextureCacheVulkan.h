@@ -94,6 +94,8 @@ public:
 		}
 	}
 
+	void NotifyConfigChanged() override;
+
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
 		imageView = imageView_;
 		sampler = curSampler_;
@@ -123,6 +125,8 @@ private:
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
+	void CompileScalingShader();
+
 	VulkanContext *vulkan_ = nullptr;
 	VulkanDeviceAllocator *allocator_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;
@@ -145,6 +149,7 @@ private:
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;
 
+	std::string textureShader_;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
 	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 
