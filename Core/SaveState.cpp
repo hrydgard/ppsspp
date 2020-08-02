@@ -783,7 +783,6 @@ namespace SaveState
 					ERROR_LOG(SAVESTATE, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					// ?
 					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
