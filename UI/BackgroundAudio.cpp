@@ -226,6 +226,14 @@ private:
 
 BackgroundAudio g_BackgroundAudio;
 
+BackgroundAudio::BackgroundAudio() {
+	buffer = new int[BUFSIZE]();
+}
+
+BackgroundAudio::~BackgroundAudio() {
+	delete[] buffer;
+}
+
 void BackgroundAudio::Clear(bool hard) {
 	if (!hard) {
 		fadingOut = true;
@@ -276,7 +284,7 @@ int BackgroundAudio::Play() {
 	double now = time_now();
 	if (at3Reader) {
 		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
-		sz = std::min((int)ARRAY_SIZE(buffer) / 2, sz);
+		sz = std::min(BUFSIZE / 2, sz);
 		if (sz >= 16) {
 			if (at3Reader->Read(buffer, sz)) {
 				if (!fadingOut) {
