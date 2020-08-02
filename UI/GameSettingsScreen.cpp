@@ -489,14 +489,11 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
 
-	CheckBox *texHardwareScaling = graphicsSettings->Add(new CheckBox(&g_Config.bTexHardwareScaling, gr->T("Hardware texture scaling")));
-	texHardwareScaling->SetEnabledFunc([]() {
-		return GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
-	});
-
 	ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("Texture Shader"), &TextureTranslateName));
 	textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
-	textureShaderChoice->SetEnabledFunc(UsingHardwareTextureScaling);
+	textureShaderChoice->SetEnabledFunc([]() {
+		return GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
+	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
@@ -1501,6 +1498,7 @@ UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 	NativeMessageReceived("gpu_resized", "");
 	RecreateViews(); // Update setting name
+	g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 	return UI::EVENT_DONE;
 }
 
