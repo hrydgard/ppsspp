@@ -118,7 +118,7 @@ void __UsbMicShutdown() {
 }
 
 void __UsbMicDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbMic", 1, 1);
+	auto s = p.Section("sceUsbMic", 0, 1);
 	if (!s) {
 		return;
 	}
