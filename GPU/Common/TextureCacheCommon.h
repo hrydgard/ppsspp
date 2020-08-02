@@ -198,7 +198,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
-	void NotifyConfigChanged();
+	virtual void NotifyConfigChanged();
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	int AttachedDrawingHeight();

@@ -321,6 +321,26 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].section;
 }
 
+TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {
+	auto ps = GetI18NCategory("TextureShaders");
+	ReloadAllPostShaderInfo();
+	shaders_ = GetAllTextureShaderInfo();
+	std::vector<std::string> items;
+	int selected = -1;
+	for (int i = 0; i < (int)shaders_.size(); i++) {
+		if (shaders_[i].section == g_Config.sTextureShaderName)
+			selected = i;
+		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+	}
+	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+}
+
+void TextureShaderScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
+	g_Config.sTextureShaderName = shaders_[listView_->GetSelected()].section;
+}
+
 NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER

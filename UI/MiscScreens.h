@@ -26,6 +26,7 @@
 #include "ui/ui_screen.h"
 
 struct ShaderInfo;
+struct TextureShaderInfo;
 
 extern std::string boot_filename;
 void UIBackgroundInit(UIContext &dc);
@@ -110,6 +111,16 @@ private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
+};
+
+class TextureShaderScreen : public ListPopupScreen {
+public:
+	TextureShaderScreen(const std::string &title);
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<TextureShaderInfo> shaders_;
 };
 
 class LogoScreen : public UIScreen {
