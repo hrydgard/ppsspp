@@ -76,6 +76,7 @@ private:
 // Wrapper class
 class PointerWrap
 {
+private:
 	// This makes it a compile error if you forget to define DoState() on non-POD.
 	// Which also can be a problem, for example struct tm is non-POD on linux, for whatever reason...
 #ifdef _MSC_VER
@@ -111,6 +112,8 @@ class PointerWrap
 		}
 	};
 
+	const char *firstBadSectionTitle_ = nullptr;
+
 public:
 	enum Mode {
 		MODE_READ = 1, // load
@@ -127,11 +130,11 @@ public:
 
 	u8 **ptr;
 	Mode mode;
-	Error error;
+	Error error = ERROR_NONE;
 
 public:
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_), error(ERROR_NONE) {}
-	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_), error(ERROR_NONE) {}
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_) {}
+	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_) {}
 
 	PointerWrapSection Section(const char *title, int ver);
 
@@ -144,6 +147,10 @@ public:
 	Mode GetMode() const {return mode;}
 	u8 **GetPPtr() {return ptr;}
 	void SetError(Error error_);
+
+	const char *GetBadSectionTitle() const {
+		return firstBadSectionTitle_;
+	}
 
 	// Same as DoVoid, except doesn't advance pointer if it doesn't match on read.
 	bool ExpectVoid(void *data, int size);
@@ -586,7 +593,7 @@ public:
 
 	// May fail badly if ptr doesn't point to valid data.
 	template<class T>
-	static Error LoadPtr(u8 *ptr, T &_class)
+	static Error LoadPtr(u8 *ptr, T &_class, std::string *errorString)
 	{
 		PointerWrap p(&ptr, PointerWrap::MODE_READ);
 		_class.DoState(p);
@@ -594,6 +601,7 @@ public:
 		if (p.error != p.ERROR_FAILURE) {
 			return ERROR_NONE;
 		} else {
+			*errorString = std::string("Failure at ") + p.GetBadSectionTitle();
 			return ERROR_BROKEN_STATE;
 		}
 	}
@@ -631,13 +639,12 @@ public:
 		size_t sz;
 		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
 		if (error == ERROR_NONE) {
-			error = LoadPtr(ptr, _class);
-			delete [] ptr;
-		}
-		
-		INFO_LOG(SAVESTATE, "ChunkReader: Done loading %s", filename.c_str());
-		if (error == ERROR_NONE) {
 			failureReason->clear();
+			error = LoadPtr(ptr, _class, failureReason);
+			delete [] ptr;
+			INFO_LOG(SAVESTATE, "ChunkReader: Done loading '%s'", filename.c_str());
+		} else {
+			WARN_LOG(SAVESTATE, "ChunkReader: Error found during load of '%s'", filename.c_str());
 		}
 		return error;
 	}

@@ -1439,13 +1439,15 @@ void EmuScreen::render() {
 		return;
 	}
 
+	// Freeze-frame functionality (loads a savestate on every frame).
 	if (PSP_CoreParameter().freezeNext) {
 		PSP_CoreParameter().frozen = true;
 		PSP_CoreParameter().freezeNext = false;
 		SaveState::SaveToRam(freezeState_);
 	} else if (PSP_CoreParameter().frozen) {
-		if (CChunkFileReader::ERROR_NONE != SaveState::LoadFromRam(freezeState_)) {
-			ERROR_LOG(SAVESTATE, "Failed to load freeze state. Unfreezing.");
+		std::string errorString;
+		if (CChunkFileReader::ERROR_NONE != SaveState::LoadFromRam(freezeState_, &errorString)) {
+			ERROR_LOG(SAVESTATE, "Failed to load freeze state (%s). Unfreezing.", errorString.c_str());
 			PSP_CoreParameter().frozen = false;
 		}
 	}
@@ -1503,23 +1505,6 @@ void EmuScreen::render() {
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
 	}
-
-	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
-	/*
-	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		GLenum attachments[2] = { GL_DEPTH, GL_STENCIL };
-		glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, attachments);
-	} else if (!gl_extensions.GLES3) {
-#ifdef USING_GLES2
-		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-		bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
-		if (hasDiscard) {
-			//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
-			//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
-		}
-#endif
-	}
-	*/
 }
 
 bool EmuScreen::hasVisibleUI() {
