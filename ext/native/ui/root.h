@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+
 #include "ui/ui_context.h"
 #include "input/input_state.h"
 

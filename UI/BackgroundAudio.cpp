@@ -369,7 +369,7 @@ int BackgroundAudio::Play() {
 		}
 	}
 
-	// Mix in menu sound effects
+	// Mix in menu sound effects. Terribly slow mixer but meh.
 	if (!plays_.empty()) {
 		for (int i = 0; i < sz * 2; i += 2) {
 			std::vector<PlayInstance>::iterator iter = plays_.begin();

@@ -217,6 +217,7 @@ void Clickable::Click() {
 	UI::EventParams e{};
 	e.v = this;
 	OnClick.Trigger(e);
+	UI::PlayUISound(UI::UISound::CONFIRM);
 };
 
 void Clickable::FocusChanged(int focusFlags) {

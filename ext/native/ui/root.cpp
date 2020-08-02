@@ -147,7 +147,7 @@ void SetSoundCallback(std::function<void(UISound)> func) {
 
 void PlayUISound(UISound sound) {
 	if (soundCallback) {
-		soundCallback(UISound::SELECT);
+		soundCallback(sound);
 	}
 }
 
