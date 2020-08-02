@@ -31,11 +31,12 @@
 #include "GPU/Common/PostShader.h"
 
 static std::vector<ShaderInfo> shaderInfo;
+// Okay, not really "post" shaders, but related.
+static std::vector<TextureShaderInfo> textureShaderInfo;
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
-// Additionally, scan the VFS assets. (TODO)
 
-void LoadPostShaderInfo(std::vector<std::string> directories) {
+void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 	std::vector<ShaderInfo> notVisible;
 
 	shaderInfo.clear();
@@ -52,6 +53,12 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	}
 	shaderInfo.push_back(off);
 
+	textureShaderInfo.clear();
+	TextureShaderInfo textureOff{};
+	textureOff.name = "Off";
+	textureOff.section = "Off";
+	textureShaderInfo.push_back(textureOff);
+
 	auto appendShader = [&](const ShaderInfo &info) {
 		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
 		if (beginErase != shaderInfo.end()) {
@@ -60,12 +67,19 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 		shaderInfo.push_back(info);
 	};
 
+	auto appendTextureShader = [&](const TextureShaderInfo &info) {
+		auto beginErase = std::remove(textureShaderInfo.begin(), textureShaderInfo.end(), info.name);
+		if (beginErase != textureShaderInfo.end()) {
+			textureShaderInfo.erase(beginErase, textureShaderInfo.end());
+		}
+		textureShaderInfo.push_back(info);
+	};
+
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<FileInfo> fileInfo;
 		getFilesInDir(directories[d].c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.size() == 0) {
-			// TODO: Really gotta fix the filter, now it's gonna open shaders as ini files..
 			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
 		}
 
@@ -90,7 +104,10 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 			// Alright, let's loop through the sections and see if any is a shader.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				IniFile::Section &section = ini.Sections()[i];
-				if (section.Exists("Fragment") && section.Exists("Vertex")) {
+				std::string shaderType;
+				section.Get("Type", &shaderType, "render");
+
+				if (section.Exists("Fragment") && section.Exists("Vertex") && strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0) {
 					// Valid shader!
 					ShaderInfo info;
 					std::string temp;
@@ -135,6 +152,16 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					} else {
 						notVisible.push_back(info);
 					}
+				} else if (section.Exists("Compute") && strncasecmp(shaderType.c_str(), "texture", shaderType.size()) == 0) {
+					// This is a texture shader.
+					TextureShaderInfo info;
+					std::string temp;
+					info.section = section.name();
+					section.Get("Name", &info.name, section.name().c_str());
+					section.Get("Compute", &temp, "");
+					info.computeShaderFile = path + "/" + temp;
+
+					appendTextureShader(info);
 				}
 			}
 		}
@@ -188,4 +215,16 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {
 	return shaderInfo;
+}
+
+const TextureShaderInfo *GetTextureShaderInfo(const std::string &name) {
+	for (auto &info : textureShaderInfo) {
+		if (info.section == name) {
+			return &info;
+		}
+	}
+	return nullptr;
+}
+const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo() {
+	return textureShaderInfo;
 }

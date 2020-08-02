@@ -82,6 +82,8 @@ private:
 	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
 	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
+	UI::EventReturn OnTextureShader(UI::EventParams &e);
+	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteISO(UI::EventParams &e);
 	UI::EventReturn OnChangeQuickChat0(UI::EventParams &e);

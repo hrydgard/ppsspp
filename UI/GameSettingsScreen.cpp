@@ -112,6 +112,21 @@ bool DoesBackendSupportHWTess() {
 	}
 }
 
+static bool UsingHardwareTextureScaling() {
+	// For now, Vulkan only.
+	return g_Config.bTexHardwareScaling && GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
+}
+
+static std::string TextureTranslateName(const char *value) {
+	auto ps = GetI18NCategory("TextureShaders");
+	const TextureShaderInfo *info = GetTextureShaderInfo(value);
+	if (info) {
+		return ps->T(value, info ? info->name.c_str() : value);
+	} else {
+		return value;
+	}
+}
+
 static std::string PostShaderTranslateName(const char *value) {
 	auto ps = GetI18NCategory("PostShaders");
 	const ShaderInfo *info = GetPostShaderInfo(value);
@@ -450,7 +465,7 @@ void GameSettingsScreen::CreateViews() {
 		texScalingChoice->HideChoice(5); // 5x
 	}
 	texScalingChoice->OnChoice.Add([=](EventParams &e) {
-		if (g_Config.iTexScalingLevel != 1) {
+		if (g_Config.iTexScalingLevel != 1 && !UsingHardwareTextureScaling()) {
 			settingInfo_->Show(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter"), e.v);
 		}
 		return UI::EVENT_CONTINUE;
@@ -459,7 +474,9 @@ void GameSettingsScreen::CreateViews() {
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
-	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	texScalingType->SetEnabledFunc([]() {
+		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
+	});
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
@@ -468,7 +485,18 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	deposterize->SetEnabledFunc([]() {
+		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
+	});
+
+	CheckBox *texHardwareScaling = graphicsSettings->Add(new CheckBox(&g_Config.bTexHardwareScaling, gr->T("Hardware texture scaling")));
+	texHardwareScaling->SetEnabledFunc([]() {
+		return GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
+	});
+
+	ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("Texture Shader"), &TextureTranslateName));
+	textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
+	textureShaderChoice->SetEnabledFunc(UsingHardwareTextureScaling);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
@@ -1455,6 +1483,22 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	NativeMessageReceived("gpu_resized", "");
+	RecreateViews(); // Update setting name
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
+	auto gr = GetI18NCategory("Graphics");
+	auto shaderScreen = new TextureShaderScreen(gr->T("Texture Shader"));
+	shaderScreen->OnChoice.Handle(this, &GameSettingsScreen::OnTextureShaderChange);
+	if (e.v)
+		shaderScreen->SetPopupOrigin(e.v);
+	screenManager()->push(shaderScreen);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 	NativeMessageReceived("gpu_resized", "");
 	RecreateViews(); // Update setting name
 	return UI::EVENT_DONE;

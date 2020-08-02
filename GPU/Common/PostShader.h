@@ -64,8 +64,26 @@ struct ShaderInfo {
 	}
 };
 
+struct TextureShaderInfo {
+	std::string iniFile;
+	std::string section;
+	std::string name;
+
+	std::string computeShaderFile;
+
+	bool operator == (const std::string &other) {
+		return name == other;
+	}
+	bool operator == (const TextureShaderInfo &other) {
+		return name == other.name;
+	}
+};
+
 void ReloadAllPostShaderInfo();
 
 const ShaderInfo *GetPostShaderInfo(const std::string &name);
 std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();
+
+const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
+const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
