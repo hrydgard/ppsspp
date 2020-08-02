@@ -131,7 +131,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		p.Do(dummyThreadHackAddr);
 	}
 	else {
-		actionAfterMatchingMipsCall = 0;
+		actionAfterMatchingMipsCall = -1;
 		dummyThreadHackAddr = 0;
 	}
 	if (s >= 3) {
@@ -141,7 +141,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		p.Do(matchingThreadHackAddr);
 	}
 	else {
-		actionAfterAdhocMipsCall = 0;
+		actionAfterAdhocMipsCall = -1;
 		matchingThreadHackAddr = 0;
 	}
 	if (s >= 4) {
@@ -3980,6 +3980,10 @@ void __NetTriggerCallbacks()
 
 		//if (/*__KernelGetCurThread() == threadAdhocID &&*/ (!__IsInInterrupt() && __KernelIsDispatchEnabled() && !__KernelInCallback()) && IsAdhocctlInCallback() == 0)
 		{
+			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
+			if (actionAfterAdhocMipsCall < 0) {
+				actionAfterAdhocMipsCall = __KernelRegisterActionType(AfterAdhocMipsCall::Create);
+			}
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 				DEBUG_LOG(SCENET, "AdhocctlCallback: [ID=%i][EVENT=%i]", it->first, flags);
 				args[2] = it->second.argument;
@@ -4014,6 +4018,9 @@ void __NetMatchingCallbacks() //(int matchingId)
 
 		//if (/*__KernelGetCurThread() == context->matching_thid &&*/ (!__IsInInterrupt() && __KernelIsDispatchEnabled() && !__KernelInCallback()) /*&& !IsMatchingInCallback(context)*/) 
 		{
+			if (actionAfterMatchingMipsCall < 0) {
+				actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
+			}
 			DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetData(args[0], args[1], args[2]);

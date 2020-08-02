@@ -251,7 +251,7 @@ void __NetDoState(PointerWrap &p) {
 		p.Do(apctlThreadID);
 	}
 	else {
-		actionAfterApctlMipsCall = 0;
+		actionAfterApctlMipsCall = -1;
 		apctlThreadHackAddr = 0;
 		apctlThreadID = 0;
 	}
@@ -441,6 +441,11 @@ void __NetApctlCallbacks()
 		// Do we need to change the newState? even if there were error?
 		//if (*error == 0)
 		*newState = netApctlState;
+
+		// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
+		if (actionAfterApctlMipsCall < 0) {
+			actionAfterApctlMipsCall = __KernelRegisterActionType(AfterApctlMipsCall::Create);
+		}
 
 		// Run mipscall. Should we skipped executing the mipscall if oldState == newState? 
 		for (std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
