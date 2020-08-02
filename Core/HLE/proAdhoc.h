@@ -793,7 +793,7 @@ public:
 	AfterAdhocMipsCall() {}
 	static PSPAction* Create() { return new AfterAdhocMipsCall(); }
 	void DoState(PointerWrap& p) override {
-		auto s = p.Section("AfterAdhocMipsCall", 3, 4);
+		auto s = p.Section("AfterAdhocMipsCall", 1, 4);
 		if (!s)
 			return;
 		if (s >= 3) {
