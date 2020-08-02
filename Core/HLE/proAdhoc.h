@@ -479,8 +479,8 @@ typedef struct SceNetAdhocMatchingContext {
   u64_le timeout;
 
   // Helper Thread (fake PSP Thread) needed to execute callback
-  HLEHelperThread *matchingThread;
-  SceUID matching_thid;
+  //HLEHelperThread *matchingThread;
+  int matching_thid;
 
   // Event Caller Thread
   std::thread eventThread;
@@ -801,6 +801,11 @@ public:
 			p.Do(EventID);
 			p.Do(argsAddr);
 		}
+		else {
+			HandlerID = -1;
+			EventID = -1;
+			argsAddr = 0;
+		}
 	}
 	void run(MipsCall& call) override;
 	void SetData(int handlerID, int eventId, u32_le argsAddr);
@@ -822,9 +827,16 @@ public:
 		if (s >= 1) {
 			p.Do(EventID);
 		}
+		else {
+			EventID = -1;
+		}
 		if (s >= 4) {
 			p.Do(contextID);
 			p.Do(bufAddr);
+		}
+		else {
+			contextID = -1;
+			bufAddr = 0;
 		}
 	}
 	void run(MipsCall &call) override;

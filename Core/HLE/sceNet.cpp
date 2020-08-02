@@ -248,6 +248,12 @@ void __NetDoState(PointerWrap &p) {
 		p.Do(actionAfterApctlMipsCall);
 		__KernelRestoreActionType(actionAfterApctlMipsCall, AfterApctlMipsCall::Create);
 		p.Do(apctlThreadHackAddr);
+		p.Do(apctlThreadID);
+	}
+	else {
+		actionAfterApctlMipsCall = 0;
+		apctlThreadHackAddr = 0;
+		apctlThreadID = 0;
 	}
 	// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 	if (p.mode == p.MODE_READ) {
@@ -256,7 +262,7 @@ void __NetDoState(PointerWrap &p) {
 		netInited = cur_netInited;
 
 		// Previously, this wasn't being saved.  It needs its own space.
-		if (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0) {
+		if (!apctlThreadHackAddr || (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0)) {
 			u32 blockSize = sizeof(apctlThreadCode);
 			apctlThreadHackAddr = kernelMemory.Alloc(blockSize, false, "apctlThreadHack");
 		}

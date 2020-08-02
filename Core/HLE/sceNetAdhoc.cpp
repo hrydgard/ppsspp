@@ -65,6 +65,7 @@ std::recursive_mutex adhocEvtMtx;
 std::deque<std::pair<u32, u32>> adhocctlEvents;
 std::deque<MatchingArgs> matchingEvents;
 std::map<int, AdhocctlHandler> adhocctlHandlers;
+std::vector<SceUID> matchingThreads;
 int IsAdhocctlInCB = 0;
 
 u32 dummyThreadHackAddr = 0;
@@ -110,7 +111,7 @@ void __NetAdhocShutdown() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 3);
+	auto s = p.Section("sceNetAdhoc", 1, 4);
 	if (!s)
 		return;
 
@@ -129,21 +130,38 @@ void __NetAdhocDoState(PointerWrap &p) {
 
 		p.Do(dummyThreadHackAddr);
 	}
+	else {
+		actionAfterMatchingMipsCall = 0;
+		dummyThreadHackAddr = 0;
+	}
 	if (s >= 3) {
-		//p.Do(IsAdhocctlInCB); // This will cause a crash if adhocEvtMtx was locked
 		p.Do(actionAfterAdhocMipsCall);
 		__KernelRestoreActionType(actionAfterAdhocMipsCall, AfterAdhocMipsCall::Create);
 
 		p.Do(matchingThreadHackAddr);
 	}
+	else {
+		actionAfterAdhocMipsCall = 0;
+		matchingThreadHackAddr = 0;
+	}
+	if (s >= 4) {
+		p.Do(threadAdhocID);
+		p.Do(matchingThreads);
+	}
+	else {
+		threadAdhocID = 0;
+		for (auto& it : matchingThreads) {
+			it = 0;
+		}
+	}
 	
 	if (p.mode == p.MODE_READ) {
 		// Previously, this wasn't being saved.  It needs its own space.
-		if (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
+		if (!dummyThreadHackAddr || (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0)) {
 			u32 blockSize = sizeof(dummyThreadCode);
 			dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
 		}
-		if (matchingThreadHackAddr && strcmp("matchingThreadHack", kernelMemory.GetBlockTag(matchingThreadHackAddr)) != 0) {
+		if (!matchingThreadHackAddr || (matchingThreadHackAddr && strcmp("matchingThreadHack", kernelMemory.GetBlockTag(matchingThreadHackAddr)) != 0)) {
 			u32 blockSize = sizeof(matchingThreadCode);
 			matchingThreadHackAddr = kernelMemory.Alloc(blockSize, false, "matchingThreadHack");
 		}
@@ -2860,16 +2878,16 @@ int NetAdhocMatching_Stop(int matchingId) {
 		}
 
 		// Stop fake PSP Thread
-		if (item->matching_thid > 0) {
-			__KernelStopThread(item->matching_thid, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
-			__KernelDeleteThread(item->matching_thid, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
+		if (matchingThreads[item->matching_thid] > 0) {
+			__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
+			__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
 			/*item->matchingThread->Terminate();
 			if (item->matchingThread && item->matchingThread->Stopped()) {
 				delete item->matchingThread;
 				item->matchingThread = nullptr;
 			}*/
 		}
-		item->matching_thid = 0;
+		matchingThreads[item->matching_thid] = 0;
 
 		// Multithreading Lock
 		peerlock.lock();
@@ -2999,6 +3017,7 @@ int NetAdhocMatching_Term() {
 			context = next;
 		}
 		contexts = NULL;
+		matchingThreads.clear();
 	}
 
 	return 0;
@@ -3099,6 +3118,8 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								
 								// Add Callback Handler
 								context->handler.entryPoint = callbackAddr;
+								context->matching_thid = static_cast<int>(matchingThreads.size());
+								matchingThreads.push_back(0);
 
 								// Link Context
 								//context->connected = true;
@@ -3145,84 +3166,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 }
 
-// This should be similar with sceNetAdhocMatchingStart2 but using USER_PARTITION_ID (2) for PartitionId params
-static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
-
-	// Multithreading Lock
-	peerlock.lock();
-
-	SceNetAdhocMatchingContext * item = findMatchingContext(matchingId);
-	
-	if (item != NULL) {
-		//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
-		if ((optLen > 0) && Memory::IsValidAddress(optDataAddr)) {
-			// Allocate the memory and copy the content
-			if (item->hello != NULL) free(item->hello);
-			item->hello = (uint8_t *)malloc(optLen);
-			if (item->hello != NULL) {
-				Memory::Memcpy(item->hello, optDataAddr, optLen);
-				item->hellolen = optLen;
-				item->helloAddr = optDataAddr;
-			}
-			//else return ERROR_NET_ADHOC_MATCHING_NO_SPACE; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-		}
-		//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG; // ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
-
-		//Add your own MAC as a member (only if it's empty?)
-		/*SceNetAdhocMatchingMemberInternal * peer = addMember(item, &item->mac);
-		switch (item->mode) {
-		case PSP_ADHOC_MATCHING_MODE_PARENT: 
-			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
-			break;
-		case PSP_ADHOC_MATCHING_MODE_CHILD:
-			peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
-			break;
-		case PSP_ADHOC_MATCHING_MODE_P2P:
-			peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
-		}*/
-
-		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
-		std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-		item->matching_thid = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
-		//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
-		if (item->matching_thid > 0) {
-			sceKernelStartThread(item->matching_thid, 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
-			//item->matchingThread->Start(matchingId, 0);
-		}
-
-		//Create the threads
-		if (!item->eventRunning) {
-			item->eventRunning = true;
-			item->eventThread = std::thread(matchingEventThread, matchingId);
-		}
-		if (!item->inputRunning) {
-			item->inputRunning = true;
-			item->inputThread = std::thread(matchingInputThread, matchingId);
-		}
-
-		item->running = 1;
-		netAdhocMatchingStarted++;
-	}
-	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-	
-	// Multithreading Unlock
-	peerlock.unlock();
-
-	sleep_ms(adhocMatchingEventDelayMS);
-	//hleDelayResult(0, "give some time", adhocMatchingEventDelayMS * 1000); // Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
-
-	return 0;
-}
-
-// With params for Partition ID for the event & input handler stack
-static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStart2(%i, %i, %i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
-
+int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
 	// Multithreading Lock
 	peerlock.lock();
 
@@ -3256,13 +3200,13 @@ static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartit
 			peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
 		}*/
 
-		// Create & Start the Fake PSP Thread
+		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
 		std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-		item->matching_thid = __KernelCreateThread(thrname.c_str(), __KernelGetCurThreadModuleId(), matchingThreadHackAddr, evthPri, evthStack, PSP_THREAD_ATTR_USER, 0, false);
-		//item->matchingThread = new HLEHelperThread(thrname, "sceNetAdhocMatching", "AdhocMatchingFunc", inthPri, inthStack);
-		if (item->matching_thid > 0) {
-			__KernelStartThread(item->matching_thid, 0, 0);
-			//item->matchingThread->Start(0, 0);
+		matchingThreads[item->matching_thid] = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
+		//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
+		if (matchingThreads[item->matching_thid] > 0) {
+			sceKernelStartThread(matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
+			//item->matchingThread->Start(matchingId, 0);
 		}
 
 		//Create the threads
@@ -3284,9 +3228,30 @@ static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartit
 	peerlock.unlock();
 
 	sleep_ms(adhocMatchingEventDelayMS);
-	//hleDelayResult(0,"give some time",adhocMatchingEventDelayMS*1000); // Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
+	//hleDelayResult(0, "give some time", adhocMatchingEventDelayMS * 1000); // Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
 
 	return 0;
+}
+
+#define KERNEL_PARTITION_ID  1
+#define USER_PARTITION_ID  2
+#define VSHELL_PARTITION_ID  5
+// This should be similar with sceNetAdhocMatchingStart2 but using USER_PARTITION_ID (2) for PartitionId params
+static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr, currentMIPS->pc);
+	if (!g_Config.bEnableWlan)
+		return -1;
+
+	return NetAdhocMatching_Start(matchingId, evthPri, USER_PARTITION_ID, evthStack, inthPri, USER_PARTITION_ID, inthStack, optLen, optDataAddr);
+}
+
+// With params for Partition ID for the event & input handler stack
+static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStart2(%i, %i, %i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr, currentMIPS->pc);
+	if (!g_Config.bEnableWlan)
+		return -1;
+
+	return NetAdhocMatching_Start(matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr);
 }
 
 
