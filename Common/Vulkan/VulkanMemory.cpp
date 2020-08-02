@@ -143,7 +143,9 @@ void VulkanPushBuffer::Map() {
 }
 
 void VulkanPushBuffer::Unmap() {
-	_dbg_assert_(writePtr_ != 0);
+	_dbg_assert_msg_(writePtr_ != nullptr, "VulkanPushBuffer::Unmap: writePtr_ null here means we have a bug (map/unmap mismatch)");
+	if (!writePtr_)
+		return;
 
 	if ((memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
 		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
