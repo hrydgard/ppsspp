@@ -446,6 +446,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_Discord.SetPresenceMenu();
 
+	// TODO: Load these in the background instead of synchronously.
+	g_BackgroundAudio.LoadSamples();
+
 	// Make sure UI state is MENU.
 	ResetUIState();
 

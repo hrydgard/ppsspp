@@ -11,7 +11,6 @@
 // ---------------------------------------------------------------------------------
 
 #pragma once
-#ifndef MOBILE_DEVICE
 
 #include <array>
 #include <string>
@@ -40,6 +39,3 @@ private:
 	void Write(u32 value);
 	void Write4(const char* ptr);
 };
-
-#endif
-

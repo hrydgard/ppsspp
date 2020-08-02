@@ -1,7 +1,7 @@
 // Copyright 2008 Dolphin Emulator Project
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
-#ifndef MOBILE_DEVICE
+
 #include <string>
 
 #include "Core/WaveFile.h"
@@ -105,4 +105,3 @@ void WaveFileWriter::AddStereoSamples(const short* sample_data, u32 count)
 	file.WriteBytes(sample_data, count * 4);
 	audio_size += count * 4;
 }
-#endif
