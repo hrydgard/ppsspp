@@ -3,6 +3,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+#include <stdlib.h>
 
 #include "base/timeutil.h"
 #include "Common/ChunkFile.h"
@@ -31,6 +32,10 @@
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+#include <sys/system_properties.h>
+#endif
 
 #define DIR_SEP "/"
 #ifdef _WIN32
@@ -857,6 +862,15 @@ int System_GetPropertyInt(SystemProperty prop)
    {
       case SYSPROP_AUDIO_SAMPLE_RATE:
          return SAMPLERATE;
+#if PPSSPP_PLATFORM(ANDROID)
+      case SYSPROP_SYSTEMVERSION: {
+         char sdk[PROP_VALUE_MAX] = {0};
+         if (__system_property_get("ro.build.version.sdk", sdk) != 0) {
+            return atoi(sdk);
+         }
+         return -1;
+      }
+#endif
       default:
          break;
    }
