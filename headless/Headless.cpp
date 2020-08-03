@@ -21,7 +21,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"

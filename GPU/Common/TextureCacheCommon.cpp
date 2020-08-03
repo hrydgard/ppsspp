@@ -23,7 +23,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/ShaderId.h"

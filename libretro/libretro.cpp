@@ -24,7 +24,7 @@
 #include "file/zip_read.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"

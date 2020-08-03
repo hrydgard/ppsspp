@@ -53,7 +53,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"

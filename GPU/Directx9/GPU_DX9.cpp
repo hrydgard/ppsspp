@@ -38,7 +38,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"

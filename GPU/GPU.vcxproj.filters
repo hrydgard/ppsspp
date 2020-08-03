@@ -129,9 +129,6 @@
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\FramebufferCommon.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\SoftwareTransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -288,6 +285,9 @@
     <ClInclude Include="Common\PresentationCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\FramebufferManagerCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -381,9 +381,6 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Common\FramebufferCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderX86.cpp">
@@ -570,6 +567,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Common\PresentationCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FramebufferManagerCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

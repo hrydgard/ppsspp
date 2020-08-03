@@ -1352,8 +1352,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
-	GPU/Common/FramebufferCommon.cpp
-	GPU/Common/FramebufferCommon.h
+	GPU/Common/FramebufferManagerCommon.cpp
+	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/GPUStateUtils.cpp

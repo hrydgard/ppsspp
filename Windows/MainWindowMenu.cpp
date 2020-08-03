@@ -23,7 +23,7 @@
 #endif
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
 

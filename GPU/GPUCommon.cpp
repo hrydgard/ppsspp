@@ -26,7 +26,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Debugger.h"

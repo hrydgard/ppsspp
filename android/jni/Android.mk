@@ -227,7 +227,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
-  $(SRC)/GPU/Common/FramebufferCommon.cpp \
+  $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
   $(SRC)/GPU/Common/PresentationCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \

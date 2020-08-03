@@ -33,7 +33,7 @@
 #include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"

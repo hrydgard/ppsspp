@@ -29,7 +29,7 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "gfx/d3d9_state.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"

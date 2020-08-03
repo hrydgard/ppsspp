@@ -55,7 +55,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Debugger/Record.h"
 

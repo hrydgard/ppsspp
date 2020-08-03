@@ -8,7 +8,7 @@
 #include "math/math_util.h"
 #include "math/lin/vec3.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Math3D.h"
 

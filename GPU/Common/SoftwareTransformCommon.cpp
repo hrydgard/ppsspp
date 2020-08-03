@@ -23,7 +23,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/TransformCommon.h"

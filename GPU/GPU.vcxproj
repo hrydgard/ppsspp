@@ -340,7 +340,7 @@
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="Common\DrawEngineCommon.h" />
-    <ClInclude Include="Common\FramebufferCommon.h" />
+    <ClInclude Include="Common\FramebufferManagerCommon.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\GPUStateUtils.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
@@ -493,7 +493,7 @@
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="Common\DrawEngineCommon.cpp" />
-    <ClCompile Include="Common\FramebufferCommon.cpp" />
+    <ClCompile Include="Common\FramebufferManagerCommon.cpp" />
     <ClCompile Include="Common\GPUDebugInterface.cpp" />
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
