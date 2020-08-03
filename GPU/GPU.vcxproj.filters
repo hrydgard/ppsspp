@@ -84,9 +84,6 @@
     <ClInclude Include="Directx9\ShaderManagerDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\FramebufferDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
@@ -288,6 +285,9 @@
     <ClInclude Include="Common\FramebufferManagerCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Directx9\FramebufferManagerDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -339,9 +339,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\FramebufferDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp">
@@ -571,6 +568,9 @@
     </ClCompile>
     <ClCompile Include="Common\FramebufferManagerCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\FramebufferManagerDX9.cpp">
+      <Filter>DirectX9</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
