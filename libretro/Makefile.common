@@ -486,7 +486,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
-          $(EXTDIR)/disarm.cpp \
           $(CORE_DIR)/UI/TextureUtil.cpp \
           $(CORE_DIR)/UI/GameInfoCache.cpp
 
@@ -509,6 +508,7 @@ ifeq ($(WITH_DYNAREC),1)
 			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
+                               $(EXTDIR)/disarm.cpp \
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 
 		ifeq ($(HAVE_NEON),1)
@@ -545,6 +545,7 @@ ifeq ($(WITH_DYNAREC),1)
 			SOURCES_CXX   += \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
+					 $(COREDIR)/Util/AudioFormatNEON.cpp \
 					 $(COMMONDIR)/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
@@ -591,11 +592,6 @@ endif
 		SOURCES_C   += $(NATIVEDIR)/math/fast/fast_matrix_sse.c
    endif
 endif
-SOURCES_CXX += \
-   $(COMMONDIR)/ArmEmitter.cpp \
-   $(COMMONDIR)/Arm64Emitter.cpp \
-   $(COREDIR)/Util/DisArm64.cpp
-
 #UDIS86
 # Compiled and linked even on ARM for now
 
