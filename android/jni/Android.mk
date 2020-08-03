@@ -134,7 +134,7 @@ VULKAN_FILES := \
   $(SRC)/Common/Vulkan/VulkanMemory.cpp \
   $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
-  $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
+  $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
   $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \

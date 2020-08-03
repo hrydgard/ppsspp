@@ -1267,8 +1267,8 @@ set(GPU_VULKAN
 	GPU/Vulkan/DrawEngineVulkan.h
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
-	GPU/Vulkan/FramebufferVulkan.cpp
-	GPU/Vulkan/FramebufferVulkan.h
+	GPU/Vulkan/FramebufferManagerVulkan.cpp
+	GPU/Vulkan/FramebufferManagerVulkan.h
 	GPU/Vulkan/GPU_Vulkan.cpp
 	GPU/Vulkan/GPU_Vulkan.h
 	GPU/Vulkan/PipelineManagerVulkan.cpp

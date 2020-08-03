@@ -630,7 +630,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
-	$(GPUDIR)/Vulkan/FramebufferVulkan.cpp \
+	$(GPUDIR)/Vulkan/FramebufferManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
 	$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \

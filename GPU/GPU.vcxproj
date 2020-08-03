@@ -479,7 +479,7 @@
     <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
     <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
     <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
-    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
+    <ClInclude Include="Vulkan\FramebufferManagerVulkan.h" />
     <ClInclude Include="Vulkan\GPU_Vulkan.h" />
     <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
@@ -671,7 +671,7 @@
     <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
-    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
+    <ClCompile Include="Vulkan\FramebufferManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
