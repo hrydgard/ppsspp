@@ -376,6 +376,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
+			UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			Click();
 			return true;
 		}
@@ -422,6 +423,11 @@ void ClickableItem::Draw(UIContext &dc) {
 	}
 
 	DrawBG(dc, style);
+}
+
+void Choice::Click() {
+	ClickableItem::Click();
+	UI::PlayUISound(UI::UISound::CONFIRM);
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
@@ -596,8 +602,10 @@ void PopupHeader::Draw(UIContext &dc) {
 }
 
 void CheckBox::Toggle() {
-	if (toggle_)
+	if (toggle_) {
 		*toggle_ = !(*toggle_);
+		UI::PlayUISound(*toggle_ ? UI::UISound::TOGGLE_ON : UI::UISound::TOGGLE_OFF);
+	}
 }
 
 bool CheckBox::Toggled() const {
@@ -668,8 +676,14 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void BitCheckBox::Toggle() {
-	if (bitfield_)
+	if (bitfield_) {
 		*bitfield_ = *bitfield_ ^ bit_;
+		if (*bitfield_ & bit_) {
+			UI::PlayUISound(UI::UISound::TOGGLE_ON);
+		} else {
+			UI::PlayUISound(UI::UISound::TOGGLE_OFF);
+		}
+	}
 }
 
 bool BitCheckBox::Toggled() const {
@@ -687,6 +701,11 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	// Add some internal padding to not look totally ugly
 	w += paddingW_;
 	h += paddingH_;
+}
+
+void Button::Click() {
+	Clickable::Click();
+	UI::PlayUISound(UI::UISound::CONFIRM);
 }
 
 void Button::Draw(UIContext &dc) {

@@ -816,8 +816,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
-	systemSettings->Add(new ItemHeader(sy->T("UI Language")));
+	systemSettings->Add(new ItemHeader(sy->T("UI Language")));  // Should be renamed "UI"?
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new CheckBox(&g_Config.bUISound, dev->T("UI Sound")));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
 	enableReports_ = Reporting::IsEnabled();
@@ -859,7 +860,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 #endif
-
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";

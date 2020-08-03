@@ -38,7 +38,7 @@
 #include "UI/BackgroundAudio.h"
 
 GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
-	SetBackgroundAudioGame(gamePath);
+	g_BackgroundAudio.SetGame(gamePath);
 }
 
 GameScreen::~GameScreen() {

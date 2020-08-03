@@ -285,6 +285,7 @@ static bool IsLocalPath(const char *path) {
 	return isUnixLocal || isWindowsLocal;
 }
 
+// The returned data should be free'd with delete[].
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	if (IsLocalPath(filename)) {
 		// Local path, not VFS.

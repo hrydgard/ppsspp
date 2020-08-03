@@ -168,6 +168,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 		} else {
 			finished_ = true;
 			TriggerFinish(DR_BACK);
+			UI::PlayUISound(UI::UISound::BACK);
 		}
 		return true;
 	}
