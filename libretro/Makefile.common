@@ -162,7 +162,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/GPUStateUtils.cpp \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
-	$(GPUCOMMONDIR)/FramebufferCommon.cpp \
+	$(GPUCOMMONDIR)/FramebufferManagerCommon.cpp \
 	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
@@ -630,7 +630,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
-	$(GPUDIR)/Vulkan/FramebufferVulkan.cpp \
+	$(GPUDIR)/Vulkan/FramebufferManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
 	$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \
@@ -654,7 +654,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/DepalettizeShaderDX9.cpp \
 	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
 	$(GPUDIR)/Directx9/PixelShaderGeneratorDX9.cpp \
-	$(GPUDIR)/Directx9/FramebufferDX9.cpp \
+	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
 	$(GPUDIR)/Directx9/GPU_DX9.cpp \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
 	$(GPUDIR)/Directx9/StateMappingDX9.cpp \

@@ -43,7 +43,7 @@
 #include "Core/Loaders.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 
 // TODO: Find a better place for this.
 http::Downloader g_DownloadManager;

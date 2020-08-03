@@ -28,7 +28,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"

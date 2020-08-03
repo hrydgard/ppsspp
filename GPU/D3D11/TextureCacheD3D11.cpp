@@ -32,7 +32,7 @@
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

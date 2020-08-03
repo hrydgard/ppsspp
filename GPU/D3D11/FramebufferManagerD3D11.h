@@ -24,7 +24,7 @@
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "ext/native/thin3d/thin3d.h"
 
 class TextureCacheD3D11;

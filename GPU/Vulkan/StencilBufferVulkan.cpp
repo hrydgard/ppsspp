@@ -21,7 +21,7 @@
 #include "ext/native/thin3d/VulkanRenderManager.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"

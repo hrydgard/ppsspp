@@ -19,7 +19,7 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"

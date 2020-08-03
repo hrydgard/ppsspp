@@ -134,7 +134,7 @@ VULKAN_FILES := \
   $(SRC)/Common/Vulkan/VulkanMemory.cpp \
   $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
-  $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
+  $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
   $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
@@ -227,7 +227,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
-  $(SRC)/GPU/Common/FramebufferCommon.cpp \
+  $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
   $(SRC)/GPU/Common/PresentationCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \

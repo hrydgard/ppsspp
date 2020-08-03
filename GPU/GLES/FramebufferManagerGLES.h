@@ -23,7 +23,7 @@
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "thin3d/GLRenderManager.h"
 
 struct GLSLProgram;

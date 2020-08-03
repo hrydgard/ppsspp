@@ -1267,8 +1267,8 @@ set(GPU_VULKAN
 	GPU/Vulkan/DrawEngineVulkan.h
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
-	GPU/Vulkan/FramebufferVulkan.cpp
-	GPU/Vulkan/FramebufferVulkan.h
+	GPU/Vulkan/FramebufferManagerVulkan.cpp
+	GPU/Vulkan/FramebufferManagerVulkan.h
 	GPU/Vulkan/GPU_Vulkan.cpp
 	GPU/Vulkan/GPU_Vulkan.h
 	GPU/Vulkan/PipelineManagerVulkan.cpp
@@ -1295,8 +1295,8 @@ set(GPU_D3D9
 	GPU/Directx9/DrawEngineDX9.h
 	GPU/Directx9/PixelShaderGeneratorDX9.cpp
 	GPU/Directx9/PixelShaderGeneratorDX9.h
-	GPU/Directx9/FramebufferDX9.cpp
-	GPU/Directx9/FramebufferDX9.h
+	GPU/Directx9/FramebufferManagerDX9.cpp
+	GPU/Directx9/FramebufferManagerDX9.h
 	GPU/Directx9/GPU_DX9.cpp
 	GPU/Directx9/GPU_DX9.h
 	GPU/Directx9/ShaderManagerDX9.cpp
@@ -1352,8 +1352,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
-	GPU/Common/FramebufferCommon.cpp
-	GPU/Common/FramebufferCommon.h
+	GPU/Common/FramebufferManagerCommon.cpp
+	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/GPUStateUtils.cpp
