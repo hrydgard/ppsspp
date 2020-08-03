@@ -4,14 +4,9 @@
 #include <mutex>
 #include <vector>
 
-class AT3PlusReader;
+#include "ui/root.h"
 
-enum class MenuSFX {
-	SELECT = 0,
-	BACK = 1,
-	CONFIRM = 2,
-	COUNT,
-};
+class AT3PlusReader;
 
 class BackgroundAudio {
 public:
@@ -24,26 +19,26 @@ public:
 	int Play();
 
 	void LoadSamples();
-	void PlaySFX(MenuSFX sfx);
+	void PlaySFX(UI::UISound sfx);
 
 private:
 	enum {
 		BUFSIZE = 44100,
 	};
 
-	std::mutex g_bgMutex;
-	std::string bgGamePath;
-	int playbackOffset = 0;
-	AT3PlusReader *at3Reader;
-	double gameLastChanged = 0.0;
-	double lastPlaybackTime = 0.0;
+	std::mutex mutex_;
+	std::string bgGamePath_;
+	int playbackOffset_ = 0;
+	AT3PlusReader *at3Reader_;
+	double gameLastChanged_ = 0.0;
+	double lastPlaybackTime_ = 0.0;
 	int *buffer = nullptr;
-	bool fadingOut = true;
-	float volume = 0.0f;
-	float delta = -0.0001f;
+	bool fadingOut_ = true;
+	float volume_ = 0.0f;
+	float delta_ = -0.0001f;
 
 	struct PlayInstance {
-		MenuSFX sound;
+		UI::UISound sound;
 		int offset;
 		int volume; // 0..255
 		bool done;

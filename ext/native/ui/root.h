@@ -29,9 +29,12 @@ bool TouchEvent(const TouchInput &touch, ViewGroup *root);
 bool AxisEvent(const AxisInput &axis, ViewGroup *root);
 
 enum class UISound {
-	SELECT,
+	SELECT = 0,
 	BACK,
 	CONFIRM,
+	TOGGLE_ON,
+	TOGGLE_OFF,
+	COUNT,
 };
 
 void SetSoundCallback(std::function<void(UISound)> func);

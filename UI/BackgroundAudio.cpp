@@ -16,29 +16,33 @@
 #include "UI/BackgroundAudio.h"
 
 struct WavData {
-	int num_channels = -1, sample_rate = -1, numFrames = -1, samplesPerSec = -1, avgBytesPerSec = -1, Nothing = -1;
-	int raw_offset_loop_start_ = 0;
-	int raw_offset_loop_end_ = 0;
-	int loop_start_offset_ = 0;
-	int loop_end_offset_ = 0;
+	int num_channels = -1;
+	int sample_rate = -1;
+	int numFrames = -1;
+	int samplesPerSec = -1;
+	int avgBytesPerSec = -1;
+	int raw_offset_loop_start = 0;
+	int raw_offset_loop_end = 0;
+	int loop_start_offset = 0;
+	int loop_end_offset = 0;
 	int codec = 0;
-	int raw_bytes_per_frame_ = 0;
-	uint8_t *raw_data_ = nullptr;
-	int raw_data_size_ = 0;
+	int raw_bytes_per_frame = 0;
+	uint8_t *raw_data = nullptr;
+	int raw_data_size = 0;
 	u8 at3_extradata[16];
 
 	void Read(RIFFReader &riff);
 
 	~WavData() {
-		free(raw_data_);
-		raw_data_ = nullptr;
+		free(raw_data);
+		raw_data = nullptr;
 	}
 };
 
 void WavData::Read(RIFFReader &file_) {
 	// If we have no loop start info, we'll just loop the entire audio.
-	raw_offset_loop_start_ = 0;
-	raw_offset_loop_end_ = 0;
+	raw_offset_loop_start = 0;
+	raw_offset_loop_end = 0;
 
 	if (file_.Descend('RIFF')) {
 		file_.ReadInt(); //get past 'WAVE'
@@ -64,15 +68,10 @@ void WavData::Read(RIFFReader &file_) {
 			num_channels = temp >> 16;
 
 			samplesPerSec = file_.ReadInt();
-			avgBytesPerSec = file_.ReadInt();
+			/*avgBytesPerSec =*/ file_.ReadInt();
 
 			temp = file_.ReadInt();
-			raw_bytes_per_frame_ = temp & 0xFFFF;
-			Nothing = temp >> 16;
-
-			// Not currently used, but part of the format.
-			(void)avgBytesPerSec;
-			(void)Nothing;
+			raw_bytes_per_frame = temp & 0xFFFF;
 
 			if (codec == PSP_CODEC_AT3) {
 				// The first two bytes are actually not a useful part of the extradata.
@@ -116,10 +115,10 @@ void WavData::Read(RIFFReader &file_) {
 						continue;
 
 					// We ignore loop interpolation (fraction) and play count for now.
-					raw_offset_loop_start_ = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame_;
-					loop_start_offset_ = loops[i].startSample % samplesPerFrame;
-					raw_offset_loop_end_ = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame_;
-					loop_end_offset_ = loops[i].endSample % samplesPerFrame;
+					raw_offset_loop_start = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame;
+					loop_start_offset = loops[i].startSample % samplesPerFrame;
+					raw_offset_loop_end = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame;
+					loop_end_offset = loops[i].endSample % samplesPerFrame;
 
 					if (loops[i].playCount == 0) {
 						// This was an infinite loop, so ignore the rest.
@@ -135,16 +134,16 @@ void WavData::Read(RIFFReader &file_) {
 		// enter the data chunk
 		if (file_.Descend('data')) {
 			int numBytes = file_.GetCurrentChunkSize();
-			numFrames = numBytes / raw_bytes_per_frame_;  // numFrames
+			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
-			raw_data_ = (uint8_t *)malloc(numBytes);
-			raw_data_size_ = numBytes;
+			raw_data = (uint8_t *)malloc(numBytes);
+			raw_data_size = numBytes;
 			if (num_channels == 1 || num_channels == 2) {
-				file_.ReadData(raw_data_, numBytes);
+				file_.ReadData(raw_data, numBytes);
 			} else {
 				ELOG("Error - bad blockalign or channels");
-				free(raw_data_);
-				raw_data_ = nullptr;
+				free(raw_data);
+				raw_data = nullptr;
 				return;
 			}
 			file_.Ascend();
@@ -176,7 +175,7 @@ public:
 
 		decoder_ = new SimpleAudio(wave_.codec, wave_.sample_rate, wave_.num_channels);
 		if (wave_.codec == PSP_CODEC_AT3) {
-			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame_);
+			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
 		}
 		ILOG("read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
@@ -188,21 +187,21 @@ public:
 		decoder_ = nullptr;
 	}
 
-	bool IsOK() { return wave_.raw_data_ != nullptr; }
+	bool IsOK() { return wave_.raw_data != nullptr; }
 
 	bool Read(int *buffer, int len) {
-		if (!wave_.raw_data_)
+		if (!wave_.raw_data)
 			return false;
 
 		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outBytes = 0;
-			decoder_->Decode(wave_.raw_data_ + raw_offset_, wave_.raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
+			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, (uint8_t *)buffer_, &outBytes);
 			if (!outBytes)
 				return false;
 
-			if (wave_.raw_offset_loop_end_ != 0 && raw_offset_ == wave_.raw_offset_loop_end_) {
+			if (wave_.raw_offset_loop_end != 0 && raw_offset_ == wave_.raw_offset_loop_end) {
 				// Only take the remaining bytes, but convert to stereo s16.
-				outBytes = std::min(outBytes, wave_.loop_end_offset_ * 4);
+				outBytes = std::min(outBytes, wave_.loop_end_offset * 4);
 			}
 
 			int start = skip_next_samples_;
@@ -212,16 +211,16 @@ public:
 				bgQueue.push(buffer_[i]);
 			}
 
-			if (wave_.raw_offset_loop_end_ != 0 && raw_offset_ == wave_.raw_offset_loop_end_) {
+			if (wave_.raw_offset_loop_end != 0 && raw_offset_ == wave_.raw_offset_loop_end) {
 				// Time to loop.  Account for the addition below.
-				raw_offset_ = wave_.raw_offset_loop_start_ - wave_.raw_bytes_per_frame_;
+				raw_offset_ = wave_.raw_offset_loop_start - wave_.raw_bytes_per_frame;
 				// This time we're counting each stereo sample.
-				skip_next_samples_ = wave_.loop_start_offset_ * 2;
+				skip_next_samples_ = wave_.loop_start_offset * 2;
 			}
 
 			// Handle loops when there's no loop info.
-			raw_offset_ += wave_.raw_bytes_per_frame_;
-			if (raw_offset_ >= wave_.raw_data_size_) {
+			raw_offset_ += wave_.raw_bytes_per_frame;
+			if (raw_offset_ >= wave_.raw_data_size) {
 				raw_offset_ = 0;
 			}
 		}
@@ -266,79 +265,73 @@ BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 	WavData wave;
 	wave.Read(reader);
 
-	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame_ != 4) {
+	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
 		ELOG("Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;
 	}
 
 	int16_t *samples = new int16_t[2 * wave.numFrames];
-	memcpy(samples, wave.raw_data_, wave.numFrames * wave.raw_bytes_per_frame_);
+	memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
 
 	return new BackgroundAudio::Sample(samples, wave.numFrames);
 }
 
 void BackgroundAudio::LoadSamples() {
-	samples_.resize((size_t)MenuSFX::COUNT);
-	samples_[(size_t)MenuSFX::BACK] = std::unique_ptr<Sample>(LoadSample("sfx_back.wav"));
-	samples_[(size_t)MenuSFX::SELECT] = std::unique_ptr<Sample>(LoadSample("sfx_select.wav"));
-	samples_[(size_t)MenuSFX::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
+	samples_.resize((size_t)UI::UISound::COUNT);
+	samples_[(size_t)UI::UISound::BACK] = std::unique_ptr<Sample>(LoadSample("sfx_back.wav"));
+	samples_[(size_t)UI::UISound::SELECT] = std::unique_ptr<Sample>(LoadSample("sfx_select.wav"));
+	samples_[(size_t)UI::UISound::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
+	samples_[(size_t)UI::UISound::TOGGLE_ON] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_on.wav"));
+	samples_[(size_t)UI::UISound::TOGGLE_OFF] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_off.wav"));
 
 	UI::SetSoundCallback([](UI::UISound sound) {
-		MenuSFX sfx;
-		switch (sound) {
-		case UI::UISound::BACK: sfx = MenuSFX::BACK; break;
-		case UI::UISound::CONFIRM: sfx = MenuSFX::CONFIRM; break;
-		case UI::UISound::SELECT: sfx = MenuSFX::SELECT; break;
-		default: return;
-		}
-
-		g_BackgroundAudio.PlaySFX(sfx);
+		g_BackgroundAudio.PlaySFX(sound);
 	});
 }
 
-void BackgroundAudio::PlaySFX(MenuSFX sfx) {
-	std::lock_guard<std::mutex> lock(g_bgMutex);
+void BackgroundAudio::PlaySFX(UI::UISound sfx) {
+	std::lock_guard<std::mutex> lock(mutex_);
 	plays_.push_back(PlayInstance{ sfx, 0, 64, false });
 }
 
 void BackgroundAudio::Clear(bool hard) {
 	if (!hard) {
-		fadingOut = true;
-		volume = 1.0f;
+		fadingOut_ = true;
+		volume_ = 1.0f;
 		return;
 	}
-	if (at3Reader) {
-		delete at3Reader;
-		at3Reader = nullptr;
+	if (at3Reader_) {
+		delete at3Reader_;
+		at3Reader_ = nullptr;
 	}
-	playbackOffset = 0;
+	playbackOffset_ = 0;
 }
 
 void BackgroundAudio::SetGame(const std::string &path) {
 	time_update();
 
-	std::lock_guard<std::mutex> lock(g_bgMutex);
-	if (path == bgGamePath) {
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (path == bgGamePath_) {
 		// Do nothing
 		return;
 	}
 
 	if (path.size() == 0) {
 		Clear(false);
-		fadingOut = true;
+		fadingOut_ = true;
 	} else {
 		Clear(true);
-		gameLastChanged = time_now_d();
-		fadingOut = false;
+		gameLastChanged_ = time_now_d();
+		fadingOut_ = false;
 	}
-	volume = 1.0f;
-	bgGamePath = path;
+	volume_ = 1.0f;
+	bgGamePath_ = path;
 }
 
 int BackgroundAudio::Play() {
 	time_update();
 
-	std::lock_guard<std::mutex> lock(g_bgMutex);
+	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
@@ -348,16 +341,16 @@ int BackgroundAudio::Play() {
 	}
 
 	double now = time_now_d();
-	int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
+	int sz = lastPlaybackTime_ <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime_) * 44100);
 	sz = std::min(BUFSIZE / 2, sz);
-	if (at3Reader) {
+	if (at3Reader_) {
 		if (sz >= 16) {
-			if (at3Reader->Read(buffer, sz)) {
-				if (fadingOut) {
+			if (at3Reader_->Read(buffer, sz)) {
+				if (fadingOut_) {
 					for (int i = 0; i < sz*2; i += 2) {
-						buffer[i] *= volume;
-						buffer[i + 1] *= volume;
-						volume += delta;
+						buffer[i] *= volume_;
+						buffer[i + 1] *= volume_;
+						volume_ += delta_;
 					}
 				}
 			}
@@ -376,7 +369,7 @@ int BackgroundAudio::Play() {
 			while (iter != plays_.end()) {
 				PlayInstance inst = *iter;
 				auto sample = samples_[(int)inst.sound].get();
-				if (iter->offset >= sample->length_) {
+				if (!sample || iter->offset >= sample->length_) {
 					iter->done = true;
 					iter = plays_.erase(iter);
 				} else {
@@ -393,13 +386,13 @@ int BackgroundAudio::Play() {
 
 	__PushExternalAudio(buffer, sz);
 
-	if (at3Reader && fadingOut && volume <= 0.0f) {
+	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
 		Clear(true);
-		fadingOut = false;
-		gameLastChanged = 0;
+		fadingOut_ = false;
+		gameLastChanged_ = 0;
 	}
 
-	lastPlaybackTime = now;
+	lastPlaybackTime_ = now;
 
 	return 0;
 }
@@ -407,14 +400,14 @@ int BackgroundAudio::Play() {
 void BackgroundAudio::Update() {
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
-	if (bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
-		std::lock_guard<std::mutex> lock(g_bgMutex);
-		if (!at3Reader) {
+	if (bgGamePath_.size() && (time_now_d() - gameLastChanged_ > 0.5)) {
+		std::lock_guard<std::mutex> lock(mutex_);
+		if (!at3Reader_) {
 			// Grab some audio from the current game and play it.
 			if (!g_gameInfoCache)
 				return;
 
-			std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
+			std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath_, GAMEINFO_WANTSND);
 			if (!gameInfo)
 				return;
 
@@ -425,8 +418,8 @@ void BackgroundAudio::Update() {
 
 			if (gameInfo->sndFileData.size()) {
 				const std::string &data = gameInfo->sndFileData;
-				at3Reader = new AT3PlusReader(data);
-				lastPlaybackTime = 0.0;
+				at3Reader_ = new AT3PlusReader(data);
+				lastPlaybackTime_ = 0.0;
 			}
 		}
 	}
