@@ -157,10 +157,6 @@ bool UIScreen::key(const KeyInput &key) {
 }
 
 void UIScreen::TriggerFinish(DialogResult result) {
-	switch (result) {
-	case DialogResult::DR_BACK: UI::PlayUISound(UI::UISound::BACK); break;
-	case DialogResult::DR_OK: UI::PlayUISound(UI::UISound::CONFIRM); break;
-	}
 	screenManager()->finishDialog(this, result);
 }
 
@@ -172,6 +168,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 		} else {
 			finished_ = true;
 			TriggerFinish(DR_BACK);
+			UI::PlayUISound(UI::UISound::BACK);
 		}
 		return true;
 	}

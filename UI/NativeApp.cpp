@@ -1208,6 +1208,8 @@ void NativeUpdate() {
 	screenManager->update();
 
 	g_Discord.Update();
+
+	UI::SetSoundEnabled(g_Config.bUISound);
 }
 
 bool NativeIsAtTopLevel() {

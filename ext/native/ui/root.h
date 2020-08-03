@@ -37,6 +37,7 @@ enum class UISound {
 	COUNT,
 };
 
+void SetSoundEnabled(bool enabled);
 void SetSoundCallback(std::function<void(UISound)> func);
 
 void PlayUISound(UISound sound);

@@ -2,6 +2,7 @@
 #include <deque>
 
 #include "ppsspp_config.h"
+
 #include "base/timeutil.h"
 #include "ui/root.h"
 #include "ui/viewgroup.h"
@@ -18,6 +19,7 @@ bool focusForced;
 static std::mutex eventMutex_;
 
 static std::function<void(UISound)> soundCallback;
+static bool soundEnabled = true;
 
 
 struct DispatchQueueItem {
@@ -141,12 +143,16 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	}
 }
 
+void SetSoundEnabled(bool enabled) {
+	soundEnabled = enabled;
+}
+
 void SetSoundCallback(std::function<void(UISound)> func) {
 	soundCallback = func;
 }
 
 void PlayUISound(UISound sound) {
-	if (soundCallback) {
+	if (soundEnabled && soundCallback) {
 		soundCallback(sound);
 	}
 }

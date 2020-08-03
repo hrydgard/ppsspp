@@ -9,6 +9,7 @@
 #include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"
+#include "ui/root.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
@@ -1321,11 +1322,17 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
 	if (input.flags & KEY_DOWN) {
-		if (IsTabLeftKey(input) && selected_ > 0) {
-			SetSelection(selected_ - 1);
+		if (IsTabLeftKey(input)) {
+			if (selected_ > 0) {
+				SetSelection(selected_ - 1);
+				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
+			}
 			ret = true;
-		} else if (IsTabRightKey(input) && selected_ < (int)views_.size() - 1) {
-			SetSelection(selected_ + 1);
+		} else if (IsTabRightKey(input)) {
+			if (selected_ < (int)views_.size() - 1) {
+				SetSelection(selected_ + 1);
+				UI::PlayUISound(UI::UISound::TOGGLE_ON);
+			}
 			ret = true;
 		}
 	}

@@ -519,6 +519,7 @@ public:
 	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
+	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	const std::string &GetText() const { return text_; }
@@ -647,6 +648,7 @@ public:
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(false) {}
 
+	virtual void Click();
 	virtual void HighlightChanged(bool highlighted);
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
