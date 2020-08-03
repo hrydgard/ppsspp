@@ -712,7 +712,6 @@ VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
-	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
@@ -816,6 +815,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	bool computeUpload = false;
 	bool computeCopy = false;
+	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
 	{
 		delete entry->vkTex;
