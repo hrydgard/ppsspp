@@ -27,9 +27,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ge_constants.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Math3D.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -287,6 +284,9 @@
     </ClInclude>
     <ClInclude Include="Directx9\FramebufferManagerDX9.h">
       <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="ge_constants.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -571,6 +571,9 @@
     </ClCompile>
     <ClCompile Include="Directx9\FramebufferManagerDX9.cpp">
       <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="GeConstants.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

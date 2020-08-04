@@ -1304,7 +1304,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 
-	DEBUG_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
+	INFO_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
 
 	// A target for the destination is missing - so just create one!
 	// Make sure this one would be found by the algorithm above so we wouldn't

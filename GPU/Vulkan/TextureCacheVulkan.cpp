@@ -416,7 +416,6 @@ void TextureCacheVulkan::CompileScalingShader() {
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %p", entry->vkTex);
 	delete entry->vkTex;
 	entry->vkTex = nullptr;
 }
