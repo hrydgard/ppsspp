@@ -152,7 +152,7 @@ void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
-void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting);
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule);
 void ExportFuncSymbol(const FuncSymbolExport &func);
 void UnexportFuncSymbol(const FuncSymbolExport &func);
 
@@ -351,7 +351,7 @@ public:
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		ImportFuncSymbol(func, reimporting);
+		ImportFuncSymbol(func, reimporting, GetName());
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
@@ -711,7 +711,7 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
-void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule) {
 	// Prioritize HLE implementations.
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
@@ -748,9 +748,10 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	// It hasn't been exported yet, but hopefully it will later.
 	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
 	if (isKnownModule) {
-		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module '%s': 0x%08x", func.moduleName, func.nid);
+		// We used to report this, but I don't think it's very interesting anymore.
+		WARN_LOG(LOADER, "Unknown syscall from known module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
-		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
+		INFO_LOG(LOADER, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
 	if (isKnownModule || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
