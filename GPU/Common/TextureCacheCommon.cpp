@@ -772,13 +772,13 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
-		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (framebuffer->fb_stride != entry->bufw) {
-			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
 		}
+		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (entry->format != (GETextureFormat)framebuffer->format) {
-			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-			// Let's avoid using it when we know the format is wrong.  May be a video/etc. updating memory.
+			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %d != %d", entry->format, framebuffer->format);
+			// Let's avoid using it when we know the format is wrong. May be a video/etc. updating memory.
 			// However, some games use a different format to clear the buffer.
 			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
 				DetachFramebuffer(entry, address, framebuffer);
@@ -792,9 +792,11 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		if (!framebufferManager_->UseBufferedRendering())
 			return false;
 
-		const bool clutFormat =
+		const bool matchingClutFormat =
 			(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
 			(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+		const bool clutFormat = IsClutFormat((GETextureFormat)(entry->format));
 
 		const u32 bitOffset = (texaddr - addr) * 8;
 		const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
@@ -803,7 +805,8 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 		if (framebuffer->fb_stride != entry->bufw) {
 			if (noOffset) {
-				WARN_LOG_REPORT_ONCE(diffStrides2, G3D, "Render to texture using CLUT with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
+				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry->bufw, framebuffer->fb_stride);
 			} else {
 				// Assume any render-to-tex with different bufw + offset is a render from ram.
 				DetachFramebuffer(entry, address, framebuffer);
@@ -823,32 +826,36 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			DetachFramebuffer(entry, address, framebuffer);
 			return false;
 		}
+
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
 		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000) {
-			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible render to texture at %08x +%dx%d / %dx%d", address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
+			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
 			DetachFramebuffer(entry, address, framebuffer);
 			return false;
 		}
 
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
-		if (clutFormat) {
+		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Render to texture using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
 			}
 			AttachFramebufferValid(entry, framebuffer, fbInfo);
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 			// We'll validate it compiles later.
 			return true;
-		} else if (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) {
-			ERROR_LOG_REPORT_ONCE(fourEightBit, G3D, "4 and 8-bit CLUT format not supported for framebuffers");
+		} else if (IsClutFormat((GETextureFormat)(entry->format)) || IsDXTFormat((GETextureFormat)(entry->format))) {
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffers", GeTextureFormatToString((GETextureFormat)entry->format));
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
-		if (framebuffer->format == entry->format || clutFormat) {
+		if (framebuffer->format == entry->format || matchingClutFormat) {
 			if (framebuffer->format != entry->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
+					GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
 				AttachFramebufferValid(entry, framebuffer, fbInfo);
 				return true;
 			} else {
@@ -858,7 +865,10 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 				return true;
 			}
 		} else {
-			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
+			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
+				GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 	}
 

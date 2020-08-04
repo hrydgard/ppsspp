@@ -73,7 +73,6 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 }
 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %08x", entry->addr);
 	if (delete_them) {
 		if (entry->textureName) {
 			render_->DeleteTexture(entry->textureName);

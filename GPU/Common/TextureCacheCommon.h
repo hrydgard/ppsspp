@@ -123,11 +123,12 @@ struct TexCacheEntry {
 
 	// Status, but int so we can zero initialize.
 	int status;
+
 	u32 addr;
 	u32 hash;
 	VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO. TODO: Collapse into texturePtr
 	u32 sizeInRAM;  // Could be computed
-	u8 format;
+	u8 format;  // GeTextureFormat
 	u8 maxLevel;
 	u16 dim;
 	u16 bufw;

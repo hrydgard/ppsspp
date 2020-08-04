@@ -87,7 +87,6 @@ void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 }
 
 void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %p", entry->texturePtr);
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (texture) {
 		texture->Release();

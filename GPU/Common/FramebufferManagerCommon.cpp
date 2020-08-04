@@ -45,6 +45,10 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		displayFormat_(GE_FORMAT_565) {
 	presentation_ = new PresentationCommon(draw);
+
+	// See comment from where it's used below.
+	// As for the use of IsGLES, just the way it was. Scary to change it.
+	clearFramebufferOnFirstUseHack_ = gl_extensions.IsGLES;
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
@@ -500,7 +504,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
-		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+		ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height);
 		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		vfb->firstFrameSaved = true;
 	} else {
@@ -527,13 +531,12 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
 			shaderManager_->DirtyLastShader();
-			if (gl_extensions.IsGLES) {
-				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it. This broke stuff before, so now it only clears on the first use of an
-				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-
-				// Wait, can we even do this? Seems highly unsafe.. TODO: Remove
+			if (clearFramebufferOnFirstUseHack_) {
+				// HACK: Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+				// to it (or in Vulkan, clear during framebuffer load). This is a hack to force this
+				// the first time a framebuffer is bound for rendering in a frame.
+				//
+				// Quite unsafe as it might kill some feedback effects.
 				if (vfb->last_frame_render != gpuStats.numFlips) {
 					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "FramebufferSwitch");
 				} else {
@@ -809,7 +812,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
 		if (!g_Config.bDisableSlowFramebufEffects) {
-			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->firstFrameSaved = true;
 			vfb->safeWidth = 0;
@@ -975,8 +978,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-			bool sync = gl_extensions.IsGLES;
-			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
+			ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->firstFrameSaved = true;
 		}
@@ -1187,7 +1189,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_REPORT_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated && !PSP_CoreParameter().compat.flags().DisableReadbacks) {
-			ReadFramebufferToMemory(srcBuffer, true, 0, srcY, srcBuffer->width, srcH);
+			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
@@ -1302,7 +1304,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 
-	DEBUG_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
+	INFO_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
 
 	// A target for the destination is missing - so just create one!
 	// Make sure this one would be found by the algorithm above so we wouldn't
@@ -1587,7 +1589,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			} else {
 				if (tooTall)
 					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
-				ReadFramebufferToMemory(srcBuffer, true, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
+				ReadFramebufferToMemory(srcBuffer, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
 				srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
@@ -1971,7 +1973,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 	gpuStats.numReadbacks++;
 }
 
-void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
+void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;

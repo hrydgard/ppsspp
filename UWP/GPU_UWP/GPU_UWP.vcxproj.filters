@@ -45,6 +45,7 @@
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
     <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp" />
     <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.cpp" />
+    <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />
     <ClCompile Include="..\..\GPU\GPUCommon.cpp" />

@@ -575,6 +575,7 @@
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GeConstants.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>

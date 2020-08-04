@@ -68,13 +68,15 @@ struct VirtualFramebuffer {
 
 	// There's also a top left of the drawing region, but meh...
 
-	// width/height: The detected size of the current framebuffer.
+	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
 	u16 height;
+
 	// renderWidth/renderHeight: The scaled size we render at. May be scaled to render at higher resolutions.
 	// The physical buffer may be larger than renderWidth/renderHeight.
 	u16 renderWidth;
 	u16 renderHeight;
+
 	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than width/height.
 	// Actual physical buffer is this size times the render resolution multiplier.
 	// The buffer may be used to render a width or height from 0 to these values without being recreated.
@@ -187,7 +189,7 @@ class TextureCacheCommon;
 
 class FramebufferManagerCommon {
 public:
-	FramebufferManagerCommon(Draw::DrawContext *draw);
+	explicit FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
 	virtual void Init();
@@ -231,7 +233,7 @@ public:
 	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
@@ -394,6 +396,7 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
 	bool gameUsesSequentialCopies_ = false;
+	bool clearFramebufferOnFirstUseHack_ = false;
 
 	// Sampled in BeginFrame for safety.
 	float renderWidth_ = 0.0f;

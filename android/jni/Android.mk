@@ -225,6 +225,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
+  $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
