@@ -847,6 +847,8 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry->format)) || IsDXTFormat((GETextureFormat)(entry->format))) {
 			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffers", GeTextureFormatToString((GETextureFormat)entry->format));
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
@@ -865,6 +867,8 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		} else {
 			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
 				GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 	}
 
