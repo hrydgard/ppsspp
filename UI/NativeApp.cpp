@@ -446,9 +446,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_Discord.SetPresenceMenu();
 
-	// TODO: Load these in the background instead of synchronously.
-	g_BackgroundAudio.LoadSamples();
-
 	// Make sure UI state is MENU.
 	ResetUIState();
 
@@ -709,6 +706,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_Config.sFont = des->T("Font", "Roboto Condensed");
 	}
 #endif
+
+	// TODO: Load these in the background instead of synchronously.
+	g_BackgroundAudio.LoadSamples();
 
 	if (!boot_filename.empty() && stateToLoad != NULL) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {

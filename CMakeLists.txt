@@ -2037,6 +2037,11 @@ set(NativeAssets
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png
+	assets/sfx_back.wav
+	assets/sfx_confirm.wav
+	assets/sfx_select.wav
+	assets/sfx_toggle_off.wav
+	assets/sfx_toggle_on.wav
 	source_assets/image/logo.png
 	source_assets/image/icon_regular_72.png
 )
