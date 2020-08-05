@@ -648,27 +648,29 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_LARGE_VIEWPORTS)) {
-			// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-			if (left < 0.0f || right > renderWidth) {
-				float overageLeft = std::max(-left, 0.0f);
-				float overageRight = std::max(right - renderWidth, 0.0f);
-				// Our center drifted by the difference in overages.
-				float drift = overageRight - overageLeft;
+		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+		{
+			float overageLeft = std::max(-left, 0.0f);
+			float overageRight = std::max(right - renderWidth, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageRight - overageLeft;
 
+			if (overageLeft != 0.0f || overageRight != 0.0f) {
 				left += overageLeft;
 				right -= overageRight;
 
 				wScale = vpWidth / (right - left);
 				xOffset = drift / (right - left);
 			}
+		}
 
-			if (top < 0.0f || bottom > renderHeight) {
-				float overageTop = std::max(-top, 0.0f);
-				float overageBottom = std::max(bottom - renderHeight, 0.0f);
-				// Our center drifted by the difference in overages.
-				float drift = overageBottom - overageTop;
+		{
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - renderHeight, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageBottom - overageTop;
 
+			if (overageTop != 0.0f || overageBottom != 0.0f) {
 				top += overageTop;
 				bottom -= overageBottom;
 
