@@ -645,6 +645,14 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			float overageLeft = std::max(-left, 0.0f);
 			float overageRight = std::max(right - bufferWidth, 0.0f);
 
+			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
+			if (right < scissorX2) {
+				overageRight -= scissorX2 - right;
+			}
+			if (left > scissorX1) {
+				overageLeft += scissorX1 - left;
+			}
+
 			// Our center drifted by the difference in overages.
 			float drift = overageRight - overageLeft;
 
@@ -660,6 +668,14 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		{
 			float overageTop = std::max(-top, 0.0f);
 			float overageBottom = std::max(bottom - bufferHeight, 0.0f);
+
+			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
+			if (bottom < scissorY2) {
+				overageBottom -= scissorY2 - bottom;
+			}
+			if (top > scissorY1) {
+				overageTop += scissorY1 - top;
+			}
 			// Our center drifted by the difference in overages.
 			float drift = overageBottom - overageTop;
 
