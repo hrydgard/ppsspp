@@ -163,13 +163,13 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		alignedPosition &= ~(grain_ - 1);
 
 		// Since the position was decreased, size must increase.
-		alignedSize += alignedPosition - position;
+		alignedSize += position - alignedPosition;
 	}
 
 	// Upalign size to grain.
 	alignedSize = (alignedSize + grain_ - 1) & ~(grain_ - 1);
 	// Tell the caller the allocated size from their requested starting position.
-	size = alignedSize - (alignedPosition - position);
+	size = alignedSize - (position - alignedPosition);
 
 	Block *bp = GetBlockFromAddress(alignedPosition);
 	if (bp != NULL)
