@@ -568,7 +568,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
+	renderX = gstate_c.curRTOffsetX;
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -576,8 +576,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
-	// This is a bit of a hack as the render buffer isn't always that size
-	// We always scissor on non-buffered so that clears don't spill outside the frame.
 	out.scissorEnable = true;
 	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
 		out.scissorX = 0;
@@ -585,8 +583,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.scissorW = 0;
 		out.scissorH = 0;
 	} else {
-		out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorX = (renderX * renderWidthFactor) + displayOffsetX + scissorX1 * renderWidthFactor;
+		out.scissorY = (renderY * renderHeightFactor) + displayOffsetY + scissorY1 * renderHeightFactor;
 		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
 		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 	}
@@ -598,8 +596,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		out.viewportX = renderX + displayOffsetX;
-		out.viewportY = renderY + displayOffsetY;
+		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
+		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
 		out.depthRangeMin = ToScaledDepthFromIntegerScale(0);
@@ -629,12 +627,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
-		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
-		vpX0 *= renderWidthFactor;
-		vpY0 *= renderHeightFactor;
-		vpWidth *= renderWidthFactor;
-		vpHeight *= renderHeightFactor;
-
 		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
 		// This may mean some games won't work, or at least won't work at higher render resolutions.
 		// So we apply it in the shader instead.
@@ -651,7 +643,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		{
 			float overageLeft = std::max(-left, 0.0f);
-			float overageRight = std::max(right - renderWidth, 0.0f);
+			float overageRight = std::max(right - bufferWidth, 0.0f);
+
 			// Our center drifted by the difference in overages.
 			float drift = overageRight - overageLeft;
 
@@ -666,7 +659,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 
 		{
 			float overageTop = std::max(-top, 0.0f);
-			float overageBottom = std::max(bottom - renderHeight, 0.0f);
+			float overageBottom = std::max(bottom - bufferHeight, 0.0f);
 			// Our center drifted by the difference in overages.
 			float drift = overageBottom - overageTop;
 
@@ -679,10 +672,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			}
 		}
 
-		out.viewportX = left + displayOffsetX;
-		out.viewportY = top + displayOffsetY;
-		out.viewportW = right - left;
-		out.viewportH = bottom - top;
+		out.viewportX = left * renderWidthFactor + displayOffsetX;
+		out.viewportY = top * renderHeightFactor + displayOffsetY;
+		out.viewportW = (right - left) * renderWidthFactor;
+		out.viewportH = (bottom - top) * renderHeightFactor;
 
 		// The depth viewport parameters are the same, but we handle it a bit differently.
 		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
