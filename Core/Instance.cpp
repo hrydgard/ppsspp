@@ -136,9 +136,9 @@ void InitInstanceCounter() {
 
 void ShutdownInstanceCounter() {
 #if PPSSPP_PLATFORM(WINDOWS)
-	if (hIDMapFile != NULL) {
+	if (hIDMapFile) {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
-		hIDMapFile = NULL;
+		hIDMapFile = nullptr;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
 	// Do nothing
