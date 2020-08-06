@@ -55,6 +55,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
+#include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/TextureReplacer.h"
@@ -229,6 +230,11 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
 	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
 		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
+
+	if (!IsFirstInstance()) {
+		// If we're not the first instance, can't save the setting, and it requires a restart, so...
+		renderingBackendChoice->SetEnabled(false);
+	}
 #endif
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
@@ -1273,6 +1279,8 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	} else if (!gamePath_.empty()) {
 		param += " \"" + ReplaceAll(ReplaceAll(gamePath_, "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}
+	// Make sure the new instance is considered the first.
+	ShutdownInstanceCounter();
 	System_SendMessage("graphics_restart", param.c_str());
 }
 
