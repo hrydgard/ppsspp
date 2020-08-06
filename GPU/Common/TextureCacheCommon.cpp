@@ -846,7 +846,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			// We'll validate it compiles later.
 			return true;
 		} else if (IsClutFormat((GETextureFormat)(entry->format)) || IsDXTFormat((GETextureFormat)(entry->format))) {
-			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffers", GeTextureFormatToString((GETextureFormat)entry->format));
+			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format));
 			DetachFramebuffer(entry, address, framebuffer);
 			return false;
 		}
