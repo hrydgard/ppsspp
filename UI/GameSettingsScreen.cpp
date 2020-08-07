@@ -381,15 +381,12 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
-	frameDuplication->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE || (g_Config.bSoftwareRendering && g_Config.iFrameSkip != 0);
-	});
 	frameDuplication->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-	frameDuplication->SetEnabledFunc([]() -> bool {
-		return g_Config.iFrameSkip == 0;
+	frameDuplication->SetEnabledFunc([] {
+		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && g_Config.iFrameSkip == 0;
 	});
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
