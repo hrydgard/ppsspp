@@ -917,9 +917,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 	return hleLogSuccessI(SCENET, 0);
 }
 
-// TODO: How many handlers can the PSP actually have for Apctl?
-// TODO: Should we allow the same handler to be added more than once?
-static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
+int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
 	u32 retval = 0;
 	struct ApctlHandler handler;
@@ -931,39 +929,51 @@ static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
 
-	for(std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); it++) {
-		if(it->second.entryPoint == handlerPtr) {
+	for (std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); it++) {
+		if (it->second.entryPoint == handlerPtr) {
 			foundHandler = true;
 			break;
 		}
 	}
 
-	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
-		if(apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
-			ERROR_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
+		if (apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
+			ERROR_LOG(SCENET, "Failed to Add handler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
 			return retval;
 		}
 		apctlHandlers[retval] = handler;
-		WARN_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
+		WARN_LOG(SCENET, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
 	}
 	else {
-		ERROR_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
+		ERROR_LOG(SCENET, "Existing Apctl handler(%x, %x)", handlerPtr, handlerArg);
 	}
 
 	// The id to return is the number of handlers currently registered
 	return retval;
 }
 
-static int sceNetApctlDelHandler(u32 handlerID) {
-	if(apctlHandlers.find(handlerID) != apctlHandlers.end()) {
+// TODO: How many handlers can the PSP actually have for Apctl?
+// TODO: Should we allow the same handler to be added more than once?
+static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
+	INFO_LOG(SCENET, "%s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	return NetApctl_AddHandler(handlerPtr, handlerArg);
+}
+
+int NetApctl_DelHandler(u32 handlerID) {
+	if (apctlHandlers.find(handlerID) != apctlHandlers.end()) {
 		apctlHandlers.erase(handlerID);
-		WARN_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
+		WARN_LOG(SCENET, "Deleted Apctl handler: %d", handlerID);
 	}
 	else {
-		ERROR_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
+		ERROR_LOG(SCENET, "Invalid Apctl handler: %d", handlerID);
 	}
 	return 0;
+}
+
+static int sceNetApctlDelHandler(u32 handlerID) {
+	INFO_LOG(SCENET, "%s(%d)", __FUNCTION__, handlerID);
+	return NetApctl_DelHandler(handlerID);
 }
 
 static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
@@ -1067,7 +1077,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 	return -1;
 }
 
-static int sceNetApctlConnect(int connIndex) {
+int sceNetApctlConnect(int connIndex) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, connIndex);
 	// Is this connIndex is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
@@ -1083,15 +1093,17 @@ static int sceNetApctlDisconnect() {
 	return 0;
 }
 
+int NetApctl_GetState() {
+	return netApctlState;
+}
+
 static int sceNetApctlGetState(u32 pStateAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%08x)", __FUNCTION__, pStateAddr);
-	
 	//if (!netApctlInited) return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
 		// Return Thread Status
-		Memory::Write_U32(netApctlState, pStateAddr);
+		Memory::Write_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
 		return hleLogSuccessI(SCENET, 0);
 	}
@@ -1099,15 +1111,18 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 	return hleLogError(SCENET, -1, "apctl invalid arg");
 }
 
-static int sceNetApctlScanUser() {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
-
+int NetApctl_ScanUser() {
 	// Scan probably only works when not in connected state, right?
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
 		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
 
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return 0;
+}
+
+static int sceNetApctlScanUser() {
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return NetApctl_ScanUser();
 }
 
 static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
@@ -1183,13 +1198,7 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 
 static int sceNetApctlScanSSID2() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
-
-	// Scan probably only works when not in connected state, right?
-	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
-
-	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
-	return 0;
+	return NetApctl_ScanUser();
 }
 
 static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
@@ -1209,13 +1218,13 @@ static int sceNetResolverInit()
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 2nd kind of handler
-	return sceNetApctlAddHandler(handlerPtr, handlerArg);
+	return NetApctl_AddHandler(handlerPtr, handlerArg);
 }
 
 static int sceNetApctlDelInternalHandler(u32 handlerID) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 2nd kind of handler
-	return sceNetApctlDelHandler(handlerID);
+	return NetApctl_DelHandler(handlerID);
 }
 
 static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
@@ -1241,7 +1250,7 @@ static int sceNetApctl_lib2_4C19731F(int code, u32 pInfoAddr) {
 
 static int sceNetApctlScan() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
-	return sceNetApctlScanUser();
+	return NetApctl_ScanUser();
 }
 
 static int sceNetApctlGetBSSDescIDList(u32 sizeAddr, u32 bufAddr) {
