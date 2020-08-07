@@ -169,6 +169,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
 	if (format16Bit) {
+		// TODO: We have to apply GetDepthScaleFactors here too, right?
 		for (int yp = 0; yp < h; ++yp) {
 			int row_offset = vfb->z_stride * yp;
 			for (int xp = 0; xp < packWidth; ++xp) {
@@ -177,11 +178,13 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			}
 		}
 	} else {
+		// TODO: Apply this in the shader.
+		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		for (int yp = 0; yp < h; ++yp) {
 			int row_offset = vfb->z_stride * yp;
 			for (int xp = 0; xp < packWidth; ++xp) {
 				const int i = row_offset + xp;
-				float scaled = FromScaledDepth(packedf[i]);
+				float scaled = depthScale.Apply(packedf[i]);
 				if (scaled <= 0.0f) {
 					depth[i] = 0;
 				} else if (scaled >= 65535.0f) {

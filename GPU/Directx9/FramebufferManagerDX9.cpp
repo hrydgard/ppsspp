@@ -538,12 +538,13 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 				const u32 *packed = (const u32 *)locked.pBits;
 				u16 *depth = (u16 *)Memory::GetPointer(z_address);
 
+				DepthScaleFactors depthScale = GetDepthScaleFactors();
 				// TODO: Optimize.
 				for (int yp = 0; yp < h; ++yp) {
 					for (int xp = 0; xp < w; ++xp) {
 						const int offset = (yp + y) * vfb->z_stride + x + xp;
 
-						float scaled = FromScaledDepth((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
+						float scaled = depthScale.Apply((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
 						if (scaled <= 0.0f) {
 							depth[offset] = 0;
 						} else if (scaled >= 65535.0f) {
