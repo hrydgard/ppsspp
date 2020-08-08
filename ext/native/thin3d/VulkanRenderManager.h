@@ -37,6 +37,12 @@ public:
 		CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
 		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
 
+		vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, "fb_color");
+		vk->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, "fb_color_view");
+
+		vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, "fb_depth");
+		vk->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, "fb_depth_view");
+
 		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 		VkImageView views[2]{};
 

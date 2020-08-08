@@ -694,6 +694,14 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 	return res;
 }
 
+void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name) {
+	VkDebugUtilsObjectNameInfoEXT info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+	info.pObjectName = name;
+	info.objectHandle = handle;
+	info.objectType = type;
+	vkSetDebugUtilsObjectNameEXT(device_, &info);
+}
+
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
 	winsysData1_ = data1;

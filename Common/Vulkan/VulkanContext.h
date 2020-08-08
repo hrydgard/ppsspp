@@ -167,6 +167,16 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	void SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name);
+
+	// Simple workaround for the casting warning.
+	template <class T>
+	void SetDebugName(T handle, VkObjectType type, const char *name) {
+		if (extensionsLookup_.EXT_debug_utils) {
+			SetDebugNameImpl((uint64_t)handle, type, name);
+		}
+	}
+
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
