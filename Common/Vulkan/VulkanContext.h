@@ -167,14 +167,23 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
-	void SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name);
-
 	// Simple workaround for the casting warning.
 	template <class T>
 	void SetDebugName(T handle, VkObjectType type, const char *name) {
 		if (extensionsLookup_.EXT_debug_utils) {
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
+	}
+
+	// Shorthand for the above, the most common types we want to tag.
+	void SetDebugName(VkImage image, const char *name) {
+		SetDebugName(image, VK_OBJECT_TYPE_IMAGE, name);
+	}
+	void SetDebugName(VkFramebuffer framebuf, const char *name) {
+		SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, name);
+	}
+	void SetDebugName(VkSampler sampler, const char *name) {
+		SetDebugName(sampler, VK_OBJECT_TYPE_SAMPLER, name);
 	}
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
@@ -277,12 +286,14 @@ public:
 		MAX_INFLIGHT_FRAMES = 3,
 	};
 
-	const VulkanDeviceExtensions &DeviceExtensions() { return extensionsLookup_; }
+	const VulkanExtensions &Extensions() { return extensionsLookup_; }
 
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
 	bool ChooseQueue();
+
+	void SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name);
 
 	VkResult InitDebugUtilsCallback();
 
@@ -317,7 +328,7 @@ private:
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
-	VulkanDeviceExtensions extensionsLookup_{};
+	VulkanExtensions extensionsLookup_{};
 
 	std::vector<VkPhysicalDevice> physical_devices_;
 

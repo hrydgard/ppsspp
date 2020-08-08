@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "base/display.h"
+#include "base/stringutil.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"
@@ -30,18 +31,12 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height) : vulkan_(vk) {
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
 		width = _width;
 		height = _height;
 
 		CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
 		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
-
-		vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, "fb_color");
-		vk->SetDebugName(color.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, "fb_color_view");
-
-		vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, "fb_depth");
-		vk->SetDebugName(depth.imageView, VK_OBJECT_TYPE_IMAGE_VIEW, "fb_depth_view");
 
 		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 		VkImageView views[2]{};
@@ -56,6 +51,11 @@ public:
 		fbci.layers = 1;
 
 		vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
+		if (vk->Extensions().EXT_debug_utils) {
+			vk->SetDebugName(color.image, StringFromFormat("fb_color_%s", tag).c_str());
+			vk->SetDebugName(depth.image, StringFromFormat("fb_depth_%s", tag).c_str());
+			vk->SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
+		}
 	}
 
 	~VKRFramebuffer() {

@@ -489,7 +489,7 @@ bool VulkanLoad() {
 	}
 }
 
-void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensions &enabledExtensions) {
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions) {
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -554,7 +554,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensio
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
-void VulkanLoadDeviceFunctions(VkDevice device, const VulkanDeviceExtensions &enabledExtensions) {
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions) {
 	WLOG("Vulkan device functions loaded.");
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);

@@ -1391,7 +1391,7 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {
-	if (DeviceExtensions().KHR_dedicated_allocation) {
+	if (Extensions().KHR_dedicated_allocation) {
 		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
 		memReqInfo2.image = image;
 

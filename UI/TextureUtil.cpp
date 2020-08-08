@@ -92,7 +92,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	return *num_levels > 0;
 }
 
-bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips) {
+bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	generateMips_ = generateMips;
 	using namespace Draw;
 
@@ -131,7 +131,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 	desc.depth = 1;
 	desc.mipLevels = generateMips ? potentialLevels : num_levels;
 	desc.generateMips = generateMips && potentialLevels > num_levels;
-	desc.tag = "LoadedFileData";
+	desc.tag = name;
 	for (int i = 0; i < num_levels; i++) {
 		desc.initData.push_back(image[i]);
 	}
@@ -152,7 +152,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 		ELOG("Failed to read file '%s'", filename.c_str());
 		return false;
 	}
-	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips);
+	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips, filename.c_str());
 	if (retval) {
 		filename_ = filename;
 	} else {
@@ -206,7 +206,7 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	ManagedTexture *mtex = new ManagedTexture(draw);
-	if (mtex->LoadFromFileData(data, size, type, generateMips)) {
+	if (mtex->LoadFromFileData(data, size, type, generateMips, nullptr)) {
 		return std::unique_ptr<ManagedTexture>(mtex);
 	} else {
 		// Best to return a null pointer if we fail!
