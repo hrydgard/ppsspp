@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "base/display.h"
+#include "base/stringutil.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"
@@ -30,7 +31,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height) : vulkan_(vk) {
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
 		width = _width;
 		height = _height;
 
@@ -50,6 +51,11 @@ public:
 		fbci.layers = 1;
 
 		vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
+		if (vk->Extensions().EXT_debug_utils) {
+			vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
+			vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
+			vk->SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
+		}
 	}
 
 	~VKRFramebuffer() {

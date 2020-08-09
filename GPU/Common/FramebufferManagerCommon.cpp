@@ -1060,7 +1060,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	shaderManager_->DirtyLastShader();
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+	char name[256];
+	snprintf(name, sizeof(name), "%08x_%08x", vfb->fb_address, vfb->z_address);
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, name });
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
@@ -1329,7 +1331,9 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->usageFlags = FB_USAGE_RENDERTARGET;
 	SetColorUpdated(vfb, 0);
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+	char name[64];
+	snprintf(name, sizeof(name), "%08x_color_RAM", vfb->fb_address);
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, name });
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = ColorBufferByteSize(vfb);
@@ -1417,7 +1421,9 @@ bool FramebufferManagerCommon::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 		}
 	}
 
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
+	char name[64];
+	snprintf(name, sizeof(name), "download_temp");
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth, name });
 	if (!nvfb->fbo) {
 		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
@@ -1744,7 +1750,8 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 
 	textureCache_->ForgetLastTexture();
 	bool z_stencil = reason == TempFBO::STENCIL;
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, depth });
+	const char *name = "temp_fbo";
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, depth, name });
 	if (!fbo)
 		return fbo;
 

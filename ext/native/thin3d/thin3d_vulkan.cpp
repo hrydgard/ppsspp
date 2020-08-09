@@ -714,7 +714,9 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	height_ = desc.height;
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_);
-	vkTex_->SetTag(desc.tag);
+	if (desc.tag) {
+		vkTex_->SetTag(desc.tag);
+	}
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
@@ -1462,7 +1464,7 @@ private:
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetFramebufferRenderPass(), desc.width, desc.height);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetFramebufferRenderPass(), desc.width, desc.height, desc.tag);
 	return new VKFramebuffer(vkrfb);
 }
 

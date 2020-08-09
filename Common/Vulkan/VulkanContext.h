@@ -167,6 +167,14 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	// Simple workaround for the casting warning.
+	template <class T>
+	void SetDebugName(T handle, VkObjectType type, const char *name) {
+		if (extensionsLookup_.EXT_debug_utils) {
+			SetDebugNameImpl((uint64_t)handle, type, name);
+		}
+	}
+
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
@@ -267,12 +275,14 @@ public:
 		MAX_INFLIGHT_FRAMES = 3,
 	};
 
-	const VulkanDeviceExtensions &DeviceExtensions() { return extensionsLookup_; }
+	const VulkanExtensions &Extensions() { return extensionsLookup_; }
 
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
 	bool ChooseQueue();
+
+	void SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name);
 
 	VkResult InitDebugUtilsCallback();
 
@@ -307,7 +317,7 @@ private:
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
-	VulkanDeviceExtensions extensionsLookup_{};
+	VulkanExtensions extensionsLookup_{};
 
 	std::vector<VkPhysicalDevice> physical_devices_;
 

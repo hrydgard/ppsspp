@@ -311,6 +311,7 @@ struct FramebufferDesc {
 	int numColorAttachments;
 	bool z_stencil;
 	FBColorDepth colorDepth;
+	const char *tag;  // For graphics debuggers
 };
 
 // Binary compatible with D3D11 viewport.
@@ -536,8 +537,8 @@ struct TextureDesc {
 	int depth;
 	int mipLevels;
 	bool generateMips;
-	// Optional, for tracking memory usage.
-	std::string tag;
+	// Optional, for tracking memory usage and graphcis debuggers.
+	const char *tag;
 	// Does not take ownership over pointed-to data.
 	std::vector<const uint8_t *> initData;
 	TextureCallback initDataCallback;

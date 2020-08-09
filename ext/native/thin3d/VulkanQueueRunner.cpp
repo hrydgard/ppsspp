@@ -447,7 +447,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		}
 	}
 
-	bool emitLabels = vulkan_->DeviceExtensions().EXT_debug_utils;
+	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
 

@@ -215,7 +215,7 @@ extern PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 extern PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 
 // For fast extension-enabled checks.
-struct VulkanDeviceExtensions {
+struct VulkanExtensions {
 	bool EXT_debug_utils;
 	bool KHR_maintenance1; // required for KHR_create_renderpass2
 	bool KHR_maintenance2;
@@ -236,6 +236,6 @@ bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
 bool VulkanLoad();
-void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensions &enabledExtensions);
-void VulkanLoadDeviceFunctions(VkDevice device, const VulkanDeviceExtensions &enabledExtensions);
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions);
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions);
 void VulkanFree();
