@@ -52,7 +52,11 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 
 	heap->partitionId = partitionId;
 	heap->flags = flags;
-	heap->name = Name ? Name : "";  // Not sure if this needs validation.
+	// Not sure if this needs validation.
+	if (Name == NULL) {		
+		WARN_LOG(HLE, "sceKernelCreateHeap(): name is NULL");
+	}
+	heap->name = Name; 
 	heap->size = allocSize;
 	heap->address = addr;
 	heap->alloc.Init(heap->address + 128, heap->size - 128);
