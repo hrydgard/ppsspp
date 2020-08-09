@@ -72,7 +72,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 	}
 
 	// Apply the tag
-	vulkan_->SetDebugName(image_, tag_.c_str());
+	vulkan_	->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_.c_str());
 
 	VkMemoryRequirements mem_reqs{};
 	bool dedicatedAllocation = false;

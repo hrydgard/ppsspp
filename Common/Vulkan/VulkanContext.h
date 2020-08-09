@@ -175,17 +175,6 @@ public:
 		}
 	}
 
-	// Shorthand for the above, the most common types we want to tag.
-	void SetDebugName(VkImage image, const char *name) {
-		SetDebugName(image, VK_OBJECT_TYPE_IMAGE, name);
-	}
-	void SetDebugName(VkFramebuffer framebuf, const char *name) {
-		SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, name);
-	}
-	void SetDebugName(VkSampler sampler, const char *name) {
-		SetDebugName(sampler, VK_OBJECT_TYPE_SAMPLER, name);
-	}
-
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
