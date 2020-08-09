@@ -1179,7 +1179,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			rc.layerCount = 1;
 			rc.rect.extent.width = (uint32_t)curWidth;
 			rc.rect.extent.height = (uint32_t)curHeight;
-			VkClearAttachment attachments[2];
+			VkClearAttachment attachments[2]{};
 			if (c.clear.clearMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				VkClearAttachment &attachment = attachments[numAttachments++];
 				attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
