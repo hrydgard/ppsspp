@@ -885,8 +885,15 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
-			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+				}
+			}
+			if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+				}
 			}
 			steps_[i]->render.numReads++;
 			break;
@@ -894,8 +901,15 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	}
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == dst) {
-			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				}
+			}
+			if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				}
 			}
 			break;
 		}
@@ -936,6 +950,8 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(dstRect.extent.width > 0, "blit dstwidth == 0");
 	_dbg_assert_msg_(dstRect.extent.height > 0, "blit dstheight == 0");
 
+	// TODO: Seem to be missing final layouts here like in Copy...
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -968,7 +984,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
-			if (aspectBit == VK_IMAGE_ASPECT_COLOR_BIT) {
+			if (aspectBit & VK_IMAGE_ASPECT_COLOR_BIT) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -977,7 +993,8 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 					_assert_msg_(false, "Unexpected color layout %d", (int)steps_[i]->render.finalColorLayout);
 					// May need to shadow the framebuffer if we re-order passes later.
 				}
-			} else {
+			}
+			if (aspectBit & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
