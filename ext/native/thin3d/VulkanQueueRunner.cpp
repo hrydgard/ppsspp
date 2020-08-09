@@ -949,9 +949,8 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: If there are multiple, we can transition them together.
 	for (const auto &iter : step.preTransitions) {
-		if (iter.fb->color.layout != iter.targetLayout) {
-			VkImageMemoryBarrier barrier{};
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
+			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 			barrier.oldLayout = iter.fb->color.layout;
 			barrier.subresourceRange.layerCount = 1;
 			barrier.subresourceRange.levelCount = 1;
@@ -992,9 +991,49 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
 			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			iter.fb->color.layout = barrier.newLayout;
+		} else if (iter.aspect == VK_IMAGE_ASPECT_DEPTH_BIT && iter.fb->depth.layout != iter.targetLayout) {
+			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+			barrier.oldLayout = iter.fb->depth.layout;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.image = iter.fb->depth.image;
+			barrier.srcAccessMask = 0;
+			VkPipelineStageFlags srcStage;
+			VkPipelineStageFlags dstStage;
+			switch (barrier.oldLayout) {
+			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				break;
+			default:
+				Crash();
+				break;
+			}
+			barrier.newLayout = iter.targetLayout;
+			switch (barrier.newLayout) {
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				break;
+			default:
+				Crash();
+				break;
+			}
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			iter.fb->depth.layout = barrier.newLayout;
 		}
 	}
 

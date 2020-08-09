@@ -546,9 +546,12 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		break;
 
 	case GPU_DBG_FORMAT_24BIT_8X:
+	{
+		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), FromScaledDepth((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
+		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.Apply((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
 		break;
+	}
 
 	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
 		{
@@ -563,15 +566,24 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
 		break;
 
-	case GPU_DBG_FORMAT_FLOAT:
-		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, *(float *)&pix, FromScaledDepth(*(float *)&pix));
+	case GPU_DBG_FORMAT_FLOAT: {
+		float pixf = *(float *)&pix;
+		DepthScaleFactors depthScale = GetDepthScaleFactors();
+		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, pixf, depthScale.Apply(pixf));
 		break;
+	}
 
 	case GPU_DBG_FORMAT_FLOAT_DIV_256:
 		{
 			double z = *(float *)&pix;
 			int z24 = (int)(z * 16777215.0);
+
+			DepthScaleFactors factors = GetDepthScaleFactors();
+			// TODO: Use GetDepthScaleFactors here too, verify it's the same.
 			int z16 = z24 - 0x800000 + 0x8000;
+
+			int z16_2 = factors.Apply(z);
+
 			_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
 		}
 		break;
