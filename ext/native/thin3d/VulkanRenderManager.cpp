@@ -63,7 +63,6 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
 	_dbg_assert_(res == VK_SUCCESS);
 
-	// Note that we don't view or at
 	VkImageAspectFlags viewAspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
