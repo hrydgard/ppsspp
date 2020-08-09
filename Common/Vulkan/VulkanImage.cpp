@@ -71,6 +71,9 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 		return false;
 	}
 
+	// Apply the tag
+	vulkan_->SetDebugName(image_, tag_.c_str());
+
 	VkMemoryRequirements mem_reqs{};
 	bool dedicatedAllocation = false;
 	vulkan_->GetImageMemoryRequirements(image_, &mem_reqs, &dedicatedAllocation);
@@ -161,6 +164,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 	return true;
 }
 
+// TODO: Batch these.
 void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region{};
 	copy_region.bufferOffset = offset;

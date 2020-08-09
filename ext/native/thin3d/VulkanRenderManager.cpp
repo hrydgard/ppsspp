@@ -718,6 +718,8 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	if (res != VK_SUCCESS)
 		return false;
 
+	vulkan_->SetDebugName(depth_.image, "BackbufferDepth");
+
 	bool dedicatedAllocation = false;
 	VkMemoryRequirements mem_reqs;
 	vulkan_->GetImageMemoryRequirements(depth_.image, &mem_reqs, &dedicatedAllocation);

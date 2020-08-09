@@ -538,7 +538,7 @@ struct TextureDesc {
 	int mipLevels;
 	bool generateMips;
 	// Optional, for tracking memory usage and graphcis debuggers.
-	std::string tag;
+	const char *tag;
 	// Does not take ownership over pointed-to data.
 	std::vector<const uint8_t *> initData;
 	TextureCallback initDataCallback;
