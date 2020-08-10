@@ -22,6 +22,7 @@
 #endif
 
 #include <algorithm>
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "ext/xxhash.h"
 #include "file/ini_file.h"

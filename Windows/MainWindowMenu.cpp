@@ -1,11 +1,13 @@
 #include <map>
 #include <string>
+#include <sstream>
 
 #include "CommonWindows.h"
 #include <shellapi.h>
 
 #include "resource.h"
 
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "base/NativeApp.h"

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <memory>
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"

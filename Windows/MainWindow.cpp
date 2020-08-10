@@ -34,6 +34,7 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"

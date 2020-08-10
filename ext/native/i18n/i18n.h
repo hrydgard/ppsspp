@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "base/basictypes.h"
 #include "file/ini_file.h"
 
 // Reasonably thread safe.

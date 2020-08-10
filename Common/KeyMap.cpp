@@ -25,6 +25,7 @@
 #endif
 
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
 #include "input/input_state.h"

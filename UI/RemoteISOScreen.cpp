@@ -25,6 +25,7 @@
 #include <netfw.h>
 #endif
 
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "file/path.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
