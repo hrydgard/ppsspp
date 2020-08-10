@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "base/colorutil.h"
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"

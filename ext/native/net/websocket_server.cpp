@@ -23,11 +23,6 @@
 // TODO: Not a great cross dependency.
 #include "Common/Crypto/sha1.h"
 
-#ifdef _WIN32
-// Function Cross-Compatibility
-#define strcasecmp _stricmp
-#endif
-
 static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 namespace net {

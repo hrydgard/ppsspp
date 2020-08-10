@@ -31,8 +31,9 @@
 #include <ShlObj.h>
 #include <mmsystem.h>
 
-#include "base/NativeApp.h"
 #include "base/display.h"
+#include "base/stringutil.h"
+#include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "i18n/i18n.h"

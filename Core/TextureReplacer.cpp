@@ -22,9 +22,11 @@
 #endif
 
 #include <algorithm>
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "ext/xxhash.h"
 #include "file/ini_file.h"
+#include "util/text/parsers.h"
 #include "Common/ColorConv.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"

@@ -14,11 +14,13 @@
 #include <string>
 #include <vector>
 
-#include "file/ini_file.h"
+#include "base/basictypes.h"
 
 // Reasonably thread safe.
 
 class I18NRepo;
+class IniFile;
+class Section;
 
 struct I18NEntry {
 	I18NEntry(const std::string &t) : text(t), readFlag(false) {}
@@ -89,8 +91,8 @@ public:
 private:
 	std::string GetIniPath(const std::string &languageID) const;
 	void Clear();
-	I18NCategory *LoadSection(const IniFile::Section *section, const char *name);
-	void SaveSection(IniFile &ini, IniFile::Section *section, std::shared_ptr<I18NCategory> cat);
+	I18NCategory *LoadSection(const Section *section, const char *name);
+	void SaveSection(IniFile &ini, Section *section, std::shared_ptr<I18NCategory> cat);
 
 	mutable std::mutex catsLock_;
 	std::map<std::string, std::shared_ptr<I18NCategory>> cats_;

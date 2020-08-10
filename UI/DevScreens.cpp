@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "base/display.h"
+#include "base/stringutil.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"

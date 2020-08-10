@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <limits>
+#include "util/text/parsers.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 

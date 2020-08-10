@@ -17,9 +17,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <set>
-#include <cstring>
+#include <sstream>
 #include <thread>
 
 #include "file/file_util.h"
@@ -29,6 +30,7 @@
 #include "ext/libzip/zip.h"
 #endif
 #include "util/text/utf8.h"
+#include "file/ini_file.h"
 
 #include "Common/Log.h"
 #include "Common/FileUtil.h"

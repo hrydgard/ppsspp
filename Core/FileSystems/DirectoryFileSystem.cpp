@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <limits>
+#include "base/stringutil.h"
 #include "file/free.h"
 #include "file/zip_read.h"
 #include "i18n/i18n.h"
