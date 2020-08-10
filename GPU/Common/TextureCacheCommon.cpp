@@ -764,7 +764,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 	const u32 mirrorMask = 0x00600000;
 	u32 addr = address & 0x3FFFFFFF;
-	u32 texaddr = (entry->addr + texaddrOffset) & ~mirrorMask;
+	u32 texaddr = entry->addr + texaddrOffset;
 	if (entry->addr & 0x04000000) {
 		addr &= ~mirrorMask;
 		texaddr &= ~mirrorMask;
@@ -800,8 +800,9 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
-			(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
-			(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+			(channel != NOTIFY_FB_COLOR && entry->format == GE_TFMT_CLUT16) ||
+			(channel == NOTIFY_FB_COLOR && framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
+			(channel == NOTIFY_FB_COLOR && framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
 
 		const bool clutFormat = IsClutFormat((GETextureFormat)(entry->format));
 

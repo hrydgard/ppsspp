@@ -21,6 +21,7 @@
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -242,8 +243,16 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 		}
 		break;
 	case GE_FORMAT_DEPTH16:
-		sprintf(lookupMethod, "index.r * (1.0 / 256.0)");
+	{
+		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
+		if ((mask & (mask + 1)) == 0 && shift < 16) {
+			index_multiplier = 1.0f / (float)(1 << shift);
+			truncate_cpy(lookupMethod, "index.r");
+		} else {
+			formatOK = false;
+		}
 		break;
+	}
 	default:
 		break;
 	}
