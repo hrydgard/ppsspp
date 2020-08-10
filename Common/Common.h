@@ -33,8 +33,6 @@
 #define LOGGING 1
 #endif
 
-#define STACKALIGN
-
 #include "Log.h"
 #include "CommonTypes.h"
 #include "CommonFuncs.h"
@@ -45,17 +43,7 @@
 	void operator =(const t &other) = delete;
 #endif
 
-#ifdef __APPLE__
-// The Darwin ABI requires that stack frames be aligned to 16-byte boundaries.
-// This is only needed on i386 gcc - x86_64 already aligns to 16 bytes.
-#if defined __i386__ && defined __GNUC__
-#undef STACKALIGN
-#define STACKALIGN __attribute__((__force_align_arg_pointer__))
-#endif
-
-#define CHECK_HEAP_INTEGRITY()
-
-#elif defined(_WIN32)
+#if defined(_WIN32)
 
 // Memory leak checks
 	#define CHECK_HEAP_INTEGRITY()
