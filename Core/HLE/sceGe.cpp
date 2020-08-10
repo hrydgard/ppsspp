@@ -19,10 +19,10 @@
 #include <vector>
 #include <mutex>
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoList.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Common/ThreadSafeList.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"

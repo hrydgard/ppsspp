@@ -19,7 +19,7 @@
 #include "base/logging.h"
 #include "ext/xxhash.h"
 #include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"

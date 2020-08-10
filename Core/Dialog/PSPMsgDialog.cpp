@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"

@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 namespace SaveState
 {

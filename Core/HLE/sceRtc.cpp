@@ -26,8 +26,8 @@
 #include <time.h>
 #include "base/timeutil.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"

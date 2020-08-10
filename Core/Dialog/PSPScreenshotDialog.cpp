@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPScreenshotDialog.h"
 #include "Core/HLE/sceKernel.h"

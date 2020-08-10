@@ -17,8 +17,8 @@
 
 #include "base/logging.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"

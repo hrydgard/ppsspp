@@ -19,7 +19,7 @@
 
 #include <map>
 #include <cstring>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 struct BufferQueue {
 	BufferQueue(int size = 0x20000) {

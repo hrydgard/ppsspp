@@ -36,9 +36,9 @@
 
 #include "gfx_es2/gpu_features.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"

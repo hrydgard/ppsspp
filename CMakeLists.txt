@@ -416,9 +416,13 @@ add_library(Common STATIC
 	${CommonVulkan}
 	Common/ColorConv.cpp
 	Common/ColorConv.h
-	Common/ChunkFile.cpp
-	Common/ChunkFile.h
-	Common/ChunkFileDo.h
+	Common/Serialize/Serializer.cpp
+	Common/Serialize/Serializer.h
+	Common/Serialize/SerializeDeque.h
+	Common/Serialize/SerializeFuncs.h
+	Common/Serialize/SerializeList.h
+	Common/Serialize/SerializeMap.h
+	Common/Serialize/SerializeSet.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/md5.cpp

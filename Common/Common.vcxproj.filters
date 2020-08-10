@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="ABI.h" />
-    <ClInclude Include="ChunkFile.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -76,7 +75,24 @@
     </ClInclude>
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="MachineContext.h" />
-    <ClInclude Include="ChunkFileDo.h" />
+    <ClInclude Include="Serialize\Serializer.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialize\SerializeFuncs.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialize\SerializeMap.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialize\SerializeList.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialize\SerializeDeque.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialize\SerializeSet.h">
+      <Filter>Serialize</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -106,7 +122,6 @@
     <ClCompile Include="Crypto\sha256.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
-    <ClCompile Include="ChunkFile.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />
@@ -141,6 +156,9 @@
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="ExceptionHandlerSetup.cpp" />
+    <ClCompile Include="Serialize\Serializer.cpp">
+      <Filter>Serialize</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -154,6 +172,9 @@
     </Filter>
     <Filter Include="Vulkan">
       <UniqueIdentifier>{c14d66ef-5f7c-4565-975a-72774e7ccfb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Serialize">
+      <UniqueIdentifier>{7be79ad5-3520-46a1-a370-dce2a943978c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

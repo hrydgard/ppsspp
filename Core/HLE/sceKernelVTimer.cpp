@@ -17,9 +17,9 @@
 
 #include <algorithm>
 #include <list>
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoList.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"

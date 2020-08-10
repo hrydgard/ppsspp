@@ -18,8 +18,8 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
 #include "Core/System.h"

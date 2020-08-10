@@ -24,7 +24,7 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"

@@ -33,7 +33,7 @@
 #include <cstring>
 #include "util/text/parsers.h"
 #include "thread/threadutil.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceKernelInterrupt.h"

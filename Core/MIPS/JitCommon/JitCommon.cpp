@@ -21,8 +21,8 @@
 #include "ext/udis86/udis86.h"
 
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Util/DisArm64.h"
 #include "Core/Config.h"

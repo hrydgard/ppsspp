@@ -20,7 +20,7 @@
 
 #include "base/logging.h"
 #include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Core.h"

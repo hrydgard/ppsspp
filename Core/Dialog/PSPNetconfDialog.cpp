@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
 #include "Core/MemMapHelpers.h"

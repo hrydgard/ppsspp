@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"

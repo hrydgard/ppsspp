@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 #include "base/timeutil.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"

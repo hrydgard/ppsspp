@@ -19,8 +19,8 @@
 #include "util/text/utf16.h"
 #include "util/text/shiftjis.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"

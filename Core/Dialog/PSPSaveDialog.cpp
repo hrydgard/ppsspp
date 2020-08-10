@@ -25,8 +25,8 @@
 #include "thread/threadutil.h"
 
 #include "Common/FileUtil.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"

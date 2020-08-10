@@ -26,8 +26,8 @@
 #include "image/png_load.h"
 #include "util/text/utf8.h"
 
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"

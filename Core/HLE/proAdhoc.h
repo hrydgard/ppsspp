@@ -43,7 +43,7 @@
 
 #include "base/timeutil.h"
 #include "net/resolve.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"

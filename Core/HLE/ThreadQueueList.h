@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Core/HLE/sceKernel.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 struct ThreadQueueList {
 	// Number of queues (number of priority levels starting at 0.)

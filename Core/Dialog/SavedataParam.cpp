@@ -17,8 +17,8 @@
 
 #include "i18n/i18n.h"
 #include "base/logging.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

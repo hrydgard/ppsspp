@@ -35,7 +35,7 @@
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"

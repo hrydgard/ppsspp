@@ -26,8 +26,8 @@
 #include "util/text/parsers.h"
 
 #include "Common/FileUtil.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/SaveState.h"
 #include "Core/Config.h"

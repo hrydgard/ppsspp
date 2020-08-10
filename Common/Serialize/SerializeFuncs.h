@@ -17,10 +17,10 @@
 
 #pragma once
 
-// Templates for save state serialization.  See ChunkFile.h.
+// Templates for save state serialization.  See Serializer.h.
 #include <string>
 #include <type_traits>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/Swap.h"
 
 void Do(PointerWrap &p, std::string &x);

@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HW/BufferQueue.h"
 
 void BufferQueue::DoState(PointerWrap &p) {

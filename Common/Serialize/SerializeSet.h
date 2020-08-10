@@ -17,9 +17,9 @@
 
 #pragma once
 
-// Templates for save state serialization.  See ChunkFile.h.
+// Templates for save state serialization.  See Serializer.h.
 #include <set>
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 template <class T>
 void DoSet(PointerWrap &p, std::set<T> &x) {

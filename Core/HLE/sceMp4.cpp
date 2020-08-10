@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"

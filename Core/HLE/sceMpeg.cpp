@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <memory>
 
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"

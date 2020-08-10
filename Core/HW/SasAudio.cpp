@@ -20,7 +20,7 @@
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"

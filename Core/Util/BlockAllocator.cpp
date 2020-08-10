@@ -18,8 +18,8 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Reporting.h"

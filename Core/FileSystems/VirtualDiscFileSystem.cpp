@@ -19,8 +19,8 @@
 
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"

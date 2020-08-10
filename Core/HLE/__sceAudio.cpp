@@ -19,8 +19,8 @@
 #include <mutex>
 
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/FixedSizeQueue.h"
 
 #ifdef _M_SSE

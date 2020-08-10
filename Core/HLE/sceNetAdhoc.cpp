@@ -28,9 +28,9 @@
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
-#include "Common/ChunkFileDoMap.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
 

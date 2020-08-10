@@ -27,8 +27,8 @@
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/MemMap.h"
 #include "Core/MemFault.h"

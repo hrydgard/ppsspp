@@ -21,8 +21,8 @@
 // Some parts, especially in this file, were simply copied, so I guess this really makes this file GPL3.
 
 #include <algorithm>
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Font/PGF.h"

@@ -7,7 +7,7 @@
 #include "file/vfs.h"
 #include "ui/root.h"
 
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"

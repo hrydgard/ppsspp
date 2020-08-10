@@ -17,9 +17,9 @@
 
 #pragma once
 
-// Templates for save state serialization.  See ChunkFile.h.
+// Templates for save state serialization.  See Serializer.h.
 #include <deque>
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 template<class T>
 void DoDeque(PointerWrap &p, std::deque<T> &x, T &default_val) {

@@ -141,7 +141,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/sha256.cpp
 
 SOURCES_CXX += \
-	$(COMMONDIR)/ChunkFile.cpp \
+	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FileUtil.cpp \

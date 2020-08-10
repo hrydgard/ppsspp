@@ -17,10 +17,10 @@
 
 #pragma once
 
-// Templates for save state serialization.  See ChunkFile.h.
+// Templates for save state serialization.  See Serializer.h.
 #include <map>
 #include <unordered_map>
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 template<class M>
 void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {

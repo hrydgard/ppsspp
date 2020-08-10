@@ -21,8 +21,8 @@
 #include "math/math_util.h"
 
 #include "Common.h"
-#include "Common/ChunkFile.h"
-#include "Common/ChunkFileDo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"

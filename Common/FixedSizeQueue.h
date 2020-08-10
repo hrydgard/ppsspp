@@ -18,8 +18,8 @@
 #pragma once
 
 #include <cstring>
-#include "ChunkFile.h"
-#include "MemoryUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/Serialize/Serializer.h"
 
 // STL-look-a-like interface, but name is mixed case to distinguish it clearly from the
 // real STL classes.
