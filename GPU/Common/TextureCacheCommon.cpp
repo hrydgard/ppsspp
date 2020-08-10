@@ -776,14 +776,14 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
 	const u32 minSubareaHeight = h / 4;
 
-	// If they match exactly, it's non-CLUT and from the top left.
+	// If they match "exactly", it's non-CLUT and from the top left.
 	if (exactMatch) {
 		if (framebuffer->fb_stride != entry->bufw) {
-			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (entry->format != (GETextureFormat)framebuffer->format) {
-			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %d != %d", entry->format, framebuffer->format);
+			WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %s != %s", GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format));
 			// Let's avoid using it when we know the format is wrong. May be a video/etc. updating memory.
 			// However, some games use a different format to clear the buffer.
 			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
@@ -862,7 +862,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		// This is either normal or we failed to generate a shader to depalettize
 		if (framebuffer->format == entry->format || matchingClutFormat) {
 			if (framebuffer->format != entry->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
+				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
 				AttachFramebufferValid(entry, framebuffer, fbInfo, channel);
 				return true;

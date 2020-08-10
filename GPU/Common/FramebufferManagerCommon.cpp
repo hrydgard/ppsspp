@@ -1566,7 +1566,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
 			if (srcX != dstX || srcY != dstY) {
-				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
 				FlushBeforeCopy();
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer("rebind after intra block transfer");
@@ -1577,7 +1577,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
 			// Just do the blit!
 			FlushBeforeCopy();
 			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
@@ -1590,7 +1590,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		// Here we should just draw the pixels into the buffer.  Copy first.
 		return false;
 	} else if (srcBuffer) {
-		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
+		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
 		FlushBeforeCopy();
 		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
