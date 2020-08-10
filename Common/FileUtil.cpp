@@ -24,6 +24,7 @@
 
 #include "ppsspp_config.h"
 
+#include <cstring>
 #include <memory>
 #include "FileUtil.h"
 #include "StringUtils.h"
