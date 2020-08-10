@@ -19,11 +19,10 @@
 #include "base/stringutil.h"
 #include "file/ini_file.h"
 #include "file/vfs.h"
+#include "util/text/parsers.h"
 
 #ifdef _WIN32
 #include "../util/text/utf8.h"
-	// Function Cross-Compatibility
-#define strcasecmp _stricmp
 #endif
 
 static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyOut) {

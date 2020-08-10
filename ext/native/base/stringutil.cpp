@@ -22,8 +22,6 @@
 #include "base/stringutil.h"
 
 #ifdef _WIN32
-// Function Cross-Compatibility
-#define strcasecmp _stricmp
 
 void OutputDebugStringUTF8(const char *p) {
 	wchar_t temp[4096];
@@ -82,46 +80,6 @@ void StringUpper(char *str, int len) {
 		*str = toupper(*str);
 		str++;
 	}
-}
-
-
-unsigned int parseHex(const char *_szValue)
-{
-	int Value = 0;
-	size_t Finish = strlen(_szValue);
-	if (Finish > 8 ) { Finish = 8; }
-
-	for (size_t Count = 0; Count < Finish; Count++) {
-		Value = (Value << 4);
-		switch( _szValue[Count] ) {
-		case '0': break;
-		case '1': Value += 1; break;
-		case '2': Value += 2; break;
-		case '3': Value += 3; break;
-		case '4': Value += 4; break;
-		case '5': Value += 5; break;
-		case '6': Value += 6; break;
-		case '7': Value += 7; break;
-		case '8': Value += 8; break;
-		case '9': Value += 9; break;
-		case 'A': Value += 10; break;
-		case 'a': Value += 10; break;
-		case 'B': Value += 11; break;
-		case 'b': Value += 11; break;
-		case 'C': Value += 12; break;
-		case 'c': Value += 12; break;
-		case 'D': Value += 13; break;
-		case 'd': Value += 13; break;
-		case 'E': Value += 14; break;
-		case 'e': Value += 14; break;
-		case 'F': Value += 15; break;
-		case 'f': Value += 15; break;
-		default:
-			Value = (Value >> 4);
-			Count = Finish;
-		}
-	}
-	return Value;
 }
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
@@ -221,49 +179,6 @@ std::string ArrayToString(const uint8_t *data, uint32_t size, int line_len, bool
 	}
 
 	return oss.str();
-}
-
-bool TryParse(const std::string &str, uint32_t *const output)
-{
-	char *endptr = NULL;
-
-	// Holy crap this is ugly.
-
-	// Reset errno to a value other than ERANGE
-	errno = 0;
-
-	unsigned long value = strtoul(str.c_str(), &endptr, 0);
-
-	if (!endptr || *endptr)
-		return false;
-
-	if (errno == ERANGE)
-		return false;
-
-	if (ULONG_MAX > UINT_MAX) {
-#ifdef _MSC_VER
-#pragma warning (disable:4309)
-#endif
-		// Note: The typecasts avoid GCC warnings when long is 32 bits wide.
-		if (value >= static_cast<unsigned long>(0x100000000ull)
-			&& value <= static_cast<unsigned long>(0xFFFFFFFF00000000ull))
-			return false;
-	}
-
-	*output = static_cast<uint32_t>(value);
-	return true;
-}
-
-bool TryParse(const std::string &str, bool *const output)
-{
-	if ("1" == str || !strcasecmp("true", str.c_str()))
-		*output = true;
-	else if ("0" == str || !strcasecmp("false", str.c_str()))
-		*output = false;
-	else
-		return false;
-
-	return true;
 }
 
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output)

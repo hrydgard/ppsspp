@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/stringutil.h"
+#include "util/text/parsers.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"

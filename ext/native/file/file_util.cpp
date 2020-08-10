@@ -4,9 +4,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
-#ifndef strcasecmp
-#define strcasecmp _stricmp
-#endif
 #else
 #include <strings.h>
 #include <dirent.h>
@@ -23,6 +20,7 @@
 
 #include "base/logging.h"
 #include "base/basictypes.h"
+#include "base/stringutil.h"
 #include "file/file_util.h"
 #include "util/text/utf8.h"
 

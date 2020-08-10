@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <sstream>
 
 #include "base/basictypes.h"
 
@@ -54,3 +55,18 @@ private:
 };
 
 bool ParseMacAddress(std::string str, uint8_t macAddr[6]);
+
+bool TryParse(const std::string &str, bool *const output);
+bool TryParse(const std::string &str, uint32_t *const output);
+
+template <typename N>
+static bool TryParse(const std::string &str, N *const output) {
+	std::istringstream iss(str);
+
+	N tmp = 0;
+	if (iss >> tmp) {
+		*output = tmp;
+		return true;
+	} else
+		return false;
+}

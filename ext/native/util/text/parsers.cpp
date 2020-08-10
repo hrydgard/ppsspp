@@ -1,6 +1,7 @@
+#include <cstdio>
 #include <string>
-#include <stdio.h>
 
+#include "base/stringutil.h"
 #include "util/text/parsers.h"
 
 bool Version::ParseVersionString(std::string str) {
@@ -35,5 +36,46 @@ bool ParseMacAddress(std::string str, uint8_t macAddr[6]) {
 	for (int i = 0; i < 6; i++) {
 		macAddr[i] = mac[i];
 	}
+	return true;
+}
+
+bool TryParse(const std::string &str, uint32_t *const output) {
+	char *endptr = NULL;
+
+	// Holy crap this is ugly.
+
+	// Reset errno to a value other than ERANGE
+	errno = 0;
+
+	unsigned long value = strtoul(str.c_str(), &endptr, 0);
+
+	if (!endptr || *endptr)
+		return false;
+
+	if (errno == ERANGE)
+		return false;
+
+	if (ULONG_MAX > UINT_MAX) {
+#ifdef _MSC_VER
+#pragma warning (disable:4309)
+#endif
+		// Note: The typecasts avoid GCC warnings when long is 32 bits wide.
+		if (value >= static_cast<unsigned long>(0x100000000ull)
+			&& value <= static_cast<unsigned long>(0xFFFFFFFF00000000ull))
+			return false;
+	}
+
+	*output = static_cast<uint32_t>(value);
+	return true;
+}
+
+bool TryParse(const std::string &str, bool *const output) {
+	if ("1" == str || !strcasecmp("true", str.c_str()))
+		*output = true;
+	else if ("0" == str || !strcasecmp("false", str.c_str()))
+		*output = false;
+	else
+		return false;
+
 	return true;
 }

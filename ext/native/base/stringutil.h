@@ -9,6 +9,7 @@
 #ifdef _MSC_VER
 #pragma warning (disable:4996)
 #define strncasecmp _strnicmp
+#define strcasecmp _stricmp
 #else
 #include <strings.h>
 #endif
@@ -59,10 +60,6 @@ inline void StringToHexString(const std::string &data, std::string *output) {
   DataToHexString((uint8_t *)(&data[0]), data.size(), output);
 }
 
-
-// highly unsafe and not recommended.
-unsigned int parseHex(const char* _szValue);
-
 std::string StringFromFormat(const char* format, ...);
 std::string StringFromInt(int value);
 std::string StringFromBool(bool value);
@@ -72,23 +69,6 @@ std::string ArrayToString(const uint8_t *data, uint32_t size, int line_len = 20,
 std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
 
-bool TryParse(const std::string &str, bool *const output);
-bool TryParse(const std::string &str, uint32_t *const output);
-
-template <typename N>
-static bool TryParse(const std::string &str, N *const output)
-{
-	std::istringstream iss(str);
-
-	N tmp = 0;
-	if (iss >> tmp)
-	{
-		*output = tmp;
-		return true;
-	}
-	else
-		return false;
-}
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
 
 void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
@@ -97,14 +77,6 @@ std::string ReplaceAll(std::string input, const std::string& src, const std::str
 
 // Compare two strings, ignore the difference between the ignorestr1 and the ignorestr2 in str1 and str2.
 int strcmpIgnore(std::string str1, std::string str2, std::string ignorestr1, std::string ignorestr2);
-
-template <typename N>
-static std::string ValueToString(const N value)
-{
-	std::stringstream string;
-	string << value;
-	return string.str();
-}
 
 void StringTrimEndNonAlphaNum(char *str);
 void SkipSpace(const char **ptr);
