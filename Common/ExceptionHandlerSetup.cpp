@@ -287,7 +287,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	INFO_LOG(SYSTEM, "Installed exception handler");
 	g_badAccessHandler = badAccessHandler;
 
-	stack_t signal_stack;
+	stack_t signal_stack{};
 #ifdef __FreeBSD__
 	signal_stack.ss_sp = (char*)malloc(SIGSTKSZ);
 #else
@@ -298,7 +298,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	if (sigaltstack(&signal_stack, nullptr)) {
 		_assert_msg_(false, "sigaltstack failed");
 	}
-	struct sigaction sa;
+	struct sigaction sa{};
 	sa.sa_handler = nullptr;
 	sa.sa_sigaction = &sigsegv_handler;
 	sa.sa_flags = SA_SIGINFO;
@@ -313,9 +313,10 @@ void UninstallExceptionHandler() {
 	if (!g_badAccessHandler) {
 		return;
 	}
-	stack_t signal_stack, old_stack;
+	stack_t signal_stack{};
+	stack_t old_stack{};
 	signal_stack.ss_flags = SS_DISABLE;
-	if (!sigaltstack(&signal_stack, &old_stack) && !(old_stack.ss_flags & SS_DISABLE)) {
+	if (0 == sigaltstack(&signal_stack, &old_stack) && !(old_stack.ss_flags & SS_DISABLE)) {
 		free(old_stack.ss_sp);
 	}
 	sigaction(SIGSEGV, &old_sa_segv, nullptr);
