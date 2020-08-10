@@ -212,14 +212,14 @@ public:
 		VkImageLayout prevColorLayout;
 		VkImageLayout prevDepthLayout;
 		VkImageLayout finalColorLayout;
-		// TODO: Also pre-transition depth, for copies etc.
+		VkImageLayout finalDepthStencilLayout;
 	};
 
 	// Only call this from the render thread! Also ok during initialization (LoadCache).
 	VkRenderPass GetRenderPass(
 		VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
-		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout) {
-		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout, finalColorLayout };
+		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout, VkImageLayout finalDepthStencilLayout) {
+		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout, finalColorLayout, finalDepthStencilLayout };
 		return GetRenderPass(key);
 	}
 

@@ -633,9 +633,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
-		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
-		// This may mean some games won't work, or at least won't work at higher render resolutions.
-		// So we apply it in the shader instead.
 		float left = renderX + vpX0;
 		float top = renderY + vpY0;
 		float right = left + vpWidth;

@@ -429,7 +429,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_LOADCLUT:
 		// This could be used to "dirty" textures with clut.
 		if (data)
-			snprintf(buffer, bufsize, "Clut load: %06x", data);
+			snprintf(buffer, bufsize, "Clut load: %08x, %d bytes, %06x", gstate.getClutAddress(), (data & 0x3F) << 5, data & 0xFFFFC0);
 		else
 			snprintf(buffer, bufsize, "Clut load");
 		break;

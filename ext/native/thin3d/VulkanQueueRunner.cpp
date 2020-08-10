@@ -2,6 +2,7 @@
 
 #include "base/timeutil.h"
 #include "DataFormat.h"
+#include "Common/Log.h"
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
@@ -12,7 +13,7 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 	InitBackbufferRenderPass();
 
 	framebufferRenderPass_ = GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 #if 0
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
@@ -238,7 +239,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
 	attachments[1].initialLayout = key.prevDepthLayout;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].finalLayout = key.finalDepthStencilLayout;
 #endif
 	attachments[1].flags = 0;
 
@@ -387,10 +388,13 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 
 	for (int j = 0; j < (int)steps.size(); j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
-			steps[j]->render.framebuffer &&
-			steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-			// Just leave it at color_optimal.
-			steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			steps[j]->render.framebuffer) {
+			if (steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			}
+			if (steps[j]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				steps[j]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			}
 		}
 	}
 
@@ -1043,20 +1047,44 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		return;
 	}
 
-	if (step.render.framebuffer && step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		VkImageMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.image = step.render.framebuffer->color.image;
-		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	// Write-after-write hazards. Fixed flicker in God of War on ARM (before we added another fix that removed these).
+	if (step.render.framebuffer) {
+		int n = 0;
+		int stage = 0;
+		VkImageMemoryBarrier barriers[2]{};
+		if (step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+			barriers[n].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barriers[n].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barriers[n].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barriers[n].subresourceRange.layerCount = 1;
+			barriers[n].subresourceRange.levelCount = 1;
+			barriers[n].image = step.render.framebuffer->color.image;
+			barriers[n].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barriers[n].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barriers[n].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barriers[n].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			stage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			n++;
+		}
+		if (step.render.framebuffer->depth.layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
+			barriers[n].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barriers[n].oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+			barriers[n].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barriers[n].subresourceRange.layerCount = 1;
+			barriers[n].subresourceRange.levelCount = 1;
+			barriers[n].image = step.render.framebuffer->depth.image;
+			barriers[n].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			barriers[n].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barriers[n].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barriers[n].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			stage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			n++;
+		}
+		if (stage) {
+			vkCmdPipelineBarrier(cmd, stage, stage, 0, 0, nullptr, 0, nullptr, n, barriers);
+		}
 	}
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
@@ -1213,6 +1241,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	// The renderpass handles the layout transition.
 	if (fb) {
 		fb->color.layout = step.render.finalColorLayout;
+		fb->depth.layout = step.render.finalDepthStencilLayout;
 	}
 }
 
@@ -1225,6 +1254,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	int h;
 	if (step.render.framebuffer) {
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->framebuf;
@@ -1249,7 +1279,9 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 
 		renderPass = GetRenderPass(
 			step.render.color, step.render.depth, step.render.stencil,
-			fb->color.layout, fb->depth.layout, step.render.finalColorLayout);
+			fb->color.layout, fb->depth.layout,
+			step.render.finalColorLayout,
+			step.render.finalDepthStencilLayout);
 
 		// We now do any layout pretransitions as part of the render pass.
 		fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -1685,6 +1717,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	} else if (srcFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 		ConvertFromBGRA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
 	} else if (srcFormat == destFormat) {
+		// Can just memcpy when it matches no matter the format!
 		uint8_t *dst = pixels;
 		const uint8_t *src = (const uint8_t *)mappedData;
 		for (int y = 0; y < height; ++y) {
@@ -1697,7 +1730,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	} else {
 		// TODO: Maybe a depth conversion or something?
 		ELOG("CopyReadbackBuffer: Unknown format");
-		assert(false);
+		_assert_msg_(false, "CopyReadbackBuffer: Unknown src format %d", (int)srcFormat);
 	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
 }

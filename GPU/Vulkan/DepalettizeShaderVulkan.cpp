@@ -103,6 +103,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	std::string error;
 	VkShaderModule fshader = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, buffer, &error);
 	if (fshader == VK_NULL_HANDLE) {
+		INFO_LOG(G3D, "Source:\n%s\n\n", buffer);
 		Crash();
 		delete[] buffer;
 		return nullptr;
@@ -111,6 +112,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	VkPipeline pipeline = vulkan2D_->GetPipeline(rp, vshader_, fshader);
 	// Can delete the shader module now that the pipeline has been created.
 	// Maybe don't even need to queue it..
+	// "true" keeps the pipeline itself alive, forgetting the fshader.
 	vulkan2D_->PurgeFragmentShader(fshader, true);
 	vulkan_->Delete().QueueDeleteShaderModule(fshader);
 
