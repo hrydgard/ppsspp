@@ -36,7 +36,9 @@
 
 #include "gfx_es2/gpu_features.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -77,8 +79,8 @@ struct WaitVBlankInfo {
 		if (!s)
 			return;
 
-		p.Do(threadID);
-		p.Do(vcountUnblock);
+		Do(p, threadID);
+		Do(p, vcountUnblock);
 	}
 };
 
@@ -261,42 +263,42 @@ void __DisplayDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(framebuf);
-	p.Do(latchedFramebuf);
-	p.Do(framebufIsLatched);
-	p.Do(frameStartTicks);
-	p.Do(vCount);
+	Do(p, framebuf);
+	Do(p, latchedFramebuf);
+	Do(p, framebufIsLatched);
+	Do(p, frameStartTicks);
+	Do(p, vCount);
 	if (s <= 2) {
 		double oldHCountBase;
-		p.Do(oldHCountBase);
+		Do(p, oldHCountBase);
 		hCountBase = (int) oldHCountBase;
 	} else {
-		p.Do(hCountBase);
+		Do(p, hCountBase);
 	}
-	p.Do(isVblank);
-	p.Do(hasSetMode);
-	p.Do(mode);
-	p.Do(resumeMode);
-	p.Do(holdMode);
+	Do(p, isVblank);
+	Do(p, hasSetMode);
+	Do(p, mode);
+	Do(p, resumeMode);
+	Do(p, holdMode);
 	if (s >= 4) {
-		p.Do(brightnessLevel);
+		Do(p, brightnessLevel);
 	}
-	p.Do(width);
-	p.Do(height);
+	Do(p, width);
+	Do(p, height);
 	WaitVBlankInfo wvi(0);
-	p.Do(vblankWaitingThreads, wvi);
-	p.Do(vblankPausedWaits);
+	Do(p, vblankWaitingThreads, wvi);
+	Do(p, vblankPausedWaits);
 
-	p.Do(enterVblankEvent);
+	Do(p, enterVblankEvent);
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
-	p.Do(leaveVblankEvent);
+	Do(p, leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
-	p.Do(afterFlipEvent);
+	Do(p, afterFlipEvent);
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
 	if (s >= 5) {
-		p.Do(lagSyncEvent);
-		p.Do(lagSyncScheduled);
+		Do(p, lagSyncEvent);
+		Do(p, lagSyncScheduled);
 		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
 		lastLagSync = real_time_now();
 		if (lagSyncScheduled != g_Config.bForceLagSync) {
@@ -307,7 +309,7 @@ void __DisplayDoState(PointerWrap &p) {
 		ScheduleLagSync();
 	}
 
-	p.Do(gstate);
+	Do(p, gstate);
 
 	// TODO: GPU stuff is really not the responsibility of sceDisplay.
 	// Display just displays the buffers the GPU has drawn, they are really completely distinct.
@@ -321,7 +323,7 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 	if (s < 6) {
 		GPUStatistics_v0 oldStats;
-		p.Do(oldStats);
+		Do(p, oldStats);
 	}
 
 	if (s < 7) {
@@ -329,8 +331,8 @@ void __DisplayDoState(PointerWrap &p) {
 		lastFlipCycles = now;
 		nextFlipCycles = now;
 	} else {
-		p.Do(lastFlipCycles);
-		p.Do(nextFlipCycles);
+		Do(p, lastFlipCycles);
+		Do(p, nextFlipCycles);
 	}
 
 	gpu->DoState(p);

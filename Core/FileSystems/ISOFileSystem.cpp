@@ -22,7 +22,8 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
@@ -710,7 +711,7 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 		return;
 
 	int n = (int) entries.size();
-	p.Do(n);
+	Do(p, n);
 
 	if (p.mode == p.MODE_READ) {
 		entries.clear();
@@ -718,18 +719,18 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 			u32 fd = 0;
 			OpenFileEntry of;
 
-			p.Do(fd);
-			p.Do(of.seekPos);
-			p.Do(of.isRawSector);
-			p.Do(of.isBlockSectorMode);
-			p.Do(of.sectorStart);
-			p.Do(of.openSize);
+			Do(p, fd);
+			Do(p, of.seekPos);
+			Do(p, of.isRawSector);
+			Do(p, of.isBlockSectorMode);
+			Do(p, of.sectorStart);
+			Do(p, of.openSize);
 
 			bool hasFile = false;
-			p.Do(hasFile);
+			Do(p, hasFile);
 			if (hasFile) {
 				std::string path;
-				p.Do(path);
+				Do(p, path);
 				of.file = GetFromPath(path);
 			} else {
 				of.file = NULL;
@@ -740,24 +741,24 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 	} else {
 		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it) {
 			OpenFileEntry &of = it->second;
-			p.Do(it->first);
-			p.Do(of.seekPos);
-			p.Do(of.isRawSector);
-			p.Do(of.isBlockSectorMode);
-			p.Do(of.sectorStart);
-			p.Do(of.openSize);
+			Do(p, it->first);
+			Do(p, of.seekPos);
+			Do(p, of.isRawSector);
+			Do(p, of.isBlockSectorMode);
+			Do(p, of.sectorStart);
+			Do(p, of.openSize);
 
 			bool hasFile = of.file != NULL;
-			p.Do(hasFile);
+			Do(p, hasFile);
 			if (hasFile) {
 				std::string path = EntryFullPath(of.file);
-				p.Do(path);
+				Do(p, path);
 			}
 		}
 	}
 
 	if (s >= 2) {
-		p.Do(lastReadBlock_);
+		Do(p, lastReadBlock_);
 	} else {
 		lastReadBlock_ = 0;
 	}

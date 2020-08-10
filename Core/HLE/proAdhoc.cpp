@@ -33,6 +33,7 @@
 #include <cstring>
 #include "util/text/parsers.h"
 #include "thread/threadutil.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -980,6 +981,24 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 	peerlock.unlock();
 }
 
+void AfterMatchingMipsCall::DoState(PointerWrap & p) {
+	auto s = p.Section("AfterMatchingMipsCall", 1, 4);
+	if (!s)
+		return;
+	if (s >= 1) {
+		Do(p, EventID);
+	} else {
+		EventID = -1;
+	}
+	if (s >= 4) {
+		Do(p, contextID);
+		Do(p, bufAddr);
+	} else {
+		contextID = -1;
+		bufAddr = 0;
+	}
+}
+
 // It seems After Actions being called in reverse order of Mipscall order (ie. MipsCall order of ACCEPT(6)->ESTABLISH(7) getting AfterAction order of ESTABLISH(7)->ACCEPT(6)
 void AfterMatchingMipsCall::run(MipsCall &call) {
 	if (context == NULL) {
@@ -1019,6 +1038,21 @@ bool IsMatchingInCallback(SceNetAdhocMatchingContext* context) {
 	inCB = (context->IsMatchingInCB);
 	context->eventlock->unlock(); //peerlock.unlock();
 	return inCB;
+}
+
+void AfterAdhocMipsCall::DoState(PointerWrap & p) {
+	auto s = p.Section("AfterAdhocMipsCall", 1, 4);
+	if (!s)
+		return;
+	if (s >= 3) {
+		Do(p, HandlerID);
+		Do(p, EventID);
+		Do(p, argsAddr);
+	} else {
+		HandlerID = -1;
+		EventID = -1;
+		argsAddr = 0;
+	}
 }
 
 void AfterAdhocMipsCall::run(MipsCall& call) {

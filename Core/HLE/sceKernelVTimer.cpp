@@ -16,6 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <list>
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -24,7 +28,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelVTimer.h"
 #include "Core/HLE/HLE.h"
-#include "Common/ChunkFile.h"
 
 static int vtimerTimer = -1;
 static SceUID runningVTimer = 0;
@@ -54,10 +57,10 @@ struct VTimer : public KernelObject {
 		if (!s)
 			return;
 
-		p.Do(nvt);
+		Do(p, nvt);
 		if (s < 2) {
 			u32 memoryPtr;
-			p.Do(memoryPtr);
+			Do(p, memoryPtr);
 		}
 	}
 
@@ -192,12 +195,12 @@ void __KernelVTimerDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(vtimerTimer);
-	p.Do(vtimers);
+	Do(p, vtimerTimer);
+	Do(p, vtimers);
 	CoreTiming::RestoreRegisterEvent(vtimerTimer, "VTimer", __KernelTriggerVTimer);
 
 	if (s >= 2)
-		p.Do(runningVTimer);
+		Do(p, runningVTimer);
 	else
 		runningVTimer = 0;
 }

@@ -19,7 +19,7 @@
 
 #include <map>
 #include <cstring>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 struct BufferQueue {
 	BufferQueue(int size = 0x20000) {
@@ -124,20 +124,7 @@ struct BufferQueue {
 		return bytesgot;
 	}
 
-	void DoState(PointerWrap &p) {
-		auto s = p.Section("BufferQueue", 0, 1);
-
-		p.Do(bufQueueSize);
-		p.Do(start);
-		p.Do(end);
-		if (bufQueue) {
-			p.DoArray(bufQueue, bufQueueSize);
-		}
-
-		if (s >= 1) {
-			p.Do(ptsMarks);
-		}
-	}
+	void DoState(PointerWrap &p);
 
 private:
 	void savePts(u64 pts) {

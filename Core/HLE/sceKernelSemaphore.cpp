@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelSemaphore.h"
@@ -69,10 +71,10 @@ struct PSPSemaphore : public KernelObject {
 		if (!s)
 			return;
 
-		p.Do(ns);
+		Do(p, ns);
 		SceUID dv = 0;
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeSemaphore ns;
@@ -98,7 +100,7 @@ void __KernelSemaDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(semaWaitTimer);
+	Do(p, semaWaitTimer);
 	CoreTiming::RestoreRegisterEvent(semaWaitTimer, "SemaphoreTimeout", __KernelSemaTimeout);
 }
 

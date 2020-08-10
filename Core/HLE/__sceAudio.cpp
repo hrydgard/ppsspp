@@ -19,7 +19,8 @@
 #include <mutex>
 
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/FixedSizeQueue.h"
 
 #ifdef _M_SSE
@@ -50,6 +51,10 @@ StereoResampler resampler;
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
 std::atomic_flag atomicLock_;
+
+// We copy samples as they are written into this simple ring buffer.
+// Might try something more efficient later.
+FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
@@ -114,8 +119,10 @@ void __AudioInit() {
 
 	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles, eventHostAudioUpdate, 0);
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
+		chans[i].index = i;
 		chans[i].clear();
+	}
 
 	mixBuffer = new s32[hwBlockSize * 2];
 	clampedMixBuffer = new s16[hwBlockSize * 2];
@@ -130,14 +137,14 @@ void __AudioDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(eventAudioUpdate);
+	Do(p, eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
-	p.Do(eventHostAudioUpdate);
+	Do(p, eventHostAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
-	p.Do(mixFrequency);
+	Do(p, mixFrequency);
 	if (s >= 2) {
-		p.Do(srcFrequency);
+		Do(p, srcFrequency);
 	} else {
 		// Assume that it was actually the SRC channel frequency.
 		srcFrequency = mixFrequency;
@@ -156,15 +163,17 @@ void __AudioDoState(PointerWrap &p) {
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
-	p.Do(chanCount);
+	Do(p, chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
 		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
-	for (int i = 0; i < chanCount; ++i)
+	for (int i = 0; i < chanCount; ++i) {
+		chans[i].index = i;
 		chans[i].DoState(p);
+	}
 
 	__AudioCPUMHzChange();
 }
@@ -174,8 +183,10 @@ void __AudioShutdown() {
 	delete [] clampedMixBuffer;
 
 	mixBuffer = 0;
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
+		chans[i].index = i;
 		chans[i].clear();
+	}
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpAudio) {
@@ -195,11 +206,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	}
 
 	// If there's anything on the queue at all, it should be busy, but we try to be a bit lax.
-	//if (chan.sampleQueue.size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
-	if (chan.sampleQueue.size() > 0) {
+	//if (chanSampleQueues[chanNum].size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
+	if (chanSampleQueues[chanNum].size() > 0) {
 		if (blocking) {
 			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
-			int blockSamples = (int)chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;
+			int blockSamples = (int)chanSampleQueues[chanNum].size() / 2 / chanQueueMinSizeFactor;
 
 			if (__KernelIsDispatchEnabled()) {
 				AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
@@ -234,7 +245,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
 		s16 *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
-		chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
+		chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
 
 		if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
 			Memory::Memcpy(buf1, chan.sampleAddress, (u32)sz1 * sizeof(s16));
@@ -256,7 +267,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
-				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
+				chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
 				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
 				if (buf2) {
 					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
@@ -266,8 +277,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 			// Rare, so unoptimized. Expands to stereo.
 			for (u32 i = 0; i < chan.sampleCount; i++) {
 				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-				chan.sampleQueue.push(ApplySampleVolume(sample, leftVol));
-				chan.sampleQueue.push(ApplySampleVolume(sample, rightVol));
+				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, leftVol));
+				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, rightVol));
 			}
 		}
 	}
@@ -334,20 +345,20 @@ void __AudioUpdate(bool resetRecording) {
 
 		__AudioWakeThreads(chans[i], 0, hwBlockSize);
 
-		if (!chans[i].sampleQueue.size()) {
+		if (!chanSampleQueues[i].size()) {
 			continue;
 		}
 
 		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
 		size_t sz = needsResample ? (hwBlockSize * 2 * srcFrequency) / mixFrequency : hwBlockSize * 2;
-		if (sz > chans[i].sampleQueue.size()) {
-			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, (int)sz / 2);
+		if (sz > chanSampleQueues[i].size()) {
+			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
 
-		chans[i].sampleQueue.popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
 
 		if (needsResample) {
 			auto read = [&](size_t i) {

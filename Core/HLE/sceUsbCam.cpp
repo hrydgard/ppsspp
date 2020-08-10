@@ -20,7 +20,8 @@
 
 #include "base/NativeApp.h"
 #include "ppsspp_config.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
@@ -62,7 +63,7 @@ void __UsbCamDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(*config);
+	Do(p, *config);
 	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
 		Camera::stopCapture();
 		Camera::startCapture();

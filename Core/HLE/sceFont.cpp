@@ -7,7 +7,9 @@
 #include <map>
 #include <algorithm>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceFont.h"
@@ -221,12 +223,12 @@ public:
 		if (!s)
 			return;
 
-		p.Do(pgf_);
-		p.Do(style_);
+		Do(p, pgf_);
+		Do(p, style_);
 		if (s < 2) {
 			valid_ = true;
 		} else {
-			p.Do(valid_);
+			Do(p, valid_);
 		}
 	}
 
@@ -317,29 +319,29 @@ public:
 			return;
 
 		int numInternalFonts = (int)internalFonts.size();
-		p.Do(numInternalFonts);
+		Do(p, numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		int internalFont = GetInternalFontIndex(font_);
-		p.Do(internalFont);
+		Do(p, internalFont);
 		if (internalFont == -1) {
-			p.Do(font_);
+			Do(p, font_);
 		} else if (p.mode == p.MODE_READ) {
 			font_ = internalFonts[internalFont];
 		}
-		p.Do(handle_);
+		Do(p, handle_);
 		if (s >= 2) {
-			p.Do(open_);
+			Do(p, open_);
 		} else {
 			open_ = fontLibID_ != (u32)-1;
 		}
 		if (s >= 3) {
-			p.Do(mode_);
+			Do(p, mode_);
 		} else {
 			mode_ = FONT_OPEN_INTERNAL_FULL;
 		}
@@ -363,9 +365,9 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		if (s >= 2) {
-			p.Do(errorCodePtr_);
+			Do(p, errorCodePtr_);
 		} else {
 			errorCodePtr_ = 0;
 		}
@@ -387,7 +389,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -405,9 +407,9 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
-		p.Do(fontHandle_);
-		p.Do(fontIndex_);
+		Do(p, fontLibID_);
+		Do(p, fontHandle_);
+		Do(p, fontIndex_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -428,7 +430,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -446,8 +448,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
-		p.Do(charInfo_);
+		Do(p, fontLibID_);
+		Do(p, charInfo_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -662,23 +664,23 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fonts_);
-		p.Do(isfontopen_);
-		p.Do(params_);
-		p.Do(fontHRes_);
-		p.Do(fontVRes_);
-		p.Do(fileFontHandle_);
-		p.Do(handle_);
-		p.Do(altCharCode_);
+		Do(p, fonts_);
+		Do(p, isfontopen_);
+		Do(p, params_);
+		Do(p, fontHRes_);
+		Do(p, fontVRes_);
+		Do(p, fileFontHandle_);
+		Do(p, handle_);
+		Do(p, altCharCode_);
 		if (s >= 2) {
-			p.Do(nfl_);
+			Do(p, nfl_);
 		} else {
 			nfl_ = 0;
 		}
 
 		if (s >= 3) {
-			p.Do(openAllocatedAddresses_);
-			p.Do(charInfoBitmapAddress_);
+			Do(p, openAllocatedAddresses_);
+			Do(p, charInfoBitmapAddress_);
 		} else {
 			openAllocatedAddresses_.resize(params_.numFonts);
 			charInfoBitmapAddress_ = 0;
@@ -917,20 +919,20 @@ void __FontDoState(PointerWrap &p) {
 
 	__LoadInternalFonts();
 
-	p.Do(fontLibList);
-	p.Do(fontLibMap);
-	p.Do(fontMap);
+	Do(p, fontLibList);
+	Do(p, fontLibMap);
+	Do(p, fontMap);
 
-	p.Do(actionPostAllocCallback);
+	Do(p, actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
-	p.Do(actionPostOpenCallback);
+	Do(p, actionPostOpenCallback);
 	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 	if (s >= 2) {
-		p.Do(actionPostOpenAllocCallback);
+		Do(p, actionPostOpenAllocCallback);
 		__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
-		p.Do(actionPostCharInfoAllocCallback);
+		Do(p, actionPostCharInfoAllocCallback);
 		__KernelRestoreActionType(actionPostCharInfoAllocCallback, PostCharInfoAllocCallback::Create);
-		p.Do(actionPostCharInfoFreeCallback);
+		Do(p, actionPostCharInfoFreeCallback);
 		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
 	} else {
 		useAllocCallbacks = false;

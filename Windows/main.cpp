@@ -21,6 +21,7 @@
 #include <functional>
 
 #include "Common/CommonWindows.h"
+#include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"

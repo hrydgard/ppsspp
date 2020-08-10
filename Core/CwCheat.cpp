@@ -4,7 +4,8 @@
 #include <cstdint>
 #include "i18n/i18n.h"
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/FileUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -304,7 +305,7 @@ void __CheatDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(CheatEvent);
+	Do(p, CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
 	if (s < 2) {

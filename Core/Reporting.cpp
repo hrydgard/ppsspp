@@ -23,6 +23,8 @@
 #include "Core/Reporting.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/FileUtil.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -335,7 +337,7 @@ namespace Reporting
 			return;
 		}
 
-		p.Do(everUnsupported);
+		Do(p, everUnsupported);
 	}
 
 	void UpdateConfig()

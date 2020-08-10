@@ -17,7 +17,8 @@
 
 #include "i18n/i18n.h"
 #include "base/logging.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -153,23 +154,23 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(size);
-	p.Do(saveName);
-	p.Do(idx);
+	Do(p, size);
+	Do(p, saveName);
+	Do(p, idx);
 
-	p.DoArray(title, sizeof(title));
-	p.DoArray(saveTitle, sizeof(saveTitle));
-	p.DoArray(saveDetail, sizeof(saveDetail));
+	DoArray(p, title, sizeof(title));
+	DoArray(p, saveTitle, sizeof(saveTitle));
+	DoArray(p, saveDetail, sizeof(saveDetail));
 
-	p.Do(modif_time);
+	Do(p, modif_time);
 
 	if (s <= 1) {
 		u32 textureData;
 		int textureWidth;
 		int textureHeight;
-		p.Do(textureData);
-		p.Do(textureWidth);
-		p.Do(textureHeight);
+		Do(p, textureData);
+		Do(p, textureWidth);
+		Do(p, textureHeight);
 
 		if (textureData != 0) {
 			// Must be MODE_READ.
@@ -178,7 +179,7 @@ void SaveFileInfo::DoState(PointerWrap &p)
 		}
 	} else {
 		bool hasTexture = texture != NULL;
-		p.Do(hasTexture);
+		Do(p, hasTexture);
 		if (hasTexture) {
 			if (p.mode == p.MODE_READ) {
 				delete texture;
@@ -1725,9 +1726,9 @@ void SavedataParam::DoState(PointerWrap &p)
 		return;
 
 	// pspParam is handled in PSPSaveDialog.
-	p.Do(selectedSave);
-	p.Do(saveDataListCount);
-	p.Do(saveNameListDataCount);
+	Do(p, selectedSave);
+	Do(p, saveDataListCount);
+	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ)
 	{
 		if (saveDataList != NULL)
@@ -1735,13 +1736,13 @@ void SavedataParam::DoState(PointerWrap &p)
 		if (saveDataListCount != 0)
 		{
 			saveDataList = new SaveFileInfo[saveDataListCount];
-			p.DoArray(saveDataList, saveDataListCount);
+			DoArray(p, saveDataList, saveDataListCount);
 		}
 		else
 			saveDataList = NULL;
 	}
 	else
-		p.DoArray(saveDataList, saveDataListCount);
+		DoArray(p, saveDataList, saveDataListCount);
 }
 
 int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName)

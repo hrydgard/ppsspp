@@ -18,7 +18,8 @@
 #include <mutex>
 
 #include "base/NativeApp.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -122,12 +123,12 @@ void __UsbMicDoState(PointerWrap &p) {
 	if (!s) {
 		return;
 	}
-	p.Do(numNeedSamples);
-	p.Do(waitingThreads);
-	p.Do(isNeedInput);
-	p.Do(curSampleRate);
-	p.Do(curChannels);
-	p.Do(micState);
+	Do(p, numNeedSamples);
+	Do(p, waitingThreads);
+	Do(p, isNeedInput);
+	Do(p, curSampleRate);
+	Do(p, curChannels);
+	Do(p, micState);
 	// Maybe also need to save the state of audioBuf.
 	if (waitingThreads.size() != 0 && p.mode == PointerWrap::MODE_READ) {
 		u64 waitTimeus = (waitingThreads[0].needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThreads[0].sampleRate;

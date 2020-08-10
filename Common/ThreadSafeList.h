@@ -75,7 +75,7 @@ public:
 
 	void DoState(PointerWrap &p) {
 		std::lock_guard<std::mutex> guard(lock);
-		p.Do(list);
+		Do(p, list);
 	}
 
 private:

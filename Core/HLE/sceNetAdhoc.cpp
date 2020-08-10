@@ -28,7 +28,9 @@
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
 
@@ -119,34 +121,34 @@ void __NetAdhocDoState(PointerWrap &p) {
 	auto cur_netAdhocctlInited = netAdhocctlInited;
 	auto cur_netAdhocMatchingInited = netAdhocMatchingInited;
 
-	p.Do(netAdhocInited);
-	p.Do(netAdhocctlInited);
-	p.Do(netAdhocMatchingInited);
-	p.Do(adhocctlHandlers);
+	Do(p, netAdhocInited);
+	Do(p, netAdhocctlInited);
+	Do(p, netAdhocMatchingInited);
+	Do(p, adhocctlHandlers);
 
 	if (s >= 2) {
-		p.Do(actionAfterMatchingMipsCall);
+		Do(p, actionAfterMatchingMipsCall);
 		__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
 
-		p.Do(dummyThreadHackAddr);
+		Do(p, dummyThreadHackAddr);
 	}
 	else {
 		actionAfterMatchingMipsCall = -1;
 		dummyThreadHackAddr = 0;
 	}
 	if (s >= 3) {
-		p.Do(actionAfterAdhocMipsCall);
+		Do(p, actionAfterAdhocMipsCall);
 		__KernelRestoreActionType(actionAfterAdhocMipsCall, AfterAdhocMipsCall::Create);
 
-		p.Do(matchingThreadHackAddr);
+		Do(p, matchingThreadHackAddr);
 	}
 	else {
 		actionAfterAdhocMipsCall = -1;
 		matchingThreadHackAddr = 0;
 	}
 	if (s >= 4) {
-		p.Do(threadAdhocID);
-		p.Do(matchingThreads);
+		Do(p, threadAdhocID);
+		Do(p, matchingThreads);
 	}
 	else {
 		threadAdhocID = 0;

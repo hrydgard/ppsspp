@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <set>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -641,13 +643,13 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(current);
+	Do(p, current);
 
 	// Save/load per-thread current directory map
-	p.Do(currentDir);
+	Do(p, currentDir);
 
 	u32 n = (u32) fileSystems.size();
-	p.Do(n);
+	Do(p, n);
 	bool skipPfat0 = false;
 	if (n != (u32) fileSystems.size())
 	{

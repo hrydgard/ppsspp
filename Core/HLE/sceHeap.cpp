@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
@@ -34,10 +36,10 @@ struct Heap {
 	BlockAllocator alloc;
 
 	void DoState (PointerWrap &p) {
-		p.Do(size);
-		p.Do(address);
-		p.Do(fromtop);
-		p.Do(alloc);
+		Do(p, size);
+		Do(p, address);
+		Do(p, fromtop);
+		Do(p, alloc);
 	}
 };
 
@@ -57,7 +59,7 @@ void __HeapDoState(PointerWrap &p) {
 		return;
 
 	if (s >= 2) {
-		p.Do(heapList);
+		Do(p, heapList);
 	}
 }
 

@@ -205,7 +205,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
-  $(SRC)/Common/ChunkFile.cpp \
+  $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
   $(SRC)/Common/KeyMap.cpp \
@@ -279,6 +279,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/SimpleAudioDec.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
+  $(SRC)/Core/HW/BufferQueue.cpp \
   $(SRC)/Core/HW/Camera.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \

@@ -15,13 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
-#include "Common/ChunkFile.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
@@ -171,7 +172,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 	}
 
 	int count = (int)audioList.size();
-	p.Do(count);
+	Do(p, count);
 
 	if (count > 0) {
 		if (p.mode == PointerWrap::MODE_READ) {
@@ -182,13 +183,20 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto ctxPtr_ = new u32[count];
 			// These sizeof(pointers) are wrong, but kept to avoid breaking on old saves.
 			// They're not used in new savestates.
-			p.DoArray(codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
-			p.DoArray(ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
+#ifdef __clang__
+#pragma diagnostic push
+#pragma clang diagnostic ignored "-Wsizeof-pointer-div"
+#endif
+			DoArray(p, codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
+			DoArray(p, ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
 			for (int i = 0; i < count; i++) {
 				auto decoder = new SimpleAudio(codec_[i]);
 				decoder->SetCtxPtr(ctxPtr_[i]);
 				audioList[ctxPtr_[i]] = decoder;
 			}
+#ifdef __clang__
+#pragma diagnostic pop
+#endif
 			delete[] codec_;
 			delete[] ctxPtr_;
 		}
@@ -205,8 +213,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 				ctxPtr_[i] = decoder->GetCtxPtr();
 				i++;
 			}
-			p.DoArray(codec_, count);
-			p.DoArray(ctxPtr_, count);
+			DoArray(p, codec_, count);
+			DoArray(p, ctxPtr_, count);
 			delete[] codec_;
 			delete[] ctxPtr_;
 		}

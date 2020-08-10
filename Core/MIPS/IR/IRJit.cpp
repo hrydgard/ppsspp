@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
 #include "base/logging.h"
 #include "ext/xxhash.h"
 #include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"

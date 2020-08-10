@@ -21,7 +21,8 @@
 // Does enough to understand what's going on without having to resort to an
 // external disassembler all the time...
 
-#include <stdlib.h>
+#include <cstdlib>
+#include <cstring>
 
 #include "Common/Arm64Emitter.h"
 #include "Common/StringUtils.h"

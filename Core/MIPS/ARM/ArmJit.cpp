@@ -20,7 +20,8 @@
 
 #include "base/logging.h"
 #include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -129,9 +130,9 @@ void ArmJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;

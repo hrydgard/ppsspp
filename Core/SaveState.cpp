@@ -26,7 +26,8 @@
 #include "util/text/parsers.h"
 
 #include "Common/FileUtil.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/SaveState.h"
 #include "Core/Config.h"
@@ -274,11 +275,11 @@ namespace SaveState
 		if (s >= 2) {
 			// This only increments on save, of course.
 			++saveStateGeneration;
-			p.Do(saveStateGeneration);
+			Do(p, saveStateGeneration);
 			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())
 				saveStateInitialGitVersion = PPSSPP_GIT_VERSION;
-			p.Do(saveStateInitialGitVersion);
+			Do(p, saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
 		}

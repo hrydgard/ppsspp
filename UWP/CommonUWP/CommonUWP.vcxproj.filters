@@ -11,7 +11,7 @@
     <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
-    <ClCompile Include="..\..\Common\ChunkFile.cpp" />
+    <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\ColorConv.cpp" />
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
@@ -55,7 +55,12 @@
     <ClInclude Include="..\..\Common\ArmCommon.h" />
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
-    <ClInclude Include="..\..\Common\ChunkFile.h" />
+    <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializerDeque.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializerFuncs.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializerList.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializerMap.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializerSet.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
     <ClInclude Include="..\..\Common\ColorConv.h" />
     <ClInclude Include="..\..\Common\ColorConvNEON.h" />

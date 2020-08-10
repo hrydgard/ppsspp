@@ -21,7 +21,8 @@
 #include "ext/udis86/udis86.h"
 
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Util/DisArm64.h"
 #include "Core/Config.h"
@@ -55,10 +56,10 @@ namespace MIPSComp {
 			return;
 
 		bool dummy = false;
-		p.Do(dummy);
+		Do(p, dummy);
 		if (s >= 2) {
 			dummy = true;
-			p.Do(dummy);
+			Do(p, dummy);
 		}
 	}
 

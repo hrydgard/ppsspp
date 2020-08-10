@@ -36,7 +36,7 @@
 
 #include <set>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
 #include "base/NativeApp.h"
 #include "base/logging.h"

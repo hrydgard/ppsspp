@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -334,13 +336,13 @@ public:
 		if (!s)
 			return;
 
-		p.Do(type_);
-		p.Do(channel_);
+		Do(p, type_);
+		Do(p, channel_);
 		if (s >= 2) {
-			p.Do(videoWidth_);
-			p.Do(videoHeight_);
-			p.Do(audioChannels_);
-			p.Do(audioFrequency_);
+			Do(p, videoWidth_);
+			Do(p, videoHeight_);
+			Do(p, audioChannels_);
+			Do(p, audioFrequency_);
 		}
 	}
 
@@ -440,38 +442,38 @@ void Psmf::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(magic);
-	p.Do(version);
-	p.Do(streamOffset);
-	p.Do(streamSize);
-	p.Do(headerOffset);
-	p.Do(streamDataTotalSize);
-	p.Do(presentationStartTime);
-	p.Do(presentationEndTime);
-	p.Do(streamDataNextBlockSize);
-	p.Do(streamDataNextInnerBlockSize);
-	p.Do(numStreams);
+	Do(p, magic);
+	Do(p, version);
+	Do(p, streamOffset);
+	Do(p, streamSize);
+	Do(p, headerOffset);
+	Do(p, streamDataTotalSize);
+	Do(p, presentationStartTime);
+	Do(p, presentationEndTime);
+	Do(p, streamDataNextBlockSize);
+	Do(p, streamDataNextInnerBlockSize);
+	Do(p, numStreams);
 
-	p.Do(currentStreamNum);
+	Do(p, currentStreamNum);
 	int legacyStreamNums = 0;
-	p.Do(legacyStreamNums);
-	p.Do(legacyStreamNums);
+	Do(p, legacyStreamNums);
+	Do(p, legacyStreamNums);
 
-	p.Do(EPMapOffset);
-	p.Do(EPMapEntriesNum);
-	p.Do(videoWidth);
-	p.Do(videoHeight);
-	p.Do(audioChannels);
-	p.Do(audioFrequency);
+	Do(p, EPMapOffset);
+	Do(p, EPMapEntriesNum);
+	Do(p, videoWidth);
+	Do(p, videoHeight);
+	Do(p, audioChannels);
+	Do(p, audioFrequency);
 
 	if (s >= 2) {
-		p.Do(EPMap);
+		Do(p, EPMap);
 	}
 
-	p.Do(streamMap);
+	Do(p, streamMap);
 	if (s >= 3) {
-		p.Do(currentStreamType);
-		p.Do(currentStreamChannel);
+		Do(p, currentStreamType);
+		Do(p, currentStreamChannel);
 	} else {
 		currentStreamType = -1;
 		currentStreamChannel = -1;
@@ -488,65 +490,65 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(videoCodec);
-	p.Do(videoStreamNum);
-	p.Do(audioCodec);
-	p.Do(audioStreamNum);
-	p.Do(playMode);
-	p.Do(playSpeed);
+	Do(p, videoCodec);
+	Do(p, videoStreamNum);
+	Do(p, audioCodec);
+	Do(p, audioStreamNum);
+	Do(p, playMode);
+	Do(p, playSpeed);
 
-	p.Do(displayBuffer);
-	p.Do(displayBufferSize);
-	p.Do(playbackThreadPriority);
+	Do(p, displayBuffer);
+	Do(p, displayBufferSize);
+	Do(p, playbackThreadPriority);
 	int oldMaxAheadTimestamp = 0;
-	p.Do(oldMaxAheadTimestamp);
+	Do(p, oldMaxAheadTimestamp);
 	if (s >= 4) {
-		p.Do(totalDurationTimestamp);
+		Do(p, totalDurationTimestamp);
 	} else {
 		long oldTimestamp;
-		p.Do(oldTimestamp);
+		Do(p, oldTimestamp);
 		totalDurationTimestamp = oldTimestamp;
 	}
 	if (s >= 2) {
-		p.Do(totalVideoStreams);
-		p.Do(totalAudioStreams);
-		p.Do(playerVersion);
+		Do(p, totalVideoStreams);
+		Do(p, totalAudioStreams);
+		Do(p, playerVersion);
 	} else {
 		totalVideoStreams = 1;
 		totalAudioStreams = 1;
 		playerVersion = PSMF_PLAYER_VERSION_FULL;
 	}
 	if (s >= 3) {
-		p.Do(videoStep);
+		Do(p, videoStep);
 	} else {
 		videoStep = 0;
 	}
 	if (s >= 4) {
-		p.Do(warmUp);
+		Do(p, warmUp);
 	} else {
 		warmUp = 10000;
 	}
 	if (s >= 5) {
-		p.Do(seekDestTimeStamp);
+		Do(p, seekDestTimeStamp);
 	} else {
 		seekDestTimeStamp = 0;
 	}
-	p.DoClass(mediaengine);
-	p.Do(filehandle);
-	p.Do(fileoffset);
-	p.Do(readSize);
-	p.Do(streamSize);
+	DoClass(p, mediaengine);
+	Do(p, filehandle);
+	Do(p, fileoffset);
+	Do(p, readSize);
+	Do(p, streamSize);
 
-	p.Do(status);
+	Do(p, status);
 	if (s >= 4) {
-		p.Do(psmfPlayerAtracAu);
+		Do(p, psmfPlayerAtracAu);
 	}
-	p.Do(psmfPlayerAvcAu);
+	Do(p, psmfPlayerAvcAu);
 	if (s >= 7) {
 		bool hasFinishThread = finishThread != nullptr;
-		p.Do(hasFinishThread);
+		Do(p, hasFinishThread);
 		if (hasFinishThread) {
-			p.Do(finishThread);
+			Do(p, finishThread);
 		} else {
 			if (finishThread)
 				finishThread->Forget();
@@ -554,7 +556,7 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 			finishThread = nullptr;
 		}
 	} else if (s >= 6) {
-		p.Do(finishThread);
+		Do(p, finishThread);
 	} else {
 		if (finishThread)
 			finishThread->Forget();
@@ -563,8 +565,8 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	}
 
 	if (s >= 8) {
-		p.Do(videoWidth);
-		p.Do(videoHeight);
+		Do(p, videoWidth);
+		Do(p, videoHeight);
 	}
 }
 
@@ -679,7 +681,7 @@ void __PsmfDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(psmfMap);
+	Do(p, psmfMap);
 }
 
 void __PsmfPlayerDoState(PointerWrap &p) {
@@ -687,11 +689,11 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(psmfPlayerMap);
-	p.Do(videoPixelMode);
-	p.Do(videoLoopStatus);
+	Do(p, psmfPlayerMap);
+	Do(p, videoPixelMode);
+	Do(p, videoLoopStatus);
 	if (s >= 2) {
-		p.Do(psmfPlayerLibVersion);
+		Do(p, psmfPlayerLibVersion);
 	} else {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;

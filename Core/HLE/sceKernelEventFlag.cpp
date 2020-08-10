@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -73,10 +75,10 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nef);
+		Do(p, nef);
 		EventFlagTh eft = { 0 };
-		p.Do(waitingThreads, eft);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, eft);
+		Do(p, pausedWaits);
 	}
 
 	NativeEventFlag nef;
@@ -121,7 +123,7 @@ void __KernelEventFlagDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(eventFlagWaitTimer);
+	Do(p, eventFlagWaitTimer);
 	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
 }
 

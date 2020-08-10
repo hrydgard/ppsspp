@@ -20,7 +20,9 @@
 #include <vector>
 #include <map>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
@@ -130,16 +132,16 @@ struct FPL : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nf);
+		Do(p, nf);
 		if (p.mode == p.MODE_READ)
 			blocks = new bool[nf.numBlocks];
-		p.DoArray(blocks, nf.numBlocks);
-		p.Do(address);
-		p.Do(alignedSize);
-		p.Do(nextBlock);
+		DoArray(p, blocks, nf.numBlocks);
+		Do(p, address);
+		Do(p, alignedSize);
+		Do(p, nextBlock);
 		FplWaitingThread dv = {0};
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeFPL nf;
@@ -392,15 +394,15 @@ struct VPL : public KernelObject
 			return;
 		}
 
-		p.Do(nv);
-		p.Do(address);
+		Do(p, nv);
+		Do(p, address);
 		VplWaitingThread dv = {0};
-		p.Do(waitingThreads, dv);
+		Do(p, waitingThreads, dv);
 		alloc.DoState(p);
-		p.Do(pausedWaits);
+		Do(p, pausedWaits);
 
 		if (s >= 2) {
-			p.Do(header);
+			Do(p, header);
 		}
 	}
 
@@ -456,16 +458,16 @@ void __KernelMemoryDoState(PointerWrap &p)
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
 
-	p.Do(vplWaitTimer);
+	Do(p, vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
-	p.Do(fplWaitTimer);
+	Do(p, fplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(fplWaitTimer, "FplTimeout", __KernelFplTimeout);
-	p.Do(flags_);
-	p.Do(sdkVersion_);
-	p.Do(compilerVersion_);
-	p.DoArray(tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
+	Do(p, flags_);
+	Do(p, sdkVersion_);
+	Do(p, compilerVersion_);
+	DoArray(p, tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
 	if (s >= 2) {
-		p.Do(tlsplThreadEndChecks);
+		Do(p, tlsplThreadEndChecks);
 	}
 }
 
@@ -949,8 +951,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(address);
-		p.DoArray(name, sizeof(name));
+		Do(p, address);
+		DoArray(p, name, sizeof(name));
 	}
 
 	u32 address;
@@ -1886,15 +1888,15 @@ struct TLSPL : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(ntls);
-		p.Do(address);
+		Do(p, ntls);
+		Do(p, address);
 		if (s >= 2)
-			p.Do(alignment);
+			Do(p, alignment);
 		else
 			alignment = 4;
-		p.Do(waitingThreads);
-		p.Do(next);
-		p.Do(usage);
+		Do(p, waitingThreads);
+		Do(p, next);
+		Do(p, usage);
 	}
 
 	NativeTlspl ntls;

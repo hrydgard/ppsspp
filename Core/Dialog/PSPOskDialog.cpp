@@ -21,6 +21,7 @@
 #include "math/math_util.h"
 #include "util/text/utf8.h"
 
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
@@ -28,7 +29,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "GPU/GPUState.h"
 
 #ifndef _WIN32
@@ -1135,17 +1136,17 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(oskParams);
-	p.Do(oskDesc);
-	p.Do(oskIntext);
-	p.Do(oskOuttext);
-	p.Do(selectedChar);
+	Do(p, oskParams);
+	Do(p, oskDesc);
+	Do(p, oskIntext);
+	Do(p, oskOuttext);
+	Do(p, selectedChar);
 	if (s >= 2) {
-		p.Do(inputChars);
+		Do(p, inputChars);
 	} else {
 		// Discard the wstring.
 		std::wstring wstr;
-		p.Do(wstr);
+		Do(p, wstr);
 	}
 	// Don't need to save state native status or value.
 }

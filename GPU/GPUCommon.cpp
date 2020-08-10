@@ -7,12 +7,14 @@
 
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
 #include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "ChunkFile.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
@@ -2409,9 +2411,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do<int>(dlQueue);
+	Do<int>(p, dlQueue);
 	if (s >= 4) {
-		p.DoArray(dls, ARRAY_SIZE(dls));
+		DoArray(p, dls, ARRAY_SIZE(dls));
 	} else if (s >= 3) {
 		// This may have been saved with or without padding, depending on platform.
 		// We need to upconvert it to our consistently-padded struct.
@@ -2429,7 +2431,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 		const bool hasPadding = savedPtr32[1] == 1;
 		if (hasPadding) {
 			u32 padding;
-			p.Do(padding);
+			Do(p, padding);
 		}
 
 		for (size_t i = 1; i < ARRAY_SIZE(dls); ++i) {
@@ -2437,13 +2439,13 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].padding = 0;
 			if (hasPadding) {
 				u32 padding;
-				p.Do(padding);
+				Do(p, padding);
 			}
 		}
 	} else if (s >= 2) {
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v2 oldDL;
-			p.Do(oldDL);
+			Do(p, oldDL);
 			// Copy over everything except the last, new member (stackAddr.)
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v2));
 			dls[i].stackAddr = 0;
@@ -2452,7 +2454,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 		// Can only be in read mode here.
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v1 oldDL;
-			p.Do(oldDL);
+			Do(p, oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v1));
 			// Fix the other fields.  Let's hope context wasn't important, it was a pointer.
@@ -2466,17 +2468,17 @@ void GPUCommon::DoState(PointerWrap &p) {
 	if (currentList != nullptr) {
 		currentID = (int)(currentList - &dls[0]);
 	}
-	p.Do(currentID);
+	Do(p, currentID);
 	if (currentID == 0) {
 		currentList = nullptr;
 	} else {
 		currentList = &dls[currentID];
 	}
-	p.Do(interruptRunning);
-	p.Do(gpuState);
-	p.Do(isbreak);
-	p.Do(drawCompleteTicks);
-	p.Do(busyTicks);
+	Do(p, interruptRunning);
+	Do(p, gpuState);
+	Do(p, isbreak);
+	Do(p, drawCompleteTicks);
+	Do(p, busyTicks);
 }
 
 void GPUCommon::InterruptStart(int listid) {

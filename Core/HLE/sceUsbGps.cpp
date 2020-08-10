@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <ctime>
 #include "base/NativeApp.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceUsbGps.h"
@@ -40,7 +42,7 @@ void __UsbGpsDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(gpsStatus);
+	Do(p, gpsStatus);
 }
 
 void __UsbGpsShutdown() {

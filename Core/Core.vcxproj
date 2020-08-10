@@ -388,6 +388,7 @@
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
     <ClCompile Include="HLE\sceUsbMic.cpp" />
+    <ClCompile Include="HW\BufferQueue.cpp" />
     <ClCompile Include="HW\Camera.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="MemFault.cpp" />

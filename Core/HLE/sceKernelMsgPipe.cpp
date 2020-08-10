@@ -17,6 +17,9 @@
 
 #include <algorithm>
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
@@ -27,7 +30,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/KernelWaitHelpers.h"
-#include "Common/ChunkFile.h"
 
 #define SCE_KERNEL_MPA_THFIFO_S 0x0000
 #define SCE_KERNEL_MPA_THPRI_S  0x0100
@@ -278,13 +280,13 @@ struct MsgPipe : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nmp);
+		Do(p, nmp);
 		MsgPipeWaitingThread mpwt1 = {0}, mpwt2 = {0};
-		p.Do(sendWaitingThreads, mpwt1);
-		p.Do(receiveWaitingThreads, mpwt2);
-		p.Do(pausedSendWaits);
-		p.Do(pausedReceiveWaits);
-		p.Do(buffer);
+		Do(p, sendWaitingThreads, mpwt1);
+		Do(p, receiveWaitingThreads, mpwt2);
+		Do(p, pausedSendWaits);
+		Do(p, pausedReceiveWaits);
+		Do(p, buffer);
 	}
 
 	NativeMsgPipe nmp;
@@ -662,7 +664,7 @@ void __KernelMsgPipeDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(waitTimer);
+	Do(p, waitTimer);
 	CoreTiming::RestoreRegisterEvent(waitTimer, "MsgPipeTimeout", __KernelMsgPipeTimeout);
 }
 

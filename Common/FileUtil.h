@@ -35,16 +35,6 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 
 namespace File {
 
-// FileSystem tree node/ 
-struct FSTEntry
-{
-	bool isDirectory;
-	u64 size;						// file length or number of entries from children
-	std::string physicalName;		// name on disk
-	std::string virtualName;		// name in FST names table
-	std::vector<FSTEntry> children;
-};
-
 struct FileDetails {
 	bool isDirectory;
 	u64 size;

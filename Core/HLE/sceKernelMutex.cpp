@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <map>
 #include <unordered_map>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
@@ -77,10 +79,10 @@ struct PSPMutex : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nm);
+		Do(p, nm);
 		SceUID dv = 0;
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeMutex nm;
@@ -143,10 +145,10 @@ struct LwMutex : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nm);
+		Do(p, nm);
 		SceUID dv = 0;
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeLwMutex nm;
@@ -182,11 +184,11 @@ void __KernelMutexDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(mutexWaitTimer);
+	Do(p, mutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
-	p.Do(lwMutexWaitTimer);
+	Do(p, lwMutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
-	p.Do(mutexHeldLocks);
+	Do(p, mutexHeldLocks);
 }
 
 KernelObject *__KernelMutexObject()

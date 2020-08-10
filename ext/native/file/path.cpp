@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include <set>
 #include "base/stringutil.h"
 #include "base/timeutil.h"

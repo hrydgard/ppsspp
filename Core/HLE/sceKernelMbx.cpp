@@ -17,7 +17,9 @@
 
 #include <map>
 #include <vector>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMbx.h"
@@ -166,10 +168,10 @@ struct Mbx : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nmb);
+		Do(p, nmb);
 		MbxWaitingThread mwt = {0};
-		p.Do(waitingThreads, mwt);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, mwt);
+		Do(p, pausedWaits);
 	}
 
 	NativeMbx nmb;
@@ -194,7 +196,7 @@ void __KernelMbxDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(mbxWaitTimer);
+	Do(p, mbxWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
 }
 

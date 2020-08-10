@@ -15,15 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPNetconfDialog.h"
-#include "ChunkFile.h"
+#include "i18n/i18n.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
+#include "Core/Dialog/PSPNetconfDialog.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
-#include "i18n/i18n.h"
 
 #define NETCONF_CONNECT_APNET 0
 #define NETCONF_STATUS_APNET 1
@@ -140,5 +141,5 @@ void PSPNetconfDialog::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(request);
+	Do(p, request);
 }

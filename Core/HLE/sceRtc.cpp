@@ -26,7 +26,8 @@
 #include <time.h>
 #include "base/timeutil.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -167,7 +168,7 @@ void __RtcDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(rtcBaseTime);
+	Do(p, rtcBaseTime);
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
 	RtcUpdateBaseTicks();
 }

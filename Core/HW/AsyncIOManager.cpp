@@ -18,7 +18,10 @@
 #include <condition_variable>
 #include <mutex>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/Serialize/SerializeSet.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -153,12 +156,12 @@ void AsyncIOManager::DoState(PointerWrap &p) {
 
 	SyncThread();
 	std::lock_guard<std::mutex> guard(resultsLock_);
-	p.Do(resultsPending_);
+	Do(p, resultsPending_);
 	if (s >= 2) {
-		p.Do(results_);
+		Do(p, results_);
 	} else {
 		std::map<u32, size_t> oldResults;
-		p.Do(oldResults);
+		Do(p, oldResults);
 		for (auto it = oldResults.begin(), end = oldResults.end(); it != end; ++it) {
 			results_[it->first] = AsyncIOResult(it->second);
 		}

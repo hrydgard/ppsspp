@@ -18,8 +18,8 @@
 #pragma once
 
 #include <cstring>
-#include "ChunkFile.h"
-#include "MemoryUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/Serialize/Serializer.h"
 
 // STL-look-a-like interface, but name is mixed case to distinguish it clearly from the
 // real STL classes.
@@ -147,16 +147,16 @@ public:
 
 	void DoState(PointerWrap &p) {
 		int size = N;
-		p.Do(size);
+		Do(p, size);
 		if (size != N)
 		{
 			ERROR_LOG(COMMON, "Savestate failure: Incompatible queue size.");
 			return;
 		}
-		p.DoArray<T>(storage_, N);
-		p.Do(head_);
-		p.Do(tail_);
-		p.Do(count_);
+		DoArray<T>(p, storage_, N);
+		Do(p, head_);
+		Do(p, tail_);
+		Do(p, count_);
 		p.DoMarker("FixedSizeQueue");
 	}
 

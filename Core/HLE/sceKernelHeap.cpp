@@ -1,6 +1,7 @@
 #include <string>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernel.h"
@@ -27,13 +28,13 @@ struct Heap : public KernelObject {
 	static const char *GetStaticTypeName() { return "Heap"; }
 
 	void DoState(PointerWrap &p) override {
-		p.Do(uid);
-		p.Do(partitionId);
-		p.Do(size);
-		p.Do(flags);
-		p.Do(address);
-		p.Do(name);
-		p.Do(alloc);
+		Do(p, uid);
+		Do(p, partitionId);
+		Do(p, size);
+		Do(p, flags);
+		Do(p, address);
+		Do(p, name);
+		Do(p, alloc);
 	}
 };
 
