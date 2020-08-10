@@ -20,6 +20,7 @@
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
+#include "Common/ChunkFileDo.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"
@@ -159,28 +160,28 @@ void VagDecoder::DoState(PointerWrap &p) {
 		return;
 
 	if (s >= 2) {
-		p.DoArray(samples, ARRAY_SIZE(samples));
+		DoArray(p, samples, ARRAY_SIZE(samples));
 	} else {
 		int samplesOld[ARRAY_SIZE(samples)];
-		p.DoArray(samplesOld, ARRAY_SIZE(samples));
+		DoArray(p, samplesOld, ARRAY_SIZE(samples));
 		for (size_t i = 0; i < ARRAY_SIZE(samples); ++i) {
 			samples[i] = samplesOld[i];
 		}
 	}
-	p.Do(curSample);
+	Do(p, curSample);
 
-	p.Do(data_);
-	p.Do(read_);
-	p.Do(curBlock_);
-	p.Do(loopStartBlock_);
-	p.Do(numBlocks_);
+	Do(p, data_);
+	Do(p, read_);
+	Do(p, curBlock_);
+	Do(p, loopStartBlock_);
+	Do(p, numBlocks_);
 
-	p.Do(s_1);
-	p.Do(s_2);
+	Do(p, s_1);
+	Do(p, s_2);
 
-	p.Do(loopEnabled_);
-	p.Do(loopAtNextBlock_);
-	p.Do(end_);
+	Do(p, loopEnabled_);
+	Do(p, loopAtNextBlock_);
+	Do(p, end_);
 }
 
 int SasAtrac3::setContext(u32 context) {
@@ -226,13 +227,13 @@ void SasAtrac3::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(contextAddr_);
-	p.Do(atracID_);
+	Do(p, contextAddr_);
+	Do(p, atracID_);
 	if (p.mode == p.MODE_READ && atracID_ >= 0 && !sampleQueue_) {
 		sampleQueue_ = new BufferQueue();
 	}
 	if (s >= 2) {
-		p.Do(end_);
+		Do(p, end_);
 	}
 }
 
@@ -692,7 +693,7 @@ void SasInstance::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(grainSize);
+	Do(p, grainSize);
 	if (p.mode == p.MODE_READ) {
 		if (grainSize > 0) {
 			SetGrainSize(grainSize);
@@ -701,32 +702,32 @@ void SasInstance::DoState(PointerWrap &p) {
 		}
 	}
 
-	p.Do(maxVoices);
-	p.Do(sampleRate);
-	p.Do(outputMode);
+	Do(p, maxVoices);
+	Do(p, sampleRate);
+	Do(p, outputMode);
 
 	// SetGrainSize() / ClearGrainSize() should've made our buffers match.
 	if (mixBuffer != NULL && grainSize > 0) {
-		p.DoArray(mixBuffer, grainSize * 2);
+		DoArray(p, mixBuffer, grainSize * 2);
 	}
 	if (sendBuffer != NULL && grainSize > 0) {
-		p.DoArray(sendBuffer, grainSize * 2);
+		DoArray(p, sendBuffer, grainSize * 2);
 	}
 	if (sendBuffer != NULL && grainSize > 0) {
 		// Backwards compat
 		int16_t *resampleBuf = new int16_t[grainSize * 4 + 3]();
-		p.DoArray(resampleBuf, grainSize * 4 + 3);
+		DoArray(p, resampleBuf, grainSize * 4 + 3);
 		delete[] resampleBuf;
 	}
 
 	int n = PSP_SAS_VOICES_MAX;
-	p.Do(n);
+	Do(p, n);
 	if (n != PSP_SAS_VOICES_MAX) {
 		ERROR_LOG(SAVESTATE, "Wrong number of SAS voices");
 		return;
 	}
-	p.DoArray(voices, ARRAY_SIZE(voices));
-	p.Do(waveformEffect);
+	DoArray(p, voices, ARRAY_SIZE(voices));
+	Do(p, waveformEffect);
 	if (p.mode == p.MODE_READ) {
 		reverb_.SetPreset(waveformEffect.type);
 	}
@@ -776,45 +777,45 @@ void SasVoice::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(playing);
-	p.Do(paused);
-	p.Do(on);
+	Do(p, playing);
+	Do(p, paused);
+	Do(p, on);
 
-	p.Do(type);
+	Do(p, type);
 
-	p.Do(vagAddr);
-	p.Do(vagSize);
-	p.Do(pcmAddr);
-	p.Do(pcmSize);
-	p.Do(pcmIndex);
+	Do(p, vagAddr);
+	Do(p, vagSize);
+	Do(p, pcmAddr);
+	Do(p, pcmSize);
+	Do(p, pcmIndex);
 	if (s >= 2) {
-		p.Do(pcmLoopPos);
+		Do(p, pcmLoopPos);
 	} else {
 		pcmLoopPos = 0;
 	}
-	p.Do(sampleRate);
+	Do(p, sampleRate);
 
-	p.Do(sampleFrac);
-	p.Do(pitch);
-	p.Do(loop);
+	Do(p, sampleFrac);
+	Do(p, pitch);
+	Do(p, loop);
 	if (s < 2 && type == VOICETYPE_PCM) {
 		// We set loop incorrectly before, and always looped.
 		// Let's keep always looping, since it's usually right.
 		loop = true;
 	}
 
-	p.Do(noiseFreq);
+	Do(p, noiseFreq);
 
-	p.Do(volumeLeft);
-	p.Do(volumeRight);
+	Do(p, volumeLeft);
+	Do(p, volumeRight);
 	if (s < 3) {
 		// There were extra variables here that were for the same purpose.
-		p.Do(effectLeft);
-		p.Do(effectRight);
+		Do(p, effectLeft);
+		Do(p, effectRight);
 	}
-	p.Do(effectLeft);
-	p.Do(effectRight);
-	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));
+	Do(p, effectLeft);
+	Do(p, effectRight);
+	DoArray(p, resampleHist, ARRAY_SIZE(resampleHist));
 
 	envelope.DoState(p);
 	vag.DoState(p);
@@ -948,24 +949,24 @@ void ADSREnvelope::DoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(attackRate);
-	p.Do(decayRate);
-	p.Do(sustainRate);
-	p.Do(releaseRate);
-	p.Do(attackType);
-	p.Do(decayType);
-	p.Do(sustainType);
-	p.Do(sustainLevel);
-	p.Do(releaseType);
+	Do(p, attackRate);
+	Do(p, decayRate);
+	Do(p, sustainRate);
+	Do(p, releaseRate);
+	Do(p, attackType);
+	Do(p, decayType);
+	Do(p, sustainType);
+	Do(p, sustainLevel);
+	Do(p, releaseType);
 	if (s < 2) {
-		p.Do(state_);
+		Do(p, state_);
 		if (state_ == 4) {
 			state_ = STATE_OFF;
 		}
 		int stepsLegacy;
-		p.Do(stepsLegacy);
+		Do(p, stepsLegacy);
 	} else {
-		p.Do(state_);
+		Do(p, state_);
 	}
-	p.Do(height_);
+	Do(p, height_);
 }

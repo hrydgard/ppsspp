@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MemMap.h"
-#include "Common/ChunkFile.h"
-
 #include "Core/HLE/sceSsl.h"
 
 #define ERROR_SSL_NOT_INIT          0x80435001;
@@ -44,9 +44,9 @@ void __SslDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(isSslInit);
-	p.Do(maxMemSize);
-	p.Do(currentMemSize);
+	Do(p, isSslInit);
+	Do(p, maxMemSize);
+	Do(p, currentMemSize);
 }
 
 static int sceSslInit(int heapSize)

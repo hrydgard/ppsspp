@@ -20,6 +20,7 @@
 #include <snappy-c.h>
 
 #include "ChunkFile.h"
+#include "ChunkFileDo.h"
 #include "StringUtils.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
@@ -42,7 +43,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 			foundVersion = 0;
 		}
 	} else {
-		Do(foundVersion);
+		Do(*this, foundVersion);
 	}
 
 	if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
@@ -95,43 +96,43 @@ void PointerWrap::DoVoid(void *data, int size) {
 	(*ptr) += size;
 }
 
-void PointerWrap::Do(std::string &x) {
+void Do(PointerWrap &p, std::string &x) {
 	int stringLen = (int)x.length() + 1;
-	Do(stringLen);
+	Do(p, stringLen);
 
-	switch (mode) {
-	case MODE_READ:		x = (char*)*ptr; break;
-	case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
-	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char*)*ptr, ptr); break;
+	switch (p.mode) {
+	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
+	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
+	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(!strcmp(x.c_str(), (char*)*p.ptr), "Savestate verification failure: \"%s\" != \"%s\" (at %p).\n", x.c_str(), (char *)*p.ptr, p.ptr); break;
 	}
-	(*ptr) += stringLen;
+	(*p.ptr) += stringLen;
 }
 
-void PointerWrap::Do(std::wstring &x) {
+void Do(PointerWrap &p, std::wstring &x) {
 	int stringLen = sizeof(wchar_t)*((int)x.length() + 1);
-	Do(stringLen);
+	Do(p, stringLen);
 
-	switch (mode) {
-	case MODE_READ:		x = (wchar_t*)*ptr; break;
-	case MODE_WRITE:	memcpy(*ptr, x.c_str(), stringLen); break;
-	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
+	switch (p.mode) {
+	case PointerWrap::MODE_READ: x = (wchar_t*)*p.ptr; break;
+	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
+	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == (wchar_t*)*p.ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*p.ptr, p.ptr); break;
 	}
-	(*ptr) += stringLen;
+	(*p.ptr) += stringLen;
 }
 
-void PointerWrap::Do(std::u16string &x) {
+void Do(PointerWrap &p, std::u16string &x) {
 	int stringLen = sizeof(char16_t) * ((int)x.length() + 1);
-	Do(stringLen);
+	Do(p, stringLen);
 
-	switch (mode) {
-	case MODE_READ: x = (char16_t*)*ptr; break;
-	case MODE_WRITE: memcpy(*ptr, x.c_str(), stringLen); break;
-	case MODE_MEASURE: break;
-	case MODE_VERIFY: _dbg_assert_msg_(x == (char16_t*)*ptr, "Savestate verification failure: (at %p).\n", x.c_str()); break;
+	switch (p.mode) {
+	case PointerWrap::MODE_READ: x = (char16_t*)*p.ptr; break;
+	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
+	case PointerWrap::MODE_MEASURE: break;
+	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == (char16_t*)*p.ptr, "Savestate verification failure: (at %p).\n", x.c_str()); break;
 	}
-	(*ptr) += stringLen;
+	(*p.ptr) += stringLen;
 }
 
 struct standard_tm {
@@ -146,31 +147,31 @@ struct standard_tm {
 	int tm_isdst;
 };
 
-void PointerWrap::Do(tm &t) {
+void Do(PointerWrap &p, tm &t) {
 	// We savestate this separately because some platforms use extra data at the end.
 	// However, old files may have the native tm in them.
 	// Since the first value in the struct is 0-59, we save a funny value and check for it.
 	// If our funny value ('tm' 0x1337) exists, it's a new version savestate.
 	int funnyValue = 0x13376D74;
-	if (ExpectVoid(&funnyValue, sizeof(funnyValue))) {
+	if (p.ExpectVoid(&funnyValue, sizeof(funnyValue))) {
 		standard_tm stm;
-		if (mode == MODE_READ) {
+		if (p.mode == PointerWrap::MODE_READ) {
 			// Null out the extra members, e.g. tm_gmtoff or tm_zone.
 			memset(&t, 0, sizeof(t));
 		} else {
 			memcpy(&stm, &t, sizeof(stm));
 		}
 
-		DoVoid((void *)&stm, sizeof(stm));
+		p.DoVoid((void *)&stm, sizeof(stm));
 		memcpy(&t, &stm, sizeof(stm));
 	} else {
-		DoVoid((void *)&t, sizeof(t));
+		p.DoVoid((void *)&t, sizeof(t));
 	}
 }
 
 void PointerWrap::DoMarker(const char *prevName, u32 arbitraryNumber) {
 	u32 cookie = arbitraryNumber;
-	Do(cookie);
+	Do(*this, cookie);
 	if (mode == PointerWrap::MODE_READ && cookie != arbitraryNumber) {
 		_assert_msg_(false, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
 		SetError(ERROR_FAILURE);

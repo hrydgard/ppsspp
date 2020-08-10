@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPScreenshotDialog.h"
 #include "Core/HLE/sceKernel.h"
@@ -123,8 +124,8 @@ void PSPScreenshotDialog::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(mode);
+	Do(p, mode);
 	if (s >= 2) {
-		p.Do(params_);
+		Do(p, params_);
 	}
 }

@@ -24,6 +24,7 @@
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/FileUtil.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -976,41 +977,41 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 	//     s64               current truncate position (v2+ only)
 
 	u32 num = (u32) entries.size();
-	p.Do(num);
+	Do(p, num);
 
 	if (p.mode == p.MODE_READ) {
 		CloseAll();
 		u32 key;
 		OpenFileEntry entry;
 		for (u32 i = 0; i < num; i++) {
-			p.Do(key);
-			p.Do(entry.guestFilename);
-			p.Do(entry.access);
+			Do(p, key);
+			Do(p, entry.guestFilename);
+			Do(p, entry.access);
 			u32 err;
 			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
 				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
 			u32 position;
-			p.Do(position);
+			Do(p, position);
 			if (position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
 				ERROR_LOG(FILESYS, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
 			if (s >= 2) {
-				p.Do(entry.hFile.needsTrunc_);
+				Do(p, entry.hFile.needsTrunc_);
 			}
 			entries[key] = entry;
 		}
 	} else {
 		for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
 			u32 key = iter->first;
-			p.Do(key);
-			p.Do(iter->second.guestFilename);
-			p.Do(iter->second.access);
+			Do(p, key);
+			Do(p, iter->second.guestFilename);
+			Do(p, iter->second.access);
 			u32 position = (u32)iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
-			p.Do(position);
-			p.Do(iter->second.hFile.needsTrunc_);
+			Do(p, position);
+			Do(p, iter->second.hFile.needsTrunc_);
 		}
 	}
 }
@@ -1186,7 +1187,7 @@ void VFSFileSystem::DoState(PointerWrap &p) {
 		return;
 
 	u32 num = (u32) entries.size();
-	p.Do(num);
+	Do(p, num);
 
 	if (num != 0) {
 		p.SetError(p.ERROR_WARNING);

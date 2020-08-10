@@ -1,4 +1,5 @@
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/CoreTiming.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HW/MemoryStick.h"
@@ -16,15 +17,15 @@ void MemoryStick_DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(memStickState);
-	p.Do(memStickFatState);
+	Do(p, memStickState);
+	Do(p, memStickFatState);
 	if (s >= 2)
-		p.Do(memStickSize);
+		Do(p, memStickSize);
 	else
 		memStickSize = 1ULL * 1024 * 1024 * 1024;
 	if (s >= 3) {
-		p.Do(memStickNeedsAssign);
-		p.Do(memStickInsertedAt);
+		Do(p, memStickNeedsAssign);
+		Do(p, memStickInsertedAt);
 	}
 
 }

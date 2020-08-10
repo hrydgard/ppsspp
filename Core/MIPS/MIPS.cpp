@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -265,35 +266,35 @@ void MIPSState::DoState(PointerWrap &p) {
 	else
 		MIPSComp::DoDummyJitState(p);
 
-	p.DoArray(r, sizeof(r) / sizeof(r[0]));
-	p.DoArray(f, sizeof(f) / sizeof(f[0]));
+	DoArray(p, r, sizeof(r) / sizeof(r[0]));
+	DoArray(p, f, sizeof(f) / sizeof(f[0]));
 	if (s <= 2) {
 		float vtemp[128];
-		p.DoArray(vtemp, sizeof(v) / sizeof(v[0]));
+		DoArray(p, vtemp, sizeof(v) / sizeof(v[0]));
 		for (int i = 0; i < 128; i++) {
 			v[voffset[i]] = vtemp[i];
 		}
 	} else {
-		p.DoArray(v, sizeof(v) / sizeof(v[0]));
+		DoArray(p, v, sizeof(v) / sizeof(v[0]));
 	}
-	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
-	p.Do(pc);
-	p.Do(nextPC);
-	p.Do(downcount);
+	DoArray(p, vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
+	Do(p, pc);
+	Do(p, nextPC);
+	Do(p, downcount);
 	// Reversed, but we can just leave it that way.
-	p.Do(hi);
-	p.Do(lo);
-	p.Do(fpcond);
+	Do(p, hi);
+	Do(p, lo);
+	Do(p, fpcond);
 	if (s <= 1) {
 		u32 fcr0_unused = 0;
-		p.Do(fcr0_unused);
+		Do(p, fcr0_unused);
 	}
-	p.Do(fcr31);
-	p.Do(rng.m_w);
-	p.Do(rng.m_z);
-	p.Do(inDelaySlot);
-	p.Do(llBit);
-	p.Do(debugCount);
+	Do(p, fcr31);
+	Do(p, rng.m_w);
+	Do(p, rng.m_z);
+	Do(p, inDelaySlot);
+	Do(p, llBit);
+	Do(p, debugCount);
 
 	if (p.mode == p.MODE_READ && MIPSComp::jit) {
 		// Now that we've loaded fcr31, update any jit state associated.

@@ -26,6 +26,7 @@
 #include "util/text/parsers.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -72,6 +73,28 @@ std::deque<ApctlArgs> apctlEvents;
 u32 Net_Term();
 int NetApctl_Term();
 void NetApctl_InitInfo();
+
+void AfterApctlMipsCall::DoState(PointerWrap & p) {
+	auto s = p.Section("AfterApctlMipsCall", 1, 1);
+	if (!s)
+		return;
+	// Just in case there are "s" corruption in the future where s.ver is a negative number
+	if (s >= 1) {
+		Do(p, handlerID);
+		Do(p, oldState);
+		Do(p, newState);
+		Do(p, event);
+		Do(p, error);
+		Do(p, argsAddr);
+	} else {
+		handlerID = -1;
+		oldState = 0;
+		newState = 0;
+		event = 0;
+		error = 0;
+		argsAddr = 0;
+	}
+}
 
 void AfterApctlMipsCall::run(MipsCall& call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
@@ -221,34 +244,34 @@ void __NetDoState(PointerWrap &p) {
 	auto cur_netInetInited = netInetInited;
 	auto cur_netApctlInited = netApctlInited;
 
-	p.Do(netInited);
-	p.Do(netInetInited);
-	p.Do(netApctlInited);
-	p.Do(apctlHandlers);
-	p.Do(netMallocStat);
+	Do(p, netInited);
+	Do(p, netInetInited);
+	Do(p, netApctlInited);
+	Do(p, apctlHandlers);
+	Do(p, netMallocStat);
 	if (s < 2) {
 		netDropRate = 0;
 		netDropDuration = 0;
 	} else {
-		p.Do(netDropRate);
-		p.Do(netDropDuration);
+		Do(p, netDropRate);
+		Do(p, netDropDuration);
 	}
 	if (s < 3) {
 		netPoolAddr = 0;
 		netThread1Addr = 0;
 		netThread2Addr = 0;
 	} else {
-		p.Do(netPoolAddr);
-		p.Do(netThread1Addr);
-		p.Do(netThread2Addr);
+		Do(p, netPoolAddr);
+		Do(p, netThread1Addr);
+		Do(p, netThread2Addr);
 	}
 	if (s >= 4) {
-		p.Do(netApctlState);
-		p.Do(netApctlInfo);
-		p.Do(actionAfterApctlMipsCall);
+		Do(p, netApctlState);
+		Do(p, netApctlInfo);
+		Do(p, actionAfterApctlMipsCall);
 		__KernelRestoreActionType(actionAfterApctlMipsCall, AfterApctlMipsCall::Create);
-		p.Do(apctlThreadHackAddr);
-		p.Do(apctlThreadID);
+		Do(p, apctlThreadHackAddr);
+		Do(p, apctlThreadID);
 	}
 	else {
 		actionAfterApctlMipsCall = -1;

@@ -17,6 +17,8 @@
 
 #include <algorithm>
 
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -27,7 +29,6 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
@@ -236,65 +237,65 @@ struct Atrac {
 		if (!s)
 			return;
 
-		p.Do(channels_);
-		p.Do(outputChannels_);
+		Do(p, channels_);
+		Do(p, outputChannels_);
 		if (s >= 5) {
-			p.Do(jointStereo_);
+			Do(p, jointStereo_);
 		}
 
-		p.Do(atracID_);
-		p.Do(first_);
-		p.Do(bufferMaxSize_);
-		p.Do(codecType_);
+		Do(p, atracID_);
+		Do(p, first_);
+		Do(p, bufferMaxSize_);
+		Do(p, codecType_);
 
-		p.Do(currentSample_);
-		p.Do(endSample_);
-		p.Do(firstSampleOffset_);
+		Do(p, currentSample_);
+		Do(p, endSample_);
+		Do(p, firstSampleOffset_);
 		if (s >= 3) {
-			p.Do(dataOff_);
+			Do(p, dataOff_);
 		} else {
 			dataOff_ = firstSampleOffset_;
 		}
 
 		u32 hasDataBuf = dataBuf_ != nullptr;
-		p.Do(hasDataBuf);
+		Do(p, hasDataBuf);
 		if (hasDataBuf) {
 			if (p.mode == p.MODE_READ) {
 				if (dataBuf_)
 					delete [] dataBuf_;
 				dataBuf_ = new u8[first_.filesize];
 			}
-			p.DoArray(dataBuf_, first_.filesize);
+			DoArray(p, dataBuf_, first_.filesize);
 		}
-		p.Do(second_);
+		Do(p, second_);
 
-		p.Do(decodePos_);
+		Do(p, decodePos_);
 		if (s < 9) {
 			u32 oldDecodeEnd = 0;
-			p.Do(oldDecodeEnd);
+			Do(p, oldDecodeEnd);
 		}
 		if (s >= 4) {
-			p.Do(bufferPos_);
+			Do(p, bufferPos_);
 		} else {
 			bufferPos_ = decodePos_;
 		}
 
-		p.Do(bitrate_);
-		p.Do(bytesPerFrame_);
+		Do(p, bitrate_);
+		Do(p, bytesPerFrame_);
 
-		p.Do(loopinfo_);
+		Do(p, loopinfo_);
 		if (s < 9) {
 			int oldLoopInfoNum = 42;
-			p.Do(oldLoopInfoNum);
+			Do(p, oldLoopInfoNum);
 		}
 
-		p.Do(loopStartSample_);
-		p.Do(loopEndSample_);
-		p.Do(loopNum_);
+		Do(p, loopStartSample_);
+		Do(p, loopEndSample_);
+		Do(p, loopNum_);
 
-		p.Do(context_);
+		Do(p, context_);
 		if (s >= 6) {
-			p.Do(bufferState_);
+			Do(p, bufferState_);
 		} else {
 			if (dataBuf_ == nullptr) {
 				bufferState_ = ATRAC_STATUS_NO_DATA;
@@ -304,14 +305,14 @@ struct Atrac {
 		}
 
 		if (s >= 7) {
-			p.Do(ignoreDataBuf_);
+			Do(p, ignoreDataBuf_);
 		} else {
 			ignoreDataBuf_ = false;
 		}
 
 		if (s >= 9) {
-			p.Do(bufferValidBytes_);
-			p.Do(bufferHeaderSize_);
+			Do(p, bufferValidBytes_);
+			Do(p, bufferHeaderSize_);
 		} else {
 			bufferHeaderSize_ = dataOff_;
 			bufferValidBytes_ = std::min(first_.size - dataOff_, StreamBufferEnd() - dataOff_);
@@ -333,7 +334,7 @@ struct Atrac {
 		
 		if (s >= 2 && s < 9) {
 			bool oldResetBuffer = false;
-			p.Do(oldResetBuffer);
+			Do(p, oldResetBuffer);
 		}
 	}
 
@@ -645,18 +646,18 @@ void __AtracDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(atracInited);
+	Do(p, atracInited);
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		bool valid = atracIDs[i] != NULL;
-		p.Do(valid);
+		Do(p, valid);
 		if (valid) {
-			p.Do(atracIDs[i]);
+			Do(p, atracIDs[i]);
 		} else {
 			delete atracIDs[i];
 			atracIDs[i] = NULL;
 		}
 	}
-	p.DoArray(atracIDTypes, PSP_NUM_ATRAC_IDS);
+	DoArray(p, atracIDTypes, PSP_NUM_ATRAC_IDS);
 }
 
 void __AtracShutdown() {

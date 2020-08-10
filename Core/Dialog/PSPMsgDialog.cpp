@@ -16,14 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
+#include "Common/StringUtils.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
-#include "Common/StringUtils.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
@@ -378,11 +379,11 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(flag);
-	p.Do(messageDialog);
-	p.Do(messageDialogAddr);
-	p.DoArray(msgText, sizeof(msgText));
-	p.Do(yesnoChoice);
+	Do(p, flag);
+	Do(p, messageDialog);
+	Do(p, messageDialogAddr);
+	DoArray(p, msgText, sizeof(msgText));
+	Do(p, yesnoChoice);
 
 	// We don't save state this, you'll just have to scroll down again.
 	if (p.mode == p.MODE_READ) {

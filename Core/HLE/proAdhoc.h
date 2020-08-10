@@ -792,21 +792,7 @@ class AfterAdhocMipsCall : public PSPAction {
 public:
 	AfterAdhocMipsCall() {}
 	static PSPAction* Create() { return new AfterAdhocMipsCall(); }
-	void DoState(PointerWrap& p) override {
-		auto s = p.Section("AfterAdhocMipsCall", 1, 4);
-		if (!s)
-			return;
-		if (s >= 3) {
-			p.Do(HandlerID);
-			p.Do(EventID);
-			p.Do(argsAddr);
-		}
-		else {
-			HandlerID = -1;
-			EventID = -1;
-			argsAddr = 0;
-		}
-	}
+	void DoState(PointerWrap& p) override;
 	void run(MipsCall& call) override;
 	void SetData(int handlerID, int eventId, u32_le argsAddr);
 
@@ -820,25 +806,7 @@ class AfterMatchingMipsCall : public PSPAction {
 public:
 	AfterMatchingMipsCall() {}
 	static PSPAction *Create() { return new AfterMatchingMipsCall(); }
-	void DoState(PointerWrap &p) override {
-		auto s = p.Section("AfterMatchingMipsCall", 1, 4);
-		if (!s)
-			return;
-		if (s >= 1) {
-			p.Do(EventID);
-		}
-		else {
-			EventID = -1;
-		}
-		if (s >= 4) {
-			p.Do(contextID);
-			p.Do(bufAddr);
-		}
-		else {
-			contextID = -1;
-			bufAddr = 0;
-		}
-	}
+	void DoState(PointerWrap &p) override;
 	void run(MipsCall &call) override;
 	void SetData(int ContextID, int eventId, u32_le BufAddr);
 

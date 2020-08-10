@@ -17,6 +17,7 @@
 
 #include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceUsbGps.h"
@@ -40,7 +41,7 @@ void __UsbGpsDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(gpsStatus);
+	Do(p, gpsStatus);
 }
 
 void __UsbGpsShutdown() {

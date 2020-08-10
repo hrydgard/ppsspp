@@ -18,6 +18,7 @@
 #include <map>
 #include <algorithm>
 
+#include "Common/ChunkFileDo.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -70,24 +71,24 @@ public:
 		if (!s)
 			return;
 
-		p.Do(mp3StreamStart);
-		p.Do(mp3StreamEnd);
-		p.Do(mp3Buf);
-		p.Do(mp3BufSize);
-		p.Do(mp3PcmBuf);
-		p.Do(mp3PcmBufSize);
-		p.Do(readPosition);
-		p.Do(bufferRead);
-		p.Do(bufferWrite);
-		p.Do(bufferAvailable);
-		p.Do(mp3DecodedBytes);
-		p.Do(mp3LoopNum);
-		p.Do(mp3MaxSamples);
-		p.Do(mp3SumDecodedSamples);
-		p.Do(mp3Channels);
-		p.Do(mp3Bitrate);
-		p.Do(mp3SamplingRate);
-		p.Do(mp3Version);
+		Do(p, mp3StreamStart);
+		Do(p, mp3StreamEnd);
+		Do(p, mp3Buf);
+		Do(p, mp3BufSize);
+		Do(p, mp3PcmBuf);
+		Do(p, mp3PcmBufSize);
+		Do(p, readPosition);
+		Do(p, bufferRead);
+		Do(p, bufferWrite);
+		Do(p, bufferAvailable);
+		Do(p, mp3DecodedBytes);
+		Do(p, mp3LoopNum);
+		Do(p, mp3MaxSamples);
+		Do(p, mp3SumDecodedSamples);
+		Do(p, mp3Channels);
+		Do(p, mp3Bitrate);
+		Do(p, mp3SamplingRate);
+		Do(p, mp3Version);
 	};
 };
 
@@ -114,10 +115,10 @@ void __Mp3DoState(PointerWrap &p) {
 		return;
 
 	if (s >= 2) {
-		p.Do(mp3Map);
+		Do(p, mp3Map);
 	} else {
 		std::map<u32, Mp3Context *> mp3Map_old;
-		p.Do(mp3Map_old); // read old map
+		Do(p, mp3Map_old); // read old map
 		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
 			auto mp3 = new AuCtx;
 			u32 id = it->first;
@@ -147,7 +148,7 @@ void __Mp3DoState(PointerWrap &p) {
 	}
 
 	if (s >= 3) {
-		p.Do(resourceInited);
+		Do(p, resourceInited);
 	} else {
 		// Previous behavior acted as if it was already inited.
 		resourceInited = true;

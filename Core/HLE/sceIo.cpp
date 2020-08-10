@@ -22,6 +22,7 @@
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
+#include "Common/ChunkFileDo.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -227,22 +228,22 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fullpath);
-		p.Do(handle);
-		p.Do(callbackID);
-		p.Do(callbackArg);
-		p.Do(asyncResult);
-		p.Do(hasAsyncResult);
-		p.Do(pendingAsyncResult);
-		p.Do(sectorBlockMode);
-		p.Do(closePending);
-		p.Do(info);
-		p.Do(openMode);
+		Do(p, fullpath);
+		Do(p, handle);
+		Do(p, callbackID);
+		Do(p, callbackArg);
+		Do(p, asyncResult);
+		Do(p, hasAsyncResult);
+		Do(p, pendingAsyncResult);
+		Do(p, sectorBlockMode);
+		Do(p, closePending);
+		Do(p, info);
+		Do(p, openMode);
 
-		p.Do(npdrm);
-		p.Do(pgd_offset);
+		Do(p, npdrm);
+		Do(p, pgd_offset);
 		bool hasPGD = pgdInfo != NULL;
-		p.Do(hasPGD);
+		Do(p, hasPGD);
 		if (hasPGD) {
 			if (p.mode == p.MODE_READ) {
 				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
@@ -253,11 +254,11 @@ public:
 			}
 		}
 
-		p.Do(waitingThreads);
+		Do(p, waitingThreads);
 		if (s >= 2) {
-			p.Do(waitingSyncThreads);
+			Do(p, waitingSyncThreads);
 		}
-		p.Do(pausedWaits);
+		Do(p, pausedWaits);
 	}
 
 	std::string fullpath;
@@ -670,10 +671,10 @@ void __IoDoState(PointerWrap &p) {
 		return;
 
 	ioManager.DoState(p);
-	p.DoArray(fds, ARRAY_SIZE(fds));
-	p.Do(asyncNotifyEvent);
+	DoArray(p, fds, ARRAY_SIZE(fds));
+	Do(p, asyncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
-	p.Do(syncNotifyEvent);
+	Do(p, syncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(syncNotifyEvent, "IoSyncNotify", __IoSyncNotify);
 	if (s < 2) {
 		std::set<SceUID> legacy;
@@ -681,22 +682,22 @@ void __IoDoState(PointerWrap &p) {
 		memStickFatCallbacks.clear();
 
 		// Convert from set to vector.
-		p.Do(legacy);
+		Do(p, legacy);
 		for (SceUID id : legacy) {
 			memStickCallbacks.push_back(id);
 		}
-		p.Do(legacy);
+		Do(p, legacy);
 		for (SceUID id : legacy) {
 			memStickFatCallbacks.push_back(id);
 		}
 	} else {
-		p.Do(memStickCallbacks);
-		p.Do(memStickFatCallbacks);
+		Do(p, memStickCallbacks);
+		Do(p, memStickFatCallbacks);
 	}
 
 	if (s >= 3) {
-		p.Do(lastMemStickState);
-		p.Do(lastMemStickFatState);
+		Do(p, lastMemStickState);
+		Do(p, lastMemStickFatState);
 	}
 
 	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
@@ -710,11 +711,11 @@ void __IoDoState(PointerWrap &p) {
 		if (s >= 4) {
 			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
 			bool hasThread = asyncThreads[i] != nullptr;
-			p.Do(hasThread);
+			Do(p, hasThread);
 			if (hasThread) {
 				if (p.GetMode() == p.MODE_READ)
 					clearThread();
-				p.DoClass(asyncThreads[i]);
+				DoClass(p, asyncThreads[i]);
 			} else if (!hasThread) {
 				clearThread();
 			}
@@ -726,7 +727,7 @@ void __IoDoState(PointerWrap &p) {
 	}
 
 	if (s >= 5) {
-		p.Do(asyncDefaultPriority);
+		Do(p, asyncDefaultPriority);
 	} else {
 		asyncDefaultPriority = -1;
 	}
@@ -2244,12 +2245,12 @@ public:
 		if (!s)
 			return;
 
-		p.Do(name);
-		p.Do(index);
+		Do(p, name);
+		Do(p, index);
 
 		// TODO: Is this the right way for it to wake up?
 		int count = (int) listing.size();
-		p.Do(count);
+		Do(p, count);
 		listing.resize(count);
 		for (int i = 0; i < count; ++i) {
 			listing[i].DoState(p);

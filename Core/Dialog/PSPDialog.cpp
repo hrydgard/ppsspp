@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/StringUtils.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceCtrl.h"
@@ -137,26 +138,26 @@ void PSPDialog::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(status);
-	p.Do(lastButtons);
-	p.Do(buttons);
-	p.Do(fadeTimer);
-	p.Do(isFading);
-	p.Do(fadeIn);
-	p.Do(fadeValue);
+	Do(p, status);
+	Do(p, lastButtons);
+	Do(p, buttons);
+	Do(p, fadeTimer);
+	Do(p, isFading);
+	Do(p, fadeIn);
+	Do(p, fadeValue);
 
 	// I don't think we should save these two... Let's just ignore them for now for compat.
 	int okButtonImg = 0;
-	p.Do(okButtonImg);
+	Do(p, okButtonImg);
 	int cancelButtonImg = 0;
-	p.Do(cancelButtonImg);
+	Do(p, cancelButtonImg);
 
-	p.Do(okButtonFlag);
-	p.Do(cancelButtonFlag);
+	Do(p, okButtonFlag);
+	Do(p, cancelButtonFlag);
 
 	if (s >= 2) {
-		p.Do(pendingStatus);
-		p.Do(pendingStatusTicks);
+		Do(p, pendingStatus);
+		Do(p, pendingStatusTicks);
 	} else {
 		pendingStatusTicks = 0;
 	}

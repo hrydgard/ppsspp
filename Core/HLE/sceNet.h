@@ -204,28 +204,7 @@ class AfterApctlMipsCall : public PSPAction {
 public:
 	AfterApctlMipsCall() {}
 	static PSPAction* Create() { return new AfterApctlMipsCall(); }
-	void DoState(PointerWrap& p) override {
-		auto s = p.Section("AfterApctlMipsCall", 1, 1);
-		if (!s)
-			return;
-		// Just in case there are "s" corruption in the future where s.ver is a negative number
-		if (s >= 1) {
-			p.Do(handlerID);
-			p.Do(oldState);
-			p.Do(newState);
-			p.Do(event);
-			p.Do(error);
-			p.Do(argsAddr);
-		}
-		else {
-			handlerID = -1;
-			oldState = 0;
-			newState = 0;
-			event = 0;
-			error = 0;
-			argsAddr = 0;
-		}
-	}
+	void DoState(PointerWrap& p) override;
 	void run(MipsCall& call) override;
 	void SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32_le ArgsAddr);
 

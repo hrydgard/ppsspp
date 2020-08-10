@@ -24,6 +24,7 @@
 #include <time.h>
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
@@ -48,10 +49,10 @@ void __KernelTimeDoState(PointerWrap &p)
 		return;
 
 	if (s < 2) {
-		p.Do(start_time);
+		Do(p, start_time);
 	} else {
 		u64 t = start_time;
-		p.Do(t);
+		Do(p, t);
 		start_time = (time_t)t;
 	}
 }

@@ -708,6 +708,9 @@
     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.cpp">
       <Filter>MIPS\ARM64</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HW\BufferQueue.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HW\Camera.cpp">
       <Filter>HW</Filter>
     </ClCompile>

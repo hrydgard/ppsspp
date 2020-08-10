@@ -184,7 +184,7 @@ struct ThreadQueueList {
 			return;
 
 		int numQueues = NUM_QUEUES;
-		p.Do(numQueues);
+		Do(p, numQueues);
 		if (numQueues != NUM_QUEUES) {
 			p.SetError(p.ERROR_FAILURE);
 			ERROR_LOG(SCEKERNEL, "Savestate loading error: invalid data");
@@ -197,9 +197,9 @@ struct ThreadQueueList {
 		for (int i = 0; i < NUM_QUEUES; ++i) {
 			Queue *cur = &queues[i];
 			int size = cur->size();
-			p.Do(size);
+			Do(p, size);
 			int capacity = cur->capacity;
-			p.Do(capacity);
+			Do(p, capacity);
 
 			if (capacity == 0)
 				continue;
@@ -211,7 +211,7 @@ struct ThreadQueueList {
 			}
 
 			if (size != 0)
-				p.DoArray(&cur->data[cur->first], size);
+				DoArray(p, &cur->data[cur->first], size);
 		}
 	}
 

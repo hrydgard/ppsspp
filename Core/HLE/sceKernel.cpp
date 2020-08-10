@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFileDo.h"
+#include "Common/LogManager.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -26,7 +28,6 @@
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
-#include "Common/LogManager.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/PSPLoaders.h"
@@ -217,11 +218,11 @@ void __KernelDoState(PointerWrap &p)
 		if (!s)
 			return;
 
-		p.Do(kernelRunning);
+		Do(p, kernelRunning);
 		kernelObjects.DoState(p);
 
 		if (s >= 2)
-			p.Do(registeredExitCbId);
+			Do(p, registeredExitCbId);
 	}
 
 	{
@@ -542,7 +543,7 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		return;
 
 	int _maxCount = maxCount;
-	p.Do(_maxCount);
+	Do(p, _maxCount);
 
 	if (_maxCount != maxCount) {
 		p.SetError(p.ERROR_FAILURE);
@@ -555,15 +556,15 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		kernelObjects.Clear();
 	}
 
-	p.Do(nextID);
-	p.DoArray(occupied, maxCount);
+	Do(p, nextID);
+	DoArray(p, occupied, maxCount);
 	for (int i = 0; i < maxCount; ++i) {
 		if (!occupied[i])
 			continue;
 
 		int type;
 		if (p.mode == p.MODE_READ) {
-			p.Do(type);
+			Do(p, type);
 			pool[i] = CreateByIDType(type);
 
 			// Already logged an error.
@@ -573,7 +574,7 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 			pool[i]->uid = i + handleOffset;
 		} else {
 			type = pool[i]->GetIDType();
-			p.Do(type);
+			Do(p, type);
 		}
 		pool[i]->DoState(p);
 		if (p.error >= p.ERROR_FAILURE)

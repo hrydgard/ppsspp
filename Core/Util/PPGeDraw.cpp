@@ -27,6 +27,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"
@@ -282,23 +283,23 @@ void __PPGeDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(atlasPtr);
-	p.Do(atlasWidth);
-	p.Do(atlasHeight);
-	p.Do(palette);
+	Do(p, atlasPtr);
+	Do(p, atlasWidth);
+	Do(p, atlasHeight);
+	Do(p, palette);
 
-	p.Do(savedContextPtr);
-	p.Do(savedContextSize);
+	Do(p, savedContextPtr);
+	Do(p, savedContextSize);
 
 	if (s == 1) {
 		listArgs = 0;
 	} else {
-		p.Do(listArgs);
+		Do(p, listArgs);
 	}
 
 	if (s >= 3) {
 		uint32_t sz = (uint32_t)textDrawerImages.size();
-		p.Do(sz);
+		Do(p, sz);
 
 		switch (p.mode) {
 		case PointerWrap::MODE_READ:
@@ -307,12 +308,12 @@ void __PPGeDoState(PointerWrap &p)
 				// We only care about the pointers, so we can free them.  We'll decimate right away.
 				PPGeTextDrawerCacheKey key{ StringFromFormat("__savestate__%d", i), -1, -1 };
 				textDrawerImages[key] = PPGeTextDrawerImage{};
-				p.Do(textDrawerImages[key].ptr);
+				Do(p, textDrawerImages[key].ptr);
 			}
 			break;
 		default:
 			for (const auto &im : textDrawerImages) {
-				p.Do(im.second.ptr);
+				Do(p, im.second.ptr);
 			}
 			break;
 		}
@@ -320,19 +321,19 @@ void __PPGeDoState(PointerWrap &p)
 		textDrawerImages.clear();
 	}
 
-	p.Do(dlPtr);
-	p.Do(dlWritePtr);
-	p.Do(dlSize);
+	Do(p, dlPtr);
+	Do(p, dlWritePtr);
+	Do(p, dlSize);
 
-	p.Do(dataPtr);
-	p.Do(dataWritePtr);
-	p.Do(dataSize);
+	Do(p, dataPtr);
+	Do(p, dataWritePtr);
+	Do(p, dataSize);
 
-	p.Do(vertexStart);
-	p.Do(vertexCount);
+	Do(p, vertexStart);
+	Do(p, vertexCount);
 
-	p.Do(char_lines);
-	p.Do(char_lines_metrics);
+	Do(p, char_lines);
+	Do(p, char_lines_metrics);
 }
 
 void __PPGeShutdown()
@@ -1245,13 +1246,13 @@ void PPGeImage::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(filename_);
-	p.Do(png_);
-	p.Do(size_);
-	p.Do(texture_);
-	p.Do(width_);
-	p.Do(height_);
-	p.Do(lastFrame_);
+	Do(p, filename_);
+	Do(p, png_);
+	Do(p, size_);
+	Do(p, texture_);
+	Do(p, width_);
+	Do(p, height_);
+	Do(p, lastFrame_);
 }
 
 void PPGeImage::CompatLoad(u32 texture, int width, int height) {

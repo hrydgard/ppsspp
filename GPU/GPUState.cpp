@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -277,7 +278,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
-		p.Do(old);
+		Do(p, old);
 
 		vertexAddr = old.vertexAddr;
 		indexAddr = old.indexAddr;
@@ -290,67 +291,67 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 		savedContextVersion = 0;
 	} else {
-		p.Do(vertexAddr);
-		p.Do(indexAddr);
-		p.Do(offsetAddr);
+		Do(p, vertexAddr);
+		Do(p, indexAddr);
+		Do(p, offsetAddr);
 
 		uint8_t textureChanged = 0;
-		p.Do(textureChanged);  // legacy
+		Do(p, textureChanged);  // legacy
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		p.Do(textureFullAlpha);
-		p.Do(vertexFullAlpha);
+		Do(p, textureFullAlpha);
+		Do(p, vertexFullAlpha);
 		bool framebufChanged = false;  // legacy
-		p.Do(framebufChanged);
+		Do(p, framebufChanged);
 
-		p.Do(skipDrawReason);
+		Do(p, skipDrawReason);
 
-		p.Do(uv);
+		Do(p, uv);
 
 		bool oldFlipTexture = false;
-		p.Do(oldFlipTexture);  // legacy
+		Do(p, oldFlipTexture);  // legacy
 	}
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
 	if (s >= 3) {
 		bool oldTextureSimpleAlpha = false;
-		p.Do(oldTextureSimpleAlpha);
+		Do(p, oldTextureSimpleAlpha);
 	}
 
 	if (s < 2) {
 		float l12[12];
 		float l4[4];
-		p.Do(l12);  // lightpos
-		p.Do(l12);  // lightdir
-		p.Do(l12);  // lightattr
-		p.Do(l12);  // lightcol0
-		p.Do(l12);  // lightcol1
-		p.Do(l12);  // lightcol2
-		p.Do(l4);    // lightangle
-		p.Do(l4);  // lightspot
+		Do(p, l12);  // lightpos
+		Do(p, l12);  // lightdir
+		Do(p, l12);  // lightattr
+		Do(p, l12);  // lightcol0
+		Do(p, l12);  // lightcol1
+		Do(p, l12);  // lightcol2
+		Do(p, l4);    // lightangle
+		Do(p, l4);  // lightspot
 	}
 
-	p.Do(morphWeights);
+	Do(p, morphWeights);
 
-	p.Do(curTextureWidth);
-	p.Do(curTextureHeight);
-	p.Do(actualTextureHeight);
+	Do(p, curTextureWidth);
+	Do(p, curTextureHeight);
+	Do(p, actualTextureHeight);
 	// curTextureXOffset and curTextureYOffset don't need to be saved.  Well, the above don't either...
 
-	p.Do(vpWidth);
-	p.Do(vpHeight);
+	Do(p, vpWidth);
+	Do(p, vpHeight);
 	if (s == 4) {
 		float oldDepth = 1.0f;
-		p.Do(oldDepth);
+		Do(p, oldDepth);
 	}
 
-	p.Do(curRTWidth);
-	p.Do(curRTHeight);
+	Do(p, curRTWidth);
+	Do(p, curRTHeight);
 
 	// curRTBufferWidth, curRTBufferHeight, and cutRTOffsetX don't need to be saved.
 	if (s < 5) {
 		savedContextVersion = 0;
 	} else {
-		p.Do(savedContextVersion);
+		Do(p, savedContextVersion);
 	}
 }

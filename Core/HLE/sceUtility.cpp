@@ -21,6 +21,7 @@
 #include "file/ini_file.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -153,8 +154,8 @@ void __UtilityDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(currentDialogType);
-	p.Do(currentDialogActive);
+	Do(p, currentDialogType);
+	Do(p, currentDialogActive);
 	saveDialog.DoState(p);
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
@@ -163,10 +164,10 @@ void __UtilityDoState(PointerWrap &p) {
 	gamedataInstallDialog.DoState(p);
 
 	if (s >= 2) {
-		p.Do(currentlyLoadedModules);
+		Do(p, currentlyLoadedModules);
 	} else {
 		std::set<int> oldModules;
-		p.Do(oldModules);
+		Do(p, oldModules);
 		for (auto it = oldModules.begin(), end = oldModules.end(); it != end; ++it) {
 			currentlyLoadedModules[*it] = 0;
 		}

@@ -23,6 +23,7 @@
 
 #include "base/stringutil.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -265,14 +266,14 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nm);
-		p.Do(memoryBlockAddr);
-		p.Do(memoryBlockSize);
-		p.Do(isFake);
+		Do(p, nm);
+		Do(p, memoryBlockAddr);
+		Do(p, memoryBlockSize);
+		Do(p, isFake);
 
 		if (s < 2) {
 			bool isStarted = false;
-			p.Do(isStarted);
+			Do(p, isStarted);
 			if (isStarted)
 				nm.status = MODULE_STATUS_STARTED;
 			else
@@ -280,24 +281,24 @@ public:
 		}
 
 		if (s >= 3) {
-			p.Do(textStart);
-			p.Do(textEnd);
+			Do(p, textStart);
+			Do(p, textEnd);
 		}
 		if (s >= 4) {
-			p.Do(libstub);
-			p.Do(libstubend);
+			Do(p, libstub);
+			Do(p, libstubend);
 		}
 
 		ModuleWaitingThread mwt = {0};
-		p.Do(waitingThreads, mwt);
+		Do(p, waitingThreads, mwt);
 		FuncSymbolExport fsx = {{0}};
-		p.Do(exportedFuncs, fsx);
+		Do(p, exportedFuncs, fsx);
 		FuncSymbolImport fsi = {{0}};
-		p.Do(importedFuncs, fsi);
+		Do(p, importedFuncs, fsi);
 		VarSymbolExport vsx = {{0}};
-		p.Do(exportedVars, vsx);
+		Do(p, exportedVars, vsx);
 		VarSymbolImport vsi = {{0}};
-		p.Do(importedVars, vsi);
+		Do(p, importedVars, vsi);
 
 		if (p.mode == p.MODE_READ) {
 			// On load state, we re-examine in case our syscall ids changed.
@@ -437,8 +438,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(moduleID_);
-		p.Do(retValAddr);
+		Do(p, moduleID_);
+		Do(p, retValAddr);
 	}
 	static PSPAction *Create() {
 		return new AfterModuleEntryCall;
@@ -498,11 +499,11 @@ void __KernelModuleDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(actionAfterModule);
+	Do(p, actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
 
 	if (s >= 2) {
-		p.Do(loadedModules);
+		Do(p, loadedModules);
 	}
 
 	if (p.mode == p.MODE_READ) {

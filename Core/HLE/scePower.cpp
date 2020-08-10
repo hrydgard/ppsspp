@@ -17,6 +17,7 @@
 #include <map>
 #include <vector>
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/CoreTiming.h"
@@ -132,8 +133,8 @@ void __PowerDoState(PointerWrap &p) {
 		return;
 
 	if (s >= 2) {
-		p.Do(RealpllFreq);
-		p.Do(RealbusFreq);
+		Do(p, RealpllFreq);
+		Do(p, RealbusFreq);
 
 		if (RealpllFreq < 1000000)
 			RealpllFreq = PowerPllMhzToHz(RealpllFreq);
@@ -151,9 +152,9 @@ void __PowerDoState(PointerWrap &p) {
 		pllFreq = RealpllFreq;
 		busFreq = RealbusFreq;
 	}
-	p.DoArray(powerCbSlots, ARRAY_SIZE(powerCbSlots));
-	p.Do(volatileMemLocked);
-	p.Do(volatileWaitingThreads);
+	DoArray(p, powerCbSlots, ARRAY_SIZE(powerCbSlots));
+	Do(p, volatileMemLocked);
+	Do(p, volatileWaitingThreads);
 }
 
 static int scePowerGetBatteryLifePercent() {

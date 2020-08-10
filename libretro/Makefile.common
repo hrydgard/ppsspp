@@ -438,6 +438,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
+	       $(COREDIR)/HW/BufferQueue.cpp \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \

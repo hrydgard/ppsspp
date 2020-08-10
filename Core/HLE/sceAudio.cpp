@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/CoreTiming.h"
@@ -40,16 +41,16 @@ void AudioChannel::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(reserved);
-	p.Do(sampleAddress);
-	p.Do(sampleCount);
-	p.Do(leftVolume);
-	p.Do(rightVolume);
-	p.Do(format);
-	p.Do(waitingThreads);
+	Do(p, reserved);
+	Do(p, sampleAddress);
+	Do(p, sampleCount);
+	Do(p, leftVolume);
+	Do(p, rightVolume);
+	Do(p, format);
+	Do(p, waitingThreads);
 	if (s >= 2) {
-		p.Do(defaultRoutingMode);
-		p.Do(defaultRoutingVolMode);
+		Do(p, defaultRoutingMode);
+		Do(p, defaultRoutingVolMode);
 	}
 	sampleQueue.DoState(p);
 }

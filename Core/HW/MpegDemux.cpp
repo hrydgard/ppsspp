@@ -1,4 +1,5 @@
-#include "MpegDemux.h"
+#include "Common/ChunkFileDo.h"
+#include "Core/HW/MpegDemux.h"
 #include "Core/Reporting.h"
 
 const int PACKET_START_CODE_MASK   = 0xffffff00;
@@ -37,13 +38,13 @@ void MpegDemux::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(m_index);
-	p.Do(m_len);
-	p.Do(m_audioChannel);
-	p.Do(m_readSize);
+	Do(p, m_index);
+	Do(p, m_len);
+	Do(p, m_audioChannel);
+	Do(p, m_readSize);
 	if (m_buf)
-		p.DoArray(m_buf, m_len);
-	p.DoClass(m_audioStream);
+		DoArray(p, m_buf, m_len);
+	DoClass(p, m_audioStream);
 }
 
 bool MpegDemux::addStreamData(const u8 *buf, int addSize) {

@@ -25,7 +25,7 @@
 #include "thread/threadutil.h"
 
 #include "Common/ChunkFile.h"
-
+#include "Common/ChunkFileDo.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
@@ -1140,20 +1140,20 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(display);
+	Do(p, display);
 	param.DoState(p);
-	p.Do(request);
+	Do(p, request);
 	// Just reset it.
 	bool hasParam = param.GetPspParam() != NULL;
-	p.Do(hasParam);
+	Do(p, hasParam);
 	if (hasParam) {
 		param.SetPspParam(&request);
 	}
-	p.Do(requestAddr);
-	p.Do(currentSelectedSave);
-	p.Do(yesnoChoice);
+	Do(p, requestAddr);
+	Do(p, currentSelectedSave);
+	Do(p, yesnoChoice);
 	if (s > 2) {
-		p.Do(ioThreadStatus);
+		Do(p, ioThreadStatus);
 	} else {
 		ioThreadStatus = SAVEIO_NONE;
 	}

@@ -18,13 +18,14 @@
 #include <cmath>
 #include <mutex>
 
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Replay.h"
-#include "Common/ChunkFile.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
@@ -350,33 +351,33 @@ void __CtrlDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(analogEnabled);
-	p.Do(ctrlLatchBufs);
-	p.Do(ctrlOldButtons);
+	Do(p, analogEnabled);
+	Do(p, ctrlLatchBufs);
+	Do(p, ctrlOldButtons);
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
 	if (s <= 2) {
 		CtrlData dummy = {0};
-		p.Do(dummy);
+		Do(p, dummy);
 	}
-	p.Do(ctrlBuf);
-	p.Do(ctrlBufRead);
-	p.Do(latch);
+	Do(p, ctrlBuf);
+	Do(p, ctrlBufRead);
+	Do(p, latch);
 	if (s == 1) {
 		dialogBtnMake = 0;
 	} else {
-		p.Do(dialogBtnMake);
+		Do(p, dialogBtnMake);
 	}
 
-	p.Do(ctrlIdleReset);
-	p.Do(ctrlIdleBack);
+	Do(p, ctrlIdleReset);
+	Do(p, ctrlIdleBack);
 
-	p.Do(ctrlCycle);
+	Do(p, ctrlCycle);
 
 	SceUID dv = 0;
-	p.Do(waitingThreads, dv);
+	Do(p, waitingThreads, dv);
 
-	p.Do(ctrlTimer);
+	Do(p, ctrlTimer);
 	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
 }
 

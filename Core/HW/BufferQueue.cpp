@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,26 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
-#include "Core/FileSystems/FileSystem.h"
+#include "Core/HW/BufferQueue.h"
 
-void PSPFileInfo::DoState(PointerWrap &p) {
-	auto s = p.Section("PSPFileInfo", 1);
-	if (!s)
-		return;
+void BufferQueue::DoState(PointerWrap &p) {
+	auto s = p.Section("BufferQueue", 0, 1);
 
-	Do(p, name);
-	Do(p, size);
-	Do(p, access);
-	Do(p, exists);
-	Do(p, type);
-	Do(p, atime);
-	Do(p, ctime);
-	Do(p, mtime);
-	Do(p, isOnSectorSystem);
-	Do(p, startSector);
-	Do(p, numSectors);
-	Do(p, sectorSize);
+	Do(p, bufQueueSize);
+	Do(p, start);
+	Do(p, end);
+	if (bufQueue) {
+		DoArray(p, bufQueue, bufQueueSize);
+	}
+
+	if (s >= 1) {
+		Do(p, ptsMarks);
+	}
 }
-

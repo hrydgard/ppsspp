@@ -279,6 +279,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/SimpleAudioDec.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
+  $(SRC)/Core/HW/BufferQueue.cpp \
   $(SRC)/Core/HW/Camera.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \

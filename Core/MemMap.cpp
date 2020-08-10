@@ -28,6 +28,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 
 #include "Core/MemMap.h"
 #include "Core/MemFault.h"
@@ -326,7 +327,7 @@ void DoState(PointerWrap &p) {
 	} else if (s == 2) {
 		// In version 2, we determine memory size based on PSP model.
 		u32 oldMemorySize = g_MemorySize;
-		p.Do(g_PSPModel);
+		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
@@ -338,20 +339,20 @@ void DoState(PointerWrap &p) {
 		// In version 3, we started just saving the memory size directly.
 		// It's no longer based strictly on the PSP model.
 		u32 oldMemorySize = g_MemorySize;
-		p.Do(g_PSPModel);
+		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
-		p.Do(g_MemorySize);
+		Do(p, g_MemorySize);
 		if (oldMemorySize != g_MemorySize) {
 			Reinit();
 		}
 	}
 
-	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
+	DoArray(p, GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
 
-	p.DoArray(m_pPhysicalVRAM1, VRAM_SIZE);
+	DoArray(p, m_pPhysicalVRAM1, VRAM_SIZE);
 	p.DoMarker("VRAM");
-	p.DoArray(m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
+	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
 }
 

@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Font/PGF.h"
@@ -128,12 +129,12 @@ void PGF::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(header);
-	p.Do(rev3extra);
+	Do(p, header);
+	Do(p, rev3extra);
 
 	// Don't savestate size_t directly, 32-bit and 64-bit are different.
 	u32 fontDataSizeTemp = (u32)fontDataSize;
-	p.Do(fontDataSizeTemp);
+	Do(p, fontDataSizeTemp);
 	fontDataSize = (size_t)fontDataSizeTemp;
 	if (p.mode == p.MODE_READ) {
 		if (fontData) {
@@ -141,39 +142,39 @@ void PGF::DoState(PointerWrap &p) {
 		}
 		if (fontDataSize) {
 			fontData = new u8[fontDataSize];
-			p.DoArray(fontData, (int)fontDataSize);
+			DoArray(p, fontData, (int)fontDataSize);
 		}
 	} else if (fontDataSize) {
-		p.DoArray(fontData, (int)fontDataSize);
+		DoArray(p, fontData, (int)fontDataSize);
 	}
-	p.Do(fileName);
+	Do(p, fileName);
 
-	p.DoArray(dimensionTable, ARRAY_SIZE(dimensionTable));
-	p.DoArray(xAdjustTable, ARRAY_SIZE(xAdjustTable));
-	p.DoArray(yAdjustTable, ARRAY_SIZE(yAdjustTable));
-	p.DoArray(advanceTable, ARRAY_SIZE(advanceTable));
-	p.DoArray(charmapCompressionTable1, ARRAY_SIZE(charmapCompressionTable1));
-	p.DoArray(charmapCompressionTable2, ARRAY_SIZE(charmapCompressionTable2));
+	DoArray(p, dimensionTable, ARRAY_SIZE(dimensionTable));
+	DoArray(p, xAdjustTable, ARRAY_SIZE(xAdjustTable));
+	DoArray(p, yAdjustTable, ARRAY_SIZE(yAdjustTable));
+	DoArray(p, advanceTable, ARRAY_SIZE(advanceTable));
+	DoArray(p, charmapCompressionTable1, ARRAY_SIZE(charmapCompressionTable1));
+	DoArray(p, charmapCompressionTable2, ARRAY_SIZE(charmapCompressionTable2));
 
-	p.Do(charmap_compr);
-	p.Do(charmap);
+	Do(p, charmap_compr);
+	Do(p, charmap);
 	if (s == 1) {
 		std::vector<GlyphFromPGF1State> oldGlyphs;
-		p.Do(oldGlyphs);
+		Do(p, oldGlyphs);
 		glyphs.resize(oldGlyphs.size());
 		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
 			glyphs[i] = oldGlyphs[i];
 		}
-		p.Do(oldGlyphs);
+		Do(p, oldGlyphs);
 		shadowGlyphs.resize(oldGlyphs.size());
 		for (size_t i = 0; i < oldGlyphs.size(); ++i) {
 			shadowGlyphs[i] = oldGlyphs[i];
 		}
 	} else {
-		p.Do(glyphs);
-		p.Do(shadowGlyphs);
+		Do(p, glyphs);
+		Do(p, shadowGlyphs);
 	}
-	p.Do(firstGlyph);
+	Do(p, firstGlyph);
 }
 
 bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {

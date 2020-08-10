@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "ext/jpge/jpgd.h"
 
 #include "Common/Common.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
@@ -33,8 +35,6 @@
 #include "ext/xxhash.h"
 #endif
 
-#include <algorithm>
-
 static int mjpegWidth, mjpegHeight;
 
 void __JpegInit() {
@@ -47,8 +47,8 @@ void __JpegDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(mjpegWidth);
-	p.Do(mjpegHeight);
+	Do(p, mjpegWidth);
+	Do(p, mjpegHeight);
 }
 
 static int getWidthHeight(int width, int height) {

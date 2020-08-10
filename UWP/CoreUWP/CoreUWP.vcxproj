@@ -727,6 +727,7 @@
     <ClCompile Include="..\..\Core\HLE\__sceAudio.cpp" />
     <ClCompile Include="..\..\Core\Host.cpp" />
     <ClCompile Include="..\..\Core\HW\AsyncIOManager.cpp" />
+    <ClCompile Include="..\..\Core\HW\BufferQueue.cpp" />
     <ClCompile Include="..\..\Core\HW\Camera.cpp" />
     <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
     <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />

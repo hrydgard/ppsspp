@@ -23,6 +23,8 @@
 #include "base/logging.h"
 #include "profiler/profiler.h"
 
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/MsgHandler.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
@@ -31,7 +33,6 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
 
 static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
@@ -671,14 +672,14 @@ std::string GetScheduledEventsSummary() {
 void Event_DoState(PointerWrap &p, BaseEvent *ev)
 {
 	// There may be padding, so do each one individually.
-	p.Do(ev->time);
-	p.Do(ev->userdata);
-	p.Do(ev->type);
+	Do(p, ev->time);
+	Do(p, ev->userdata);
+	Do(p, ev->type);
 }
 
 void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 {
-	p.Do(*ev);
+	Do(p, *ev);
 }
 
 void DoState(PointerWrap &p)
@@ -690,26 +691,26 @@ void DoState(PointerWrap &p)
 		return;
 
 	int n = (int) event_types.size();
-	p.Do(n);
+	Do(p, n);
 	// These (should) be filled in later by the modules.
 	event_types.resize(n, EventType(AntiCrashCallback, "INVALID EVENT"));
 
 	if (s >= 3) {
-		p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(first, (Event **) NULL);
-		p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);
+		DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(p, tsFirst, &tsLast);
 	} else {
-		p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(first, (Event **) NULL);
-		p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoStateOld>(tsFirst, &tsLast);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(p, first, (Event **) NULL);
+		DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoStateOld>(p, tsFirst, &tsLast);
 	}
 
-	p.Do(CPU_HZ);
-	p.Do(slicelength);
-	p.Do(globalTimer);
-	p.Do(idledCycles);
+	Do(p, CPU_HZ);
+	Do(p, slicelength);
+	Do(p, globalTimer);
+	Do(p, idledCycles);
 
 	if (s >= 2) {
-		p.Do(lastGlobalTimeTicks);
-		p.Do(lastGlobalTimeUs);
+		Do(p, lastGlobalTimeTicks);
+		Do(p, lastGlobalTimeUs);
 	} else {
 		lastGlobalTimeTicks = 0;
 		lastGlobalTimeUs = 0;

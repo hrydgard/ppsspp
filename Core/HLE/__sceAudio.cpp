@@ -20,6 +20,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/FixedSizeQueue.h"
 
 #ifdef _M_SSE
@@ -130,14 +131,14 @@ void __AudioDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(eventAudioUpdate);
+	Do(p, eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
-	p.Do(eventHostAudioUpdate);
+	Do(p, eventHostAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
-	p.Do(mixFrequency);
+	Do(p, mixFrequency);
 	if (s >= 2) {
-		p.Do(srcFrequency);
+		Do(p, srcFrequency);
 	} else {
 		// Assume that it was actually the SRC channel frequency.
 		srcFrequency = mixFrequency;
@@ -156,7 +157,7 @@ void __AudioDoState(PointerWrap &p) {
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
-	p.Do(chanCount);
+	Do(p, chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
 		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");

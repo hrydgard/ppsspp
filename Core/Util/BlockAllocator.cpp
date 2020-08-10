@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/StringUtils.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Reporting.h"
@@ -442,7 +443,7 @@ void BlockAllocator::DoState(PointerWrap &p)
 	if (p.mode == p.MODE_READ)
 	{
 		Shutdown();
-		p.Do(count);
+		Do(p, count);
 
 		bottom_ = new Block(0, 0, false, NULL, NULL);
 		bottom_->DoState(p);
@@ -460,7 +461,7 @@ void BlockAllocator::DoState(PointerWrap &p)
 	{
 		for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 			++count;
-		p.Do(count);
+		Do(p, count);
 
 		bottom_->DoState(p);
 		--count;
@@ -473,9 +474,9 @@ void BlockAllocator::DoState(PointerWrap &p)
 		}
 	}
 
-	p.Do(rangeStart_);
-	p.Do(rangeSize_);
-	p.Do(grain_);
+	Do(p, rangeStart_);
+	Do(p, rangeSize_);
+	Do(p, grain_);
 }
 
 BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
@@ -498,13 +499,13 @@ void BlockAllocator::Block::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(start);
-	p.Do(size);
-	p.Do(taken);
+	Do(p, start);
+	Do(p, size);
+	Do(p, taken);
 	// Since we use truncate_cpy, the empty space is not zeroed.  Zero it now.
 	// This avoids saving uninitialized memory.
 	size_t tagLen = strlen(tag);
 	if (tagLen != sizeof(tag))
 		memset(tag + tagLen, 0, sizeof(tag) - tagLen);
-	p.DoArray(tag, sizeof(tag));
+	DoArray(p, tag, sizeof(tag));
 }

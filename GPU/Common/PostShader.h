@@ -54,7 +54,7 @@ struct ShaderInfo {
 	Setting settings[4];
 
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
-	// SRGB texture reads, etc.
+	// SRGB texture reads, etc.  prev shader?
 
 	bool operator == (const std::string &other) {
 		return name == other;

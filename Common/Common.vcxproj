@@ -354,6 +354,7 @@
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
+    <ClInclude Include="ChunkFileDo.h" />
     <ClInclude Include="ColorConvNEON.h" />
     <ClInclude Include="ChunkFile.h" />
     <ClInclude Include="CodeBlock.h" />

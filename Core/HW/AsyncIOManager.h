@@ -61,10 +61,10 @@ struct AsyncIOResult {
 		if (!s)
 			return;
 
-		p.Do(result);
-		p.Do(finishTicks);
+		Do(p, result);
+		Do(p, finishTicks);
 		if (s >= 2) {
-			p.Do(invalidateAddr);
+			Do(p, invalidateAddr);
 		} else {
 			invalidateAddr = 0;
 		}

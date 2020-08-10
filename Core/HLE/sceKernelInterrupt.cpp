@@ -19,12 +19,13 @@
 #include <list>
 #include <map>
 
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/sceKernel.h"
@@ -59,7 +60,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(savedCpu);
+		Do(p, savedCpu);
 	}
 
 	PSPThreadContext savedCpu;
@@ -213,8 +214,8 @@ void IntrHandler::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(intrNumber);
-	p.Do<int, SubIntrHandler>(subIntrHandlers);
+	Do(p, intrNumber);
+	Do<int, SubIntrHandler>(p, subIntrHandlers);
 }
 
 void PendingInterrupt::DoState(PointerWrap &p)
@@ -223,8 +224,8 @@ void PendingInterrupt::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(intr);
-	p.Do(subintr);
+	Do(p, intr);
+	Do(p, subintr);
 }
 
 void __InterruptsInit()
@@ -244,7 +245,7 @@ void __InterruptsDoState(PointerWrap &p)
 		return;
 
 	int numInterrupts = PSP_NUMBER_INTERRUPTS;
-	p.Do(numInterrupts);
+	Do(p, numInterrupts);
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
 		p.SetError(p.ERROR_FAILURE);
@@ -254,10 +255,10 @@ void __InterruptsDoState(PointerWrap &p)
 
 	intState.DoState(p);
 	PendingInterrupt pi(0, 0);
-	p.Do(pendingInterrupts, pi);
-	p.Do(interruptsEnabled);
-	p.Do(inInterrupt);
-	p.Do(threadBeforeInterrupt);
+	Do(p, pendingInterrupts, pi);
+	Do(p, interruptsEnabled);
+	Do(p, inInterrupt);
+	Do(p, threadBeforeInterrupt);
 }
 
 void __InterruptsDoStateLate(PointerWrap &p)

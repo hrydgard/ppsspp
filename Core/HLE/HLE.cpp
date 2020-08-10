@@ -24,13 +24,13 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
+#include "Common/ChunkFileDo.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-
-#include "Core/Core.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -128,19 +128,19 @@ void HLEDoState(PointerWrap &p) {
 
 	// Can't be inside a syscall, reset this so errors aren't misleading.
 	latestSyscall = nullptr;
-	p.Do(delayedResultEvent);
+	Do(p, delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 
 	if (s >= 2) {
 		int actions = (int)mipsCallActions.size();
-		p.Do(actions);
+		Do(p, actions);
 		if (actions != (int)mipsCallActions.size()) {
 			mipsCallActions.resize(actions);
 		}
 
 		for (auto &action : mipsCallActions) {
 			int actionTypeID = action != nullptr ? action->actionTypeID : -1;
-			p.Do(actionTypeID);
+			Do(p, actionTypeID);
 			if (actionTypeID != -1) {
 				if (p.mode == p.MODE_READ)
 					action = __KernelCreateAction(actionTypeID);

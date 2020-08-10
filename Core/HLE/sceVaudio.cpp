@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -36,7 +37,7 @@ void __VaudioDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(vaudioReserved);
+	Do(p, vaudioReserved);
 }
 
 static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {

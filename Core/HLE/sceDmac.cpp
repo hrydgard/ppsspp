@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -40,7 +41,7 @@ void __DmacDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(dmacMemcpyDeadline);
+	Do(p, dmacMemcpyDeadline);
 }
 
 static int __DmacMemcpy(u32 dst, u32 src, u32 size) {

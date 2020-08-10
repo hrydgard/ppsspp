@@ -24,6 +24,8 @@
 #include "base/logging.h"
 
 #include "Common/LogManager.h"
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
@@ -36,7 +38,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
@@ -162,14 +163,14 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nc);
+		Do(p, nc);
 		// Saved values were moved to mips call, ignoring here.
 		u32 legacySaved = 0;
-		p.Do(legacySaved);
-		p.Do(legacySaved);
-		p.Do(legacySaved);
-		p.Do(legacySaved);
-		p.Do(legacySaved);
+		Do(p, legacySaved);
+		Do(p, legacySaved);
+		Do(p, legacySaved);
+		Do(p, legacySaved);
+		Do(p, legacySaved);
 	}
 
 	NativeCallback nc;
@@ -281,8 +282,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(calls_);
-		p.Do(idGen_);
+		Do(p, calls_);
+		Do(p, idGen_);
 	}
 
 private:
@@ -312,18 +313,18 @@ public:
 		if (!s)
 			return;
 
-		p.Do(threadID);
-		p.Do(status);
-		p.Do(waitType);
-		p.Do(waitID);
-		p.Do(waitInfo);
-		p.Do(isProcessingCallbacks);
-		p.Do(currentCallbackId);
+		Do(p, threadID);
+		Do(p, status);
+		Do(p, waitType);
+		Do(p, waitID);
+		Do(p, waitInfo);
+		Do(p, isProcessingCallbacks);
+		Do(p, currentCallbackId);
 
 		int chainedActionType = 0;
 		if (chainedAction != NULL)
 			chainedActionType = chainedAction->actionTypeID;
-		p.Do(chainedActionType);
+		Do(p, chainedActionType);
 
 		if (chainedActionType != 0)
 		{
@@ -367,7 +368,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(cbId);
+		Do(p, cbId);
 	}
 
 	SceUID cbId;
@@ -532,15 +533,15 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nt);
-		p.Do(waitInfo);
-		p.Do(moduleId);
-		p.Do(isProcessingCallbacks);
-		p.Do(currentMipscallId);
-		p.Do(currentCallbackId);
+		Do(p, nt);
+		Do(p, waitInfo);
+		Do(p, moduleId);
+		Do(p, isProcessingCallbacks);
+		Do(p, currentMipscallId);
+		Do(p, currentCallbackId);
 
 		// TODO: If we want to "version" a DoState method here, we can just use minVer = 0.
-		p.Do(context);
+		Do(p, context);
 
 		if (s <= 3)
 		{
@@ -561,16 +562,16 @@ public:
 		if (s <= 4)
 			std::swap(context.hi, context.lo);
 
-		p.Do(callbacks);
+		Do(p, callbacks);
 
-		p.Do(pendingMipsCalls);
-		p.Do(pushedStacks);
-		p.Do(currentStack);
+		Do(p, pendingMipsCalls);
+		Do(p, pushedStacks);
+		Do(p, currentStack);
 
 		if (s >= 2)
 		{
-			p.Do(waitingThreads);
-			p.Do(pausedWaits);
+			Do(p, waitingThreads);
+			Do(p, pausedWaits);
 		}
 	}
 
@@ -695,26 +696,26 @@ void MipsCall::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(entryPoint);
-	p.Do(cbId);
-	p.DoArray(args, ARRAY_SIZE(args));
-	p.Do(numArgs);
+	Do(p, entryPoint);
+	Do(p, cbId);
+	DoArray(p, args, ARRAY_SIZE(args));
+	Do(p, numArgs);
 	// No longer used.
 	u32 legacySavedIdRegister = 0;
-	p.Do(legacySavedIdRegister);
+	Do(p, legacySavedIdRegister);
 	u32 legacySavedRa = 0;
-	p.Do(legacySavedRa);
-	p.Do(savedPc);
-	p.Do(savedV0);
-	p.Do(savedV1);
-	p.Do(tag);
-	p.Do(savedId);
-	p.Do(reschedAfter);
+	Do(p, legacySavedRa);
+	Do(p, savedPc);
+	Do(p, savedV0);
+	Do(p, savedV1);
+	Do(p, tag);
+	Do(p, savedId);
+	Do(p, reschedAfter);
 
 	int actionTypeID = 0;
 	if (doAfter != NULL)
 		actionTypeID = doAfter->actionTypeID;
-	p.Do(actionTypeID);
+	Do(p, actionTypeID);
 	if (actionTypeID != 0)
 	{
 		if (p.mode == p.MODE_READ)
@@ -970,48 +971,48 @@ void __KernelThreadingDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(g_inCbCount);
-	p.Do(currentCallbackThreadID);
-	p.Do(readyCallbacksCount);
-	p.Do(idleThreadHackAddr);
-	p.Do(threadReturnHackAddr);
-	p.Do(cbReturnHackAddr);
-	p.Do(intReturnHackAddr);
-	p.Do(extendReturnHackAddr);
-	p.Do(moduleReturnHackAddr);
+	Do(p, g_inCbCount);
+	Do(p, currentCallbackThreadID);
+	Do(p, readyCallbacksCount);
+	Do(p, idleThreadHackAddr);
+	Do(p, threadReturnHackAddr);
+	Do(p, cbReturnHackAddr);
+	Do(p, intReturnHackAddr);
+	Do(p, extendReturnHackAddr);
+	Do(p, moduleReturnHackAddr);
 
 	if (s >= 4) {
-		p.Do(hleReturnHackAddr);
+		Do(p, hleReturnHackAddr);
 	} else {
 		hleReturnHackAddr = 0;
 	}
 
-	p.Do(currentThread);
+	Do(p, currentThread);
 	SceUID dv = 0;
-	p.Do(threadqueue, dv);
-	p.DoArray(threadIdleID, ARRAY_SIZE(threadIdleID));
-	p.Do(dispatchEnabled);
+	Do(p, threadqueue, dv);
+	DoArray(p, threadIdleID, ARRAY_SIZE(threadIdleID));
+	Do(p, dispatchEnabled);
 
-	p.Do(threadReadyQueue);
+	Do(p, threadReadyQueue);
 
-	p.Do(eventScheduledWakeup);
+	Do(p, eventScheduledWakeup);
 	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);
-	p.Do(eventThreadEndTimeout);
+	Do(p, eventThreadEndTimeout);
 	CoreTiming::RestoreRegisterEvent(eventThreadEndTimeout, "ThreadEndTimeout", &hleThreadEndTimeout);
-	p.Do(actionAfterMipsCall);
+	Do(p, actionAfterMipsCall);
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
-	p.Do(actionAfterCallback);
+	Do(p, actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
 
-	p.Do(pausedDelays);
+	Do(p, pausedDelays);
 
 	__SetCurrentThread(kernelObjects.GetFast<PSPThread>(currentThread), currentThread, __KernelGetThreadName(currentThread));
 	lastSwitchCycles = CoreTiming::GetTicks();
 
 	if (s >= 2)
-		p.Do(threadEventHandlers);
+		Do(p, threadEventHandlers);
 	if (s >= 3)
-		p.Do(pendingDeleteThreads);
+		Do(p, pendingDeleteThreads);
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p)
@@ -3672,7 +3673,7 @@ struct ThreadEventHandler : public KernelObject {
 		if (!s)
 			return;
 
-		p.Do(nteh);
+		Do(p, nteh);
 	}
 
 	NativeThreadEventHandler nteh;

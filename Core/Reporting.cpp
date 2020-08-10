@@ -22,6 +22,7 @@
 
 #include "Core/Reporting.h"
 
+#include "Common/ChunkFileDo.h"
 #include "Common/CPUDetect.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -335,7 +336,7 @@ namespace Reporting
 			return;
 		}
 
-		p.Do(everUnsupported);
+		Do(p, everUnsupported);
 	}
 
 	void UpdateConfig()
