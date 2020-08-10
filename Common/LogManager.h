@@ -24,8 +24,7 @@
 #include <vector>
 
 #include "file/ini_file.h"
-#include "Log.h"
-#include "StringUtils.h"
+#include "Common/Log.h"
 
 #define	MAX_MESSAGES 8000   
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <algorithm>
-
 #include "base/display.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
