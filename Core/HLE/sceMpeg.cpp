@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"

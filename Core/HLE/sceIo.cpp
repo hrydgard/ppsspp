@@ -23,6 +23,9 @@
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
+#include "Common/ChunkFileDoSet.h"
+#include "Common/FileUtil.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

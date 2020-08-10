@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"

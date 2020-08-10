@@ -30,6 +30,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
 

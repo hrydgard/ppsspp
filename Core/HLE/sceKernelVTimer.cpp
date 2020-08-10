@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <list>
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoList.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"

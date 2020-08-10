@@ -11,6 +11,7 @@
 #include "base/NativeApp.h"
 
 #include "gfx_es2/gpu_features.h"
+#include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"

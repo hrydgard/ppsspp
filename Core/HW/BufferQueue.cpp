@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Core/HW/BufferQueue.h"
 
 void BufferQueue::DoState(PointerWrap &p) {

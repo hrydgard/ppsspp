@@ -19,6 +19,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"

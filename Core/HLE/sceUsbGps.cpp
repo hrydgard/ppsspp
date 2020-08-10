@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <ctime>
 #include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"

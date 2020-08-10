@@ -19,9 +19,10 @@
 #include <cstring>
 #include <snappy-c.h>
 
-#include "ChunkFile.h"
-#include "ChunkFileDo.h"
-#include "StringUtils.h"
+#include "Common/ChunkFile.h"
+#include "Common/ChunkFileDo.h"
+#include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);

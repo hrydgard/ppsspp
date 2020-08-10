@@ -6,6 +6,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoList.h"
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Reporting.h"

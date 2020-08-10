@@ -24,6 +24,7 @@
 #include "base/stringutil.h"
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoSet.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

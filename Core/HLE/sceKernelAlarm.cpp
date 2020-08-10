@@ -15,15 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <list>
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoList.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelAlarm.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include <list>
 
 const int NATIVEALARM_SIZE = 20;
 

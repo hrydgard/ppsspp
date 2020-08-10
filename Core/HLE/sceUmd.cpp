@@ -21,6 +21,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"

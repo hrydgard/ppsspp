@@ -20,6 +20,8 @@
 
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoMap.h"
+#include "Common/ChunkFileDoSet.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"

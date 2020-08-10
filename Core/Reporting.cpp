@@ -24,6 +24,7 @@
 
 #include "Common/ChunkFileDo.h"
 #include "Common/CPUDetect.h"
+#include "Common/FileUtil.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"

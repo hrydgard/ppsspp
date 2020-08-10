@@ -38,6 +38,7 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"

@@ -29,17 +29,14 @@
 // + Sections can be versioned for backwards/forwards compatibility
 // - Serialization code for anything complex has to be manually written.
 
-#include <cstdlib>
-#include <map>
-#include <unordered_map>
-#include <deque>
-#include <list>
-#include <set>
-#include <type_traits>
+#include <string>
+#include <vector>
+#include "Common/CommonTypes.h"
+#include "Common/Log.h"
 
-#include "Common.h"
-#include "Swap.h"
-#include "FileUtil.h"
+namespace File {
+class IOFile;
+};
 
 template <class T>
 struct LinkedListItem : public T

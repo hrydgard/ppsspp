@@ -16,16 +16,18 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <list>
 #include <map>
 #include <mutex>
 #include <set>
-#include <queue>
 
 #include "base/logging.h"
 
 #include "Common/LogManager.h"
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/ChunkFileDoList.h"
+#include "Common/ChunkFileDoMap.h"
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
