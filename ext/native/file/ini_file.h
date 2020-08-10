@@ -4,11 +4,14 @@
 
 #pragma once
 
+#include <istream>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
-#include "base/stringutil.h"
+std::string StringFromFormat(const char* format, ...);
+std::string StringFromInt(int value);
+std::string StringFromBool(bool value);
 
 class IniFile
 {
@@ -59,17 +62,6 @@ public:
 		}
 		void Set(const char* key, const std::vector<std::string>& newValues);
 
-		template<typename U, typename V>
-		void Set(const char* key, const std::map<U,V>& newValues)
-		{
-			std::vector<std::string> temp;
-			for(typename std::map<U,V>::const_iterator it = newValues.begin(); it != newValues.end(); it++)
-			{
-				temp.push_back(ValueToString<U>(it->first)+"_"+ValueToString<V>(it->second));
-			}
-			Set(key,temp);
-		}
-
 		// Declare without a body to make it fail to compile. This is to prevent accidentally
 		// setting a pointer as a bool. The failure is in the linker unfortunately, but that's better
 		// than accidentally succeeding in a bad way.
@@ -84,31 +76,6 @@ public:
 		bool Get(const char* key, float* value, float defaultValue = false);
 		bool Get(const char* key, double* value, double defaultValue = false);
 		bool Get(const char* key, std::vector<std::string>& values);
-		template<typename U, typename V>
-		bool Get(const char* key, std::map<U,V>& values)
-		{
-			std::vector<std::string> temp;
-			if(!Get(key,temp))
-			{
-				return false;
-			}
-			values.clear();
-			for(size_t i = 0; i < temp.size(); i++)
-			{
-				std::vector<std::string> key_val;
-				SplitString(temp[i],'_',key_val);
-				if(key_val.size() < 2)
-					continue;
-				U mapKey;
-				V mapValue;
-				if(!TryParse<U>(key_val[0],&mapKey))
-					continue;
-				if(!TryParse<V>(key_val[1],&mapValue))
-					continue;
-				values[mapKey] = mapValue;
-			}
-			return true;
-		}
 
 		bool operator < (const Section& other) const {
 			return name_ < other.name_;
@@ -189,6 +156,4 @@ private:
 
 	const Section* GetSection(const char* section) const;
 	Section* GetSection(const char* section);
-	std::string* GetLine(const char* section, const char* key);
-	void CreateSection(const char* section);
 };
