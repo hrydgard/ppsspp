@@ -1,6 +1,7 @@
 #include <cstring>
 #include <memory>
 #include <set>
+#include <sstream>
 
 #include "profiler/profiler.h"
 

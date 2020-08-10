@@ -8,8 +8,8 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #endif
-#include <string.h>
-#include <stdarg.h>
+#include <cstring>
+#include <cstdarg>
 #include <errno.h>
 #include <string>
 #include <sstream>

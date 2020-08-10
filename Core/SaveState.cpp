@@ -20,8 +20,8 @@
 #include <thread>
 #include <mutex>
 
-#include "base/stringutil.h"
 #include "base/timeutil.h"
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
 #include "util/text/parsers.h"

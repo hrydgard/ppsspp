@@ -96,7 +96,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 
 	Clear();
 
-	const std::vector<IniFile::Section> &sections = ini.Sections();
+	const std::vector<Section> &sections = ini.Sections();
 
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto iter = sections.begin(); iter != sections.end(); ++iter) {
@@ -109,7 +109,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 	return true;
 }
 
-I18NCategory *I18NRepo::LoadSection(const IniFile::Section *section, const char *name) {
+I18NCategory *I18NRepo::LoadSection(const Section *section, const char *name) {
 	I18NCategory *cat = new I18NCategory(this, name);
 	std::map<std::string, std::string> sectionMap = section->ToMap();
 	cat->SetMap(sectionMap);
@@ -124,13 +124,13 @@ void I18NRepo::SaveIni(const std::string &languageID) {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto iter = cats_.begin(); iter != cats_.end(); ++iter) {
 		std::string categoryName = iter->first;
-		IniFile::Section *section = ini.GetOrCreateSection(categoryName.c_str());
+		Section *section = ini.GetOrCreateSection(categoryName.c_str());
 		SaveSection(ini, section, iter->second);
 	}
 	ini.Save(GetIniPath(languageID));
 }
 
-void I18NRepo::SaveSection(IniFile &ini, IniFile::Section *section, std::shared_ptr<I18NCategory> cat) {
+void I18NRepo::SaveSection(IniFile &ini, Section *section, std::shared_ptr<I18NCategory> cat) {
 	const std::map<std::string, std::string> &missed = cat->Missed();
 
 	for (auto iter = missed.begin(); iter != missed.end(); ++iter) {

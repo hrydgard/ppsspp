@@ -185,14 +185,14 @@ void LogManager::ChangeFileLog(const char *filename) {
 	}
 }
 
-void LogManager::SaveConfig(IniFile::Section *section) {
+void LogManager::SaveConfig(Section *section) {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(log_[i].m_shortName) + "Enabled").c_str(), log_[i].enabled);
 		section->Set((std::string(log_[i].m_shortName) + "Level").c_str(), (int)log_[i].level);
 	}
 }
 
-void LogManager::LoadConfig(IniFile::Section *section, bool debugDefaults) {
+void LogManager::LoadConfig(Section *section, bool debugDefaults) {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		bool enabled = false;
 		int level = 0;

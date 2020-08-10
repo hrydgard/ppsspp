@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <sstream>
 #include <vector>
 
 #include "base/basictypes.h"
@@ -38,7 +37,7 @@ inline bool startsWith(const std::string &str, const std::string &what) {
 inline bool endsWith(const std::string &str, const std::string &what) {
 	if (str.size() < what.size())
 		return false;
-  return str.substr(str.size() - what.size()) == what;
+	return str.substr(str.size() - what.size()) == what;
 }
 
 // Only use on strings where you're only concerned about ASCII.
@@ -57,7 +56,7 @@ inline bool endsWithNoCase(const std::string &str, const std::string &what) {
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 inline void StringToHexString(const std::string &data, std::string *output) {
-  DataToHexString((uint8_t *)(&data[0]), data.size(), output);
+	DataToHexString((uint8_t *)(&data[0]), data.size(), output);
 }
 
 std::string StringFromFormat(const char* format, ...);

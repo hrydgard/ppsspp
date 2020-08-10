@@ -21,6 +21,7 @@
 
 #include <thread>
 
+#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
 

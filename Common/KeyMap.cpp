@@ -917,7 +917,7 @@ void LoadFromIni(IniFile &file) {
 		return;
 	}
 
-	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
+	Section *controls = file.GetOrCreateSection("ControlMapping");
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::string value;
 		controls->Get(psp_button_names[i].name, &value, "");
@@ -944,7 +944,7 @@ void LoadFromIni(IniFile &file) {
 }
 
 void SaveToIni(IniFile &file) {
-	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
+	Section *controls = file.GetOrCreateSection("ControlMapping");
 
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::vector<KeyDef> keys;

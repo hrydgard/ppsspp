@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+
 #include "base/display.h"
 #include "base/stringutil.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...

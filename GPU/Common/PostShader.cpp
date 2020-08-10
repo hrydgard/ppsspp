@@ -103,7 +103,7 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 
 			// Alright, let's loop through the sections and see if any is a shader.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
-				IniFile::Section &section = ini.Sections()[i];
+				Section &section = ini.Sections()[i];
 				std::string shaderType;
 				section.Get("Type", &shaderType, "render");
 
