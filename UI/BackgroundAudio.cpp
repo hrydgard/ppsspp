@@ -7,10 +7,11 @@
 #include "file/vfs.h"
 #include "ui/root.h"
 
+#include "Common/ChunkFileDo.h"
 #include "Common/CommonTypes.h"
+#include "Common/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HLE/__sceAudio.h"
-#include "Common/FixedSizeQueue.h"
 #include "GameInfoCache.h"
 #include "Core/Config.h"
 #include "UI/BackgroundAudio.h"

@@ -17,6 +17,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Common/ChunkFileDo.h"
+#include "Common/FixedSizeQueue.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/CoreTiming.h"
@@ -35,6 +36,8 @@ const int AUDIO_ROUTING_SPEAKER_ON = 1;
 int defaultRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
 int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
 
+extern FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+
 void AudioChannel::DoState(PointerWrap &p)
 {
 	auto s = p.Section("AudioChannel", 1, 2);
@@ -52,7 +55,7 @@ void AudioChannel::DoState(PointerWrap &p)
 		Do(p, defaultRoutingMode);
 		Do(p, defaultRoutingVolMode);
 	}
-	sampleQueue.DoState(p);
+	chanSampleQueues[index].DoState(p);
 }
 
 void AudioChannel::reset()
@@ -69,7 +72,7 @@ void AudioChannel::clear()
 	format = 0;
 	sampleAddress = 0;
 	sampleCount = 0;
-	sampleQueue.clear();
+	chanSampleQueues[index].clear();
 	waitingThreads.clear();
 }
 
@@ -183,7 +186,7 @@ static int sceAudioGetChannelRestLen(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLen(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
 	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
@@ -193,7 +196,7 @@ static int sceAudioGetChannelRestLength(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLength(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
 	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
@@ -371,7 +374,7 @@ static u32 sceAudioOutput2GetRestSample() {
 	if (!chan.reserved) {
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
-	u32 size = (u32)chan.sampleQueue.size() / 2;
+	u32 size = (u32)chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].size() / 2;
 	if (size > chan.sampleCount) {
 		// If ChangeLength reduces the size, it still gets output but this return is clamped.
 		size = chan.sampleCount;
@@ -383,7 +386,7 @@ static u32 sceAudioOutput2Release() {
 	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
 	if (!chan.reserved)
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chan.sampleQueue.empty())
+	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].empty())
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
@@ -444,7 +447,7 @@ static u32 sceAudioSRCChRelease() {
 	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
 	if (!chan.reserved)
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chan.sampleQueue.empty())
+	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_SRC].empty())
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();

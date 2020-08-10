@@ -21,7 +21,6 @@
 
 #include "CommonTypes.h"
 #include "sceKernel.h"
-#include "FixedSizeQueue.h"
 
 class PointerWrap;
 
@@ -60,9 +59,8 @@ struct AudioChannel
 		clear();
 	}
 
-	// PSP side
-
-	bool reserved;
+	int index = 0;
+	bool reserved = false;
 
 	// last sample address
 	u32 sampleAddress;
@@ -72,12 +70,6 @@ struct AudioChannel
 	u32 format;
 
 	std::vector<AudioChannelWaitInfo> waitingThreads;
-
-	// PC side - should probably split out
-
-	// We copy samples as they are written into this simple ring buffer.
-	// Might try something more efficient later.
-	FixedSizeQueue<s16, 32768 * 8> sampleQueue;
 
 	void DoState(PointerWrap &p);
 
