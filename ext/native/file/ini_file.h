@@ -104,14 +104,14 @@ public:
 			for(size_t i = 0; i < temp.size(); i++)
 			{
 				std::vector<std::string> key_val;
-				SplitString(temp[i],'_',key_val);
-				if(key_val.size() < 2)
+				SplitString(temp[i], '_', key_val);
+				if (key_val.size() < 2)
 					continue;
 				U mapKey;
 				V mapValue;
-				if(!TryParse<U>(key_val[0],&mapKey))
+				if (!TryParse(key_val[0], &mapKey))
 					continue;
-				if(!TryParse<V>(key_val[1],&mapValue))
+				if (!TryParse(key_val[1], &mapValue))
 					continue;
 				values[mapKey] = mapValue;
 			}
