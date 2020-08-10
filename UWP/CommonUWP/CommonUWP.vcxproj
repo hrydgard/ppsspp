@@ -385,6 +385,7 @@
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\ChunkFile.h" />
+    <ClInclude Include="..\..\Common\ChunkFileDo.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
     <ClInclude Include="..\..\Common\ColorConv.h" />
     <ClInclude Include="..\..\Common\ColorConvNEON.h" />

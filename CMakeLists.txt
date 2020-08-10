@@ -418,6 +418,7 @@ add_library(Common STATIC
 	Common/ColorConv.h
 	Common/ChunkFile.cpp
 	Common/ChunkFile.h
+	Common/ChunkFileDo.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/md5.cpp
