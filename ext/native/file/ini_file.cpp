@@ -149,11 +149,11 @@ static std::string EscapeComments(const std::string &value) {
 	return result;
 }
 
-void IniFile::Section::Clear() {
+void Section::Clear() {
 	lines.clear();
 }
 
-std::string* IniFile::Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut)
+std::string* Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut)
 {
 	for (std::vector<std::string>::iterator iter = lines.begin(); iter != lines.end(); ++iter)
 	{
@@ -166,7 +166,7 @@ std::string* IniFile::Section::GetLine(const char* key, std::string* valueOut, s
 	return 0;
 }
 
-void IniFile::Section::Set(const char* key, const char* newValue)
+void Section::Set(const char* key, const char* newValue)
 {
 	std::string value, commented;
 	std::string* line = GetLine(key, &value, &commented);
@@ -182,7 +182,7 @@ void IniFile::Section::Set(const char* key, const char* newValue)
 	}
 }
 
-void IniFile::Section::Set(const char* key, const std::string& newValue, const std::string& defaultValue)
+void Section::Set(const char* key, const std::string& newValue, const std::string& defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -190,7 +190,7 @@ void IniFile::Section::Set(const char* key, const std::string& newValue, const s
 		Delete(key);
 }
 
-bool IniFile::Section::Get(const char* key, std::string* value, const char* defaultValue)
+bool Section::Get(const char* key, std::string* value, const char* defaultValue)
 {
 	const std::string* line = GetLine(key, value, 0);
 	if (!line)
@@ -204,7 +204,7 @@ bool IniFile::Section::Get(const char* key, std::string* value, const char* defa
 	return true;
 }
 
-void IniFile::Section::Set(const char* key, const float newValue, const float defaultValue)
+void Section::Set(const char* key, const float newValue, const float defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -212,7 +212,7 @@ void IniFile::Section::Set(const char* key, const float newValue, const float de
 		Delete(key);
 }
 
-void IniFile::Section::Set(const char* key, int newValue, int defaultValue)
+void Section::Set(const char* key, int newValue, int defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -220,7 +220,7 @@ void IniFile::Section::Set(const char* key, int newValue, int defaultValue)
 		Delete(key);
 }
 
-void IniFile::Section::Set(const char* key, bool newValue, bool defaultValue)
+void Section::Set(const char* key, bool newValue, bool defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -228,7 +228,7 @@ void IniFile::Section::Set(const char* key, bool newValue, bool defaultValue)
 		Delete(key);
 }
 
-void IniFile::Section::Set(const char* key, const std::vector<std::string>& newValues) 
+void Section::Set(const char* key, const std::vector<std::string>& newValues) 
 {
 	std::string temp;
 	// Join the strings with , 
@@ -243,11 +243,11 @@ void IniFile::Section::Set(const char* key, const std::vector<std::string>& newV
 	Set(key, temp.c_str());
 }
 
-void IniFile::Section::AddComment(const std::string &comment) {
+void Section::AddComment(const std::string &comment) {
 	lines.push_back("# " + comment);
 }
 
-bool IniFile::Section::Get(const char* key, std::vector<std::string>& values) 
+bool Section::Get(const char* key, std::vector<std::string>& values) 
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -275,7 +275,7 @@ bool IniFile::Section::Get(const char* key, std::vector<std::string>& values)
 	return true;
 }
 
-bool IniFile::Section::Get(const char* key, int* value, int defaultValue)
+bool Section::Get(const char* key, int* value, int defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -285,7 +285,7 @@ bool IniFile::Section::Get(const char* key, int* value, int defaultValue)
 	return false;
 }
 
-bool IniFile::Section::Get(const char* key, uint32_t* value, uint32_t defaultValue)
+bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -295,7 +295,7 @@ bool IniFile::Section::Get(const char* key, uint32_t* value, uint32_t defaultVal
 	return false;
 }
 
-bool IniFile::Section::Get(const char* key, bool* value, bool defaultValue)
+bool Section::Get(const char* key, bool* value, bool defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -305,7 +305,7 @@ bool IniFile::Section::Get(const char* key, bool* value, bool defaultValue)
 	return false;
 }
 
-bool IniFile::Section::Get(const char* key, float* value, float defaultValue)
+bool Section::Get(const char* key, float* value, float defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -315,7 +315,7 @@ bool IniFile::Section::Get(const char* key, float* value, float defaultValue)
 	return false;
 }
 
-bool IniFile::Section::Get(const char* key, double* value, double defaultValue)
+bool Section::Get(const char* key, double* value, double defaultValue)
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
@@ -325,7 +325,7 @@ bool IniFile::Section::Get(const char* key, double* value, double defaultValue)
 	return false;
 }
 
-bool IniFile::Section::Exists(const char *key) const
+bool Section::Exists(const char *key) const
 {
 	for (std::vector<std::string>::const_iterator iter = lines.begin(); iter != lines.end(); ++iter)
 	{
@@ -337,7 +337,7 @@ bool IniFile::Section::Exists(const char *key) const
 	return false;
 }
 
-std::map<std::string, std::string> IniFile::Section::ToMap() const
+std::map<std::string, std::string> Section::ToMap() const
 {
 	std::map<std::string, std::string> outMap;
 	for (std::vector<std::string>::const_iterator iter = lines.begin(); iter != lines.end(); ++iter)
@@ -351,7 +351,7 @@ std::map<std::string, std::string> IniFile::Section::ToMap() const
 }
 
 
-bool IniFile::Section::Delete(const char *key)
+bool Section::Delete(const char *key)
 {
 	std::string* line = GetLine(key, 0, 0);
 	for (std::vector<std::string>::iterator liter = lines.begin(); liter != lines.end(); ++liter)
@@ -367,7 +367,7 @@ bool IniFile::Section::Delete(const char *key)
 
 // IniFile
 
-const IniFile::Section* IniFile::GetSection(const char* sectionName) const
+const Section* IniFile::GetSection(const char* sectionName) const
 {
 	for (std::vector<Section>::const_iterator iter = sections.begin(); iter != sections.end(); ++iter)
 		if (!strcasecmp(iter->name().c_str(), sectionName))
@@ -375,7 +375,7 @@ const IniFile::Section* IniFile::GetSection(const char* sectionName) const
 	return 0;
 }
 
-IniFile::Section* IniFile::GetSection(const char* sectionName)
+Section* IniFile::GetSection(const char* sectionName)
 {
 	for (std::vector<Section>::iterator iter = sections.begin(); iter != sections.end(); ++iter)
 		if (!strcasecmp(iter->name().c_str(), sectionName))
@@ -383,7 +383,7 @@ IniFile::Section* IniFile::GetSection(const char* sectionName)
 	return 0;
 }
 
-IniFile::Section* IniFile::GetOrCreateSection(const char* sectionName)
+Section* IniFile::GetOrCreateSection(const char* sectionName)
 {
 	Section* section = GetSection(sectionName);
 	if (!section)

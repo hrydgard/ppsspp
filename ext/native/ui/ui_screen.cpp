@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include "base/display.h"
+#include "base/stringutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "math/curves.h"

@@ -20,6 +20,7 @@
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
+#include "base/stringutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"

@@ -16,6 +16,9 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include "ppsspp_config.h"
+
+#include <sstream>
+
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <ctype.h>
