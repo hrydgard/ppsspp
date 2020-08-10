@@ -1,5 +1,6 @@
 #include <map>
 #include <string>
+#include <sstream>
 
 #include "CommonWindows.h"
 #include <shellapi.h>

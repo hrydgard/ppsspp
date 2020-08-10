@@ -10,6 +10,14 @@
 
 #include "base/stringutil.h"
 
+template <typename N>
+inline std::string ValueToString(const N value)
+{
+	std::stringstream string;
+	string << value;
+	return string.str();
+}
+
 class IniFile
 {
 public:

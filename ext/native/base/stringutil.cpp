@@ -8,8 +8,8 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #endif
-#include <string.h>
-#include <stdarg.h>
+#include <cstring>
+#include <cstdarg>
 #include <errno.h>
 #include <string>
 #include <sstream>
@@ -240,6 +240,7 @@ bool TryParse(const std::string &str, uint32_t *const output)
 	if (errno == ERANGE)
 		return false;
 
+	// Range check
 	if (ULONG_MAX > UINT_MAX) {
 #ifdef _MSC_VER
 #pragma warning (disable:4309)
@@ -264,6 +265,30 @@ bool TryParse(const std::string &str, bool *const output)
 		return false;
 
 	return true;
+}
+
+template <typename N>
+bool TryParseImpl(const std::string &str, N *const output) {
+	std::istringstream iss(str);
+	N tmp = 0;
+	if (iss >> tmp) {
+		*output = tmp;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool TryParse(const std::string &str, int32_t *const output) {
+	return TryParseImpl(str, output);
+}
+
+bool TryParse(const std::string &str, float *const output) {
+	return TryParseImpl(str, output);
+}
+
+bool TryParse(const std::string &str, double *const output) {
+	return TryParseImpl(str, output);
 }
 
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output)

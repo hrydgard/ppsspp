@@ -9,7 +9,6 @@
 // As usual, everything is UTF-8. Nothing else allowed.
 
 #include <map>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>

@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <map>
+#include <sstream>
+
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"

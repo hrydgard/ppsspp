@@ -2,8 +2,8 @@
 // Taken from Dolphin but relicensed by me, Henrik Rydgard, under the MIT
 // license as I wrote the whole thing originally and it has barely changed.
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 #ifndef _MSC_VER
 #include <strings.h>
@@ -13,6 +13,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 
 #include "base/logging.h"

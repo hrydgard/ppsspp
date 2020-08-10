@@ -20,6 +20,7 @@
 #include <ctime>
 #include <functional>
 #include <set>
+#include <sstream>
 
 #include "base/display.h"
 #include "base/NativeApp.h"

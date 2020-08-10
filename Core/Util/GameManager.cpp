@@ -21,6 +21,7 @@
 #include <set>
 #include <cstring>
 #include <thread>
+#include <sstream>
 
 #include "file/file_util.h"
 #ifdef SHARED_LIBZIP
