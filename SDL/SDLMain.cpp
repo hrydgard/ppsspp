@@ -1156,6 +1156,7 @@ int main(int argc, char *argv[]) {
 
 	// Destroys Draw, which is used in NativeShutdown to shutdown.
 	graphicsContext->ShutdownFromRenderThread();
+	graphicsContext->Shutdown();
 	delete graphicsContext;
 
 	if (audioDev > 0) {
@@ -1168,7 +1169,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	glslang::FinalizeProcess();
-	ILOG("Leaving main");
+	printf("Leaving main");
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif

@@ -266,6 +266,8 @@ BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 	WavData wave;
 	wave.Read(reader);
 
+	delete [] data;
+
 	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
 		ELOG("Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;

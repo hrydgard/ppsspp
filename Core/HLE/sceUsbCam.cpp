@@ -51,7 +51,7 @@ enum {
 };
 
 void __UsbCamInit() {
-	config       = new Camera::Config;
+	config       = new Camera::Config();
 	config->mode = Camera::Mode::Unused;
 	config->type = Camera::ConfigType::CfNone;
 	videoBuffer  = new uint8_t[VIDEO_BUFFER_SIZE];
@@ -76,7 +76,7 @@ void __UsbCamShutdown() {
 	}
 	delete[] videoBuffer;
 	videoBuffer = nullptr;
-	delete[] config;
+	delete config;
 	config = nullptr;
 }
 
