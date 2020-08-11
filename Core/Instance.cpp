@@ -92,7 +92,7 @@ void InitInstanceCounter() {
 	//hIDMapFile = NULL;
 
 	PPSSPP_ID = id;
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
 	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
 	PPSSPP_ID = 1;
 #else
@@ -140,7 +140,7 @@ void ShutdownInstanceCounter() {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
 		hIDMapFile = nullptr;
 	}
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
 	// Do nothing
 #else
 	// TODO : This unlink should be called when program exits instead of everytime the game reset.
