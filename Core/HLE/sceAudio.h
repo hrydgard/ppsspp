@@ -47,27 +47,21 @@ const int PSP_AUDIO_CHANNEL_SRC = 8;
 const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
 const int PSP_AUDIO_CHANNEL_VAUDIO = 8;
 
-struct AudioChannelWaitInfo
-{
+struct AudioChannelWaitInfo {
 	SceUID threadID;
 	int numSamples;
 };
 
-struct AudioChannel
-{
-	AudioChannel() {
-		clear();
-	}
-
+struct AudioChannel {
 	int index = 0;
 	bool reserved = false;
 
 	// last sample address
-	u32 sampleAddress;
-	u32 sampleCount;  // Number of samples written in each OutputBlocking
-	u32 leftVolume;
-	u32 rightVolume;
-	u32 format;
+	u32 sampleAddress = 0;
+	u32 sampleCount = 0;  // Number of samples written in each OutputBlocking
+	u32 leftVolume = 0;
+	u32 rightVolume = 0;
+	u32 format = 0;
 
 	std::vector<AudioChannelWaitInfo> waitingThreads;
 

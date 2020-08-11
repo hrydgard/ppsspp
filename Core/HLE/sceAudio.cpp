@@ -38,6 +38,9 @@ int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
 
 extern FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
+// The extra channel is for SRC/Output2/Vaudio.
+AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
+
 void AudioChannel::DoState(PointerWrap &p)
 {
 	auto s = p.Section("AudioChannel", 1, 2);
@@ -76,18 +79,11 @@ void AudioChannel::clear()
 	waitingThreads.clear();
 }
 
-// There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
-// We simply map it to an extra channel after the 8 channels, since they can be used concurrently.
-
-// The extra channel is for SRC/Output2/Vaudio.
-AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
-
-// Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
-// For solid audio output we'll need a queue length of 2 buffers at least, we'll try that first.
+// Enqueues the buffer pointed to on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
+// For solid audio output we'll need a queue length of 2 buffers at least.
 
 // Not sure about the range of volume, I often see 0x800 so that might be either
 // max or 50%?
-
 static u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 	if (vol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputBlocking() - invalid volume");
