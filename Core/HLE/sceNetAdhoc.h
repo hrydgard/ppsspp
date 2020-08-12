@@ -62,4 +62,5 @@ extern u32_le matchingThreadCode[3];
 
 int NetAdhocMatching_Term();
 int NetAdhocctl_Term();
+int NetAdhocctl_GetState();
 int NetAdhoc_Term();
