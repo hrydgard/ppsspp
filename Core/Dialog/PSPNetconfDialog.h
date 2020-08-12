@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 
 struct SceUtilityNetconfData {
 	char groupName[8];
@@ -27,11 +27,11 @@ struct SceUtilityNetconfData {
 
 struct SceUtilityNetconfParam {
 	pspUtilityDialogCommon common;
-	int netAction;
+	int netAction;				// sets how to connect
 	PSPPointer<SceUtilityNetconfData> NetconfData;
-	int netHotspot;
-	int netHotspotConnected;
-	int netWifiSpot;
+	int netHotspot;				// Flag to allow hotspot connections
+	int netHotspotConnected;	// Flag to check if a hotspot connection is active
+	int netWifiSpot;			// Flag to allow WIFI connections
 };
 
 class PSPNetconfDialog: public PSPDialog {
@@ -43,6 +43,7 @@ public:
 	virtual int Update(int animSpeed) override;
 	virtual int Shutdown(bool force = false) override;
 	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon* GetCommonParam() override;
 
 protected:
 	bool UseAutoStatus() override {
@@ -50,6 +51,17 @@ protected:
 	}
 
 private:
+	void DisplayMessage(std::string text1, std::string text2a = "", std::string text2b = "", std::string text3a = "", std::string text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
-	SceUtilityNetconfParam request;
+	void DrawIndicator();
+
+	SceUtilityNetconfParam request = {};
+	u32 requestAddr = 0;
+	int connResult = 0;
+	bool hideNotice = false;
+
+	int yesnoChoice = 0;
+	float scrollPos_ = 0.0f;
+	int framesUpHeld_ = 0;
+	int framesDownHeld_ = 0;
 };

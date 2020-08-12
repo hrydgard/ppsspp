@@ -61,7 +61,7 @@ static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-static struct SceNetApctlInfoInternal netApctlInfo;
+SceNetApctlInfoInternal netApctlInfo;
 
 bool netApctlInited;
 u32 netApctlState;
@@ -407,7 +407,7 @@ void __NetApctlCallbacks()
 		apctlEvents.pop_front();
 
 		// Adjust delay according to current event. Added an extra delay to prevent I/O Timing method from causing disconnection
-		if (*event == PSP_NET_APCTL_EVENT_CONNECT_REQUEST) // || *event == PSP_NET_APCTL_EVENT_SCAN_REQUEST)
+		if (*event == PSP_NET_APCTL_EVENT_CONNECT_REQUEST || *event == PSP_NET_APCTL_EVENT_GET_IP || *event == PSP_NET_APCTL_EVENT_SCAN_REQUEST)
 			delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
 		else
 			delayus = (adhocEventPollDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
@@ -794,6 +794,11 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 
 	// Set default value before connected to an AP
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo)); // NetApctl_InitInfo();
+	std::string APname = "Wifi"; // fake AP/hotspot
+	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), APname.c_str());
+	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), APname.c_str());
+	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
+	netApctlInfo.ssidLength = static_cast<unsigned int>(APname.length());
 	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), "0.0.0.0");
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), "0.0.0.0");
 	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), "0.0.0.0");
@@ -1078,9 +1083,10 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 }
 
 int sceNetApctlConnect(int connIndex) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, connIndex);
+	WARN_LOG(SCENET, "UNTESTED %s(%i)", __FUNCTION__, connIndex);
 	// Is this connIndex is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
+	//hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
 	return 0;
 }
 

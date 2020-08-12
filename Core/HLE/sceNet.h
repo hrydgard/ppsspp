@@ -219,6 +219,7 @@ private:
 
 extern bool netInetInited;
 extern bool netApctlInited;
+extern SceNetApctlInfoInternal netApctlInfo;
 
 template <typename I> std::string num2hex(I w, size_t hex_len = sizeof(I) << 1);
 std::string error2str(u32 errorcode);
