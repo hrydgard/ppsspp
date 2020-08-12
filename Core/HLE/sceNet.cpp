@@ -44,6 +44,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNp.h"
 #include "Core/Reporting.h"
 #include "Core/Instance.h"
 
@@ -478,6 +479,27 @@ void __NetApctlCallbacks()
 			AfterApctlMipsCall* after = (AfterApctlMipsCall*)__KernelCreateAction(actionAfterApctlMipsCall);
 			after->SetData(it->first, *oldState, *newState, *event, *error, it->second.argument);
 			hleEnqueueCall(it->second.entryPoint, 5, args.data, after);
+		}
+	}
+
+	// We are temporarily borrowing APctl thread for NpAuth callbacks for testing to simulate authentication
+	if (!npAuthEvents.empty())
+	{
+		auto args = npAuthEvents.front();
+		auto id = &args.data[0];
+		auto result = &args.data[1];
+		auto argAddr = &args.data[2];
+		npAuthEvents.pop_front();
+
+		delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
+
+		int handlerID = *id - 1;
+		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
+			if (it->first == handlerID) {
+				DEBUG_LOG(SCENET, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, *id, *result, it->second.argument);
+				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
+				hleEnqueueCall(it->second.entryPoint, 3, args.data);
+			}
 		}
 	}
 
