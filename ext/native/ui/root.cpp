@@ -335,10 +335,10 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 			old.x = dir;
 		}
 		if (axis.axisId == JOYSTICK_AXIS_Y || axis.axisId == JOYSTICK_AXIS_HAT_Y) {
-			// We stupidly interpret the joystick Y axis backwards on Android instead of reversing
+			// We stupidly interpret the joystick Y axis backwards on Android and Linux instead of reversing
 			// it early (see keymaps...). Too late to fix without invalidating a lot of config files, so we
 			// reverse it here too.
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 			GenerateKeyFromAxis(old.y, dir, NKCODE_DPAD_UP, NKCODE_DPAD_DOWN);
 #else
 			GenerateKeyFromAxis(old.y, dir, NKCODE_DPAD_DOWN, NKCODE_DPAD_UP);
