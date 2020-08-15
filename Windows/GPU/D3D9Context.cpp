@@ -5,11 +5,11 @@
 
 #include "gfx/d3d9_state.h"
 
-#include "base/logging.h"
 #include "base/display.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"

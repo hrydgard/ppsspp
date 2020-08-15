@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
-#include "base/logging.h"
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -213,7 +213,7 @@ void SavedataParam::Init()
 	if (handle >= 0) {
 		pspFileSystem.CloseFile(handle);
 	} else {
-		ELOG("Failed to create .nomedia file");
+		ERROR_LOG(IO, "Failed to create .nomedia file");
 	}
 #endif
 }

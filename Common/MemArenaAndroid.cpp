@@ -19,12 +19,6 @@
 
 #ifdef __ANDROID__
 
-#include "base/logging.h"
-#include "base/NativeApp.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-#include "StringUtils.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -32,6 +26,12 @@
 #include <sys/ioctl.h>
 #include <linux/ashmem.h>
 #include <dlfcn.h>
+
+#include "base/NativeApp.h"
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/StringUtils.h"
 
 // Hopefully this ABI will never change...
 
@@ -141,14 +141,14 @@ u8* MemArena::Find4GBBase() {
 	const uint64_t EIGHT_GIGS = 0x200000000ULL;
 	void *base = mmap(0, EIGHT_GIGS, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
 	if (base) {
-		ILOG("base: %p", base);
+		INFO_LOG(SYSTEM, "base: %p", base);
 		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
-		ILOG("aligned_base: %p", (void *)aligned_base);
+		INFO_LOG(SYSTEM, "aligned_base: %p", (void *)aligned_base);
 		munmap(base, EIGHT_GIGS);
 		return reinterpret_cast<u8 *>(aligned_base);
 	} else {
 		u8 *hardcoded_ptr = reinterpret_cast<u8*>(0x2300000000ULL);
-		ILOG("Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
+		INFO_LOG(SYSTEM, "Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
 		// Just grab some random 4GB...
 		// This has been known to fail lately though, see issue #12249.
 		return hardcoded_ptr;

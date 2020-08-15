@@ -28,14 +28,14 @@
 
 #include <memory.h>
 #include <set>
-#include "base/logging.h"
+
 #include "base/basictypes.h"
 #include "file/file_util.h"
 
-#include "Common.h"
-#include "CPUDetect.h"
-#include "FileUtil.h"
-#include "StringUtils.h"
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
+#include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 
 #if defined(_WIN32) && !defined(__MINGW32__)
 #define WIN32_LEAN_AND_MEAN

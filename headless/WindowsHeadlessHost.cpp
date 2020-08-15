@@ -33,7 +33,6 @@
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

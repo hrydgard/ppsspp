@@ -1231,7 +1231,7 @@ void EmuScreen::checkPowerDown() {
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
 		}
-		ILOG("SELF-POWERDOWN!");
+		INFO_LOG(SYSTEM, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
 		invalid_ = true;

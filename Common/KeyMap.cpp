@@ -24,14 +24,14 @@
 #include "CommonWindows.h"
 #endif
 
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
 #include "input/input_state.h"
 #include "ppsspp_config.h"
 
-#include "KeyMap.h"
+#include "Common/Log.h"
+#include "Common/KeyMap.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
 
@@ -898,10 +898,10 @@ void RestoreDefault() {
 	} else if (IsXperiaPlay(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
 	} else if (IsMOQII7S(name)) {
-		ILOG("MOQI pad map");
+		INFO_LOG(SYSTEM, "MOQI pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, true);
 	} else {
-		ILOG("Default pad map");
+		INFO_LOG(SYSTEM, "Default pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
 #else
@@ -992,7 +992,7 @@ void NotifyPadConnected(const std::string &name) {
 }
 
 void AutoConfForPad(const std::string &name) {
-	ILOG("Autoconfiguring pad for '%s'", name.c_str());
+	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
 	if (name == "Xbox 360 Pad") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_X360, true);
 	} else {

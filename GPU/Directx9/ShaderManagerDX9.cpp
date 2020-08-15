@@ -21,8 +21,8 @@
 
 #include <cmath>
 #include <map>
+
 #include "gfx/d3d9_shader.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"

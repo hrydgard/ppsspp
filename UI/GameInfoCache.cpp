@@ -634,7 +634,7 @@ handleELF:
 
 		info_->pending = false;
 		info_->working = false;
-		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
+		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
 	float priority() override {

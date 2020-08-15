@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-
 #include "ext/native/thin3d/thin3d.h"
 #include "ext/native/thin3d/VulkanRenderManager.h"
+
+#include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"

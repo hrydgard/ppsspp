@@ -25,10 +25,10 @@
 #include <limits>
 #include <emmintrin.h>
 
-#include "base/logging.h"
 #include "math/math_util.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"

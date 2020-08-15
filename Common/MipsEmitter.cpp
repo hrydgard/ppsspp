@@ -15,18 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-
-#include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "MemoryUtil.h"
-#include "MipsEmitter.h"
-#include "CPUDetect.h"
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MipsEmitter.h"
+#include "Common/CPUDetect.h"
 
 namespace MIPSGen {
 void MIPSEmitter::SetCodePtr(u8 *ptr) {

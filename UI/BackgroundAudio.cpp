@@ -1,12 +1,12 @@
 #include <string>
 #include <mutex>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/chunk_file.h"
 #include "file/vfs.h"
 #include "ui/root.h"
 
+#include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/FixedSizeQueue.h"
@@ -178,7 +178,7 @@ public:
 		if (wave_.codec == PSP_CODEC_AT3) {
 			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
 		}
-		ILOG("read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
+		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
 	~AT3PlusReader() {

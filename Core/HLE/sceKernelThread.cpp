@@ -21,8 +21,6 @@
 #include <mutex>
 #include <set>
 
-#include "base/logging.h"
-
 #include "Common/CommonTypes.h"
 #include "Common/LogManager.h"
 #include "Common/Serialize/Serializer.h"

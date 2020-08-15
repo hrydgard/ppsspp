@@ -17,9 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#include "base/logging.h"
-
-#include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -31,9 +28,10 @@
 #include <sys/mman.h>
 #endif
 
-#include "MemoryUtil.h"
-#include "ArmEmitter.h"
-#include "CPUDetect.h"
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+#include "Common/ArmEmitter.h"
+#include "Common/CPUDetect.h"
 
 #ifdef _WIN32
 #include "CommonWindows.h"
@@ -1780,7 +1778,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 
 	_assert_msg_(SrcSize == DestSize, "VMOV doesn't support moving different register sizes");
 	if (SrcSize != DestSize) {
-		ELOG("SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
+		ERROR_LOG(JIT, "SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
 	}
 
 	Dest = SubBase(Dest);

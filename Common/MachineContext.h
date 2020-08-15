@@ -14,7 +14,9 @@
 #include <windows.h>
 typedef CONTEXT SContext;
 
-#if PPSSPP_ARCH(AMD64)
+#if defined(__LIBRETRO__)
+
+#elif PPSSPP_ARCH(AMD64)
 
 #define MACHINE_CONTEXT_SUPPORTED
 

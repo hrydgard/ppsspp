@@ -26,10 +26,6 @@
 #include <sys/time.h>
 #endif
 
-// TODO: Move the relevant parts into common. Don't want the core
-// to be dependent on "native", I think. Or maybe should get rid of common
-// and move everything into native...
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "profiler/profiler.h"

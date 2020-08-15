@@ -34,10 +34,10 @@
 #undef free
 #endif
 
-#include "base/logging.h"
 #include "base/basictypes.h"
 #include "base/stringutil.h"
-#include "ShaderTranslation.h"
+#include "Common/Log.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "thin3d/thin3d.h"
 #include "gfx_es2/gpu_features.h"
@@ -211,7 +211,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	}
 
 	// DUMPLOG(src.c_str());
-	// ILOG("---->");
+	// INFO_LOG(SYSTEM, "---->");
 	// DUMPLOG(LineNumberString(out.str()).c_str());
 
 	*dest = out.str();

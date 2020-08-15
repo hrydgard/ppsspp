@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-#include "base/logging.h"
+#include "Common/Log.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -150,7 +150,7 @@ bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 		return ar[mr[mipsReg].reg].pointerified;
 	} else if (mr[mipsReg].loc == ML_ARMREG_IMM) {
 		if (ar[mr[mipsReg].reg].pointerified) {
-			ELOG("Really shouldn't be pointerified here");
+			ERROR_LOG(JIT, "Really shouldn't be pointerified here");
 		}
 	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 		return true;
@@ -164,7 +164,7 @@ void Arm64RegCache::MarkDirty(ARM64Reg reg) {
 
 void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 	if (reg == INVALID_REG) {
-		ELOG("SetRegImm to invalid register: at %08x", js_->compilerPC);
+		ERROR_LOG(JIT, "SetRegImm to invalid register: at %08x", js_->compilerPC);
 		return;
 	}
 	// On ARM64, at least Cortex A57, good old MOVT/MOVW  (MOVK in 64-bit) is really fast.
@@ -174,7 +174,7 @@ void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 
 void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	if (mr[mipsReg].isStatic) {
-		ELOG("Cannot MapRegTo static register %d", mipsReg);
+		ERROR_LOG(JIT, "Cannot MapRegTo static register %d", mipsReg);
 		return;
 	}
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
@@ -450,7 +450,7 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 			ar[a].pointerified = true;
 		}
 	} else {
-		ELOG("MapRegAsPointer : MapReg failed to allocate a register?");
+		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
 	}
 	return retval;
 }
@@ -506,7 +506,7 @@ void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs
 
 void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 	if (r == INVALID_REG) {
-		ELOG("FlushArmReg called on invalid register %d", r);
+		ERROR_LOG(JIT, "FlushArmReg called on invalid register %d", r);
 		return;
 	}
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
@@ -517,7 +517,7 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		return;
 	}
 	if (mr[ar[r].mipsReg].isStatic) {
-		ELOG("Cannot FlushArmReg a statically mapped register");
+		ERROR_LOG(JIT, "Cannot FlushArmReg a statically mapped register");
 		return;
 	}
 	auto &mreg = mr[ar[r].mipsReg];
@@ -629,7 +629,7 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 
 void Arm64RegCache::FlushR(MIPSGPReg r) {
 	if (mr[r].isStatic) {
-		ELOG("Cannot flush static reg %d", r);
+		ERROR_LOG(JIT, "Cannot flush static reg %d", r);
 		return;
 	}
 
@@ -753,7 +753,7 @@ void Arm64RegCache::FlushAll() {
 			} else if (mr[i].loc == ML_ARMREG_IMM) {
 				// The register already contains the immediate.
 				if (ar[armReg].pointerified) {
-					ELOG("ML_ARMREG_IMM but pointerified. Wrong.");
+					ERROR_LOG(JIT, "ML_ARMREG_IMM but pointerified. Wrong.");
 					ar[armReg].pointerified = false;
 				}
 				mr[i].loc = ML_ARMREG;
@@ -762,7 +762,7 @@ void Arm64RegCache::FlushAll() {
 				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
-				ELOG("ARM reg of static %i is invalid", i);
+				ERROR_LOG(JIT, "ARM reg of static %i is invalid", i);
 				continue;
 			}
 		} else {

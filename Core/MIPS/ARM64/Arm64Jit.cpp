@@ -18,8 +18,8 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-#include "base/logging.h"
 #include "profiler/profiler.h"
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/CPUDetect.h"
@@ -49,17 +49,17 @@ using namespace Arm64JitConstants;
 static void DisassembleArm64Print(const u8 *data, int size) {
 	std::vector<std::string> lines = DisassembleArm64(data, size);
 	for (auto s : lines) {
-		ILOG("%s", s.c_str());
+		INFO_LOG(JIT, "%s", s.c_str());
 	}
 	/*
-	ILOG("+++");
+	INFO_LOG(JIT, "+++");
 	// A format friendly to Online Disassembler which gets endianness wrong
 	for (size_t i = 0; i < lines.size(); i++) {
 		uint32_t opcode = ((const uint32_t *)data)[i];
-		ILOG("%d/%d: %08x", (int)(i+1), (int)lines.size(), swap32(opcode));
+		INFO_LOG(JIT, "%d/%d: %08x", (int)(i+1), (int)lines.size(), swap32(opcode));
 	}
-	ILOG("===");
-	ILOG("===");*/
+	INFO_LOG(JIT, "===");
+	INFO_LOG(JIT, "===");*/
 }
 
 static u32 JitBreakpoint() {
@@ -169,7 +169,7 @@ void Arm64Jit::FlushPrefixV() {
 }
 
 void Arm64Jit::ClearCache() {
-	ILOG("ARM64Jit: Clearing the cache!");
+	INFO_LOG(JIT, "ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace(jitStartOffset);
 	FlushIcacheSection(region + jitStartOffset, region + region_size - jitStartOffset);
@@ -361,16 +361,16 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== mips %d ===============", blocks.GetNumBlocks());
+		INFO_LOG(JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
-			ILOG("M: %08x   %s", cpc, temp);
+			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
+		INFO_LOG(JIT, "=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
 		DisassembleArm64Print(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
 	if (logBlocks > 0)

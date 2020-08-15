@@ -20,10 +20,10 @@
 #include <vector>
 #include <string>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
+#include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/Core.h"

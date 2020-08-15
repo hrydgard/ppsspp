@@ -20,7 +20,6 @@
 #include <unordered_map>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"

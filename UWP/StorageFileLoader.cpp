@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "ppltasks.h"
-#include "base/logging.h"
 #include "file/file_util.h"
 #include "thread/threadutil.h"
 #include "StorageFileLoader.h"
@@ -96,7 +95,7 @@ void StorageFileLoader::threadfunc() {
 				break;
 			}
 			default:
-				ELOG("Unknown operation");
+				ERROR_LOG(SYSTEM, "Unknown operation");
 				operationRequested_ = false;
 				break;
 			}

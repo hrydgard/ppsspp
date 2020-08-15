@@ -18,7 +18,6 @@
 #include <map>
 #include <d3d9.h>
 
-#include "base/logging.h"
 #include "thin3d/thin3d.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

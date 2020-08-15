@@ -19,7 +19,6 @@
 #include <d3d11.h>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"
 #include "Common/StringUtils.h"
