@@ -79,9 +79,6 @@
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\base\timeutil.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\thin3d\thin3d.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
@@ -503,9 +500,6 @@
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\base\stringutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\timeutil.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h">

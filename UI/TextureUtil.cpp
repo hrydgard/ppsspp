@@ -1,7 +1,6 @@
 #include <algorithm>
 
 #include "base/colorutil.h"
-#include "base/timeutil.h"
 #include "thin3d/thin3d.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
@@ -12,7 +11,9 @@
 #include "ui/view.h"
 #include "ui/ui_context.h"
 #include "gfx_es2/draw_buffer.h"
+
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "UI/TextureUtil.h"
 #include "UI/GameInfoCache.h"
 

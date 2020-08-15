@@ -1,5 +1,4 @@
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "ui/root.h"
 #include "ui/screen.h"
@@ -7,6 +6,7 @@
 #include "ui/view.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 
 ScreenManager::ScreenManager() {
 	uiContext_ = 0;

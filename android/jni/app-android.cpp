@@ -53,7 +53,6 @@ struct JNIEnv {};
 #include "base/stringutil.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "base/timeutil.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
@@ -68,6 +67,7 @@ struct JNIEnv {};
 
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
 #include "AndroidEGLContext.h"

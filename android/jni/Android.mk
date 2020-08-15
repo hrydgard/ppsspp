@@ -220,6 +220,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/ThreadPools.cpp \
   $(SRC)/Common/Timer.cpp \
+  $(SRC)/Common/TimeUtil.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \

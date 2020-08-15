@@ -10,7 +10,6 @@ LOCAL_SRC_FILES :=\
     base/backtrace.cpp \
     base/buffer.cpp \
     base/display.cpp \
-    base/timeutil.cpp \
     base/colorutil.cpp \
     base/stringutil.cpp \
     data/base64.cpp \

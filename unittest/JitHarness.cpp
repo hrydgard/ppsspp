@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
-#include "base/timeutil.h"
 #include "base/NativeApp.h"
+#include "Common/TimeUtil.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"

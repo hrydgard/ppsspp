@@ -23,7 +23,7 @@ QTM_USE_NAMESPACE
 #include <thread>
 
 #include "base/display.h"
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "file/zip_read.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

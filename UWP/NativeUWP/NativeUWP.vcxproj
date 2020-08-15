@@ -389,7 +389,6 @@
     <ClInclude Include="..\..\ext\native\base\NKCodeFromQt.h" />
     <ClInclude Include="..\..\ext\native\base\NKCodeFromSDL.h" />
     <ClInclude Include="..\..\ext\native\base\stringutil.h" />
-    <ClInclude Include="..\..\ext\native\base\timeutil.h" />
     <ClInclude Include="..\..\ext\native\data\base64.h" />
     <ClInclude Include="..\..\ext\native\data\compression.h" />
     <ClInclude Include="..\..\ext\native\data\listable.h" />
@@ -479,7 +478,6 @@
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp" />
-    <ClCompile Include="..\..\ext\native\base\timeutil.cpp" />
     <ClCompile Include="..\..\ext\native\data\base64.cpp" />
     <ClCompile Include="..\..\ext\native\data\compression.cpp" />
     <ClCompile Include="..\..\ext\native\ext\cityhash\city.cpp" />

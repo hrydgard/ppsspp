@@ -5,14 +5,7 @@
 #include <mutex>
 
 #include "base/basictypes.h"
-#include "Common/FileUtil.h"
-#include "Common/Log.h"
-#include "Common/LogManager.h"
-#include "Core/System.h"
-#include "Core/Loaders.h"
-#include "Core/Config.h"
 #include "base/NativeApp.h"
-#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -23,7 +16,17 @@
 #include "thread/threadutil.h"
 #include "thin3d/thin3d_create.h"
 #include "util/text/utf8.h"
+
 #include "Common/DirectXHelper.h"
+#include "Common/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/LogManager.h"
+#include "Common/TimeUtil.h"
+
+#include "Core/System.h"
+#include "Core/Loaders.h"
+#include "Core/Config.h"
+
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"

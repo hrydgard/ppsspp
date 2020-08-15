@@ -3,11 +3,11 @@
 
 #include "ppsspp_config.h"
 
-#include "base/timeutil.h"
 #include "ui/root.h"
 #include "ui/viewgroup.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 
 namespace UI {
 

@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ppsspp_config.h"
 #include "profiler/profiler.h"

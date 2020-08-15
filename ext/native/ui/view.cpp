@@ -2,7 +2,6 @@
 #include <mutex>
 
 #include "base/stringutil.h"
-#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
@@ -15,6 +14,8 @@
 #include "ui/root.h"
 #include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
+
+#include "Common/TimeUtil.h"
 
 namespace UI {
 

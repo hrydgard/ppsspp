@@ -1,11 +1,12 @@
 #include "UI/OnScreenDisplay.h"
 
 #include "base/colorutil.h"
-#include "base/timeutil.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 
 #include "ui/ui_context.h"
+
+#include "Common/TimeUtil.h"
 
 OnScreenMessages osm;
 

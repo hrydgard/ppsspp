@@ -21,11 +21,11 @@
 #include <cstdint>
 
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "thin3d/thin3d.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"

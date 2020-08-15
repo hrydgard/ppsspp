@@ -1,9 +1,9 @@
+#include <algorithm>
 #include <functional>
 #include <set>
 #include <mutex>
 
 #include "base/stringutil.h"
-#include "base/timeutil.h"
 #include "input/keycodes.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
@@ -14,8 +14,7 @@
 #include "gfx_es2/draw_buffer.h"
 
 #include "Common/Log.h"
-
-#include <algorithm>
+#include "Common/TimeUtil.h"
 
 namespace UI {
 

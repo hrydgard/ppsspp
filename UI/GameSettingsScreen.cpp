@@ -21,7 +21,7 @@
 
 #include "base/colorutil.h"
 #include "base/stringutil.h"
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "math/curves.h"
 #include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"

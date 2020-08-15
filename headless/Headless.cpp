@@ -9,10 +9,13 @@
 #include <jni.h>
 #endif
 
+#include "base/NativeApp.h"
 #include "file/zip_read.h"
 #include "profiler/profiler.h"
+
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -24,8 +27,6 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"

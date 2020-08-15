@@ -22,7 +22,6 @@
 
 #include "base/colorutil.h"
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
 #include "i18n/i18n.h"
@@ -32,6 +31,17 @@
 #include "ui/ui.h"
 #include "util/random/rng.h"
 #include "file/vfs.h"
+
+#include "Common/TimeUtil.h"
+#include "Common/FileUtil.h"
+#include "Core/Config.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/HLE/sceUtility.h"
+#include "GPU/GPUState.h"
+#include "GPU/Common/PostShader.h"
+
 #include "UI/ControlMappingScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/EmuScreen.h"
@@ -39,14 +49,6 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/System.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/HLE/sceUtility.h"
-#include "Common/FileUtil.h"
-#include "GPU/GPUState.h"
-#include "GPU/Common/PostShader.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")

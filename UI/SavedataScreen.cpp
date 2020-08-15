@@ -20,7 +20,6 @@
 
 #include "base/colorutil.h"
 #include "base/stringutil.h"
-#include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
@@ -35,6 +34,7 @@
 #include "UI/PauseScreen.h"
 
 #include "Common/FileUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
