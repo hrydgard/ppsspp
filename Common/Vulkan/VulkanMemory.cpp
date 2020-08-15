@@ -18,10 +18,10 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
-#include "base/timeutil.h"
 #include "math/math_util.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/Vulkan/VulkanMemory.h"
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask)

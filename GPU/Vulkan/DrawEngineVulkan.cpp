@@ -17,13 +17,13 @@
 
 #include <cassert>
 
-#include "base/timeutil.h"
 #include "math/dataconv.h"
 #include "profiler/profiler.h"
 #include "thin3d/VulkanRenderManager.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"

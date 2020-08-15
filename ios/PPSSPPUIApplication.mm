@@ -13,7 +13,7 @@
 #import <GLKit/GLKit.h>
 
 #include "base/display.h"
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "net/resolve.h"

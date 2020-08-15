@@ -20,7 +20,7 @@
 #include <algorithm>
 
 #include "thread/threadutil.h"
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 
 // Takes ownership of backend.

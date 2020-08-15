@@ -423,6 +423,7 @@
     <ClInclude Include="..\..\Common\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />
     <ClInclude Include="..\..\Common\Timer.h" />
+    <ClInclude Include="..\..\Common\TimeUtil.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
     <ClInclude Include="pch.h" />
@@ -460,6 +461,7 @@
     <ClCompile Include="..\..\Common\ThreadPools.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
     <ClCompile Include="..\..\Common\Timer.cpp" />
+    <ClCompile Include="..\..\Common\TimeUtil.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
     <ClCompile Include="pch.cpp">

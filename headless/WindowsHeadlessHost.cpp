@@ -19,9 +19,15 @@
 
 #include "headless/WindowsHeadlessHost.h"
 
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
+
+#include "Common/CommonWindows.h"
 #include "Common/Log.h"
 #include "Common/FileUtil.h"
-#include "Common/CommonWindows.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
@@ -33,12 +39,6 @@
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
-
-#include "base/timeutil.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;

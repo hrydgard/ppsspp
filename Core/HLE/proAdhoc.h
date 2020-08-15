@@ -41,7 +41,6 @@
 #include <thread>
 #include <mutex>
 
-#include "base/timeutil.h"
 #include "net/resolve.h"
 #include "Common/Serialize/Serializer.h"
 

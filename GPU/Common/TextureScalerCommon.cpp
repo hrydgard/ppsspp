@@ -47,7 +47,7 @@
 //#define DEBUG_SCALER_OUTPUT
 
 #ifdef SCALING_MEASURE_TIME
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #endif
 
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)

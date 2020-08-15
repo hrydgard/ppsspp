@@ -17,10 +17,9 @@
 
 #include <algorithm>
 
-#include "base/timeutil.h"
-
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"

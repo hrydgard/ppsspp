@@ -2,7 +2,6 @@
 #include <atomic>
 #include <thread>
 
-#include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
@@ -11,6 +10,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"

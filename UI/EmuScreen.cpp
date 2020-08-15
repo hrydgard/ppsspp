@@ -20,7 +20,6 @@
 #include <algorithm>
 
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "profiler/profiler.h"
 
 #include "gfx/texture_atlas.h"
@@ -38,6 +37,7 @@
 
 #include "Common/KeyMap.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 
 #ifndef MOBILE_DEVICE
 #include "Core/AVIDump.h"

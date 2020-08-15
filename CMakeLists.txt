@@ -460,6 +460,8 @@ add_library(Common STATIC
 	Common/ThreadSafeList.h
 	Common/Timer.cpp
 	Common/Timer.h
+	Common/TimeUtil.cpp
+	Common/TimeUtil.h
 )
 
 add_subdirectory(ext)
@@ -935,8 +937,6 @@ add_library(native STATIC
 	ext/native/base/linked_ptr.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
-	ext/native/base/timeutil.cpp
-	ext/native/base/timeutil.h
 	ext/native/data/base64.cpp
 	ext/native/data/base64.h
 	ext/native/data/compression.cpp

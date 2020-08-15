@@ -16,19 +16,21 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
+#include "base/colorutil.h"
+#include "base/display.h"
+#include "base/NativeApp.h"
+#include "gfx/texture_atlas.h"
+#include "math/math_util.h"
+#include "ui/ui_context.h"
+
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "UI/GamepadEmu.h"
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
-#include "gfx/texture_atlas.h"
-#include "math/math_util.h"
-#include "ui/ui_context.h"
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;

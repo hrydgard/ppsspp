@@ -20,8 +20,8 @@
 #include <cstring>
 #include <cstdlib>
 
-#include "base/timeutil.h"
 #include "thread/threadutil.h"
+#include "Common/TimeUtil.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
 
 #include "Common/Log.h"

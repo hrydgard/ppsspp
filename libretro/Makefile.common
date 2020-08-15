@@ -153,6 +153,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/MsgHandler.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/Timer.cpp \
+	$(COMMONDIR)/TimeUtil.cpp \
 	$(COMMONDIR)/ThreadPools.cpp
 
 
@@ -216,7 +217,6 @@ SOURCES_CXX += \
 	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
 	$(EXTDIR)/native/base/stringutil.cpp \
-	$(EXTDIR)/native/base/timeutil.cpp \
 	$(EXTDIR)/native/data/compression.cpp \
 	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \

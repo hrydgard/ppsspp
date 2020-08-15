@@ -21,7 +21,6 @@
 #include "ppsspp_config.h"
 #include "base/colorutil.h"
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "file/path.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
@@ -34,6 +33,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/FileUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

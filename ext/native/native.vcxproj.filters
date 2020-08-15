@@ -80,9 +80,6 @@
     <ClInclude Include="math\math_util.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="base\timeutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="input\gesture_detector.h">
       <Filter>input</Filter>
     </ClInclude>
@@ -396,9 +393,6 @@
     </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="base\timeutil.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="input\gesture_detector.cpp">
       <Filter>input</Filter>

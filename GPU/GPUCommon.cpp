@@ -2,7 +2,6 @@
 #include <type_traits>
 #include <mutex>
 
-#include "base/timeutil.h"
 #include "profiler/profiler.h"
 
 #include "Common/ColorConv.h"
@@ -10,6 +9,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
+#include "Common/TimeUtil.h"
 #include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"

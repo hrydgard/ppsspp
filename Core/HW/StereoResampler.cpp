@@ -35,11 +35,11 @@
 #include <cstring>
 #include <atomic>
 
-#include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "Common/Serialize/Serializer.h"
 #include "Common/MathUtil.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"

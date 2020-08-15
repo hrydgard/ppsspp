@@ -22,7 +22,7 @@ SDLJoystick *joystick = NULL;
 #include <locale>
 
 #include "base/display.h"
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
 #include "input/input_state.h"

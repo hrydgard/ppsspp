@@ -21,9 +21,9 @@
 #include <unordered_set>
 #include <mutex>
 
-#include "base/timeutil.h"
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"

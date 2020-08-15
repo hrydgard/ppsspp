@@ -22,23 +22,22 @@
 #include <cassert>
 
 #include "headless/SDLHeadlessHost.h"
-
-#include "Common/FileUtil.h"
-#include "Common/GraphicsContext.h"
-
-#include "Core/CoreParameter.h"
-#include "Core/ConfigValues.h"
-#include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/GPUState.h"
-
-#include "base/timeutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
+
+#include "Common/FileUtil.h"
+#include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
+
+#include "Core/CoreParameter.h"
+#include "Core/ConfigValues.h"
+#include "Core/System.h"
+#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUState.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
