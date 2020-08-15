@@ -16,7 +16,6 @@
 #include <string>
 #include <vector>
 
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "file/ini_file.h"
 #include "file/vfs.h"

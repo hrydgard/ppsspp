@@ -1,5 +1,4 @@
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
@@ -9,7 +8,8 @@
 #include "gfx_es2/draw_text_android.h"
 
 #include "android/jni/app-android.h"
-#include <assert.h>
+
+#include "Common/Log.h"
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
@@ -24,10 +24,10 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
 		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
 	} else {
-		ELOG("Failed to find class: '%s'", textRendererClassName);
+		ERROR_LOG(G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
 	dpiScale_ = CalculateDPIScale();
-	ILOG("Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
+	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -68,7 +68,7 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ELOG("Invalid font handle %08x", fontHandle);
+		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 
@@ -88,7 +88,7 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 		if (iter != fontMap_.end()) {
 			scaledSize = iter->second.size;
 		} else {
-			ELOG("Missing font");
+			ERROR_LOG(G3D, "Missing font");
 		}
 		std::string text(NormalizeString(std::string(str, len)));
 		auto env = getEnv();
@@ -112,7 +112,7 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 	if (iter != fontMap_.end()) {
 		scaledSize = iter->second.size;
 	} else {
-		ELOG("Missing font");
+		ERROR_LOG(G3D, "Missing font");
 	}
 
 	std::string toMeasure = std::string(str, len);
@@ -168,7 +168,7 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	if (iter != fontMap_.end()) {
 		size = iter->second.size;
 	} else {
-		ELOG("Missing font");
+		ERROR_LOG(G3D, "Missing font");
 	}
 
 	auto env = getEnv();
@@ -213,7 +213,7 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 			}
 		}
 	} else {
-		ELOG("Bad TextDrawer format");
+		ERROR_LOG(G3D, "Bad TextDrawer format");
 		assert(false);
 	}
 	env->ReleaseIntArrayElements(imageData, jimage, 0);
@@ -285,7 +285,7 @@ void TextDrawerAndroid::OncePerFrame() {
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
 		// TODO: Don't bother if it's a no-op (cache already empty)
-		ILOG("DPI Scale changed (%f to %f) - wiping font cache (%d items, %d fonts)", dpiScale_, newDpiScale, (int)cache_.size(), (int)fontMap_.size());
+		INFO_LOG(G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items, %d fonts)", dpiScale_, newDpiScale, (int)cache_.size(), (int)fontMap_.size());
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		fontMap_.clear();  // size is precomputed using dpiScale_.

@@ -1,4 +1,3 @@
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "file/ini_file.h"
@@ -32,7 +31,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 
 	auto iter = map_.find(modifiedKey);
 	if (iter != map_.end()) {
-//		ILOG("translation key found in %s: %s", name_.c_str(), key);
+//		INFO_LOG(SYSTEM, "translation key found in %s: %s", name_.c_str(), key);
 		return iter->second.text.c_str();
 	} else {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
@@ -40,7 +39,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 			missedKeyLog_[key] = def;
 		else
 			missedKeyLog_[key] = modifiedKey.c_str();
-//		ILOG("Missed translation key in %s: %s", name_.c_str(), key);
+//		INFO_LOG(SYSTEM, "Missed translation key in %s: %s", name_.c_str(), key);
 		return def ? def : key;
 	}
 }
@@ -50,7 +49,7 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 		if (map_.find(iter->first) == map_.end()) {
 			std::string text = ReplaceAll(iter->second, "\\n", "\n");
 			map_[iter->first] = I18NEntry(text);
-//			ILOG("Language entry: %s -> %s", iter->first.c_str(), text.c_str());
+//			INFO_LOG(SYSTEM, "Language entry: %s -> %s", iter->first.c_str(), text.c_str());
 		}
 	}
 }
@@ -84,7 +83,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 	IniFile ini;
 	std::string iniPath;
 
-//	ILOG("Loading lang ini %s", iniPath.c_str());
+//	INFO_LOG(SYSTEM, "Loading lang ini %s", iniPath.c_str());
 	if (!overridePath.empty()) {
 		iniPath = overridePath + languageID + ".ini";
 	} else {

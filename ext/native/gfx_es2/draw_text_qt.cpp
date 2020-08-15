@@ -1,6 +1,4 @@
-#include <cassert>
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
@@ -8,6 +6,8 @@
 #include "util/text/utf8.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_qt.h"
+
+#include "Common/Log.h"
 
 #if defined(USING_QT_UI)
 
@@ -47,7 +47,7 @@ void TextDrawerQt::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ELOG("Invalid font handle %08x", fontHandle);
+		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 
@@ -134,8 +134,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 			}
 		}
 	} else {
-		ELOG("Bad TextDrawer format");
-		assert(false);
+		_assert_msg_("Bad TextDrawer format");
 	}
 }
 

@@ -11,7 +11,7 @@
 
 #include <zlib.h>
 
-#include "base/logging.h"
+#include "Common/Log.h"
 
 /** Compress a STL string using zlib with given compression level and return
 * the binary data. */
@@ -20,7 +20,7 @@ bool compress_string(const std::string& str, std::string *dest, int compressionl
 	memset(&zs, 0, sizeof(zs));
 
 	if (deflateInit(&zs, compressionlevel) != Z_OK) {
-		ELOG("deflateInit failed while compressing.");
+		ERROR_LOG(IO, "deflateInit failed while compressing.");
 		return false;
 	}
 
@@ -67,7 +67,7 @@ bool decompress_string(const std::string& str, std::string *dest) {
 
 	// modification by hrydgard: inflateInit2, 16+MAXWBITS makes it read gzip data too
 	if (inflateInit2(&zs, 32+MAX_WBITS) != Z_OK) {
-		ELOG("inflateInit failed while decompressing.");
+		ERROR_LOG(IO, "inflateInit failed while decompressing.");
 		return false;
 	}
 
@@ -96,7 +96,7 @@ bool decompress_string(const std::string& str, std::string *dest) {
 
 	if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
 		std::ostringstream oss;
-		ELOG("Exception during zlib decompression: (%i) %s", ret, zs.msg);
+		ERROR_LOG(IO, "Exception during zlib decompression: (%i) %s", ret, zs.msg);
 		return false;
 	}
 

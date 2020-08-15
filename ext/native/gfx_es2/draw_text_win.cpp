@@ -1,6 +1,4 @@
-#include <cassert>
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
@@ -8,6 +6,8 @@
 #include "util/text/utf8.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
+
+#include "Common/Log.h"
 
 #if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
 
@@ -286,8 +286,7 @@ void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 			}
 		}
 	} else {
-		ELOG("Bad TextDrawer format");
-		assert(false);
+		_assert_msg_(false, "Bad TextDrawer format");
 	}
 }
 

@@ -1,4 +1,3 @@
-#include "base/logging.h"
 #include "file/chunk_file.h"
 #include "file/zip_read.h"
 #include "file/file_util.h"

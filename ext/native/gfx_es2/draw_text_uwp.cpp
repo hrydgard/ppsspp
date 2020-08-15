@@ -1,6 +1,4 @@
-#include <cassert>
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
@@ -425,8 +423,7 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 			}
 		}
 	} else {
-		ELOG("Bad TextDrawer format");
-		assert(false);
+		_assert_msg_(false, "Bad TextDrawer format");
 	}
 
 	ctx_->mirror_bmp->Unmap();
