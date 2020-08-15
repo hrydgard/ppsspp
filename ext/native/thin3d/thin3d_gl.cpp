@@ -791,30 +791,30 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(G3D, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(G3D, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(G3D, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
 	default:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
+		ERROR_LOG(G3D, "glReadPixels: %08x", error);
 		break;
 	}
 }

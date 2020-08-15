@@ -380,15 +380,11 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(SYSTEM, "Unable to open texture file for writing.");
+		ERROR_LOG(IO, "Unable to open texture file for writing.");
 		return false;
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		if (fclose(fp) != 0) {
-			ERROR_LOG(SYSTEM, "Texture file write failed.");
-			return false;
-		}
 		return true;
 	} else {
 		ERROR_LOG(SYSTEM, "Texture PNG encode failed.");

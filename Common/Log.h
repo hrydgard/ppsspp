@@ -38,7 +38,7 @@
 namespace LogTypes {
 
 enum LOG_TYPE {
-	SYSTEM = 0,
+	SYSTEM = 0,  // Catch-all for uncategorized things
 	BOOT,
 	COMMON,
 	CPU,
@@ -52,6 +52,8 @@ enum LOG_TYPE {
 	SASMIX,
 	SAVESTATE,
 	FRAMEBUF,
+	AUDIO,
+	IO,
 
 	SCEAUDIO,
 	SCECTRL,

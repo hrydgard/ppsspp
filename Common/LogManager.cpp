@@ -93,7 +93,9 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::MEMMAP,     "MEMMAP"},
 	{LogTypes::SASMIX,     "SASMIX"},
 	{LogTypes::SAVESTATE,  "SAVESTATE"},
-	{LogTypes::FRAMEBUF,   "FRAMEBUF"},
+	{LogTypes::FRAMEBUF,  "FRAMEBUF"},
+	{LogTypes::AUDIO,      "AUDIO"},
+	{LogTypes::IO,         "IO"},
 
 	{LogTypes::SCEAUDIO,   "SCEAUDIO"},
 	{LogTypes::SCECTRL,    "SCECTRL"},
@@ -113,9 +115,7 @@ static const LogNameTableEntry logTable[] = {
 
 LogManager::LogManager() {
 	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
-		if (i != logTable[i].logType) {
-			FLOG("Bad logtable at %i", (int)i);
-		}
+		_assert_msg_(i == logTable[i].logType, "Bad logtable at %i", (int)i);
 		truncate_cpy(log_[logTable[i].logType].m_shortName, logTable[i].name);
 		log_[logTable[i].logType].enabled = true;
 #if defined(_DEBUG)
