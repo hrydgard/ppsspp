@@ -1,10 +1,7 @@
 #include <algorithm>
-#include "Common/MemoryUtil.h"
-#include "Core/Reporting.h"
-#include "GLQueueRunner.h"
-#include "GLRenderManager.h"
-#include "DataFormatGL.h"
-#include "base/logging.h"
+
+#include "base/logging.h" // For OutputDebugStringUTF8
+
 #include "base/stringutil.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
@@ -12,6 +9,14 @@
 #include "thin3d/DataFormatGL.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"
+
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+
+#include "Core/Reporting.h"
+#include "GLQueueRunner.h"
+#include "GLRenderManager.h"
+#include "DataFormatGL.h"
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
@@ -223,7 +228,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				if (!anyFailed)
 					Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc.c_str(), fsCode, vsDesc.c_str(), vsCode);
 
-				ELOG("Could not link program:\n %s", infoLog.c_str());
+				ERROR_LOG(G3D, "Could not link program:\n %s", infoLog.c_str());
 				ERROR_LOG(G3D, "VS desc:\n%s", vsDesc.c_str());
 				ERROR_LOG(G3D, "FS desc:\n%s", fsDesc.c_str());
 				ERROR_LOG(G3D, "VS:\n%s\n", vsCode);
@@ -277,8 +282,8 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			if (!success) {
 				std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
 #ifdef __ANDROID__
-				ELOG("Error in shader compilation! %s\n", infoLog.c_str());
-				ELOG("Shader source:\n%s\n", (const char *)code);
+				ERROR_LOG(G3D, "Error in shader compilation! %s\n", infoLog.c_str());
+				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 #endif
 				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.shader->desc.c_str());
 				ERROR_LOG(G3D, "Info log: %s", infoLog.c_str());
@@ -547,10 +552,10 @@ retry_depth:
 		// ILOG("Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED:
-		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
+		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
 	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
 		break;
 	default:
 		FLOG("Other framebuffer error: %i", status);
@@ -1566,10 +1571,10 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 		// ILOG("Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
+		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
 	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
-		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
+		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
 		break;
 	default:
 		FLOG("Other framebuffer error: %i", status);

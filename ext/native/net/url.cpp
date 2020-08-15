@@ -1,6 +1,7 @@
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "net/url.h"
+
+#include "Common/Log.h"
 
 const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
 const char *UrlEncoder::hexChars = "0123456789ABCDEF";
@@ -10,7 +11,7 @@ int MultipartFormDataEncoder::seq = 0;
 void Url::Split() {
 	size_t colonSlashSlash = url_.find("://");
 	if (colonSlashSlash == std::string::npos) {
-		ELOG("Invalid URL: %s", url_.c_str());
+		ERROR_LOG(IO, "Invalid URL: %s", url_.c_str());
 		return;
 	}
 

@@ -37,7 +37,7 @@ void OutputDebugStringUTF8(const char *p) {
 #else
 
 void OutputDebugStringUTF8(const char *p) {
-	ILOG("%s", p);
+	INFO_LOG(SYSTEM, "%s", p);
 }
 
 #endif

@@ -34,12 +34,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "base/logging.h"
 #include "base/buffer.h"
 #include "file/fd_util.h"
 #include "net/http_server.h"
 #include "net/sinks.h"
 #include "thread/executor.h"
+
+#include "Common/Log.h"
 
 namespace http {
 
@@ -53,7 +54,7 @@ Request::Request(int fd)
 	header_.ParseHeaders(in_);
 
 	if (header_.ok) {
-		ILOG("The request carried with it %i bytes", (int)header_.content_length);
+		INFO_LOG(IO, "The request carried with it %i bytes", (int)header_.content_length);
 	} else {
 	    Close();
 	}
@@ -62,10 +63,10 @@ Request::Request(int fd)
 Request::~Request() {
 	Close();
 
-	CHECK(in_->Empty());
+	_assert_(in_->Empty());
 	delete in_;
 	if (!out_->Empty()) {
-		ELOG("Output not empty - connection abort?");
+		ERROR_LOG(IO, "Output not empty - connection abort?");
 	}
 	delete out_;
 }
@@ -108,12 +109,12 @@ void Request::WriteHttpResponseHeader(const char *ver, int status, int64_t size,
 }
 
 void Request::WritePartial() const {
-  CHECK(fd_);
+  _assert_(fd_);
   out_->Flush();
 }
 
 void Request::Write() {
-  CHECK(fd_);
+  _assert_(fd_);
   WritePartial();
   Close();
 }
@@ -171,7 +172,7 @@ bool Server::Listen4(int port) {
 
 	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		closesocket(listener_);
-		ELOG("Failed to bind to port %i. Bailing.", port);
+		ERROR_LOG(IO, "Failed to bind to port %d. Bailing.", port);
 		return false;
 	}
 
@@ -188,7 +189,7 @@ bool Server::Listen4(int port) {
 		port = ntohs(server_addr.sin_port);
 	}
 
-	ILOG("HTTP server started on port %i", port);
+	INFO_LOG(IO, "HTTP server started on port %d", port);
 	port_ = port;
 
 	return true;
@@ -216,7 +217,7 @@ bool Server::Listen6(int port, bool ipv6_only) {
 
 	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		closesocket(listener_);
-		ELOG("Failed to bind to port %i. Bailing.", port);
+		ERROR_LOG(IO, "Failed to bind to port %d. Bailing.", port);
 		return false;
 	}
 
@@ -233,7 +234,7 @@ bool Server::Listen6(int port, bool ipv6_only) {
 		port = ntohs(server_addr.sin6_port);
 	}
 
-	ILOG("HTTP server started on port %i", port);
+	INFO_LOG(IO, "HTTP server started on port %d", port);
 	port_ = port;
 
 	return true;
@@ -268,7 +269,7 @@ bool Server::RunSlice(double timeout) {
 		return true;
 	}
 	else {
-		ELOG("socket accept failed: %i", conn_fd);
+		ERROR_LOG(IO, "socket accept failed: %i", conn_fd);
 		return false;
 	}
 }
@@ -293,7 +294,7 @@ void Server::Stop() {
 void Server::HandleConnection(int conn_fd) {
   Request request(conn_fd);
   if (!request.IsOK()) {
-    WLOG("Bad request, ignoring.");
+    WARN_LOG(IO, "Bad request, ignoring.");
     return;
   }
   HandleRequest(request);
@@ -321,7 +322,7 @@ void Server::HandleRequestDefault(const Request &request) {
 }
 
 void Server::Handle404(const Request &request) {
-	ILOG("No handler for '%s', falling back to 404.", request.resource());
+	INFO_LOG(IO, "No handler for '%s', falling back to 404.", request.resource());
 	const char *payload = "<html><body>404 not found</body></html>\r\n";
 	request.WriteHttpResponseHeader("1.0", 404, (int)strlen(payload));
 	request.Out()->Push(payload);

@@ -6,8 +6,9 @@
 #include <stdlib.h>
 #include <stdexcept>
 
-#include "base/logging.h"
 #include "thin3d/d3dx9_loader.h"
+
+#include "Common/Log.h"
 
 // TODO: See if we can use the bundled D3Dcompiler_47.dll to compiler for DX9 as well.
 
@@ -114,7 +115,7 @@ HMODULE loadDllLastVersion(unsigned int* version, bool debugVersion) {
   }
 
 void handleNotFoundAddr(const char* sFuncName) {
-	ELOG("Failed to find D3DX function %s", sFuncName);
+	ERROR_LOG(G3D, "Failed to find D3DX function %s", sFuncName);
 	failedFunctions++;
 }
 
@@ -126,7 +127,7 @@ int LoadD3DX9Dynamic(bool debugVersion) {
 
 	hm_d3dx = loadDllLastVersion(&d3dx_version, debugVersion);
 	if (!hm_d3dx) {
-		ELOG("Failed to find D3DX dll.");
+		ERROR_LOG(G3D, "Failed to find D3DX dll.");
 		return 0;
 	}
 	const int NERROR = -1;
@@ -137,7 +138,7 @@ int LoadD3DX9Dynamic(bool debugVersion) {
 	__HANDLE_DLL_ENTRY(D3DXCompileShader);
 
 	if (failedFunctions > 0) {
-		ELOG("Failed to load %i D3DX functions. This will not go well.", failedFunctions);
+		ERROR_LOG(G3D, "Failed to load %i D3DX functions. This will not go well.", failedFunctions);
 	}
 
 	return failedFunctions > 0 ? 0 : d3dx_version;

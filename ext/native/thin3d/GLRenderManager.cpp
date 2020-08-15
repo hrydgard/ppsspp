@@ -4,11 +4,12 @@
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d.h"
 #include "thread/threadutil.h"
-#include "base/logging.h"
+
+#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 
 #if 0 // def _DEBUG
-#define VLOG ILOG
+#define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif

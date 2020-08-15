@@ -15,7 +15,7 @@ JsonReader::JsonReader(const std::string &filename) {
 		if (buffer_) {
 			parse();
 		} else {
-			ELOG("Failed to read json %s", filename.c_str());
+			ERROR_LOG(IO, "Failed to read json file '%s'", filename.c_str());
 		}
 	}
 }
@@ -33,7 +33,7 @@ int JsonGet::numChildren() const {
 
 const JsonNode *JsonGet::get(const char *child_name) const {
 	if (!child_name) {
-		FLOG("JSON: Cannot get from null child name");
+		ERROR_LOG(IO, "JSON: Cannot get from null child name");
 		return nullptr;
 	}
 	if (value_.getTag() != JSON_OBJECT) {
@@ -58,7 +58,7 @@ const char *JsonGet::getStringOrDie(const char *child_name) const {
 	const JsonNode *val = get(child_name, JSON_STRING);
 	if (val)
 		return val->value.toString();
-	FLOG("String '%s' missing from node", child_name);
+	ERROR_LOG(IO, "String '%s' missing from node", child_name);
 	return nullptr;
 }
 

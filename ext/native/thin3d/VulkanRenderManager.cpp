@@ -4,14 +4,13 @@
 #include <sstream>
 
 #include "Common/Log.h"
-#include "base/logging.h"
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
 #if 0 // def _DEBUG
-#define VLOG ILOG
+#define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -162,7 +161,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
 	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
 	if (res != VK_SUCCESS) {
-		ELOG("vkGetSwapchainImagesKHR failed");
+		ERROR_LOG(G3D, "vkGetSwapchainImagesKHR failed");
 		delete[] swapchainImages;
 		return;
 	}
@@ -210,7 +209,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	}
 
 	if (newInflightFrames_ != -1) {
-		ILOG("Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(G3D, "Updating inflight frames to %d", newInflightFrames_);
 		vulkan_->UpdateInflightFrames(newInflightFrames_);
 		newInflightFrames_ = -1;
 	}
@@ -222,7 +221,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
-		ILOG("Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
+		INFO_LOG(G3D, "Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
@@ -245,7 +244,7 @@ void VulkanRenderManager::StopThread() {
 			frameData.profile.timestampDescriptions.clear();
 		}
 		thread_.join();
-		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+		INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
 		// Eat whatever has been queued up for this frame if anything.
 		Wipe();
@@ -275,7 +274,7 @@ void VulkanRenderManager::StopThread() {
 			}
 		}
 	} else {
-		ILOG("Vulkan submission thread was already stopped.");
+		INFO_LOG(G3D, "Vulkan submission thread was already stopped.");
 	}
 }
 
@@ -300,7 +299,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
-	ILOG("VulkanRenderManager destructor");
+	INFO_LOG(G3D, "VulkanRenderManager destructor");
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
@@ -352,7 +351,7 @@ void VulkanRenderManager::ThreadFunc() {
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
 		if (firstFrame) {
-			ILOG("Running first frame (%d)", threadFrame);
+			INFO_LOG(G3D, "Running first frame (%d)", threadFrame);
 			firstFrame = false;
 		}
 		Run(threadFrame);
@@ -428,7 +427,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 	if (!run_) {
-		WLOG("BeginFrame while !run_!");
+		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 	vulkan_->BeginFrame();
 
@@ -614,7 +613,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 		} else {
 			// Backbuffer.
 			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
-				ELOG("Copying from backbuffer not supported, can't take screenshots");
+				ERROR_LOG(G3D, "Copying from backbuffer not supported, can't take screenshots");
 				return false;
 			}
 			switch (vulkan_->GetSwapchainFormat()) {
@@ -622,7 +621,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			// NOTE: If you add supported formats here, make sure to also support them in VulkanQueueRunner::CopyReadbackBuffer.
 			default:
-				ELOG("Unsupported backbuffer format for screenshots");
+				ERROR_LOG(G3D, "Unsupported backbuffer format for screenshots");
 				return false;
 			}
 		}
@@ -1074,9 +1073,9 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
 		if (res == VK_SUBOPTIMAL_KHR) {
 			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
-			WLOG("VK_SUBOPTIMAL_KHR returned - ignoring");
+			WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			WLOG("VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
+			WARN_LOG(G3D, "VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
 			frameData.skipSwap = true;
 		} else {
 			_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
