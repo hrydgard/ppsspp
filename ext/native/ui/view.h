@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-#include "base/logging.h"
 #include "base/basictypes.h"
 #include "gfx/texture_atlas.h"
 #include "math/lin/matrix4x4.h"

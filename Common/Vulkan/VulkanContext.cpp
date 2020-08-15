@@ -1,12 +1,12 @@
 #define __STDC_LIMIT_MACROS
 #include <cstdlib>
 #include <cstdint>
-#include <assert.h>
 #include <cstring>
 #include <iostream>
 
 #include "base/basictypes.h"
 #include "base/display.h"
+#include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -139,9 +139,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			}
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			extensionsLookup_.EXT_debug_utils = true;
-			ILOG("Vulkan debug_utils validation enabled.");
+			INFO_LOG(G3D, "Vulkan debug_utils validation enabled.");
 		} else {
-			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
+			ERROR_LOG(G3D, "Validation layer extension not available - not enabling Vulkan validation.");
 			flags_ &= ~VULKAN_FLAG_VALIDATE;
 		}
 	}
@@ -154,7 +154,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
 		if (!IsInstanceExtensionAvailable(ext))
-			WLOG("WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
+			WARN_LOG(G3D, "WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
 	}
 
 	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -180,7 +180,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 	if (res != VK_SUCCESS) {
 		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
-			WLOG("Validation on but instance layer not available - dropping layers");
+			WARN_LOG(G3D, "Validation on but instance layer not available - dropping layers");
 			// Drop the validation layers and try again.
 			instance_layer_names_.clear();
 			device_layer_names_.clear();
@@ -188,9 +188,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			inst_info.ppEnabledLayerNames = nullptr;
 			res = vkCreateInstance(&inst_info, nullptr, &instance_);
 			if (res != VK_SUCCESS)
-				ELOG("Failed to create instance even without validation: %d", res);
+				ERROR_LOG(G3D, "Failed to create instance even without validation: %d", res);
 		} else {
-			ELOG("Failed to create instance : %d", res);
+			ERROR_LOG(G3D, "Failed to create instance : %d", res);
 		}
 	}
 	if (res != VK_SUCCESS) {
@@ -200,7 +200,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 	VulkanLoadInstanceFunctions(instance_, extensionsLookup_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
-		WLOG("CheckLayers for instance failed");
+		WARN_LOG(G3D, "CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
 		// return;
 	}
@@ -212,14 +212,14 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
 #endif
 	if (gpu_count <= 0) {
-		ELOG("Vulkan driver found but no supported GPU is available");
+		ERROR_LOG(G3D, "Vulkan driver found but no supported GPU is available");
 		init_error_ = "No Vulkan physical devices found";
 		vkDestroyInstance(instance_, nullptr);
 		instance_ = nullptr;
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	assert(gpu_count > 0);
+	_dbg_assert_(gpu_count > 0);
 	physical_devices_.resize(gpu_count);
 	physicalDeviceProperties_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
@@ -259,7 +259,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 }
 
 VulkanContext::~VulkanContext() {
-	assert(instance_ == VK_NULL_HANDLE);
+	_dbg_assert_(instance_ == VK_NULL_HANDLE);
 }
 
 void VulkanContext::DestroyInstance() {
@@ -290,7 +290,7 @@ void VulkanContext::EndFrame() {
 }
 
 void VulkanContext::UpdateInflightFrames(int n) {
-	assert(n >= 1 && n <= MAX_INFLIGHT_FRAMES);
+	_dbg_assert_(n >= 1 && n <= MAX_INFLIGHT_FRAMES);
 	inflightFrames_ = n;
 	if (curFrame_ >= inflightFrames_) {
 		curFrame_ = 0;
@@ -508,19 +508,19 @@ int VulkanContext::GetBestPhysicalDevice() {
 
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
-	ILOG("Chose physical device %d: %p", physical_device, physical_devices_[physical_device]);
+	INFO_LOG(G3D, "Chose physical device %d: %p", physical_device, physical_devices_[physical_device]);
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WLOG("CheckLayers for device %d failed", physical_device);
+		WARN_LOG(G3D, "CheckLayers for device %d failed", physical_device);
 	}
 
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
-	assert(queue_count >= 1);
+	_dbg_assert_(queue_count >= 1);
 
 	queueFamilyProperties_.resize(queue_count);
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, queueFamilyProperties_.data());
-	assert(queue_count >= 1);
+	_dbg_assert_(queue_count >= 1);
 
 	// Detect preferred formats, in this order.
 	static const VkFormat depthStencilFormats[] = {
@@ -539,17 +539,17 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 	if (deviceInfo_.preferredDepthStencilFormat == VK_FORMAT_UNDEFINED) {
 		// WTF? This is bad.
-		ELOG("Could not find a usable depth stencil format.");
+		ERROR_LOG(G3D, "Could not find a usable depth stencil format.");
 	}
 
 	// This is as good a place as any to do this.
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
-	ILOG("Memory Types (%d):", memory_properties.memoryTypeCount);
+	INFO_LOG(G3D, "Memory Types (%d):", memory_properties.memoryTypeCount);
 	for (int i = 0; i < (int)memory_properties.memoryTypeCount; i++) {
 		// Don't bother printing dummy memory types.
 		if (!memory_properties.memoryTypes[i].propertyFlags)
 			continue;
-		ILOG("  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties.memoryTypes[i].heapIndex,
+		INFO_LOG(G3D, "  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties.memoryTypes[i].heapIndex,
 			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL " : "",
 			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE " : "",
 			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED " : "",
@@ -611,7 +611,7 @@ bool VulkanContext::EnableDeviceExtension(const char *extension) {
 
 VkResult VulkanContext::CreateDevice() {
 	if (!init_error_.empty() || physical_device_ < 0) {
-		ELOG("Vulkan init failed: %s", init_error_.c_str());
+		ERROR_LOG(G3D, "Vulkan init failed: %s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
@@ -627,7 +627,7 @@ VkResult VulkanContext::CreateDevice() {
 			break;
 		}
 	}
-	assert(found);
+	_dbg_assert_(found);
 
 	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
 	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
@@ -661,11 +661,11 @@ VkResult VulkanContext::CreateDevice() {
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
-		ELOG("Unable to create Vulkan device");
+		ERROR_LOG(G3D, "Unable to create Vulkan device");
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
-	ILOG("Device created.\n");
+	INFO_LOG(G3D, "Device created.\n");
 	VulkanSetAvailable(true);
 	return res;
 }
@@ -685,10 +685,10 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 	VkDebugUtilsMessengerEXT messenger;
 	VkResult res = vkCreateDebugUtilsMessengerEXT(instance_, &callback1, nullptr, &messenger);
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to register debug callback with vkCreateDebugUtilsMessengerEXT");
+		ERROR_LOG(G3D, "Failed to register debug callback with vkCreateDebugUtilsMessengerEXT");
 		// Do error handling for VK_ERROR_OUT_OF_MEMORY
 	} else {
-		ILOG("Debug callback registered with vkCreateDebugUtilsMessengerEXT.");
+		INFO_LOG(G3D, "Debug callback registered with vkCreateDebugUtilsMessengerEXT.");
 		utils_callbacks.push_back(messenger);
 	}
 	return res;
@@ -711,12 +711,12 @@ VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data
 
 VkResult VulkanContext::ReinitSurface() {
 	if (surface_ != VK_NULL_HANDLE) {
-		ILOG("Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
+		INFO_LOG(G3D, "Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
 		vkDestroySurfaceKHR(instance_, surface_, nullptr);
 		surface_ = VK_NULL_HANDLE;
 	}
 
-	ILOG("Creating Vulkan surface for window (%p %p)", winsysData1_, winsysData2_);
+	INFO_LOG(G3D, "Creating Vulkan surface for window (%p %p)", winsysData1_, winsysData2_);
 
 	VkResult retval = VK_SUCCESS;
 
@@ -842,7 +842,7 @@ bool VulkanContext::ChooseQueue() {
 
 	// Generate error if could not find both a graphics and a present queue
 	if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX) {
-		ELOG("Could not find a graphics and a present queue");
+		ERROR_LOG(G3D, "Could not find a graphics and a present queue");
 		return false;
 	}
 
@@ -858,7 +858,7 @@ bool VulkanContext::ChooseQueue() {
 
 	std::vector<VkSurfaceFormatKHR> surfFormats(formatCount);
 	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, surfFormats.data());
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS) {
 		return false;
 	}
@@ -866,7 +866,7 @@ bool VulkanContext::ChooseQueue() {
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
 	if (formatCount == 0 || (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED)) {
-		ILOG("swapchain_format: Falling back to B8G8R8A8_UNORM");
+		INFO_LOG(G3D, "swapchain_format: Falling back to B8G8R8A8_UNORM");
 		swapchainFormat_ = VK_FORMAT_B8G8R8A8_UNORM;
 	} else {
 		swapchainFormat_ = VK_FORMAT_UNDEFINED;
@@ -884,7 +884,7 @@ bool VulkanContext::ChooseQueue() {
 			// Okay, take the first one then.
 			swapchainFormat_ = surfFormats[0].format;
 		}
-		ILOG("swapchain_format: %d (/%d)", swapchainFormat_, formatCount);
+		INFO_LOG(G3D, "swapchain_format: %d (/%d)", swapchainFormat_, formatCount);
 	}
 
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
@@ -915,20 +915,20 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 
 bool VulkanContext::InitSwapchain() {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	uint32_t presentModeCount;
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
-	assert(presentModes);
+	_dbg_assert_(presentModes);
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	ILOG("surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d computed: %dx%d",
+	INFO_LOG(G3D, "surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d computed: %dx%d",
 		surfCapabilities_.currentExtent.width, surfCapabilities_.currentExtent.height,
 		surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height,
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
@@ -944,7 +944,7 @@ bool VulkanContext::InitSwapchain() {
 			modes += ", ";
 		}
 	}
-	ILOG("Supported present modes: %s", modes.c_str());
+	INFO_LOG(G3D, "Supported present modes: %s", modes.c_str());
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
 		match = match || ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
@@ -976,7 +976,7 @@ bool VulkanContext::InitSwapchain() {
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
 
-	ILOG("Chosen present mode: %d (%s). numSwapChainImages: %d/%d",
+	INFO_LOG(G3D, "Chosen present mode: %d (%s). numSwapChainImages: %d/%d",
 		swapchainPresentMode, PresentModeString(swapchainPresentMode),
 		desiredNumberOfSwapChainImages, surfCapabilities_.maxImageCount);
 
@@ -1011,7 +1011,7 @@ bool VulkanContext::InitSwapchain() {
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
 		default:
-			assert(false);
+			_dbg_assert_(false);
 		}
 	} else {
 		// Let the OS rotate the image (potentially slow on many Android devices)
@@ -1020,10 +1020,10 @@ bool VulkanContext::InitSwapchain() {
 
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
 
-	ILOG("Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
+	INFO_LOG(G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
-		ILOG("Applying PowerVR hack (rounding off the width!)");
+		INFO_LOG(G3D, "Applying PowerVR hack (rounding off the width!)");
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
 		// To keep the size consistent even with pretransform, do this after the swap. Should be fine.
 		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
@@ -1068,10 +1068,10 @@ bool VulkanContext::InitSwapchain() {
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {
-		ELOG("vkCreateSwapchainKHR failed!");
+		ERROR_LOG(G3D, "vkCreateSwapchainKHR failed!");
 		return false;
 	}
-	ILOG("Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
+	INFO_LOG(G3D, "Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
 	return true;
 }
 
@@ -1092,13 +1092,13 @@ void VulkanContext::PerformPendingDeletes() {
 
 void VulkanContext::DestroyDevice() {
 	if (swapchain_) {
-		ELOG("DestroyDevice: Swapchain should have been destroyed.");
+		ERROR_LOG(G3D, "DestroyDevice: Swapchain should have been destroyed.");
 	}
 	if (surface_) {
-		ELOG("DestroyDevice: Surface should have been destroyed.");
+		ERROR_LOG(G3D, "DestroyDevice: Surface should have been destroyed.");
 	}
 
-	ILOG("VulkanContext::DestroyDevice (performing deletes)");
+	INFO_LOG(G3D, "VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
 
 	vkDestroyDevice(device_, nullptr);
@@ -1274,22 +1274,22 @@ const char *VulkanResultToString(VkResult res) {
 }
 
 void VulkanDeleteList::Take(VulkanDeleteList &del) {
-	assert(cmdPools_.empty());
-	assert(descPools_.empty());
-	assert(modules_.empty());
-	assert(buffers_.empty());
-	assert(bufferViews_.empty());
-	assert(images_.empty());
-	assert(imageViews_.empty());
-	assert(deviceMemory_.empty());
-	assert(samplers_.empty());
-	assert(pipelines_.empty());
-	assert(pipelineCaches_.empty());
-	assert(renderPasses_.empty());
-	assert(framebuffers_.empty());
-	assert(pipelineLayouts_.empty());
-	assert(descSetLayouts_.empty());
-	assert(callbacks_.empty());
+	_dbg_assert_(cmdPools_.empty());
+	_dbg_assert_(descPools_.empty());
+	_dbg_assert_(modules_.empty());
+	_dbg_assert_(buffers_.empty());
+	_dbg_assert_(bufferViews_.empty());
+	_dbg_assert_(images_.empty());
+	_dbg_assert_(imageViews_.empty());
+	_dbg_assert_(deviceMemory_.empty());
+	_dbg_assert_(samplers_.empty());
+	_dbg_assert_(pipelines_.empty());
+	_dbg_assert_(pipelineCaches_.empty());
+	_dbg_assert_(renderPasses_.empty());
+	_dbg_assert_(framebuffers_.empty());
+	_dbg_assert_(pipelineLayouts_.empty());
+	_dbg_assert_(descSetLayouts_.empty());
+	_dbg_assert_(callbacks_.empty());
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
 	modules_ = std::move(del.modules_);

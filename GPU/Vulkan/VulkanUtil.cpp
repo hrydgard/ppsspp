@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"  // For OutputDebugStringUTF8. TODO: Move it.
 #include "base/basictypes.h"
 #include "base/stringutil.h"
 #include "Common/Log.h"

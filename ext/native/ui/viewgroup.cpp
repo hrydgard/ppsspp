@@ -1080,6 +1080,12 @@ void AnchorLayout::Layout() {
 	}
 }
 
+GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
+	: ViewGroup(layoutParams), settings_(settings), numColumns_(1) {
+	if (settings.orientation != ORIENT_HORIZONTAL)
+		ELOG("GridLayout: Vertical layouts not yet supported");
+}
+
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureSpecType measureType = settings_.fillCells ? EXACTLY : AT_MOST;
 

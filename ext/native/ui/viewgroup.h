@@ -5,7 +5,6 @@
 #include <set>
 #include <mutex>
 
-#include "base/logging.h"
 #include "math/geom2d.h"
 #include "input/gesture_detector.h"
 #include "ui/view.h"
@@ -209,11 +208,7 @@ struct GridLayoutSettings {
 
 class GridLayout : public ViewGroup {
 public:
-	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), settings_(settings), numColumns_(1) {
-		if (settings.orientation != ORIENT_HORIZONTAL)
-			ELOG("GridLayout: Vertical layouts not yet supported");
-	}
+	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0);
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
