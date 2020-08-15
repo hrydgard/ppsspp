@@ -17,7 +17,6 @@
 #include "Common/Log.h"
 
 static double curtime = 0;
-static float curtime_f = 0;
 
 #ifdef _WIN32
 
@@ -58,19 +57,6 @@ double real_time_now() {
 
 void time_update() {
 	curtime = real_time_now();
-	curtime_f = (float)curtime;
-
-	//printf("curtime: %f %f\n", curtime, curtime_f);
-	// also smooth time.
-	//curtime+=float((double) (time-_starttime) / (double) _frequency);
-	//curtime*=0.5f;
-	//curtime+=1.0f/60.0f;
-	//lastTime=curtime;
-	//curtime_f = (float)curtime;
-}
-
-float time_now() {
-	return curtime_f;
 }
 
 double time_now_d() {

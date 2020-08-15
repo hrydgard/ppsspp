@@ -37,8 +37,8 @@ public:
 protected:
 	virtual float GetButtonOpacity();
 
-	float lastFrameTime_;
-	float secondsWithoutTouch_;
+	double lastFrameTime_;
+	float secondsWithoutTouch_ = 0.0;
 };
 
 class MultiTouchButton : public GamepadView {

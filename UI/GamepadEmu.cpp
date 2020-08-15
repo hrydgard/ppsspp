@@ -36,7 +36,7 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), secondsWithoutTouch_(0) {
+GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
 	lastFrameTime_ = time_now_d();
 }
 
@@ -45,7 +45,7 @@ void GamepadView::Touch(const TouchInput &input) {
 }
 
 void GamepadView::Update() {
-	const float now = time_now();
+	const double now = time_now_d();
 	float delta = now - lastFrameTime_;
 	if (delta > 0) {
 		secondsWithoutTouch_ += delta;
@@ -195,7 +195,7 @@ void AnalogRotationButton::Touch(const TouchInput &input) {
 }
 
 void AnalogRotationButton::Update() {
-	const float now = time_now();
+	const float now = time_now_d();
 	float delta = now - lastFrameTime_;
 	if (delta > 0) {
 		secondsWithoutTouch_ += delta;

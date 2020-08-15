@@ -178,7 +178,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	float v_pixel_delta = 1.0f / targetHeight;
 	int flipCount = __DisplayGetFlipCount();
 	int vCount = __DisplayGetVCount();
-	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+	float time[4] = { (float)time_now_d(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
 
 	uniforms->texelDelta[0] = u_delta;
 	uniforms->texelDelta[1] = v_delta;

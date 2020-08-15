@@ -278,7 +278,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
-	slab.tags[start] = { tag, time_now(), 0.0f };
+	slab.tags[start] = { tag, (float)time_now_d(), 0.0f };
 	slab.totalUsage += blocks;
 	return true;
 }
@@ -312,7 +312,7 @@ void VulkanDeviceAllocator::DoTouch(VkDeviceMemory deviceMemory, size_t offset) 
 
 		auto it = slab.tags.find(start);
 		if (it != slab.tags.end()) {
-			it->second.touched = time_now();
+			it->second.touched = time_now_d();
 			found = true;
 		}
 	}
@@ -436,7 +436,7 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes, int memoryTypeIn
 }
 
 void VulkanDeviceAllocator::ReportOldUsage() {
-	float now = time_now();
+	float now = time_now_d();
 	static const float OLD_AGE = 10.0f;
 	for (size_t i = 0; i < slabs_.size(); ++i) {
 		const auto &slab = slabs_[i];

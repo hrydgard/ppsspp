@@ -123,11 +123,11 @@ void DrawBackground(UIContext &dc, float alpha) {
 		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
 	}
 
-	float t = time_now();
+	double t = time_now_d();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i] + dc.GetBounds().x;
 		float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
-		float angle = sinf(i + t);
+		float angle = (float)sin(i + t);
 		int n = i & 3;
 		ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
 	}

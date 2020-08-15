@@ -8,7 +8,6 @@
 void time_update();
 
 // Seconds.
-float time_now();
 double time_now_d();
 
 // Uncached time. Slower than the above cached time functions. Does not update cached time, call time_update for that.
