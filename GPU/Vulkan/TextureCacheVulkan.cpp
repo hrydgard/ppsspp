@@ -111,7 +111,7 @@ uint readColoru(uvec2 p) {
 			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
 			return (a << 24) | (b << 16) | (g << 8) | r;
 		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0x0F);
+			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
 			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
 			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
 			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
@@ -188,7 +188,7 @@ uint readColoru(uvec2 p) {
 			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
 			return (a << 24) | (b << 16) | (g << 8) | r;
 		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0x0F);
+			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
 			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
 			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
 			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
