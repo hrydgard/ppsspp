@@ -16,6 +16,8 @@
 #ifndef _MSC_VER
 #include <jni.h>
 #include <android/native_window_jni.h>
+#include <android/log.h>
+
 #elif !defined(JNIEXPORT)
 // Just for better highlighting in MSVC if opening this file.
 // Not having types makes it get confused and say everything is wrong.
@@ -172,6 +174,44 @@ static std::string library_path;
 static std::map<SystemPermission, PermissionStatus> permissions;
 
 AndroidGraphicsContext *graphicsContext;
+
+#ifndef LOG_APP_NAME
+#define LOG_APP_NAME "PPSSPP"
+#endif
+
+#ifdef _DEBUG
+#define DLOG(...)    __android_log_print(ANDROID_LOG_INFO, LOG_APP_NAME, __VA_ARGS__);
+#else
+#define DLOG(...)
+#endif
+
+#define ILOG(...)    __android_log_print(ANDROID_LOG_INFO, LOG_APP_NAME, __VA_ARGS__);
+#define WLOG(...)    __android_log_print(ANDROID_LOG_WARN, LOG_APP_NAME, __VA_ARGS__);
+#define ELOG(...)    __android_log_print(ANDROID_LOG_ERROR, LOG_APP_NAME, __VA_ARGS__);
+#define FLOG(...)    __android_log_print(ANDROID_LOG_FATAL, LOG_APP_NAME, __VA_ARGS__);
+
+#define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
+
+void AndroidLogger::Log(const LogMessage &message) {
+	// Log with simplified headers as Android already provides timestamp etc.
+	switch (message.level) {
+	case LogTypes::LVERBOSE:
+	case LogTypes::LDEBUG:
+	case LogTypes::LINFO:
+		ILOG("[%s] %s", message.log, message.msg.c_str());
+		break;
+	case LogTypes::LERROR:
+		ELOG("[%s] %s", message.log, message.msg.c_str());
+		break;
+	case LogTypes::LWARNING:
+		WLOG("[%s] %s", message.log, message.msg.c_str());
+		break;
+	case LogTypes::LNOTICE:
+	default:
+		ILOG("[%s] !!! %s", message.log, message.msg.c_str());
+		break;
+	}
+}
 
 JNIEnv* getEnv() {
 	JNIEnv *env;

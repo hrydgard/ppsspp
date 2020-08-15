@@ -822,7 +822,6 @@ elseif(WIN32)
 	else()
 		link_directories(dx9sdk/Lib/x86)
 	endif()
-	set(nativeExtra ${nativeExtra} ext/native/base/logging.cpp)
 elseif(TARGET SDL2::SDL2)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
@@ -934,7 +933,6 @@ add_library(native STATIC
 	ext/native/base/display.cpp
 	ext/native/base/display.h
 	ext/native/base/linked_ptr.h
-	ext/native/base/logging.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp

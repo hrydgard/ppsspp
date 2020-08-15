@@ -385,7 +385,6 @@
     <ClInclude Include="..\..\ext\native\base\colorutil.h" />
     <ClInclude Include="..\..\ext\native\base\display.h" />
     <ClInclude Include="..\..\ext\native\base\linked_ptr.h" />
-    <ClInclude Include="..\..\ext\native\base\logging.h" />
     <ClInclude Include="..\..\ext\native\base\NativeApp.h" />
     <ClInclude Include="..\..\ext\native\base\NKCodeFromQt.h" />
     <ClInclude Include="..\..\ext\native\base\NKCodeFromSDL.h" />
@@ -479,7 +478,6 @@
     <ClCompile Include="..\..\ext\native\base\buffer.cpp" />
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
-    <ClCompile Include="..\..\ext\native\base\logging.cpp" />
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\timeutil.cpp" />
     <ClCompile Include="..\..\ext\native\data\base64.cpp" />

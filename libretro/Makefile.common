@@ -215,7 +215,6 @@ SOURCES_CXX += \
 	$(EXTDIR)/native/base/buffer.cpp \
 	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
-	$(EXTDIR)/native/base/logging.cpp \
 	$(EXTDIR)/native/base/stringutil.cpp \
 	$(EXTDIR)/native/base/timeutil.cpp \
 	$(EXTDIR)/native/data/compression.cpp \

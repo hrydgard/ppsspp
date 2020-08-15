@@ -44,9 +44,6 @@
 #endif
 
 #include "base/display.h"
-
-#include "base/logging.h"  // For "AndroidLogger". TODO: Remove.
-
 #include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
@@ -70,12 +67,16 @@
 #include "ui/view.h"
 #include "util/text/utf8.h"
 
+#include "android/jni/app-android.h"
+
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
+#include "Common/KeyMap.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -93,8 +94,8 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
-#include "GPU/GPUInterface.h"
 
+#include "GPU/GPUInterface.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DiscordIntegration.h"
@@ -107,10 +108,6 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
 #include "UI/TextureUtil.h"
-
-#if !defined(MOBILE_DEVICE)
-#include "Common/KeyMap.h"
-#endif
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 #include "Qt/QtHost.h"
@@ -183,7 +180,7 @@ WindowsAudioBackend *winAudioBackend;
 
 std::thread *graphicsLoadThread;
 
-class AndroidLogger : public LogListener {
+class PrintfLogger : public LogListener {
 public:
 	void Log(const LogMessage &message) override {
 		// Log with simplified headers as Android already provides timestamp etc.
@@ -191,17 +188,17 @@ public:
 		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
-			ILOG("[%s] %s", message.log, message.msg.c_str());
+			printf("INFO [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			ELOG("[%s] %s", message.log, message.msg.c_str());
+			printf("ERR  [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			WLOG("[%s] %s", message.log, message.msg.c_str());
+			printf("WARN [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			ILOG("[%s] !!! %s", message.log, message.msg.c_str());
+			printf("NOTE [%s] !!! %s", message.log, message.msg.c_str());
 			break;
 		}
 	}
@@ -214,7 +211,7 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 #endif
 
 // globals
-static AndroidLogger *logger = nullptr;
+static LogListener *logger = nullptr;
 std::string boot_filename = "";
 
 void NativeHost::InitSound() {
@@ -661,10 +658,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	PostLoadConfig();
 
-#if defined(__ANDROID__) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
+#if PPSSPP_PLATFORM(ANDROID)
+	logger = new AndroidLogger();
+	logman->AddListener(logger);
+#elif (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
-	logger = new AndroidLogger();
+	logger = new PrintfLogger();
 	logman->AddListener(logger);
 #endif
 
@@ -1407,9 +1407,6 @@ void NativeShutdown() {
 	net::Shutdown();
 
 	g_Discord.Shutdown();
-
-	delete logger;
-	logger = nullptr;
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
