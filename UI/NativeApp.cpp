@@ -1408,6 +1408,11 @@ void NativeShutdown() {
 
 	g_Discord.Shutdown();
 
+	if (logger) {
+		delete logger;
+		logger = nullptr;
+	}
+
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
 }

@@ -385,6 +385,7 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
+		fclose(fp);
 		return true;
 	} else {
 		ERROR_LOG(SYSTEM, "Texture PNG encode failed.");

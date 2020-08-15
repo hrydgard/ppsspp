@@ -98,7 +98,7 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::MEMMAP,     "MEMMAP"},
 	{LogTypes::SASMIX,     "SASMIX"},
 	{LogTypes::SAVESTATE,  "SAVESTATE"},
-	{LogTypes::FRAMEBUF,  "FRAMEBUF"},
+	{LogTypes::FRAMEBUF,   "FRAMEBUF"},
 	{LogTypes::AUDIO,      "AUDIO"},
 	{LogTypes::IO,         "IO"},
 
