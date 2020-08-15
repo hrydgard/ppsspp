@@ -56,7 +56,7 @@ struct DebuggerErrorEvent {
 	LogTypes::LOG_LEVELS level;
 	std::string ticketRaw;
 
-	operator std::string() {
+	operator std::string() const {
 		JsonWriter j;
 		j.begin();
 		j.writeString("event", "error");

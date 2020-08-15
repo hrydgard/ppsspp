@@ -19,7 +19,6 @@
 
 #include <algorithm>
 
-#include "base/logging.h"
 #include "util/text/utf8.h"
 #include "LogManager.h"
 #include "ConsoleListener.h"
@@ -325,3 +324,24 @@ void RingbufferLogListener::Log(const LogMessage &message) {
 		curMessage_ -= MAX_LOGS;
 	count_++;
 }
+
+#ifdef _WIN32
+
+void OutputDebugStringUTF8(const char *p) {
+	wchar_t temp[4096];
+
+	int len = std::min(4095, (int)strlen(p));
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, p, len, NULL, 0);
+	MultiByteToWideChar(CP_UTF8, 0, p, len, temp, size);
+	temp[size] = 0;
+
+	OutputDebugString(temp);
+}
+
+#else
+
+void OutputDebugStringUTF8(const char *p) {
+	INFO_LOG(SYSTEM, "%s", p);
+}
+
+#endif

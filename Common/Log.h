@@ -189,3 +189,6 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	}
 
 #endif  // __ANDROID__
+
+// Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
+void OutputDebugStringUTF8(const char *p);

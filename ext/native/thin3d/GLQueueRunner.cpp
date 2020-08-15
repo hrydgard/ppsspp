@@ -1,7 +1,5 @@
 #include <algorithm>
 
-#include "base/logging.h" // For OutputDebugStringUTF8
-
 #include "base/stringutil.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
@@ -443,7 +441,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 retry_depth:
 	if (!fbo->z_stencil_) {
-		ILOG("Creating %i x %i FBO using no depth", fbo->width, fbo->height);
+		INFO_LOG(G3D, "Creating %d x %d FBO using no depth", fbo->width, fbo->height);
 
 		fbo->z_stencil_buffer = 0;
 		fbo->stencil_buffer = 0;
@@ -456,7 +454,7 @@ retry_depth:
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
 	} else if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3)) {
-			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+			INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 			fbo->z_stencil_buffer = 0;
 			fbo->stencil_buffer = 0;
 			fbo->z_buffer = 0;
@@ -477,7 +475,7 @@ retry_depth:
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
 			}
 		} else if (gl_extensions.OES_packed_depth_stencil) {
-			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
+			INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
 			// Standard method
 			fbo->stencil_buffer = 0;
 			fbo->z_buffer = 0;
@@ -492,7 +490,7 @@ retry_depth:
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		} else {
-			ILOG("Creating %i x %i FBO using separate stencil", fbo->width, fbo->height);
+			INFO_LOG(G3D, "Creating %d x %d FBO using separate stencil", fbo->width, fbo->height);
 			// TEGRA
 			fbo->z_stencil_buffer = 0;
 			// 16/24-bit Z, separate 8-bit stencil
@@ -513,7 +511,7 @@ retry_depth:
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 		}
 	} else if (gl_extensions.VersionGEThan(3, 0)) {
-		ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+		INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 		fbo->z_stencil_buffer = 0;
 		fbo->stencil_buffer = 0;
 		fbo->z_buffer = 0;
@@ -549,7 +547,7 @@ retry_depth:
 
 	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE:
-		// ILOG("Framebuffer verified complete.");
+		// INFO_LOG(G3D, "Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED:
 		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
@@ -558,7 +556,7 @@ retry_depth:
 		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
 		break;
 	default:
-		FLOG("Other framebuffer error: %i", status);
+		_assert_msg_(false, "Other framebuffer error: %d", status);
 		break;
 	}
 
@@ -1568,7 +1566,7 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
 	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE_EXT:
-		// ILOG("Framebuffer verified complete.");
+		// INFO_LOG(G3D, "Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
 		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
@@ -1577,7 +1575,7 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
 		break;
 	default:
-		FLOG("Other framebuffer error: %i", status);
+		_assert_msg_(false, "Other framebuffer error: %d", status);
 		break;
 	}
 	// Unbind state we don't need

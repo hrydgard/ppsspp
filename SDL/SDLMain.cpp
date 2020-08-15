@@ -22,7 +22,7 @@ SDLJoystick *joystick = NULL;
 #include <locale>
 
 #include "base/display.h"
-#include "base/logging.h"
+#include "base/logging.h"  // early logging. TODO: Remove.
 #include "base/timeutil.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"

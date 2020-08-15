@@ -46,9 +46,6 @@ inline void Crash() {
 
 #endif
 
-// Just ILOGs on nonWindows. On Windows it outputs to the VS output console.
-void OutputDebugStringUTF8(const char *p);
-
 #if defined(__ANDROID__)
 
 #include <android/log.h>
