@@ -52,6 +52,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 	} else {
 		// Fall back to printf if we're before the log manager has been initialized.
 		vprintf(fmt, args);
+		printf("\n");
 	}
 	va_end(args);
 }
