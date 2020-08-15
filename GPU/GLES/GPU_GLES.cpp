@@ -310,7 +310,7 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	ILOG("GPU_GLES: DeviceLost");
+	INFO_LOG(G3D, "GPU_GLES: DeviceLost");
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
@@ -328,7 +328,7 @@ void GPU_GLES::DeviceLost() {
 
 void GPU_GLES::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	ILOG("GPU_GLES: DeviceRestore");
+	INFO_LOG(G3D, "GPU_GLES: DeviceRestore");
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);

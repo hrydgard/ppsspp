@@ -471,7 +471,7 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
-	ILOG("GPU_Vulkan::InitDeviceObjects");
+	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		assert(!frameData_[i].push_);
@@ -495,7 +495,7 @@ void GPU_Vulkan::InitDeviceObjects() {
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
-	ILOG("GPU_Vulkan::DestroyDeviceObjects");
+	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);

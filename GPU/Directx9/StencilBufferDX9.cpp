@@ -17,6 +17,7 @@
 
 #include <d3d9.h>
 
+#include "base/logging.h"  // For OutputDebugStringUTF8
 #include "gfx/d3d9_state.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "Core/Reporting.h"

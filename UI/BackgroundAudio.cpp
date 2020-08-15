@@ -84,9 +84,9 @@ void WavData::Read(RIFFReader &file_) {
 				}
 			}
 			file_.Ascend();
-			// ILOG("got fmt data: %i", samplesPerSec);
+			// INFO_LOG(AUDIO, "got fmt data: %i", samplesPerSec);
 		} else {
-			ELOG("Error - no format chunk in wav");
+			ERROR_LOG(AUDIO, "Error - no format chunk in wav");
 			file_.Ascend();
 			return;
 		}
@@ -142,20 +142,20 @@ void WavData::Read(RIFFReader &file_) {
 			if (num_channels == 1 || num_channels == 2) {
 				file_.ReadData(raw_data, numBytes);
 			} else {
-				ELOG("Error - bad blockalign or channels");
+				ERROR_LOG(AUDIO, "Error - bad blockalign or channels");
 				free(raw_data);
 				raw_data = nullptr;
 				return;
 			}
 			file_.Ascend();
 		} else {
-			ELOG("Error - no data chunk in wav");
+			ERROR_LOG(AUDIO, "Error - no data chunk in wav");
 			file_.Ascend();
 			return;
 		}
 		file_.Ascend();
 	} else {
-		ELOG("Could not descend into RIFF file.");
+		ERROR_LOG(AUDIO, "Could not descend into RIFF file.");
 		return;
 	}
 	sample_rate = samplesPerSec;
@@ -269,7 +269,7 @@ BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 	delete [] data;
 
 	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
-		ELOG("Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
+		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;
 	}
 

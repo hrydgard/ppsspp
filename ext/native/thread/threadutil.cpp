@@ -8,9 +8,12 @@
 #define TLS_SUPPORTED
 #endif
 
+#include <cstring>
+
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "thread/threadutil.h"
+
+#include "Common/Log.h"
 
 #if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 #include <pthread.h>
@@ -115,7 +118,7 @@ void setCurrentThreadName(const char* threadName) {
 void AssertCurrentThreadName(const char *threadName) {
 #ifdef TLS_SUPPORTED
 	if (strcmp(curThreadName, threadName) != 0) {
-		ELOG("Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
+		ERROR_LOG(SYSTEM, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
 	}
 #endif
 }

@@ -1,13 +1,14 @@
 #include <functional>
 #include <thread>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "thread/prioritizedworkqueue.h"
 
+#include "Common/Log.h"
+
 PrioritizedWorkQueue::~PrioritizedWorkQueue() {
 	if (!done_) {
-		ELOG("PrioritizedWorkQueue destroyed but not done!");
+		ERROR_LOG(SYSTEM, "PrioritizedWorkQueue destroyed but not done!");
 	}
 }
 
@@ -32,7 +33,7 @@ void PrioritizedWorkQueue::Flush() {
 	}
 	queue_.clear();
 	if (flush_count > 0) {
-		ILOG("PrioritizedWorkQueue: Flushed %d un-executed tasks", flush_count);
+		INFO_LOG(SYSTEM, "PrioritizedWorkQueue: Flushed %d un-executed tasks", flush_count);
 	}
 }
 

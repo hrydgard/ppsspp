@@ -17,8 +17,10 @@
 
 #include <stdio.h>
 
+#include "base/logging.h"  // For OutputDebugStringUTF8
 #include "headless/WindowsHeadlessHost.h"
 
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/CommonWindows.h"
 

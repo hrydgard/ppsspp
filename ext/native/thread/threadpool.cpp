@@ -1,6 +1,7 @@
-#include "base/logging.h"
 #include "thread/threadpool.h"
 #include "thread/threadutil.h"
+
+#include "Common/Log.h"
 #include "Common/MakeUnique.h"
 
 ///////////////////////////// WorkerThread
@@ -86,9 +87,9 @@ void LoopWorkerThread::WorkFunc() {
 ThreadPool::ThreadPool(int numThreads) {
 	if (numThreads <= 0) {
 		numThreads_ = 1;
-		ILOG("ThreadPool: Bad number of threads %i", numThreads);
+		INFO_LOG(JIT, "ThreadPool: Bad number of threads %d", numThreads);
 	} else if (numThreads > 8) {
-		ILOG("ThreadPool: Capping number of threads to 8 (was %i)", numThreads);
+		INFO_LOG(JIT, "ThreadPool: Capping number of threads to 8 (was %d)", numThreads);
 		numThreads_ = 8;
 	} else {
 		numThreads_ = numThreads;

@@ -870,7 +870,7 @@ public:
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
-		ELOG("Unsupported shader language");
+		ERROR_LOG(G3D, "Unsupported shader language");
 		return nullptr;
 	}
 
@@ -915,7 +915,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ELOG("Failed compiling:\n%s\n%s", data, errors.c_str());
+		ERROR_LOG(G3D, "Failed compiling:\n%s\n%s", data, errors.c_str());
 		errorMsgs->Release();
 	}
 
@@ -940,7 +940,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
 		break;
 	default:
-		ELOG("Unsupported shader stage");
+		ERROR_LOG(G3D, "Unsupported shader stage");
 		result = S_FALSE;
 		break;
 	}

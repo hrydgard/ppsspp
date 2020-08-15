@@ -23,6 +23,7 @@
 #include <map>
 
 #include "gfx/d3d9_shader.h"
+#include "base/logging.h"  // For OutputDebugStringUTF8
 #include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"
@@ -32,6 +33,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

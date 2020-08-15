@@ -370,7 +370,7 @@ void StoreScreen::update() {
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
-			ELOG("Download failed : error code %d", listing_->ResultCode());
+			ERROR_LOG(IO, "Download failed : error code %d", listing_->ResultCode());
 			connectionError_ = true;
 			loading_ = false;
 			RecreateViews();
@@ -398,7 +398,7 @@ void StoreScreen::ParseListing(std::string json) {
 	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
-		ELOG("Error parsing JSON from store");
+		ERROR_LOG(IO, "Error parsing JSON from store");
 		connectionError_ = true;
 		RecreateViews();
 		return;

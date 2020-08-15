@@ -527,7 +527,7 @@ static int DefaultInternalResolution() {
 #else
 	int longestDisplaySide = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	int scale = longestDisplaySide >= 1000 ? 2 : 1;
-	ILOG("Longest display side: %d pixels. Choosing scale %d", longestDisplaySide, scale);
+	INFO_LOG(G3D, "Longest display side: %d pixels. Choosing scale %d", longestDisplaySide, scale);
 	return scale;
 #endif
 }

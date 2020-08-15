@@ -34,6 +34,7 @@
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/System.h"
+#include "Common/Log.h"
 #include "Common/KeyMap.h"
 #include "Core/Config.h"
 #include "UI/ControlMappingScreen.h"
@@ -581,7 +582,7 @@ bool TouchTestScreen::touch(const TouchInput &touch) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
-				WLOG("Double touch");
+				WARN_LOG(SYSTEM, "Double touch");
 				touches_[i].x = touch.x;
 				touches_[i].y = touch.y;
 				found = true;
@@ -608,7 +609,7 @@ bool TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 		if (!found) {
-			WLOG("Move without touch down: %d", touch.id);
+			WARN_LOG(SYSTEM, "Move without touch down: %d", touch.id);
 		}
 	}
 	if (touch.flags & TOUCH_UP) {
@@ -621,7 +622,7 @@ bool TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 		if (!found) {
-			WLOG("Touch release without touch down");
+			WARN_LOG(SYSTEM, "Touch release without touch down");
 		}
 	}
 	return true;

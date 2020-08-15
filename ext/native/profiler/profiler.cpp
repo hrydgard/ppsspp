@@ -190,10 +190,7 @@ void internal_profiler_leave(int thread_id, int category) {
 
 void internal_profiler_end_frame() {
 	int thread_id = internal_profiler_find_thread();
-	if (profiler.depth[thread_id] != 0) {
-		// Threads may be off, but they'll fall into another frame.
-		FLOG("Can't be inside a profiler scope at end of frame!");
-	}
+	_assert_msg_(profiler.depth[thread_id] == 0, "Can't be inside a profiler scope at end of frame!");
 	profiler.curFrameStart = real_time_now();
 	profiler.historyPos++;
 	profiler.historyPos &= (HISTORY_SIZE - 1);

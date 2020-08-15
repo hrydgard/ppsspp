@@ -104,7 +104,7 @@ static void EmuThreadStop() {
 static void EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
-	ILOG("EmuThreadJoin - joined");
+	INFO_LOG(SYSTEM, "EmuThreadJoin - joined");
 }
 
 void MainThreadFunc() {

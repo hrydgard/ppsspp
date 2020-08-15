@@ -400,7 +400,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 		if (ar[a].isDirty) {
 			if (m == -1) {
-				INFO_LOG(JIT, "ARM reg %i is dirty but has no mipsreg", a);
+				INFO_LOG(JIT, "ARM reg %d is dirty but has no mipsreg", a);
 				continue;
 			}
 
@@ -423,7 +423,7 @@ void Arm64RegCacheFPU::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG(JIT, "Flush fail: ar[%d].mipsReg=%d", i, ar[i].mipsReg);
 		}
 	}
 	pendingFlush = false;

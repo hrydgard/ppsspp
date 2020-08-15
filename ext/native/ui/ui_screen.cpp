@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <map>
 #include <sstream>
+
 #include "base/display.h"
 #include "base/stringutil.h"
 #include "input/input_state.h"
@@ -12,6 +13,8 @@
 #include "ui/root.h"
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
+
+#include "Common/Log.h"
 
 static const bool ClickDebug = false;
 
@@ -137,11 +140,11 @@ TouchInput UIScreen::transformTouch(const TouchInput &touch) {
 bool UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
 		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
-			ILOG("Touch down!");
+			INFO_LOG(SYSTEM, "Touch down!");
 			std::vector<UI::View *> views;
 			root_->Query(touch.x, touch.y, views);
 			for (auto view : views) {
-				ILOG("%s", view->Describe().c_str());
+				INFO_LOG(SYSTEM, "%s", view->Describe().c_str());
 			}
 		}
 
@@ -166,7 +169,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
-			ELOG("Screen already finished");
+			ERROR_LOG(SYSTEM, "Screen already finished");
 		} else {
 			finished_ = true;
 			TriggerFinish(DR_BACK);

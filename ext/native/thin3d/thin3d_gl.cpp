@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <map>
 
-#include "base/logging.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
@@ -230,7 +229,7 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule {
 public:
 	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage, const std::string &tag) : render_(render), stage_(stage), tag_(tag) {
-		DLOG("Shader module created (%p)", this);
+		DEBUG_LOG(G3D, "Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
@@ -644,7 +643,7 @@ GLuint TypeToTarget(TextureType type) {
 #endif
 	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default:
-		ELOG("Bad texture type %d", (int)type);
+		ERROR_LOG(G3D,  "Bad texture type %d", (int)type);
 		return GL_NONE;
 	}
 }
@@ -957,15 +956,15 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
-		ELOG("Pipeline requires at least one shader");
+		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
 	if ((int)desc.prim >= (int)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ELOG("Invalid primitive type");
+		ERROR_LOG(G3D,  "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster || !desc.inputLayout) {
-		ELOG("Incomplete prim desciption");
+		ERROR_LOG(G3D,  "Incomplete prim desciption");
 		return nullptr;
 	}
 
@@ -975,7 +974,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ELOG("ERROR: Tried to create graphics pipeline with a null shader module");
+			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline with a null shader module");
 			delete pipeline;
 			return nullptr;
 		}
@@ -997,7 +996,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->inputLayout->AddRef();
 		return pipeline;
 	} else {
-		ELOG("Failed to create pipeline - shaders failed to link");
+		ERROR_LOG(G3D,  "Failed to create pipeline - shaders failed to link");
 		delete pipeline;
 		return nullptr;
 	}
@@ -1059,11 +1058,11 @@ bool OpenGLPipeline::LinkShaders() {
 			if (shader) {
 				linkShaders.push_back(shader);
 			} else {
-				ELOG("LinkShaders: Bad shader module");
+				ERROR_LOG(G3D,  "LinkShaders: Bad shader module");
 				return false;
 			}
 		} else {
-			ELOG("LinkShaders: Bad shader in module");
+			ERROR_LOG(G3D,  "LinkShaders: Bad shader in module");
 			return false;
 		}
 	}
@@ -1213,7 +1212,7 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 			break;
 		case DataFormat::UNDEFINED:
 		default:
-			ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+			ERROR_LOG(G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
 			break;
 		}
 
