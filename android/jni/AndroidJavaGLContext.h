@@ -29,6 +29,7 @@ public:
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
+
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}

@@ -107,8 +107,8 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	std::string fs_errors, vs_errors;
 	fsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, tex_fs, &fs_errors);
 	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
-	assert(fsBasicTex_ != VK_NULL_HANDLE);
-	assert(vsBasicTex_ != VK_NULL_HANDLE);
+	_assert_(fsBasicTex_ != VK_NULL_HANDLE);
+	_assert_(vsBasicTex_ != VK_NULL_HANDLE);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -117,11 +117,11 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &nearestSampler_);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 	samp.magFilter = VK_FILTER_LINEAR;
 	samp.minFilter = VK_FILTER_LINEAR;
 	res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &linearSampler_);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {

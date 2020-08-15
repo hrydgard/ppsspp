@@ -248,7 +248,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			// Query all the uniforms.
 			for (size_t j = 0; j < program->queries_.size(); j++) {
 				auto &x = program->queries_[j];
-				assert(x.name);
+				_dbg_assert_(x.name);
 				*x.dest = glGetUniformLocation(program->program, x.name);
 			}
 
@@ -984,7 +984,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		}
 		case GLRRenderCommand::UNIFORM4I:
 		{
-			assert(curProgram);
+			_dbg_assert_(curProgram);
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
@@ -1010,7 +1010,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		}
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
-			assert(curProgram);
+			_dbg_assert_(curProgram);
 			int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
 			if (c.uniformMatrix4.name) {
 				loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
@@ -1076,7 +1076,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
 			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer_ : 0;
-			assert(!c.bindVertexBuffer.buffer->Mapped());
+			_dbg_assert_(!c.bindVertexBuffer.buffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
@@ -1105,14 +1105,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				Crash();
 			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				assert(!c.bind_buffer.buffer->Mapped());
+				_dbg_assert_(!c.bind_buffer.buffer->Mapped());
 				if (buf != curElemArrayBuffer) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
 					curElemArrayBuffer = buf;
 				}
 			} else {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				assert(!c.bind_buffer.buffer->Mapped());
+				_dbg_assert_(!c.bind_buffer.buffer->Mapped());
 				glBindBuffer(c.bind_buffer.target, buf);
 			}
 			CHECK_GL_ERROR_IF_DEBUG();

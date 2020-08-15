@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -15,13 +14,15 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
+
 #include "base/stringutil.h"
 #include "data/base64.h"
 #include "net/http_server.h"
 #include "net/sinks.h"
 #include "net/websocket_server.h"
-// TODO: Not a great cross dependency.
+
 #include "Common/Crypto/sha1.h"
+#include "Common/Log.h"
 
 static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -125,28 +126,28 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, 
 }
 
 void WebSocketServer::Send(const std::string &str) {
-	assert(open_);
-	assert(fragmentOpcode_ == -1);
+	_assert_(open_);
+	_assert_(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::TEXT, str.size());
 	SendBytes(str.c_str(), str.size());
 }
 
 void WebSocketServer::Send(const std::vector<uint8_t> &payload) {
-	assert(open_);
-	assert(fragmentOpcode_ == -1);
+	_assert_(open_);
+	_assert_(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::BINARY, payload.size());
 	SendBytes((const char *)&payload[0], payload.size());
 }
 
 void WebSocketServer::AddFragment(bool finish, const std::string &str) {
-	assert(open_);
+	_assert_(open_);
 	if (fragmentOpcode_ == -1) {
 		SendHeader(finish, (int)Opcode::TEXT, str.size());
 		fragmentOpcode_ = (int)Opcode::TEXT;
 	} else if (fragmentOpcode_ == (int)Opcode::TEXT) {
 		SendHeader(finish, (int)Opcode::CONTINUE, str.size());
 	} else {
-		assert(fragmentOpcode_ == (int)Opcode::TEXT || fragmentOpcode_ == -1);
+		_assert_(fragmentOpcode_ == (int)Opcode::TEXT || fragmentOpcode_ == -1);
 	}
 	SendBytes(str.c_str(), str.size());
 	if (finish) {
@@ -155,14 +156,14 @@ void WebSocketServer::AddFragment(bool finish, const std::string &str) {
 }
 
 void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &payload) {
-	assert(open_);
+	_assert_(open_);
 	if (fragmentOpcode_ == -1) {
 		SendHeader(finish, (int)Opcode::BINARY, payload.size());
 		fragmentOpcode_ = (int)Opcode::BINARY;
 	} else if (fragmentOpcode_ == (int)Opcode::BINARY) {
 		SendHeader(finish, (int)Opcode::CONTINUE, payload.size());
 	} else {
-		assert(fragmentOpcode_ == (int)Opcode::BINARY || fragmentOpcode_ == -1);
+		_assert_(fragmentOpcode_ == (int)Opcode::BINARY || fragmentOpcode_ == -1);
 	}
 	SendBytes((const char *)&payload[0], payload.size());
 	if (finish) {
@@ -171,15 +172,15 @@ void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &paylo
 }
 
 void WebSocketServer::Ping(const std::vector<uint8_t> &payload) {
-	assert(open_);
-	assert(payload.size() <= 125);
+	_assert_(open_);
+	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PING, payload.size());
 	SendBytes((const char *)&payload[0], payload.size());
 }
 
 void WebSocketServer::Pong(const std::vector<uint8_t> &payload) {
-	assert(open_);
-	assert(payload.size() <= 125);
+	_assert_(open_);
+	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PONG, payload.size());
 	SendBytes((const char *)&payload[0], payload.size());
 }
@@ -275,7 +276,7 @@ bool WebSocketServer::ReadFrames() {
 }
 
 bool WebSocketServer::ReadFrame() {
-	assert(pendingLeft_ == 0);
+	_assert_(pendingLeft_ == 0);
 
 	// TODO: For now blocking on header trickle, shouldn't be common.
 	auto readExact = [&](void *p, size_t sz) {
@@ -408,7 +409,7 @@ bool WebSocketServer::ReadPending() {
 			binary_(pendingBuf_);
 		}
 	} else {
-		assert(false);
+		_assert_(false);
 	}
 
 	// All done, clear it out.
@@ -455,14 +456,14 @@ bool WebSocketServer::ReadControlFrame(int opcode, size_t sz) {
 		// Don't read anything more.
 		return false;
 	} else {
-		assert(false);
+		_assert_(false);
 	}
 
 	return true;
 }
 
 void WebSocketServer::SendHeader(bool fin, int opcode, size_t sz) {
-	assert((opcode & 0x0F) == opcode);
+	_assert_((opcode & 0x0F) == opcode);
 	uint8_t frameHeader = (fin ? 0x80 : 0x00) | opcode;
 	SendBytes(&frameHeader, 1);
 
@@ -479,7 +480,7 @@ void WebSocketServer::SendHeader(bool fin, int opcode, size_t sz) {
 		SendBytes(frameSize, sizeof(frameSize));
 	} else {
 		uint64_t sz64 = sz;
-		assert((sz64 & 0x8000000000000000ULL) == 0);
+		_assert_((sz64 & 0x8000000000000000ULL) == 0);
 		uint8_t frameSize[] = {
 			127,
 			(uint8_t)((sz64 >> 56) & 0xFF),

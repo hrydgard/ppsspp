@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
-#include <cassert>
 #include <sstream>
 
 #include "Common/Log.h"

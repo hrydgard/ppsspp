@@ -84,7 +84,7 @@ void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw, VulkanContex
 	vulkan_ = vulkan;
 	std::string errors;
 	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
-	assert(vshader_ != VK_NULL_HANDLE);
+	_assert_(vshader_ != VK_NULL_HANDLE);
 }
 
 DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {

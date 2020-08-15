@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cassert>
 #include <string>
 
 #include "json/json_reader.h"

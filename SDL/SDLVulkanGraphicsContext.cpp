@@ -117,7 +117,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 
 	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

@@ -17,7 +17,6 @@
 
 #include <map>
 #include <algorithm>
-#include <cassert>
 #include <cstring>
 
 #include <d3d11.h>

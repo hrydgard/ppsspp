@@ -26,13 +26,6 @@
 #pragma warning (disable:4100)
 #endif
 
-// Force enable logging in the right modes. For some reason, something had changed
-// so that debugfast no longer logged.
-#if defined(_DEBUG) || defined(DEBUGFAST)
-#undef LOGGING
-#define LOGGING 1
-#endif
-
 #include "Log.h"
 #include "CommonTypes.h"
 #include "CommonFuncs.h"

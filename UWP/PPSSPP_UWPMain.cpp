@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "PPSSPP_UWPMain.h"
 
-#include <cassert>
 #include <mutex>
 
 #include "base/basictypes.h"
@@ -324,7 +323,7 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	draw_ = Draw::T3DCreateD3D11Context(
 		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 }
 
 void UWPGraphicsContext::Shutdown() {

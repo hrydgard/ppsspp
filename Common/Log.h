@@ -17,15 +17,10 @@
 
 #pragma once
 
-#include <cassert>
 #include <cstdio>
 
 #include "CommonFuncs.h"
 #include "Common/MsgHandler.h"
-
-#if defined(__ANDROID__)
-#include <android/log.h>
-#endif
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -33,7 +28,6 @@
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
-
 
 namespace LogTypes {
 
@@ -92,15 +86,20 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 		;
 bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
-#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST) || defined(_WIN32)
+#if defined(_DEBUG) || defined(_WIN32)
+
 #define MAX_LOGLEVEL DEBUG_LEVEL
+
 #else
+
 #ifndef MAX_LOGLEVEL
 #define MAX_LOGLEVEL INFO_LEVEL
 #endif // loglevel
+
 #endif // logging
 
-// Let the compiler optimize this out
+// Let the compiler optimize this out.
+// TODO: Compute a dynamic max level as well that can be checked here.
 #define GENERIC_LOG(t, v, ...) { \
 	if (v <= MAX_LOGLEVEL) \
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
@@ -121,7 +120,9 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #endif
 
+// If we're in "debug" assert mode
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
+
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
 		printf(#_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\n", \
@@ -151,15 +152,13 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #endif  // __ANDROID__
 
-#define _dbg_update_() ; //Host_UpdateLogDisplay();
-
 #else // not debug
-#define _dbg_update_() ;
 
 #ifndef _dbg_assert_
 #define _dbg_assert_(_a_) {}
 #define _dbg_assert_msg_(_a_, _desc_, ...) {}
 #endif // dbg_assert
+
 #endif // MAX_LOGLEVEL DEBUG
 
 #if defined(__ANDROID__)

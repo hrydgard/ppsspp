@@ -230,7 +230,6 @@ void MainThreadFunc() {
 	}
 
 	INFO_LOG(BOOT, "Done.");
-	_dbg_update_();
 
 	if (coreState == CORE_POWERDOWN) {
 		INFO_LOG(BOOT, "Exit before core loop.");

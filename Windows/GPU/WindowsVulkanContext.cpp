@@ -46,7 +46,6 @@
 // and use the same render pass configuration (clear to black). However, we can later change this so we switch
 // to a non-clearing render pass in buffered mode, which might be a tiny bit faster.
 
-#include <cassert>
 #include <crtdbg.h>
 #include <sstream>
 

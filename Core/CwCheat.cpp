@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cstdint>
 #include "i18n/i18n.h"
@@ -777,7 +776,7 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 
 CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
 	// TODO
-	assert(false);
+	_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -787,7 +786,7 @@ CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i)
 	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
 		return InterpretNextTempAR(cheat, i);
 	else
-		assert(false);
+		_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -1178,7 +1177,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	default:
-		assert(false);
+		_assert_(false);
 	}
 }
 

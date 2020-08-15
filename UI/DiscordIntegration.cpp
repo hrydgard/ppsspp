@@ -1,6 +1,5 @@
 
 #include <ctime>
-#include <cassert>
 
 #include "ppsspp_config.h"
 #include "Common/Log.h"
@@ -50,8 +49,8 @@ bool Discord::IsEnabled() const {
 }
 
 void Discord::Init() {
-	assert(IsEnabled());
-	assert(!initialized_);
+	_assert_(IsEnabled());
+	_assert_(!initialized_);
 
 #ifdef ENABLE_DISCORD
 	DiscordEventHandlers eventHandlers{};

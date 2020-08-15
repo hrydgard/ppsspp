@@ -17,9 +17,8 @@
 
 #ifdef SDL
 
-#include <stdio.h>
+#include <cstdio>
 #include <SDL.h>
-#include <cassert>
 
 #include "headless/SDLHeadlessHost.h"
 #include "gfx/gl_common.h"
@@ -29,6 +28,7 @@
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
 
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
@@ -156,7 +156,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
 	});

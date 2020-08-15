@@ -142,7 +142,7 @@ void PPGeSetTexture(u32 dataAddr, int width, int height);
 static void WriteCmd(u8 cmd, u32 data) {
 	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
 	dlWritePtr += 4;
-	assert(dlWritePtr <= dlPtr + dlSize);
+	_dbg_assert_(dlWritePtr <= dlPtr + dlSize);
 }
 
 static void WriteCmdAddrWithBase(u8 cmd, u32 addr) {
@@ -181,7 +181,7 @@ static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
 	}
-	assert(dataWritePtr <= dataPtr + dataSize);
+	_dbg_assert_(dataWritePtr <= dataPtr + dataSize);
 	vertexCount++;
 }
 
@@ -420,8 +420,8 @@ void PPGeEnd()
 }
 
 void PPGeScissor(int x1, int y1, int x2, int y2) {
-	assert(x1 >= 0 && x1 <= 480 && x2 >= 0 && x2 <= 480);
-	assert(y1 >= 0 && y1 <= 272 && y2 >= 0 && y2 <= 272);
+	_dbg_assert_(x1 >= 0 && x1 <= 480 && x2 >= 0 && x2 <= 480);
+	_dbg_assert_(y1 >= 0 && y1 <= 272 && y2 >= 0 && y2 <= 272);
 	WriteCmd(GE_CMD_SCISSOR1, (y1 << 10) | x1);
 	WriteCmd(GE_CMD_SCISSOR2, ((y2 - 1) << 10) | (x2 - 1));
 }

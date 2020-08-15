@@ -1483,7 +1483,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);
 	if (!f) {
-		assert(error != 0);
+		_assert_(error != 0);
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD) {
 			// TODO: Timing is not accurate.
 			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
@@ -2063,7 +2063,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (f == nullptr) {
-		assert(error != 0);
+		_assert_(error != 0);
 		if (error == SCE_KERNEL_ERROR_NODEV)
 			return hleLogError(SCEIO, error, "device not found");
 

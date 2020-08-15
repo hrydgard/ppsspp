@@ -16,7 +16,6 @@ SDLJoystick *joystick = NULL;
 
 #include <atomic>
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <thread>
 #include <locale>
