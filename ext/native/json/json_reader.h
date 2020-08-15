@@ -1,9 +1,10 @@
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "ext/gason/gason.h"
+#include "Common/Log.h"
 
 namespace json {
 
@@ -72,7 +73,7 @@ private:
 		char *error_pos;
 		int status = jsonParse(buffer_, &error_pos, &root_, alloc_);
 		if (status != JSON_OK) {
-			ELOG("Error at (%i): %s\n%s\n\n", (int)(error_pos - buffer_), jsonStrError(status), error_pos);
+			ERROR_LOG(IO, "Error at (%i): %s\n%s\n\n", (int)(error_pos - buffer_), jsonStrError(status), error_pos);
 			return false;
 		}
 		ok_ = true;

@@ -19,9 +19,11 @@
 
 #include <cassert>
 #include <string>
+
 #include "json/json_reader.h"
 #include "json/json_writer.h"
 #include "net/websocket_server.h"
+
 #include "Common/Log.h"
 
 #include "ppsspp_config.h"
@@ -54,7 +56,7 @@ struct DebuggerErrorEvent {
 	LogTypes::LOG_LEVELS level;
 	std::string ticketRaw;
 
-	operator std::string() {
+	operator std::string() const {
 		JsonWriter j;
 		j.begin();
 		j.writeString("event", "error");

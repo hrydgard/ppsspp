@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "base/logging.h"
 #include "image/png_load.h"
 #include "image/zim_save.h"
 

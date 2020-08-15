@@ -8,11 +8,12 @@
 
 #include <string.h>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ppsspp_config.h"
 #include "profiler/profiler.h"
+
+#include "Common/Log.h"
 
 #define MAX_CATEGORIES 64 // Can be any number, represents max profiled names.
 #define MAX_DEPTH 16      // Can be any number, represents max nesting depth of profiled names.
@@ -147,7 +148,7 @@ int internal_profiler_enter(const char *category_name, int *out_thread_id) {
 		}
 		internal_profiler_resume(thread_id, category, now);
 	} else {
-		DLOG("profiler: recursive enter (%i - %s)", category, category_name);
+		DEBUG_LOG(SYSTEM, "profiler: recursive enter (%i - %s)", category, category_name);
 	}
 
 	depth++;
@@ -164,7 +165,7 @@ void internal_profiler_leave(int thread_id, int category) {
 
 	int &depth = profiler.depth[thread_id];
 	if (category < 0 || category >= MAX_CATEGORIES) {
-		ELOG("Bad category index %d", category);
+		ERROR_LOG(SYSTEM, "Bad category index %d", category);
 		depth--;
 		return;
 	}
@@ -172,9 +173,7 @@ void internal_profiler_leave(int thread_id, int category) {
 	double now = real_time_now();
 
 	depth--;
-	if (depth < 0) {
-		FLOG("Profiler enter/leave mismatch!");
-	}
+	_assert_msg_(depth >= 0, "Profiler enter/leave mismatch!");
 
 	int parent = profiler.parentCategory[thread_id][depth];
 	// When there's recursion, we don't suspend or resume.
@@ -191,10 +190,7 @@ void internal_profiler_leave(int thread_id, int category) {
 
 void internal_profiler_end_frame() {
 	int thread_id = internal_profiler_find_thread();
-	if (profiler.depth[thread_id] != 0) {
-		// Threads may be off, but they'll fall into another frame.
-		FLOG("Can't be inside a profiler scope at end of frame!");
-	}
+	_assert_msg_(profiler.depth[thread_id] == 0, "Can't be inside a profiler scope at end of frame!");
 	profiler.curFrameStart = real_time_now();
 	profiler.historyPos++;
 	profiler.historyPos &= (HISTORY_SIZE - 1);

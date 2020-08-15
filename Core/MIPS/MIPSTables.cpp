@@ -28,7 +28,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "base/logging.h"
 
 #include "JitCommon/JitCommon.h"
 

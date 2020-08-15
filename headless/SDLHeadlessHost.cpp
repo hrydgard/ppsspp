@@ -32,7 +32,6 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

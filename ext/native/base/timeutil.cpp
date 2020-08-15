@@ -1,7 +1,6 @@
 #include <cstdio>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 
 #ifdef _WIN32
@@ -14,6 +13,8 @@
 #ifdef HAVE_LIBNX
 #include <switch.h>
 #endif // HAVE_LIBNX
+
+#include "Common/Log.h"
 
 static double curtime = 0;
 static float curtime_f = 0;
@@ -107,7 +108,7 @@ bool LoggingDeadline::End() {
 	if (time_now_d() > endTime_) {
 		double late = (time_now_d() - endTime_);
 		double totalTime = late + totalTime_;
-		ELOG("===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
+		ERROR_LOG(SYSTEM, "===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
 		return false;
 	}
 	return true;

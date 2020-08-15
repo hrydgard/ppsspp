@@ -3,7 +3,6 @@
 #include <cstring>
 #include <set>
 
-#include "base/logging.h"
 #include "base/stringutil.h"
 
 #if PPSSPP_API(ANY_GL)
@@ -16,6 +15,7 @@
 
 #include "gfx_es2/gpu_features.h"
 
+#include "Common/Log.h"
 
 #if defined(USING_GLES2)
 #if defined(__ANDROID__)
@@ -96,7 +96,7 @@ int GLExtensions::GLSLVersion() {
 void ProcessGPUFeatures() {
 	gl_extensions.bugs = 0;
 
-	DLOG("Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
+	DEBUG_LOG(G3D, "Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
 
 	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		if (!strcmp(gl_extensions.model, "PowerVR SGX 545") ||
@@ -106,11 +106,11 @@ void ProcessGPUFeatures() {
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 530") ||
 				!strcmp(gl_extensions.model, "PowerVR SGX 520") ) {
-			WLOG("GL DRIVER BUG: PVR with bad and terrible precision");
+			WARN_LOG(G3D, "GL DRIVER BUG: PVR with bad and terrible precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_TERRIBLE | BUG_PVR_SHADER_PRECISION_BAD;
 		} else {
 			// TODO: I'm not sure if the Rogue series is affected by this.
-			WLOG("GL DRIVER BUG: PVR with bad precision");
+			WARN_LOG(G3D, "GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}
 	}
@@ -172,7 +172,7 @@ void CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	ILOG("GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor, renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+	INFO_LOG(G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor, renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
 	if (renderer) {
 		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
@@ -245,7 +245,7 @@ void CheckGLExtensions() {
 			gl_extensions.ver[1] = 0;
 		} else if (parsed[0] && (gl_extensions.ver[0] != parsed[0] || gl_extensions.ver[1] != parsed[1])) {
 			// Something going wrong. Possible bug in GL ES drivers. See #9688
-			ILOG("GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
+			INFO_LOG(G3D, "GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
 				versionStr ? versionStr : "N/A", parsed[0], parsed[1], gl_extensions.ver[0], gl_extensions.ver[1]);
 			
 			gl_extensions.ver[0] = 2;
@@ -289,9 +289,9 @@ void CheckGLExtensions() {
 
 		if (gl_extensions.GLES3) {
 			if (gl_extensions.ver[1] >= 1) {
-				ILOG("OpenGL ES 3.1 support detected!\n");
+				INFO_LOG(G3D, "OpenGL ES 3.1 support detected!\n");
 			} else {
-				ILOG("OpenGL ES 3.0 support detected!\n");
+				INFO_LOG(G3D, "OpenGL ES 3.0 support detected!\n");
 			}
 		}
 	}
@@ -376,7 +376,7 @@ void CheckGLExtensions() {
 #ifdef _DEBUG
 		void *invalidAddress = (void *)eglGetProcAddress("InvalidGlCall1");
 		void *invalidAddress2 = (void *)eglGetProcAddress("AnotherInvalidGlCall2");
-		DLOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
+		DEBUG_LOG(G3D, "Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
 #endif
 
 		// These are all the same.  Let's alias.
@@ -473,7 +473,7 @@ void CheckGLExtensions() {
 
 		// Now, Adreno lies. So let's override it.
 		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
-			WLOG("Detected Adreno - lowering int precision");
+			WARN_LOG(G3D, "Detected Adreno - lowering int precision");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}
@@ -549,15 +549,14 @@ void CheckGLExtensions() {
 
 	int error = glGetError();
 	if (error)
-		ELOG("GL error in init: %i", error);
+		ERROR_LOG(G3D, "GL error in init: %i", error);
 
 #endif
 
 }
 
 void SetGLCoreContext(bool flag) {
-	if (extensionsDone)
-		FLOG("SetGLCoreContext() after CheckGLExtensions()");
+	_assert_msg_(!extensionsDone, "SetGLCoreContext() after CheckGLExtensions()");
 
 	useCoreContext = flag;
 	// For convenience, it'll get reset later.

@@ -1,12 +1,12 @@
 #include <string>
 #include <mutex>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/chunk_file.h"
 #include "file/vfs.h"
 #include "ui/root.h"
 
+#include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/FixedSizeQueue.h"
@@ -84,9 +84,9 @@ void WavData::Read(RIFFReader &file_) {
 				}
 			}
 			file_.Ascend();
-			// ILOG("got fmt data: %i", samplesPerSec);
+			// INFO_LOG(AUDIO, "got fmt data: %i", samplesPerSec);
 		} else {
-			ELOG("Error - no format chunk in wav");
+			ERROR_LOG(AUDIO, "Error - no format chunk in wav");
 			file_.Ascend();
 			return;
 		}
@@ -142,20 +142,20 @@ void WavData::Read(RIFFReader &file_) {
 			if (num_channels == 1 || num_channels == 2) {
 				file_.ReadData(raw_data, numBytes);
 			} else {
-				ELOG("Error - bad blockalign or channels");
+				ERROR_LOG(AUDIO, "Error - bad blockalign or channels");
 				free(raw_data);
 				raw_data = nullptr;
 				return;
 			}
 			file_.Ascend();
 		} else {
-			ELOG("Error - no data chunk in wav");
+			ERROR_LOG(AUDIO, "Error - no data chunk in wav");
 			file_.Ascend();
 			return;
 		}
 		file_.Ascend();
 	} else {
-		ELOG("Could not descend into RIFF file.");
+		ERROR_LOG(AUDIO, "Could not descend into RIFF file.");
 		return;
 	}
 	sample_rate = samplesPerSec;
@@ -178,7 +178,7 @@ public:
 		if (wave_.codec == PSP_CODEC_AT3) {
 			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
 		}
-		ILOG("read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
+		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
 	~AT3PlusReader() {
@@ -269,7 +269,7 @@ BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
 	delete [] data;
 
 	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
-		ELOG("Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
+		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;
 	}
 

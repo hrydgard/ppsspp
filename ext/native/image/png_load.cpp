@@ -9,7 +9,8 @@
 #endif
 
 #include "png_load.h"
-#include "base/logging.h"
+
+#include "Common/Log.h"
 
 // *image_data_ptr should be deleted with free()
 // return value of 1 == success.
@@ -17,7 +18,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 #ifdef USING_QT_UI
 	QImage image(file, "PNG");
 	if (image.isNull()) {
-		ELOG("pngLoad: Error loading image %s", file);
+		ERROR_LOG(IO, "pngLoad: Error loading image %s", file);
 		return 0;
 	}
 
@@ -36,7 +37,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	}
 #else
 	if (flip)
-		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
+		ERROR_LOG(IO, "pngLoad: flip flag not supported, image will be loaded upside down");
 	png_image png;
 	memset(&png, 0, sizeof(png));
 	png.version = PNG_IMAGE_VERSION;
@@ -45,7 +46,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 
 	if (PNG_IMAGE_FAILED(png))
 	{
-		ELOG("pngLoad: %s", png.message);
+		ERROR_LOG(IO, "pngLoad: %s", png.message);
 		return 0;
 	}
 	*pwidth = png.width;
@@ -65,7 +66,7 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 #ifdef USING_QT_UI
 	QImage image;
 	if (!image.loadFromData(input_ptr, input_len, "PNG")) {
-		ELOG("pngLoad: Error loading image");
+		ERROR_LOG(IO, "pngLoad: Error loading image");
 		return 0;
 	}
 	if (flip)
@@ -83,14 +84,14 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	}
 #else
 	if (flip)
-		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
+		ERROR_LOG(IO, "pngLoad: flip flag not supported, image will be loaded upside down");
 	png_image png{};
 	png.version = PNG_IMAGE_VERSION;
 
 	png_image_begin_read_from_memory(&png, input_ptr, input_len);
 
 	if (PNG_IMAGE_FAILED(png)) {
-		ELOG("pngLoad: %s", png.message);
+		ERROR_LOG(IO, "pngLoad: %s", png.message);
 		return 0;
 	}
 	*pwidth = png.width;
@@ -101,7 +102,7 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	size_t size = PNG_IMAGE_SIZE(png);
 	if (!size) {
-		ELOG("pngLoad: empty image");
+		ERROR_LOG(IO, "pngLoad: empty image");
 		return 0;
 	}
 

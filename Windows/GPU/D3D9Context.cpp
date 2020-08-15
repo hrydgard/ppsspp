@@ -5,11 +5,11 @@
 
 #include "gfx/d3d9_state.h"
 
-#include "base/logging.h"
 #include "base/display.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
@@ -71,7 +71,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	hD3D9_ = LoadLibrary(TEXT("d3d9.dll"));
 	if (!hD3D9_) {
-		ELOG("Missing d3d9.dll");
+		ERROR_LOG(G3D, "Missing d3d9.dll");
 		*error_message = "D3D9.dll missing - try reinstalling DirectX.";
 		return false;
 	}

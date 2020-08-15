@@ -1,25 +1,26 @@
 #include <cassert>
-#include "base/logging.h"
+
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d_create.h"
 
+#include "Common/Log.h"
 #include "AndroidEGLContext.h"
 #include "GL/GLInterface/EGLAndroid.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
 bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
-	ILOG("AndroidEGLGraphicsContext::Init()");
+	INFO_LOG(G3D, "AndroidEGLGraphicsContext::Init()");
 	wnd_ = wnd;
 	gl = HostGL_CreateGLInterface();
 	if (!gl) {
-		ELOG("ERROR: Failed to create GL interface");
+		ERROR_LOG(G3D, "ERROR: Failed to create GL interface");
 		return false;
 	}
 	int backbufferWidth = desiredBackbufferSizeX;
 	int backbufferHeight = desiredBackbufferSizeY;
-	ILOG("EGL interface created. Desired backbuffer size: %dx%d", backbufferWidth, backbufferHeight);
+	INFO_LOG(G3D, "EGL interface created. Desired backbuffer size: %dx%d", backbufferWidth, backbufferHeight);
 
 	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
 	gl->SetBackBufferDimensions(backbufferWidth, backbufferHeight);
@@ -39,7 +40,7 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 	}
 
 	if (!gl->Create(wnd, false, use565)) {
-		ELOG("EGL creation failed! (use565=%d)", (int)use565);
+		ERROR_LOG(G3D, "EGL creation failed! (use565=%d)", (int)use565);
 		// TODO: What do we do now?
 		delete gl;
 		return false;
@@ -58,7 +59,7 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 }
 
 void AndroidEGLGraphicsContext::ShutdownFromRenderThread() {
-	ILOG("AndroidEGLGraphicsContext::Shutdown");
+	INFO_LOG(G3D, "AndroidEGLGraphicsContext::Shutdown");
 	renderManager_->WaitUntilQueueIdle();
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;

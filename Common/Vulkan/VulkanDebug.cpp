@@ -19,7 +19,7 @@
 #include <cassert>
 #include <sstream>
 
-#include "base/logging.h"
+#include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
 
@@ -79,9 +79,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 #else
 	// TODO: Improve.
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		ELOG("VKDEBUG: %s", msg.c_str());
+		ERROR_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	} else {
-		WLOG("VKDEBUG: %s", msg.c_str());
+		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	}
 #endif
 

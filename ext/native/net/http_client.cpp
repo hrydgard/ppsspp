@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "base/logging.h"
 #include "base/buffer.h"
 #include "base/stringutil.h"
 #include "data/compression.h"
@@ -26,6 +25,8 @@
 #include "net/resolve.h"
 #include "net/url.h"
 #include "thread/threadutil.h"
+
+#include "Common/Log.h"
 
 namespace net {
 
@@ -48,11 +49,11 @@ inline unsigned short myhtons(unsigned short x) {
 
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
-		ELOG("Resolve: Already have a socket");
+		ERROR_LOG(IO, "Resolve: Already have a socket");
 		return false;
 	}
 	if (!host || port < 1 || port > 65535) {
-		ELOG("Resolve: Invalid host or port (%d)", port);
+		ERROR_LOG(IO, "Resolve: Invalid host or port (%d)", port);
 		return false;
 	}
 
@@ -64,7 +65,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 	std::string err;
 	if (!net::DNSResolve(host, port_str, &resolved_, err, type)) {
-		ELOG("Failed to resolve host %s: %s", host, err.c_str());
+		ERROR_LOG(IO, "Failed to resolve host %s: %s", host, err.c_str());
 		// So that future calls fail.
 		port_ = 0;
 		return false;
@@ -75,7 +76,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
-		ELOG("Bad port");
+		ERROR_LOG(IO, "Bad port");
 		return false;
 	}
 	sock_ = -1;
@@ -91,7 +92,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
-				ELOG("Bad socket");
+				ERROR_LOG(IO, "Bad socket");
 				continue;
 			}
 			fd_util::SetNonBlocking(sock, true);
@@ -326,14 +327,14 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 		if (!ready && leftTimeout >= 0.0) {
 			leftTimeout -= CANCEL_INTERVAL;
 			if (leftTimeout < 0) {
-				ELOG("HTTP headers timed out");
+				ERROR_LOG(IO, "HTTP headers timed out");
 				return -1;
 			}
 		}
 	};
 	// Let's hope all the headers are available in a single packet...
 	if (readbuf->Read(sock(), 4096) < 0) {
-		ELOG("Failed to read HTTP headers :(");
+		ERROR_LOG(IO, "Failed to read HTTP headers :(");
 		return -1;
 	}
 
@@ -429,7 +430,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 		output->TakeAll(&compressed);
 		bool result = decompress_string(compressed, &decompressed);
 		if (!result) {
-			ELOG("Error decompressing using zlib");
+			ERROR_LOG(IO, "Error decompressing using zlib");
 			if (progress)
 				*progress = 0.0f;
 			return -1;
@@ -448,9 +449,7 @@ Download::Download(const std::string &url, const std::string &outfile)
 }
 
 Download::~Download() {
-	if (!joined_) {
-		FLOG("Download destructed without join");
-	}
+	_assert_msg_(joined_, "Download destructed without join");
 }
 
 void Download::Start() {
@@ -459,7 +458,7 @@ void Download::Start() {
 
 void Download::Join() {
 	if (joined_) {
-		ELOG("Already joined thread!");
+		ERROR_LOG(IO, "Already joined thread!");
 	}
 	thread_.join();
 	joined_ = true;
@@ -479,7 +478,7 @@ int Download::PerformGET(const std::string &url) {
 
 	http::Client client;
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
-		ELOG("Failed resolving %s", url.c_str());
+		ERROR_LOG(IO, "Failed resolving %s", url.c_str());
 		return -1;
 	}
 
@@ -488,7 +487,7 @@ int Download::PerformGET(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ELOG("Failed connecting to server or cancelled.");
+		ERROR_LOG(IO, "Failed connecting to server or cancelled.");
 		return -1;
 	}
 
@@ -525,7 +524,7 @@ void Download::Do() {
 		if (resultCode == 301 || resultCode == 302 || resultCode == 303 || resultCode == 307 || resultCode == 308) {
 			std::string redirectURL = RedirectLocation(downloadURL);
 			if (redirectURL.empty()) {
-				ELOG("Could not find Location header for redirect");
+				ERROR_LOG(IO, "Could not find Location header for redirect");
 				resultCode_ = resultCode;
 			} else if (redirectURL == downloadURL || redirectURL == url_) {
 				// Simple loop detected, bail out.
@@ -534,18 +533,18 @@ void Download::Do() {
 
 			// Perform the next GET.
 			if (resultCode_ == 0)
-				ILOG("Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+				INFO_LOG(IO, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
 			downloadURL = redirectURL;
 			continue;
 		}
 
 		if (resultCode == 200) {
-			ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
-				ELOG("Failed writing download to %s", outfile_.c_str());
+				ERROR_LOG(IO, "Failed writing download to %s", outfile_.c_str());
 			}
 		} else {
-			ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
+			ERROR_LOG(IO, "Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}

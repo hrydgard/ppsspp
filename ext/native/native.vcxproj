@@ -387,7 +387,6 @@
     <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\display.h" />
-    <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
@@ -496,7 +495,6 @@
     <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
-    <ClCompile Include="base\logging.cpp" />
     <ClCompile Include="..\..\SDL\SDLMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

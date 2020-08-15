@@ -2,7 +2,6 @@
 #include <cstring>
 #include <cstdint>
 
-#include "base/logging.h"
 #include "base/display.h"
 #include "thin3d/thin3d.h"
 #include "Common/Log.h"
@@ -92,7 +91,7 @@ bool RefCountedObject::ReleaseAssertLast() {
 			return true;
 		}
 	} else {
-		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+		ERROR_LOG(G3D, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
 	}
 	return false;
 }

@@ -1,6 +1,6 @@
 #include <cstring>
 #include <cstdint>
-#include "base/logging.h"
+
 #include "gfx/texture_atlas.h"
 
 class ByteReader {

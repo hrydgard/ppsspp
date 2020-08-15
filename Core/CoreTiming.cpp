@@ -20,7 +20,6 @@
 #include <cstdio>
 #include <mutex>
 
-#include "base/logging.h"
 #include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"

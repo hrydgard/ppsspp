@@ -4,11 +4,12 @@
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d.h"
 #include "thread/threadutil.h"
-#include "base/logging.h"
+
+#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 
 #if 0 // def _DEBUG
-#define VLOG ILOG
+#define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -19,6 +20,24 @@ static bool OnRenderThread() {
 	return std::this_thread::get_id() == renderThreadId;
 }
 #endif
+
+void GLDeleter::Take(GLDeleter &other) {
+	_assert_msg_(IsEmpty(), "Deleter already has stuff");
+	shaders = std::move(other.shaders);
+	programs = std::move(other.programs);
+	buffers = std::move(other.buffers);
+	textures = std::move(other.textures);
+	inputLayouts = std::move(other.inputLayouts);
+	framebuffers = std::move(other.framebuffers);
+	pushBuffers = std::move(other.pushBuffers);
+	other.shaders.clear();
+	other.programs.clear();
+	other.buffers.clear();
+	other.textures.clear();
+	other.inputLayouts.clear();
+	other.framebuffers.clear();
+	other.pushBuffers.clear();
+}
 
 // Runs on the GPU thread.
 void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
@@ -95,7 +114,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	renderThreadId = std::this_thread::get_id();
 
 	if (newInflightFrames_ != -1) {
-		ILOG("Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(G3D, "Updating inflight frames to %d", newInflightFrames_);
 		inflightFrames_ = newInflightFrames_;
 		newInflightFrames_ = -1;
 	}
@@ -135,7 +154,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 }
 
 void GLRenderManager::ThreadEnd() {
-	ILOG("ThreadEnd");
+	INFO_LOG(G3D, "ThreadEnd");
 
 	// Wait for any shutdown to complete in StopThread().
 	std::unique_lock<std::mutex> lock(mutex_);
@@ -198,7 +217,7 @@ bool GLRenderManager::ThreadFrame() {
 		}
 		VLOG("PULL: Running frame %d", threadFrame_);
 		if (firstFrame) {
-			ILOG("Running first frame (%d)", threadFrame_);
+			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
 			firstFrame = false;
 		}
 		Run(threadFrame_);
@@ -227,7 +246,7 @@ void GLRenderManager::StopThread() {
 		// Wait until we've definitely stopped the threadframe.
 		std::unique_lock<std::mutex> lock(mutex_);
 
-		ILOG("GL submission thread paused. Frame=%d", curFrame_);
+		INFO_LOG(G3D, "GL submission thread paused. Frame=%d", curFrame_);
 
 		// Eat whatever has been queued up for this frame if anything.
 		Wipe();
@@ -255,7 +274,7 @@ void GLRenderManager::StopThread() {
 			}
 		}
 	} else {
-		ILOG("GL submission thread was already paused.");
+		INFO_LOG(G3D, "GL submission thread was already paused.");
 	}
 }
 
@@ -435,7 +454,7 @@ void GLRenderManager::BeginFrame() {
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 	if (!run_) {
-		WLOG("BeginFrame while !run_!");
+		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 
 	// vulkan_->BeginFrame();

@@ -1,6 +1,5 @@
+#include "ppsspp_config.h"
 #include "net/resolve.h"
-#include "base/logging.h"
-#include "base/timeutil.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +24,7 @@
 #include <unistd.h>
 #endif
 
+#include "base/timeutil.h"
 
 namespace net {
 
@@ -45,6 +45,7 @@ void Shutdown()
 }
 
 bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type) {
+
 #if PPSSPP_PLATFORM(SWITCH)
 	// Force IPv4 lookups.
 	if (type == DNSType::IPV6) {
@@ -102,7 +103,7 @@ void DNSResolveFree(addrinfo *res)
 		freeaddrinfo(res);
 }
 
-bool GetIPList(std::vector<std::string>& IP4s) {
+bool GetIPList(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
 #if defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
 	struct ifaddrs* ifAddrStruct = NULL;

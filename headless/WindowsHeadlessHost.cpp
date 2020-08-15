@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
+#include <cstdio>
 
 #include "headless/WindowsHeadlessHost.h"
 
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/CommonWindows.h"
 
@@ -33,7 +34,6 @@
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

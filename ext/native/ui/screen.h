@@ -17,7 +17,6 @@
 #include <mutex>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
 

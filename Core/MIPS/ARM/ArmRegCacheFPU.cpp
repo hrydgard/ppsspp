@@ -17,8 +17,8 @@
 
 #include <cstring>
 
-#include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmJit.h"
@@ -463,13 +463,13 @@ void ArmRegCacheFPU::FlushAll() {
 
 		if (ar[a].isDirty) {
 			if (m == -1) {
-				ILOG("ARM reg %i is dirty but has no mipsreg", a);
+				INFO_LOG(JIT, "ARM reg %i is dirty but has no mipsreg", a);
 				continue;
 			}
 
 			int c = FlushGetSequential(a, GetNumARMFPURegs());
 			if (c == 1) {
-				// ILOG("Got single register: %i (%i)", a, m);
+				// INFO_LOG(JIT, "Got single register: %i (%i)", a, m);
 				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
 			} else if (c == 2) {
 				// Probably not worth using VSTMIA for two.
@@ -477,9 +477,9 @@ void ArmRegCacheFPU::FlushAll() {
 				emit_->VSTR((ARMReg)(a + S0), CTXREG, offset);
 				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
 			} else {
-				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
+				// INFO_LOG(JIT, "Got sequence: %i at %i (%i)", c, a, m);
 				emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
-				// ILOG("VSTMIA R0, %i, %i", a, c);
+				// INFO_LOG(JIT, "VSTMIA R0, %i, %i", a, c);
 				emit_->VSTMIA(SCRATCHREG1, false, (ARMReg)(S0 + a), c);
 			}
 
@@ -908,7 +908,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	// We didn't find the extra register, but we got a list of regs to flush. Flush 'em.
 	// Here we can check for opportunities to do a "transpose-flush" of row vectors, etc.
 	if (!quadsToFlush.empty()) {
-		ILOG("New mapping %s collided with %i quads, flushing them.", GetVectorNotation(vreg, sz), (int)quadsToFlush.size());
+		INFO_LOG(JIT, "New mapping %s collided with %d quads, flushing them.", GetVectorNotation(vreg, sz), (int)quadsToFlush.size());
 	}
 	for (size_t i = 0; i < quadsToFlush.size(); i++) {
 		QFlush(quadsToFlush[i]);

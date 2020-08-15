@@ -1,11 +1,11 @@
-#ifndef _IO_BUFFER_H
-#define _IO_BUFFER_H
+#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
+
+#include "Common/Common.h"
 
 // Acts as a queue. Intended to be as fast as possible for most uses.
 // Does not do synchronization, must use external mutexes.
@@ -84,5 +84,3 @@ class Buffer {
 
   DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
-
-#endif  // _IO_BUFFER_H

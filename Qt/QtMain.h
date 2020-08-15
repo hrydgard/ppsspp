@@ -23,7 +23,6 @@ QTM_USE_NAMESPACE
 #include <thread>
 
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/zip_read.h"
 #include "gfx/gl_common.h"

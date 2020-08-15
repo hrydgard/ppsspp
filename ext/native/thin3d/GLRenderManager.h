@@ -8,9 +8,7 @@
 #include <string>
 #include <mutex>
 #include <condition_variable>
-#include <cassert>
 
-#include "base/logging.h"
 #include "gfx/gl_common.h"
 #include "math/dataconv.h"
 #include "Common/Log.h"
@@ -30,6 +28,7 @@ public:
 			glDeleteTextures(1, &texture);
 		}
 	}
+
 	GLuint texture = 0;
 	// Could also trust OpenGL defaults I guess..
 	GLenum target = 0xFFFF;
@@ -217,7 +216,7 @@ private:
 		// Note: we must defrag because some buffers may be smaller than size_.
 		Defragment();
 		Map();
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 	}
 
 	void BeginNoReset() {
@@ -253,14 +252,14 @@ public:
 
 	// Returns the offset that should be used when binding this buffer to get this data.
 	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
 		return off;
 	}
 
 	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
@@ -274,13 +273,13 @@ public:
 	// "Zero-copy" variant - you can write the data directly as you compute it.
 	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
 	}
 	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
@@ -324,23 +323,7 @@ public:
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
 	}
 
-	void Take(GLDeleter &other) {
-		_assert_msg_(IsEmpty(), "Deleter already has stuff");
-		shaders = std::move(other.shaders);
-		programs = std::move(other.programs);
-		buffers = std::move(other.buffers);
-		textures = std::move(other.textures);
-		inputLayouts = std::move(other.inputLayouts);
-		framebuffers = std::move(other.framebuffers);
-		pushBuffers = std::move(other.pushBuffers);
-		other.shaders.clear();
-		other.programs.clear();
-		other.buffers.clear();
-		other.textures.clear();
-		other.inputLayouts.clear();
-		other.framebuffers.clear();
-		other.pushBuffers.clear();
-	}
+	void Take(GLDeleter &other);
 
 	std::vector<GLRShader *> shaders;
 	std::vector<GLRProgram *> programs;
@@ -431,7 +414,7 @@ public:
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
 		std::vector<GLRProgram::Initializer> initalizers, bool supportDualSource) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
-		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
+		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
@@ -443,10 +426,10 @@ public:
 		}
 #ifdef _DEBUG
 		for (auto &iter : queries) {
-			assert(iter.name);
+			_dbg_assert_(iter.name);
 		}
 		for (auto &sem : semantics) {
-			assert(sem.attrib);
+			_dbg_assert_(sem.attrib);
 		}
 #endif
 		step.create_program.num_shaders = (int)shaders.size();
@@ -616,7 +599,7 @@ public:
 
 	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		assert(inputLayout);
+		_dbg_assert_(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
 		data.bindVertexBuffer.inputLayout = inputLayout;
 		data.bindVertexBuffer.offset = offset;
@@ -650,7 +633,7 @@ public:
 	void SetUniformI(const GLint *loc, int count, const int *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
 		data.uniform4.loc = loc;
@@ -662,7 +645,7 @@ public:
 	void SetUniformI1(const GLint *loc, int udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
 		data.uniform4.loc = loc;
@@ -674,7 +657,7 @@ public:
 	void SetUniformF(const GLint *loc, int count, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
 		data.uniform4.loc = loc;
@@ -686,7 +669,7 @@ public:
 	void SetUniformF1(const GLint *loc, const float udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
 		data.uniform4.loc = loc;
@@ -698,7 +681,7 @@ public:
 	void SetUniformF(const char *name, int count, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
 		data.uniform4.name = name;
@@ -710,7 +693,7 @@ public:
 	void SetUniformM4x4(const GLint *loc, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.loc = loc;
@@ -721,7 +704,7 @@ public:
 	void SetUniformM4x4(const char *name, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
-		assert(curProgram_);
+		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.name = name;
@@ -902,7 +885,7 @@ public:
 				foundCount++;
 			}
 		}
-		assert(foundCount == 1);
+		_dbg_assert_(foundCount == 1);
 	}
 
 	void SetSwapFunction(std::function<void()> swapFunction) {

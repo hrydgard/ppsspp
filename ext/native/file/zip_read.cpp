@@ -8,8 +8,9 @@
 #endif
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 #include "file/zip_read.h"
+
+#include "Common/Log.h"
 
 #ifdef __ANDROID__
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
@@ -17,7 +18,7 @@ uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	struct zip_stat zstat;
 	zip_file *file = zip_fopen(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED);
 	if (!file) {
-		ELOG("Error opening %s from ZIP", filename);
+		ERROR_LOG(IO, "Error opening %s from ZIP", filename);
 		return 0;
 	}
 	zip_stat(archive, filename, ZIP_FL_NOCASE|ZIP_FL_UNCHANGED, &zstat);
@@ -67,16 +68,16 @@ ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
 	zip_file_ = zip_open(zip_file, 0, NULL);
 	strcpy(in_zip_path_, in_zip_path);
 	if (!zip_file_) {
-		ELOG("Failed to open %s as a zip file", zip_file);
+		ERROR_LOG(IO, "Failed to open %s as a zip file", zip_file);
 	}
 
 	std::vector<FileInfo> info;
 	GetFileListing("assets", &info, 0);
 	for (size_t i = 0; i < info.size(); i++) {
 		if (info[i].isDirectory) {
-			DLOG("Directory: %s", info[i].name.c_str());
+			DEBUG_LOG(IO, "Directory: %s", info[i].name.c_str());
 		} else {
-			DLOG("File: %s", info[i].name.c_str());
+			DEBUG_LOG(IO, "File: %s", info[i].name.c_str());
 		}
 	}
 }
@@ -264,7 +265,7 @@ static int num_entries = 0;
 void VFSRegister(const char *prefix, AssetReader *reader) {
 	entries[num_entries].prefix = prefix;
 	entries[num_entries].reader = reader;
-	DLOG("Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+	DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
 	num_entries++;
 }
 
@@ -289,7 +290,7 @@ static bool IsLocalPath(const char *path) {
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	if (IsLocalPath(filename)) {
 		// Local path, not VFS.
-		// ILOG("Not a VFS path: %s . Reading local file.", filename);
+		// INFO_LOG(IO, "Not a VFS path: %s . Reading local file.", filename);
 		return ReadLocalFile(filename, size);
 	}
 
@@ -300,7 +301,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
 			fileSystemFound = true;
-			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			// INFO_LOG(IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
@@ -310,7 +311,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		}
 	}
 	if (!fileSystemFound) {
-		ELOG("Missing filesystem for '%s'", filename);
+		ERROR_LOG(IO, "Missing filesystem for '%s'", filename);
 	}  // Otherwise, the file was just missing. No need to log.
 	return 0;
 }
@@ -318,7 +319,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
-		// ILOG("Not a VFS path: %s . Reading local directory.", path);
+		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
 		getFilesInDir(path, listing, filter);
 		return true;
 	}
@@ -337,7 +338,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 	}
 
 	if (!fileSystemFound) {
-		ELOG("Missing filesystem for %s", path);
+		ERROR_LOG(IO, "Missing filesystem for %s", path);
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
@@ -345,7 +346,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 bool VFSGetFileInfo(const char *path, FileInfo *info) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
-		// ILOG("Not a VFS path: %s . Getting local file info.", path);
+		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
 		return getFileInfo(path, info);
 	}
 
@@ -363,7 +364,7 @@ bool VFSGetFileInfo(const char *path, FileInfo *info) {
 		}
 	}
 	if (!fileSystemFound) {
-		ELOG("Missing filesystem for %s", path);
+		ERROR_LOG(IO, "Missing filesystem for %s", path);
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }

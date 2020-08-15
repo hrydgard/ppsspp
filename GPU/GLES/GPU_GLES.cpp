@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
 #include "profiler/profiler.h"
 #include "i18n/i18n.h"
 
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
@@ -310,7 +310,7 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	ILOG("GPU_GLES: DeviceLost");
+	INFO_LOG(G3D, "GPU_GLES: DeviceLost");
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
@@ -328,7 +328,7 @@ void GPU_GLES::DeviceLost() {
 
 void GPU_GLES::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	ILOG("GPU_GLES: DeviceRestore");
+	INFO_LOG(G3D, "GPU_GLES: DeviceRestore");
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);

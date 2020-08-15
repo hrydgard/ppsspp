@@ -20,8 +20,8 @@
 #include "ppsspp_config.h"
 
 #include "Common.h"
+#include "Common/Log.h"
 #include "StringUtils.h"
-#include "base/logging.h"
 #include "util/text/utf8.h"
 
 bool MsgHandler(const char *caption, const char *text, const char *file, int line, bool yes_no, int Style);
@@ -69,7 +69,7 @@ bool MsgHandler(const char* caption, const char* text, const char *file, int lin
 	return false;
 #else
 	// Will use android-log if available, printf if not.
-	ELOG("(%s:%d) %s", file, line, text);
+	ERROR_LOG(SYSTEM, "(%s:%d) %s", file, line, text);
 	return false;
 #endif
 }

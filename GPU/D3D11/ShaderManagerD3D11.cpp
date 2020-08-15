@@ -22,12 +22,12 @@
 
 #include <map>
 
-#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
 #include "util/text/utf8.h"
+#include "Common/Log.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

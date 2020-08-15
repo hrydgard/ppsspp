@@ -18,9 +18,10 @@
 #define MSG_NOSIGNAL 0x00
 #endif
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/fd_util.h"
+
+#include "Common/Log.h"
 
 Buffer::Buffer() { }
 Buffer::~Buffer() { }
@@ -63,7 +64,7 @@ void Buffer::AppendValue(int value) {
 
 void Buffer::Take(size_t length, std::string *dest) {
 	if (length > data_.size()) {
-		ELOG("Truncating length in Buffer::Take()");
+		ERROR_LOG(IO, "Truncating length in Buffer::Take()");
 		length = data_.size();
 	}
 	dest->resize(length);
@@ -90,7 +91,7 @@ int Buffer::TakeLineCRLF(std::string *dest) {
 
 void Buffer::Skip(size_t length) {
 	if (length > data_.size()) {
-		ELOG("Truncating length in Buffer::Skip()");
+		ERROR_LOG(IO, "Truncating length in Buffer::Skip()");
 		length = data_.size();
 	}
 	data_.erase(data_.begin(), data_.begin() + length);
@@ -122,10 +123,10 @@ void Buffer::Printf(const char *fmt, ...) {
   ssize_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
   if (retval >= (ssize_t)sizeof(buffer)) {
     // Output was truncated. TODO: Do something.
-    ELOG("Buffer::Printf truncated output");
+    ERROR_LOG(IO, "Buffer::Printf truncated output");
   }
   if (retval < 0) {
-    ELOG("Buffer::Printf failed");
+    ERROR_LOG(IO, "Buffer::Printf failed");
   }
   va_end(vl);
   char *ptr = Append(retval);
@@ -164,14 +165,14 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 			if (!ready && leftTimeout >= 0.0) {
 				leftTimeout -= CANCEL_INTERVAL;
 				if (leftTimeout < 0) {
-					ELOG("FlushSocket timed out");
+					ERROR_LOG(IO, "FlushSocket timed out");
 					return false;
 				}
 			}
 		}
 		int sent = send(sock, &data_[pos], (int)(end - pos), MSG_NOSIGNAL);
 		if (sent < 0) {
-			ELOG("FlushSocket failed");
+			ERROR_LOG(IO, "FlushSocket failed");
 			return false;
 		}
 		pos += sent;
@@ -200,7 +201,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 		if (retval == 0) {
 			break;
 		} else if (retval < 0) {
-			ELOG("Error reading from buffer: %i", retval);
+			ERROR_LOG(IO, "Error reading from buffer: %i", retval);
 			return false;
 		}
 		char *p = Append((size_t)retval);
@@ -232,7 +233,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, bool *c
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
-			ELOG("Error reading from buffer: %i", retval);
+			ERROR_LOG(IO, "Error reading from buffer: %i", retval);
 			return false;
 		}
 		char *p = Append((size_t)retval);

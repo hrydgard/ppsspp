@@ -1,4 +1,3 @@
-#include "base/logging.h"
 #include "file/chunk_file.h"
 #include "file/zip_read.h"
 #include "file/file_util.h"
@@ -49,7 +48,7 @@ bool RIFFReader::Descend(uint32_t intoId) {
 		int startLocation = pos_;
 
 		if (pos_ + length > fileSize_) {
-			ERROR_LOG(SYSTEM, "Block extends outside of RIFF file - failing descend");
+			ERROR_LOG(IO, "Block extends outside of RIFF file - failing descend");
 			pos_ = stack[depth_].parentStartLocation;
 			return false;
 		}
@@ -64,7 +63,7 @@ bool RIFFReader::Descend(uint32_t intoId) {
 			if (length > 0) {
 				pos_ += length; // try next block
 			} else {
-				ERROR_LOG(SYSTEM, "Bad data in RIFF file : block length %d. Not descending.", length);
+				ERROR_LOG(IO, "Bad data in RIFF file : block length %d. Not descending.", length);
 				pos_ = stack[depth_].parentStartLocation;
 				return false;
 			}

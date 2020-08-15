@@ -601,7 +601,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, std::string 
 	std::string outputISOFilename = g_Config.currentDirectory + "/" + fn.substr(nameOffset);
 	size_t bytesCopied = 0;
 	if (ExtractFile(z, isoFileIndex, outputISOFilename, &bytesCopied, allBytes)) {
-		ILOG("Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
+		INFO_LOG(IO, "Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
 	}
 	zip_close(z);
 	if (deleteAfter) {

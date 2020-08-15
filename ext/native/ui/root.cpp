@@ -7,6 +7,8 @@
 #include "ui/root.h"
 #include "ui/viewgroup.h"
 
+#include "Common/Log.h"
+
 namespace UI {
 
 static std::mutex focusLock;
@@ -109,7 +111,7 @@ bool IsFocusMovementEnabled() {
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets) {
 	if (!root) {
-		ELOG("Tried to layout a view hierarchy from a zero pointer root");
+		ERROR_LOG(SYSTEM, "Tried to layout a view hierarchy from a zero pointer root");
 		return;
 	}
 
@@ -358,7 +360,7 @@ void UpdateViewHierarchy(ViewGroup *root) {
 	frameCount++;
 
 	if (!root) {
-		ELOG("Tried to update a view hierarchy from a zero pointer root");
+		ERROR_LOG(SYSTEM, "Tried to update a view hierarchy from a zero pointer root");
 		return;
 	}
 

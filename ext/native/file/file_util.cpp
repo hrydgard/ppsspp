@@ -18,7 +18,6 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-#include "base/logging.h"
 #include "base/basictypes.h"
 #include "base/stringutil.h"
 #include "file/file_util.h"

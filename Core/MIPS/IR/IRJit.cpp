@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
-#include "base/logging.h"
+
 #include "ext/xxhash.h"
 #include "profiler/profiler.h"
+
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/StringUtils.h"
 
@@ -61,7 +63,7 @@ void IRJit::UpdateFCR31() {
 }
 
 void IRJit::ClearCache() {
-	ILOG("IRJit: Clearing the cache!");
+	INFO_LOG(JIT, "IRJit: Clearing the cache!");
 	blocks_.Clear();
 }
 

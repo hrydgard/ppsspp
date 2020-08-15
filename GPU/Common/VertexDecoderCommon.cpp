@@ -19,8 +19,8 @@
 #include <cstdio>
 
 #include "base/basictypes.h"
-#include "base/logging.h"
 
+#include "Common/Log.h"
 #include "Common/CPUDetect.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"

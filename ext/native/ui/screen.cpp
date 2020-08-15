@@ -1,11 +1,12 @@
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
 #include "ui/root.h"
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "ui/view.h"
+
+#include "Common/Log.h"
 
 ScreenManager::ScreenManager() {
 	uiContext_ = 0;
@@ -18,7 +19,7 @@ ScreenManager::~ScreenManager() {
 
 void ScreenManager::switchScreen(Screen *screen) {
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
-		ELOG("Already switching to this screen");
+		ERROR_LOG(SYSTEM, "Already switching to this screen");
 		return;
 	}
 	// Note that if a dialog is found, this will be a silent background switch that
@@ -26,12 +27,12 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// until that switch.
 	// TODO: is this still true?
 	if (!nextStack_.empty()) {
-		ELOG("Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
+		ERROR_LOG(SYSTEM, "Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
 		delete screen;
 		return;
 	}
 	if (screen == nullptr) {
-		WLOG("Swiching to a zero screen, this can't be good");
+		WARN_LOG(SYSTEM, "Switching to a zero screen, this can't be good");
 	}
 	if (stack_.empty() || screen != stack_.back().screen) {
 		screen->setScreenManager(this);
@@ -53,7 +54,7 @@ void ScreenManager::update() {
 void ScreenManager::switchToNext() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextStack_.empty()) {
-		ELOG("switchToNext: No nextStack_!");
+		ERROR_LOG(SYSTEM, "switchToNext: No nextStack_!");
 	}
 
 	Layer temp = {nullptr, 0};
@@ -128,7 +129,7 @@ void ScreenManager::deviceRestored() {
 }
 
 void ScreenManager::resized() {
-	ILOG("ScreenManager::resized(dp: %dx%d)", dp_xres, dp_yres);
+	INFO_LOG(SYSTEM, "ScreenManager::resized(dp: %dx%d)", dp_xres, dp_yres);
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
@@ -143,7 +144,7 @@ void ScreenManager::render() {
 		case LAYER_SIDEMENU:
 		case LAYER_TRANSPARENT:
 			if (stack_.size() == 1) {
-				ELOG("Can't have sidemenu over nothing");
+				ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
 				break;
 			} else {
 				auto iter = stack_.end();
@@ -170,7 +171,7 @@ void ScreenManager::render() {
 			break;
 		}
 	} else {
-		ELOG("No current screen!");
+		ERROR_LOG(SYSTEM, "No current screen!");
 	}
 
 	processFinishDialog();
@@ -235,7 +236,7 @@ void ScreenManager::pop() {
 		delete stack_.back().screen;
 		stack_.pop_back();
 	} else {
-		ELOG("Can't pop when stack empty");
+		ERROR_LOG(SYSTEM, "Can't pop when stack empty");
 	}
 }
 
@@ -247,11 +248,11 @@ void ScreenManager::RecreateAllViews() {
 
 void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	if (stack_.empty()) {
-		ELOG("Must be in a dialog to finishDialog");
+		ERROR_LOG(SYSTEM, "Must be in a dialog to finishDialog");
 		return;
 	}
 	if (dialog != stack_.back().screen) {
-		ELOG("Wrong dialog being finished!");
+		ERROR_LOG(SYSTEM, "Wrong dialog being finished!");
 		return;
 	}
 	dialog->onFinish(result);
@@ -283,10 +284,10 @@ void ScreenManager::processFinishDialog() {
 			}
 
 			if (!caller) {
-				ELOG("ERROR: no top screen when finishing dialog");
+				ERROR_LOG(SYSTEM, "ERROR: no top screen when finishing dialog");
 			} else if (caller != topScreen()) {
 				// The caller may get confused if we call dialogFinished() now.
-				WLOG("Skipping non-top dialog when finishing dialog.");
+				WARN_LOG(SYSTEM, "Skipping non-top dialog when finishing dialog.");
 			} else {
 				caller->dialogFinished(dialogFinished_, dialogResult_);
 			}

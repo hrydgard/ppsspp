@@ -1,4 +1,3 @@
-#include "base/logging.h"
 #include "ArmEmitterTest.h"
 
 #include "Common/ArmEmitter.h"
@@ -70,7 +69,7 @@ void TestCode::Generate()
 	VST1(I_32, D6, R3, 2);
 	PLD(R1, 32);
 	u32 word = *(u32 *)(GetCodePtr() - 4);
-	ILOG("Instruction Word: %08x", word);
+	INFO_LOG(SYSTEM, "Instruction Word: %08x", word);
 
 
 	// This works!
@@ -122,11 +121,11 @@ void ArmEmitterTest()
 		return;
 
 	for (int i = 0; i < 6; i++) {
-		ILOG("--------------------------");
+		INFO_LOG(SYSTEM, "--------------------------");
 	}
-	ILOG("--------------------------");
-	ILOG("Running ARM emitter test!");
-	ILOG("--------------------------");
+	INFO_LOG(SYSTEM, "--------------------------");
+	INFO_LOG(SYSTEM, "Running ARM emitter test!");
+	INFO_LOG(SYSTEM, "--------------------------");
 
 	TestCode gen;
 	gen.ReserveCodeSpace(0x1000);
@@ -134,13 +133,13 @@ void ArmEmitterTest()
 	gen.Generate();
 
 	u32 retval = CallPtr(gen.testCodePtr);
-	// ILOG("ARM emitter test 1 passed if %f == 3.0! retval = %08x", abc[32 + 31], retval);
-	ILOG("x: %08x %08x %08x %08x", x[0], x[1], x[2], x[3]);
-	ILOG("y: %08x %08x %08x %08x", y[0], y[1], y[2], y[3]);
-	ILOG("z: %08x %08x %08x %08x", z[0], z[1], z[2], z[3]);
-	ILOG("c: %f %f %f %f", c[0], c[1], c[2], c[3]);
+	// INFO_LOG(SYSTEM, "ARM emitter test 1 passed if %f == 3.0! retval = %08x", abc[32 + 31], retval);
+	INFO_LOG(SYSTEM, "x: %08x %08x %08x %08x", x[0], x[1], x[2], x[3]);
+	INFO_LOG(SYSTEM, "y: %08x %08x %08x %08x", y[0], y[1], y[2], y[3]);
+	INFO_LOG(SYSTEM, "z: %08x %08x %08x %08x", z[0], z[1], z[2], z[3]);
+	INFO_LOG(SYSTEM, "c: %f %f %f %f", c[0], c[1], c[2], c[3]);
 	for (int i = 0; i < 6; i++) {
-		ILOG("--------------------------");
+		INFO_LOG(SYSTEM, "--------------------------");
 	}
 	// DisassembleArm(codeStart, gen.GetCodePtr()-codeStart);
 }

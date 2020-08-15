@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstring>
+
 #include "ppsspp_config.h"
 #include "base/basictypes.h"
 #include "Common/Hashmaps.h"

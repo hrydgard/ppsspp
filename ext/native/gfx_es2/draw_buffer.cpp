@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/stringutil.h"
 #include "math/math_util.h"
 #include "gfx/texture_atlas.h"
@@ -13,6 +12,8 @@
 #include "gfx_es2/draw_text.h"
 #include "util/text/utf8.h"
 #include "util/text/wrap_text.h"
+
+#include "Common/Log.h"
 
 enum {
 	// Enough?
@@ -85,7 +86,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 	if (!pipeline_) {
-		ELOG("DrawBuffer: No program set, skipping flush!");
+		ERROR_LOG(G3D, "DrawBuffer: No program set, skipping flush!");
 		count_ = 0;
 		return;
 	}
@@ -106,10 +107,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 }
 
 void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) {
-	if (count_ >= MAX_VERTS) {
-		FLOG("Overflowed the DrawBuffer");
-		return;
-	}
+	_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
 
 	Vertex *vert = &verts_[count_++];
 	vert->x = x;

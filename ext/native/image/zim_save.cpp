@@ -1,9 +1,11 @@
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include "base/logging.h"
+#include <cstdio>
+#include <cstring>
+#include <cmath>
+
 #include "image/zim_save.h"
 #include "zlib.h"
+
+#include "Common/Log.h"
 
 static const char magic[5] = "ZIMG";
 
@@ -141,7 +143,7 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 			break;
 
 		default:
-			ELOG("Unhandled ZIM format %i", flags & ZIM_FORMAT_MASK);
+			ERROR_LOG(IO, "Unhandled ZIM format %d", flags & ZIM_FORMAT_MASK);
 			*data = 0;
 			*data_size = 0;
 			return;
@@ -197,7 +199,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 			if (Z_OK == ezcompress(dest, &dest_len, data, data_size)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
-				ELOG("Zlib compression failed.\n");
+				ERROR_LOG(IO, "Zlib compression failed.\n");
 			}
 			delete [] dest;
 		} else {

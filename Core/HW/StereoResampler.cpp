@@ -35,11 +35,11 @@
 #include <cstring>
 #include <atomic>
 
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/MathUtil.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
@@ -71,7 +71,7 @@ StereoResampler::StereoResampler()
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
 		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
-		ILOG("StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
+		INFO_LOG(AUDIO, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
 		m_input_sample_rate = input_sample_rate;
 	}
 

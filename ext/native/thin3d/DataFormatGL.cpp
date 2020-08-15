@@ -1,5 +1,4 @@
 #include "thin3d/DataFormatGL.h"
-#include "base/logging.h"
 #include "Common/Log.h"
 
 namespace Draw {

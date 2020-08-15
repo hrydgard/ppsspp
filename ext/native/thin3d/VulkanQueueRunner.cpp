@@ -9,7 +9,7 @@
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
 void VulkanQueueRunner::CreateDeviceObjects() {
-	ILOG("VulkanQueueRunner::CreateDeviceObjects");
+	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 
 	framebufferRenderPass_ = GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR,
@@ -19,14 +19,14 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
 	// We should probably just move to variable-size data in a raw buffer anyway...
 	VkRenderData rd;
-	ILOG("sizeof(pipeline): %d", (int)sizeof(rd.pipeline));
-	ILOG("sizeof(draw): %d", (int)sizeof(rd.draw));
-	ILOG("sizeof(drawidx): %d", (int)sizeof(rd.drawIndexed));
-	ILOG("sizeof(clear): %d", (int)sizeof(rd.clear));
-	ILOG("sizeof(viewport): %d", (int)sizeof(rd.viewport));
-	ILOG("sizeof(scissor): %d", (int)sizeof(rd.scissor));
-	ILOG("sizeof(blendColor): %d", (int)sizeof(rd.blendColor));
-	ILOG("sizeof(push): %d", (int)sizeof(rd.push));
+	INFO_LOG(G3D, "sizeof(pipeline): %d", (int)sizeof(rd.pipeline));
+	INFO_LOG(G3D, "sizeof(draw): %d", (int)sizeof(rd.draw));
+	INFO_LOG(G3D, "sizeof(drawidx): %d", (int)sizeof(rd.drawIndexed));
+	INFO_LOG(G3D, "sizeof(clear): %d", (int)sizeof(rd.clear));
+	INFO_LOG(G3D, "sizeof(viewport): %d", (int)sizeof(rd.viewport));
+	INFO_LOG(G3D, "sizeof(scissor): %d", (int)sizeof(rd.scissor));
+	INFO_LOG(G3D, "sizeof(blendColor): %d", (int)sizeof(rd.blendColor));
+	INFO_LOG(G3D, "sizeof(push): %d", (int)sizeof(rd.push));
 #endif
 }
 
@@ -87,7 +87,7 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
-	ILOG("VulkanQueueRunner::DestroyDeviceObjects");
+	INFO_LOG(G3D, "VulkanQueueRunner::DestroyDeviceObjects");
 	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
 	readbackBufferSize_ = 0;
@@ -98,7 +98,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	});
 	renderPasses_.Clear();
 
-	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
+	_assert_(backbufferRenderPass_ != VK_NULL_HANDLE);
 	vulkan_->Delete().QueueDeleteRenderPass(backbufferRenderPass_);
 	backbufferRenderPass_ = VK_NULL_HANDLE;
 }
@@ -559,7 +559,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			for (int j = 0; j < (int)renders.size(); j++) {
 				steps[i + j + copies.size()] = renders[j];
 			}
-			assert(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
+			_assert_(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
 			// Combine the renders.
 			for (int j = 1; j < (int)renders.size(); j++) {
 				for (int k = 0; k < (int)renders[j]->commands.size(); k++) {
@@ -850,10 +850,10 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 }
 
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
-	ILOG("=======================================");
+	INFO_LOG(G3D, "=======================================");
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
-		ILOG("%s", StepToString(step).c_str());
+		INFO_LOG(G3D, "%s", StepToString(step).c_str());
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			LogRenderPass(step);
@@ -871,7 +871,7 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 			LogReadbackImage(step);
 			break;
 		case VKRStepType::RENDER_SKIP:
-			ILOG("(skipped render pass)");
+			INFO_LOG(G3D, "(skipped render pass)");
 			break;
 		}
 	}
@@ -892,62 +892,62 @@ const char *RenderPassActionName(VKRRenderPassAction a) {
 void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 	const auto &r = pass.render;
 	int fb = (int)(intptr_t)(r.framebuffer ? r.framebuffer->framebuf : 0);
-	ILOG("RenderPass Begin(%x, %s, %s, %s)", fb, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
+	INFO_LOG(G3D, "RenderPass Begin(%x, %s, %s, %s)", fb, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
 	for (auto &cmd : pass.commands) {
 		switch (cmd.cmd) {
 		case VKRRenderCommand::REMOVED:
-			ILOG("  (Removed)");
+			INFO_LOG(G3D, "  (Removed)");
 			break;
 
 		case VKRRenderCommand::BIND_PIPELINE:
-			ILOG("  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
+			INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
 			break;
 		case VKRRenderCommand::BLEND:
-			ILOG("  BlendColor(%08x)", cmd.blendColor.color);
+			INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
 			break;
 		case VKRRenderCommand::CLEAR:
-			ILOG("  Clear");
+			INFO_LOG(G3D, "  Clear");
 			break;
 		case VKRRenderCommand::DRAW:
-			ILOG("  Draw(%d)", cmd.draw.count);
+			INFO_LOG(G3D, "  Draw(%d)", cmd.draw.count);
 			break;
 		case VKRRenderCommand::DRAW_INDEXED:
-			ILOG("  DrawIndexed(%d)", cmd.drawIndexed.count);
+			INFO_LOG(G3D, "  DrawIndexed(%d)", cmd.drawIndexed.count);
 			break;
 		case VKRRenderCommand::SCISSOR:
-			ILOG("  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
+			INFO_LOG(G3D, "  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
 			break;
 		case VKRRenderCommand::STENCIL:
-			ILOG("  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
+			INFO_LOG(G3D, "  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
 			break;
 		case VKRRenderCommand::VIEWPORT:
-			ILOG("  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
+			INFO_LOG(G3D, "  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
 			break;
 		case VKRRenderCommand::PUSH_CONSTANTS:
-			ILOG("  PushConstants(%d)", cmd.push.size);
+			INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
 			break;
 
 		case VKRRenderCommand::NUM_RENDER_COMMANDS:
 			break;
 		}
 	}
-	ILOG("RenderPass End(%x)", fb);
+	INFO_LOG(G3D, "RenderPass End(%x)", fb);
 }
 
 void VulkanQueueRunner::LogCopy(const VKRStep &step) {
-	ILOG("%s", StepToString(step).c_str());
+	INFO_LOG(G3D, "%s", StepToString(step).c_str());
 }
 
 void VulkanQueueRunner::LogBlit(const VKRStep &step) {
-	ILOG("%s", StepToString(step).c_str());
+	INFO_LOG(G3D, "%s", StepToString(step).c_str());
 }
 
 void VulkanQueueRunner::LogReadback(const VKRStep &step) {
-	ILOG("%s", StepToString(step).c_str());
+	INFO_LOG(G3D, "%s", StepToString(step).c_str());
 }
 
 void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
-	ILOG("%s", StepToString(step).c_str());
+	INFO_LOG(G3D, "%s", StepToString(step).c_str());
 }
 
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
@@ -1232,7 +1232,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 		}
 		default:
-			ELOG("Unimpl queue command");
+			ERROR_LOG(G3D, "Unimpl queue command");
 			;
 		}
 	}
@@ -1707,7 +1707,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	}
 
 	if (res != VK_SUCCESS) {
-		ELOG("CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
+		ERROR_LOG(G3D, "CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
 		return;
 	}
 
@@ -1729,7 +1729,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 		ConvertToD32F(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
 	} else {
 		// TODO: Maybe a depth conversion or something?
-		ELOG("CopyReadbackBuffer: Unknown format");
+		ERROR_LOG(G3D, "CopyReadbackBuffer: Unknown format");
 		_assert_msg_(false, "CopyReadbackBuffer: Unknown src format %d", (int)srcFormat);
 	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);

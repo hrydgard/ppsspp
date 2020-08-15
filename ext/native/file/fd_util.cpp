@@ -18,7 +18,7 @@
 #endif
 #include <fcntl.h>
 
-#include "base/logging.h"
+#include "Common/Log.h"
 
 namespace fd_util {
 
@@ -45,7 +45,7 @@ ssize_t ReadLine(int fd, char *vptr, size_t buf_size) {
     else {
       if (errno == EINTR)
         continue;
-      FLOG("Error in Readline()");
+      _assert_msg_(false, "Error in Readline()");
     }
   }
 
@@ -64,7 +64,7 @@ ssize_t WriteLine(int fd, const char *vptr, size_t n) {
       if (errno == EINTR)
         nwritten = 0;
       else
-        FLOG("Error in Writeline()");
+		  _assert_msg_(false, "Error in Writeline()");
     }
     nleft  -= nwritten;
     buffer += nwritten;
@@ -113,7 +113,7 @@ void SetNonBlocking(int sock, bool non_blocking) {
 	int opts = fcntl(sock, F_GETFL);
   if (opts < 0) {
 		perror("fcntl(F_GETFL)");
-		ELOG("Error getting socket status while changing nonblocking status");
+		ERROR_LOG(IO, "Error getting socket status while changing nonblocking status");
 	}
 	if (non_blocking) {
     opts = (opts | O_NONBLOCK);
@@ -123,12 +123,12 @@ void SetNonBlocking(int sock, bool non_blocking) {
 
 	if (fcntl(sock, F_SETFL, opts) < 0) {
 		perror("fcntl(F_SETFL)");
-		ELOG("Error setting socket nonblocking status");
+		ERROR_LOG(IO, "Error setting socket nonblocking status");
 	}
 #else
 	u_long val = non_blocking ? 1 : 0;
 	if (ioctlsocket(sock, FIONBIO, &val) != 0) {
-		ELOG("Error setting socket nonblocking status");
+		ERROR_LOG(IO, "Error setting socket nonblocking status");
 	}
 #endif
 }

@@ -18,9 +18,10 @@
 #include <cstdio>
 #include <sstream>
 
-#include "Common/StringUtils.h"
-#include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
+
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/GPUStateUtils.h"

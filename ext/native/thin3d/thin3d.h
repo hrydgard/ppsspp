@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include "base/logging.h"
 #include "DataFormat.h"
 
 namespace Lin {

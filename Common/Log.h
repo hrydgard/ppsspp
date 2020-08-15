@@ -38,7 +38,7 @@
 namespace LogTypes {
 
 enum LOG_TYPE {
-	SYSTEM = 0,
+	SYSTEM = 0,  // Catch-all for uncategorized things
 	BOOT,
 	COMMON,
 	CPU,
@@ -52,6 +52,8 @@ enum LOG_TYPE {
 	SASMIX,
 	SAVESTATE,
 	FRAMEBUF,
+	AUDIO,
+	IO,
 
 	SCEAUDIO,
 	SCECTRL,
@@ -187,3 +189,6 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	}
 
 #endif  // __ANDROID__
+
+// Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
+void OutputDebugStringUTF8(const char *p);

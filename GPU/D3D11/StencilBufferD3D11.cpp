@@ -17,9 +17,9 @@
 
 #include <d3d11.h>
 
-#include "base/logging.h"
-
 #include "ext/native/thin3d/thin3d.h"
+
+#include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"

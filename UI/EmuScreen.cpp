@@ -20,7 +20,6 @@
 #include <algorithm>
 
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
@@ -38,6 +37,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/KeyMap.h"
+#include "Common/Log.h"
 
 #ifndef MOBILE_DEVICE
 #include "Core/AVIDump.h"
@@ -404,7 +404,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
-			ELOG("Error resetting: %s", resetError.c_str());
+			ERROR_LOG(LOADER, "Error resetting: %s", resetError.c_str());
 			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			System_SendMessage("event", "failstartgame");
@@ -856,7 +856,7 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 			onVKeyUp(pspKeyCode);
 		}
 	} else {
-		// ILOG("pspKey %i %i", pspKeyCode, flags);
+		// INFO_LOG(SYSTEM, "pspKey %i %i", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
 			__CtrlButtonDown(pspKeyCode);
 		if (flags & KEY_UP)
@@ -1231,7 +1231,7 @@ void EmuScreen::checkPowerDown() {
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
 		}
-		ILOG("SELF-POWERDOWN!");
+		INFO_LOG(SYSTEM, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
 		invalid_ = true;

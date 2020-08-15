@@ -36,10 +36,10 @@
 
 #include <set>
 
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
 #include "base/NativeApp.h"
-#include "base/logging.h"
 #include "profiler/profiler.h"
 #include "i18n/i18n.h"
 #include "Core/Debugger/Breakpoints.h"

@@ -22,7 +22,6 @@ SDLJoystick *joystick = NULL;
 #include <locale>
 
 #include "base/display.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
@@ -110,24 +109,24 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	if (!startDevice.empty()) {
 		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
-			WLOG("Failed to open audio device: %s", startDevice.c_str());
+			WARN_LOG(AUDIO, "Failed to open audio device: %s", startDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
-		ILOG("SDL: Trying a different audio device");
+		INFO_LOG(AUDIO, "SDL: Trying a different audio device");
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
-		ELOG("Failed to open audio device: %s", SDL_GetError());
+		ERROR_LOG(AUDIO, "Failed to open audio device: %s", SDL_GetError());
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
-			ELOG("Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
+			ERROR_LOG(AUDIO, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
 		if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
-			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
-			ELOG("Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
-			ELOG("Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
-			ELOG("Provided output format does not match requirement, turning audio off");
+			ERROR_LOG(AUDIO, "Sound buffer format does not match requested format.");
+			ERROR_LOG(AUDIO, "Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
+			ERROR_LOG(AUDIO, "Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
+			ERROR_LOG(AUDIO, "Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
+			ERROR_LOG(AUDIO, "Provided output format does not match requirement, turning audio off");
 			SDL_CloseAudioDevice(audioDev);
 		}
 		SDL_PauseAudioDevice(audioDev, 0);
@@ -206,7 +205,7 @@ void LaunchBrowser(const char *url) {
 	webWifiCreate(&conf, NULL, url, uuid, 0);
 	webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
-	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
+	INFO_LOG(SYSTEM, "Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
 	ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -217,7 +216,7 @@ void LaunchBrowser(const char *url) {
 	std::string command = std::string("xdg-open ") + url;
 	int err = system(command.c_str());
 	if (err) {
-		ILOG("Would have gone to %s but xdg-utils seems not to be installed", url)
+		INFO_LOG(SYSTEM, "Would have gone to %s but xdg-utils seems not to be installed", url);
 	}
 #endif
 }
@@ -229,7 +228,7 @@ void LaunchMarket(const char *url) {
 	webWifiCreate(&conf, NULL, url, uuid, 0);
 	webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
-	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
+	INFO_LOG(SYSTEM, "Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
 	ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -240,14 +239,14 @@ void LaunchMarket(const char *url) {
 	std::string command = std::string("xdg-open ") + url;
 	int err = system(command.c_str());
 	if (err) {
-		ILOG("Would have gone to %s but xdg-utils seems not to be installed", url)
+		INFO_LOG(SYSTEM, "Would have gone to %s but xdg-utils seems not to be installed", url);
 	}
 #endif
 }
 
 void LaunchEmail(const char *email_address) {
 #if defined(MOBILE_DEVICE)
-	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
+	INFO_LOG(SYSTEM, "Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
 #elif defined(_WIN32)
 	std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(email_address);
 	ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -258,7 +257,7 @@ void LaunchEmail(const char *email_address) {
 	std::string command = std::string("xdg-email ") + email_address;
 	int err = system(command.c_str());
 	if (err) {
-		ILOG("Would have gone to %s but xdg-utils seems not to be installed", email_address)
+		INFO_LOG(SYSTEM, "Would have gone to %s but xdg-utils seems not to be installed", email_address);
 	}
 #endif
 }

@@ -33,10 +33,11 @@
 #define D3DXERR_INVALIDDATA 0x88760b59
 #endif
 
-#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx/d3d9_state.h"
+
+#include "Common/Log.h"
 
 namespace Draw {
 
@@ -381,7 +382,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		break;
 	}
 	if (FAILED(hr)) {
-		ELOG("Texture creation failed");
+		ERROR_LOG(G3D,  "Texture creation failed");
 		return false;
 	}
 
@@ -476,7 +477,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	}
 
 	default:
-		ELOG("Non-LINEAR2D textures not yet supported");
+		ERROR_LOG(G3D,  "Non-LINEAR2D textures not yet supported");
 		break;
 	}
 }
@@ -636,7 +637,7 @@ private:
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
-		ELOG("Failed to get adapter identifier: %d", adapterId);
+		ERROR_LOG(G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
 	switch (identifier_.VendorId) {
 	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
@@ -691,13 +692,13 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage 
 
 Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
-		ELOG("Pipeline requires at least one shader");
+		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return NULL;
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
 	for (auto iter : desc.shaders) {
 		if (!iter) {
-			ELOG("NULL shader passed to CreateGraphicsPipeline");
+			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline");
 			delete pipeline;
 			return NULL;
 		}
@@ -856,7 +857,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 
 	HRESULT hr = device->CreateVertexDeclaration(elements, &decl_);
 	if (FAILED(hr)) {
-		ELOG("Error creating vertex decl");
+		ERROR_LOG(G3D,  "Error creating vertex decl");
 	}
 	delete[] elements;
 }
@@ -900,8 +901,7 @@ inline void Transpose4x4(float out[16], const float in[16]) {
 }
 
 void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
-	if (size != curPipeline_->dynamicUniforms.uniformBufferSize)
-		Crash();
+	_assert_(size == curPipeline_->dynamicUniforms.uniformBufferSize);
 	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
 		int count = 0;
 		switch (uniform.type) {
@@ -935,7 +935,7 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 	if (!size)
 		return;
 	if (offset + size > buf->maxSize_) {
-		ELOG("Can't SubData with bigger size than buffer was created with");
+		ERROR_LOG(G3D,  "Can't SubData with bigger size than buffer was created with");
 		return;
 	}
 	if (buf->vbuffer_) {
@@ -1104,7 +1104,7 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 
 	HRESULT rtResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
 	if (FAILED(rtResult)) {
-		ELOG("Failed to create render target");
+		ERROR_LOG(G3D,  "Failed to create render target");
 		delete fbo;
 		return NULL;
 	}
@@ -1120,7 +1120,7 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 		dsResult = device_->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	}
 	if (FAILED(dsResult)) {
-		ELOG("Failed to create depth buffer");
+		ERROR_LOG(G3D,  "Failed to create depth buffer");
 		fbo->surf->Release();
 		fbo->tex->Release();
 		if (fbo->depthstenciltex) {
@@ -1264,13 +1264,13 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 #if PPSSPP_API(D3DX9)
 	int d3dx_ver = LoadD3DX9Dynamic();
 	if (!d3dx_ver) {
-		ELOG("Failed to load D3DX9!");
+		ERROR_LOG(G3D,  "Failed to load D3DX9!");
 		return NULL;
 	}
 #elif PPSSPP_API(D3D9_D3DCOMPILER)
 	bool result = LoadD3DCompilerDynamic();
 	if (!result) {
-		ELOG("Failed to load D3DCompiler!");
+		ERROR_LOG(G3D,  "Failed to load D3DCompiler!");
 		return NULL;
 	}
 #endif

@@ -18,19 +18,20 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
-#include "Common/Log.h"
-#include "Common/Vulkan/VulkanMemory.h"
 #include "base/timeutil.h"
 #include "math/math_util.h"
+
+#include "Common/Log.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask)
 		: vulkan_(vulkan), memoryPropertyMask_(memoryPropertyMask), size_(size), usage_(usage) {
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 VulkanPushBuffer::~VulkanPushBuffer() {
-	assert(buffers_.empty());
+	_assert_(buffers_.empty());
 }
 
 bool VulkanPushBuffer::AddBuffer() {
@@ -68,7 +69,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	}
 	res = vkBindBufferMemory(device, info.buffer, info.deviceMemory, 0);
 	if (VK_SUCCESS != res) {
-		ELOG("vkBindBufferMemory failed! result=%d", (int)res);
+		ERROR_LOG(G3D, "vkBindBufferMemory failed! result=%d", (int)res);
 		vkFreeMemory(device, info.deviceMemory, nullptr);
 		vkDestroyBuffer(device, info.buffer, nullptr);
 		return false;
@@ -100,7 +101,7 @@ void VulkanPushBuffer::NextBuffer(size_t minSize) {
 		}
 
 		bool res = AddBuffer();
-		assert(res);
+		_assert_(res);
 		if (!res) {
 			// Let's try not to crash at least?
 			buf_ = 0;
@@ -124,7 +125,7 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 size_t VulkanPushBuffer::GetTotalSize() const {
@@ -139,7 +140,7 @@ void VulkanPushBuffer::Map() {
 	_dbg_assert_(!writePtr_);
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
 	_dbg_assert_(writePtr_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 }
 
 void VulkanPushBuffer::Unmap() {
@@ -161,12 +162,12 @@ void VulkanPushBuffer::Unmap() {
 
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
 	: vulkan_(vulkan), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize) {
-	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
+	_assert_((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
 }
 
 VulkanDeviceAllocator::~VulkanDeviceAllocator() {
-	assert(destroyed_);
-	assert(slabs_.empty());
+	_assert_(destroyed_);
+	_assert_(slabs_.empty());
 }
 
 void VulkanDeviceAllocator::Destroy() {
@@ -183,7 +184,7 @@ void VulkanDeviceAllocator::Destroy() {
 			}
 		}
 
-		assert(slab.deviceMemory);
+		_assert_(slab.deviceMemory);
 		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 	}
 	slabs_.clear();
@@ -191,11 +192,11 @@ void VulkanDeviceAllocator::Destroy() {
 }
 
 size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const std::string &tag) {
-	assert(!destroyed_);
+	_assert_(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
 	if (!pass) {
-		ELOG("Failed to pick an appropriate memory type (req: %08x)", reqs.memoryTypeBits);
+		ERROR_LOG(G3D, "Failed to pick an appropriate memory type (req: %08x)", reqs.memoryTypeBits);
 		return ALLOCATE_FAILED;
 	}
 
@@ -244,7 +245,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 }
 
 bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag) {
-	assert(!destroyed_);
+	_assert_(!destroyed_);
 	bool matched = true;
 
 	if (start + blocks > slab.usage.size()) {
@@ -320,7 +321,7 @@ void VulkanDeviceAllocator::DoTouch(VkDeviceMemory deviceMemory, size_t offset) 
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
-	assert(!destroyed_);
+	_assert_(!destroyed_);
 
 	_assert_msg_(!slabs_.empty(), "No slabs - can't be anything to free! double-freed?");
 
@@ -401,7 +402,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 }
 
 bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes, int memoryTypeIndex) {
-	assert(!destroyed_);
+	_assert_(!destroyed_);
 	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
 		// We're allocating an additional slab, so rachet up its size.
 		// TODO: Maybe should not do this when we are allocating a new slab due to memoryTypeIndex not matching?
@@ -420,7 +421,7 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes, int memoryTypeIn
 	VkResult res = vkAllocateMemory(vulkan_->GetDevice(), &alloc, NULL, &deviceMemory);
 	if (res != VK_SUCCESS) {
 		// If it's something else, we used it wrong?
-		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		// Okay, so we ran out of memory.
 		return false;
 	}
@@ -464,7 +465,7 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 }
 
 void VulkanDeviceAllocator::Decimate() {
-	assert(!destroyed_);
+	_assert_(!destroyed_);
 	bool foundFree = false;
 
 	if (TRACK_TOUCH) {

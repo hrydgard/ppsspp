@@ -18,8 +18,9 @@
 #include "Common/Vulkan/VulkanLoader.h"
 #include <vector>
 #include <string>
+#include <cstring>
 
-#include "base/logging.h"
+#include "Common/Log.h"
 #include "base/basictypes.h"
 #include "base/NativeApp.h"
 
@@ -224,9 +225,9 @@ const char *VulkanResultToString(VkResult res);
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
 
-#define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {ILOG("Missing (instance): %s", #x);}
-#define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {ILOG("Missing (device): %s", #x);}
-#define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {ILOG("Missing (global): %s", #x);}
+#define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {INFO_LOG(G3D, "Missing (instance): %s", #x);}
+#define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {INFO_LOG(G3D, "Missing (device): %s", #x);}
+#define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(G3D,"Missing (global): %s", #x);}
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
@@ -259,20 +260,20 @@ bool VulkanMayBeAvailable() {
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	for (const char *blacklisted_name : device_name_blacklist) {
 		if (!strcmp(name.c_str(), blacklisted_name)) {
-			ILOG("VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
 			return false;
 		}
 	}
-	ILOG("VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
+	INFO_LOG(G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
 #ifndef _WIN32
 	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 		if (lib) {
-			ILOG("VulkanMayBeAvailable: Library loaded ('%s')", so_names[i]);
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Library loaded ('%s')", so_names[i]);
 			break;
 		}
 	}
@@ -281,7 +282,7 @@ bool VulkanMayBeAvailable() {
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
 #endif
 	if (!lib) {
-		ILOG("Vulkan loader: Library not available");
+		INFO_LOG(G3D, "Vulkan loader: Library not available");
 		g_vulkanAvailabilityChecked = true;
 		g_vulkanMayBeAvailable = false;
 		return false;
@@ -321,32 +322,32 @@ bool VulkanMayBeAvailable() {
 #endif
 
 	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties) {
-		WLOG("VulkanMayBeAvailable: Function pointer missing, bailing");
+		WARN_LOG(G3D, "VulkanMayBeAvailable: Function pointer missing, bailing");
 		goto bail;
 	}
 
-	ILOG("VulkanMayBeAvailable: Enumerating instance extensions");
+	INFO_LOG(G3D, "VulkanMayBeAvailable: Enumerating instance extensions");
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
-		ELOG("Enumerating VK extensions failed (%s)", VulkanResultToString(res));
+		ERROR_LOG(G3D, "Enumerating VK extensions failed (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	if (instanceExtCount == 0) {
-		ELOG("No VK instance extensions - won't be able to present.");
+		ERROR_LOG(G3D, "No VK instance extensions - won't be able to present.");
 		goto bail;
 	}
-	ILOG("VulkanMayBeAvailable: Instance extension count: %d", instanceExtCount);
+	INFO_LOG(G3D, "VulkanMayBeAvailable: Instance extension count: %d", instanceExtCount);
 	instanceExts.resize(instanceExtCount);
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, instanceExts.data());
 	if (res != VK_SUCCESS) {
-		ELOG("Enumerating VK extensions failed (%s)", VulkanResultToString(res));
+		ERROR_LOG(G3D, "Enumerating VK extensions failed (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	for (auto iter : instanceExts) {
-		ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
+		INFO_LOG(G3D, "VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
 		if (platformSurfaceExtension && !strcmp(iter.extensionName, platformSurfaceExtension)) {
-			ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 			instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 			platformSurfaceExtensionFound = true;
 			break;
@@ -357,19 +358,19 @@ bool VulkanMayBeAvailable() {
 	}
 	if (platformSurfaceExtension) {
 		if (!platformSurfaceExtensionFound || !surfaceExtensionFound) {
-			ELOG("Platform surface extension not found");
+			ERROR_LOG(G3D, "Platform surface extension not found");
 			goto bail;
 		}
 	} else {
 		if (!surfaceExtensionFound) {
-			ELOG("Surface extension not found");
+			ERROR_LOG(G3D, "Surface extension not found");
 			goto bail;
 		}
 	}
 
 	// This can't happen unless the driver is double-reporting a surface extension.
 	if (ci.enabledExtensionCount > 2) {
-		ELOG("Unexpected number of enabled instance extensions");
+		ERROR_LOG(G3D, "Unexpected number of enabled instance extensions");
 		goto bail;
 	}
 
@@ -382,27 +383,27 @@ bool VulkanMayBeAvailable() {
 	info.pEngineName = "VulkanCheckerEngine";
 	ci.pApplicationInfo = &info;
 	ci.flags = 0;
-	ILOG("VulkanMayBeAvailable: Calling vkCreateInstance");
+	INFO_LOG(G3D, "VulkanMayBeAvailable: Calling vkCreateInstance");
 	res = localCreateInstance(&ci, nullptr, &instance);
 	if (res != VK_SUCCESS) {
 		instance = nullptr;
-		ELOG("VulkanMayBeAvailable: Failed to create vulkan instance (%s)", VulkanResultToString(res));
+		ERROR_LOG(G3D, "VulkanMayBeAvailable: Failed to create vulkan instance (%s)", VulkanResultToString(res));
 		goto bail;
 	}
-	ILOG("VulkanMayBeAvailable: Vulkan test instance created successfully.");
+	INFO_LOG(G3D, "VulkanMayBeAvailable: Vulkan test instance created successfully.");
 	res = localEnumerate(instance, &physicalDeviceCount, nullptr);
 	if (res != VK_SUCCESS) {
-		ELOG("VulkanMayBeAvailable: Failed to count physical devices (%s)", VulkanResultToString(res));
+		ERROR_LOG(G3D, "VulkanMayBeAvailable: Failed to count physical devices (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	if (physicalDeviceCount == 0) {
-		ELOG("VulkanMayBeAvailable: No physical Vulkan devices (count = 0).");
+		ERROR_LOG(G3D, "VulkanMayBeAvailable: No physical Vulkan devices (count = 0).");
 		goto bail;
 	}
 	devices.resize(physicalDeviceCount);
 	res = localEnumerate(instance, &physicalDeviceCount, devices.data());
 	if (res != VK_SUCCESS) {
-		ELOG("VulkanMayBeAvailable: Failed to enumerate physical devices (%s)", VulkanResultToString(res));
+		ERROR_LOG(G3D, "VulkanMayBeAvailable: Failed to enumerate physical devices (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	anyGood = false;
@@ -416,24 +417,24 @@ bool VulkanMayBeAvailable() {
 			anyGood = true;
 			break;
 		default:
-			ILOG("VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
 			break;
 		}
 		// TODO: Should also check queuefamilyproperties for a GRAPHICS queue family? Oh well.
 	}
 
 	if (!anyGood) {
-		WLOG("VulkanMayBeAvailable: Found Vulkan API, but no good Vulkan device!");
+		WARN_LOG(G3D, "VulkanMayBeAvailable: Found Vulkan API, but no good Vulkan device!");
 		g_vulkanMayBeAvailable = false;
 	} else {
-		ILOG("VulkanMayBeAvailable: Found working Vulkan API!");
+		INFO_LOG(G3D, "VulkanMayBeAvailable: Found working Vulkan API!");
 		g_vulkanMayBeAvailable = true;
 	}
 
 bail:
 	g_vulkanAvailabilityChecked = true;
 	if (instance) {
-		ILOG("VulkanMayBeAvailable: Destroying instance");
+		INFO_LOG(G3D, "VulkanMayBeAvailable: Destroying instance");
 		localDestroyInstance(instance, nullptr);
 	}
 	if (lib) {
@@ -443,7 +444,7 @@ bail:
 		FreeLibrary(lib);
 #endif
 	} else {
-		ELOG("Vulkan with working device not detected.");
+		ERROR_LOG(G3D, "Vulkan with working device not detected.");
 	}
 	return g_vulkanMayBeAvailable;
 }
@@ -454,7 +455,7 @@ bool VulkanLoad() {
 		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 			vulkanLibrary = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 			if (vulkanLibrary) {
-				ILOG("VulkanLoad: Found library '%s'", so_names[i]);
+				INFO_LOG(G3D, "VulkanLoad: Found library '%s'", so_names[i]);
 				break;
 			}
 		}
@@ -475,10 +476,10 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
 	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
-		WLOG("VulkanLoad: Base functions loaded.");
+		WARN_LOG(G3D, "VulkanLoad: Base functions loaded.");
 		return true;
 	} else {
-		ELOG("VulkanLoad: Failed to load Vulkan base functions.");
+		ERROR_LOG(G3D, "VulkanLoad: Failed to load Vulkan base functions.");
 #ifndef _WIN32
 		dlclose(vulkanLibrary);
 #else
@@ -548,14 +549,14 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 		LOAD_INSTANCE_FUNC(instance, vkSetDebugUtilsObjectTagEXT);
 	}
 
-	WLOG("Vulkan instance functions loaded.");
+	WARN_LOG(G3D, "Vulkan instance functions loaded.");
 }
 
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions) {
-	WLOG("Vulkan device functions loaded.");
+	WARN_LOG(G3D, "Vulkan device functions loaded.");
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
 	LOAD_DEVICE_FUNC(device, vkQueueWaitIdle);

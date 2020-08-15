@@ -1,8 +1,9 @@
 #include <cstdlib>
 
-#include "base/logging.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
+
+#include "Common/Log.h"
 
 // This we can expand as needed.
 std::string GLEnumToString(uint16_t value) {
@@ -36,6 +37,6 @@ std::string GLEnumToString(uint16_t value) {
 void CheckGLError(const char *file, int line) {
 	GLenum err = glGetError();
 	if (err != GL_NO_ERROR) {
-		ELOG("GL error %s on %s:%d", GLEnumToString(err).c_str(), file, line);
+		ERROR_LOG(G3D, "GL error %s on %s:%d", GLEnumToString(err).c_str(), file, line);
 	}
 }
