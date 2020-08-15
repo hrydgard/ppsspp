@@ -20,6 +20,24 @@ static bool OnRenderThread() {
 }
 #endif
 
+void GLDeleter::Take(GLDeleter &other) {
+	_assert_msg_(IsEmpty(), "Deleter already has stuff");
+	shaders = std::move(other.shaders);
+	programs = std::move(other.programs);
+	buffers = std::move(other.buffers);
+	textures = std::move(other.textures);
+	inputLayouts = std::move(other.inputLayouts);
+	framebuffers = std::move(other.framebuffers);
+	pushBuffers = std::move(other.pushBuffers);
+	other.shaders.clear();
+	other.programs.clear();
+	other.buffers.clear();
+	other.textures.clear();
+	other.inputLayouts.clear();
+	other.framebuffers.clear();
+	other.pushBuffers.clear();
+}
+
 // Runs on the GPU thread.
 void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 	for (auto pushBuffer : pushBuffers) {

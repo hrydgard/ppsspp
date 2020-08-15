@@ -1,5 +1,4 @@
 #include "base/logging.h"
-#include "Arm64EmitterTest.h"
 
 #include "Common/Arm64Emitter.h"
 #include "Common/BitSet.h"

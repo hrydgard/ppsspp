@@ -1,4 +1,5 @@
-#include "base/logging.h"
+#include "Common/Log.h"
+
 #include "android/jni/AndroidAudio.h"
 #include "android/jni/OpenSLContext.h"
 
@@ -31,13 +32,13 @@ AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, int optimalF
 
 bool AndroidAudio_Resume(AndroidAudioState *state) {
 	if (!state) {
-		ELOG("Audio was shutdown, cannot resume!");
+		ERROR_LOG(AUDIO, "Audio was shutdown, cannot resume!");
 		return false;
 	}
 	if (!state->ctx) {
-		ILOG("Calling OpenSLWrap_Init_T...");
+		INFO_LOG(AUDIO, "Calling OpenSLWrap_Init_T...");
 		state->ctx = new OpenSLContext(state->callback, state->frames_per_buffer, state->sample_rate);
-		ILOG("Returned from OpenSLWrap_Init_T");
+		INFO_LOG(AUDIO, "Returned from OpenSLWrap_Init_T");
 		bool init_retval = state->ctx->Init();
 		if (!init_retval) {
 			delete state->ctx;
@@ -50,14 +51,14 @@ bool AndroidAudio_Resume(AndroidAudioState *state) {
 
 bool AndroidAudio_Pause(AndroidAudioState *state) {
 	if (!state) {
-		ELOG("Audio was shutdown, cannot pause!");
+		ERROR_LOG(AUDIO, "Audio was shutdown, cannot pause!");
 		return false;
 	}
 	if (state->ctx) {
-		ILOG("Calling OpenSLWrap_Shutdown_T...");
+		INFO_LOG(AUDIO, "Calling OpenSLWrap_Shutdown_T...");
 		delete state->ctx;
 		state->ctx = nullptr;
-		ILOG("Returned from OpenSLWrap_Shutdown_T ...");
+		INFO_LOG(AUDIO, "Returned from OpenSLWrap_Shutdown_T ...");
 		return true;
 	}
 	return false;
@@ -65,14 +66,14 @@ bool AndroidAudio_Pause(AndroidAudioState *state) {
 
 bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	if (!state) {
-		ELOG("Audio already shutdown!");
+		ERROR_LOG(AUDIO, "Audio already shutdown!");
 		return false;
 	}
 	if (state->ctx) {
-		ELOG("Should not shut down when playing! Something is wrong!");
+		ERROR_LOG(AUDIO, "Should not shut down when playing! Something is wrong!");
 		return false;
 	}
 	delete state;
-	ILOG("OpenSLWrap completely unloaded.");
+	INFO_LOG(AUDIO, "OpenSLWrap completely unloaded.");
 	return true;
 }
