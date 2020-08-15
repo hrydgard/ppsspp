@@ -30,7 +30,6 @@
 
 #include <cmath>
 
-#include "base/logging.h"
 #include "math/math_util.h"
 
 #include "Common/CPUDetect.h"
@@ -271,7 +270,7 @@ ArmJit::DestARMReg ArmJit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags)
 		dest.backingRd = dest.rd;
 	} else {
 		// Allocate a temporary register.
-		ELOG("PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
+		ERROR_LOG(JIT, "PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
 		dest.rd = fpr.QAllocTemp(sz);
 		dest.backingRd = fpr.QMapReg(vreg, sz, mapFlags & ~MAP_NOINIT);  // Force initialization of the backing reg.
 	}
@@ -295,12 +294,12 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 
 	if (sat1_mask && sat3_mask) {
 		// Why would anyone do this?
-		ELOG("PREFIXD: Can't have both sat[0-1] and sat[-1-1] at the same time yet");
+		ERROR_LOG(JIT, "PREFIXD: Can't have both sat[0-1] and sat[-1-1] at the same time yet");
 	}
 
 	if (sat1_mask) {
 		if (sat1_mask != full_mask) {
-			ELOG("PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
+			ERROR_LOG(JIT, "PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
 		}
 		if (IsD(dest.rd)) {
 			VMOV_immf(D0, 0.0);
@@ -317,7 +316,7 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 
 	if (sat3_mask && sat1_mask != full_mask) {
 		if (sat3_mask != full_mask) {
-			ELOG("PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
+			ERROR_LOG(JIT, "PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
 		}
 		if (IsD(dest.rd)) {
 			VMOV_immf(D0, 0.0);
@@ -341,11 +340,11 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 		int writeMask = (~(js.prefixD >> 8)) & 0xF;
 
 		if (writeMask == 3) {
-			ILOG("Doing writemask = 3");
+			INFO_LOG(JIT, "Doing writemask = 3");
 			VMOV(D_0(dest.rd), D_0(dest.backingRd));
 		} else {
 			// TODO
-			ELOG("PREFIXD: Arbitrary write masks not supported (%i / %i)", writeMask, full_mask);
+			ERROR_LOG(JIT, "PREFIXD: Arbitrary write masks not supported (%i / %i)", writeMask, full_mask);
 			VMOV(dest.backingRd, dest.rd);
 		}
 	}

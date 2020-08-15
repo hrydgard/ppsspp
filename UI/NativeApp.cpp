@@ -44,7 +44,9 @@
 #endif
 
 #include "base/display.h"
-#include "base/logging.h"
+
+#include "base/logging.h"  // For "AndroidLogger". TODO: Remove.
+
 #include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"

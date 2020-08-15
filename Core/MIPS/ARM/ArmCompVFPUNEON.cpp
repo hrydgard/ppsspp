@@ -30,7 +30,6 @@
 
 #include <cmath>
 
-#include "base/logging.h"
 #include "math/math_util.h"
 
 #include "Common/CPUDetect.h"
@@ -55,8 +54,7 @@
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-#define DISABLE_UNKNOWN_PREFIX { WLOG("DISABLE: Unknown Prefix in %s", __FUNCTION__); fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
+#define DISABLE_UNKNOWN_PREFIX { WARN_LOG(JIT, "DISABLE: Unknown Prefix in %s", __FUNCTION__); fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
@@ -864,7 +862,7 @@ void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
 	bool overlap = GetMatrixOverlap(_VD, _VS, msz) || GetMatrixOverlap(_VD, _VT, msz);
 	if (overlap) {
 		// Later. Fortunately, the VFPU also seems to prohibit overlap for matrix mul.
-		ILOG("Matrix overlap, ignoring.");
+		INFO_LOG(JIT, "Matrix overlap, ignoring.");
 		DISABLE;
 	}
 

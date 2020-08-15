@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "ui/ui_context.h"
 #include "UI/DisplayLayoutEditor.h"
 

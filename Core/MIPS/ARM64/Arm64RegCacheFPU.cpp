@@ -400,7 +400,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 		if (ar[a].isDirty) {
 			if (m == -1) {
-				ILOG("ARM reg %i is dirty but has no mipsreg", a);
+				INFO_LOG(JIT, "ARM reg %i is dirty but has no mipsreg", a);
 				continue;
 			}
 

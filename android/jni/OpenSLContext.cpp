@@ -9,7 +9,6 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
-#include "base/logging.h"
 #include "Common/Log.h"
 #include "OpenSLContext.h"
 
@@ -24,7 +23,7 @@ void OpenSLContext::bqPlayerCallbackWrap(SLAndroidSimpleBufferQueueItf bq, void 
 
 void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 	if (bq != bqPlayerBufferQueue) {
-		ELOG("OpenSL: Wrong bq!");
+		ERROR_LOG(AUDIO, "OpenSL: Wrong bq!");
 		return;
 	}
 
@@ -41,7 +40,7 @@ void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error
 	if (result != SL_RESULT_SUCCESS) {
-		ELOG("OpenSL: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
+		ERROR_LOG(AUDIO, "OpenSL: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
 	}
 
 	curBuffer += 1; // Switch buffer
@@ -58,7 +57,7 @@ bool OpenSLContext::Init() {
 	// create engine
 	result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
 	if (result != SL_RESULT_SUCCESS) {
-		ELOG("OpenSL: Failed to create the engine: %d", (int)result);
+		ERROR_LOG(AUDIO, "OpenSL: Failed to create the engine: %d", (int)result);
 		engineObject = nullptr;
 		return false;
 	}
@@ -70,7 +69,7 @@ bool OpenSLContext::Init() {
 
 	result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, 0, 0);
 	if (result != SL_RESULT_SUCCESS) {
-		ELOG("OpenSL: Failed to create output mix: %d", (int)result);
+		ERROR_LOG(AUDIO, "OpenSL: Failed to create output mix: %d", (int)result);
 		(*engineObject)->Destroy(engineObject);
 		engineEngine = nullptr;
 		engineObject = nullptr;
@@ -104,7 +103,7 @@ bool OpenSLContext::Init() {
 	const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk, 2, ids, req);
 	if (result != SL_RESULT_SUCCESS) {
-		ELOG("OpenSL: CreateAudioPlayer failed: %d", (int)result);
+		ERROR_LOG(AUDIO, "OpenSL: CreateAudioPlayer failed: %d", (int)result);
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = nullptr;
 
@@ -149,15 +148,15 @@ bool OpenSLContext::Init() {
 // shut down the native audio system
 OpenSLContext::~OpenSLContext() {
 	if (bqPlayerPlay) {
-		ILOG("OpenSL: Shutdown - stopping playback");
+		INFO_LOG(AUDIO, "OpenSL: Shutdown - stopping playback");
 		SLresult result;
 		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
 		if (SL_RESULT_SUCCESS != result) {
-			ELOG("SetPlayState failed");
+			ERROR_LOG(AUDIO, "SetPlayState failed");
 		}
 	}
 
-	ILOG("OpenSL: Shutdown - deleting player object");
+	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting player object");
 
 	if (bqPlayerObject) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
@@ -167,14 +166,14 @@ OpenSLContext::~OpenSLContext() {
 		bqPlayerVolume = nullptr;
 	}
 
-	ILOG("OpenSL: Shutdown - deleting mix object");
+	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting mix object");
 
 	if (outputMixObject) {
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = nullptr;
 	}
 
-	ILOG("OpenSL: Shutdown - deleting engine object");
+	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting engine object");
 
 	if (engineObject) {
 		(*engineObject)->Destroy(engineObject);
@@ -186,6 +185,6 @@ OpenSLContext::~OpenSLContext() {
 		delete[] buffer[i];
 		buffer[i] = nullptr;
 	}
-	ILOG("OpenSL: Shutdown - finished");
+	INFO_LOG(AUDIO, "OpenSL: Shutdown - finished");
 }	
 

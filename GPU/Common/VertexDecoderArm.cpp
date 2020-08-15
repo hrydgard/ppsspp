@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(ARM)
 
 // This allows highlighting to work.  Yay.
@@ -25,7 +26,6 @@
 
 #include <stddef.h>
 
-#include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

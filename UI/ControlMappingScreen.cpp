@@ -20,7 +20,6 @@
 #include <mutex>
 
 #include "base/colorutil.h"
-#include "base/logging.h"
 #include "base/display.h"
 #include "gfx/texture_atlas.h"
 #include "i18n/i18n.h"

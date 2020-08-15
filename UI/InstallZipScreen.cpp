@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
 #include "i18n/i18n.h"
 #include "ui/ui.h"
 #include "ui/view.h"

@@ -18,8 +18,9 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM)
 
-#include "base/logging.h"
 #include "profiler/profiler.h"
+
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
