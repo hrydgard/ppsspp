@@ -7,6 +7,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_uwp.h"
 
+#include "Common/Log.h"
 
 #if PPSSPP_PLATFORM(UWP)
 
@@ -70,7 +71,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 	IDXGIDevice* dxgiDevice;
 	hr = d3ddevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
-	if (FAILED(hr)) FLOG("ID3DDevice QueryInterface IDXGIDevice failed");
+	if (FAILED(hr)) _assert_msg_(false, "ID3DDevice QueryInterface IDXGIDevice failed");
 	
 	// Initialize the Direct2D Factory.
 	D2D1_FACTORY_OPTIONS options = {};
