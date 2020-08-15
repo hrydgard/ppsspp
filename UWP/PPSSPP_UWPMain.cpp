@@ -505,7 +505,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		ILOG("%s", what);
+		INFO_LOG(SYSTEM, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -527,7 +527,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			ILOG("%s", what);
+			INFO_LOG(SYSTEM, "%s", what);
 		}
 	}
 

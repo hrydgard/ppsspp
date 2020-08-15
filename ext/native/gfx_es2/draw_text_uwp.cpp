@@ -91,15 +91,15 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	// Create D2D Device and DeviceContext.
 	// TODO: We have one sitting right in DX::DeviceResource, there might be a way to use that instead.
 	hr = m_d2dFactory->CreateDevice(dxgiDevice, &m_d2dDevice);
-	if (FAILED(hr)) FLOG("D2D CreateDevice failed");
+	if (FAILED(hr)) _assert_msg_(false, "D2D CreateDevice failed");
 	hr = m_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2dContext);
-	if (FAILED(hr)) FLOG("D2D CreateDeviceContext failed");
+	if (FAILED(hr)) _assert_msg_(false, "D2D CreateDeviceContext failed");
 
 	// Load the Roboto font
 	hr = m_dwriteFactory->CreateFontFileReference(L"Content/Roboto-Condensed.ttf", nullptr, &m_fontFile);
-	if (FAILED(hr)) ELOG("CreateFontFileReference failed");
+	if (FAILED(hr)) ERROR_LOG(SYSTEM, "CreateFontFileReference failed");
 	hr = m_dwriteFactory->CreateFontSetBuilder(&m_fontSetBuilder);
-	if (FAILED(hr)) ELOG("CreateFontSetBuilder failed");
+	if (FAILED(hr)) ERROR_LOG(SYSTEM, "CreateFontSetBuilder failed");
 	hr = m_fontSetBuilder->AddFontFile(m_fontFile);
 	hr = m_fontSetBuilder->CreateFontSet(&m_fontSet);
 	hr = m_dwriteFactory->CreateFontCollectionFromFontSet(m_fontSet, &m_fontCollection);

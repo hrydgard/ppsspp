@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "util/text/utf8.h"
 #include "LogManager.h"
@@ -46,6 +47,9 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 	LogManager *instance = LogManager::GetInstance();
 	if (instance) {
 		instance->Log(level, type, file, line, fmt, args);
+	} else {
+		// Fall back to printf if we're before the log manager has been initialized.
+		vprintf(fmt, args);
 	}
 	va_end(args);
 }

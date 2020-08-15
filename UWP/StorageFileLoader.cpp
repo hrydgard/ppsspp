@@ -43,7 +43,7 @@ void StorageFileLoader::threadfunc() {
 		operationFailed_ = true;
 		// TODO: What do we do?
 		const char *what = e.what();
-		ILOG("%s", what);
+		INFO_LOG(SYSTEM, "%s", what);
 	}
 	catch (Platform::COMException ^e) {
 
@@ -57,11 +57,11 @@ void StorageFileLoader::threadfunc() {
 	}
 	catch (const std::exception& e) {
 		const char *what = e.what();
-		ILOG("%s", what);
+		INFO_LOG(SYSTEM, "%s", what);
 	}
 	catch (Platform::COMException ^e) {
 		std::string what = FromPlatformString(e->ToString());
-		ILOG("%s", what.c_str());
+		INFO_LOG(SYSTEM, "%s", what.c_str());
 	}
 
 	initMutex.unlock();
@@ -85,7 +85,7 @@ void StorageFileLoader::threadfunc() {
 				} catch (const std::exception& e) {
 					operationFailed_ = true;
 					const char *what = e.what();
-					ILOG("%s", what);
+					INFO_LOG(SYSTEM, "%s", what);
 				}
 				operationRequested_ = false;
 				std::unique_lock<std::mutex> lock(mutexResponse_);

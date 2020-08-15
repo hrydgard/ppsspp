@@ -237,7 +237,7 @@ void QtHost::ShutdownSound() { }
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
 	if (query == "screenRotation") {
-		ILOG("g_Config.screenRotation = %d", g_Config.iScreenRotation);
+		INFO_LOG(G3D, "g_Config.screenRotation = %d", g_Config.iScreenRotation);
 		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
@@ -357,7 +357,7 @@ static void PostLoadConfig() {
 void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
+	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
 	File::CreateFullPath(g_Config.memStickDirectory + "PSP");
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
@@ -608,21 +608,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			// don't already have one.
 			if (!gotBootFilename) {
 				gotBootFilename = true;
-				ILOG("Boot filename found in args: '%s'", argv[i]);
+				INFO_LOG(SYSTEM, "Boot filename found in args: '%s'", argv[i]);
 
 				bool okToLoad = true;
 				bool okToCheck = true;
 				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
 					if (status == PERMISSION_STATUS_DENIED) {
-						ELOG("Storage permission denied. Launching without argument.");
+						ERROR_LOG(IO, "Storage permission denied. Launching without argument.");
 						okToLoad = false;
 						okToCheck = false;
 					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ELOG("Storage permission not granted. Launching without argument check.");
+						ERROR_LOG(IO, "Storage permission not granted. Launching without argument check.");
 						okToCheck = false;
 					} else {
-						ILOG("Storage permission granted.");
+						INFO_LOG(IO, "Storage permission granted.");
 					}
 				}
 				if (okToLoad) {
@@ -812,7 +812,7 @@ void RenderOverlays(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
-	ILOG("NativeInitGraphics");
+	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
@@ -881,7 +881,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore();
 	}
 
-	ILOG("NativeInitGraphics completed");
+	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
 	return true;
 }
 
@@ -931,7 +931,7 @@ void NativeShutdownGraphics() {
 	if (gpu)
 		gpu->DeviceLost();
 
-	ILOG("NativeShutdownGraphics");
+	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	delete winAudioBackend;
@@ -973,7 +973,7 @@ void NativeShutdownGraphics() {
 		texColorPipeline = nullptr;
 	}
 
-	ILOG("NativeShutdownGraphics done");
+	INFO_LOG(SYSTEM, "NativeShutdownGraphics done");
 }
 
 void TakeScreenshot() {
@@ -1090,7 +1090,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
-		ILOG("Resized flag set - recalculating bounds");
+		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
 		resized = false;
 
 		if (uiContext) {
@@ -1119,7 +1119,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		NativeMessageReceived("gpu_resized", "");
 #endif
 	} else {
-		// ILOG("Polling graphics context");
+		// INFO_LOG(G3D, "Polling graphics context");
 		graphicsContext->Poll();
 	}
 
@@ -1179,7 +1179,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues
 		// and I can't risk it before 1.9.0.
 		int gpuBackend = g_Config.iGPUBackend;
-		ILOG("Reloading config after storage permission grant.");
+		INFO_LOG(IO, "Reloading config after storage permission grant.");
 		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
@@ -1218,16 +1218,16 @@ void NativeUpdate() {
 bool NativeIsAtTopLevel() {
 	// This might need some synchronization?
 	if (!screenManager) {
-		ELOG("No screen manager active");
+		ERROR_LOG(SYSTEM, "No screen manager active");
 		return false;
 	}
 	Screen *currentScreen = screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
-		ILOG("Screen toplevel: %i", (int)top);
+		INFO_LOG(SYSTEM, "Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
-		ELOG("No current screen");
+		ERROR_LOG(SYSTEM, "No current screen");
 		return false;
 	}
 }
@@ -1246,7 +1246,7 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
-	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
 		static std::vector<int> pspKeys;
@@ -1364,7 +1364,7 @@ void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, b
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	ILOG("NativeResized - setting flag");
+	INFO_LOG(G3D, "NativeResized - setting flag");
 	resized = true;
 }
 
@@ -1398,7 +1398,7 @@ void NativeShutdown() {
 	moncleanup();
 #endif
 
-	ILOG("NativeShutdown called");
+	INFO_LOG(SYSTEM, "NativeShutdown called");
 
 	ShutdownWebServer();
 

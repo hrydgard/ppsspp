@@ -301,7 +301,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
 			fileSystemFound = true;
-			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			// INFO_LOG(IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
@@ -319,7 +319,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
-		// ILOG("Not a VFS path: %s . Reading local directory.", path);
+		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
 		getFilesInDir(path, listing, filter);
 		return true;
 	}
@@ -346,7 +346,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 bool VFSGetFileInfo(const char *path, FileInfo *info) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
-		// ILOG("Not a VFS path: %s . Getting local file info.", path);
+		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
 		return getFileInfo(path, info);
 	}
 

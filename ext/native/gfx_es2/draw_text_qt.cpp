@@ -134,7 +134,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 			}
 		}
 	} else {
-		_assert_msg_("Bad TextDrawer format");
+		_assert_msg_(false, "Bad TextDrawer format");
 	}
 }
 

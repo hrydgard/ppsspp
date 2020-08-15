@@ -30,6 +30,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 #include "Common/GraphicsContext.h"
+#include "Common/Log.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -244,7 +245,7 @@ static LocationHelper *locationHelper;
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
-		ILOG("Emulation thread starting\n");
+		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
@@ -252,11 +253,11 @@ static LocationHelper *locationHelper;
 		}
 
 
-		ILOG("Emulation thread shutting down\n");
+		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
 		NativeShutdownGraphics();
 
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-		ILOG("Emulation thread stopping\n");
+		INFO_LOG(SYSTEM, "Emulation thread stopping\n");
 		graphicsContext->StopThread();
 		
 		threadStopped = true;

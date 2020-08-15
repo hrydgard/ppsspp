@@ -32,7 +32,6 @@
 #include <sstream>
 
 #include "base/NativeApp.h"
-#include "base/logging.h"
 #include "input/input_state.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
@@ -41,6 +40,7 @@
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -326,7 +326,7 @@ bool TestMatrixTranspose() {
 }
 
 void TestGetMatrix(int matrix, MatrixSize sz) {
-	ILOG("Testing matrix %s", GetMatrixNotation(matrix, sz));
+	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz));
 	u8 fullMatrix[16];
 
 	u8 cols[4];
@@ -344,8 +344,8 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 		// int rowName = GetRowName(matrix, sz, i, 0);
 		int colName = cols[i];
 		int rowName = rows[i];
-		ILOG("Column %i: %s", i, GetVectorNotation(colName, vsz));
-		ILOG("Row %i: %s", i, GetVectorNotation(rowName, vsz));
+		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz));
+		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz));
 
 		u8 colRegs[4];
 		u8 rowRegs[4];
@@ -366,12 +366,12 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 			c << (int)fullMatrix[j * 4 + i] << " ";
 			d << (int)rowRegs[j] << " ";
 		}
-		ILOG("Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		INFO_LOG(SYSTEM, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
 		if (a.str() != b.str())
-			ILOG("WRONG!");
-		ILOG("Row: %s vs %s", c.str().c_str(), d.str().c_str());
+			INFO_LOG(SYSTEM, "WRONG!");
+		INFO_LOG(SYSTEM, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
 		if (c.str() != d.str())
-			ILOG("WRONG!");
+			INFO_LOG(SYSTEM, "WRONG!");
 	}
 }
 
