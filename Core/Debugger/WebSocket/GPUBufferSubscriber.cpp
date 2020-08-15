@@ -344,7 +344,7 @@ void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 	});
 }
 
-// Retrieve current stencil texture (gpu.buffer.texture)
+// Retrieve current texture (gpu.buffer.texture)
 //
 // Parameters:
 //  - type: either 'uri' or 'base64'.
@@ -372,7 +372,7 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 	});
 }
 
-// Retrieve current stencil texture (gpu.buffer.texture)
+// Retrieve current CLUT (gpu.buffer.clut)
 //
 // Parameters:
 //  - type: either 'uri' or 'base64'.
