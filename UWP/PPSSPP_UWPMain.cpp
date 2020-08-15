@@ -10,6 +10,7 @@
 #include "Common/LogManager.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
+#include "Core/Config.h"
 #include "base/NativeApp.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
@@ -100,7 +101,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.

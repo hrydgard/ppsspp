@@ -335,7 +335,7 @@ int main(int argc, const char* argv[])
 	GraphicsContext *graphicsContext = nullptr;
 	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
 	PrintfLogger *printfLogger = new PrintfLogger();

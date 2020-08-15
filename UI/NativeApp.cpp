@@ -531,7 +531,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (!LogManager::GetInstance())
-		LogManager::Init();
+		LogManager::Init(&g_Config.bEnableLogging);
 
 #ifndef _WIN32
 	g_Config.AddSearchPath(user_data_path);

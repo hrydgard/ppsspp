@@ -358,7 +358,7 @@ void retro_init(void)
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
 
-   LogManager::Init();
+   LogManager::Init(&g_Config.bEnableLogging);
 
    host = new LibretroHost;
 

@@ -21,15 +21,17 @@
 #include <cstring>
 
 #include "util/text/utf8.h"
-#include "LogManager.h"
-#include "ConsoleListener.h"
-#include "Timer.h"
-#include "FileUtil.h"
-#include "StringUtils.h"
-#include "Core/Config.h"
+
+#include "Common/LogManager.h"
+#include "Common/ConsoleListener.h"
+#include "Common/Timer.h"
+#include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 
 // Don't need to savestate this.
 const char *hleCurrentThreadName = nullptr;
+
+bool *g_bLogEnabledSetting = nullptr;
 
 static const char level_to_char[8] = "-NEWIDV";
 
@@ -40,7 +42,7 @@ static const char level_to_char[8] = "-NEWIDV";
 #endif
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char* fmt, ...) {
-	if (!g_Config.bEnableLogging)
+	if (g_bLogEnabledSetting && !(*g_bLogEnabledSetting))
 		return;
 	va_list args;
 	va_start(args, fmt);
@@ -56,7 +58,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 
 bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
 	if (LogManager::GetInstance())
-		return g_Config.bEnableLogging && LogManager::GetInstance()->IsEnabled(level, type);
+		return (*g_bLogEnabledSetting) && LogManager::GetInstance()->IsEnabled(level, type);
 	return false;
 }
 
@@ -116,7 +118,9 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::SCEMISC,    "SCEMISC"},
 };
 
-LogManager::LogManager() {
+LogManager::LogManager(bool *enabledSetting) {
+	g_bLogEnabledSetting = enabledSetting;
+
 	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
 		_assert_msg_(i == logTable[i].logType, "Bad logtable at %i", (int)i);
 		truncate_cpy(log_[logTable[i].logType].m_shortName, logTable[i].name);
@@ -271,8 +275,8 @@ bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) 
 	return true;
 }
 
-void LogManager::Init() {
-	logManager_ = new LogManager();
+void LogManager::Init(bool *enabledSetting) {
+	logManager_ = new LogManager(enabledSetting);
 }
 
 void LogManager::Shutdown() {
