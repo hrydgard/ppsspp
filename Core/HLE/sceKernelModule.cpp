@@ -72,7 +72,7 @@ enum {
 	PSP_THREAD_ATTR_USER = 0x80000000,
 };
 
-enum {
+enum : u32 {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,
 	NID_MODULE_STOP = 0xCEE8593C,

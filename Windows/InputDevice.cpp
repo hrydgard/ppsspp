@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "stdafx.h"
 #include <thread>
 #include <atomic>
 
@@ -26,7 +27,7 @@
 
 static std::atomic_flag threadRunningFlag;
 static std::thread inputThread;
-static std::atomic_bool focused = true;
+static std::atomic_bool focused = ATOMIC_VAR_INIT(true);
 
 inline static void ExecuteInputPoll() {
 	if (host && (focused.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused)) {
