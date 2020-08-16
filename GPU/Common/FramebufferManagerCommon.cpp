@@ -1086,7 +1086,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	if (!vfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO during resize! %d x %d", vfb->renderWidth, vfb->renderHeight);
 		vfb->last_frame_failed = gpuStats.numFlips;
 	}
 }
@@ -1431,7 +1431,7 @@ bool FramebufferManagerCommon::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 	snprintf(name, sizeof(name), "download_temp");
 	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth, name });
 	if (!nvfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 	return true;
@@ -1566,7 +1566,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
 			if (srcX != dstX || srcY != dstY) {
-				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
+				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+					srcBasePtr, srcX, srcY, srcStride,
+					dstBasePtr, dstX, dstY, dstStride,
+					width, height, bpp);
 				FlushBeforeCopy();
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer("rebind after intra block transfer");
@@ -1577,7 +1580,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
+			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer  %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+				srcBasePtr, srcX, srcY, srcStride,
+				dstBasePtr, dstX, dstY, dstStride,
+				width, height, bpp);
 			// Just do the blit!
 			FlushBeforeCopy();
 			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
@@ -1590,7 +1596,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		// Here we should just draw the pixels into the buffer.  Copy first.
 		return false;
 	} else if (srcBuffer) {
-		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x (%dx%d %dbpp)", srcBasePtr, dstBasePtr, width, height, bpp);
+		WARN_LOG_ONCE(btd, G3D, "Block transfer readback %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+			srcBasePtr, srcX, srcY, srcStride,
+			dstBasePtr, dstX, dstY, dstStride,
+			width, height, bpp);
 		FlushBeforeCopy();
 		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
@@ -1599,8 +1608,9 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			if (srcHeight <= 0 || (tooTall && srcY != 0)) {
 				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 			} else {
-				if (tooTall)
+				if (tooTall) {
 					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
+				}
 				ReadFramebufferToMemory(srcBuffer, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
 				srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}

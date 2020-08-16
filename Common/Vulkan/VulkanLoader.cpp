@@ -476,7 +476,7 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
 	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
-		WARN_LOG(G3D, "VulkanLoad: Base functions loaded.");
+		INFO_LOG(G3D, "VulkanLoad: Base functions loaded.");
 		return true;
 	} else {
 		ERROR_LOG(G3D, "VulkanLoad: Failed to load Vulkan base functions.");
@@ -549,14 +549,14 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 		LOAD_INSTANCE_FUNC(instance, vkSetDebugUtilsObjectTagEXT);
 	}
 
-	WARN_LOG(G3D, "Vulkan instance functions loaded.");
+	INFO_LOG(G3D, "Vulkan instance functions loaded.");
 }
 
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions) {
-	WARN_LOG(G3D, "Vulkan device functions loaded.");
+	INFO_LOG(G3D, "Vulkan device functions loaded.");
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
 	LOAD_DEVICE_FUNC(device, vkQueueWaitIdle);
