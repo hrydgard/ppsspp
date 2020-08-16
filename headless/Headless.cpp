@@ -175,7 +175,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
 	static double deadline;
-	deadline = time_now() + timeout;
+	deadline = time_now_d() + timeout;
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
