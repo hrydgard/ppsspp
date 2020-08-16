@@ -875,7 +875,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 
 	if (reportTag != nullptr) {
 		// A blank string means always log, not just once.
-		if (reportTag[0] == '\0' || Reporting::ShouldLogOnce(reportTag)) {
+		if (reportTag[0] == '\0' || Reporting::ShouldLogNTimes(reportTag, 1)) {
 			// Here we want the original key, so that different args, etc. group together.
 			std::string key = std::string(kernelFlag) + std::string("%08x=") + funcName + "(%s)";
 			if (reason != nullptr)

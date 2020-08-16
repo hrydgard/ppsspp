@@ -1566,7 +1566,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
 			if (srcX != dstX || srcY != dstY) {
-				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+				WARN_LOG_N_TIMES(dstsrc, 100, G3D, "Intra-buffer block transfer %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
 					srcBasePtr, srcX, srcY, srcStride,
 					dstBasePtr, dstX, dstY, dstStride,
 					width, height, bpp);
@@ -1580,7 +1580,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer  %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+			WARN_LOG_N_TIMES(dstnotsrc, 100, G3D, "Inter-buffer block transfer  %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
 				srcBasePtr, srcX, srcY, srcStride,
 				dstBasePtr, dstX, dstY, dstStride,
 				width, height, bpp);
@@ -1596,7 +1596,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		// Here we should just draw the pixels into the buffer.  Copy first.
 		return false;
 	} else if (srcBuffer) {
-		WARN_LOG_ONCE(btd, G3D, "Block transfer readback %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+		WARN_LOG_N_TIMES(btd, 100, G3D, "Block transfer readback %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
 			srcBasePtr, srcX, srcY, srcStride,
 			dstBasePtr, dstX, dstY, dstStride,
 			width, height, bpp);
