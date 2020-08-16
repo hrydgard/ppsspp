@@ -17,19 +17,9 @@
 
 #pragma once
 
-// Message alerts
-enum MSG_TYPE {
-	INFORMATION,
-	QUESTION,
-	WARNING,
-	CRITICAL
-};
-
-bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* format, ...)
+// Currently only actually shows a dialog box on Windows.
+bool ShowAssertDialog(const char *file, int line, const char* format, ...)
 #ifdef __GNUC__
-	__attribute__((format(printf, 5, 6)))
+	__attribute__((format(printf, 3, 4)))
 #endif
 	;
-
-// Used only for asserts.
-#define PanicYesNo(...) MsgAlert(true, CRITICAL, __FILE__, __LINE__, __VA_ARGS__)

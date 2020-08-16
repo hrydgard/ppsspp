@@ -20,7 +20,7 @@
 #include <cstdio>
 
 #include "CommonFuncs.h"
-#include "Common/MsgHandler.h"
+#include "MsgHandler.h"  // For ShowAssertDialog
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -129,7 +129,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 					   __LINE__, __FILE__); \
 		ERROR_LOG(SYSTEM, #_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+		if (!ShowAssertDialog(__FILE__, __LINE__, "*** Assertion ***\n")) { Crash(); } \
 	}
 
 #if defined(__ANDROID__)
@@ -138,7 +138,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+		if (!ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
 
 #else  // !defined(__ANDROID__)
@@ -147,7 +147,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) { Crash();} \
+		if (!ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) { Crash();} \
 	}
 
 #endif  // __ANDROID__
@@ -169,7 +169,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	}
 
 #define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
+	if (!(_a_) && !ShowAssertDialog(__FILENAME__, __LINE__, __VA_ARGS__)) { \
 		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
 
@@ -177,13 +177,12 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", __LINE__, __FILE__); \
+		if (!ShowAssertDialog(__FILE__, __LINE__, "*** Assertion ***\n")) { Crash(); } \
 	}
 
 #define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
+	if (!(_a_) && !ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) { \
 		Crash(); \
 	}
 

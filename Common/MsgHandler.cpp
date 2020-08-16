@@ -24,52 +24,29 @@
 #include "StringUtils.h"
 #include "util/text/utf8.h"
 
-bool MsgHandler(const char *caption, const char *text, const char *file, int line, bool yes_no, int Style);
-
-bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* format,  ...) {
-	// Read message and write it to the log
-	char buffer[2048];
-	static const char *captions[] = {
-		"Information",
-		"Question",
-		"Warning",
-		"Critical"
-	};
-
-	const char *caption = captions[Style];
-	va_list args;
-	va_start(args, format);
-	CharArrayFromFormatV(buffer, sizeof(buffer)-1, format, args);
-	va_end(args);
-	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "(%s:%d) %s: %s", file, line, caption, buffer);
-	// Don't ignore questions, especially AskYesNo, PanicYesNo could be ignored
-	if (Style == QUESTION || Style == CRITICAL)
-		return MsgHandler(caption, buffer, file, line, yes_no, Style);
-	return true;
-}
-
-#ifdef _WIN32
+#ifdef PPSSPP_PLATFORM(WINDOWS)
 #include "CommonWindows.h"
 #endif
 
-// Default non library dependent panic alert
-bool MsgHandler(const char* caption, const char* text, const char *file, int line, bool yes_no, int Style) {
-#if defined(USING_WIN_UI)
-	int msgBoxStyle = MB_ICONINFORMATION;
-	if (Style == QUESTION) msgBoxStyle = MB_ICONQUESTION;
-	if (Style == WARNING) msgBoxStyle = MB_ICONWARNING;
+bool ShowAssertDialog(const char *file, int line, const char* format, ...) {
+	// Read message and write it to the log
+	char text[2048];
+	const char *caption = "Critical";
+	va_list args;
+	va_start(args, format);
+	CharArrayFromFormatV(text, sizeof(text)-1, format, args);
+	va_end(args);
+	// Normal logging (will also log to Android log)
+	ERROR_LOG(SYSTEM, "(%s:%d) %s: %s", file, line, caption, text);
 
+#if defined(USING_WIN_UI)
+	int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
 	std::wstring wtext = ConvertUTF8ToWString(text) + L"\n\nTry to continue?";
 	std::wstring wcaption = ConvertUTF8ToWString(caption);
 	OutputDebugString(wtext.c_str());
-	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle | (yes_no ? MB_YESNO : MB_OK));
-#elif PPSSPP_PLATFORM(UWP)
-	OutputDebugStringUTF8(text);
-	return false;
+	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle);
 #else
-	// Will use android-log if available, printf if not.
-	ERROR_LOG(SYSTEM, "(%s:%d) %s", file, line, text);
+	OutputDebugStringUTF8(text);
 	return false;
 #endif
 }

@@ -24,7 +24,6 @@ extern "C" {
 #endif
 
 #include "Common/FileUtil.h"
-#include "Common/MsgHandler.h"
 #include "Common/ColorConv.h"
 
 #include "Core/Config.h"

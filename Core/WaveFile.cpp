@@ -5,8 +5,7 @@
 #include <string>
 
 #include "Core/WaveFile.h"
-#include "Common/CommonTypes.h"
-#include "Common/MsgHandler.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 
 constexpr size_t WaveFileWriter::BUFFER_SIZE;
