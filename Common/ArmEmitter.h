@@ -23,7 +23,6 @@
 #include "Common.h"
 #include "ArmCommon.h"
 #include "CodeBlock.h"
-#include "MsgHandler.h"
 
 // VCVT flags
 #define TO_FLOAT      0

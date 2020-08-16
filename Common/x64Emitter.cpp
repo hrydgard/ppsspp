@@ -21,7 +21,6 @@
 #include "ABI.h"
 #include "CPUDetect.h"
 #include "MemoryUtil.h"
-#include "MsgHandler.h"
 
 #define PRIx64 "llx"
 

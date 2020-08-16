@@ -107,9 +107,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		return false;
 	}
 
-	if (!image[0]) {
-		Crash();
-	}
+	_assert_(image[0] != nullptr);
 
 	if (num_levels < 0 || num_levels >= 16) {
 		ERROR_LOG(IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);

@@ -17,19 +17,17 @@
 
 #pragma once
 
-// Message alerts
-enum MSG_TYPE {
-	INFORMATION,
-	QUESTION,
-	WARNING,
-	CRITICAL
-};
-
-bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* format, ...)
+// Currently only actually shows a dialog box on Windows.
+bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...)
 #ifdef __GNUC__
 	__attribute__((format(printf, 5, 6)))
 #endif
 	;
 
-// Used only for asserts.
-#define PanicYesNo(...) MsgAlert(true, CRITICAL, __FILE__, __LINE__, __VA_ARGS__)
+#if defined(__ANDROID__)
+
+// Tricky macro to get the basename, that also works if *built* on Win32.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
+
+#endif

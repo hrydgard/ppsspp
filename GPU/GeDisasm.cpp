@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/MemMap.h"
+#include <cstdio>
 
-#include "ge_constants.h"
+#include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 

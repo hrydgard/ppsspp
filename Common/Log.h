@@ -17,10 +17,7 @@
 
 #pragma once
 
-#include <cstdio>
-
 #include "CommonFuncs.h"
-#include "Common/MsgHandler.h"
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -105,19 +102,26 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) } while (false)
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR,   __VA_ARGS__) } while (false)
 #define WARN_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) } while (false)
-#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) } while (false)
-#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) } while (false)
-#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE,  __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO,    __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG,   __VA_ARGS__) } while (false)
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
+// Currently only actually shows a dialog box on Windows.
+bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)
+#ifdef __GNUC__
+__attribute__((format(printf, 5, 6)))
+#endif
+;
+
 #if defined(__ANDROID__)
-
 // Tricky macro to get the basename, that also works if *built* on Win32.
+// Doesn't mean this macro can be used on Win32 though.
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
-void AndroidAssertLog(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
-
+#else
+#define __FILENAME__ __FILE__
 #endif
 
 // If we're in "debug" assert mode
@@ -125,32 +129,13 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		printf(#_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\n", \
-					   __LINE__, __FILE__); \
-		ERROR_LOG(SYSTEM, #_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
 	}
 
-#if defined(__ANDROID__)
-
-#define _dbg_assert_msg_(_a_, ...)\
-	if (!(_a_)) {\
-		printf(__VA_ARGS__); \
-		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+#define _dbg_assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-
-#else  // !defined(__ANDROID__)
-
-#define _dbg_assert_msg_(_a_, ...)\
-	if (!(_a_)) {\
-		printf(__VA_ARGS__); \
-		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) { Crash();} \
-	}
-
-#endif  // __ANDROID__
 
 #else // not debug
 
@@ -161,33 +146,15 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #endif // MAX_LOGLEVEL DEBUG
 
-#if defined(__ANDROID__)
-
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assertion failed!"); \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
 	}
 
-#define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
-		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+#define _assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-
-#else  // __ANDROID__
-
-#define _assert_(_a_) \
-	if (!(_a_)) {\
-		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
-	}
-
-#define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
-		Crash(); \
-	}
-
-#endif  // __ANDROID__
 
 // Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
 void OutputDebugStringUTF8(const char *p);

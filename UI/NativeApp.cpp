@@ -762,6 +762,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Must be done restarting by now.
 	restarting = false;
+
+	_assert_msg_(false, "assert test");
 }
 
 static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {

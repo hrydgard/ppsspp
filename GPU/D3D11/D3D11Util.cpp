@@ -6,7 +6,6 @@
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
-
 #if PPSSPP_PLATFORM(UWP)
 #define ptr_D3DCompile D3DCompile
 #else
@@ -15,8 +14,9 @@
 
 #include "base/stringutil.h"
 
-#include "D3D11Util.h"
+#include "Common/CommonFuncs.h"
 #include "Common/Log.h"
+#include "D3D11Util.h"
 
 static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t codeSize, const char *target, UINT flags) {
 	ID3DBlob *compiledCode = nullptr;

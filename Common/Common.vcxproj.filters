@@ -14,7 +14,6 @@
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
-    <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
@@ -93,6 +92,8 @@
     <ClInclude Include="Serialize\SerializeSet.h">
       <Filter>Serialize</Filter>
     </ClInclude>
+    <ClInclude Include="TimeUtil.h" />
+    <ClInclude Include="FakeEmitter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -103,7 +104,6 @@
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="Misc.cpp" />
-    <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
@@ -159,6 +159,8 @@
     <ClCompile Include="Serialize\Serializer.cpp">
       <Filter>Serialize</Filter>
     </ClCompile>
+    <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="Log.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

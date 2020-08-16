@@ -209,13 +209,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
   $(SRC)/Common/KeyMap.cpp \
+  $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
   $(SRC)/Common/MemArenaDarwin.cpp \
   $(SRC)/Common/MemArenaWin32.cpp \
   $(SRC)/Common/MemArenaPosix.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
-  $(SRC)/Common/MsgHandler.cpp \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/ThreadPools.cpp \
