@@ -324,10 +324,11 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 			indices[1] = SKIP_FLAG;
 			indices[2] = SKIP_FLAG;
 
-			POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
-			POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
-			POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
-			POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+			// The PSP doesn't clip on the sides (so, commented out) but it does appear to have a Z clipper.
+			// POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
+			// POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+			// POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+			// POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
 			POLY_CLIP(CLIP_POS_Z_BIT,  0,  0,  0, 1);
 			POLY_CLIP(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 
