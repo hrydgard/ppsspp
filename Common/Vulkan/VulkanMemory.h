@@ -176,8 +176,8 @@ private:
 
 	struct UsageInfo {
 		std::string tag;
-		float created;
-		float touched;
+		double created;
+		double touched;
 	};
 
 	struct Slab {
