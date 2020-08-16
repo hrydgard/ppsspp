@@ -28,6 +28,10 @@
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include <android/log.h>
+#endif
+
 // Don't need to savestate this.
 const char *hleCurrentThreadName = nullptr;
 
