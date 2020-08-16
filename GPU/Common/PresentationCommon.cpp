@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cassert>
 #include <cmath>
 #include <set>
 #include <cstdint>
@@ -407,7 +406,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
-	assert(vdata_ == nullptr);
+	_assert_(vdata_ == nullptr);
 
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
@@ -531,7 +530,7 @@ void PresentationCommon::BindSource(int binding) {
 	} else if (srcFramebuffer_) {
 		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
 	} else {
-		assert(false);
+		_assert_(false);
 	}
 }
 

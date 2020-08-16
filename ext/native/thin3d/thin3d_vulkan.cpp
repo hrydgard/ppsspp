@@ -19,7 +19,6 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <cassert>
 
 #include "base/display.h"
 #include "base/stringutil.h"
@@ -858,7 +857,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
@@ -866,11 +865,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	pl.setLayoutCount = 1;
 	pl.pSetLayouts = &descriptorSetLayout_;
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	renderManager_.SetSplitSubmit(splitSubmit);
 
@@ -1580,7 +1579,7 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 		renderManager_.CreateBackbuffers();
 		break;
 	default:
-		assert(false);
+		_assert_(false);
 		break;
 	}
 }

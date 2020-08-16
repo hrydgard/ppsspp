@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "AndroidVulkanContext.h"
 #include "base/NativeApp.h"
 #include "base/display.h"

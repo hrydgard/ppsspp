@@ -1,4 +1,5 @@
 #include "stdafx.h"
+
 #include "WindowsAudio.h"
 #include "WASAPIStream.h"
 #include "Common/Log.h"
@@ -234,12 +235,12 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 }
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
-	assert(device_ == nullptr);
+	_assert_(device_ == nullptr);
 	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
 	if (FAILED(hresult) || device_ == nullptr)
 		return false;
 
-	assert(audioInterface_ == nullptr);
+	_assert_(audioInterface_ == nullptr);
 	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void **)&audioInterface_);
 	if (FAILED(hresult) || audioInterface_ == nullptr)
 		return false;
@@ -249,7 +250,7 @@ bool WASAPIAudioThread::ActivateDefaultDevice() {
 
 bool WASAPIAudioThread::InitAudioDevice() {
 	REFERENCE_TIME hnsBufferDuration = REFTIMES_PER_SEC;
-	assert(deviceFormat_ == nullptr);
+	_assert_(deviceFormat_ == nullptr);
 	HRESULT hresult = audioInterface_->GetMixFormat((WAVEFORMATEX **)&deviceFormat_);
 	if (FAILED(hresult) || !deviceFormat_)
 		return false;
@@ -262,7 +263,7 @@ bool WASAPIAudioThread::InitAudioDevice() {
 	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
 	if (FAILED(hresult))
 		return false;
-	assert(renderClient_ == nullptr);
+	_assert_(renderClient_ == nullptr);
 	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
 	if (FAILED(hresult) || !renderClient_)
 		return false;
@@ -389,7 +390,7 @@ bool WASAPIAudioThread::PrepareFormat() {
 void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
-	assert(deviceEnumerator_ == nullptr);
+	_assert_(deviceEnumerator_ == nullptr);
 	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);

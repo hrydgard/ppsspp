@@ -77,8 +77,8 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
-	assert(fmt != DEC_NONE);
-	assert(fmt < ARRAY_SIZE(VComp));
+	_assert_(fmt != DEC_NONE);
+	_assert_(fmt < ARRAY_SIZE(VComp));
 	attr->location = (uint32_t)location;
 	attr->binding = 0;
 	attr->format = VComp[fmt].type;
@@ -332,7 +332,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 
 	VulkanPipelineKey key{};

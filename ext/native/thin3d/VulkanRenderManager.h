@@ -192,7 +192,7 @@ public:
 
 	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		assert(size + offset < 40);
+		_dbg_assert_(size + offset < 40);
 		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
 		data.push.pipelineLayout = pipelineLayout;
 		data.push.stages = stages;
@@ -214,7 +214,7 @@ public:
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
-		assert(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
+		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
 		curRenderStep_->commands.push_back(data);
@@ -233,7 +233,7 @@ public:
 		data.drawIndexed.ibuffer = ibuffer;
 		data.drawIndexed.ioffset = ioffset;
 		data.drawIndexed.numUboOffsets = numUboOffsets;
-		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
+		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
 		data.drawIndexed.indexType = indexType;

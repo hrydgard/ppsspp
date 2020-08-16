@@ -74,7 +74,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.subresourceRange.layerCount = 1;
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	VkPipelineStageFlags dstStage;
 	VkAccessFlagBits dstAccessMask;
@@ -109,9 +109,9 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
 	VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore_);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore_);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
@@ -119,9 +119,9 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		cmd_pool_info.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolInit);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 		res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolMain);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 
 		VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 		cmd_alloc.commandPool = frameData_[i].cmdPoolInit;
@@ -129,10 +129,10 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		cmd_alloc.commandBufferCount = 1;
 
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].initCmd);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 
 		// Creating the frame fence with true so they can be instantly waited on the first frame
 		frameData_[i].fence = vulkan_->CreateFence(true);
@@ -156,7 +156,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 
 void VulkanRenderManager::CreateBackbuffers() {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
-	assert(res == VK_SUCCESS);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
 	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
@@ -193,7 +193,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 
 		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
 		swapchainImages_.push_back(sc_buffer);
-		assert(res == VK_SUCCESS);
+		_dbg_assert_(res == VK_SUCCESS);
 	}
 	delete[] swapchainImages;
 
@@ -289,7 +289,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	vulkan_->Delete().QueueDeleteImage(depth_.image);
 	vulkan_->Delete().QueueDeleteDeviceMemory(depth_.mem);
 	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-		assert(framebuffers_[i] != VK_NULL_HANDLE);
+		_dbg_assert_(framebuffers_[i] != VK_NULL_HANDLE);
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuffers_[i]);
 	}
 	framebuffers_.clear();
@@ -347,7 +347,7 @@ void VulkanRenderManager::ThreadFunc() {
 
 			// Only increment next time if we're done.
 			nextFrame = frameData.type == VKRRunType::END;
-			assert(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
+			_dbg_assert_(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
 		if (firstFrame) {
@@ -511,7 +511,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	// More redundant bind elimination.
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color != VKRRenderPassAction::CLEAR && curRenderStep_->render.depth != VKRRenderPassAction::CLEAR && curRenderStep_->render.stencil != VKRRenderPassAction::CLEAR) {
 		// Can trivially kill the last empty render step.
-		assert(steps_.back() == curRenderStep_);
+		_dbg_assert_(steps_.back() == curRenderStep_);
 		delete steps_.back();
 		steps_.pop_back();
 		curRenderStep_ = nullptr;

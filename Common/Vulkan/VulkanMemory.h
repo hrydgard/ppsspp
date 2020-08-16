@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <unordered_map>
+
+#include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"
 
 // VulkanMemory
@@ -73,14 +75,14 @@ public:
 
 	// Returns the offset that should be used when binding this buffer to get this data.
 	size_t Push(const void *data, size_t size, VkBuffer *vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
 		return off;
 	}
 
 	uint32_t PushAligned(const void *data, size_t size, int align, VkBuffer *vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
@@ -94,13 +96,13 @@ public:
 	// "Zero-copy" variant - you can write the data directly as you compute it.
 	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
 	}
 	void *PushAligned(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf, int align) {
-		assert(writePtr_);
+		_dbg_assert_(writePtr_);
 		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;

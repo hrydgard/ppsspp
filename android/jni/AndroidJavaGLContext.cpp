@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "AndroidJavaGLContext.h"
 #include "base/display.h"
 #include "base/NativeApp.h"

@@ -12,7 +12,6 @@
 
 #include "Common/ColorConv.h"
 
-#include <cassert>
 #include <cfloat>
 #include <D3DCommon.h>
 #include <d3d11.h>
@@ -288,7 +287,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	packDesc.SampleDesc.Count = 1;
 	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	hr = device_->CreateTexture2D(&packDesc, nullptr, &packTexture_);
-	assert(SUCCEEDED(hr));
+	_assert_(SUCCEEDED(hr));
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
@@ -1420,7 +1419,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {
-		assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+		_assert_(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
 
 		// TODO: Figure out where the badness really comes from.
 		if (bx + bw > fb->width) {
@@ -1461,7 +1460,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 			packDesc.Format = fb->depthStencilFormat;
 			break;
 		default:
-			assert(false);
+			_assert_(false);
 		}
 		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
 	} else {
@@ -1484,11 +1483,11 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	case FB_DEPTH_BIT:
 	case FB_STENCIL_BIT:
 		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
-		assert(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
+		_assert_(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
 		context_->CopyResource(packTex, fb->depthStencilTex);
 		break;
 	default:
-		assert(false);
+		_assert_(false);
 		break;
 	}
 

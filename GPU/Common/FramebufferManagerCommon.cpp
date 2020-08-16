@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <sstream>
-#include <cassert>
 #include <cmath>
 
 #include "ext/native/thin3d/thin3d.h"
@@ -1025,8 +1024,8 @@ void FramebufferManagerCommon::DecimateFBOs() {
 }
 
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
-	assert(w > 0);
-	assert(h > 0);
+	_dbg_assert_(w > 0);
+	_dbg_assert_(h > 0);
 	VirtualFramebuffer old = *vfb;
 
 	int oldWidth = vfb->bufferWidth;

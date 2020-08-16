@@ -51,7 +51,7 @@ void LibretroHWRenderContext::ContextReset() {
 	if (!draw_) {
 		CreateDrawContext();
 		bool success = draw_->CreatePresets();
-		assert(success);
+		_assert_(success);
 	}
 
 	GotBackbuffer();

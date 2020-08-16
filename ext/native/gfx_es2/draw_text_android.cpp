@@ -192,7 +192,7 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	entry.lastUsedFrame = frameCount_;
 
 	jint *jimage = env->GetIntArrayElements(imageData, nullptr);
-	assert(env->GetArrayLength(imageData) == imageWidth * imageHeight);
+	_assert_(env->GetArrayLength(imageData) == imageWidth * imageHeight);
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
@@ -213,8 +213,7 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 			}
 		}
 	} else {
-		ERROR_LOG(G3D, "Bad TextDrawer format");
-		assert(false);
+		_assert_msg_(false, "Bad TextDrawer format");
 	}
 	env->ReleaseIntArrayElements(imageData, jimage, 0);
 	env->DeleteLocalRef(imageData);

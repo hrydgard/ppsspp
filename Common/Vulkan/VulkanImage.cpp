@@ -243,7 +243,7 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 	view_info.subresourceRange.layerCount = 1;
 	VkImageView view;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 	return view;
 }
 

@@ -3,7 +3,6 @@
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <WinError.h>
-#include <cassert>
 
 #include "Common/Log.h"
 #include "base/display.h"

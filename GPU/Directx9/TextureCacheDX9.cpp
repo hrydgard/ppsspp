@@ -17,7 +17,6 @@
 
 #include <map>
 #include <algorithm>
-#include <cassert>
 #include <cstring>
 
 #include "Core/MemMap.h"
@@ -739,7 +738,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			pixelData = (u32 *)rect.pBits;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == D3DFMT_A8R8G8B8);
+			_assert_(dstFmt == D3DFMT_A8R8G8B8);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 

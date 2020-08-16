@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "GLRenderManager.h"
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d.h"
@@ -213,7 +211,7 @@ bool GLRenderManager::ThreadFrame() {
 
 			// Only increment next time if we're done.
 			nextFrame = frameData.type == GLRRunType::END;
-			assert(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
+			_assert_(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
 		}
 		VLOG("PULL: Running frame %d", threadFrame_);
 		if (firstFrame) {
@@ -279,7 +277,7 @@ void GLRenderManager::StopThread() {
 }
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
-	assert(insideFrame_);
+	_assert_(insideFrame_);
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
@@ -509,7 +507,7 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		assert(frameData.readyForSubmit);
+		_assert_(frameData.readyForSubmit);
 		frameData.readyForFence = true;
 		frameData.readyForSubmit = false;
 		frameData.push_condVar.notify_all();
@@ -577,7 +575,7 @@ void GLRenderManager::Run(int frame) {
 		break;
 
 	default:
-		assert(false);
+		_assert_(false);
 	}
 
 	VLOG("PULL: Finished running frame %d", frame);
@@ -597,7 +595,7 @@ void GLRenderManager::FlushSync() {
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.readyForRun = true;
-		assert(frameData.readyForFence == false);
+		_assert_(frameData.readyForFence == false);
 		frameData.type = GLRRunType::SYNC;
 		frameData.pull_condVar.notify_all();
 	}
@@ -666,7 +664,7 @@ GLPushBuffer::~GLPushBuffer() {
 }
 
 void GLPushBuffer::Map() {
-	assert(!writePtr_);
+	_assert_(!writePtr_);
 	auto &info = buffers_[buf_];
 	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
 	info.flushOffset = 0;
@@ -676,11 +674,11 @@ void GLPushBuffer::Map() {
 		offset_++;
 		info.flushOffset++;
 	}
-	assert(writePtr_);
+	_assert_(writePtr_);
 }
 
 void GLPushBuffer::Unmap() {
-	assert(writePtr_);
+	_assert_(writePtr_);
 	if (!buffers_[buf_].deviceMemory) {
 		// Here we simply upload the data to the last buffer.
 		// Might be worth trying with size_ instead of offset_, so the driver can replace
@@ -700,7 +698,7 @@ void GLPushBuffer::Flush() {
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
 		if (info.flushOffset != 0) {
-			assert(info.buffer->buffer_);
+			_assert_(info.buffer->buffer_);
 			glBindBuffer(target_, info.buffer->buffer_);
 			glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
 		}
@@ -766,7 +764,7 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 		}
 
 		bool res = AddBuffer();
-		assert(res);
+		_assert_(res);
 		if (!res) {
 			// Let's try not to crash at least?
 			buf_ = 0;
@@ -857,7 +855,7 @@ void GLPushBuffer::UnmapDevice() {
 }
 
 void *GLRBuffer::Map(GLBufferStrategy strategy) {
-	assert(buffer_ != 0);
+	_assert_(buffer_ != 0);
 
 	GLbitfield access = GL_MAP_WRITE_BIT;
 	if ((strategy & GLBufferStrategy::MASK_FLUSH) != 0) {

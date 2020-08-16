@@ -412,7 +412,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 	renderManager_->SetSwapFunction([&]() {
 #ifdef USING_EGL
 		if (useEGLSwap)

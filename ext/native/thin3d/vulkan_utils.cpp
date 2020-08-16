@@ -65,7 +65,7 @@ void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags requi
 	VkMemoryRequirements mem_reqs;
 
 	VkResult err = vkCreateImage(device, &i, nullptr, &image_);
-	assert(!err);
+	_assert_(!err);
 
 	vkGetImageMemoryRequirements(device, image_, &mem_reqs);
 
@@ -75,13 +75,13 @@ void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags requi
 	mem_alloc_.memoryTypeIndex = 0;
 
 	bool res = vulkan->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, required_props, &mem_alloc_.memoryTypeIndex);
-	assert(res);
+	_assert_(res);
 
 	err = vkAllocateMemory(device, &mem_alloc_, nullptr, &memory_);
-	assert(!err);
+	_assert_(!err);
 
 	err = vkBindImageMemory(device, image_, memory_, 0);  // at offset 0.
-	assert(!err);
+	_assert_(!err);
 }
 
 void VulkanImage::SetImageData2D(VkDevice device, const uint8_t *data, int width, int height, int pitch) {
@@ -95,7 +95,7 @@ void VulkanImage::SetImageData2D(VkDevice device, const uint8_t *data, int width
 	vkGetImageSubresourceLayout(device, image_, &subres, &layout);
 
 	VkResult err = vkMapMemory(device, memory_, 0, mem_alloc_.allocationSize, 0, &destData);
-	assert(!err);
+	_assert_(!err);
 	
 	uint8_t *writePtr = (uint8_t *)destData + layout.offset;
 	int bpp = 4;  // TODO

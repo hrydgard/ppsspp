@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <cstring>
 #include <string>
 #include <vector>

@@ -238,7 +238,6 @@ void CDisasm::stepInto()
 		Sleep(1);
 	}
 
-	_dbg_update_();
 	ptr->gotoPC();
 	UpdateDialog();
 	vfpudlg->Update();
@@ -292,7 +291,6 @@ void CDisasm::stepOver()
 
 	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	_dbg_update_();
 	Core_EnableStepping(false);
 	Sleep(1);
 	ptr->gotoAddr(breakpointAddress);
@@ -331,7 +329,6 @@ void CDisasm::stepOut()
 
 	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	_dbg_update_();
 	Core_EnableStepping(false);
 	Sleep(1);
 	ptr->gotoAddr(breakpointAddress);
@@ -351,7 +348,6 @@ void CDisasm::runToLine()
 	ptr->setDontRedraw(true);
 	SetDebugMode(false, true);
 	CBreakPoints::AddBreakPoint(pos,true);
-	_dbg_update_();
 	Core_EnableStepping(false);
 }
 
@@ -533,7 +529,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						ptr->setDontRedraw(false);
 						SetDebugMode(true, true);
 						Core_EnableStepping(true);
-						_dbg_update_();
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
 						UpdateDialog();
@@ -573,7 +568,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					hleDebugBreak();
 					SetDebugMode(false, true);
-					_dbg_update_();
 					Core_EnableStepping(false);
 				}
 				break;
