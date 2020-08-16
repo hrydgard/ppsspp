@@ -49,8 +49,8 @@ HANDLE ConsoleListener::hTriggerEvent = NULL;
 CRITICAL_SECTION ConsoleListener::criticalSection;
 
 char *ConsoleListener::logPending = NULL;
-std::atomic<u32> ConsoleListener::logPendingReadPos;
-std::atomic<u32> ConsoleListener::logPendingWritePos;
+std::atomic<uint32_t> ConsoleListener::logPendingReadPos;
+std::atomic<uint32_t> ConsoleListener::logPendingWritePos;
 #endif
 
 ConsoleListener::ConsoleListener() : bHidden(true)

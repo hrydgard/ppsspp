@@ -25,7 +25,6 @@
 
 #if !defined(_WIN32)
 
-
 #include <unistd.h>
 #include <errno.h>
 

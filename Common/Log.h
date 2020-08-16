@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <cstdio>
-
 #include "CommonFuncs.h"
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
@@ -111,29 +109,33 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG,   __VA_ARGS__) } while (false)
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
+// Currently only actually shows a dialog box on Windows.
+bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)
+#ifdef __GNUC__
+__attribute__((format(printf, 5, 6)))
+#endif
+;
+
+#if defined(__ANDROID__)
+// Tricky macro to get the basename, that also works if *built* on Win32.
+// Doesn't mean this macro can be used on Win32 though.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+#else
+#define __FILENAME__ __FILE__
+#endif
+
 // If we're in "debug" assert mode
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, "*** Assertion ***\n")) { Crash(); } \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
 	}
 
-#if defined(__ANDROID__)
-
-#define _dbg_assert_msg_(_a_, ...)\
-	if (!(_a_)) {\
-		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+#define _dbg_assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-
-#else  // !defined(__ANDROID__)
-
-#define _dbg_assert_msg_(_a_, ...)\
-	if (!(_a_)) {\
-		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) { Crash();} \
-	}
-
-#endif  // __ANDROID__
 
 #else // not debug
 
@@ -144,46 +146,15 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 #endif // MAX_LOGLEVEL DEBUG
 
-#if defined(__ANDROID__)
-
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assertion failed!"); \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
 	}
 
-#define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !ShowAssertDialog(__FUNCTION__,__FILENAME__, __LINE__, #_a_, __VA_ARGS__)) { \
-		AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+#define _assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-
-#else  // __ANDROID__
-
-#define _assert_(_a_) \
-	if (!(_a_)) {\
-		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, "*** Assertion ***\n")) { Crash(); } \
-	}
-
-#define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) { \
-		Crash(); \
-	}
-
-#endif  // __ANDROID__
 
 // Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
 void OutputDebugStringUTF8(const char *p);
-
-// Currently only actually shows a dialog box on Windows.
-bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...)
-#ifdef __GNUC__
-__attribute__((format(printf, 5, 6)))
-#endif
-;
-
-#if defined(__ANDROID__)
-
-// Tricky macro to get the basename, that also works if *built* on Win32.
-#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
-void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
-
-#endif

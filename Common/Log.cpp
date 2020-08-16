@@ -30,41 +30,40 @@
 #include "CommonWindows.h"
 #endif
 
-#if defined(__ANDROID__)
+#define LOG_BUF_SIZE 2048
 
-#define LOG_BUF_SIZE 1024
-
-void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...) {
-	char buf[LOG_BUF_SIZE];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	__android_log_assert(condition, "PPSSPP", "%s:%d (%s): [%s] %s", file, line, func, condition, buf);
-	va_end(args);
-}
-
-#endif
-
-bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
+bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
-	char text[2048];
+	char text[LOG_BUF_SIZE];
 	const char *caption = "Critical";
 	va_list args;
 	va_start(args, format);
 	vsnprintf(text, sizeof(text), format, args);
 	va_end(args);
 
+	// Secondary formatting. Wonder if this can be combined into the vsnprintf somehow.
+	char formatted[LOG_BUF_SIZE];
+	snprintf(formatted, sizeof(formatted), "(%s:%s:%d) %s: [%s] %s", file, function, line, caption, expression, text);
+
 	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "(%s:%d) %s: %s", file, line, caption, text);
+	ERROR_LOG(SYSTEM, "%s", formatted);
 	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
-	printf("(%s: %d) %s: %s\n", file, line, caption, text);
+	printf("%s\n", formatted);
 
 #if defined(USING_WIN_UI)
 	int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
-	std::wstring wtext = ConvertUTF8ToWString(text) + L"\n\nTry to continue?";
+	std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
 	std::wstring wcaption = ConvertUTF8ToWString(caption);
 	OutputDebugString(wtext.c_str());
-	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle);
+	if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
+		return false;
+	} else {
+		return true;
+	}
+#elif PPSSPP_PLATFORM(ANDROID)
+	__android_log_assert(expression, "PPSSPP", "%s", formatted);
+	// Doesn't matter what we return here.
+	return false;
 #else
 	OutputDebugStringUTF8(text);
 	return false;
