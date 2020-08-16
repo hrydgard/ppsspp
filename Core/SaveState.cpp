@@ -263,7 +263,7 @@ namespace SaveState
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
-	static float rewindLastTime = 0.0f;
+	static double rewindLastTime = 0.0f;
 	const int StateRingbuffer::BLOCK_SIZE = 8192;
 	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
 
@@ -671,11 +671,11 @@ namespace SaveState
 
 		// For fast-forwarding, otherwise they may be useless and too close.
 		time_update();
-		float diff = time_now() - rewindLastTime;
+		float diff = time_now_d() - rewindLastTime;
 		if (diff < rewindMaxWallFrequency)
 			return;
 
-		rewindLastTime = time_now();
+		rewindLastTime = time_now_d();
 		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}

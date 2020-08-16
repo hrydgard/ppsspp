@@ -278,7 +278,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
-	slab.tags[start] = { tag, time_now(), 0.0f };
+	slab.tags[start] = { tag, time_now_d(), 0.0 };
 	slab.totalUsage += blocks;
 	return true;
 }
@@ -312,7 +312,7 @@ void VulkanDeviceAllocator::DoTouch(VkDeviceMemory deviceMemory, size_t offset) 
 
 		auto it = slab.tags.find(start);
 		if (it != slab.tags.end()) {
-			it->second.touched = time_now();
+			it->second.touched = time_now_d();
 			found = true;
 		}
 	}
@@ -436,15 +436,15 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes, int memoryTypeIn
 }
 
 void VulkanDeviceAllocator::ReportOldUsage() {
-	float now = time_now();
-	static const float OLD_AGE = 10.0f;
+	double now = time_now_d();
+	static const double OLD_AGE = 10.0;
 	for (size_t i = 0; i < slabs_.size(); ++i) {
 		const auto &slab = slabs_[i];
 
 		bool hasOldAllocs = false;
 		for (auto it : slab.tags) {
 			const auto info = it.second;
-			float touchedAge = now - info.touched;
+			double touchedAge = now - info.touched;
 			if (touchedAge >= OLD_AGE) {
 				hasOldAllocs = true;
 				break;
@@ -456,8 +456,8 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 			for (auto it : slab.tags) {
 				const auto info = it.second;
 
-				float createAge = now - info.created;
-				float touchedAge = now - info.touched;
+				double createAge = now - info.created;
+				double touchedAge = now - info.touched;
 				NOTICE_LOG(G3D, "  * %s (created %fs ago, used %fs ago)", info.tag.c_str(), createAge, touchedAge);
 			}
 		}

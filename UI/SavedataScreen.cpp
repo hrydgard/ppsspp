@@ -248,7 +248,7 @@ void SavedataButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
 			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {

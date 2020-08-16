@@ -201,12 +201,12 @@ Clickable::Clickable(LayoutParams *layoutParams)
 
 void Clickable::DrawBG(UIContext &dc, const Style &style) {
 	if (style.background.type == DRAW_SOLID_COLOR) {
-		if (time_now() - bgColorLast_ >= 0.25f) {
+		if (time_now_d() - bgColorLast_ >= 0.25f) {
 			bgColor_->Reset(style.background.color);
 		} else {
 			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
 		}
-		bgColorLast_ = time_now();
+		bgColorLast_ = time_now_d();
 
 		dc.FillRect(Drawable(bgColor_->CurrentValue()), bounds_);
 	} else {

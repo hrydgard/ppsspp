@@ -12,7 +12,7 @@ namespace UI {
 class Tween {
 public:
 	explicit Tween(float duration, float (*curve)(float)) : duration_(duration), curve_(curve) {
-		start_ = time_now();
+		start_ = time_now_d();
 	}
 	virtual ~Tween() {
 	}
@@ -21,7 +21,7 @@ public:
 	void Apply(View *view);
 
 	bool Finished() {
-		return finishApplied_ && time_now() >= start_ + delay_ + duration_;
+		return finishApplied_ && time_now_d() >= start_ + delay_ + duration_;
 	}
 
 	void Persist() {
@@ -41,7 +41,7 @@ public:
 
 protected:
 	float DurationOffset() {
-		return time_now() - start_ - delay_;
+		return (time_now_d() - start_) - delay_;
 	}
 
 	float Position() {
@@ -50,7 +50,7 @@ protected:
 
 	virtual void DoApply(View *view, float pos) = 0;
 
-	float start_;
+	double start_;
 	float duration_;
 	float delay_ = 0.0f;
 	bool finishApplied_ = false;
@@ -78,7 +78,7 @@ public:
 		const Value newFrom = valid_ ? Current(Position()) : newTo;
 
 		// Are we already part way through another transition?
-		if (time_now() < start_ + delay_ + duration_ && valid_) {
+		if (time_now_d() < start_ + delay_ + duration_ && valid_) {
 			if (newTo == to_) {
 				// Already on course.  Don't change.
 				return;
@@ -88,17 +88,17 @@ public:
 				if (newDuration >= 0.0f) {
 					newOffset *= newDuration / duration_;
 				}
-				start_ = time_now() - newOffset - delay_;
-			} else if (time_now() <= start_ + delay_) {
+				start_ = time_now_d() - newOffset - delay_;
+			} else if (time_now_d() <= start_ + delay_) {
 				// Start the delay over again.
-				start_ = time_now();
+				start_ = time_now_d();
 			} else {
 				// Since we've partially animated to the other value, skip delay.
-				start_ = time_now() - delay_;
+				start_ = time_now_d() - delay_;
 			}
 		} else {
 			// Already finished, so restart.
-			start_ = time_now();
+			start_ = time_now_d();
 			finishApplied_ = false;
 		}
 
