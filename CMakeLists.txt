@@ -240,6 +240,18 @@ endif()
 if(ARM64)
 	message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
 endif()
+
+# It looks like the flags for the selected build type are written to the cache after each run, which causes some of the operations
+# below to keep expanding them with the same flags over and over on every run, leading to a rebuild of the majority of the files.
+# To work around this, remember the initial state of the variables from the first run and reset the variables to that.
+# TODO: Setting the attributes per target would probably be a better solution.
+foreach (LANGUAGE C CXX)
+	foreach (BUILD_TYPE DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+		set(_CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}_INITIAL ${CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}} CACHE STRING "")
+		set(CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE} ${_CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}_INITIAL})
+	endforeach()
+endforeach()
+
 if(NOT MSVC)
 	if(ANDROID)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
