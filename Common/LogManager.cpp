@@ -28,10 +28,6 @@
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 
-#if PPSSPP_PLATFORM(ANDROID)
-#include <android/log.h>
-#endif
-
 // Don't need to savestate this.
 const char *hleCurrentThreadName = nullptr;
 
@@ -66,21 +62,6 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
 		return (*g_bLogEnabledSetting) && LogManager::GetInstance()->IsEnabled(level, type);
 	return false;
 }
-
-#if defined(__ANDROID__)
-
-#define LOG_BUF_SIZE 1024
-
-void AndroidAssertLog(const char *func, const char *file, int line, const char *condition, const char *fmt, ...) {
-	char buf[LOG_BUF_SIZE];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	__android_log_assert(condition, "PPSSPP", "%s:%d (%s): [%s] %s", file, line, func, condition, buf);
-	va_end(args);
-}
-
-#endif
 
 LogManager *LogManager::logManager_ = NULL;
 

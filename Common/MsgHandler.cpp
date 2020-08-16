@@ -24,20 +24,25 @@
 #include "StringUtils.h"
 #include "util/text/utf8.h"
 
-#ifdef PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(ANDROID)
+#include <android/log.h>
+#elif PPSSPP_PLATFORM(WINDOWS)
 #include "CommonWindows.h"
 #endif
 
-bool ShowAssertDialog(const char *file, int line, const char* format, ...) {
+bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[2048];
 	const char *caption = "Critical";
 	va_list args;
 	va_start(args, format);
-	CharArrayFromFormatV(text, sizeof(text)-1, format, args);
+	vsnprintf(text, sizeof(text), format, args);
 	va_end(args);
+
 	// Normal logging (will also log to Android log)
 	ERROR_LOG(SYSTEM, "(%s:%d) %s: %s", file, line, caption, text);
+	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
+	printf("(%s: %d) %s: %s\n", file, line, caption, text);
 
 #if defined(USING_WIN_UI)
 	int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
@@ -50,3 +55,19 @@ bool ShowAssertDialog(const char *file, int line, const char* format, ...) {
 	return false;
 #endif
 }
+
+
+#if defined(__ANDROID__)
+
+#define LOG_BUF_SIZE 1024
+
+void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...) {
+	char buf[LOG_BUF_SIZE];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	__android_log_assert(condition, "PPSSPP", "%s:%d (%s): [%s] %s", file, line, func, condition, buf);
+	va_end(args);
+}
+
+#endif

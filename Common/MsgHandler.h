@@ -18,8 +18,16 @@
 #pragma once
 
 // Currently only actually shows a dialog box on Windows.
-bool ShowAssertDialog(const char *file, int line, const char* format, ...)
+bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...)
 #ifdef __GNUC__
-	__attribute__((format(printf, 3, 4)))
+	__attribute__((format(printf, 5, 6)))
 #endif
 	;
+
+#if defined(__ANDROID__)
+
+// Tricky macro to get the basename, that also works if *built* on Win32.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
+
+#endif

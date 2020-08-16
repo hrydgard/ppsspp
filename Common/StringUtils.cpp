@@ -39,6 +39,7 @@ long parseHexLong(std::string s) {
 	value = strtoul(s.c_str(),0, 0);
 	return value;
 }
+
 long parseLong(std::string s) {
 	long value = 0;
 	if (s.substr(0,2) == "0x") {

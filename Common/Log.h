@@ -112,42 +112,26 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) } while (false)
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
-#if defined(__ANDROID__)
-
-// Tricky macro to get the basename, that also works if *built* on Win32.
-#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
-void AndroidAssertLog(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
-
-#endif
-
 // If we're in "debug" assert mode
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		printf(#_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\n", \
-					   __LINE__, __FILE__); \
-		ERROR_LOG(SYSTEM, #_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__); \
-		if (!ShowAssertDialog(__FILE__, __LINE__, "*** Assertion ***\n")) { Crash(); } \
+		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, "*** Assertion ***\n")) { Crash(); } \
 	}
 
 #if defined(__ANDROID__)
 
 #define _dbg_assert_msg_(_a_, ...)\
 	if (!(_a_)) {\
-		printf(__VA_ARGS__); \
-		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
 
 #else  // !defined(__ANDROID__)
 
 #define _dbg_assert_msg_(_a_, ...)\
 	if (!(_a_)) {\
-		printf(__VA_ARGS__); \
-		ERROR_LOG(SYSTEM, __VA_ARGS__); \
-		if (!ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) { Crash();} \
+		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) { Crash();} \
 	}
 
 #endif  // __ANDROID__
@@ -165,24 +149,23 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assertion failed!"); \
+		AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assertion failed!"); \
 	}
 
 #define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !ShowAssertDialog(__FILENAME__, __LINE__, __VA_ARGS__)) { \
-		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
+	if (!(_a_) && !ShowAssertDialog(__FUNCTION__,__FILENAME__, __LINE__, #_a_, __VA_ARGS__)) { \
+		AndroidAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
 
 #else  // __ANDROID__
 
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", __LINE__, __FILE__); \
-		if (!ShowAssertDialog(__FILE__, __LINE__, "*** Assertion ***\n")) { Crash(); } \
+		if (!ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, "*** Assertion ***\n")) { Crash(); } \
 	}
 
 #define _assert_msg_(_a_, ...)		\
-	if (!(_a_) && !ShowAssertDialog(__FILE__, __LINE__, __VA_ARGS__)) { \
+	if (!(_a_) && !ShowAssertDialog(__FUNCTION__, __FILE__, __LINE__, #_a_, __VA_ARGS__)) { \
 		Crash(); \
 	}
 
