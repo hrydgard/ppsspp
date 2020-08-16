@@ -146,11 +146,11 @@ SOURCES_CXX += \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FileUtil.cpp \
 	$(COMMONDIR)/KeyMap.cpp \
+	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/Misc.cpp \
-	$(COMMONDIR)/MsgHandler.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/Timer.cpp \
 	$(COMMONDIR)/TimeUtil.cpp \

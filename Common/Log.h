@@ -20,7 +20,6 @@
 #include <cstdio>
 
 #include "CommonFuncs.h"
-#include "MsgHandler.h"  // For ShowAssertDialog
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -105,11 +104,11 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) } while (false)
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR,   __VA_ARGS__) } while (false)
 #define WARN_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) } while (false)
-#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) } while (false)
-#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) } while (false)
-#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE,  __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO,    __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG,   __VA_ARGS__) } while (false)
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
 // If we're in "debug" assert mode
@@ -173,3 +172,18 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 // Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
 void OutputDebugStringUTF8(const char *p);
+
+// Currently only actually shows a dialog box on Windows.
+bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...)
+#ifdef __GNUC__
+__attribute__((format(printf, 5, 6)))
+#endif
+;
+
+#if defined(__ANDROID__)
+
+// Tricky macro to get the basename, that also works if *built* on Win32.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
+
+#endif

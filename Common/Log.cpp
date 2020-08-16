@@ -30,6 +30,21 @@
 #include "CommonWindows.h"
 #endif
 
+#if defined(__ANDROID__)
+
+#define LOG_BUF_SIZE 1024
+
+void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...) {
+	char buf[LOG_BUF_SIZE];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	__android_log_assert(condition, "PPSSPP", "%s:%d (%s): [%s] %s", file, line, func, condition, buf);
+	va_end(args);
+}
+
+#endif
+
 bool ShowAssertDialog(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[2048];
@@ -55,19 +70,3 @@ bool ShowAssertDialog(const char *function, const char *file, int line, const ch
 	return false;
 #endif
 }
-
-
-#if defined(__ANDROID__)
-
-#define LOG_BUF_SIZE 1024
-
-void AndroidAssert(const char *func, const char *file, int line, const char *condition, const char *fmt, ...) {
-	char buf[LOG_BUF_SIZE];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	__android_log_assert(condition, "PPSSPP", "%s:%d (%s): [%s] %s", file, line, func, condition, buf);
-	va_end(args);
-}
-
-#endif

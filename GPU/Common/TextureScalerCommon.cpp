@@ -30,7 +30,6 @@
 #include "Core/Config.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
-#include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
 #include "Common/ThreadPools.h"
 #include "Common/CPUDetect.h"

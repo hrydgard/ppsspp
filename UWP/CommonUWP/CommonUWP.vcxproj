@@ -414,7 +414,6 @@
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />
-    <ClInclude Include="..\..\Common\MsgHandler.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
     <ClInclude Include="..\..\Common\stdafx.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
@@ -445,6 +444,7 @@
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\KeyMap.cpp" />
+    <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
     <ClCompile Include="..\..\Common\MemArenaDarwin.cpp" />
@@ -454,7 +454,6 @@
     <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
     <ClCompile Include="..\..\Common\Misc.cpp" />
-    <ClCompile Include="..\..\Common\MsgHandler.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\stdafx.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />

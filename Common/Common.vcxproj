@@ -354,6 +354,7 @@
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
+    <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -407,7 +408,6 @@
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MipsEmitter.h" />
-    <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Serialize\SerializeSet.h" />
     <ClInclude Include="stdafx.h" />
@@ -450,6 +450,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Log.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
@@ -498,7 +499,6 @@
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Misc.cpp" />
-    <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

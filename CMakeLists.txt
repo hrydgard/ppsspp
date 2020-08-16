@@ -440,6 +440,8 @@ add_library(Common STATIC
 	Common/KeyMap.cpp
 	Common/KeyMap.h
 	Common/Hashmaps.h
+	Common/Log.h
+	Common/Log.cpp
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MakeUnique.h
@@ -451,8 +453,6 @@ add_library(Common STATIC
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h
 	Common/Misc.cpp
-	Common/MsgHandler.cpp
-	Common/MsgHandler.h
 	Common/OSVersion.cpp
 	Common/OSVersion.h
 	Common/StringUtils.cpp
