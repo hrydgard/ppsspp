@@ -2150,13 +2150,13 @@ void __KernelReturnFromThread()
 
 int sceKernelExitThread(int exitStatus) {
 	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
-		return ERROR_KERNEL_WAIT_CAN_NOT_WAIT;
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	PSPThread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(thread != NULL, "Exited from a NULL thread.");
 
 	INFO_LOG(SCEKERNEL, "sceKernelExitThread(%d)", exitStatus);
 	if (exitStatus < 0) {
-		exitStatus = ERROR_KERNEL_ILLEGAL_ARGUMENT;
+		exitStatus = SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 	__KernelStopThread(currentThread, exitStatus, "thread exited");
 

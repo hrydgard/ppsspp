@@ -77,8 +77,6 @@ struct SceKernelSysClock {
 	u32_le hi;
 };
 
-static const int ERROR_KERNEL_WAIT_CAN_NOT_WAIT = 0x800201a7;
-static const int ERROR_KERNEL_ILLEGAL_ARGUMENT = 0x800200d2;
 
 // TODO: Map these to PSP wait types.  Most of these are wrong.
 // remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
