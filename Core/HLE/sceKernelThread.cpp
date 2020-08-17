@@ -49,6 +49,8 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/ThreadQueueList.h"
 
+
+
 typedef struct
 {
 	WaitType type;
@@ -2148,11 +2150,16 @@ void __KernelReturnFromThread()
 	// The stack will be deallocated when the thread is deleted.
 }
 
-void sceKernelExitThread(int exitStatus) {
+int sceKernelExitThread(int exitStatus) {
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
+		return ERROR_KERNEL_WAIT_CAN_NOT_WAIT;
 	PSPThread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(thread != NULL, "Exited from a NULL thread.");
 
 	INFO_LOG(SCEKERNEL, "sceKernelExitThread(%d)", exitStatus);
+	if (exitStatus < 0) {
+		exitStatus = ERROR_KERNEL_ILLEGAL_ARGUMENT;
+	}
 	__KernelStopThread(currentThread, exitStatus, "thread exited");
 
 	hleReSchedule("thread exited");
@@ -2161,6 +2168,7 @@ void sceKernelExitThread(int exitStatus) {
 	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 
 	// The stack will be deallocated when the thread is deleted.
+	return 0;
 }
 
 void _sceKernelExitThread(int exitStatus) {
