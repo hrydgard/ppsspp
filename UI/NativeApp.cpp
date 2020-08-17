@@ -373,7 +373,7 @@ void CreateDirectoriesAndroid() {
 static void CheckFailedGPUBackends() {
 #ifdef _DEBUG
 	// If you're in debug mode, you probably don't want a fallback. If you're in release mode, use IGNORE below.
-	WARN_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
+	NOTICE_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
 	return;
 #endif
 
