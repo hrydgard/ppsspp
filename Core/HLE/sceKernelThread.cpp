@@ -49,8 +49,6 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/ThreadQueueList.h"
 
-
-
 typedef struct
 {
 	WaitType type;
