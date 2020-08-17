@@ -81,6 +81,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_VMEM,            "Volatile Mem" },
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
 	{ WAITTYPE_MICINPUT,        "Microphone input"},
+	{ WAITTYPE_NET,             "Network"},
 };
 
 const char *getWaitTypeName(WaitType type)

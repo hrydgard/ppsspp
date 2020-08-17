@@ -827,6 +827,7 @@ extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
+extern std::map<int, int> ptpConnectCount;
 
 union SockAddrIN4 {
 	sockaddr addr;
@@ -846,7 +847,8 @@ extern SceNetAdhocMatchingContext * contexts;
 extern int one;                 
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
-extern SceNetAdhocctlScanInfo * networks; 
+extern SceNetAdhocctlScanInfo * networks;
+extern u64 adhocctlStartTime;
 extern int adhocctlState;
 extern int adhocConnectionType;
 // End of Aux vars
@@ -924,6 +926,13 @@ extern int newChat;
  * Find a Peer/Friend by MAC address
  */
 SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC);
+
+/**
+ * Get the Non-Blocking Mode of the socket
+ * @param fd File Descriptor of the socket
+ * @return 1 for non-blocking, 0 for blocking
+ */
+int getNonBlockingFlag(int fd);
 
 /**
  * Changes the Blocking Mode of the socket

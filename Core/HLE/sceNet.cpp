@@ -162,7 +162,7 @@ void __NetInit() {
 
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(g_localhostIP.in.sin_addr), mac2str(&mac).c_str());
+	NOTICE_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(g_localhostIP.in.sin_addr), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
@@ -249,6 +249,9 @@ void __NetDoState(PointerWrap &p) {
 		netApctlInited = cur_netApctlInited;
 		netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
+
+		// Discard leftover events
+		apctlEvents.clear();
 
 		// Previously, this wasn't being saved.  It needs its own space.
 		if (!apctlThreadHackAddr || (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0)) {
@@ -582,6 +585,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// Clear Socket Translator Memory
 	memset(&pdp, 0, sizeof(pdp));
 	memset(&ptp, 0, sizeof(ptp));
+	ptpConnectCount.clear();
 	
 	return hleLogSuccessI(SCENET, 0);
 }

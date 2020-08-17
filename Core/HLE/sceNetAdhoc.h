@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <deque>
 #include "Core/HLE/proAdhoc.h"
 
 #ifdef _MSC_VER
@@ -28,6 +29,39 @@ typedef struct MatchingArgs {
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
+
+struct AdhocSendTarget {
+	u32 ip;
+	u16 port; // original port
+};
+
+struct AdhocSendTargets {
+	int length;
+	std::deque<AdhocSendTarget> peers;
+	bool isBroadcast;
+};
+
+struct AdhocSocketRequest {
+	int type;
+	int id; // PDP/PTP socket id
+	void* buffer;
+	s32_le* length;
+	u32 timeout;
+	u64 startTime;
+	struct SceNetEtherAddr* remoteMAC;
+	u16_le* remotePort;
+};
+
+enum AdhocSocketRequestType : int
+{
+	PTP_CONNECT = 0,
+	PTP_ACCEPT = 1,
+	PTP_SEND = 2,
+	PTP_RECV = 3,
+	PDP_SEND = 4,
+	PDP_RECV = 5,
+	ADHOC_POLL_SOCKET = 6,
+};
 
 class PointerWrap;
 

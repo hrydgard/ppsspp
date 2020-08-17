@@ -55,6 +55,7 @@ bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
+u64 adhocctlStartTime                 = 0;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocConnectionType               = ADHOC_CONNECT;
 
@@ -71,6 +72,7 @@ std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
+std::map<int, int> ptpConnectCount;
 std::vector<std::string> chatLog;
 std::string name = "";
 std::string incoming = "";
@@ -210,6 +212,15 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 	return peer;
 }
 
+int getNonBlockingFlag(int fd) {
+#ifdef _WIN32
+	return 0;
+#else
+	int sockflag = fcntl(fd, F_GETFL, O_NONBLOCK);
+	return sockflag & O_NONBLOCK;
+#endif
+}
+
 void changeBlockingMode(int fd, int nonblocking) {
 	unsigned long on = 1;
 	unsigned long off = 0;
@@ -321,6 +332,7 @@ void deleteAllPTP() {
 
 			// Delete Reference
 			ptp[i] = NULL;
+			ptpConnectCount.erase(i);
 		}
 	}
 }
@@ -1174,7 +1186,9 @@ void sendChat(std::string chatString) {
 			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
+			changeBlockingMode(metasocket, 0);
 			int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
+			changeBlockingMode(metasocket, 1);
 			NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 			name = g_Config.sNickName.c_str();
 			chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
@@ -1245,7 +1259,9 @@ int friendFinder(){
 				uint8_t opcode = OPCODE_PING;
 
 				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
+				changeBlockingMode(metasocket, 0);
 				int iResult = send(metasocket, (const char*)&opcode, 1, 0);
+				changeBlockingMode(metasocket, 1);
 				if (iResult == SOCKET_ERROR) {
 					ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", errno);
 					networkInited = false;
@@ -1560,7 +1576,10 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
-		if (SOCKET_ERROR != getsockname(metasocket, (struct sockaddr*) & localAddr, &addrLen)) {
+		changeBlockingMode(metasocket, 0);
+		int ret = getsockname(metasocket, (struct sockaddr*)&localAddr, &addrLen);
+		changeBlockingMode(metasocket, 1);
+		if (SOCKET_ERROR != ret) {
 			if (isLocalServer) {
 				localAddr.sin_addr = g_localhostIP.in.sin_addr;
 			}
@@ -1905,8 +1924,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		sleep_ms(1);
 		cnt++;
 	}
-	// Switch back to Blocking Behaviour
-	changeBlockingMode(metasocket, 0);
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		char buffer[512];
 		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
@@ -1924,8 +1941,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	strncpy((char *)&packet.name.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
+	changeBlockingMode(metasocket, 0);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
-	changeBlockingMode(metasocket, 1); // Change to non-blocking
+	changeBlockingMode(metasocket, 1);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
