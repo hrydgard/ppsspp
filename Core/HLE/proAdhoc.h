@@ -847,8 +847,16 @@ extern int one;
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks; 
-extern int threadStatus;
+extern int adhocctlState;
+extern int adhocConnectionType;
 // End of Aux vars
+
+enum AdhocConnectionType : int
+{
+	ADHOC_CONNECT = 0,
+	ADHOC_CREATE = 1,
+	ADHOC_JOIN = 2,
+};
 
 // Check if Matching callback is running
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context);

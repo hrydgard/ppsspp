@@ -113,7 +113,7 @@ void __NetAdhocShutdown() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 4);
+	auto s = p.Section("sceNetAdhoc", 1, 5);
 	if (!s)
 		return;
 
@@ -155,6 +155,14 @@ void __NetAdhocDoState(PointerWrap &p) {
 		for (auto& it : matchingThreads) {
 			it = 0;
 		}
+	}
+	if (s >= 5) {
+		Do(p, adhocConnectionType);
+		Do(p, adhocctlState);
+	}
+	else {
+		adhocConnectionType = ADHOC_CONNECT;
+		adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 	}
 	
 	if (p.mode == p.MODE_READ) {
@@ -276,10 +284,10 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 }
 
 int NetAdhocctl_GetState() {
-	return threadStatus;
+	return adhocctlState;
 }
 
-static int sceNetAdhocctlGetState(u32 ptrToStatus) {
+int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	// Library uninitialized
 	if (!netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
@@ -1044,7 +1052,7 @@ static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-static int sceNetAdhocctlScan() {
+int sceNetAdhocctlScan() {
 	INFO_LOG(SCENET, "sceNetAdhocctlScan() at %08x", currentMIPS->pc);
 
 	// Library initialized
@@ -1052,14 +1060,14 @@ static int sceNetAdhocctlScan() {
 		// Wait until Not connected
 		if (friendFinderRunning) {
 			int cnt = 0;
-			while ((threadStatus != ADHOCCTL_STATE_DISCONNECTED) && (cnt < adhocDefaultTimeout)) {
+			while ((adhocctlState != ADHOCCTL_STATE_DISCONNECTED) && (cnt < adhocDefaultTimeout)) {
 				sleep_ms(1);
 				cnt++;
 			}
 		}
 		
-		if (threadStatus == ADHOCCTL_STATE_DISCONNECTED) {
-			threadStatus = ADHOCCTL_STATE_SCANNING;
+		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
+			adhocctlState = ADHOCCTL_STATE_SCANNING;
 
 			// Reset Networks/Group list to prevent other threads from using these soon to be replaced networks
 			peerlock.lock();
@@ -1075,24 +1083,24 @@ static int sceNetAdhocctlScan() {
 			if (iResult == SOCKET_ERROR) {
 				int error = errno;
 				ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-				threadStatus = ADHOCCTL_STATE_DISCONNECTED;
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 				//if (error == ECONNABORTED || error == ECONNRESET || error == ENOTCONN) return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // A case where it need to reconnect to AdhocServer
 				return ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY 
 			}
 
 			// Does Connected Event's mipscall need be executed after returning from sceNetAdhocctlScan ?
-			notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-			hleCheckCurrentCallbacks();
+			//notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+			//hleCheckCurrentCallbacks();
 
 			// Wait for Status to be connected to prevent Ford Street Racing from Failed to find game session
 			// TODO: Do this async while Delaying HLE Result
-			if (friendFinderRunning) {
+			/*if (friendFinderRunning) {
 				int cnt = 0;
-				while ((threadStatus == ADHOCCTL_STATE_SCANNING) && (cnt < adhocDefaultTimeout)) {
+				while ((adhocctlState == ADHOCCTL_STATE_SCANNING) && (cnt < adhocDefaultTimeout)) {
 					sleep_ms(1);
 					cnt++;
 				}
-			}
+			}*/
 
 			//sceKernelDelayThread(adhocEventPollDelayMS * 1000);
 			//hleDelayResult(0, "give time to init/cleanup", adhocEventPollDelayMS * 1000);
@@ -1109,7 +1117,7 @@ static int sceNetAdhocctlScan() {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-static int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
+int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL;
 	if (Memory::IsValidAddress(sizeAddr)) buflen = (s32_le *)Memory::GetPointer(sizeAddr);
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
@@ -1245,7 +1253,7 @@ u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		// Connected State (Adhoc Mode)
-		if (threadStatus != ADHOCCTL_STATE_DISCONNECTED) { // (threadStatus == ADHOCCTL_STATE_CONNECTED) 
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { // (threadStatus == ADHOCCTL_STATE_CONNECTED) 
 			// Clear Network Name
 			memset(&parameter.group_name, 0, sizeof(parameter.group_name));
 
@@ -1265,7 +1273,7 @@ u32 NetAdhocctl_Disconnect() {
 			}
 
 			// Set Disconnected State
-			threadStatus = ADHOCCTL_STATE_DISCONNECTED;
+			adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 
 			// Free Network Lock
 			//_freeNetworkLock();
@@ -1324,7 +1332,7 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int NetAdhocctl_Term() {
 	if (netAdhocctlInited) {
-		if (threadStatus != ADHOCCTL_STATE_DISCONNECTED) 
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED)
 			NetAdhocctl_Disconnect();
 
 		// Terminate Adhoc Threads
@@ -1512,14 +1520,14 @@ int NetAdhocctl_Create(const char* groupName) {
 			// Wait until Not connected
 			if (friendFinderRunning) {
 				int cnt = 0;
-				while ((threadStatus != ADHOCCTL_STATE_DISCONNECTED && threadStatus != ADHOCCTL_STATE_SCANNING) && (cnt < adhocDefaultTimeout)) {
+				while ((adhocctlState != ADHOCCTL_STATE_DISCONNECTED && adhocctlState != ADHOCCTL_STATE_SCANNING) && (cnt < adhocDefaultTimeout)) {
 					sleep_ms(1);
 					cnt++;
 				}
 			}
 
 			// Disconnected State, may also need to check for Scanning state to prevent some games from failing to host a game session
-			if ((threadStatus == ADHOCCTL_STATE_DISCONNECTED) || (threadStatus == ADHOCCTL_STATE_SCANNING)) {
+			if ((adhocctlState == ADHOCCTL_STATE_DISCONNECTED) || (adhocctlState == ADHOCCTL_STATE_SCANNING)) {
 				// Set Network Name
 				if (groupNameStruct != NULL) parameter.group_name = *groupNameStruct;
 
@@ -1546,7 +1554,7 @@ int NetAdhocctl_Create(const char* groupName) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", errno);
 					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
 					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
-					threadStatus = ADHOCCTL_STATE_CONNECTED;
+					adhocctlState = ADHOCCTL_STATE_CONNECTED;
 					// Notify Event Handlers, Needed for the Nickname to be shown on the screen when success is faked
 					// Might be better not to notify the game when faking success (failed to connect to adhoc server), at least the player will know that it failed to connect 
 					//__UpdateAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); 
@@ -1558,17 +1566,17 @@ int NetAdhocctl_Create(const char* groupName) {
 				//setConnectionStatus(1);
 
 				// Connected Event's mipscall need be executed before returning from sceNetAdhocctlCreate (or before the next sceNet function?)
-				notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+				//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 
 				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
 				// TODO: Do this async while Delaying HLE Result
-				if (friendFinderRunning) { // This is thread-unsafe
+				/*if (friendFinderRunning) { // This is thread-unsafe
 					int cnt = 0;
-					while ((threadStatus != ADHOCCTL_STATE_CONNECTED) && (cnt < adhocDefaultTimeout)) { // This is thread-unsafe
+					while ((adhocctlState != ADHOCCTL_STATE_CONNECTED) && (cnt < adhocDefaultTimeout)) { // This is thread-unsafe
 						sleep_ms(1);
 						cnt++;
 					}
-				}
+				}*/
 
 				//sceKernelDelayThreadCB(adhocEventDelayMS * 1000);
 				//hleCheckCurrentCallbacks();
@@ -1602,24 +1610,24 @@ int sceNetAdhocctlCreate(const char *groupName) {
 		return -1;
 	}
 
+	adhocConnectionType = ADHOC_CREATE;
 	return NetAdhocctl_Create(groupName);
 }
 
-static int sceNetAdhocctlConnect(u32 ptrToGroupName) {
-	if (Memory::IsValidAddress(ptrToGroupName)) {
-		const char* groupName = Memory::GetCharPointer(ptrToGroupName);
-		char grpName[9] = { 0 };
-		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+int sceNetAdhocctlConnect(const char* groupName) {
+	char grpName[9] = { 0 };
+	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+	INFO_LOG(SCENET, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
 
-		INFO_LOG(SCENET, "sceNetAdhocctlConnect(groupName=%s) at %08x", grpName, currentMIPS->pc);
-		return NetAdhocctl_Create(groupName);
-	} 
-		
-	return ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_INVALID_ADDR;
+	adhocConnectionType = ADHOC_CONNECT;
+	return NetAdhocctl_Create(groupName);
 }
 
-static int sceNetAdhocctlJoin(u32 scanInfoAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlJoin(%08x) at %08x", scanInfoAddr, currentMIPS->pc);
+int sceNetAdhocctlJoin(u32 scanInfoAddr) {
+	INFO_LOG(SCENET, "sceNetAdhocctlJoin(%08x) at %08x", scanInfoAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -1631,11 +1639,14 @@ static int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 		if (Memory::IsValidAddress(scanInfoAddr))
 		{
 			SceNetAdhocctlScanInfoEmu* sinfo = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfoAddr);
-			//while (true) sleep_ms(1);
+			char grpName[9] = { 0 };
+			memcpy(grpName, sinfo->group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+			DEBUG_LOG(SCENET, "sceNetAdhocctlJoin - Group: %s", grpName);
 
 			// We can ignore minor connection process differences here
 			// TODO: Adhoc Server may need to be changed to differentiate between Host/Create and Join, otherwise it can't support multiple Host using the same Group name, thus causing one of the Host to be confused being treated as Join.
-			return NetAdhocctl_Create((const char*)&sinfo->group_name);
+			adhocConnectionType = ADHOC_JOIN;
+			return NetAdhocctl_Create(grpName);
 		}
 
 		// Invalid Argument
@@ -4055,26 +4066,48 @@ void __NetTriggerCallbacks()
 		args[0] = flags;
 		args[1] = error;
 
-		//if (/*__KernelGetCurThread() == threadAdhocID &&*/ (!__IsInInterrupt() && __KernelIsDispatchEnabled() && !__KernelInCallback()) && IsAdhocctlInCallback() == 0)
+		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
+		if (flags != ADHOCCTL_EVENT_CONNECT || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {
 				actionAfterAdhocMipsCall = __KernelRegisterActionType(AfterAdhocMipsCall::Create);
 			}
+
+			delayus = (adhocEventPollDelayMS + 2 * adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
+			switch (flags) {
+			case ADHOCCTL_EVENT_CONNECT:
+				adhocctlState = ADHOCCTL_STATE_CONNECTED;
+				delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000; // May affects Dissidia 012 and GTA VCS
+				break;
+			case ADHOCCTL_EVENT_SCAN: // notified only when scan completed?
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				break;
+			case ADHOCCTL_EVENT_DISCONNECT:
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				break;
+			case ADHOCCTL_EVENT_GAME:
+				adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+				break;
+			case ADHOCCTL_EVENT_DISCOVER:
+				adhocctlState = ADHOCCTL_STATE_DISCOVER;
+				break;
+			case ADHOCCTL_EVENT_WOL_INTERRUPT:
+				adhocctlState = ADHOCCTL_STATE_WOL;
+				break;
+			case ADHOCCTL_EVENT_ERROR:
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				break;
+			}
+
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 				DEBUG_LOG(SCENET, "AdhocctlCallback: [ID=%i][EVENT=%i]", it->first, flags);
 				args[2] = it->second.argument;
 				AfterAdhocMipsCall* after = (AfterAdhocMipsCall*)__KernelCreateAction(actionAfterAdhocMipsCall);
 				after->SetData(it->first, flags, args[2]);
-				//SetAdhocctlInCallback(true);
-				//__KernelDirectMipsCall(it->second.entryPoint, after, args, 3, true);
 				hleEnqueueCall(it->second.entryPoint, 3, args, after);
 			}
 			adhocctlEvents.pop_front();
-			if (flags == ADHOCCTL_EVENT_CONNECT)
-				delayus = (adhocEventDelayMS + 2*adhocExtraPollDelayMS) * 1000; // May affects Dissidia 012 and GTA VCS
-			else
-				delayus = (adhocEventPollDelayMS + 2*adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -4118,7 +4151,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 const HLEFunction sceNetAdhoc[] = {
 	{0XE1D621D7, &WrapU_V<sceNetAdhocInit>,                            "sceNetAdhocInit",                        'x', ""         },
 	{0XA62C6F57, &WrapI_V<sceNetAdhocTerm>,                            "sceNetAdhocTerm",                        'i', ""         },
-	{0X0AD043ED, &WrapI_U<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "x"        },
+	{0X0AD043ED, &WrapI_C<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "s"        },
 	{0X6F92741B, &WrapI_CIIU<sceNetAdhocPdpCreate>,                    "sceNetAdhocPdpCreate",                   'i', "siix"     },
 	{0XABED3790, &WrapI_ICUVIII<sceNetAdhocPdpSend>,                   "sceNetAdhocPdpSend",                     'i', "isxpiii"  },
 	{0XDFE53E03, &WrapI_IVVVVUI<sceNetAdhocPdpRecv>,                   "sceNetAdhocPdpRecv",                     'i', "ippppxi"  },
@@ -4386,7 +4419,7 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0X20B317A0, &WrapU_UU<sceNetAdhocctlAddHandler>,                  "sceNetAdhocctlAddHandler",               'x', "xx"       },
 	{0X6402490B, &WrapU_U<sceNetAdhocctlDelHandler>,                   "sceNetAdhocctlDelHandler",               'x', "x"        },
 	{0X34401D65, &WrapU_V<sceNetAdhocctlDisconnect>,                   "sceNetAdhocctlDisconnect",               'x', ""         },
-	{0X0AD043ED, &WrapI_U<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "x"        },
+	{0X0AD043ED, &WrapI_C<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "s"        },
 	{0X08FFF7A0, &WrapI_V<sceNetAdhocctlScan>,                         "sceNetAdhocctlScan",                     'i', ""         },
 	{0X75ECD386, &WrapI_U<sceNetAdhocctlGetState>,                     "sceNetAdhocctlGetState",                 'i', "x"        },
 	{0X8916C003, &WrapI_CU<sceNetAdhocctlGetNameByAddr>,               "sceNetAdhocctlGetNameByAddr",            'i', "sx"       },

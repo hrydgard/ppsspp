@@ -469,7 +469,7 @@ void __NetApctlCallbacks()
 
 	// Must be delayed long enough whenever there is a pending callback.
 	sceKernelDelayThread(delayus);
-	hleSkipDeadbeef();;
+	hleSkipDeadbeef();
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {

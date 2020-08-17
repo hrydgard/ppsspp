@@ -41,7 +41,18 @@ void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 void __UpdateMatchingHandler(MatchingArgs params);
 
 // I have to call this from netdialog
+int sceNetAdhocctlGetState(u32 ptrToStatus);
 int sceNetAdhocctlCreate(const char * groupName);
+int sceNetAdhocctlConnect(const char* groupName);
+int sceNetAdhocctlJoin(u32 scanInfoAddr);
+int sceNetAdhocctlScan();
+int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr);
+
+int NetAdhocMatching_Term();
+int NetAdhocctl_Term();
+int NetAdhocctl_GetState();
+int NetAdhocctl_Create(const char* groupName);
+int NetAdhoc_Term();
 
 // May need to use these from sceNet.cpp
 extern bool netAdhocInited;
@@ -60,7 +71,3 @@ extern u32_le dummyThreadCode[3];
 extern u32 matchingThreadHackAddr;
 extern u32_le matchingThreadCode[3];
 
-int NetAdhocMatching_Term();
-int NetAdhocctl_Term();
-int NetAdhocctl_GetState();
-int NetAdhoc_Term();

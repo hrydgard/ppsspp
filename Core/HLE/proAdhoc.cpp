@@ -55,7 +55,8 @@ bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
-int threadStatus                      = ADHOCCTL_STATE_DISCONNECTED;
+int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
+int adhocConnectionType               = ADHOC_CONNECT;
 
 int actionAfterAdhocMipsCall;
 int actionAfterMatchingMipsCall;
@@ -1293,9 +1294,9 @@ int friendFinder(){
 						// Update User BSSID
 						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 						// Notify Event Handlers
-						//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 						// Change State
-						threadStatus = ADHOCCTL_STATE_CONNECTED;
+						//threadStatus = ADHOCCTL_STATE_CONNECTED;
 						// Give time a little time
 						//sceKernelDelayThread(adhocEventDelayMS * 1000);
 						//sleep_ms(adhocEventDelayMS);
@@ -1492,14 +1493,14 @@ int friendFinder(){
 					peerlock.unlock();
 
 					// Notify Event Handlers
-					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+					notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
 					//int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
 					//{
 					//        // Active Handler
 					//        if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
 					//}
 					// Change State
-					threadStatus = ADHOCCTL_STATE_DISCONNECTED;
+					//threadStatus = ADHOCCTL_STATE_DISCONNECTED;
 					// Give time a little time
 					//sceKernelDelayThread(adhocEventDelayMS * 1000);
 					//sleep_ms(adhocEventDelayMS);
@@ -1522,7 +1523,7 @@ int friendFinder(){
 	// Groups/Networks should be deallocated isn't?
 
 	// Prevent the games from having trouble to reInitiate Adhoc (the next NetInit -> PdpCreate after NetTerm)
-	threadStatus = ADHOCCTL_STATE_DISCONNECTED;
+	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 
 	// Log Shutdown
 	INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");

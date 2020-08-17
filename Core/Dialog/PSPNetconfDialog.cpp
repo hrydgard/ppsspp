@@ -18,17 +18,20 @@
 #if defined(_WIN32)
 #include "Common/CommonWindows.h"
 #endif
+#include <TimeUtil.h>
 #include "i18n/i18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
-#include <Core/HLE/sceNet.h>
+#include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
-#include <ext/native/util/text/utf8.h>
+#include "ext/native/util/text/utf8.h"
 
 
 #define NETCONF_CONNECT_APNET 0
@@ -44,6 +47,13 @@ static const float FONT_SCALE = 0.65f;
 const static int NET_INIT_DELAY_US = 300000;
 const static int NET_SHUTDOWN_DELAY_US = 26000;
 const static int NET_RUNNING_DELAY_US = 1000000; // KHBBS is showing adhoc dialog for about 3-4 seconds, but feels too long, so we're faking it to 1 sec instead to let players read the text
+const static int NET_CONNECT_TIMEOUT = 5000000;
+
+struct ScanInfos {
+	s32_le sz;
+	SceNetAdhocctlScanInfoEmu si;
+} PACK;
+
 
 PSPNetconfDialog::PSPNetconfDialog() {
 }
@@ -77,6 +87,11 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 		okButtonFlag = CTRL_CROSS;
 		cancelButtonFlag = CTRL_CIRCLE;
 	}
+
+	connResult = -1;
+	scanInfosAddr = 0;
+	scanStep = 0;
+	startTime = (u64)(real_time_now() * 1000000.0);
 
 	StartFade(true);
 	return 0;
@@ -114,7 +129,7 @@ void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std
 
 	// Without the scrollbar, we have 350 total pixels.
 	float WRAP_WIDTH = 300.0f;
-	if (UTF8StringNonASCIICount(text1.c_str()) >= text1.size() / 4) {
+	if (UTF8StringNonASCIICount(text1.c_str()) >= (int)text1.size() / 4) {
 		WRAP_WIDTH = 336.0f;
 		if (text1.size() > 12) {
 			messageStyle.scale = 0.6f;
@@ -182,12 +197,20 @@ void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std
 
 	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
 	PPGeDrawTextWrapped(text1.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
-	if (text2a != "")
-		PPGeDrawTextWrapped(text2a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+	if (text2a != "") {
+		if (text2b != "")
+			PPGeDrawTextWrapped(text2a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+		else
+			PPGeDrawTextWrapped(text2a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyle);
+	}
 	if (text2b != "")
 		PPGeDrawTextWrapped(text2b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
-	if (text3a != "")
-		PPGeDrawTextWrapped(text3a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+	if (text3a != "") {
+		if (text3b != "")
+			PPGeDrawTextWrapped(text3a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+		else
+			PPGeDrawTextWrapped(text3a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyle);
+	}
 	if (text3b != "")
 		PPGeDrawTextWrapped(text3b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
 	PPGeScissorReset();
@@ -229,6 +252,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	UpdateButtons();
 	auto di = GetI18NCategory("Dialog");
 	auto err = GetI18NCategory("Error");
+	u64 now = (u64)(real_time_now() * 1000000.0);
 	
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
 	if (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET || request.netAction == NETCONF_CONNECT_APNET_LAST) {
@@ -310,6 +334,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 	else if (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || request.netAction == NETCONF_JOIN_ADHOC) {
 		int state = NetAdhocctl_GetState();
+		bool timedout = (state == ADHOCCTL_STATE_DISCONNECTED && now - startTime > NET_CONNECT_TIMEOUT);
 
 		UpdateFade(animSpeed);
 		StartDraw();
@@ -317,18 +342,104 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		DrawBanner();
 		DrawIndicator();
 
-		std::string channel = std::to_string(g_Config.iWlanAdhocChannel);
-		if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC)
-			channel = "Automatic";
+		if (timedout) {
+			// FIXME: Do we need to show error message?
+			DisplayMessage(di->T("InternalError", "An internal error has occurred.") + StringFromFormat("\n(%08X)", connResult));
+			DisplayButtons(DS_BUTTON_CANCEL, di->T("Back"));
+		}
+		else {
+			std::string channel = std::to_string(g_Config.iWlanAdhocChannel);
+			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC)
+				channel = "Automatic";
 
-		DisplayMessage(di->T("ConnectingChannel", "Connecting.\nPlease wait...\n\nChannel")+std::string("  ")+di->T(channel));
+			DisplayMessage(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), di->T("Channel") + std::string("  ") + di->T(channel));
 
-		// Only Join mode is showing Cancel button on KHBBS and the button will fade out before the dialog is fading out, probably because it's already connected thus can't be canceled anymore
-		if (request.netAction == NETCONF_JOIN_ADHOC)
-			DisplayButtons(DS_BUTTON_CANCEL, di->T("Cancel"));
+			// Only Join mode is showing Cancel button on KHBBS and the button will fade out before the dialog is fading out, probably because it's already connected thus can't be canceled anymore
+			if (request.netAction == NETCONF_JOIN_ADHOC)
+				DisplayButtons(DS_BUTTON_CANCEL, di->T("Cancel"));
 
-		if (state == ADHOCCTL_STATE_DISCONNECTED && request.NetconfData.IsValid()) {
-			connResult = sceNetAdhocctlCreate(request.NetconfData->groupName);
+			// KHBBS will first enter the arena using NETCONF_CONNECT_ADHOC (auto-create group when not exist yet?), but when the event started the event's creator use NETCONF_CREATE_ADHOC while the joining players use NETCONF_JOIN_ADHOC
+			if (request.NetconfData.IsValid()) {
+				if (state == ADHOCCTL_STATE_DISCONNECTED) {
+					switch (request.netAction)
+					{
+					case NETCONF_CREATE_ADHOC:
+						if (connResult < 0) {
+							connResult = sceNetAdhocctlCreate(request.NetconfData->groupName);
+						}
+						break;
+					case NETCONF_JOIN_ADHOC:
+						// FIXME: Should we Scan for a matching group first before Joining a Group (like adhoc games normally do)? Or Is it really allowed to join non-existing group?
+						if (scanStep == 0) {
+							if (sceNetAdhocctlScan() >= 0) {
+								u32 structsz = sizeof(ScanInfos);
+								if (Memory::IsValidAddress(scanInfosAddr))
+									userMemory.Free(scanInfosAddr);
+								scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
+								Memory::Write_U32(sizeof(SceNetAdhocctlScanInfoEmu), scanInfosAddr);
+								scanStep = 1;
+							}
+						}
+						else if (scanStep == 1) {
+							s32 sz = Memory::Read_U32(scanInfosAddr);
+							// Get required buffer size
+							if (sceNetAdhocctlGetScanInfo(scanInfosAddr, 0) >= 0) {
+								s32 reqsz = Memory::Read_U32(scanInfosAddr);
+								if (reqsz > sz) {
+									sz = reqsz;
+									if (Memory::IsValidAddress(scanInfosAddr))
+										userMemory.Free(scanInfosAddr);
+									u32 structsz = sz + sizeof(s32);
+									scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
+									Memory::Write_U32(sz, scanInfosAddr);
+								}
+								if (reqsz > 0) {
+									if (sceNetAdhocctlGetScanInfo(scanInfosAddr, scanInfosAddr + sizeof(s32)) >= 0) {
+										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointer(scanInfosAddr);
+										int n = scanInfos->sz / sizeof(SceNetAdhocctlScanInfoEmu);
+										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contagious where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
+										while (n > 0) {
+											SceNetAdhocctlScanInfoEmu* si = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfosAddr + sizeof(s32) + sizeof(SceNetAdhocctlScanInfoEmu) * (n - 1LL));
+											if (memcmp(si->group_name.data, request.NetconfData->groupName, ADHOCCTL_GROUPNAME_LEN) == 0) {
+												// Moving found group info to the front so we can use it on sceNetAdhocctlJoin easily
+												memcpy((char*)scanInfos + sizeof(s32), si, sizeof(SceNetAdhocctlScanInfoEmu));
+												scanStep = 2;
+												break;
+											}
+											n--;
+										}
+										// Target group not found, try to scan again later
+										if (n <= 0) {
+											scanStep = 0;
+										}
+									}
+								}
+								// No group found, try to scan again later
+								else {
+									scanStep = 0;
+								}
+							}
+						}
+						else if (scanStep == 2) {
+							if (connResult < 0) {
+								connResult = sceNetAdhocctlJoin(scanInfosAddr + sizeof(s32));
+								if (connResult >= 0) {
+									// We are done!
+									if (Memory::IsValidAddress(scanInfosAddr))
+										userMemory.Free(scanInfosAddr);
+									scanInfosAddr = 0;
+								}
+							}
+						}
+						break;
+					default:
+						if (connResult < 0) {
+							connResult = sceNetAdhocctlConnect(request.NetconfData->groupName);
+						}
+						break;
+					}
+				}
+			}
 		}
 
 		// The Netconf dialog stays visible until the network reaches
@@ -342,12 +453,20 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			else if (GetStatus() == SCE_UTILITY_STATUS_FINISHED) {
 				StartFade(false);
 			}
+			// Let's not leaks any memory
+			if (Memory::IsValidAddress(scanInfosAddr))
+				userMemory.Free(scanInfosAddr);
+			scanInfosAddr = 0;
 		}
 
-		if (request.netAction == NETCONF_JOIN_ADHOC && IsButtonPressed(cancelButtonFlag)) {
+		if ((request.netAction == NETCONF_JOIN_ADHOC || timedout) && IsButtonPressed(cancelButtonFlag)) {
 			StartFade(false);
 			ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
+			// Let's not leaks any memory
+			if (Memory::IsValidAddress(scanInfosAddr))
+				userMemory.Free(scanInfosAddr);
+			scanInfosAddr = 0;
 		}
 
 		EndDraw();
@@ -374,11 +493,25 @@ int PSPNetconfDialog::Shutdown(bool force) {
 void PSPNetconfDialog::DoState(PointerWrap &p) {	
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPNetconfigDialog", 0, 1);
+	auto s = p.Section("PSPNetconfigDialog", 0, 2);
 	if (!s)
 		return;
 
 	Do(p, request);
+	if (s >= 2) {
+		Do(p, scanInfosAddr);
+		Do(p, scanStep);
+		Do(p, connResult);
+	}
+	else {
+		scanInfosAddr = 0;
+		scanStep = 0;
+		connResult = -1;
+	}
+
+	if (p.mode == p.MODE_READ) {
+		startTime = 0;
+	}
 }
 
 pspUtilityDialogCommon* PSPNetconfDialog::GetCommonParam()
