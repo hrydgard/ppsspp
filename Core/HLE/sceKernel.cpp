@@ -107,6 +107,7 @@ void __KernelInit()
 		ERROR_LOG(SCEKERNEL, "Can't init kernel when kernel is running");
 		return;
 	}
+	INFO_LOG(SCEKERNEL, "Initializing kernel...");
 
 	__KernelTimeInit();
 	__InterruptsInit();

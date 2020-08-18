@@ -1654,7 +1654,7 @@ void __KernelLoadReset() {
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param;
 
-	PSP_SetLoading("Loading game...");
+	PSP_SetLoading("Loading exec...");
 
 	if (paramPtr)
 		Memory::ReadStruct(paramPtr, &param);
