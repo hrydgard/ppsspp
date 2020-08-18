@@ -37,13 +37,73 @@
 uint8_t PPSSPP_ID = 0;
 
 #if PPSSPP_PLATFORM(WINDOWS)
-static HANDLE hIDMapFile = NULL;
+static HANDLE hIDMapFile = nullptr;
+static HANDLE mapLock = nullptr;
 #else
-static int hIDMapFile = 0;
+static int hIDMapFile = -1;
+static long BUF_SIZE = 4096;
 #endif
 
-static int32_t* pIDBuf = NULL;
+struct InstanceInfo {
+	uint8_t pad[2];
+	uint8_t next;
+	uint8_t total;
+};
+
 #define ID_SHM_NAME "/PPSSPP_ID"
+
+static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	if (!hIDMapFile) {
+		return false;
+	}
+	InstanceInfo *buf = (InstanceInfo *)MapViewOfFile(hIDMapFile,   // handle to map object
+		FILE_MAP_ALL_ACCESS, // read/write permission
+		0,
+		0,
+		sizeof(InstanceInfo));
+
+	if (!buf) {
+		ERROR_LOG(SCENET, "Could not map view of file %s (%d).", ID_SHM_NAME, GetLastError());
+		return false;
+	}
+
+	bool result = false;
+	if (!mapLock || WaitForSingleObject(mapLock, INFINITE) == 0) {
+		callback(buf);
+		if (mapLock) {
+			ReleaseMutex(mapLock);
+		}
+		result = true;
+	}
+	UnmapViewOfFile(buf);
+
+	return result;
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
+	// TODO: replace shm_open & shm_unlink with ashmem or android-shmem
+	return false;
+#else
+	if (hIDMapFile < 0) {
+		return false;
+	}
+
+	InstanceInfo *buf = (InstanceInfo *)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
+	if (buf == MAP_FAILED) {
+		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
+		return false;
+	}
+
+	bool result = false;
+	if (mlock(buf, BUF_SIZE) == 0) {
+		callback(buf);
+		munlock(buf, BUF_SIZE);
+		result = true;
+	}
+
+	munmap(buf, BUF_SIZE);
+	return result;
+#endif
+}
 
 // Get current number of instance of PPSSPP running.
 // Must be called only once during init.
@@ -56,6 +116,8 @@ void InitInstanceCounter() {
 	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
 	BUF_SIZE = (BUF_SIZE + gran - 1) & ~(gran - 1);
 
+	mapLock = CreateMutex(nullptr, FALSE, L"PPSSPP_ID_mutex");
+
 	hIDMapFile = CreateFileMapping(
 		INVALID_HANDLE_VALUE,    // use paging file
 		NULL,                    // default security
@@ -65,89 +127,55 @@ void InitInstanceCounter() {
 		TEXT(ID_SHM_NAME));       // name of mapping object
 
 	DWORD lasterr = GetLastError();
-	if (hIDMapFile == NULL)
-	{
+	if (!hIDMapFile) {
 		ERROR_LOG(SCENET, "Could not create %s file mapping object (%d).", ID_SHM_NAME, lasterr);
 		PPSSPP_ID = 1;
 		return;
 	}
-
-	pIDBuf = (int32_t*)MapViewOfFile(hIDMapFile,   // handle to map object
-		FILE_MAP_ALL_ACCESS, // read/write permission
-		0,
-		0,
-		sizeof(int32_t)); //BUF_SIZE
-
-	if (pIDBuf == NULL) {
-		ERROR_LOG(SCENET, "Could not map view of file %s (%d).", ID_SHM_NAME, GetLastError());
-		//CloseHandle(hIDMapFile);
-		PPSSPP_ID = 1;
-		return;
-	}
-
-	(*pIDBuf)++;
-	int id = *pIDBuf;
-	UnmapViewOfFile(pIDBuf);
-	//CloseHandle(hIDMapFile); //Should be called when program exits
-	//hIDMapFile = NULL;
-
-	PPSSPP_ID = id;
 #elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
 	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
-	PPSSPP_ID = 1;
 #else
-	long BUF_SIZE = 4096;
-	//caddr_t pIDBuf;
-	int status;
-
-	// Create shared memory object 
-
+	// Create shared memory object
 	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, 0);
 	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
 
-	if ((ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size 
+	if (hIDMapFile < 0 || (ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size
 		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
 		PPSSPP_ID = 1;
 		return;
 	}
-
-	pIDBuf = (int32_t*)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
-	if (pIDBuf == MAP_FAILED) {    // Set the size 
-		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
-		pIDBuf = NULL;
-		PPSSPP_ID = 1;
-		return;
-	}
-
-	int id = 1;
-	if (mlock(pIDBuf, BUF_SIZE) == 0) {
-		(*pIDBuf)++;
-		id = *pIDBuf;
-		munlock(pIDBuf, BUF_SIZE);
-	}
-
-	status = munmap(pIDBuf, BUF_SIZE);  // Unmap the page 
-	//status = close(hIDMapFile);                   //   Close file, should be called when program exits?
-	//status = shm_unlink(ID_SHM_NAME);     // Unlink [& delete] shared-memory object, should be called when program exits
-
-	PPSSPP_ID = id;
 #endif
+
+	bool success = UpdateInstanceCounter([](volatile InstanceInfo *buf) {
+		PPSSPP_ID = ++buf->next;
+		buf->total++;
+	});
+	if (!success) {
+		PPSSPP_ID = 1;
+	}
 }
 
 void ShutdownInstanceCounter() {
+	UpdateInstanceCounter([](volatile InstanceInfo *buf) {
+		buf->total--;
+	});
+
 #if PPSSPP_PLATFORM(WINDOWS)
 	if (hIDMapFile) {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
 		hIDMapFile = nullptr;
 	}
+	if (mapLock) {
+		CloseHandle(mapLock);
+		mapLock = nullptr;
+	}
 #elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
 	// Do nothing
 #else
-	// TODO : This unlink should be called when program exits instead of everytime the game reset.
-	if (hIDMapFile != 0) {
+	if (hIDMapFile >= 0) {
 		close(hIDMapFile);
 		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
-		hIDMapFile = 0;
+		hIDMapFile = -1;
 	}
 #endif
 }
