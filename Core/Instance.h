@@ -25,6 +25,7 @@ extern uint8_t PPSSPP_ID;
 
 void InitInstanceCounter();
 void ShutdownInstanceCounter();
+int GetInstancePeerCount();
 
 inline bool IsFirstInstance() {
 	return PPSSPP_ID == 1;

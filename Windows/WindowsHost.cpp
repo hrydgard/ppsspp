@@ -170,9 +170,7 @@ void WindowsHost::SetWindowTitle(const char *message) {
 #ifdef _DEBUG
 	winTitle.append(L" (debug)");
 #endif
-	if (PPSSPP_ID >= 1) {
-		winTitle.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
-	}
+	lastTitle_ = winTitle;
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
@@ -194,6 +192,12 @@ void WindowsHost::ShutdownSound() {
 
 void WindowsHost::UpdateUI() {
 	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+	int peers = GetInstancePeerCount();
+	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
+		lastNumInstances_ = peers;
+		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	}
 }
 
 void WindowsHost::UpdateMemView() {

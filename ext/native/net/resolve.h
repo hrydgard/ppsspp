@@ -11,10 +11,6 @@ namespace net {
 void Init();
 void Shutdown();
 
-// use free() to free the returned string.
-char *DNSResolveTry(const char *host, const char **err);
-char *DNSResolve(const char *host);
-
 enum class DNSType {
 	ANY = 0,
 	IPV4 = 1,

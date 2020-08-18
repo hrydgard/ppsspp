@@ -114,49 +114,27 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 }
 
 static int InitLocalhostIP() {
-	// find local IP
-	addrinfo* localAddr;
-	addrinfo* ptr;
-	char ipstr[256];
-	sprintf(ipstr, "127.0.0.%u", PPSSPP_ID);
-	int iResult = getaddrinfo(ipstr, 0, NULL, &localAddr);
-	if (iResult != 0) {
-		ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", ipstr, iResult);
-		//osm.Show("DNS Error, can't resolve client bind " + ipstr, 8.0f);
-		((sockaddr_in*)&LocalhostIP)->sin_family = AF_INET;
-		((sockaddr_in*)&LocalhostIP)->sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
-		((sockaddr_in*)&LocalhostIP)->sin_port = 0;
-		return iResult;
-	}
-	for (ptr = localAddr; ptr != NULL; ptr = ptr->ai_next) {
-		switch (ptr->ai_family) {
-		case AF_INET:
-			memcpy(&LocalhostIP, ptr->ai_addr, sizeof(sockaddr));
-			break;
-		}
-	}
-	((sockaddr_in*)&LocalhostIP)->sin_port = 0;
-	freeaddrinfo(localAddr);
+	// The entire 127.*.*.* is reserved for loopback.
+	uint32_t localIP = 0x7F000001 + PPSSPP_ID - 1;
 
-	// Resolve server dns
-	addrinfo* resultAddr;
-	in_addr serverIp;
-	serverIp.s_addr = INADDR_NONE;
+	g_localhostIP.in.sin_family = AF_INET;
+	g_localhostIP.in.sin_addr.s_addr = htonl(localIP);
+	g_localhostIP.in.sin_port = 0;
 
-	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(), 0, NULL, &resultAddr);
-	if (iResult != 0) {
-		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
-		return iResult;
-	}
-	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
-		switch (ptr->ai_family) {
-		case AF_INET:
-			serverIp = ((sockaddr_in*)ptr->ai_addr)->sin_addr;
-			break;
+	// If lookup fails, we'll assume it's not local.
+	isLocalServer = false;
+
+	addrinfo *resultAddr = nullptr;
+	std::string error;
+	if (net::DNSResolve(g_Config.proAdhocServer, "", &resultAddr, error, net::DNSType::IPV4)) {
+		for (addrinfo *ptr = resultAddr; ptr != nullptr; ptr = ptr->ai_next) {
+			auto addr4 = ((sockaddr_in *)ptr->ai_addr)->sin_addr.s_addr;
+			isLocalServer = (ntohl(addr4) & 0x7F000000) == 0x7F000000;
 		}
+
+		net::DNSResolveFree(resultAddr);
+		resultAddr = nullptr;
 	}
-	freeaddrinfo(resultAddr);
-	isLocalServer = (((uint8_t*)&serverIp.s_addr)[0] == 0x7f);
 
 	return 0;
 }
@@ -198,7 +176,7 @@ void __NetInit() {
 
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac).c_str());
+	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(g_localhostIP.in.sin_addr), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();

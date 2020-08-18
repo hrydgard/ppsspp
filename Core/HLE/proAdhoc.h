@@ -828,11 +828,16 @@ extern std::recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 
+union SockAddrIN4 {
+	sockaddr addr;
+	sockaddr_in in;
+};
+
 extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
 extern bool isOriPort;
 extern bool isLocalServer;
-extern sockaddr LocalhostIP; // Used to differentiate localhost IP on multiple-instance
+extern SockAddrIN4 g_localhostIP; // Used to differentiate localhost IP on multiple-instance
 extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
 extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 

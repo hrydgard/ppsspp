@@ -1,12 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "base/basictypes.h"
 #include "math/geom2d.h"
 #include "math/lin/vec3.h"
 #include "gfx/texture_atlas.h"
-#include "UI/TextureUtil.h"
 
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.
@@ -22,13 +22,17 @@ namespace Draw {
 }
 
 class Texture;
+class ManagedTexture;
 class DrawBuffer;
 class TextDrawer;
 
 namespace UI {
 	struct Drawable;
+	struct EventParams;
 	struct Theme;
 	struct FontStyle;
+	class Event;
+	class View;
 }
 
 class DrawBuffer;

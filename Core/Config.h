@@ -61,7 +61,8 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
-	bool bGameSpecific;
+	bool bGameSpecific = false;
+	bool bUpdatedInstanceCounter = false;
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
