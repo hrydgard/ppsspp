@@ -46,6 +46,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/Instance.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"
@@ -466,7 +467,11 @@ namespace MainWindow
 
 	void UpdateWindowTitle() {
 		// Seems to be fine to call now since we use a UNICODE build...
-		SetWindowText(hwndMain, windowTitle.c_str());
+		std::wstring title = windowTitle;
+		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
+			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
+		}
+		SetWindowText(hwndMain, title.c_str());
 	}
 
 	void SetWindowTitle(const wchar_t *title) {
@@ -708,6 +713,7 @@ namespace MainWindow
 
 		case WM_ACTIVATE:
 			{
+				UpdateWindowTitle();
 				bool pause = true;
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					WindowsRawInput::GainFocus();
@@ -739,6 +745,10 @@ namespace MainWindow
 					trapMouse = false;
 				}
 			}
+			break;
+
+		case WM_SETFOCUS:
+			UpdateWindowTitle();
 			break;
 
 		case WM_ERASEBKGND:

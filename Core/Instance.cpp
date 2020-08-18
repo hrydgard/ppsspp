@@ -105,6 +105,14 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 #endif
 }
 
+int GetInstancePeerCount() {
+	static int c = 0;
+	UpdateInstanceCounter([](volatile InstanceInfo *buf) {
+		c = buf->total;
+	});
+	return c;
+}
+
 // Get current number of instance of PPSSPP running.
 // Must be called only once during init.
 void InitInstanceCounter() {
