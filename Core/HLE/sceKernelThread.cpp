@@ -2184,7 +2184,9 @@ void _sceKernelExitThread(int exitStatus) {
 	// The stack will be deallocated when the thread is deleted.
 }
 
-void sceKernelExitDeleteThread(int exitStatus) {
+int sceKernelExitDeleteThread(int exitStatus) {
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	PSPThread *thread = __GetCurrentThread();
 	if (thread)
 	{
@@ -2202,6 +2204,7 @@ void sceKernelExitDeleteThread(int exitStatus) {
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
+	return 0;
 }
 
 u32 sceKernelSuspendDispatchThread()
