@@ -40,7 +40,7 @@ int sceKernelDelaySysClockThreadCB(u32 sysclockAddr);
 void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason);
 u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason);
 int sceKernelDeleteThread(int threadHandle);
-void sceKernelExitDeleteThread(int exitStatus);
+int sceKernelExitDeleteThread(int exitStatus);
 int sceKernelExitThread(int exitStatus);
 void _sceKernelExitThread(int exitStatus);
 SceUID sceKernelGetThreadId();
