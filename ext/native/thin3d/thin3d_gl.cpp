@@ -672,6 +672,9 @@ public:
 	void Bind(int stage) {
 		render_->BindTexture(stage, tex_);
 	}
+	int NumMipmaps() const {
+		return mipLevels_;
+	}
 
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
@@ -1047,8 +1050,7 @@ void OpenGLContext::ApplySamplers() {
 		GLenum magFilt = samp->magFilt;
 		GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
 		renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);
-		// TODO: Improve this to allow mipmaps. We don't care about those right now though for thin3d stuff.
-		renderManager_.SetTextureLod(i, 0.0, 0.0, 0.0);
+		renderManager_.SetTextureLod(i, 0.0, (float)(tex->NumMipmaps() - 1), 0.0);
 	}
 }
 
