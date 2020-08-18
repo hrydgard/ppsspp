@@ -12,6 +12,7 @@
 #include "gfx_es2/draw_text.h"
 
 #include "Common/Log.h"
+#include "UI/TextureUtil.h"
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
