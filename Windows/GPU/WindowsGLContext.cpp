@@ -131,8 +131,13 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 											GLsizei length, const GLchar *message, GLvoid *userParam) {
 	// Ignore buffer mapping messages from NVIDIA
-	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185)
+	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185) {
 		return;
+	}
+	// Ignore application messages
+	if (source == GL_DEBUG_SOURCE_APPLICATION) {
+		return;
+	}
 
 	(void)length;
 	FILE *outFile = (FILE *)userParam;
@@ -366,7 +371,14 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	hRC = m_hrc;
 
-	if (g_Config.bGfxDebugOutput) {
+	bool validation = g_Config.bGfxDebugOutput;
+
+	// Always run OpenGL validation in debug mode, just like we do with Vulkan if debug layers are installed.
+#ifdef _DEBUG
+	validation = true;
+#endif
+
+	if (validation) {
 		if (wglewIsSupported("GL_KHR_debug") == 1) {
 			glGetError();
 			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
