@@ -76,7 +76,7 @@ bool updateChatScreen = false;
 int newChat = 0;
 bool isOriPort = false;
 bool isLocalServer = false;
-sockaddr LocalhostIP;
+SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
@@ -1535,7 +1535,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		socklen_t addrLen = sizeof(localAddr);
 		if (SOCKET_ERROR != getsockname(metasocket, (struct sockaddr*) & localAddr, &addrLen)) {
 			if (isLocalServer) {
-				localAddr.sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+				localAddr.sin_addr = g_localhostIP.in.sin_addr;
 			}
 			SocketAddress->sin_addr = localAddr.sin_addr;
 			return 0;
@@ -1556,7 +1556,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	if (pHost) {
 		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
 		if (isLocalServer) {
-			SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
 		}
 		return 0;
 	}
@@ -1580,7 +1580,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		}
 		freeifaddrs(ifAddrStruct);
 		if (isLocalServer) {
-			SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
 		}
 		return 0;
 	}
@@ -1606,7 +1606,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
 				closesocket(sock);
 				if (isLocalServer) {
-					SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+					SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
 				}
 				return 0;
 			}
@@ -1623,7 +1623,7 @@ uint32_t getLocalIp(int sock) {
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
 	if (isLocalServer) {
-		localAddr.sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+		localAddr.sin_addr = g_localhostIP.in.sin_addr;
 	}
 	return localAddr.sin_addr.s_addr;
 }
@@ -1843,12 +1843,12 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
 
-		((struct sockaddr_in*) & LocalhostIP)->sin_port = 0;
+		g_localhostIP.in.sin_port = 0;
 		// Bind Local Address to Socket
-		iResult = bind(metasocket, (struct sockaddr*) & LocalhostIP, sizeof(sockaddr));
+		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(sockaddr));
 		if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), iResult);
-			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), 2.0, 0x0000ff);
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(g_localhostIP.in.sin_addr), iResult);
+			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(g_localhostIP.in.sin_addr), 2.0, 0x0000ff);
 		}
 	}
 	
@@ -1917,7 +1917,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	getLocalIp(&addr);
 	uint32_t localIp = addr.sin_addr.s_addr;
 
-	if (ip == localIp || ip == ((sockaddr_in*)&LocalhostIP)->sin_addr.s_addr){
+	if (ip == localIp || ip == g_localhostIP.in.sin_addr.s_addr) {
 		getLocalMac(mac);
 		return true;
 	}

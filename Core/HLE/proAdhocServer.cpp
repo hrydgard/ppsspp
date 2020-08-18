@@ -1826,7 +1826,7 @@ int create_listen_socket(uint16_t port)
 		//Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. Doesn't work well when PPSSPP_ID reseted everytime emulation restarted.
 		/*
 		if (PPSSPP_ID > 1) {
-			local.sin_addr = ((sockaddr_in *)&LocalhostIP)->sin_addr;
+			local.sin_addr = g_localhostIP.in.sin_addr;
 		}
 		*/
 

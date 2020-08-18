@@ -123,19 +123,19 @@ static int InitLocalhostIP() {
 	if (iResult != 0) {
 		ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", ipstr, iResult);
 		//osm.Show("DNS Error, can't resolve client bind " + ipstr, 8.0f);
-		((sockaddr_in*)&LocalhostIP)->sin_family = AF_INET;
-		((sockaddr_in*)&LocalhostIP)->sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
-		((sockaddr_in*)&LocalhostIP)->sin_port = 0;
+		g_localhostIP.in.sin_family = AF_INET;
+		g_localhostIP.in.sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
+		g_localhostIP.in.sin_port = 0;
 		return iResult;
 	}
 	for (ptr = localAddr; ptr != NULL; ptr = ptr->ai_next) {
 		switch (ptr->ai_family) {
 		case AF_INET:
-			memcpy(&LocalhostIP, ptr->ai_addr, sizeof(sockaddr));
+			memcpy(&g_localhostIP.addr, ptr->ai_addr, sizeof(sockaddr));
 			break;
 		}
 	}
-	((sockaddr_in*)&LocalhostIP)->sin_port = 0;
+	g_localhostIP.in.sin_port = 0;
 	freeaddrinfo(localAddr);
 
 	// Resolve server dns
@@ -198,7 +198,7 @@ void __NetInit() {
 
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac).c_str());
+	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(g_localhostIP.in.sin_addr), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
