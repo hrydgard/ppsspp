@@ -399,14 +399,14 @@ namespace MainWindow {
 	}
 
 	void BrowseBackground() {
-		static std::wstring filter = L"All supported images (*.jpg *.png)|*.jpg;*.png|All files (*.*)|*.*||";
+		static std::wstring filter = L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||";
 		for (size_t i = 0; i < filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
 		W32Util::MakeTopMost(GetHWND(), false);
-		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.png;");
+		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.jpeg;*.png;");
 	}
 
 	void BrowseBackgroundDone() {
@@ -414,7 +414,7 @@ namespace MainWindow {
 		if (browseImageDialog->GetResult(filename)) {
 			std::wstring src = ConvertUTF8ToWString(filename);
 			std::wstring dest;
-			if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".jpg") {
+			if (filename.size() >= 5 && (filename.substr(filename.size() - 4) == ".jpg" || filename.substr(filename.size() - 5) == ".jpeg")) {
 				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg");
 			} else {
 				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.png");

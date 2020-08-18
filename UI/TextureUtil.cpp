@@ -25,13 +25,16 @@ static Draw::DataFormat ZimToT3DFormat(int zim) {
 }
 
 static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
+	if (size < 4) {
+		return TYPE_UNKNOWN;
+	}
 	if (!memcmp(data, "ZIMG", 4)) {
 		return ZIM;
 	}
 	else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
 		return PNG;
 	}
-	else if (!memcmp(data, "\xff\xd8\xff\xe0", 4)) {
+	else if (!memcmp(data, "\xff\xd8\xff\xe0", 4) || !memcmp(data, "\xff\xd8\xff\xe1", 4)) {
 		return JPEG;
 	}
 	else {
