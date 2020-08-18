@@ -483,14 +483,16 @@ public:
 
 private:
 	void ApplySamplers();
+	void Unbind();
 
 	GLRenderManager renderManager_;
 
-	OpenGLSamplerState *boundSamplers_[MAX_TEXTURE_SLOTS]{};
-	OpenGLTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 	DeviceCaps caps_{};
 
 	// Bound state
+	OpenGLSamplerState *boundSamplers_[MAX_TEXTURE_SLOTS]{};
+	OpenGLTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
+
 	OpenGLPipeline *curPipeline_ = nullptr;
 	OpenGLBuffer *curVBuffers_[4]{};
 	int curVBufferOffsets_[4]{};
@@ -610,16 +612,23 @@ void OpenGLContext::BeginFrame() {
 }
 
 void OpenGLContext::EndFrame() {
+	Unbind();
+
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
+}
 
+void OpenGLContext::Unbind() {
 	// Unbind stuff.
 	for (auto &texture : boundTextures_) {
 		texture = nullptr;
 	}
 	for (auto &sampler : boundSamplers_) {
 		sampler = nullptr;
+	}
+	for (int i = 0; i < ARRAY_SIZE(boundTextures_); i++) {
+		renderManager_.BindTexture(i, nullptr);
 	}
 	curPipeline_ = nullptr;
 }
@@ -679,7 +688,6 @@ private:
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
 	generatedMips_ = false;
-	canWrap_ = true;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
@@ -1022,7 +1030,9 @@ void OpenGLContext::ApplySamplers() {
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++) {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
 		const OpenGLTexture *tex = boundTextures_[i];
-		if (!samp || !tex) {
+		if (tex) {
+			_assert_(samp);
+		} else {
 			continue;
 		}
 		GLenum wrapS;
@@ -1037,6 +1047,8 @@ void OpenGLContext::ApplySamplers() {
 		GLenum magFilt = samp->magFilt;
 		GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
 		renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);
+		// TODO: Improve this to allow mipmaps. We don't care about those right now though for thin3d stuff.
+		renderManager_.SetTextureLod(i, 0.0, 0.0, 0.0);
 	}
 }
 
@@ -1098,6 +1110,9 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 		curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
 		curPipeline_->raster->Apply(&renderManager_);
 		renderManager_.BindProgram(curPipeline_->program_);
+	} else {
+		// Wipe bound textures and samplers.
+		Unbind();
 	}
 }
 

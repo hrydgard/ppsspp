@@ -416,6 +416,7 @@ private:
 	GLuint currentReadHandle_ = 0;
 
 	GLuint AllocTextureName();
+
 	// Texture name cache. Ripped straight from TextureCacheGLES.
 	std::vector<GLuint> nameCache_;
 	std::unordered_map<int, std::string> glStrings_;

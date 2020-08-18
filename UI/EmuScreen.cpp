@@ -1090,7 +1090,6 @@ void EmuScreen::CreateViews() {
 	loadingSpinner->SetTag("LoadingSpinner");
 
 	// Don't really need this, and it creates a lot of strings to translate...
-	// Maybe just show "Loading game..." only?
 	loadingTextView->SetVisibility(V_GONE);
 	loadingTextView->SetShadow(true);
 

@@ -108,9 +108,9 @@ static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
 
 // Ugly!
-static bool pspIsInited = false;
-static bool pspIsIniting = false;
-static bool pspIsQuitting = false;
+static volatile bool pspIsInited = false;
+static volatile bool pspIsIniting = false;
+static volatile bool pspIsQuitting = false;
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
