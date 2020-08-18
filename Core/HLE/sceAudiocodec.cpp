@@ -184,7 +184,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			// These sizeof(pointers) are wrong, but kept to avoid breaking on old saves.
 			// They're not used in new savestates.
 #ifdef __clang__
-#pragma diagnostic push
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wsizeof-pointer-div"
 #endif
 			DoArray(p, codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
@@ -195,7 +196,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 				audioList[ctxPtr_[i]] = decoder;
 			}
 #ifdef __clang__
-#pragma diagnostic pop
+#pragma clang diagnostic pop
 #endif
 			delete[] codec_;
 			delete[] ctxPtr_;
