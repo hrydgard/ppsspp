@@ -746,7 +746,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X68DA9E36, &WrapI_U<sceKernelDelayThreadCB>,                   "sceKernelDelayThreadCB",                    'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0XAA73C935, &WrapI_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'i', "i"       },
-	{0X809CE29B, &WrapI_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'v', "i"       },
+	{0X809CE29B, &WrapI_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'i', "i"       },
 	{0x94aa61ee, &WrapI_V<sceKernelGetThreadCurrentPriority>,        "sceKernelGetThreadCurrentPriority",         'i', ""        },
 	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,                     "sceKernelGetThreadId",                      'i', "",       HLE_NOT_IN_INTERRUPT },
 	{0X3B183E26, &WrapI_I<sceKernelGetThreadExitStatus>,             "sceKernelGetThreadExitStatus",              'i', "i"       },
