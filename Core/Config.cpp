@@ -1117,12 +1117,13 @@ static void IterateSettings(IniFile &iniFile, std::function<void(Section *sectio
 	}
 }
 
-Config::Config() : bGameSpecific(false) {
-	InitInstanceCounter();
+Config::Config() {
 }
 
 Config::~Config() {
-	ShutdownInstanceCounter();
+	if (bUpdatedInstanceCounter) {
+		ShutdownInstanceCounter();
+	}
 }
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
@@ -1172,6 +1173,11 @@ void Config::Reload() {
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+
+	if (!bUpdatedInstanceCounter) {
+		InitInstanceCounter();
+		bUpdatedInstanceCounter = true;
+	}
 
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
 	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
