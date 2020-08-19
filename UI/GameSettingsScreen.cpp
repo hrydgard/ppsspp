@@ -1930,7 +1930,7 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 
 void HostnameSelectScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK)
-		*value_ = addrView_->GetText();
+		*value_ = StripSpaces(addrView_->GetText());
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
