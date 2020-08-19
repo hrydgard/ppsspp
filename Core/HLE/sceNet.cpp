@@ -113,7 +113,7 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 	argsAddr = ArgsAddr;
 }
 
-static int InitLocalhostIP() {
+void InitLocalhostIP() {
 	// The entire 127.*.*.* is reserved for loopback.
 	uint32_t localIP = 0x7F000001 + PPSSPP_ID - 1;
 
@@ -121,22 +121,8 @@ static int InitLocalhostIP() {
 	g_localhostIP.in.sin_addr.s_addr = htonl(localIP);
 	g_localhostIP.in.sin_port = 0;
 
-	// If lookup fails, we'll assume it's not local.
-	isLocalServer = false;
-
-	addrinfo *resultAddr = nullptr;
-	std::string error;
-	if (net::DNSResolve(g_Config.proAdhocServer, "", &resultAddr, error, net::DNSType::IPV4)) {
-		for (addrinfo *ptr = resultAddr; ptr != nullptr; ptr = ptr->ai_next) {
-			auto addr4 = ((sockaddr_in *)ptr->ai_addr)->sin_addr.s_addr;
-			isLocalServer = (ntohl(addr4) & 0x7F000000) == 0x7F000000;
-		}
-
-		net::DNSResolveFree(resultAddr);
-		resultAddr = nullptr;
-	}
-
-	return 0;
+	std::string serverStr = StripSpaces(g_Config.proAdhocServer);
+	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
 void __NetApctlInit() {
