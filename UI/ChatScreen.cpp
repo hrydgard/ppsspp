@@ -157,61 +157,12 @@ UI::EventReturn ChatMenu::OnQuickChat5(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-/*
-	maximum chat length in one message from server is only 64 character
-	need to split the chat to fit the static chat screen size
-	if the chat screen size become dynamic from device resolution
-	we need to change split function logic also.
-*/
-std::vector<std::string> Split(const std::string& str)
-{
-	static const int spliton = 45;
-
-	int firstSentenceEnd = 0;
-	int splitCharStart = 0;
-
-	uint32_t lastc = -1;
-	int i = 0;
-	if ((int)str.length() > spliton) {
-		for (UTF8 utf(str.c_str()); utf.byteIndex() < (int)str.length(); ++i) {
-			uint32_t c = utf.next();
-			if (isspace(c)) {
-				if (i < spliton) {
-					if (lastc != ':')
-						firstSentenceEnd = utf.byteIndex();
-				} else if (i > spliton) {
-					firstSentenceEnd = splitCharStart;
-				}
-			}
-			if (i == spliton) {
-				splitCharStart = utf.byteIndex();
-			}
-			lastc = c;
-		}
-	}
-
-	if (firstSentenceEnd == 0) {
-		if (i <= spliton) {
-			firstSentenceEnd = (int)str.length();
-		} else {
-			firstSentenceEnd = splitCharStart;
-		}
-	}
-
-	std::vector<std::string> ret;
-	ret.push_back(str.substr(0, firstSentenceEnd));
-	if (firstSentenceEnd < (int)str.length())
-		ret.push_back(str.substr(firstSentenceEnd));
-	return ret;
-}
-
 void ChatMenu::UpdateChat() {
 	using namespace UI;
 	if (chatVert_ != nullptr) {
 		chatVert_->Clear(); //read Access violation is proadhoc.cpp use NULL_->Clear() pointer?
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
-			//split long text
 			uint32_t namecolor = 0x29B6F6;
 			uint32_t textcolor = 0xFFFFFF;
 			uint32_t infocolor = 0xFDD835;
@@ -229,14 +180,12 @@ void ChatMenu::UpdateChat() {
 				v->SetTextColor(0xFF000000 | infocolor);
 			} else {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+				line->SetSpacing(0.0f);
+				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
 
-				std::vector<std::string> splitMessage = Split(chattext);
-				for (const std::string &msg : splitMessage) {
-					TextView *chatView = line->Add(new TextView(msg, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-					chatView->SetTextColor(0xFF000000 | textcolor);
-				}
+				TextView *chatView = line->Add(new TextView(chattext, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+				chatView->SetTextColor(0xFF000000 | textcolor);
 			}
 		}
 		toBottom_ = true;
