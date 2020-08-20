@@ -1,18 +1,16 @@
+#include <ctype.h>
 #include "ppsspp_config.h"
+#include "i18n/i18n.h"
 #include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "ChatScreen.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/System.h"
-#include "Common/LogManager.h"
-#include "Core/HLE/proAdhoc.h"
-#include "i18n/i18n.h"
-#include <ctype.h>
 #include "util/text/utf8.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/HLE/proAdhoc.h"
+#include "UI/ChatScreen.h"
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -167,29 +165,43 @@ UI::EventReturn ChatMenu::OnQuickChat5(UI::EventParams &e) {
 */
 std::vector<std::string> Split(const std::string& str)
 {
-	std::vector<std::string> ret;
-	int counter = 0;
-	int firstSentenceEnd = 0;
-	int secondSentenceEnd = 0;
-	int spliton = 45;
+	static const int spliton = 45;
 
-	for (int i = 0; i<(int)str.length(); i++) {
-		if (isspace(str[i])) {
-			if (i < spliton) {
-				if(str[i-1]!=':')
-					firstSentenceEnd = i+1;
+	int firstSentenceEnd = 0;
+	int splitCharStart = 0;
+
+	uint32_t lastc = -1;
+	int i = 0;
+	if ((int)str.length() > spliton) {
+		for (UTF8 utf(str.c_str()); utf.byteIndex() < (int)str.length(); ++i) {
+			uint32_t c = utf.next();
+			if (isspace(c)) {
+				if (i < spliton) {
+					if (lastc != ':')
+						firstSentenceEnd = utf.byteIndex();
+				} else if (i > spliton) {
+					firstSentenceEnd = splitCharStart;
+				}
 			}
-			else if (i > spliton) {
-				firstSentenceEnd = spliton;
+			if (i == spliton) {
+				splitCharStart = utf.byteIndex();
 			}
+			lastc = c;
 		}
 	}
 
 	if (firstSentenceEnd == 0) {
-		firstSentenceEnd = spliton;
+		if (i <= spliton) {
+			firstSentenceEnd = (int)str.length();
+		} else {
+			firstSentenceEnd = splitCharStart;
+		}
 	}
+
+	std::vector<std::string> ret;
 	ret.push_back(str.substr(0, firstSentenceEnd));
-	ret.push_back(str.substr(firstSentenceEnd));
+	if (firstSentenceEnd < (int)str.length())
+		ret.push_back(str.substr(firstSentenceEnd));
 	return ret;
 }
 
@@ -219,17 +231,10 @@ void ChatMenu::UpdateChat() {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 				TextView *nameView = line->Add(new TextView(displayname, FLAG_DYNAMIC_ASCII, true));
 				nameView->SetTextColor(0xFF000000 | namecolor);
-				if (chattext.length() > 45) {
-					std::vector<std::string> splitted = Split(chattext);
-					std::string one = splitted[0];
-					std::string two = splitted[1];
-					TextView *oneview = line->Add(new TextView(one, FLAG_DYNAMIC_ASCII, true));
-					oneview->SetTextColor(0xFF000000 | textcolor);
-					TextView *twoview = chatVert_->Add(new TextView(two, FLAG_DYNAMIC_ASCII, true));
-					twoview->SetTextColor(0xFF000000 | textcolor);
-				}
-				else {
-					TextView *chatView = line->Add(new TextView(chattext, FLAG_DYNAMIC_ASCII, true));
+
+				std::vector<std::string> splitMessage = Split(chattext);
+				for (const std::string &msg : splitMessage) {
+					TextView *chatView = line->Add(new TextView(msg, FLAG_DYNAMIC_ASCII, true));
 					chatView->SetTextColor(0xFF000000 | textcolor);
 				}
 			}
