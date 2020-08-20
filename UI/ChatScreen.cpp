@@ -225,16 +225,16 @@ void ChatMenu::UpdateChat() {
 			}
 
 			if (i.length() <= displayname.length() || i[displayname.length()] != ':') {
-				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, true));
+				TextView *v = chatVert_->Add(new TextView(i, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 				v->SetTextColor(0xFF000000 | infocolor);
 			} else {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-				TextView *nameView = line->Add(new TextView(displayname, FLAG_DYNAMIC_ASCII, true));
+				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
 
 				std::vector<std::string> splitMessage = Split(chattext);
 				for (const std::string &msg : splitMessage) {
-					TextView *chatView = line->Add(new TextView(msg, FLAG_DYNAMIC_ASCII, true));
+					TextView *chatView = line->Add(new TextView(msg, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 					chatView->SetTextColor(0xFF000000 | textcolor);
 				}
 			}
