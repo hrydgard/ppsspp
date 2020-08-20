@@ -226,6 +226,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	case GE_FORMAT_4444:
 	case GE_FORMAT_8888:
 	case GE_FORMAT_INVALID:
+	case GE_FORMAT_DEPTH16:
 		switch (gstate.getStencilOpZPass()) {
 		case GE_STENCILOP_REPLACE:
 			// TODO: Could detect zero here and force ZERO - less uniform updates?

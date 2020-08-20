@@ -754,6 +754,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				break;
 
 			case GE_FORMAT_INVALID:
+			case GE_FORMAT_DEPTH16:
 				_dbg_assert_msg_(false, "Invalid pixelFormat passed to DrawPixels().");
 				break;
 			}
