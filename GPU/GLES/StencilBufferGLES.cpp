@@ -109,7 +109,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 		values = 256;
 		break;
 	case GE_FORMAT_INVALID:
-		// Impossible.
+	case GE_FORMAT_DEPTH16:
+		// Inconceivable.
+		_assert_(false);
 		break;
 	}
 
