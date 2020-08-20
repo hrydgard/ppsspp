@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <map>
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -25,7 +26,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceHeap.h"
 #include "Core/Util/BlockAllocator.h"
-#include <map>
 
 struct Heap {
 	Heap() : alloc(4) {}
@@ -43,7 +43,7 @@ struct Heap {
 	}
 };
 
-std::map<u32,Heap*> heapList;
+static std::map<u32, Heap *> heapList;
 
 static Heap *getHeap(u32 addr) {
 	auto found = heapList.find(addr);
