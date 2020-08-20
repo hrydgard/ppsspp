@@ -1,18 +1,16 @@
+#include <ctype.h>
 #include "ppsspp_config.h"
+#include "i18n/i18n.h"
 #include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "ChatScreen.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/System.h"
-#include "Common/LogManager.h"
-#include "Core/HLE/proAdhoc.h"
-#include "i18n/i18n.h"
-#include <ctype.h>
 #include "util/text/utf8.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/HLE/proAdhoc.h"
+#include "UI/ChatScreen.h"
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -159,47 +157,12 @@ UI::EventReturn ChatMenu::OnQuickChat5(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-/*
-	maximum chat length in one message from server is only 64 character
-	need to split the chat to fit the static chat screen size
-	if the chat screen size become dynamic from device resolution
-	we need to change split function logic also.
-*/
-std::vector<std::string> Split(const std::string& str)
-{
-	std::vector<std::string> ret;
-	int counter = 0;
-	int firstSentenceEnd = 0;
-	int secondSentenceEnd = 0;
-	int spliton = 45;
-
-	for (int i = 0; i<(int)str.length(); i++) {
-		if (isspace(str[i])) {
-			if (i < spliton) {
-				if(str[i-1]!=':')
-					firstSentenceEnd = i+1;
-			}
-			else if (i > spliton) {
-				firstSentenceEnd = spliton;
-			}
-		}
-	}
-
-	if (firstSentenceEnd == 0) {
-		firstSentenceEnd = spliton;
-	}
-	ret.push_back(str.substr(0, firstSentenceEnd));
-	ret.push_back(str.substr(firstSentenceEnd));
-	return ret;
-}
-
 void ChatMenu::UpdateChat() {
 	using namespace UI;
 	if (chatVert_ != nullptr) {
 		chatVert_->Clear(); //read Access violation is proadhoc.cpp use NULL_->Clear() pointer?
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
-			//split long text
 			uint32_t namecolor = 0x29B6F6;
 			uint32_t textcolor = 0xFFFFFF;
 			uint32_t infocolor = 0xFDD835;
@@ -213,25 +176,16 @@ void ChatMenu::UpdateChat() {
 			}
 
 			if (i.length() <= displayname.length() || i[displayname.length()] != ':') {
-				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, true));
+				TextView *v = chatVert_->Add(new TextView(i, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 				v->SetTextColor(0xFF000000 | infocolor);
 			} else {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-				TextView *nameView = line->Add(new TextView(displayname, FLAG_DYNAMIC_ASCII, true));
+				line->SetSpacing(0.0f);
+				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
-				if (chattext.length() > 45) {
-					std::vector<std::string> splitted = Split(chattext);
-					std::string one = splitted[0];
-					std::string two = splitted[1];
-					TextView *oneview = line->Add(new TextView(one, FLAG_DYNAMIC_ASCII, true));
-					oneview->SetTextColor(0xFF000000 | textcolor);
-					TextView *twoview = chatVert_->Add(new TextView(two, FLAG_DYNAMIC_ASCII, true));
-					twoview->SetTextColor(0xFF000000 | textcolor);
-				}
-				else {
-					TextView *chatView = line->Add(new TextView(chattext, FLAG_DYNAMIC_ASCII, true));
-					chatView->SetTextColor(0xFF000000 | textcolor);
-				}
+
+				TextView *chatView = line->Add(new TextView(chattext, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+				chatView->SetTextColor(0xFF000000 | textcolor);
 			}
 		}
 		toBottom_ = true;
