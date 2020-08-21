@@ -389,7 +389,9 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 
 		Draw::Framebuffer *depalFBO = framebufferManagerD3D11_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		shaderManager_->DirtyLastShader();
-		draw_->BindPipeline(nullptr);
+
+		// Not sure why or if we need this here - we're not about to actually draw using draw_, just use its framebuffer binds.
+		draw_->InvalidateCachedState();
 
 		float xoff = -0.5f / framebuffer->renderWidth;
 		float yoff = 0.5f / framebuffer->renderHeight;

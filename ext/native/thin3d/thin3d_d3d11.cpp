@@ -77,6 +77,8 @@ public:
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
+	void InvalidateCachedState() override;
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override;
@@ -1019,19 +1021,20 @@ void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	context_->Unmap(curPipeline_->dynamicUniforms, 0);
 }
 
-void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
-	if (pipeline == nullptr) {
-		// This is a signal to forget all our caching.
-		curBlend_ = nullptr;
-		curDepth_ = nullptr;
-		curRaster_ = nullptr;
-		curPS_ = nullptr;
-		curVS_ = nullptr;
-		curGS_ = nullptr;
-		curInputLayout_ = nullptr;
-		curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
-	}
+void D3D11DrawContext::InvalidateCachedState() {
+	// This is a signal to forget all our state caching.
+	curBlend_ = nullptr;
+	curDepth_ = nullptr;
+	curRaster_ = nullptr;
+	curPS_ = nullptr;
+	curVS_ = nullptr;
+	curGS_ = nullptr;
+	curInputLayout_ = nullptr;
+	curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+	curPipeline_ = nullptr;
+}
 
+void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 	D3D11Pipeline *dPipeline = (D3D11Pipeline *)pipeline;
 	if (curPipeline_ == dPipeline)
 		return;

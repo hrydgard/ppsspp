@@ -606,6 +606,8 @@ public:
 		return stepId_;
 	}
 
+	void InvalidateCachedState() override;
+
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
@@ -630,6 +632,10 @@ private:
 	LPDIRECT3DSURFACE9 deviceDSsurf = 0;
 	bool supportsINTZ = false;
 };
+
+void D3D9Context::InvalidateCachedState() {
+	curPipeline_ = nullptr;
+}
 
 #define FB_DIV 1
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))

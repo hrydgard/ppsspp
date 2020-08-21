@@ -408,10 +408,6 @@ public:
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
-
-		if (!pipeline) {
-			UnbindBoundState();
-		}
 	}
 
 	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
@@ -497,8 +493,9 @@ public:
 		return renderManager_.GetCurrentStepId();
 	}
 
+	void InvalidateCachedState() override;
+
 private:
-	void UnbindBoundState();
 
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
@@ -923,10 +920,10 @@ void VKContext::EndFrame() {
 	push_ = nullptr;
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
-	UnbindBoundState();
+	InvalidateCachedState();
 }
 
-void VKContext::UnbindBoundState() {
+void VKContext::InvalidateCachedState() {
 	curPipeline_ = nullptr;
 
 	for (auto &view : boundImageView_) {
