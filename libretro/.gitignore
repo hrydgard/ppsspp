@@ -2,3 +2,4 @@
 *.so
 *.dll
 *.dylib
+*.manifest
