@@ -332,6 +332,8 @@ void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
 	framebufferManagerVulkan_->EndFrame();
 	textureCacheVulkan_->EndFrame();
+
+	draw_->InvalidateCachedState();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
