@@ -530,7 +530,9 @@ void TextureCacheCommon::SetTexture(bool force) {
 	entry->framebuffer = nullptr;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, 0, (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
+		auto notificationChannel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
+		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, 0, notificationChannel);
+		ApplyFramebufferMatch(match, entry, framebuffer->fb_address, framebuffer, notificationChannel);
 	}
 
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
@@ -662,15 +664,22 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
 			fbCache_.push_back(framebuffer);
 		}
+
+		// TODO: Rework this to not try to "apply" all matches, only the best one.
 		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(it->second.get(), addr, framebuffer, 0, channel);
+			TexCacheEntry *entry = it->second.get();
+			FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
+			ApplyFramebufferMatch(match, entry, addr, framebuffer, channel);
 		}
 		// Let's assume anything in mirrors is fair game to check.
+		// TODO: Only do this for depth?
 		for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
 			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
 			// Let's still make sure it's in the cache range.
 			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
-				AttachFramebuffer(it->second.get(), addr, framebuffer, 0, channel);
+				TexCacheEntry *entry = it->second.get();
+				FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
+				ApplyFramebufferMatch(match, entry, addr, framebuffer, channel);
 			}
 		}
 		break;
@@ -691,7 +700,8 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 	}
 }
 
-void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel) {
+void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
+	_dbg_assert_((fbInfo.match == FramebufferMatch::VALID) || (fbInfo.match == FramebufferMatch::VALID_DEPAL));
 	const u64 cachekey = entry->CacheKey();
 	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
@@ -725,7 +735,8 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 	}
 }
 
-void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel) {
+void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
+	_dbg_assert_(fbInfo.match == FramebufferMatch::INVALID);
 	const u64 cachekey = entry->CacheKey();
 
 	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
@@ -757,10 +768,32 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	}
 }
 
-bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) {
-	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
+bool TextureCacheCommon::ApplyFramebufferMatch(FramebufferMatchInfo match, TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel) {
+	// There were five possible outcomes of the old ApplyFramebuffer, these have been
+	// mapped to the FramebufferMatch enum, and we handle them the same old ways here.
+	switch (match.match) {
+	case FramebufferMatch::VALID:
+		AttachFramebufferValid(entry, framebuffer, match, channel);
+		return true;
+	case FramebufferMatch::VALID_DEPAL:
+		AttachFramebufferValid(entry, framebuffer, match, channel);
+		entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
+		return true;
+	case FramebufferMatch::INVALID:
+		AttachFramebufferInvalid(entry, framebuffer, match, channel);
+		return true;
+	case FramebufferMatch::NO_MATCH:
+		DetachFramebuffer(entry, address, framebuffer, channel);
+		return false;
+	case FramebufferMatch::IGNORE:
+		// The purpose of this seems to be to delay a decision to the next frame.
+	default:
+		return false;
+	}
+}
 
-	AttachedFramebufferInfo fbInfo = { 0 };
+FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const {
+	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	const u32 mirrorMask = 0x00600000;
 
@@ -778,14 +811,14 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			// Don't match the depth channel with these addresses when texturing.
 			if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH) {
 				// God of War: If we actively detach here, the shadows disappear.
-				return false;
+				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
 			}
 			break;
 		case 0x00200000:
 		case 0x00600000:
 			// Don't match the color channel with these addresses when texturing.
 			if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
-				return false;
+				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
 			}
 			break;
 		}
@@ -811,16 +844,21 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			// Let's avoid using it when we know the format is wrong. May be a video/etc. updating memory.
 			// However, some games use a different format to clear the buffer.
 			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
-				DetachFramebuffer(entry, address, framebuffer, channel);
+				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			} else {
+				// TODO: This is a weird outcome. The purpose seems to be to delay
+				// a decision to the next frame.
+				// Should really try to map it to something else.
+				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
 			}
 		} else {
-			AttachFramebufferValid(entry, framebuffer, fbInfo, channel);
-			return true;
+			return FramebufferMatchInfo{ FramebufferMatch::VALID };
 		}
 	} else {
 		// Apply to buffered mode only.
-		if (!framebufferManager_->UseBufferedRendering())
-			return false;
+		if (!framebufferManager_->UseBufferedRendering()) {
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		}
 
 		// Check works for D16 too (???)
 		const bool matchingClutFormat =
@@ -832,55 +870,53 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 		const u32 bitOffset = (texaddr - addr) * 8;
 		const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
+
+		// To avoid ruining git blame, kept the same name as the old struct.
+		FramebufferMatchInfo fbInfo{ FramebufferMatch::VALID };
+
 		fbInfo.yOffset = entry->bufw == 0 ? 0 : pixelOffset / entry->bufw;
 		fbInfo.xOffset = entry->bufw == 0 ? 0 : pixelOffset % entry->bufw;
 
 		if (framebuffer->fb_stride != entry->bufw) {
 			if (noOffset) {
-				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 				WARN_LOG_ONCE(diffStrides2, G3D, "Texturing from framebuffer (matching_clut=%s) different strides %d != %d", matchingClutFormat ? "yes" : "no", entry->bufw, framebuffer->fb_stride);
+				// Continue on with other checks.
+				// Not actually sure why we even try here. There's no way it'll go well if the strides are different.
 			} else {
 				// Assume any render-to-tex with different bufw + offset is a render from ram.
-				DetachFramebuffer(entry, address, framebuffer, channel);
-				return false;
+				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 			}
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
 		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= (u32)framebuffer->fb_stride) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
-			DetachFramebuffer(entry, address, framebuffer, channel);
-			return false;
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 
 		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer then, ram.  Detach to be safe.
-			DetachFramebuffer(entry, address, framebuffer, channel);
-			return false;
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 
 		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
 		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
 		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000) {
 			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texturing from framebuffer at %08x +%dx%d / %dx%d", address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
-			DetachFramebuffer(entry, address, framebuffer, channel);
-			return false;
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
 			if (!noOffset) {
-				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
 			}
-			AttachFramebufferValid(entry, framebuffer, fbInfo, channel);
-			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
-			// We'll validate it compiles later.
-			return true;
+			fbInfo.match = FramebufferMatch::VALID_DEPAL;
+			return fbInfo;
 		} else if (IsClutFormat((GETextureFormat)(entry->format)) || IsDXTFormat((GETextureFormat)(entry->format))) {
 			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format));
-			DetachFramebuffer(entry, address, framebuffer, channel);
-			return false;
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
@@ -888,23 +924,19 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 			if (framebuffer->format != entry->format) {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
-				AttachFramebufferValid(entry, framebuffer, fbInfo, channel);
-				return true;
+				return fbInfo; // Valid!
 			} else {
 				WARN_LOG_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-				AttachFramebufferInvalid(entry, framebuffer, fbInfo, channel);
-				return true;
+				// If we return VALID here, God of War Ghost of Sparta/Chains of Olympus will be missing some special effect according to an old comment.
+				fbInfo.match = FramebufferMatch::INVALID;
+				return fbInfo;
 			}
 		} else {
-			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
+			WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible format %s != %s at %08x",
 				GeTextureFormatToString((GETextureFormat)entry->format), GeBufferFormatToString(framebuffer->format), address);
-			DetachFramebuffer(entry, address, framebuffer, channel);
-			return false;
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 	}
-
-	return false;
 }
 
 void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
@@ -976,7 +1008,9 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	bool success = false;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, texaddrOffset, (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR)) {
+		FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
+		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, texaddrOffset, channel);
+		if (ApplyFramebufferMatch(match, entry, framebuffer->fb_address, framebuffer, channel)) {
 			success = true;
 		}
 	}
