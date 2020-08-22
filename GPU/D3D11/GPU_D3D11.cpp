@@ -119,7 +119,6 @@ GPU_D3D11::~GPU_D3D11() {
 	shaderManagerD3D11_->ClearShaders();
 	delete shaderManagerD3D11_;
 	delete textureCacheD3D11_;
-	draw_->BindPipeline(nullptr);
 	stockD3D11.Destroy();
 }
 
@@ -233,8 +232,8 @@ void GPU_D3D11::ReapplyGfxState() {
 }
 
 void GPU_D3D11::EndHostFrame() {
-	// Tell the DrawContext that it's time to reset everything.
-	draw_->BindPipeline(nullptr);
+	// Probably not really necessary.
+	draw_->InvalidateCachedState();
 }
 
 void GPU_D3D11::BeginFrame() {

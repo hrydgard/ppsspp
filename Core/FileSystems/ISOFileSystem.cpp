@@ -324,7 +324,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 				return entry;
 		} else {
 			if (catchError)
-				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
+				ERROR_LOG(FILESYS, "File '%s' not found", path.c_str());
 
 			return 0;
 		}
@@ -337,7 +337,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	entry.isBlockSectorMode = false;
 
 	if (access & FILEACCESS_WRITE) {
-		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
+		ERROR_LOG(FILESYS, "Can't open file '%s' with write access on an ISO partition", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
 	}
 
@@ -346,7 +346,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
-			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
+			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: '%s', sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
 			return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 		else if (sectorStart == blockDevice->GetNumBlocks())
@@ -354,7 +354,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 			ERROR_LOG(FILESYS, "Should not be able to open the block after the last on disc! %08x", sectorStart);
 		}
 
-		DEBUG_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
+		DEBUG_LOG(FILESYS, "Got a raw sector open: '%s', sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;
@@ -363,16 +363,16 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		entry.openSize = readSize;
 		// when open as "umd1:/sce_lbn0x0_size0x6B49D200", that mean open umd1 as a block device.
 		// the param in sceIoLseek and sceIoRead is lba mode. we must mark it.
-		if (strncmp(devicename, "umd0:", 5)==0 || strncmp(devicename, "umd1:", 5)==0)
+		if (strncmp(devicename, "umd0:", 5) == 0 || strncmp(devicename, "umd1:", 5) == 0)
 			entry.isBlockSectorMode = true;
 
 		entries[newHandle] = entry;
 		return newHandle;
 	}
 
-	// May return entireISO for "umd0:"
-	entry.file = GetFromPath(filename);
-	if (!entry.file){
+	// May return entireISO for "umd0:".
+	entry.file = GetFromPath(filename, false);
+	if (!entry.file) {
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
@@ -524,7 +524,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		if ((s64)e.seekPos + size > fileSize) {
 			// Clamp to the remaining size, but read what we can.
 			const s64 newSize = fileSize - (s64)e.seekPos;
-			WARN_LOG(FILESYS, "Reading beyond end of file, clamping size %lld to %lld", size, newSize);
+			// Reading beyond the file is really quite normal behavior (if return value handled correctly), so
+			// not doing WARN here. Still, can potentially be useful to see so leaving at INFO.
+			if (newSize == 0) {
+				INFO_LOG(FILESYS, "Attempted read at end of file, 0-size read simulated");
+			} else {
+				INFO_LOG(FILESYS, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+			}
 			size = newSize;
 		}
 

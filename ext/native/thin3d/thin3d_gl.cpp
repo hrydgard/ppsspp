@@ -481,9 +481,10 @@ public:
 		return renderManager_.GetCurrentStepId();
 	}
 
+	void InvalidateCachedState() override;
+
 private:
 	void ApplySamplers();
-	void Unbind();
 
 	GLRenderManager renderManager_;
 
@@ -612,23 +613,20 @@ void OpenGLContext::BeginFrame() {
 }
 
 void OpenGLContext::EndFrame() {
-	Unbind();
-
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
+
+	InvalidateCachedState();
 }
 
-void OpenGLContext::Unbind() {
+void OpenGLContext::InvalidateCachedState() {
 	// Unbind stuff.
 	for (auto &texture : boundTextures_) {
 		texture = nullptr;
 	}
 	for (auto &sampler : boundSamplers_) {
 		sampler = nullptr;
-	}
-	for (int i = 0; i < ARRAY_SIZE(boundTextures_); i++) {
-		renderManager_.BindTexture(i, nullptr);
 	}
 	curPipeline_ = nullptr;
 }
@@ -1107,15 +1105,13 @@ bool OpenGLPipeline::LinkShaders() {
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = (OpenGLPipeline *)pipeline;
-	if (curPipeline_) {
-		curPipeline_->blend->Apply(&renderManager_);
-		curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
-		curPipeline_->raster->Apply(&renderManager_);
-		renderManager_.BindProgram(curPipeline_->program_);
-	} else {
-		// Wipe bound textures and samplers.
-		Unbind();
+	if (!curPipeline_) {
+		return;
 	}
+	curPipeline_->blend->Apply(&renderManager_);
+	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
+	curPipeline_->raster->Apply(&renderManager_);
+	renderManager_.BindProgram(curPipeline_->program_);
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {

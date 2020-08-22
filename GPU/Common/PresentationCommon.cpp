@@ -539,8 +539,7 @@ void PresentationCommon::UpdateUniforms(bool hasVideo) {
 }
 
 void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
-	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
-	draw_->BindPipeline(nullptr);
+	draw_->InvalidateCachedState();
 
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
@@ -649,6 +648,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			Draw::Framebuffer *postShaderFramebuffer = postShaderFramebuffers_[i];
 
 			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
+
 			if (usePostShaderOutput) {
 				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
 			} else {
