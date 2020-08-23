@@ -1,9 +1,18 @@
+// Debugging notes
+// The crash happens when we try to call vkGetPhysicalDeviceProperties2KHR which seems to be null.
+//
+// Apparently we don't manage to specify the extensions we want. Still something reports that this one
+// is present?
+// Failed to load : vkGetPhysicalDeviceProperties2KHR
+// Failed to load : vkGetPhysicalDeviceFeatures2KHR
 
 #include <cstring>
 #include <cassert>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+
+#include "Common/Log.h"
 
 #define VK_NO_PROTOTYPES
 #include "libretro/libretro_vulkan.h"
@@ -49,6 +58,7 @@ struct VkSwapchainKHR_T {
 static VkSwapchainKHR_T chain;
 
 #define LIBRETRO_VK_WARP_LIST()                                      \
+	LIBRETRO_VK_WARP_FUNC(vkCreateInstance);                          \
 	LIBRETRO_VK_WARP_FUNC(vkDestroyInstance);                         \
 	LIBRETRO_VK_WARP_FUNC(vkCreateDevice);                            \
 	LIBRETRO_VK_WARP_FUNC(vkDestroyDevice);                           \
@@ -332,13 +342,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass_libretro(VkDevice device, cons
 }
 
 #undef LIBRETRO_VK_WARP_FUNC
-#define LIBRETRO_VK_WARP_FUNC(x)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
-	do {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
-		if (!strcmp(pName, #x)) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
-			x##_org = (PFN_##x)fptr;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
-			return (PFN_vkVoidFunction)x##_libretro;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
-		}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
-	} while (0)
+#define LIBRETRO_VK_WARP_FUNC(x)                    \
+	if (!strcmp(pName, #x)) {                     \
+		x##_org = (PFN_##x)fptr;                   \
+		return (PFN_vkVoidFunction)x##_libretro;   \
+	}
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstance instance, const char *pName) {
 	if (false
@@ -362,8 +370,10 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 	}
 
 	PFN_vkVoidFunction fptr = vkGetInstanceProcAddr_org(instance, pName);
-	if (!fptr)
-		return fptr;
+   if (!fptr) {
+      ERROR_LOG(G3D, "Failed to load VK instance function: %s", pName);
+      return fptr;
+   }
 
 	LIBRETRO_VK_WARP_LIST();
 
@@ -400,7 +410,10 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 	vkCreateInstance = vkCreateInstance_libretro;
 }
 
-void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) { vulkan = (retro_hw_render_interface_vulkan *)hw_render_interface; }
+void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) {
+   vulkan = (retro_hw_render_interface_vulkan *)hw_render_interface;
+}
+
 void vk_libretro_shutdown() {
 	memset(&vk_init_info, 0x00, sizeof(vk_init_info));
 	vulkan = NULL;

@@ -13,8 +13,7 @@ pacman -S make
 Then use the following in msys:
 
 cd libretro
-
-make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores && rm nul
 
 Note that the latter part copies the DLL/PDB into wherever retroarch reads it from. Might need to adjust the path,
 and adjust -j32 depending on your number of logical CPUs - might not need that many threads (or you might need more...).
@@ -24,6 +23,13 @@ and adjust -j32 depending on your number of logical CPUs - might not need that m
 To debug from within MSVC, open retroarch.exe (or retroarch_debug.exe) as a Project/Solution, then open a few of the cpp files,
 set some breakpoints and just launch using F5.
 
+If you get
+
+```
+../git-version.cpp(3): error C2374: 'PPSSPP_GIT_VERSION': redefinition; multiple initialization
+../git-version.cpp(1): note: see declaration of 'PPSSPP_GIT_VERSION'
+```
+just do `rm ../git-version.cpp`.
 
 
 Useful libretro/vulkan sample code:

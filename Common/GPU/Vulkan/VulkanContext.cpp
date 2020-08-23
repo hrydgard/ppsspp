@@ -146,10 +146,14 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
+	// we get null pointers when running libretro. Quite strange.
+#if !defined(__LIBRETRO__)
 	if (IsInstanceExtensionAvailable(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
+#endif
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
