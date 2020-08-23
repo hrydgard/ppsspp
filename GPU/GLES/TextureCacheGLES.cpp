@@ -634,7 +634,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// glBindTexture(GL_TEXTURE_2D, entry->textureName);
 	lastBoundTexture = entry->textureName;
 	
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
@@ -859,12 +858,15 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 		gstate = saved;
 	}
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, false);
-	renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
+	bool result = entry->textureName != nullptr;
+	if (result) {
+		buffer.Allocate(w, h, GE_FORMAT_8888, false);
+		renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
+	}
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 
-	return true;
+	return result;
 #else
 	return false;
 #endif
