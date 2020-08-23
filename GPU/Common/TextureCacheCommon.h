@@ -185,6 +185,27 @@ class FramebufferManagerCommon;
 // Would really like to replace this with DenseHashMap but can't as long as we need lower_bound.
 typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
+// Urgh.
+#ifdef IGNORE
+#undef IGNORE
+#endif
+
+// TODO: Try to get rid of IGNORE, it doesn't match what we want to do
+enum class FramebufferMatch {
+	VALID = 0,
+	VALID_DEPAL,
+	INVALID,
+	NO_MATCH,
+	IGNORE,
+};
+
+// Separate to keep main texture cache size down.
+struct FramebufferMatchInfo {
+	FramebufferMatch match;
+	u32 xOffset;
+	u32 yOffset;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw);
@@ -236,12 +257,6 @@ protected:
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
-	// Separate to keep main texture cache size down.
-	struct AttachedFramebufferInfo {
-		u32 xOffset;
-		u32 yOffset;
-	};
-
 	void DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32Bit);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit);
@@ -256,9 +271,13 @@ protected:
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel);
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel);
+	FramebufferMatchInfo MatchFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
+
+	// Temporary utility during conversion
+	bool ApplyFramebufferMatch(FramebufferMatchInfo match, TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
+
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
 
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
@@ -306,7 +325,7 @@ protected:
 	u32 secondCacheSizeEstimate_;
 
 	std::vector<VirtualFramebuffer *> fbCache_;
-	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;
+	std::map<u64, FramebufferMatchInfo> fbTexInfo_;
 
 	std::map<u32, int> videos_;
 
