@@ -103,6 +103,8 @@ struct VirtualFramebuffer {
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
+
+	u32 hash;
 };
 
 struct FramebufferHeuristicParams {

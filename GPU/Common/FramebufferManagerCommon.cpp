@@ -934,6 +934,18 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	}
 	displayFramebuf_ = vfb;
 
+	if (PSP_CoreParameter().compat.flags().UpdateFramebufferFromMemorySync) {
+		const u32 sizeInRAM = (textureBitsPerPixel[displayFramebuf_->format] * displayFramebuf_->width * displayFramebuf_->height) / 8;
+		if (Memory::IsValidAddress(fbaddr + sizeInRAM)) {
+			u32 framebufHash = DoQuickTexHash((const u32 *)Memory::GetPointer(fbaddr), sizeInRAM);
+			if (framebufHash != displayFramebuf_->hash) {
+				INFO_LOG(G3D, "Framebuffer(%08x) is manipulated in memory, updating synchronously", fbaddr);
+				UpdateFromMemory(fbaddr, 0, true);
+				displayFramebuf_->hash = framebufHash;
+			}
+		}	
+	}
+
 	if (vfb->fbo) {
 		if (Core_IsStepping())
 			VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
