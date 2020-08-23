@@ -13,6 +13,7 @@
 #include "math/dataconv.h"
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
+#include "../../../Core/System.h"
 
 class GLRInputLayout;
 class GLPushBuffer;
