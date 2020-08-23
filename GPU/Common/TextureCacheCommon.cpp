@@ -763,9 +763,33 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	AttachedFramebufferInfo fbInfo = { 0 };
 
 	const u32 mirrorMask = 0x00600000;
+
 	u32 addr = address & 0x3FFFFFFF;
 	u32 texaddr = entry->addr + texaddrOffset;
-	if (entry->addr & 0x04000000) {
+	if (Memory::IsVRAMAddress(entry->addr)) {
+		// This bit controls swizzle. The swizzles at 0x00200000 and 0x00600000 are designed
+		// to perfectly match reading depth as color (which one to use I think might be related
+		// to the bpp of the color format used when rendering to it).
+		// It's fairly unlikely that games would screw this up since the result will be garbage so
+		// we use it to filter out unlikely matches.
+		switch (entry->addr & mirrorMask) {
+		case 0x00000000:
+		case 0x00400000:
+			// Don't match the depth channel with these addresses when texturing.
+			if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH) {
+				// God of War: If we actively detach here, the shadows disappear.
+				return false;
+			}
+			break;
+		case 0x00200000:
+		case 0x00600000:
+			// Don't match the color channel with these addresses when texturing.
+			if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
+				return false;
+			}
+			break;
+		}
+
 		addr &= ~mirrorMask;
 		texaddr &= ~mirrorMask;
 	}
