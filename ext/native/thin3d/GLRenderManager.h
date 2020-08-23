@@ -13,6 +13,7 @@
 #include "math/dataconv.h"
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
+#include "core/System.h"
 
 class GLRInputLayout;
 class GLPushBuffer;
@@ -562,6 +563,10 @@ public:
 	}
 
 	void BindTexture(int slot, GLRTexture *tex) {
+		if (coreState == CORE_POWERDOWN) {
+			INFO_LOG(G3D, "Shutdown on gpu");
+			return;
+		}
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
 		_dbg_assert_(slot < 16);
