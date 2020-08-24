@@ -72,6 +72,7 @@ public:
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
 	bool PerformStencilUpload(u32 dest, int size) override;
+	bool PerformFramebufferUpdate(u32 fbaddr, int size, bool finished) override;
 	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;

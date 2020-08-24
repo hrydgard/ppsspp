@@ -118,6 +118,8 @@ public:
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
 
+	bool PerformFramebufferUpdate(u32 fbaddr, int size, bool finished) override;
+
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
 	bool PerformStencilUpload(u32 dest, int size) override;
@@ -335,6 +337,8 @@ protected:
 	u64 startingTicks;
 	u32 cycleLastPC;
 	int cyclesExecuted;
+
+	u32 needUpdateFB = 0;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;

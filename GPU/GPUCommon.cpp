@@ -2770,6 +2770,17 @@ bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
 	return false;
 }
 
+bool GPUCommon::PerformFramebufferUpdate(u32 fbaddr, int size, bool finished) {
+	if (!Memory::IsVRAMAddress(fbaddr))
+		return false;
+	if (needUpdateFB == 0)
+		needUpdateFB = fbaddr;
+	framebufferManager_->UpdateFromMemory(needUpdateFB, size, true);
+	if (finished)
+		needUpdateFB = 0;
+	return true;
+}
+
 void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_->Invalidate(addr, size, type);

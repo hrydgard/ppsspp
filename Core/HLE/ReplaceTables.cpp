@@ -1238,6 +1238,15 @@ static int Hook_motorstorm_pixel_read() {
 	return 0;
 }
 
+static int Hook_openseason_data_decode() {
+	u32 curWritePtr = currentMIPS->r[MIPS_REG_A0];
+	u32 endPtr = currentMIPS->r[MIPS_REG_A1];
+	u32 writeBytes = currentMIPS->r[MIPS_REG_V0];
+	u32 startPtr = curWritePtr - writeBytes;
+	gpu->PerformFramebufferUpdate(startPtr, writeBytes, curWritePtr == endPtr);
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1350,7 +1359,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
 	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
-	{}
+	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKEXIT, 0 },
 };
 
 
@@ -1417,6 +1426,7 @@ static bool WriteReplaceInstruction(u32 address, int index) {
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
+	bool pushStack = false;
 	for (int index : indexes) {
 		bool didReplace = false;
 		auto entry = GetReplacementFunc(index);
@@ -1424,7 +1434,18 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
 				const u32 op = Memory::Read_Instruction(address + offset, false).encoding;
+				const u32 reallyOp = MIPS_IS_REPLACEMENT(op) ? replacedInstructions[address + offset] : op;
+				if ((reallyOp & 0xFFFF0000) == MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 0) && ((s16)(reallyOp & 0xFFFF)) < 0)
+					pushStack = true;
 				if (op == MIPS_MAKE_JR_RA()) {
+					// Look for a really func exit.
+					if (pushStack) {
+						u32 nextop = Memory::Read_Instruction(address + offset + 4, false).encoding;
+						if (MIPS_IS_REPLACEMENT(nextop))
+							nextop = replacedInstructions[address + offset + 4];
+						if ((nextop & 0xFFFF0000) != MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 0) || ((s16)(nextop & 0xFFFF)) < 0)
+							continue;
+					}
 					if (WriteReplaceInstruction(address + offset, index)) {
 						didReplace = true;
 					}

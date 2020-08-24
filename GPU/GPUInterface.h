@@ -216,6 +216,8 @@ public:
 	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;
 	virtual bool PerformStencilUpload(u32 dest, int size) = 0;
 
+	virtual bool PerformFramebufferUpdate(u32 fbaddr, int size, bool finished) = 0;
+
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;
 

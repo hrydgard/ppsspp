@@ -68,7 +68,6 @@ struct CompatFlags {
 	bool MoreAccurateVMMUL;
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
-	bool UpdateFramebufferFromMemorySync;
 };
 
 class IniFile;

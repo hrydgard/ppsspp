@@ -721,6 +721,10 @@ bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
 	return false;
 }
 
+bool NullGPU::PerformFramebufferUpdate(u32 fbaddr, int size, bool finished) {
+	return false;
+}
+
 bool NullGPU::PerformStencilUpload(u32 dest, int size) {
 	return false;
 }
