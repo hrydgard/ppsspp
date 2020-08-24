@@ -126,6 +126,7 @@ struct TexCacheEntry {
 		STATUS_BAD_MIPS = 0x400,       // Has bad or unusable mipmap levels.
 
 		STATUS_DEPTH = 0x800,
+		STATUS_FORCE_REBUILD = 0x1000,
 	};
 
 	// Status, but int so we can zero initialize.

@@ -825,8 +825,10 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	}
 
 	SetTexture(true);
-	if (!nextTexture_)
+	if (!nextTexture_) {
+		ERROR_LOG(G3D, "Failed to get debug texture: no texture set");
 		return false;
+	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
@@ -844,6 +846,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 		// We may have blitted to a temp FBO.
 		framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+		if (!retval)
+			ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
 		return retval;
 	}
 
@@ -862,6 +866,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	if (result) {
 		buffer.Allocate(w, h, GE_FORMAT_8888, false);
 		renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
+	} else {
+		ERROR_LOG(G3D, "Failed to get debug texture: texture is null");
 	}
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
