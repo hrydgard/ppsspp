@@ -21,6 +21,7 @@
 #endif
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdarg>
 
 #include "net/sinks.h"
@@ -185,6 +186,14 @@ bool InputSink::Block() {
 
 void InputSink::AccountFill(int bytes) {
 	if (bytes < 0) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		int err = WSAGetLastError();
+		if (err == WSAEWOULDBLOCK)
+			return;
+#else
+		if (errno == EWOULDBLOCK || errno == EAGAIN)
+			return;
+#endif
 		ERROR_LOG(IO, "Error reading from socket");
 		return;
 	}
