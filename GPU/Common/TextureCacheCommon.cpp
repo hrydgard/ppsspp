@@ -407,6 +407,12 @@ void TextureCacheCommon::SetTexture(bool force) {
 			rehash = false;
 		}
 
+		// Do we need to recreate?
+		if (entry->status & TexCacheEntry::STATUS_FORCE_REBUILD) {
+			match = false;
+			entry->status &= ~TexCacheEntry::STATUS_FORCE_REBUILD;
+		}
+
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFlips) {
 				u32 diff = gpuStats.numFlips - entry->lastFrame;
@@ -760,11 +766,12 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		const u64 cachekey = entry->CacheKey();
 		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 		entry->framebuffer = nullptr;
-		// Force the hash to change in case we had one before.
+		// Force recreate the texture in case we had one before and the hash matches.
 		// Otherwise we never recreate the texture.
-		entry->hash ^= 1;
+		entry->status |= TexCacheEntry::STATUS_FORCE_REBUILD;
 		fbTexInfo_.erase(cachekey);
 		GPUDebug::NotifyTextureAttachment(entry->addr);
+		InvalidateLastTexture(entry);
 	}
 }
 
