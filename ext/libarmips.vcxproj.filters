@@ -132,7 +132,6 @@
     <ClCompile Include="armips\Util\Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="armips\stdafx.cpp" />
     <ClCompile Include="armips\Core\Expression.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -171,6 +170,12 @@
     </ClCompile>
     <ClCompile Include="armips\Archs\MIPS\MipsExpressionFunctions.cpp">
       <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Core\Allocations.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Util\FileSystem.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -276,7 +281,6 @@
     <ClInclude Include="armips\Util\Util.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="armips\stdafx.h" />
     <ClInclude Include="armips\Core\Expression.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -318,6 +322,12 @@
     </ClInclude>
     <ClInclude Include="armips\Archs\MIPS\MipsExpressionFunctions.h">
       <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Core\Allocations.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Util\FileSystem.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

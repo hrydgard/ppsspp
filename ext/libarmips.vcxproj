@@ -187,14 +187,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>$(ProjectName)d64</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
   </PropertyGroup>
@@ -211,13 +211,13 @@
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)tests</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName)tests64</TargetName>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
@@ -235,14 +235,14 @@
     <IntDir>_Output\$(ProjectName)\$(Configuration)ARM\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>$(ProjectName)64</TargetName>
-    <IncludePath>.;$(IncludePath)</IncludePath>
+    <IncludePath>.;.\armips\ext\filesystem\include;.\armips\ext\tinyformat;$(IncludePath)</IncludePath>
     <OutDir>_Output\</OutDir>
     <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
   </PropertyGroup>
@@ -260,7 +260,6 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -269,6 +268,7 @@
       </ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -280,7 +280,6 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -290,6 +289,7 @@
       </ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -341,11 +341,11 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -354,11 +354,11 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -395,7 +395,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -405,6 +404,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -416,7 +416,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -428,6 +427,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>false</OmitFramePointers>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -510,6 +510,7 @@
     <ClCompile Include="armips\Commands\CDirectiveFile.cpp" />
     <ClCompile Include="armips\Commands\CDirectiveMessage.cpp" />
     <ClCompile Include="armips\Commands\CommandSequence.cpp" />
+    <ClCompile Include="armips\Core\Allocations.cpp" />
     <ClCompile Include="armips\Core\Assembler.cpp" />
     <ClCompile Include="armips\Core\Common.cpp" />
     <ClCompile Include="armips\Core\ELF\ElfFile.cpp" />
@@ -524,24 +525,11 @@
     <ClCompile Include="armips\Parser\ExpressionParser.cpp" />
     <ClCompile Include="armips\Parser\Parser.cpp" />
     <ClCompile Include="armips\Parser\Tokenizer.cpp" />
-    <ClCompile Include="armips\stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="armips\Util\ByteArray.cpp" />
     <ClCompile Include="armips\Util\CRC.cpp" />
     <ClCompile Include="armips\Util\EncodingTable.cpp" />
     <ClCompile Include="armips\Util\FileClasses.cpp" />
+    <ClCompile Include="armips\Util\FileSystem.cpp" />
     <ClCompile Include="armips\Util\Util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -572,6 +560,7 @@
     <ClInclude Include="armips\Commands\CDirectiveFile.h" />
     <ClInclude Include="armips\Commands\CDirectiveMessage.h" />
     <ClInclude Include="armips\Commands\CommandSequence.h" />
+    <ClInclude Include="armips\Core\Allocations.h" />
     <ClInclude Include="armips\Core\Assembler.h" />
     <ClInclude Include="armips\Core\Common.h" />
     <ClInclude Include="armips\Core\ELF\ElfFile.h" />
@@ -588,11 +577,11 @@
     <ClInclude Include="armips\Parser\ExpressionParser.h" />
     <ClInclude Include="armips\Parser\Parser.h" />
     <ClInclude Include="armips\Parser\Tokenizer.h" />
-    <ClInclude Include="armips\stdafx.h" />
     <ClInclude Include="armips\Util\ByteArray.h" />
     <ClInclude Include="armips\Util\CRC.h" />
     <ClInclude Include="armips\Util\EncodingTable.h" />
     <ClInclude Include="armips\Util\FileClasses.h" />
+    <ClInclude Include="armips\Util\FileSystem.h" />
     <ClInclude Include="armips\Util\Util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

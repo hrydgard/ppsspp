@@ -568,7 +568,12 @@
     <ClCompile Include="Cwcheat.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\DisassemblyManager.cpp" />
-    <ClCompile Include="Debugger\SymbolMap.cpp" />
+    <ClCompile Include="Debugger\SymbolMap.cpp">
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="Dialog\PSPDialog.cpp" />
     <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
@@ -900,7 +905,12 @@
     <ClCompile Include="MIPS\JitCommon\JitState.cpp" />
     <ClCompile Include="MIPS\MIPS.cpp" />
     <ClCompile Include="MIPS\MIPSAnalyst.cpp" />
-    <ClCompile Include="MIPS\MIPSAsm.cpp" />
+    <ClCompile Include="MIPS\MIPSAsm.cpp">
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext;../ext/armips/;../ext/armips/ext/filesystem/include/;../ext/armips/ext/tinyformat/</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSCodeUtils.cpp" />
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
     <ClCompile Include="MIPS\MIPSDis.cpp" />
