@@ -49,7 +49,6 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
-#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
@@ -928,11 +927,12 @@ extern int newChat;
 SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC);
 
 /**
- * Get the Non-Blocking Mode of the socket
+ * Get the Readability(ie. recv) and/or Writability(ie. send) of a socket
  * @param fd File Descriptor of the socket
- * @return 1 for non-blocking, 0 for blocking
+ * @param timeout in usec (micro seconds), 0 = non-blocking
+ * @return > 0 = ready, 0 = timeout, -1 = error (errorcode only represent error of select and doesn't represent error of the socket)
  */
-int getNonBlockingFlag(int fd);
+int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode = nullptr, int timeoutUS = 0);
 
 /**
  * Changes the Blocking Mode of the socket

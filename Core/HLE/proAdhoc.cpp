@@ -43,6 +43,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Instance.h"
 #include "proAdhoc.h" 
 
@@ -212,13 +213,26 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 	return peer;
 }
 
-int getNonBlockingFlag(int fd) {
-#ifdef _WIN32
-	return 0;
-#else
-	int sockflag = fcntl(fd, F_GETFL, O_NONBLOCK);
-	return sockflag & O_NONBLOCK;
-#endif
+int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeoutUS) {
+	fd_set readfds, writefds;
+	timeval tval;
+
+	FD_ZERO(&readfds);
+	writefds = readfds;
+	if (readfd) {	
+		FD_SET(fd, &readfds);
+	}
+	if (writefd) {	
+		FD_SET(fd, &writefds);
+	}
+	tval.tv_sec = timeoutUS / 1000000;
+	tval.tv_usec = timeoutUS % 1000000;
+
+	int ret = select(fd + 1, &readfds, &writefds, nullptr, &tval);
+	if (errorcode != nullptr)
+		*errorcode = errno;
+
+	return ret;
 }
 
 void changeBlockingMode(int fd, int nonblocking) {
@@ -1186,14 +1200,14 @@ void sendChat(std::string chatString) {
 			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
-			changeBlockingMode(metasocket, 0);
-			int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
-			changeBlockingMode(metasocket, 1);
-			NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-			name = g_Config.sNickName.c_str();
-			chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
-			if (chatScreenVisible) {
-				updateChatScreen = true;
+			if (IsSocketReady(metasocket, false, true) > 0) {
+				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), 0);
+				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
+				name = g_Config.sNickName.c_str();
+				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+				if (chatScreenVisible) {
+					updateChatScreen = true;
+				}
 			}
 		}
 	}
@@ -1242,49 +1256,66 @@ int friendFinder(){
 
 		// Reconnect when disconnected while Adhocctl is still inited
 		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited) {
-			if (g_Config.bEnableWlan && initNetwork(&product_code) == 0) {
-				networkInited = true;
-			}
-		}
-
-		if (networkInited) {
-			// Ping Server
-			now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
-			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
-				// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
-				// Update Ping Time
-				lastping = now;
-
-				// Prepare Packet
-				uint8_t opcode = OPCODE_PING;
-
-				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-				changeBlockingMode(metasocket, 0);
-				int iResult = send(metasocket, (const char*)&opcode, 1, 0);
-				changeBlockingMode(metasocket, 1);
-				if (iResult == SOCKET_ERROR) {
-					ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", errno);
+			if (g_Config.bEnableWlan) {
+				if (initNetwork(&product_code) == 0) {
+					networkInited = true;
+					INFO_LOG(SCENET, "FriendFinder: Network [RE]Initialized");
+				} 
+				else {
 					networkInited = false;
 					shutdown(metasocket, SD_BOTH);
 					closesocket(metasocket);
 					metasocket = (int)INVALID_SOCKET;
 				}
 			}
+		}
 
-			// Wait for Incoming Data
-			int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, 0);
+		if (networkInited) {
+			// Ping Server
+			now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
+			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
+			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+				// Prepare Packet
+				uint8_t opcode = OPCODE_PING;
 
-			// Free Network Lock
-			//_freeNetworkLock();
+				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
+				if (IsSocketReady(metasocket, false, true) > 0) {
+					int iResult = send(metasocket, (const char*)&opcode, 1, 0);
+					int error = errno;
+					// KHBBS seems to be getting error 10053 often
+					if (iResult == SOCKET_ERROR) {
+						ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", error);
+						if (error != EAGAIN && error != EWOULDBLOCK) {
+							networkInited = false;
+							shutdown(metasocket, SD_BOTH);
+							closesocket(metasocket);
+							metasocket = (int)INVALID_SOCKET;
+						}
+					}
+					else {
+						// Update Ping Time
+						lastping = now;
+						DEBUG_LOG(SCENET, "FriendFinder: Sending OPCODE_PING (%llu)", now);
+					}
+				}
+			}
 
-			// Received Data
-			if (received > 0) {
-				// Fix Position
-				rxpos += received;
+			// Check for Incoming Data
+			if (IsSocketReady(metasocket, true, false) > 0) {
+				int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, 0);
 
-				// Log Incoming Traffic
-				//printf("Received %d Bytes of Data from Server\n", received);
-				INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
+				// Free Network Lock
+				//_freeNetworkLock();
+
+				// Received Data
+				if (received > 0) {
+					// Fix Position
+					rxpos += received;
+
+					// Log Incoming Traffic
+					//printf("Received %d Bytes of Data from Server\n", received);
+					INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
+				}
 			}
 
 			// Handle Packets
@@ -1297,6 +1328,9 @@ int friendFinder(){
 						SceNetAdhocctlConnectBSSIDPacketS2C* packet = (SceNetAdhocctlConnectBSSIDPacketS2C*)rx;
 
 						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac).c_str());
+						// Update User BSSID
+						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
+
 						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
 						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							setState(ADHOCCTL_STATE_GAMEMODE);
@@ -1307,8 +1341,6 @@ int friendFinder(){
 							notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 						}*/
 
-						// Update User BSSID
-						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 						// Notify Event Handlers
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 						// Change State
@@ -1576,9 +1608,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
-		changeBlockingMode(metasocket, 0);
 		int ret = getsockname(metasocket, (struct sockaddr*)&localAddr, &addrLen);
-		changeBlockingMode(metasocket, 1);
 		if (SOCKET_ERROR != ret) {
 			if (isLocalServer) {
 				localAddr.sin_addr = g_localhostIP.in.sin_addr;
@@ -1858,6 +1888,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		return SOCKET_ERROR;
 	}
 	setSockKeepAlive(metasocket, true);
+	// Disable Nagle Algo to prevent delaying small packets
+	setSockNoDelay(metasocket, 1);
+	// Switch to Nonblocking Behaviour
+	changeBlockingMode(metasocket, 1);
 
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
@@ -1914,17 +1948,14 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	product_code.type = adhoc_id->type;
 	memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
-	// Switch to Nonblocking Behaviour
-	changeBlockingMode(metasocket, 1);
 	// Connect to Adhoc Server
 	server_addr.sin_addr = serverIp;
 	int errorcode = 0;
 	int cnt = 0;
-	while ((iResult = connect(metasocket, (sockaddr*)&server_addr, sizeof(server_addr))) == SOCKET_ERROR && (errorcode = errno) != EISCONN && cnt < adhocDefaultTimeout) {
-		sleep_ms(1);
-		cnt++;
-	}
-	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
+	iResult = connect(metasocket, (sockaddr*)&server_addr, sizeof(server_addr));
+	errorcode = errno;
+
+	if (iResult == SOCKET_ERROR && errorcode != EISCONN && (IsSocketReady(metasocket, true, true, nullptr, adhocDefaultTimeout * 1000) <= 0)) {
 		char buffer[512];
 		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
 		ERROR_LOG(SCENET, "%s", buffer);
@@ -1941,9 +1972,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	strncpy((char *)&packet.name.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-	changeBlockingMode(metasocket, 0);
+
+	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout * 1000);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
-	changeBlockingMode(metasocket, 1);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);

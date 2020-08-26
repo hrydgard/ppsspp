@@ -46,7 +46,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
@@ -63,7 +62,7 @@ static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 int adhocDefaultTimeout = 2000; //5000 ms
 int adhocExtraPollDelayMS = 10; //10
-int adhocEventPollDelayMS = 100; //100
+int adhocEventPollDelayMS = 100; //100; Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
 int adhocMatchingEventDelayMS = 30; //30
 int adhocEventDelayMS = 300; //500; This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
 
@@ -78,6 +77,7 @@ int IsAdhocctlInCB = 0;
 
 int adhocctlNotifyEvent = -1;
 int adhocSocketNotifyEvent = -1;
+std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<int, AdhocSocketRequest> adhocSocketRequests;
 std::map<int, AdhocSendTargets> sendTargetPeers;
 
@@ -129,9 +129,51 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0)
-		return; // FIXME: Is it safe to exit here like this without re-scheduling the event? Will this event be triggered again? What will happen to the result i might want to change if exited here?
+		return;
 
-	int waitVal = __KernelGetWaitValue(threadID, error); // FIXME: Is this value going to be a valid value if waitID == 0? or it's a value belonged to other event?
+	// Socket not found?! Should never happened! but if it ever happen should we just exit here or need to wake the thread first?
+	if (adhocctlRequests.find(uid) == adhocctlRequests.end()) {
+		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) not found!", uid);
+		//__KernelResumeThreadFromWait(threadID, ERROR_NET_ADHOCCTL_BUSY);
+		return;
+	}
+
+	AdhocctlRequest& req = adhocctlRequests[uid];
+	int len = 0;
+
+	SceNetAdhocctlConnectPacketC2S packet;
+	memset(&packet, 0, sizeof(packet));
+	packet.base.opcode = req.opcode;
+	packet.group = req.group;
+
+	switch (req.opcode)
+	{
+	case OPCODE_CONNECT:
+		len = sizeof(packet);
+		break;
+	case OPCODE_SCAN:
+	case OPCODE_DISCONNECT:
+		len = 1;
+		break;
+	}
+
+	// Send Packet if it wasn't succesfully sent before
+	if (len > 0) {
+		if (IsSocketReady(metasocket, false, true) > 0) {
+			int ret = send(metasocket, (const char*)&packet, len, 0);
+			int sockerr = errno;
+
+			if (ret > 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
+				// Prevent from sending again
+				req.opcode = 0;
+				if (ret == SOCKET_ERROR)
+					DEBUG_LOG(SCENET, "sceNetAdhocctl[%i]: Socket Error (%i)", uid, sockerr);
+			}
+		}
+	}
+
+	// Now we just need to wait for replies from adhoc server and the change of state
+	int waitVal = __KernelGetWaitValue(threadID, error);
 	if (adhocctlState != waitVal && error == 0) {
 		// Detecting Adhocctl Initialization using waitVal < 0
 		if (waitVal >= 0 || (waitVal < 0 && (g_Config.bEnableWlan && !networkInited))) {
@@ -148,20 +190,32 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			result = 0; // Faking successfully connected to adhoc server
 	}
 
-	//HLEKernel::ResumeFromWait(threadID, WAITTYPE_NET, uid, result); // FIXME: This won't do anything if waitID == 0, not sure what kind of value returned from the HLE which i might want to change here.
-	__KernelResumeThreadFromWait(threadID, result); // FIXME: Forcing to change the result, will it cause an issue if waitID == 0?
+	__KernelResumeThreadFromWait(threadID, result);
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - State: %d", waitID, error, (int)result, adhocctlState);
+
+	// We are done with this request
+	adhocctlRequests.erase(uid);
 }
 
-void WaitAdhocctlState(int state, int usec, const char* reason) {	
+int WaitAdhocctlState(AdhocctlRequest request, int state, int usec, const char* reason) {
+	int uid = (state < 0) ? 1 : metasocket;
+
+	if (adhocctlRequests.find(uid) != adhocctlRequests.end()) {
+		WARN_LOG(SCENET, "sceNetAdhocctl - WaitID[%d] already existed, Socket is busy!", uid);
+		return ERROR_NET_ADHOCCTL_BUSY;
+	}
+
 	if (adhocctlNotifyEvent < 0)
 		adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 
-	int uid = (state < 0)? 1: metasocket;
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	adhocctlStartTime = (u64)(real_time_now() * 1000.0);
+	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, state, 0, false, reason);
+
+	// faked success
+	return 0;
 }
 
 int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
@@ -386,17 +440,10 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
-	fd_set readfds, writefds;
-	timeval tval;
-	FD_ZERO(&readfds);
-	FD_SET(uid, &readfds);
-	writefds = readfds;
-	tval.tv_sec = 0;
-	tval.tv_usec = 0;
+	int sockerr;
 
 	// Wait for Connection (assuming "connect" has been called before)		
-	int ret = select(uid + 1, &readfds, &writefds, NULL, &tval);
-	int sockerr = errno;
+	int ret = IsSocketReady(uid, true, true, &sockerr);
 
 	// Connection is ready
 	if (ret > 0) {
@@ -535,11 +582,11 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 		break;
 	}
 
-	// We are done with this socket
-	adhocSocketRequests.erase(uid);
-
 	__KernelResumeThreadFromWait(threadID, result);
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhoc - SocketID: %d", waitID, error, (int)result, req.id);
+
+	// We are done with this socket
+	adhocSocketRequests.erase(uid);
 }
 
 int WaitBlockingAdhocSocket(int socketId, int type, int pspSocketId, void* buffer, s32_le* len, u32 timeoutUS, SceNetEtherAddr* remoteMAC, u16_le* remotePort, const char* reason) {
@@ -551,8 +598,7 @@ int WaitBlockingAdhocSocket(int socketId, int type, int pspSocketId, void* buffe
 	if (adhocSocketNotifyEvent < 0)
 		adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
 
-	if (getNonBlockingFlag(socketId) == 0)
-		changeBlockingMode(socketId, 1);
+	//changeBlockingMode(socketId, 1);
 
 	u32 tmout = timeoutUS;
 	if (tmout > 0)
@@ -646,6 +692,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// Discard leftover events
 		adhocctlEvents.clear();
 		matchingEvents.clear();
+		adhocctlRequests.clear();
 		adhocSocketRequests.clear();
 		sendTargetPeers.clear();
 		
@@ -683,6 +730,7 @@ void __AdhocNotifInit() {
 	adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
 
+	adhocctlRequests.clear();
 	adhocSocketRequests.clear();
 	sendTargetPeers.clear();
 }
@@ -744,7 +792,8 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	// Need to make sure to be connected to adhoc server before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
 	int us = adhocExtraPollDelayMS * 1000;
 	if (g_Config.bEnableWlan && !networkInited) {
-		WaitAdhocctlState(-1, us, "adhoc init");
+		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
+		return WaitAdhocctlState(dummyreq, -1, us, "adhocctl init");
 	}
 	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	else 
@@ -871,6 +920,9 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								//sceNetPortOpen("UDP", port);
 								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
 								
+								// Switch to non-blocking for futher usage
+								changeBlockingMode(usocket, 1);
+
 								// Success
 								return i + 256;
 							} 
@@ -1009,7 +1061,6 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									//_acquireNetworkLock();
 
 									// Send Data. UDP are guaranteed to be sent as a whole or nothing(failed if len > SO_MAX_MSG_SIZE), and never be partially sent/recv
-									changeBlockingMode(socket->id, 1);
 									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
 									int error = errno;
 
@@ -1087,8 +1138,6 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								peerlock.unlock();
 
 								// Send Data
-								changeBlockingMode(socket->id, 1); // Do we need to switched to blocking-mode to make sure the data are fully sent?
-
 								// Simulate blocking behaviour with non-blocking socket
 								if (!flag) {
 									if (sendTargetPeers.find(socket->id) != sendTargetPeers.end()) {
@@ -1232,11 +1281,9 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				
 				
 				// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
-				changeBlockingMode(socket->id, 1);
 				// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
 				received = recvfrom(socket->id, (char*)buf, *len, MSG_PEEK, (sockaddr*)&sin, &sinlen);
 				if (received != SOCKET_ERROR && *len < received) {
-					changeBlockingMode(socket->id, 0);
 					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(socket->id), received, *len, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 					*len = received;
 
@@ -1272,7 +1319,6 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv[%i:%u] [size=%i]", error, id, socket->lport, *len);
 				}
-				changeBlockingMode(socket->id, 0);
 				
 				// Should we set output length to 0 on Error?
 				*len = 0;
@@ -1571,6 +1617,7 @@ int sceNetAdhocctlScan() {
 
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
+			int us = adhocEventPollDelayMS * 1000;
 
 			// Reset Networks/Group list to prevent other threads from using these soon to be replaced networks
 			peerlock.lock();
@@ -1582,17 +1629,23 @@ int sceNetAdhocctlScan() {
 			uint8_t opcode = OPCODE_SCAN;
 
 			// Send Scan Request Packet, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-			changeBlockingMode(metasocket, 0);
 			int iResult = send(metasocket, (char *)&opcode, 1, 0);
 			int error = errno;
-			changeBlockingMode(metasocket, 1);
+
 			if (iResult == SOCKET_ERROR) {
-				ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-				//notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-				//if (error == ECONNABORTED || error == ECONNRESET || error == ENOTCONN) return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // A case where it need to reconnect to AdhocServer
-				return ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY 
+				if (error != EAGAIN && error != EWOULDBLOCK) {
+					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+					//if (error == ECONNABORTED || error == ECONNRESET || error == ENOTCONN) return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // A case where it need to reconnect to AdhocServer
+					return ERROR_NET_ADHOCCTL_BUSY;
+				}
+				else if (friendFinderRunning) {
+					AdhocctlRequest req = { OPCODE_SCAN, {0} };
+					return WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl scan");
+				}
 			}
+			else 
+				hleDelayResult(0, "give a little time to be ready to receive the callback", us); // Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
 
 			// Return Success
 			return 0;
@@ -1741,6 +1794,8 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
+		int iResult, error;
+		int us = adhocEventPollDelayMS * 1000;
 		// Connected State (Adhoc Mode)
 		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { // (threadStatus == ADHOCCTL_STATE_CONNECTED) 
 			// Clear Network Name
@@ -1756,14 +1811,20 @@ u32 NetAdhocctl_Disconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			changeBlockingMode(metasocket, 0);
-			int iResult = send(metasocket, (const char*)&opcode, 1, 0);
-			int error = errno;
-			changeBlockingMode(metasocket, 1);
+			iResult = send(metasocket, (const char*)&opcode, 1, 0);
+			error = errno;
+
+			// Sending may get socket error 10053 if the AdhocServer is already shutted down
 			if (iResult == SOCKET_ERROR) {
-				ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-				// Set Disconnected State
-				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				if (error != EAGAIN && error != EWOULDBLOCK) {
+					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
+					// Set Disconnected State
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				} 
+				else if (friendFinderRunning) {
+					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
+					WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl disconnect");
+				}
 			}
 
 			// Free Network Lock
@@ -1793,12 +1854,8 @@ u32 NetAdhocctl_Disconnect() {
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 		//hleCheckCurrentCallbacks();
 
-		int us = adhocEventPollDelayMS * 1000;
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED && friendFinderRunning) {
-			WaitAdhocctlState(ADHOCCTL_STATE_DISCONNECTED, us, "adhoc disconnect");
-		}
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
-		else if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED)
+		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED || iResult != SOCKET_ERROR)
 			hleDelayResult(0, "give time to init/cleanup", us);
 
 		return 0;
@@ -2038,10 +2095,9 @@ int NetAdhocctl_Create(const char* groupName) {
 				// Acquire Network Lock
 
 				// Send Packet
-				changeBlockingMode(metasocket, 0);
 				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), 0);
 				int error = errno;
-				changeBlockingMode(metasocket, 1);
+
 				if (iResult == SOCKET_ERROR) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
 					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
@@ -2059,11 +2115,13 @@ int NetAdhocctl_Create(const char* groupName) {
 
 				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
 				int us = adhocEventDelayMS * 1000;
-				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && friendFinderRunning) {
-					WaitAdhocctlState(ADHOCCTL_STATE_CONNECTED, us, "adhoc connect");
+				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && iResult == SOCKET_ERROR && friendFinderRunning) {
+					AdhocctlRequest req = { OPCODE_CONNECT, {0} };
+					if (groupNameStruct != NULL) req.group = *groupNameStruct;
+					return WaitAdhocctlState(req, ADHOCCTL_STATE_CONNECTED, us, "adhocctl connect");
 				}
 				// Giving time for Naruto Shippuden Ninja Heroes 3 to close down the "Connecting..." dialog, otherwise the dialog will stuck there.
-				else if (adhocctlState == ADHOCCTL_STATE_CONNECTED)
+				else if (adhocctlState == ADHOCCTL_STATE_CONNECTED || iResult != SOCKET_ERROR)
 					hleDelayResult(0, "give time to init/cleanup", us);
 
 				// Return Success
@@ -2497,6 +2555,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 									if (!isClient)
 										UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset); // g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 									
+									// Switch to non-blocking for futher usage
+									changeBlockingMode(tcpsocket, 1);
+
 									// Return PTP Socket Pointer
 									return i + 1;
 								}
@@ -2665,15 +2726,6 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					memset(&peeraddr, 0, sizeof(peeraddr));
 					socklen_t peeraddrlen = sizeof(peeraddr);
 					
-					// Grab Nonblocking Flag
-					uint32_t nbio = getNonBlockingFlag(socket->id);
-					// Switch to Nonblocking Behaviour
-					if (nbio == 0) {
-						// Overwrite Socket Option
-						changeBlockingMode(socket->id, 1);
-					}
-					
-					// TODO: Use a different thread (similar to sceIo) for recvfrom, recv & accept to prevent blocking-socket from blocking emulation
 					// Accept Connection
 					int newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
 					int error = errno;
@@ -2687,12 +2739,6 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 						else {
 							VERBOSE_LOG(SCENET, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, error);
 						}
-					}
-					
-					// Restore Blocking Behaviour
-					if (nbio == 0) {
-						// Restore Socket Option
-						changeBlockingMode(socket->id, 0);
 					}
 					
 					// Accepted New Connection
@@ -2769,10 +2815,6 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Grab Nonblocking Flag
 					//uint32_t nbio = getNonBlockingFlag(socket->id);
 
-					// Switch to Nonblocking Behaviour. Forcing blocking behaviour on the first connect may fix connection issue on GvG Next Plus, But i don't like using blocking socket with infinite timeout if the game it self were asking for non-blocking behaviour :(
-					// We are using non-blocking to simulate blocking
-					changeBlockingMode(socket->id, 1);
-					
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					// TODO: Keep track number of Connect attempts so we can simulate blocking on first attempt (getNonBlockingFlag can't be used to get non-blocking flag on Windows thus can't be used to keep track)
@@ -2998,6 +3040,9 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 										//sceNetPortOpen("TCP", sport);
 										UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset); // g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 										
+										// Switch to non-blocking for futher usage
+										changeBlockingMode(tcpsocket, 1);
+
 										// Return PTP Socket Pointer
 										return i + 1;
 									}
@@ -3082,7 +3127,6 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// _acquireNetworkLock();
 					
 					// Send Data
-					changeBlockingMode(socket->id, 1);
 					int sent = send(socket->id, data, *len, 0);
 					int error = errno;
 					
@@ -3173,7 +3217,6 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 				int error = 0;
 
 				// Receive Data
-				changeBlockingMode(socket->id, 1);
 				received = recv(socket->id, (char*)buf, *len, 0);
 				error = errno;
 
@@ -3185,7 +3228,6 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPtpRecv[%i:%u] [size=%i]", error, id, socket->lport, *len);
 				}
-				changeBlockingMode(socket->id, 0);
 				
 				// Free Network Lock
 				// _freeNetworkLock();

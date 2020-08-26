@@ -30,6 +30,11 @@ typedef struct MatchingArgs {
 #pragma pack(pop)
 #endif
 
+struct AdhocctlRequest {
+	u8 opcode;
+	SceNetAdhocctlGroupName group;
+};
+
 struct AdhocSendTarget {
 	u32 ip;
 	u16 port; // original port
@@ -48,7 +53,7 @@ struct AdhocSocketRequest {
 	s32_le* length;
 	u32 timeout;
 	u64 startTime;
-	struct SceNetEtherAddr* remoteMAC;
+	SceNetEtherAddr* remoteMAC;
 	u16_le* remotePort;
 };
 
