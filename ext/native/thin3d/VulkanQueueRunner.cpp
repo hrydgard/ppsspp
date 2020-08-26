@@ -1070,13 +1070,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		if (step.render.framebuffer->depth.layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
 			barriers[n].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			barriers[n].oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-			barriers[n].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barriers[n].newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 			barriers[n].subresourceRange.layerCount = 1;
 			barriers[n].subresourceRange.levelCount = 1;
 			barriers[n].image = step.render.framebuffer->depth.image;
 			barriers[n].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			barriers[n].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 			barriers[n].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barriers[n].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			stage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
