@@ -533,12 +533,8 @@ void TextureCacheCommon::SetTexture(bool force) {
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	// We must do this early so we have the right w/h.
 	entry->framebuffer = nullptr;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		auto notificationChannel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
-		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, 0, notificationChannel);
-		ApplyFramebufferMatch(match, entry, framebuffer->fb_address, framebuffer, notificationChannel);
-	}
+
+	AttachFramebufferToEntry(entry, 0);
 
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
@@ -550,6 +546,20 @@ void TextureCacheCommon::SetTexture(bool force) {
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
 }
+
+bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset) {
+	bool success = false;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
+		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, texAddrOffset, channel);
+		if (ApplyFramebufferMatch(match, entry, framebuffer->fb_address, framebuffer, channel)) {
+			success = true;
+		}
+	}
+	return success;
+}
+
 
 // Removes old textures.
 void TextureCacheCommon::Decimate(bool forcePressure) {
@@ -665,8 +675,12 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
+		// Try to match the new framebuffer to existing textures.
+		// Backwards from the "usual" texturing case so can't share a utility function.
+
 		// Ensure it's in the framebuffer cache.
 		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
+			ERROR_LOG(G3D, "Shouldn't happen: NotifyFramebuffer with framebuffer not in fbCache_");
 			fbCache_.push_back(framebuffer);
 		}
 
@@ -676,6 +690,7 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
 			ApplyFramebufferMatch(match, entry, addr, framebuffer, channel);
 		}
+
 		// Let's assume anything in mirrors is fair game to check.
 		// TODO: Only do this for depth?
 		for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
@@ -1011,15 +1026,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	}
 	TexCacheEntry *entry = iter->second.get();
 
-	bool success = false;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
-		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, texaddrOffset, channel);
-		if (ApplyFramebufferMatch(match, entry, framebuffer->fb_address, framebuffer, channel)) {
-			success = true;
-		}
-	}
+	bool success = AttachFramebufferToEntry(entry, texaddrOffset);
 
 	if (success && entry->framebuffer) {
 		// This will not apply the texture immediately.

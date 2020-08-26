@@ -274,6 +274,8 @@ protected:
 
 	FramebufferMatchInfo MatchFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
 
+	bool AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset);
+
 	// Temporary utility during conversion
 	bool ApplyFramebufferMatch(FramebufferMatchInfo match, TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
 
