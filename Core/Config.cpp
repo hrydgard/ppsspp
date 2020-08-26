@@ -501,6 +501,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),
 
 	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
+	ConfigSetting("LoadPlugins", &g_Config.bLoadPlugins, false, true, true),
 
 	ConfigSetting(false),
 };

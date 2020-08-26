@@ -32,6 +32,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
@@ -331,6 +332,8 @@ public:
 			}
 		}
 
+		HLEPlugins::DoState(p);
+
 		RebuildImpExpModuleNames();
 	}
 
@@ -529,6 +532,7 @@ void __KernelModuleShutdown()
 {
 	loadedModules.clear();
 	MIPSAnalyst::Reset();
+	HLEPlugins::Unload();
 }
 
 // Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
@@ -1621,6 +1625,8 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+	HLEPlugins::Load();
 }
 
 

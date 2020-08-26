@@ -123,6 +123,7 @@ public:
 	std::string sRemoteISOSubdir;
 	bool bRemoteDebuggerOnStartup;
 	bool bMemStickInserted;
+	bool bLoadPlugins;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
