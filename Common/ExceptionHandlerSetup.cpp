@@ -21,6 +21,7 @@
 #include "Common/MachineContext.h"
 
 static BadAccessHandler g_badAccessHandler;
+static void *altStack = nullptr;
 
 #ifdef MACHINE_CONTEXT_SUPPORTED
 
@@ -287,10 +288,11 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack{};
+	altStack = malloc(SIGSTKSZ);
 #ifdef __FreeBSD__
-	signal_stack.ss_sp = (char*)malloc(SIGSTKSZ);
+	signal_stack.ss_sp = (char*)altStack;
 #else
-	signal_stack.ss_sp = malloc(SIGSTKSZ);
+	signal_stack.ss_sp = altStack;
 #endif
 	signal_stack.ss_size = SIGSTKSZ;
 	signal_stack.ss_flags = 0;
@@ -300,7 +302,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	struct sigaction sa{};
 	sa.sa_handler = nullptr;
 	sa.sa_sigaction = &sigsegv_handler;
-	sa.sa_flags = SA_SIGINFO;
+	sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGSEGV, &sa, &old_sa_segv);
 #ifdef __APPLE__
@@ -313,10 +315,13 @@ void UninstallExceptionHandler() {
 		return;
 	}
 	stack_t signal_stack{};
-	stack_t old_stack{};
 	signal_stack.ss_flags = SS_DISABLE;
-	if (0 == sigaltstack(&signal_stack, &old_stack) && !(old_stack.ss_flags & SS_DISABLE)) {
-		free(old_stack.ss_sp);
+	if (0 != sigaltstack(&signal_stack, nullptr)) {
+		ERROR_LOG(SYSTEM, "Could not remove signal altstack");
+	}
+	if (altStack) {
+		free(altStack);
+		altStack = nullptr;
 	}
 	sigaction(SIGSEGV, &old_sa_segv, nullptr);
 #ifdef __APPLE__
