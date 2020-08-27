@@ -351,12 +351,34 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		break;
 	}
 
+	switch (key.finalDepthStencilLayout) {
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		// Nothing to do.
+		break;
+	default:
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected final depth layout %d", (int)key.finalDepthStencilLayout);
+		break;
+	}
+
 	if (deps[numDeps].dstAccessMask) {
 		deps[numDeps].srcSubpass = 0;
 		deps[numDeps].dstSubpass = VK_SUBPASS_EXTERNAL;
 		deps[numDeps].dependencyFlags = 0;
-		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		numDeps++;
 	}
 
