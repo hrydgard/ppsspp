@@ -49,7 +49,6 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 
 	auto options = ini.GetOrCreateSection("options");
 	std::string value;
-	int ivalue;
 
 	if (options->Get("type", &value, "")) {
 		if (value == "prx") {
