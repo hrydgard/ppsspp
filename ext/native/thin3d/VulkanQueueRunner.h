@@ -180,7 +180,7 @@ public:
 		backbufferImage_ = img;
 	}
 
-	// RunSteps can modify steps but will leave it in a valid state.
+	void PreprocessSteps(std::vector<VKRStep *> &steps);
 	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 

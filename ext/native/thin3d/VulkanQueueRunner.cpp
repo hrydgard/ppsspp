@@ -378,9 +378,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
-	if (profile)
-		profile->cpuStartTime = real_time_now();
+void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -450,6 +448,11 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			ApplyRenderPassMerge(steps);
 		}
 	}
+}
+
+void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
+	if (profile)
+		profile->cpuStartTime = real_time_now();
 
 	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -919,56 +922,55 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 	int w = r.framebuffer ? r.framebuffer->width : vulkan_->GetBackbufferWidth();
 	int h = r.framebuffer ? r.framebuffer->height : vulkan_->GetBackbufferHeight();
 
-	INFO_LOG(G3D, "RENDER Begin(%s, draws: %d, %dx%d, %s, %s, %s)", framebuf, r.numDraws, w, h, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
+	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
 	// TODO: Log these in detail.
 	for (int i = 0; i < pass.preTransitions.size(); i++) {
 		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->tag.c_str(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
 	}
 
-	if (!verbose) {
-		INFO_LOG(G3D, "RENDER End(%s) - %d commands executed", framebuf, (int)pass.commands.size());
-		return;
-	}
+	if (verbose) {
+		for (auto &cmd : pass.commands) {
+			switch (cmd.cmd) {
+			case VKRRenderCommand::REMOVED:
+				INFO_LOG(G3D, "  (Removed)");
+				break;
 
-	for (auto &cmd : pass.commands) {
-		switch (cmd.cmd) {
-		case VKRRenderCommand::REMOVED:
-			INFO_LOG(G3D, "  (Removed)");
-			break;
+			case VKRRenderCommand::BIND_PIPELINE:
+				INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
+				break;
+			case VKRRenderCommand::BLEND:
+				INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
+				break;
+			case VKRRenderCommand::CLEAR:
+				INFO_LOG(G3D, "  Clear");
+				break;
+			case VKRRenderCommand::DRAW:
+				INFO_LOG(G3D, "  Draw(%d)", cmd.draw.count);
+				break;
+			case VKRRenderCommand::DRAW_INDEXED:
+				INFO_LOG(G3D, "  DrawIndexed(%d)", cmd.drawIndexed.count);
+				break;
+			case VKRRenderCommand::SCISSOR:
+				INFO_LOG(G3D, "  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
+				break;
+			case VKRRenderCommand::STENCIL:
+				INFO_LOG(G3D, "  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
+				break;
+			case VKRRenderCommand::VIEWPORT:
+				INFO_LOG(G3D, "  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
+				break;
+			case VKRRenderCommand::PUSH_CONSTANTS:
+				INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
+				break;
 
-		case VKRRenderCommand::BIND_PIPELINE:
-			INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
-			break;
-		case VKRRenderCommand::BLEND:
-			INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
-			break;
-		case VKRRenderCommand::CLEAR:
-			INFO_LOG(G3D, "  Clear");
-			break;
-		case VKRRenderCommand::DRAW:
-			INFO_LOG(G3D, "  Draw(%d)", cmd.draw.count);
-			break;
-		case VKRRenderCommand::DRAW_INDEXED:
-			INFO_LOG(G3D, "  DrawIndexed(%d)", cmd.drawIndexed.count);
-			break;
-		case VKRRenderCommand::SCISSOR:
-			INFO_LOG(G3D, "  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
-			break;
-		case VKRRenderCommand::STENCIL:
-			INFO_LOG(G3D, "  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
-			break;
-		case VKRRenderCommand::VIEWPORT:
-			INFO_LOG(G3D, "  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
-			break;
-		case VKRRenderCommand::PUSH_CONSTANTS:
-			INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
-			break;
-
-		case VKRRenderCommand::NUM_RENDER_COMMANDS:
-			break;
+			case VKRRenderCommand::NUM_RENDER_COMMANDS:
+				break;
+			}
 		}
 	}
-	INFO_LOG(G3D, "RENDER End(%s)", framebuf);
+
+	INFO_LOG(G3D, "  Final: %s %s", ImageLayoutToString(pass.render.finalColorLayout), ImageLayoutToString(pass.render.finalDepthStencilLayout));
+	INFO_LOG(G3D, "RENDER End(%s) - %d commands executed", framebuf, (int)pass.commands.size());
 }
 
 void VulkanQueueRunner::LogCopy(const VKRStep &step) {
@@ -1406,6 +1408,7 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], dstStage, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+			_dbg_assert_(dst->depth.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 	}
 

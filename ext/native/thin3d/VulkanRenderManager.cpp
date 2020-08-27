@@ -1256,7 +1256,8 @@ void VulkanRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
-	// queueRunner_.LogSteps(stepsOnThread);
+	queueRunner_.PreprocessSteps(stepsOnThread);
+	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(cmd, stepsOnThread, frameData.profilingEnabled_ ? &frameData.profile : nullptr);
 	stepsOnThread.clear();
 
