@@ -182,7 +182,7 @@ public:
 
 	// RunSteps can modify steps but will leave it in a valid state.
 	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
-	void LogSteps(const std::vector<VKRStep *> &steps);
+	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	std::string StepToString(const VKRStep &step) const;
 
@@ -210,7 +210,7 @@ public:
 		VKRRenderPassAction depthLoadAction;
 		VKRRenderPassAction stencilLoadAction;
 		VkImageLayout prevColorLayout;
-		VkImageLayout prevDepthLayout;
+		VkImageLayout prevDepthStencilLayout;
 		VkImageLayout finalColorLayout;
 		VkImageLayout finalDepthStencilLayout;
 	};
@@ -250,7 +250,7 @@ private:
 	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
 
-	void LogRenderPass(const VKRStep &pass);
+	void LogRenderPass(const VKRStep &pass, bool verbose);
 	void LogCopy(const VKRStep &pass);
 	void LogBlit(const VKRStep &pass);
 	void LogReadback(const VKRStep &pass);

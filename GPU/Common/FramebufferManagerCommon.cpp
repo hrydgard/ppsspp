@@ -516,8 +516,10 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
-	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb) {
+		// Copy depth value from the previously bound framebuffer to the current one.
+		// TODO: We should only do this if they are actually pointing to the same depth buffer address, surely..
+
 		bool hasNewerDepth = prevVfb->last_frame_depth_render != 0 && prevVfb->last_frame_depth_render >= vfb->last_frame_depth_updated;
 		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !hasNewerDepth || isClearingDepth) {
 			// If depth wasn't updated, then we're at least "two degrees" away from the data.
@@ -1068,11 +1070,11 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	shaderManager_->DirtyLastShader();
-	char name[256];
-	snprintf(name, sizeof(name), "%08x_%08x", vfb->fb_address, vfb->z_address);
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, name });
+	char tag[256];
+	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d", vfb->fb_address, vfb->z_address, w, h);
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, tag });
 	if (old.fbo) {
-		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
+		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
@@ -1088,7 +1090,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 
 	if (!vfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating FBO during resize! %d x %d", vfb->renderWidth, vfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO during resize! %dx%d", vfb->renderWidth, vfb->renderHeight);
 		vfb->last_frame_failed = gpuStats.numFlips;
 	}
 }
