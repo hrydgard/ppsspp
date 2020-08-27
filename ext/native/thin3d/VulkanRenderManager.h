@@ -21,62 +21,25 @@
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
 // to let them have individual non-pooled allocations. Until it's not fine. We'll see.
 struct VKRImage {
+	// These four are "immutable".
 	VkImage image;
 	VkImageView imageView;
 	VkImageView depthSampleView;
 	VkDeviceMemory memory;
-	VkImageLayout layout;
 	VkFormat format;
+
+	// This one is used by QueueRunner's Perform functions to keep track. CANNOT be used anywhere else due to sync issues.
+	VkImageLayout layout;
+
+	// For debugging.
+	std::string tag;
 };
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color);
+void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
-		width = _width;
-		height = _height;
-
-		CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
-		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
-
-		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-		VkImageView views[2]{};
-
-		fbci.renderPass = renderPass;
-		fbci.attachmentCount = 2;
-		fbci.pAttachments = views;
-		views[0] = color.imageView;
-		views[1] = depth.imageView;
-		fbci.width = width;
-		fbci.height = height;
-		fbci.layers = 1;
-
-		vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
-		if (vk->Extensions().EXT_debug_utils) {
-			vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
-			vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
-			vk->SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
-		}
-	}
-
-	~VKRFramebuffer() {
-		if (color.image)
-			vulkan_->Delete().QueueDeleteImage(color.image);
-		if (depth.image)
-			vulkan_->Delete().QueueDeleteImage(depth.image);
-		if (color.imageView)
-			vulkan_->Delete().QueueDeleteImageView(color.imageView);
-		if (depth.imageView)
-			vulkan_->Delete().QueueDeleteImageView(depth.imageView);
-		if (depth.depthSampleView)
-			vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
-		if (color.memory)
-			vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
-		if (depth.memory)
-			vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
-		if (framebuf)
-			vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
-	}
+	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag);
+	~VKRFramebuffer();
 
 	int numShadows = 1;  // TODO: Support this.
 
@@ -87,6 +50,7 @@ public:
 	int height = 0;
 
 	VulkanContext *vulkan_;
+	std::string tag;
 };
 
 enum class VKRRunType {

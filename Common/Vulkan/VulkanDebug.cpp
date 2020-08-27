@@ -75,14 +75,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 			DebugBreak();
 		}
 	}
-#else
-	// TODO: Improve.
+#endif
+
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		ERROR_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	} else {
 		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
 	}
-#endif
 
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the

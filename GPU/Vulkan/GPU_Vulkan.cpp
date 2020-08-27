@@ -141,7 +141,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 	}
 	fclose(f);
 	if (!result) {
-		WARN_LOG(G3D, "Bad Vulkan pipeline cache");
+		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
 		File::Delete(filename);
 	} else {

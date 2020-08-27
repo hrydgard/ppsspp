@@ -238,7 +238,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	attachments[1].initialLayout = VK_IMAGE_LAYOUT_GENERAL;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
-	attachments[1].initialLayout = key.prevDepthLayout;
+	attachments[1].initialLayout = key.prevDepthStencilLayout;
 	attachments[1].finalLayout = key.finalDepthStencilLayout;
 #endif
 	attachments[1].flags = 0;
@@ -294,7 +294,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		break;
 	}
 
-	switch (key.prevDepthLayout) {
+	switch (key.prevDepthStencilLayout) {
 	case VK_IMAGE_LAYOUT_UNDEFINED:
 		// No need to specify stage or access.
 		break;
@@ -314,7 +314,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(false, "GetRenderPass: Unexpected depth layout %d", (int)key.prevDepthLayout);
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected depth layout %d", (int)key.prevDepthStencilLayout);
 		break;
 	}
 
@@ -378,9 +378,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
-	if (profile)
-		profile->cpuStartTime = real_time_now();
+void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -450,6 +448,11 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			ApplyRenderPassMerge(steps);
 		}
 	}
+}
+
+void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
+	if (profile)
+		profile->cpuStartTime = real_time_now();
 
 	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -730,6 +733,16 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 	}
 }
 
+const char *AspectToString(VkImageAspectFlags aspect) {
+	switch (aspect) {
+	case VK_IMAGE_ASPECT_COLOR_BIT: return "COLOR";
+	case VK_IMAGE_ASPECT_DEPTH_BIT: return "DEPTH";
+	case VK_IMAGE_ASPECT_STENCIL_BIT: return "STENCIL";
+	case VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT: return "DEPTHSTENCIL";
+	default: return "UNUSUAL";
+	}
+}
+
 std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	char buffer[256];
 	switch (step.stepType) {
@@ -737,23 +750,23 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	{
 		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
-		snprintf(buffer, sizeof(buffer), "RenderPass %s (draws: %d, %dx%d, fb: %p, )", step.tag, step.render.numDraws, w, h, step.render.framebuffer);
+		snprintf(buffer, sizeof(buffer), "RENDER %s (draws: %d, %dx%d, fb: %p, )", step.tag, step.render.numDraws, w, h, step.render.framebuffer);
 		break;
 	}
 	case VKRStepType::COPY:
-		snprintf(buffer, sizeof(buffer), "Copy '%s' (%dx%d)", step.tag, step.copy.srcRect.extent.width, step.copy.srcRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "COPY '%s' %s -> %s (%dx%d, %s)", step.tag, step.copy.src->tag.c_str(), step.copy.dst->tag.c_str(), step.copy.srcRect.extent.width, step.copy.srcRect.extent.height, AspectToString(step.copy.aspectMask));
 		break;
 	case VKRStepType::BLIT:
-		snprintf(buffer, sizeof(buffer), "Blit '%s' (%dx%d->%dx%d)", step.tag, step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)", step.tag, step.copy.src->tag.c_str(), step.copy.dst->tag.c_str(), step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height, AspectToString(step.blit.aspectMask));
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "Readback '%s' (%dx%d, fb: %p)", step.tag, step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, step.readback.src);
+		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)", step.tag, step.readback.src->tag.c_str(), step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, AspectToString(step.readback.aspectMask));
 		break;
 	case VKRStepType::READBACK_IMAGE:
-		snprintf(buffer, sizeof(buffer), "ReadbackImage '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
 	case VKRStepType::RENDER_SKIP:
-		snprintf(buffer, sizeof(buffer), "(SKIPPED RenderPass) %s", step.tag);
+		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s", step.tag);
 		break;
 	default:
 		buffer[0] = 0;
@@ -849,14 +862,13 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
-	INFO_LOG(G3D, "=======================================");
+void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps, bool verbose) {
+	INFO_LOG(G3D, "===================  FRAME  ====================");
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
-		INFO_LOG(G3D, "%s", StepToString(step).c_str());
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
-			LogRenderPass(step);
+			LogRenderPass(step, verbose);
 			break;
 		case VKRStepType::COPY:
 			LogCopy(step);
@@ -875,6 +887,7 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 			break;
 		}
 	}
+	INFO_LOG(G3D, "-------------------  SUBMIT  ------------------");
 }
 
 const char *RenderPassActionName(VKRRenderPassAction a) {
@@ -889,49 +902,75 @@ const char *RenderPassActionName(VKRRenderPassAction a) {
 	return "?";
 }
 
-void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
+const char *ImageLayoutToString(VkImageLayout layout) {
+	switch (layout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return "COLOR_ATTACHMENT";
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return "DEPTH_STENCIL_ATTACHMENT";
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return "SHADER_READ_ONLY";
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return "TRANSFER_SRC";
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return "TRANSFER_DST";
+	case VK_IMAGE_LAYOUT_GENERAL: return "GENERAL";
+	case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: return "PRESENT_SRC_KHR";
+	case VK_IMAGE_LAYOUT_UNDEFINED: return "UNDEFINED";
+	default: return "(unknown)";
+	}
+}
+
+void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 	const auto &r = pass.render;
-	int fb = (int)(intptr_t)(r.framebuffer ? r.framebuffer->framebuf : 0);
-	INFO_LOG(G3D, "RenderPass Begin(%x, %s, %s, %s)", fb, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
-	for (auto &cmd : pass.commands) {
-		switch (cmd.cmd) {
-		case VKRRenderCommand::REMOVED:
-			INFO_LOG(G3D, "  (Removed)");
-			break;
+	const char *framebuf = r.framebuffer ? r.framebuffer->tag.c_str() : "backbuffer";
+	int w = r.framebuffer ? r.framebuffer->width : vulkan_->GetBackbufferWidth();
+	int h = r.framebuffer ? r.framebuffer->height : vulkan_->GetBackbufferHeight();
 
-		case VKRRenderCommand::BIND_PIPELINE:
-			INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
-			break;
-		case VKRRenderCommand::BLEND:
-			INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
-			break;
-		case VKRRenderCommand::CLEAR:
-			INFO_LOG(G3D, "  Clear");
-			break;
-		case VKRRenderCommand::DRAW:
-			INFO_LOG(G3D, "  Draw(%d)", cmd.draw.count);
-			break;
-		case VKRRenderCommand::DRAW_INDEXED:
-			INFO_LOG(G3D, "  DrawIndexed(%d)", cmd.drawIndexed.count);
-			break;
-		case VKRRenderCommand::SCISSOR:
-			INFO_LOG(G3D, "  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
-			break;
-		case VKRRenderCommand::STENCIL:
-			INFO_LOG(G3D, "  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
-			break;
-		case VKRRenderCommand::VIEWPORT:
-			INFO_LOG(G3D, "  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
-			break;
-		case VKRRenderCommand::PUSH_CONSTANTS:
-			INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
-			break;
+	INFO_LOG(G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
+	// TODO: Log these in detail.
+	for (int i = 0; i < pass.preTransitions.size(); i++) {
+		INFO_LOG(G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->tag.c_str(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
+	}
 
-		case VKRRenderCommand::NUM_RENDER_COMMANDS:
-			break;
+	if (verbose) {
+		for (auto &cmd : pass.commands) {
+			switch (cmd.cmd) {
+			case VKRRenderCommand::REMOVED:
+				INFO_LOG(G3D, "  (Removed)");
+				break;
+
+			case VKRRenderCommand::BIND_PIPELINE:
+				INFO_LOG(G3D, "  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
+				break;
+			case VKRRenderCommand::BLEND:
+				INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
+				break;
+			case VKRRenderCommand::CLEAR:
+				INFO_LOG(G3D, "  Clear");
+				break;
+			case VKRRenderCommand::DRAW:
+				INFO_LOG(G3D, "  Draw(%d)", cmd.draw.count);
+				break;
+			case VKRRenderCommand::DRAW_INDEXED:
+				INFO_LOG(G3D, "  DrawIndexed(%d)", cmd.drawIndexed.count);
+				break;
+			case VKRRenderCommand::SCISSOR:
+				INFO_LOG(G3D, "  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
+				break;
+			case VKRRenderCommand::STENCIL:
+				INFO_LOG(G3D, "  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
+				break;
+			case VKRRenderCommand::VIEWPORT:
+				INFO_LOG(G3D, "  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
+				break;
+			case VKRRenderCommand::PUSH_CONSTANTS:
+				INFO_LOG(G3D, "  PushConstants(%d)", cmd.push.size);
+				break;
+
+			case VKRRenderCommand::NUM_RENDER_COMMANDS:
+				break;
+			}
 		}
 	}
-	INFO_LOG(G3D, "RenderPass End(%x)", fb);
+
+	INFO_LOG(G3D, "  Final: %s %s", ImageLayoutToString(pass.render.finalColorLayout), ImageLayoutToString(pass.render.finalDepthStencilLayout));
+	INFO_LOG(G3D, "RENDER End(%s) - %d commands executed", framebuf, (int)pass.commands.size());
 }
 
 void VulkanQueueRunner::LogCopy(const VKRStep &step) {
@@ -952,6 +991,7 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: If there are multiple, we can transition them together.
+
 	for (const auto &iter : step.preTransitions) {
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
 			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -1044,6 +1084,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	// Don't execute empty renderpasses that keep the contents.
 	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
 		// Nothing to do.
+
+		// TODO: Though - a later step might have used this step's finalColorLayout etc to get things in a layout it expects.
+		// Should we just do a barrier? Or just let the later step deal with not having things in its preferred layout, like now?
+
 		return;
 	}
 
@@ -1084,10 +1128,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 		if (stage) {
 			vkCmdPipelineBarrier(cmd, stage, stage, 0, 0, nullptr, 0, nullptr, n, barriers);
+			// No need to modify the image layouts here - it's just an execution barrier.
 		}
 	}
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
+	// This reads the layout of the color and depth images, and chooses a render pass using them.
 	PerformBindFramebufferAsRenderTarget(step, cmd);
 
 	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
@@ -1355,13 +1401,14 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 	}
 
-	// We can't copy only depth or only stencil unfortunately.
+	// We can't copy only depth or only stencil unfortunately - or can we?.
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 			SetupTransitionToTransferSrc(src->depth, srcBarriers[srcCount++], srcStage, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 		}
 		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], dstStage, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+			_dbg_assert_(dst->depth.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 	}
 
@@ -1378,16 +1425,8 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		vkCmdCopyImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &copy);
 	}
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-		copy.srcSubresource.aspectMask = 0;
-		copy.dstSubresource.aspectMask = 0;
-		if (step.copy.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) {
-			copy.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-			copy.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-		}
-		if (step.copy.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
-			copy.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-			copy.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
+		copy.srcSubresource.aspectMask = step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		copy.dstSubresource.aspectMask = step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
 	}
 }
