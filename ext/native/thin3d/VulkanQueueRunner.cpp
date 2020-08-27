@@ -997,7 +997,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			iter.fb->color.layout = barrier.newLayout;
-		} else if (iter.aspect == VK_IMAGE_ASPECT_DEPTH_BIT && iter.fb->depth.layout != iter.targetLayout) {
+		} else if ((iter.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && iter.fb->depth.layout != iter.targetLayout) {
 			VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 			barrier.oldLayout = iter.fb->depth.layout;
 			barrier.subresourceRange.layerCount = 1;
@@ -1067,10 +1067,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			stage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			n++;
 		}
-		if (step.render.framebuffer->depth.layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
+		if (step.render.framebuffer->depth.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
 			barriers[n].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			barriers[n].oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-			barriers[n].newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+			barriers[n].oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			barriers[n].newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			barriers[n].subresourceRange.layerCount = 1;
 			barriers[n].subresourceRange.levelCount = 1;
 			barriers[n].image = step.render.framebuffer->depth.image;
@@ -1283,7 +1283,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			step.render.finalColorLayout,
 			step.render.finalDepthStencilLayout);
 
-		// We now do any layout pretransitions as part of the render pass.
+		// We now do any layout transitions of the framebuffer as part of the render pass.
 		fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
