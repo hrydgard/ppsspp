@@ -1525,15 +1525,21 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
-	if (fb == curFramebuffer_) {
-		Crash();
-	}
+	// TODO: There are cases where this is okay, actually.
+	_assert_(fb != curFramebuffer_);
 
 	int aspect = 0;
-	if (channelBit & FBChannel::FB_COLOR_BIT) aspect |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
-
+	switch (channelBit) {
+	case FBChannel::FB_COLOR_BIT:
+		aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		break;
+	case FBChannel::FB_DEPTH_BIT:
+		aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+		break;
+	default:
+		_assert_(false);
+		break;
+	}
 	boundTextures_[binding] = nullptr;
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }

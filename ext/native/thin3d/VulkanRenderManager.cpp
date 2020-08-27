@@ -62,7 +62,6 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
 	_dbg_assert_(res == VK_SUCCESS);
 
-	VkImageAspectFlags viewAspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -70,11 +69,20 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.format = ici.format;
 	ivci.image = img.image;
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	ivci.subresourceRange.aspectMask = viewAspects;
+	ivci.subresourceRange.aspectMask = aspects;
 	ivci.subresourceRange.layerCount = 1;
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
 	_dbg_assert_(res == VK_SUCCESS);
+
+	// Separate view for texture sampling that only exposes depth.
+	if (!color) {
+		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.depthSampleView);
+		_dbg_assert_(res == VK_SUCCESS);
+	} else {
+		img.depthSampleView = VK_NULL_HANDLE;
+	}
 
 	VkPipelineStageFlags dstStage;
 	VkAccessFlagBits dstAccessMask;
@@ -985,7 +993,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
-			if (aspectBit & VK_IMAGE_ASPECT_COLOR_BIT) {
+			if (aspectBit == VK_IMAGE_ASPECT_COLOR_BIT) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -994,8 +1002,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 					_assert_msg_(false, "Unexpected color layout %d", (int)steps_[i]->render.finalColorLayout);
 					// May need to shadow the framebuffer if we re-order passes later.
 				}
-			}
-			if (aspectBit & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+			} else if (aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1004,7 +1011,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 					_assert_msg_(false, "Unexpected depth layout %d", (int)steps_[i]->render.finalDepthStencilLayout);
 					// May need to shadow the framebuffer if we re-order passes later.
 				}
-			}
+			}  // We don't (yet?) support texturing from stencil images.
 			steps_[i]->render.numReads++;
 			break;
 		}
@@ -1014,13 +1021,13 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	curRenderStep_->dependencies.insert(fb);
 
 	if (!curRenderStep_->preTransitions.empty() &&
-			curRenderStep_->preTransitions.back().fb == fb &&
-			curRenderStep_->preTransitions.back().targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		curRenderStep_->preTransitions.back().fb == fb &&
+		curRenderStep_->preTransitions.back().targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
 		// We're done.
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.imageView;
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
 	} else {
 		curRenderStep_->preTransitions.push_back({ aspectBit, fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.imageView;
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.depthSampleView;
 	}
 }
 
