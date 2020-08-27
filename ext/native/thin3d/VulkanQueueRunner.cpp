@@ -314,7 +314,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(false, "PerformBindRT: Unexpected depth layout %d", (int)key.prevDepthLayout);
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected depth layout %d", (int)key.prevDepthLayout);
 		break;
 	}
 
@@ -1076,7 +1076,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barriers[n].image = step.render.framebuffer->depth.image;
 			barriers[n].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			barriers[n].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			barriers[n].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 			barriers[n].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barriers[n].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			stage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
