@@ -73,11 +73,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
 		WRITE(p, "void main() {\n");
-		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "  float color = texture(tex, v_texcoord0).r;\n");
-		} else {
-			WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
-		}
+		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
 	}
 
 	int mask = gstate.getClutIndexMask();
@@ -119,7 +115,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		break;
 	case GE_FORMAT_DEPTH16:
 		// Remap depth buffer.
-		WRITE(p, "  float depth = (color - z_offset) * z_scale;\n");
+		WRITE(p, "  float depth = (color.x - z_offset) * z_scale;\n");
 		WRITE(p, "  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
