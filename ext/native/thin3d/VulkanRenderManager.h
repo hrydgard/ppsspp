@@ -23,6 +23,7 @@
 struct VKRImage {
 	VkImage image;
 	VkImageView imageView;
+	VkImageView depthSampleView;
 	VkDeviceMemory memory;
 	VkImageLayout layout;
 	VkFormat format;
@@ -67,6 +68,8 @@ public:
 			vulkan_->Delete().QueueDeleteImageView(color.imageView);
 		if (depth.imageView)
 			vulkan_->Delete().QueueDeleteImageView(depth.imageView);
+		if (depth.depthSampleView)
+			vulkan_->Delete().QueueDeleteImageView(depth.depthSampleView);
 		if (color.memory)
 			vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
 		if (depth.memory)
