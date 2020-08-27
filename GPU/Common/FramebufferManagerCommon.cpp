@@ -518,7 +518,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	if (prevVfb) {
 		// Copy depth value from the previously bound framebuffer to the current one.
-		// TODO: We should only do this if they are actually pointing to the same depth buffer address, surely..
+		// We check that the address is the same within BlitFramebufferDepth before actually blitting.
 
 		bool hasNewerDepth = prevVfb->last_frame_depth_render != 0 && prevVfb->last_frame_depth_render >= vfb->last_frame_depth_updated;
 		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !hasNewerDepth || isClearingDepth) {
