@@ -39,13 +39,10 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRen
 	fbci.layers = 1;
 
 	vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
-	if (vk->Extensions().EXT_debug_utils) {
+	if (tag && vk->Extensions().EXT_debug_utils) {
 		vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
 		vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
 		vk->SetDebugName(framebuf, VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag).c_str());
-	}
-
-	if (tag) {
 		this->tag = tag;
 	}
 }

@@ -351,12 +351,34 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		break;
 	}
 
+	switch (key.finalDepthStencilLayout) {
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		deps[numDeps].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		// Nothing to do.
+		break;
+	default:
+		_dbg_assert_msg_(false, "GetRenderPass: Unexpected final depth layout %d", (int)key.finalDepthStencilLayout);
+		break;
+	}
+
 	if (deps[numDeps].dstAccessMask) {
 		deps[numDeps].srcSubpass = 0;
 		deps[numDeps].dstSubpass = VK_SUBPASS_EXTERNAL;
 		deps[numDeps].dependencyFlags = 0;
-		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		numDeps++;
 	}
 
@@ -1132,8 +1154,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 	}
 
-	// This is supposed to bind a vulkan render pass to the command buffer.
-	// This reads the layout of the color and depth images, and chooses a render pass using them.
+	// This reads the layout of the color and depth images, and chooses a render pass using them that
+	// will transition to the desired final layout.
 	PerformBindFramebufferAsRenderTarget(step, cmd);
 
 	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
@@ -1329,9 +1351,9 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			step.render.finalColorLayout,
 			step.render.finalDepthStencilLayout);
 
-		// We now do any layout transitions of the framebuffer as part of the render pass.
-		fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		// We now do any layout pretransitions as part of the render pass.
+		fb->color.layout = step.render.finalColorLayout;
+		fb->depth.layout = step.render.finalDepthStencilLayout;
 
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
