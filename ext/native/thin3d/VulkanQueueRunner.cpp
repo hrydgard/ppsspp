@@ -1132,8 +1132,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 	}
 
-	// This is supposed to bind a vulkan render pass to the command buffer.
-	// This reads the layout of the color and depth images, and chooses a render pass using them.
+	// This reads the layout of the color and depth images, and chooses a render pass using them that
+	// will transition to the desired final layout.
 	PerformBindFramebufferAsRenderTarget(step, cmd);
 
 	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
@@ -1329,9 +1329,9 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			step.render.finalColorLayout,
 			step.render.finalDepthStencilLayout);
 
-		// We now do any layout transitions of the framebuffer as part of the render pass.
-		fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		// We now do any layout pretransitions as part of the render pass.
+		fb->color.layout = step.render.finalColorLayout;
+		fb->depth.layout = step.render.finalDepthStencilLayout;
 
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
