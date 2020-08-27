@@ -1760,8 +1760,8 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	tempFBOs_.clear();
 }
 
-Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth depth) {
-	u64 key = ((u64)reason << 48) | ((u64)depth << 32) | ((u32)w << 16) | h;
+Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth color_depth) {
+	u64 key = ((u64)reason << 48) | ((u64)color_depth << 32) | ((u32)w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
 		it->second.last_frame_used = gpuStats.numFlips;
@@ -1770,10 +1770,12 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 
 	textureCache_->ForgetLastTexture();
 	bool z_stencil = reason == TempFBO::STENCIL;
-	const char *name = "temp_fbo";
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, depth, name });
-	if (!fbo)
-		return fbo;
+	char name[128];
+	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w, h, z_stencil ? "_depth" : "");
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, color_depth, name });
+	if (!fbo) {
+		return nullptr;
+	}
 
 	const TempFBOInfo info = { fbo, gpuStats.numFlips };
 	tempFBOs_[key] = info;
