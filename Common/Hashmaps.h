@@ -8,14 +8,11 @@
 #include "Common/CommonFuncs.h"
 #include "Common/Log.h"
 
-// Whatever random value.
-const uint32_t hashmapSeed = 0x23B58532;
-
 // TODO: Try hardware CRC. Unfortunately not available on older Intels or ARM32.
 // Seems to be ubiquitous on ARM64 though.
 template<class K>
 inline uint32_t HashKey(const K &k) {
-	return XXH32(&k, sizeof(k), hashmapSeed);
+	return XXH3_64bits(&k, sizeof(k)) & 0xFFFFFFFF;
 }
 template<class K>
 inline bool KeyEquals(const K &a, const K &b) {

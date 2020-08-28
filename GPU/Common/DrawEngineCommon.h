@@ -36,13 +36,6 @@ enum {
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
@@ -115,7 +108,7 @@ protected:
 
 	// Utility for vertex caching
 	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();
+	uint64_t ComputeHash();
 
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);

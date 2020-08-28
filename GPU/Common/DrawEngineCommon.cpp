@@ -23,7 +23,6 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/TextureDecoder.h"  // for ReliableHash
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -607,7 +606,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 		size_t step = sz / 4;
 		u32 hash = 0;
 		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
+			hash += XXH3_64bits(p + i, 100);
 		}
 		return hash;
 	} else {
@@ -642,8 +641,8 @@ u32 DrawEngineCommon::ComputeMiniHash() {
 	return fullhash;
 }
 
-ReliableHashType DrawEngineCommon::ComputeHash() {
-	ReliableHashType fullhash = 0;
+uint64_t DrawEngineCommon::ComputeHash() {
+	uint64_t fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = IndexSize(dec_->VertexType());
 
@@ -652,7 +651,7 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 		if (!dc.inds) {
-			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+			fullhash += XXH3_64bits((const char *)dc.verts, vertexSize * dc.vertexCount);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
@@ -667,15 +666,15 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
-				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
+			fullhash += XXH3_64bits((const char *)dc.verts + vertexSize * indexLowerBound,
+				vertexSize * (indexUpperBound - indexLowerBound));
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			fullhash += XXH3_64bits((const char *)dc.inds, indexSize * dc.vertexCount);
 			i = lastMatch;
 		}
 	}
 
-	fullhash += DoReliableHash(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls, 0x0123e658);
+	fullhash += XXH3_64bits(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls);
 	return fullhash;
 }
 

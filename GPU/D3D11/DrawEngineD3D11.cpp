@@ -371,7 +371,7 @@ void DrawEngineD3D11::DoFlush() {
 			case VertexArrayInfoD3D11::VAI_NEW:
 				{
 					// Haven't seen this one before.
-					ReliableHashType dataHash = ComputeHash();
+					uint64_t dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
@@ -395,7 +395,7 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						// Let's try to skip a full hash if mini would fail.
 						const u32 newMiniHash = ComputeMiniHash();
-						ReliableHashType newHash = vai->hash;
+						uint64_t newHash = vai->hash;
 						if (newMiniHash == vai->minihash) {
 							newHash = ComputeHash();
 						}

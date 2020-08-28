@@ -90,7 +90,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	GLRBuffer *vbo;

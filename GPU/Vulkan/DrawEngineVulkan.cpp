@@ -35,7 +35,6 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
 
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -653,7 +652,7 @@ void DrawEngineVulkan::DoFlush() {
 			case VertexArrayInfoVulkan::VAI_NEW:
 			{
 				// Haven't seen this one before. We don't actually upload the vertex data yet.
-				ReliableHashType dataHash = ComputeHash();
+				uint64_t dataHash = ComputeHash();
 				vai->hash = dataHash;
 				vai->minihash = ComputeMiniHash();
 				vai->status = VertexArrayInfoVulkan::VAI_HASHING;
@@ -678,7 +677,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (vai->drawsUntilNextFullHash == 0) {
 					// Let's try to skip a full hash if mini would fail.
 					const u32 newMiniHash = ComputeMiniHash();
-					ReliableHashType newHash = vai->hash;
+					uint64_t newHash = vai->hash;
 					if (newMiniHash == vai->minihash) {
 						newHash = ComputeHash();
 					}

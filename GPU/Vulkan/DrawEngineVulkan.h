@@ -55,13 +55,6 @@ class PipelineManagerVulkan;
 class TextureCacheVulkan;
 class FramebufferManagerVulkan;
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 class VulkanContext;
 class VulkanPushBuffer;
 struct VulkanPipeline;
@@ -91,7 +84,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	// These will probably always be the same, but whatever.
