@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/stringutil.h"
-#include "ext/cityhash/city.h"
+#include "ext/xxhash.h"
 #include "i18n/i18n.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
@@ -62,7 +62,7 @@ void CwCheatScreen::LoadCheatInfo() {
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
 	if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
-		fileCheckHash_ = CityHash64(str.c_str(), str.size());
+		fileCheckHash_ = XXH3_64bits(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
 
@@ -119,7 +119,7 @@ void CwCheatScreen::update() {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
 		if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
-			uint64_t newHash = CityHash64(str.c_str(), str.size());
+			uint64_t newHash = XXH3_64bits(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.
 				RecreateViews();
