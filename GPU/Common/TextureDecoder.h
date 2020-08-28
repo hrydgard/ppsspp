@@ -62,9 +62,9 @@ typedef u32 ReliableHashType;
 #define DoQuickTexHash QuickTexHashNEON
 #define StableQuickTexHash QuickTexHashNEON
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON
-#define DoReliableHash32 ReliableHash32NEON
 
 #include "ext/xxhash.h"
+#define DoReliableHash32 XXH32
 #define DoReliableHash64 XXH64
 
 #define DoReliableHash XXH64
@@ -78,13 +78,11 @@ extern QuickTexHashFunc StableQuickTexHash;
 typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 extern UnswizzleTex16Func DoUnswizzleTex16;
 
-typedef u32 (*ReliableHash32Func)(const void *input, size_t len, u32 seed);
-extern ReliableHash32Func DoReliableHash32;
+#include "ext/xxhash.h"
+#define DoReliableHash32 XXH32
+#define DoReliableHash64 XXH64
 
-typedef u64 (*ReliableHash64Func)(const void *input, size_t len, u64 seed);
-extern ReliableHash64Func DoReliableHash64;
-
-#define DoReliableHash DoReliableHash32
+#define DoReliableHash XXH32
 typedef u32 ReliableHashType;
 #endif
 
