@@ -1626,7 +1626,10 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
-	HLEPlugins::Load();
+	if (HLEPlugins::Load()) {
+		KernelRotateThreadReadyQueue(0);
+		__KernelReSchedule("Started plugins");
+	}
 }
 
 

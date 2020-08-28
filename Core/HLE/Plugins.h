@@ -24,7 +24,7 @@ namespace HLEPlugins {
 void Init();
 void Shutdown();
 
-void Load();
+bool Load();
 void Unload();
 
 void DoState(PointerWrap &p);

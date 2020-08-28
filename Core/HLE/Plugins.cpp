@@ -41,7 +41,7 @@ struct PluginInfo {
 	PluginType type;
 	std::string filename;
 	int version;
-	int memory;
+	uint32_t memory;
 };
 
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
@@ -162,17 +162,18 @@ void Init() {
 	}
 }
 
-void Load() {
+bool Load() {
+	bool started = false;
 	for (const std::string &filename : prxPlugins) {
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty()) {
 			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %s", filename.c_str(), error_string.c_str());
-			return;
+			continue;
 		}
 		if (module < 0) {
 			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %08x", filename.c_str(), module);
-			return;
+			continue;
 		}
 
 		int ret = KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
@@ -181,7 +182,10 @@ void Load() {
 		}
 
 		INFO_LOG(SYSTEM, "Loaded plugin: %s", filename.c_str());
+		started = true;
 	}
+
+	return started;
 }
 
 void Unload() {
