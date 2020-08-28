@@ -246,9 +246,9 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		case ReplacedTextureHash::QUICK:
 			return StableQuickTexHash(checkp, sizeInRAM);
 		case ReplacedTextureHash::XXH32:
-			return DoReliableHash32(checkp, sizeInRAM, 0xBACD7814);
+			return XXH32(checkp, sizeInRAM, 0xBACD7814);
 		case ReplacedTextureHash::XXH64:
-			return DoReliableHash64(checkp, sizeInRAM, 0xBACD7814);
+			return XXH64(checkp, sizeInRAM, 0xBACD7814);
 		default:
 			return 0;
 		}
@@ -269,7 +269,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 
 		case ReplacedTextureHash::XXH32:
 			for (int y = 0; y < h; ++y) {
-				u32 rowHash = DoReliableHash32(checkp, bytesPerLine, 0xBACD7814);
+				u32 rowHash = XXH32(checkp, bytesPerLine, 0xBACD7814);
 				result = (result * 11) ^ rowHash;
 				checkp += stride;
 			}
@@ -277,7 +277,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 
 		case ReplacedTextureHash::XXH64:
 			for (int y = 0; y < h; ++y) {
-				u32 rowHash = DoReliableHash64(checkp, bytesPerLine, 0xBACD7814);
+				u32 rowHash = XXH64(checkp, bytesPerLine, 0xBACD7814);
 				result = (result * 11) ^ rowHash;
 				checkp += stride;
 			}

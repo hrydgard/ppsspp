@@ -614,7 +614,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
 		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
 		// OK, found the start of a post-process sequence. Let's scan until we find the end.
-		for (int j = i; j < steps.size() - 3; j++) {
+		for (int j = i; j < (int)steps.size() - 3; j++) {
 			if (((j - i) & 1) == 0) {
 				// This should be a depal draw.
 				if (steps[j]->render.numDraws != 1)

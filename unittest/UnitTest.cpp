@@ -24,12 +24,14 @@
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
 
-
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <string>
 #include <sstream>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
 #include "base/NativeApp.h"
 #include "input/input_state.h"
@@ -61,6 +63,16 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
+
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
+
+jclass findClass(const char *name) {
+	return nullptr;
+}
+#endif
 
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
