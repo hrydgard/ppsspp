@@ -331,7 +331,6 @@ protected:
 	std::map<u32, int> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32_;
-	SimpleBuf<u16> tmpTexBuf16_;
 	SimpleBuf<u32> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_;

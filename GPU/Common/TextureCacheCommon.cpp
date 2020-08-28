@@ -115,7 +115,6 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32_.resize(512 * 512);  // 1MB
-	tmpTexBuf16_.resize(512 * 512);  // 0.5MB
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
 
 	replacer_.Init();
