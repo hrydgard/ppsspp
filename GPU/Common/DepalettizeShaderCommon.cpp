@@ -80,10 +80,20 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	int shift = gstate.getClutIndexShift();
 	int offset = gstate.getClutIndexStartPos();
 	GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
+
+	// Sampling turns our texture into floating point. To avoid this, might be able
 	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
-	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
+	// Anyhow, we simply work around this by converting back to integer, which is fine.
 	// Use the mask to skip reading some components.
+
+	// TODO: Since we actually have higher precision color data here, we might want to apply a dithering pattern here
+	// in the 5551, 565 and 4444 modes. This would benefit Test Drive which renders at 16-bit on the real hardware
+	// and dithers immediately, while we render at higher color depth and thus don't dither resulting in banding
+	// when we sample it at low color depth like this.
+
+	// An alternative would be to have a special mode where we keep some extra precision here and sample the CLUT linearly - works for ramps such
+	// as those that Test Drive uses for its color remapping. But would need game specific flagging.
+
 	int shiftedMask = mask << shift;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
