@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 
+#include "ppsspp_config.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
@@ -393,7 +394,7 @@ static int DefaultNumWorkers() {
 }
 
 static int DefaultCpuCore() {
-#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	return (int)CPUCore::JIT;
 #else
 	return (int)CPUCore::INTERPRETER;
@@ -401,7 +402,7 @@ static int DefaultCpuCore() {
 }
 
 static bool DefaultCodeGen() {
-#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	return true;
 #else
 	return false;

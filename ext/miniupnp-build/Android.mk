@@ -31,8 +31,6 @@ ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
-else ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_64 -DARM64
 else ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 else ifeq ($(TARGET_ARCH_ABI),x86_64)

@@ -33,6 +33,7 @@
 #include <jni.h>
 #endif
 
+#include "ppsspp_config.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
 #include "ext/disarm.h"
@@ -559,13 +560,13 @@ bool TestArm64Emitter();
 bool TestX64Emitter();
 
 TestItem availableTests[] = {
-#if defined(ARM64) || defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
 #endif
-#if defined(ARM) || defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(ArmEmitter),
 #endif
-#if defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(X64Emitter),
 #endif
 	TEST_ITEM(VertexJit),

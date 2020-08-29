@@ -54,7 +54,7 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	// D3D11 has no need for display rotation.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-#if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
+#if defined(_DEBUG) && !PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 	UINT createDeviceFlags = 0;

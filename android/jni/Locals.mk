@@ -70,7 +70,7 @@ ifeq ($(TARGET_ARCH_ABI),x86_64)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_64 -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
@@ -80,8 +80,6 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
-
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_64 -DARM64
 endif
 
 # Compile with profiling.

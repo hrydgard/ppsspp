@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ppsspp_config.h"
+
 #ifdef IOS
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
@@ -51,7 +53,7 @@ extern PFNGLMAPBUFFERPROC glMapBuffer;
 
 typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
-#ifndef ARM64
+#if !PPSSPP_ARCH(ARM64)
 typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 	GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
 	GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,

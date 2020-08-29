@@ -58,10 +58,6 @@
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
     #define PPSSPP_ARCH_ARM_NEON 1
-    //TODO: Remove this compat define
-    #ifndef ARM64
-        #define ARM64 1
-    #endif
 #endif
 
 #if defined(__mips64__)
