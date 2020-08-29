@@ -23,6 +23,7 @@ enum CheckAlphaResult {
 	CHECKALPHA_ANY = 4,
 };
 
+#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
@@ -46,7 +47,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #define DoUnswizzleTex16 DoUnswizzleTex16Basic
 
 // For ARM64, NEON is mandatory, so we also statically link.
-#elif PPSSPP_ARCH(ARM64) || defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 #define DoQuickTexHash QuickTexHashNEON
 #define StableQuickTexHash QuickTexHashNEON
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON
