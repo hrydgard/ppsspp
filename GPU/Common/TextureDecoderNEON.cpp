@@ -47,7 +47,8 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 		uint16x8_t update = vdupq_n_u16(0x2455U);
 
 		const u32 *p = (const u32 *)checkp;
-		for (u32 i = 0; i < size / 16; i += 4) {
+		const u32 *pend = p + size / 4;
+		while (p < pend) {
 			cursor = vreinterpretq_u32_u16(vmlaq_u16(vreinterpretq_u16_u32(cursor), vreinterpretq_u16_u32(vld1q_u32(&p[4 * 0])), cursor2));
 			cursor = veorq_u32(cursor, vld1q_u32(&p[4 * 1]));
 			cursor = vaddq_u32(cursor, vld1q_u32(&p[4 * 2]));
@@ -58,7 +59,8 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 		}
 
 		cursor = vaddq_u32(cursor, vreinterpretq_u32_u16(cursor2));
-		check = vgetq_lane_u32(cursor, 0) + vgetq_lane_u32(cursor, 1) + vgetq_lane_u32(cursor, 2) + vgetq_lane_u32(cursor, 3);
+		uint32x2_t mixed = vadd_u32(vget_high_u32(cursor), vget_low_u32(cursor));
+		check = vget_lane_u32(mixed, 0) + vget_lane_u32(mixed, 1);
 #else
 		// TODO: Why does this crash on iOS, but only certain devices?
 		// It's faster than the above, but I guess it sucks to be using an iPhone.
