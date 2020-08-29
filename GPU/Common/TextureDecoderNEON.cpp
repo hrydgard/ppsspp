@@ -41,7 +41,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER)
+#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);
@@ -64,6 +64,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 #else
 		// TODO: Why does this crash on iOS, but only certain devices?
 		// It's faster than the above, but I guess it sucks to be using an iPhone.
+		// As of 2020 clang, it's still faster by ~1.4%.
 
 		// d0/d1 (q0) - cursor
 		// d2/d3 (q1) - cursor2
