@@ -23,6 +23,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Reporting.h"
+#include "Core/MemMapHelpers.h"
 
 // Slow freaking thing but works (eventually) :)
 
@@ -43,6 +44,7 @@ void BlockAllocator::Init(u32 rangeStart, u32 rangeSize)
 	//Initial block, covering everything
 	top_ = new Block(rangeStart_, rangeSize_, false, NULL, NULL);
 	bottom_ = top_;
+	Memory::Memset(rangeStart_, 0, rangeSize_);
 }
 
 void BlockAllocator::Shutdown()
