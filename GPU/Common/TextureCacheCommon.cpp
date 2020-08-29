@@ -550,12 +550,6 @@ void TextureCacheCommon::SetTexture(bool force) {
 bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset) {
 	bool success = false;
 
-	struct AttachCandidate {
-		FramebufferMatchInfo match;
-		TexCacheEntry *entry;
-		VirtualFramebuffer *fb;
-	};
-
 	std::vector<AttachCandidate> candidates;
 
 	bool anyIgnores = false;
@@ -565,7 +559,7 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 		auto framebuffer = fbCache_[i];
 		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer->fb_address, framebuffer, texAddrOffset, channel);
 		if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer });
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
 		} else if (match.match == FramebufferMatch::IGNORE) {
 			anyIgnores = true;
 		}
@@ -585,9 +579,15 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 		return false;
 	}
 
+	return AttachBestCandidate(candidates);
+}
+
+bool TextureCacheCommon::AttachBestCandidate(const std::vector<AttachCandidate> &candidates) {
+	_dbg_assert_(!candidates.empty());
+
 	if (candidates.size() == 1) {
 		VirtualFramebuffer *framebuffer = candidates[0].fb;
-		return ApplyFramebufferMatch(candidates[0].match, entry, framebuffer->fb_address, framebuffer, channel);
+		return ApplyFramebufferMatch(candidates[0].match, candidates[0].entry, framebuffer->fb_address, framebuffer, candidates[0].channel);
 	}
 
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
@@ -608,7 +608,7 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 		}
 
 		// Bonus point for matching stride.
-		if (channel == NOTIFY_FB_COLOR && candidate.fb->fb_stride == candidate.entry->bufw) {
+		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->fb_stride == candidate.entry->bufw) {
 			relevancy += 10;
 		}
 
@@ -619,9 +619,8 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 	}
 
 	VirtualFramebuffer *framebuffer = candidates[bestIndex].fb;
-	return ApplyFramebufferMatch(candidates[bestIndex].match, candidates[bestIndex].entry, framebuffer->fb_address, framebuffer, channel);
+	return ApplyFramebufferMatch(candidates[bestIndex].match, candidates[bestIndex].entry, framebuffer->fb_address, framebuffer, candidates[bestIndex].channel);
 }
-
 
 // Removes old textures.
 void TextureCacheCommon::Decimate(bool forcePressure) {
@@ -737,6 +736,7 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
+	{
 		// Try to match the new framebuffer to existing textures.
 		// Backwards from the "usual" texturing case so can't share a utility function.
 
@@ -748,11 +748,15 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			fbCache_.push_back(framebuffer);
 		}
 
+		std::vector<AttachCandidate> candidates;
+
 		// TODO: Rework this to not try to "apply" all matches, only the best one.
 		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
 			TexCacheEntry *entry = it->second.get();
 			FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
-			ApplyFramebufferMatch(match, entry, addr, framebuffer, channel);
+			if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
+				candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+			}
 		}
 
 		// Let's assume anything in mirrors is fair game to check.
@@ -763,11 +767,17 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
 				TexCacheEntry *entry = it->second.get();
 				FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
-				ApplyFramebufferMatch(match, entry, addr, framebuffer, channel);
+				if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
+					candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+				}
 			}
 		}
-		break;
 
+		if (!candidates.empty()) {
+			AttachBestCandidate(candidates);
+		}
+		break;
+	}
 	case NOTIFY_FB_DESTROYED:
 		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(), framebuffer), fbCache_.end());
 
