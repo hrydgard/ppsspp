@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "ppsspp_config.h"
 #include "base/NativeApp.h"
 #include "Common/TimeUtil.h"
 #include "Core/ConfigValues.h"
@@ -172,9 +173,9 @@ bool TestJit() {
 		// Disassemble
 		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
 		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);

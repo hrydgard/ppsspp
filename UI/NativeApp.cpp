@@ -125,9 +125,9 @@ static UI::Theme ui_theme;
 
 Atlas g_ui_atlas;
 
-#if defined(ARM) && defined(__ANDROID__)
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
@@ -291,9 +291,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
 
-#if defined(ARM) && defined(__ANDROID__)
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 	ArmEmitterTest();
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 	Arm64EmitterTest();
 #endif
 }

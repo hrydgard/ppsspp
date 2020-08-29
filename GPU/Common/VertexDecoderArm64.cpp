@@ -18,11 +18,6 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-// This allows highlighting to work.  Yay.
-#ifdef __INTELLISENSE__
-#define ARM64
-#endif
-
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Core/Config.h"

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "ppsspp_config.h"
 #include "base/display.h"
 #include "base/stringutil.h"
 #include "gfx_es2/gpu_features.h"
@@ -458,7 +459,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
-#if defined(ARM) || defined(ARM64) || defined(MIPS)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 	deviceSpecs->Add(new InfoItem(si->T("Cores"), StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "ppsspp_config.h"
 #include "base/basictypes.h"
 
 #include "Common/Log.h"
@@ -1345,11 +1346,11 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			if (!jitted_)
 				return "Not compiled";
 			std::vector<std::string> lines;
-#if defined(ARM64)
+#if PPSSPP_ARCH(ARM64)
 			lines = DisassembleArm64((const u8 *)jitted_, jittedSize_);
-#elif defined(ARM)
+#elif PPSSPP_ARCH(ARM)
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
-#elif defined(MIPS)
+#elif PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 			// No MIPS disassembler defined
 #else
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
