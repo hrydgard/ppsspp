@@ -2304,6 +2304,8 @@ int sceKernelTerminateDeleteThread(int threadID)
 		ERROR_LOG(SCEKERNEL, "sceKernelTerminateDeleteThread(%i): cannot terminate current thread", threadID);
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 	}
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
