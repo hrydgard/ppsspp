@@ -1038,25 +1038,20 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	_dbg_assert_(curRenderStep_ != nullptr);
 	// Mark the dependency, check for required transitions, and return the image.
 
+	// Optimization: If possible, use final*Layout to put the texture into the correct layout "early".
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
 			if (aspectBit == VK_IMAGE_ASPECT_COLOR_BIT) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					break;
-				} else if (steps_[i]->render.finalColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-					_assert_msg_(false, "Unexpected color layout %d", (int)steps_[i]->render.finalColorLayout);
-					// May need to shadow the framebuffer if we re-order passes later.
 				}
+				// If we find some other layout, a copy after this is likely involved. It's fine though,
+				// we'll just transition it right as we need it and lose a tiny optimization.
 			} else if (aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT) {
 				// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					break;
-				} else if (steps_[i]->render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-					_assert_msg_(false, "Unexpected depth layout %d", (int)steps_[i]->render.finalDepthStencilLayout);
-					// May need to shadow the framebuffer if we re-order passes later.
 				}
 			}  // We don't (yet?) support texturing from stencil images.
 			steps_[i]->render.numReads++;
