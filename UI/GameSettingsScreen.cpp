@@ -510,6 +510,12 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	bool showCardboardSettings = true;
+#else
+	// If you enabled it through the ini, you can see this. Useful for testing.
+	bool showCardboardSettings = g_Config.bEnableCardboardVR;
+#endif
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
 	PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
@@ -518,7 +524,6 @@ void GameSettingsScreen::CreateViews() {
 	cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 	cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-#endif
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
 	if (cameraList.size() >= 1) {

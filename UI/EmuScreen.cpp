@@ -1028,6 +1028,7 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
 	cardboardDisableButton_->SetVisibility(V_GONE);
+	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
 	if (g_Config.bEnableNetworkChat) {
 		switch (g_Config.iChatButtonPosition) {

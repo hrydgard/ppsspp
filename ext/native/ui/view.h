@@ -527,12 +527,18 @@ public:
 		paddingH_ = h;
 	}
 
+	// Needed an extra small button...
+	void SetScale(float f) {
+		scale_ = f;
+	}
+
 private:
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
 	int paddingW_ = 16;
 	int paddingH_ = 8;
+	float scale_ = 1.0f;
 };
 
 class Slider : public Clickable {
