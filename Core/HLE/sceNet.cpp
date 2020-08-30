@@ -200,6 +200,15 @@ void notifyApctlHandlers(int oldState, int newState, int flag, int error) {
 	__UpdateApctlHandlers(oldState, newState, flag, error);
 }
 
+void netValidateLoopMemory() {
+	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
+	if (!apctlThreadHackAddr || (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0)) {
+		u32 blockSize = sizeof(apctlThreadCode);
+		apctlThreadHackAddr = kernelMemory.Alloc(blockSize, false, "apctlThreadHack");
+		if (apctlThreadHackAddr) Memory::Memcpy(apctlThreadHackAddr, apctlThreadCode, sizeof(apctlThreadCode));
+	}
+}
+
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
 	auto s = p.Section("sceNet", 1, 4);
@@ -244,22 +253,15 @@ void __NetDoState(PointerWrap &p) {
 		apctlThreadHackAddr = 0;
 		apctlThreadID = 0;
 	}
-	// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
+	
 	if (p.mode == p.MODE_READ) {
+		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;
 		netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
 
 		// Discard leftover events
 		apctlEvents.clear();
-
-		// Previously, this wasn't being saved.  It needs its own space.
-		if (!apctlThreadHackAddr || (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0)) {
-			u32 blockSize = sizeof(apctlThreadCode);
-			apctlThreadHackAddr = kernelMemory.Alloc(blockSize, false, "apctlThreadHack");
-		}
-		// Restore Apctl Loop MIPS code to prevent crashes after loading from SaveState
-		if (apctlThreadHackAddr) Memory::Memcpy(apctlThreadHackAddr, apctlThreadCode, sizeof(apctlThreadCode));
 	}
 }
 
@@ -780,6 +782,7 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "0.0.0.0");
 
 	// Create APctl fake-Thread
+	netValidateLoopMemory();
 	apctlThreadID = __KernelCreateThread("ApctlThread", __KernelGetCurThreadModuleId(), apctlThreadHackAddr, initPriority, stackSize, PSP_THREAD_ATTR_USER, 0, true);
 	if (apctlThreadID > 0) {
 		__KernelStartThread(apctlThreadID, 0, 0);

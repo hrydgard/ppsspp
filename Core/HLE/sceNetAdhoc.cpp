@@ -615,6 +615,20 @@ int WaitBlockingAdhocSocket(int socketId, int type, int pspSocketId, void* buffe
 	return ERROR_NET_ADHOC_TIMEOUT;
 }
 
+void netAdhocValidateLoopMemory() {
+	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
+	if (!dummyThreadHackAddr || (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0)) {
+		u32 blockSize = sizeof(dummyThreadCode);
+		dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
+		if (dummyThreadHackAddr) Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
+	}
+	if (!matchingThreadHackAddr || (matchingThreadHackAddr && strcmp("matchingThreadHack", kernelMemory.GetBlockTag(matchingThreadHackAddr)) != 0)) {
+		u32 blockSize = sizeof(matchingThreadCode);
+		matchingThreadHackAddr = kernelMemory.Alloc(blockSize, false, "matchingThreadHack");
+		if (matchingThreadHackAddr) Memory::Memcpy(matchingThreadHackAddr, matchingThreadCode, sizeof(matchingThreadCode));
+	}
+}
+
 void __NetAdhocDoState(PointerWrap &p) {
 	auto s = p.Section("sceNetAdhoc", 1, 5);
 	if (!s)
@@ -675,20 +689,6 @@ void __NetAdhocDoState(PointerWrap &p) {
 	}
 	
 	if (p.mode == p.MODE_READ) {
-		// Previously, this wasn't being saved.  It needs its own space.
-		if (!dummyThreadHackAddr || (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0)) {
-			u32 blockSize = sizeof(dummyThreadCode);
-			dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
-		}
-		if (!matchingThreadHackAddr || (matchingThreadHackAddr && strcmp("matchingThreadHack", kernelMemory.GetBlockTag(matchingThreadHackAddr)) != 0)) {
-			u32 blockSize = sizeof(matchingThreadCode);
-			matchingThreadHackAddr = kernelMemory.Alloc(blockSize, false, "matchingThreadHack");
-		}
-	
-		// Restore dummy Loop MIPS code to prevent crashes after loading from SaveState
-		if (dummyThreadHackAddr) Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
-		if (matchingThreadHackAddr) Memory::Memcpy(matchingThreadHackAddr, matchingThreadCode, sizeof(matchingThreadCode));
-
 		// Discard leftover events
 		adhocctlEvents.clear();
 		matchingEvents.clear();
@@ -778,6 +778,7 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	// Create fake PSP Thread for callback
 	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
+	netAdhocValidateLoopMemory();
 	threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, prio, stackSize, PSP_THREAD_ATTR_USER, 0, true);
 	if (threadAdhocID > 0) {
 		__KernelStartThread(threadAdhocID, 0, 0);
@@ -3716,6 +3717,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 		}*/
 
 		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
+		netAdhocValidateLoopMemory();
 		std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
 		matchingThreads[item->matching_thid] = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
 		//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
