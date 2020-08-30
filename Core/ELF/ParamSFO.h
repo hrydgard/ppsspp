@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 
 class ParamSFOData
 {
@@ -40,7 +41,9 @@ public:
 	std::string GetDiscID() {
 		const std::string discID = GetValueString("DISC_ID");
 		if (discID.empty()) {
-			return GenerateFakeID();
+			std::string fakeID = GenerateFakeID();
+			WARN_LOG(LOADER, "No DiscID found - generating a fake one: %s", fakeID.c_str());
+			return fakeID;
 		}
 		return discID;
 	}

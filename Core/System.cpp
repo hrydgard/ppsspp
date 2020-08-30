@@ -185,6 +185,17 @@ bool CPU_HasPendingAction() {
 
 void CPU_Shutdown();
 
+bool DiscIDFromGEDumpPath(const std::string &path, std::string *id) {
+	std::string filename = File::GetFilename(path);
+	// Could be more discerning, but hey..
+	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
+		*id = filename.substr(0, 9);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 bool CPU_Init() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
@@ -216,32 +227,46 @@ bool CPU_Init() {
 	MIPSAnalyst::Reset();
 	Replacement_Init();
 
+	std::string discID;
+
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
+		discID = g_paramSFO.GetDiscID();
 		break;
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
 		InitMemoryForGamePBP(loadedFile);
+		discID = g_paramSFO.GetDiscID();
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
 			INFO_LOG(LOADER, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
+		discID = g_paramSFO.GetDiscID();
+		break;
+	case IdentifiedFileType::PPSSPP_GE_DUMP:
+		// Try to grab the disc ID from the filename, since unfortunately, we don't store
+		// it in the GE dump. This should probably be fixed, but as long as you don't rename the dumps,
+		// this will do the trick.
+		if (!DiscIDFromGEDumpPath(filename, &discID)) {
+			// Failed? Let the param SFO autogen a fake disc ID.
+			discID = g_paramSFO.GetDiscID();
+		}
 		break;
 	default:
+		discID = g_paramSFO.GetDiscID();
 		break;
 	}
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
-	std::string discID = g_paramSFO.GetDiscID();
 	coreParameter.compat.Load(discID);
 
 	if (!Memory::Init()) {
