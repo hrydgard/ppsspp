@@ -230,6 +230,6 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 
 #define hleReportError(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportWarning(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportNOTICE(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportNOTICE(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LNOTICE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
