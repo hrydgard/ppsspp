@@ -702,6 +702,9 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	// Add some internal padding to not look totally ugly
 	w += paddingW_;
 	h += paddingH_;
+
+	w *= scale_;
+	h *= scale_;
 }
 
 void Button::Click() {
@@ -720,12 +723,16 @@ void Button::Draw(UIContext &dc) {
 	DrawBG(dc, style);
 	float tw, th;
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &tw, &th);
+	tw *= scale_;
+	th *= scale_;
+
 	if (tw > bounds_.w || imageID_.isValid()) {
 		dc.PushScissor(bounds_);
 	}
 	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontScale(scale_, scale_);
 	if (imageID_.isValid() && text_.empty()) {
-		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
 	} else if (!text_.empty()) {
 		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 		if (imageID_.isValid()) {
@@ -735,6 +742,8 @@ void Button::Draw(UIContext &dc) {
 			}
 		}
 	}
+	dc.SetFontScale(1.0f, 1.0f);
+
 	if (tw > bounds_.w || imageID_.isValid()) {
 		dc.PopScissor();
 	}
