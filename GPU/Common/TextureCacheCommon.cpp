@@ -591,7 +591,7 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 	if (candidates.size() > 1) {
 		bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
 		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "AttachFramebufferToEntry(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s)",
-			depth ? "DEPTH" : "COLOR", entry->addr, texAddrOffset, dimWidth(entry->dim), dimHeight(entry->dim), entry->bufw, GeTextureFormatToString((GETextureFormat)entry->format));
+			depth ? "DEPTH" : "COLOR", (int)candidates.size(), entry->addr, texAddrOffset, dimWidth(entry->dim), dimHeight(entry->dim), entry->bufw, GeTextureFormatToString((GETextureFormat)entry->format));
 	}
 
 	return AttachBestCandidate(candidates);
