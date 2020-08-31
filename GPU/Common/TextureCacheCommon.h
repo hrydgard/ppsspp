@@ -207,6 +207,13 @@ struct FramebufferMatchInfo {
 	u32 yOffset;
 };
 
+struct AttachCandidate {
+	FramebufferMatchInfo match;
+	TexCacheEntry *entry;
+	VirtualFramebuffer *fb;
+	FramebufferNotificationChannel channel;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw);
@@ -274,8 +281,11 @@ protected:
 
 	FramebufferMatchInfo MatchFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
 
+	bool AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset);
+
 	// Temporary utility during conversion
 	bool ApplyFramebufferMatch(FramebufferMatchInfo match, TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
+	bool AttachBestCandidate(const std::vector<AttachCandidate> &candidates);
 
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
