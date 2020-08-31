@@ -804,7 +804,11 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 					depth ? "DEPTH" : "COLOR", (int)candidates.size(), addr, framebuffer->width, framebuffer->height, depth ? framebuffer->z_stride : framebuffer->fb_stride, GeBufferFormatToString(framebuffer->format));
 			}
 
-			AttachBestCandidate(candidates);
+			// There can actually be multiple ones to update here! This can be the case where two textures point to different framebuffers that share depth buffers.
+			// So we have no choice but to run all the candidate matches.
+			for (int i = 0; i < (int)candidates.size(); i++) {
+				ApplyFramebufferMatch(candidates[i].match, candidates[i].entry, framebuffer->fb_address, framebuffer, candidates[i].channel);
+			}
 		}
 		break;
 	}
@@ -845,13 +849,11 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 		}
 		ReleaseTexture(entry, true);
+
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
-		if (channel == NOTIFY_FB_DEPTH) {
-			entry->status |= TexCacheEntry::STATUS_DEPTH;
-		}
 		fbTexInfo_[cachekey] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 		GPUDebug::NotifyTextureAttachment(entry->addr);
@@ -873,9 +875,6 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		entry->invalidHint = -1;
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
-		if (channel == NOTIFY_FB_DEPTH) {
-			entry->status |= TexCacheEntry::STATUS_DEPTH;
-		}
 		fbTexInfo_[cachekey] = fbInfo;
 		GPUDebug::NotifyTextureAttachment(entry->addr);
 	}

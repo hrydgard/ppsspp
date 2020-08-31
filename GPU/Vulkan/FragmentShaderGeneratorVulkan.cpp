@@ -195,7 +195,8 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 				}
 			} else {
 				if (doTextureProjection) {
-					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
+					// We don't use textureProj because we need to manually offset from the divided coordinate to do filtering here.
+					// On older hardware it has the advantage of higher resolution math, but such old hardware can't run Vulkan.
 					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
