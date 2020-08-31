@@ -76,15 +76,11 @@ inline u16 RGBA8888ToRGB565(u32 value) {
 }
 
 inline u16 RGBA8888ToRGBA5551(u32 value) {
-	u8 r = value & 0xFF;
-	u8 g = (value >> 8) & 0xFF;
-	u8 b = (value >> 16) & 0xFF;
-	u8 a = (value >> 24) & 0xFF;
-	r >>= 3;
-	g >>= 3;
-	b >>= 3;
-	a >>= 7;
-	return (u16)r | ((u16)g << 5) | ((u16)b << 10) | ((u16)a << 15);
+	u32 r = (value >> 3) & 0x1F;
+	u32 g = (value >> 11) & 0x1F;
+	u32 b = (value >> 19) & 0x1F;
+	u32 a = (value >> 31) & 0x1;
+	return (u16)(r | (g << 5) | (b << 10) | (a << 15));
 }
 
 inline u16 RGBA8888ToRGBA4444(u32 value) {
