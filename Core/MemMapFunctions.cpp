@@ -112,10 +112,6 @@ bool IsRAMAddress(const u32 address) {
 	}
 }
 
-bool IsVRAMAddress(const u32 address) {
-	return ((address & 0x3F800000) == 0x04000000);
-}
-
 bool IsScratchpadAddress(const u32 address) {
 	return (address & 0xBFFF0000) == 0x00010000 && (address & 0x0000FFFF) < SCRATCHPAD_SIZE;
 }

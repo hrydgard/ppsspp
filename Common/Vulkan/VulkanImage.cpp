@@ -181,6 +181,20 @@ void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mi
 	vkCmdCopyBufferToImage(cmd, buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 }
 
+void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
+	// Must be in TRANSFER_DST mode.
+	VkClearColorValue clearVal;
+	for (int i = 0; i < 4; i++) {
+		clearVal.float32[i] = ((value >> (i * 8)) & 0xFF) / 255.0f;
+	}
+	VkImageSubresourceRange range{};
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.layerCount = 1;
+	range.baseMipLevel = mip;
+	range.levelCount = 1;
+	vkCmdClearColorImage(cmd, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearVal, 1, &range);
+}
+
 void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
 	_assert_msg_(mip != 0, "Cannot generate the first level");
 	_assert_msg_(mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
