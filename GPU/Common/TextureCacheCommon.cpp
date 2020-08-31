@@ -86,6 +86,15 @@
 // GL_UNSIGNED_BYTE/RGBA:  AAAAAAAABBBBBBBBGGGGGGGGRRRRRRRR  (match)
 // These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
 
+// Allow the extra bits from the remasters for the purposes of this.
+inline int dimWidth(u16 dim) {
+	return 1 << (dim & 0xFF);
+}
+
+inline int dimHeight(u16 dim) {
+	return 1 << ((dim >> 8) & 0xFF);
+}
+
 // Vulkan color formats:
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
@@ -579,9 +588,16 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 		return false;
 	}
 
+	if (candidates.size() > 1) {
+		bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
+		WARN_LOG_REPORT_ONCE(multifbcandidate, G3D, "AttachFramebufferToEntry(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s)",
+			depth ? "DEPTH" : "COLOR", entry->addr, texAddrOffset, dimWidth(entry->dim), dimHeight(entry->dim), entry->bufw, GeTextureFormatToString((GETextureFormat)entry->format));
+	}
+
 	return AttachBestCandidate(candidates);
 }
 
+// reason is just used for reporting/logging.
 bool TextureCacheCommon::AttachBestCandidate(const std::vector<AttachCandidate> &candidates) {
 	_dbg_assert_(!candidates.empty());
 
@@ -774,6 +790,12 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		}
 
 		if (!candidates.empty()) {
+			if (candidates.size() > 1) {
+				bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
+				WARN_LOG_REPORT_ONCE(multitexcandidate, G3D, "NotifyFramebuffer(%s): Multiple (%d) candidate textures. fb addr: %08x (%dx%d stride %d, %s)",
+					depth ? "DEPTH" : "COLOR", (int)candidates.size(), addr, framebuffer->width, framebuffer->height, depth ? framebuffer->z_stride : framebuffer->fb_stride, GeBufferFormatToString(framebuffer->format));
+			}
+
 			AttachBestCandidate(candidates);
 		}
 		break;
