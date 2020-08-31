@@ -252,14 +252,16 @@ typedef struct SceNetAdhocctlParameter {
   SceNetAdhocctlNickname nickname;
 } PACK SceNetAdhocctlParameter;
 
-// Peer Information
+// Peer Information (internal use only)
 typedef struct SceNetAdhocctlPeerInfo {
   SceNetAdhocctlPeerInfo * next;
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u32_le ip_addr;
-  uint8_t padding[2];
+  u16_le padding;
+  u32_le flags;
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
+  
+  u32_le ip_addr; // internal use only
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -267,8 +269,8 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   u32_le next; // Changed the pointer to u32
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u32_le ip_addr; //jpcsp wrote 6bytes of 0x11 for this & padding
-  u16 padding; // Changed the padding to u16
+  u16_le padding; //00 00
+  u32_le flags; //00 04 00 00 // State of the peer? Or related to sceNetAdhocAuth_CF4D9BED ?
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfoEmu;
 

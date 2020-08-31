@@ -1321,9 +1321,6 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv[%i:%u] [size=%i]", error, id, socket->lport, *len);
 				}
 				
-				// Should we set output length to 0 on Error?
-				*len = 0;
-
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
 				if (received > 0) {
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(socket->id), received, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
@@ -1666,7 +1663,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointer(bufAddr);
 
-	INFO_LOG(SCENET, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x)", sizeAddr, /*buflen ? *buflen : -1*/Memory::Read_U32(sizeAddr), bufAddr);
+	INFO_LOG(SCENET, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x)", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -2017,17 +2014,14 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 
 		// Local MAC
 		if (isLocalMAC(maddr)) {
-			sockaddr_in addr;
 			SceNetAdhocctlNickname nickname;
 
-			getLocalIp(&addr);
-			strncpy((char*)&nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
-			nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // making sure to be null-terminated since strncpy doesn't implicitly append null
+			truncate_cpy((char*)&nickname.data, ADHOCCTL_NICKNAME_LEN, g_Config.sNickName.c_str());
 			//buf->next = 0;
 			buf->nickname = nickname;
 			buf->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 			buf->mac_addr = *maddr;
-			buf->ip_addr = addr.sin_addr.s_addr; // 0x11111111;
+			buf->flags = 0x0400;
 			buf->padding = 0;
 			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
 
@@ -2049,7 +2043,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 				buf->nickname = peer->nickname;
 				buf->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 				buf->mac_addr = *maddr;
-				buf->ip_addr = peer->ip_addr; // 0x11111111;
+				buf->flags = 0x0400; //peer->ip_addr;
 				buf->padding = 0;
 				buf->last_recv = peer->last_recv; //CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL); //This timestamp is important issue on Dissidia 012
 
@@ -3233,9 +3227,6 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 				// Free Network Lock
 				// _freeNetworkLock();
 
-				// Should we set output length to 0 on Error?
-				*len = 0;
-				
 				// Received Data
 				if (received > 0) {
 					// Save Length
@@ -3618,7 +3609,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 								context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
 								context->timeout = ((u64_le)keepalive_int * (u64_le)init_count);
-								if (context->timeout < 5000000) context->timeout = 5000000; // For internet play we need higher timeout than what the game wanted
+								context->timeout = std::max(context->timeout, adhocDefaultTimeout * 1000ULL); // For internet play we need higher timeout than what the game wanted
 								context->handler = handler;
 
 								// Fill in Selfpeer
@@ -4761,7 +4752,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].ip_addr = peer->ip_addr;
+							buf[discovered].flags = 0x0400; //peer->ip_addr;
 							buf[discovered].last_recv = peer->last_recv;
 							discovered++;
 
@@ -4846,12 +4837,10 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						sockaddr_in addr;
 
 						getLocalIp(&addr);
-						//buf->next = 0;
 						buf[discovered].nickname = parameter.nickname;
 						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 						getLocalMac(&buf[discovered].mac_addr);
-						buf[discovered].ip_addr = addr.sin_addr.s_addr; // 0x11111111;
-						//buf->padding = 0x1111; //0;
+						buf[discovered].flags = 0x0400; //addr.sin_addr.s_addr;
 						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
 					}
 
@@ -4865,13 +4854,14 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						if (strncmp((char *)&peer->nickname.data, nickName, ADHOCCTL_NICKNAME_LEN) == 0)
 						{
 							// Fake Receive Time
-							if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //sceKernelGetSystemTimeWide();
+							if (peer->last_recv != 0) 
+								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //sceKernelGetSystemTimeWide();
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].ip_addr = peer->ip_addr;
+							buf[discovered].flags = 0x0400; //peer->ip_addr;
 							buf[discovered++].last_recv = peer->last_recv;
 						}
 					}
