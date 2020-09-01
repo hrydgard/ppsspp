@@ -1254,6 +1254,13 @@ int getPTPSocketCount();
 int initNetwork(SceNetAdhocctlAdhocId *adhocid);
 
 /**
+ * Zero MAC Check
+ * @param addr To-be-checked MAC Address
+ * @return true if MAC is all zeroes
+ */
+bool isZeroMAC(const SceNetEtherAddr* addr);
+
+/**
  * Broadcast MAC Check
  * @param addr To-be-checked MAC Address
  * @return true if Broadcast MAC or... 0

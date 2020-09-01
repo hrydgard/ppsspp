@@ -3799,6 +3799,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
 }
 
+// Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), dataLen, dataAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
@@ -3819,23 +3820,59 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 				// Running Context
 				if (context->running)
 				{
-					// Find Target Peer
-					SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)mac);
+					// Invalid Data Length
+					if (dataLen <=0 || dataAddr == 0)
+						// Invalid Data Length
+						return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "invalid datalen");
 
-					// Found Peer
-					if (peer != NULL)
-					{
-						void * data = NULL;
-						if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
+					void* data = NULL;
+					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
 
-						// Valid Data Length
-						if (dataLen > 0 && data != NULL)
+					// FIXME: If the target MAC is 00:00:00:00:00:00 (invalid mac) Should we default to P2P/Parent's MAC or return an Error?
+					if (isZeroMAC((const SceNetEtherAddr*)mac)) {
+						int sent = 0;
+						peerlock.lock();
+						// Iterate Peer List for Matching Target
+						SceNetAdhocMatchingMemberInternal* peer = context->peerlist;
+						for (; peer != NULL; peer = peer->next)
+						{
+							// Valid Peer Connection State
+							if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
+							{
+								// Skip Busy peers
+								if (peer->sending)
+									continue;
+
+								// Mark Peer as Sending
+								peer->sending = 1;
+
+								// Send Data to Peer
+								sendBulkData(context, peer, dataLen, data);
+								sent++;
+								break;
+							}
+						}
+						peerlock.unlock();
+
+						if (sent == 0)
+							return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "invalid target");
+
+						// Return Success
+						return 0;
+					}
+					else {
+						// Find Target Peer
+						SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
+
+						// Found Peer
+						if (peer != NULL)
 						{
 							// Valid Peer Connection State
 							if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
 							{
 								// Send in Progress
-								if (peer->sending) return ERROR_NET_ADHOC_MATCHING_DATA_BUSY;
+								if (peer->sending)
+									return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
 
 								// Mark Peer as Sending
 								peer->sending = 1;
@@ -3848,31 +3885,28 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 							}
 
 							// Not connected / accepted
-							return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "adhocmatching not established");
+							return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
 						}
-
-						// Invalid Data Length
-						return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "adhocmatching invalid datalen");
 					}
 
 					// Peer not found
-					return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+					return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "unknown target");
 				}
 
 				// Context not running
-				return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+				return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "not running");
 			}
 
 			// Invalid Matching ID
-			return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+			return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "invalid id");
 		}
 
 		// Invalid Arguments
-		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "invalid arg");
 	}
 
 	// Uninitialized Library
-	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "not initialized");
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {

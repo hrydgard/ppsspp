@@ -84,7 +84,7 @@ sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
-	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte (as some kind of protection?). Using only the last 4-bytes might be sufficient tho, since the first 3-bytes are manufacturer Id.
+	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
 	return (memcmp(((const char*)addr1)+1, ((const char*)addr2)+1, ETHER_ADDR_LEN-1) == 0);
 }
 
@@ -1914,6 +1914,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	else{
 		return SOCKET_ERROR;
 	}
+}
+
+bool isZeroMAC(const SceNetEtherAddr* addr) {
+	return (memcmp(addr->data, "\x00\x00\x00\x00\x00\x00", ETHER_ADDR_LEN) == 0);
 }
 
 bool isBroadcastMAC(const SceNetEtherAddr * addr) {
