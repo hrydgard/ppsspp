@@ -851,7 +851,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 // Flags seems to be bitmasks of ADHOC_F_ALERT...
 int sceNetAdhocSetSocketAlert(int id, int flag) {
- 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %08x)", id, flag);
+ 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
 	return 0; //Dummy Result
 }
@@ -872,7 +872,8 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			for (int i = 0; i < count; i++)
 			{
 				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > 255 || (pdp[sds[i].id - 1] == NULL && ptp[sds[i].id - 1] == NULL)) return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+				if (sds[i].id < 1 || sds[i].id > 255 || (pdp[sds[i].id - 1] == NULL && ptp[sds[i].id - 1] == NULL)) 
+					return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 			}
 
 			// Nonblocking Mode
@@ -894,6 +895,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
 			fd_set readfds, writefds, exceptfds;
 			int fd;
+			int maxfd = 0;
 			FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 			// TODO: PDP and PTP should share the same indexing to prevent identical PDP & PTP socket id
 			for (int i = 0; i < count; i++) {
@@ -908,15 +910,17 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 				else {
 					fd = pdp[sds[i].id - 1]->id;
 				}
+				if (fd > maxfd) maxfd = fd;
 				if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
-				if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds); 
+				//if (sds[i].events & ADHOC_EV_SEND) 
+				FD_SET(fd, &writefds); // Data can always be sent regardless of events bitmask?
 				//if (sds[i].events & ADHOC_EV_ALERT) 
-				FD_SET(fd, &exceptfds);
+				FD_SET(fd, &exceptfds); // can be raised on revents regardless of events bitmask?
 			}
 			timeval tmout;
 			tmout.tv_sec = timeout / 1000000; // seconds
 			tmout.tv_usec = (timeout % 1000000); // microseconds
-			affectedsockets = select(count, &readfds, &writefds, &exceptfds, &tmout);
+			affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
 			if (affectedsockets > 0) {
 				affectedsockets = 0;
 				for (int i = 0; i < count; i++) {
@@ -926,38 +930,37 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 					else {
 						fd = pdp[sds[i].id - 1]->id;
 					}
-					if (FD_ISSET(fd, &readfds)) sds[i].revents |= ADHOC_EV_RECV;
-					if (FD_ISSET(fd, &writefds)) sds[i].revents |= ADHOC_EV_SEND; // Data can always be sent ?
+					if (FD_ISSET(fd, &readfds)) 
+						sds[i].revents |= ADHOC_EV_RECV;
 					sds[i].revents &= sds[i].events;
-					if (FD_ISSET(fd, &exceptfds)) sds[i].revents |= ADHOC_EV_ALERT; // can be raised on revents regardless of events bitmask?
+					if (FD_ISSET(fd, &writefds)) 
+						sds[i].revents |= ADHOC_EV_SEND; // Data can always be sent regardless of events bitmask?
+					if (FD_ISSET(fd, &exceptfds)) 
+						sds[i].revents |= ADHOC_EV_ALERT; // can be raised on revents regardless of events bitmask?
 					if (sds[i].revents) affectedsockets++;
 				}
 			}
 			// Free Network Lock
 			//freeNetworkLock();
 
-			// Blocking Mode (Nonblocking Mode returns 0, even on Success)
-			if (!nonblock)
-			{
-				// Success
-				if (affectedsockets >= 0) return affectedsockets; // (affectedsockets > 0)
-
-				// Timeout
-				return ERROR_NET_ADHOC_TIMEOUT;
-			}
-
 			// No Events generated
-			if (affectedsockets >= 0) return 0;
+			// Non-blocking mode
+			// Bleach 7 seems to use nonblocking and check the return value > 0, or 0x80410709 (ERROR_NET_ADHOC_WOULD_BLOCK), also 0x80410717 (ERROR_NET_ADHOC_EXCEPTION_EVENT)
+			if (affectedsockets > 0)
+				return hleLogDebug(SCENET, affectedsockets, "success");
 
-			return ERROR_NET_ADHOC_WOULD_BLOCK; // Bleach 7 seems to use nonblocking and check the return value against 0 and 0x80410709 (also 0x80410717 ?)
+			else if (affectedsockets == 0)
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+
+			return hleLogDebug(SCENET, ERROR_NET_ADHOC_EXCEPTION_EVENT, "exception event");
 		}
 
 		// Invalid Argument
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 	}
 
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "adhoc not initialized");
 }
 
 int NetAdhocPdp_Delete(int id, int unknown) {
@@ -2859,7 +2862,7 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 }
 
 int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetSocketAlert(%i, %08x)", id, flagPtr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetSocketAlert(%i, %08x) at %08x", id, flagPtr, currentMIPS->pc);
 	
 	// Dummy Value
 	if (Memory::IsValidAddress(flagPtr)) {
