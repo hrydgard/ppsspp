@@ -83,11 +83,16 @@ SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
+bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
+	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte (as some kind of protection?). Using only the last 4-bytes might be sufficient tho, since the first 3-bytes are manufacturer Id.
+	return (memcmp(((const char*)addr1)+1, ((const char*)addr2)+1, ETHER_ADDR_LEN-1) == 0);
+}
+
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
 	getLocalMac(&saddr);
 
-	return (memcmp((const void*)addr, (const void*)&saddr, ETHER_ADDR_LEN) == 0);
+	return isMacMatch(addr, &saddr);
 }
 
 bool isPDPPortInUse(uint16_t port) {
@@ -193,7 +198,7 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 
 	// Iterate Friends
 	for (; peer != NULL; peer = peer->next) {
-		if (IsMatch(peer->mac_addr, *MAC)) break;
+		if (isMacMatch(&peer->mac_addr, MAC)) break;
 	}
 
 	// Return found friend
@@ -262,7 +267,7 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
 
 	// Iterate Groups
 	for (; group != NULL; group = group->next) {
-		if (IsMatch(group->bssid.mac_addr, *MAC)) break;
+		if (isMacMatch(&group->bssid.mac_addr, MAC)) break;
 	}
 
 	// Return found group
@@ -533,7 +538,7 @@ SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * contex
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
-		if (memcmp(&peer->mac, mac, sizeof(SceNetEtherAddr)) == 0)
+		if (isMacMatch(&peer->mac, mac))
 		{
 			// Return Peer Pointer
 			return peer;
@@ -1958,7 +1963,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
 	// Local MAC Requested
-	if (memcmp(&localMac, mac, sizeof(SceNetEtherAddr)) == 0) {
+	if (isMacMatch(&localMac, mac)) {
 		// Get Local IP Address
 		sockaddr_in sockAddr;
 		getLocalIp(&sockAddr);
@@ -1975,7 +1980,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	// Iterate Peers
 	for (; peer != NULL; peer = peer->next) {
 		// Found Matching Peer
-		if (memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
 			// Copy Data
 			*ip = peer->ip_addr;
 

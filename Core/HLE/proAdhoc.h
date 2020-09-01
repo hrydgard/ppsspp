@@ -858,9 +858,16 @@ int IsAdhocctlInCallback();
 int SetAdhocctlInCallback(bool IsInCB);
 
 /**
+ * Compare MAC Addresses
+ * @param addr1 & addr2 To-be-compared MAC Address
+ * @return True if both matched
+ */
+bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2);
+
+/**
  * Local MAC Check
  * @param saddr To-be-checked MAC Address
- * @return 1 if valid or... 0
+ * @return True if it's local mac
  */
 bool isLocalMAC(const SceNetEtherAddr * addr);
 

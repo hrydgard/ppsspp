@@ -1381,7 +1381,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 			getLocalMac(&localmac);
 
 			// Local MAC Matches
-			if (memcmp(&localmac, mac, sizeof(SceNetEtherAddr)) == 0)
+			if (isMacMatch(&localmac, (const SceNetEtherAddr*)mac))
 			{
 				// Write Data
 				*nickname = parameter.nickname;
@@ -1402,7 +1402,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 			for (; peer != NULL; peer = peer->next)
 			{
 				// Match found
-				if (memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0)
+				if (isMacMatch(&peer->mac_addr, (const SceNetEtherAddr*)mac))
 				{
 					// Write Data
 					*nickname = peer->nickname;
@@ -3800,7 +3800,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 }
 
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), dataLen, dataAddr);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), dataLen, dataAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
