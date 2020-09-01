@@ -1007,9 +1007,16 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, localBuf, localOffset, stride / bpp);
 					} else {
-						data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
-						LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
-						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+						// Don't even try to read depth data.
+						if (entry->status & TexCacheEntry::STATUS_DEPTH) {
+							// Clear with a warning value (hot pink). This should not be seen - means we missed matching a framebuffer
+							// that a game rendered depth to.
+							entry->vkTex->ClearMip(cmdInit, i, 0xFFFF00FF);
+						} else {
+							data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
+							LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+							entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+						}
 					}
 				}
 				if (replacer_.Enabled()) {
