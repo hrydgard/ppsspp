@@ -775,37 +775,33 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		std::vector<AttachCandidate> candidates;
 
 		// TODO: Rework this to not try to "apply" all matches, only the best one.
-		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-			TexCacheEntry *entry = it->second.get();
-			FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
-			if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
-				candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
-			}
-		}
-
-		// Let's assume anything in mirrors is fair game to check.
-		// TODO: Only do this for depth?
-		for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
-			// Let's still make sure it's in the cache range.
-			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
+		if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
+			// Color - no need to look in the mirrors.
+			for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
 				TexCacheEntry *entry = it->second.get();
 				FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
 				if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
 					candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
 				}
 			}
+		} else {
+			// Depth. Just look in the mirrors.
+			for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
+				const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
+				// Let's still make sure it's in the cache range.
+				if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
+					TexCacheEntry *entry = it->second.get();
+					FramebufferMatchInfo match = MatchFramebuffer(entry, addr, framebuffer, 0, channel);
+					if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
+						candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+					}
+				}
+			}
 		}
 
 		if (!candidates.empty()) {
-			if (candidates.size() > 1) {
-				bool depth = channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH;
-				WARN_LOG_REPORT_ONCE(multitexcandidate, G3D, "NotifyFramebuffer(%s): Multiple (%d) candidate textures. fb addr: %08x (%dx%d stride %d, %s)",
-					depth ? "DEPTH" : "COLOR", (int)candidates.size(), addr, framebuffer->width, framebuffer->height, depth ? framebuffer->z_stride : framebuffer->fb_stride, GeBufferFormatToString(framebuffer->format));
-			}
-
 			// There can actually be multiple ones to update here! This can be the case where two textures point to different framebuffers that share depth buffers.
-			// So we have no choice but to run all the candidate matches.
+			// So we have no choice but to run all the matches.
 			for (int i = 0; i < (int)candidates.size(); i++) {
 				ApplyFramebufferMatch(candidates[i].match, candidates[i].entry, framebuffer->fb_address, framebuffer, candidates[i].channel);
 			}
