@@ -2802,6 +2802,7 @@ int sceKernelResumeThread(SceUID threadID)
 		// If it was dormant, waiting, etc. before we don't flip its ready state.
 		if (t->nt.status == 0)
 			__KernelChangeReadyState(t, threadID, true);
+		hleReSchedule("resume thread from suspend");
 		return 0;
 	}
 	else
