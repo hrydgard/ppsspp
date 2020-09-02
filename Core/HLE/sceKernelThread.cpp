@@ -2337,6 +2337,8 @@ int sceKernelTerminateThread(SceUID threadID) {
 	if (__IsInInterrupt() && sceKernelGetCompiledSdkVersion() >= 0x03080000) {
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 	}
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	if (threadID == 0 || threadID == currentThread) {
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_THID, "cannot terminate current thread");
 	}
