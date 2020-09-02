@@ -394,7 +394,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
 								
 								// Success
-								return i + 1;
+								return i + 256;
 							} 
 
 							// Free Memory for Internal Data
@@ -497,9 +497,9 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 			// Valid Data Length
 			if (len >= 0) { // should we allow 0 size packet (for ping) ?
 				// Valid Socket ID
-				if (id > 0 && id <= 255 && pdp[id - 1] != NULL) {
+				if (id > 255 && id <= 510 && pdp[id - 256] != NULL) {
 					// Cast Socket
-					SceNetAdhocPdpStat * socket = pdp[id - 1];
+					SceNetAdhocPdpStat * socket = pdp[id - 256];
 
 					// Valid Data Buffer
 					if (data != NULL) {
@@ -675,9 +675,9 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 	int * len = (int *)dataLength;
 	if (netAdhocInited) {
 		// Valid Socket ID
-		if (id > 0 && id <= 255 && pdp[id - 1] != NULL) {
+		if (id > 255 && id <= 510 && pdp[id - 256] != NULL) {
 			// Cast Socket
-			SceNetAdhocPdpStat * socket = pdp[id - 1];
+			SceNetAdhocPdpStat * socket = pdp[id - 256];
 
 			// Valid Arguments
 			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len > 0) { 
@@ -857,8 +857,6 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 }
 
 int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonblock) { // timeout in microseconds
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", socketStructAddr, count, timeout, nonblock, currentMIPS->pc);
-	
 	// Library is initialized
 	if (netAdhocInited)
 	{
@@ -872,7 +870,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			for (int i = 0; i < count; i++)
 			{
 				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > 255 || (pdp[sds[i].id - 1] == NULL && ptp[sds[i].id - 1] == NULL)) 
+				if (sds[i].id < 1 || sds[i].id > 510 || (pdp[sds[i].id - 256] == NULL && ptp[sds[i].id - 1] == NULL)) 
 					return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 			}
 
@@ -901,21 +899,20 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			for (int i = 0; i < count; i++) {
 				sds[i].revents = 0;
 				// Fill in Socket ID
-				if (ptp[sds[i].id - 1] != NULL) {
+				if (sds[i].id <= 255 && ptp[sds[i].id - 1] != NULL) {
 					fd = ptp[sds[i].id - 1]->id;
 					if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_LISTEN) sds[i].revents |= ADHOC_EV_ACCEPT;
 					else
 					if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_CLOSED) sds[i].revents |= ADHOC_EV_CONNECT;
 				}
 				else {
-					fd = pdp[sds[i].id - 1]->id;
+					fd = pdp[sds[i].id - 256]->id;
 				}
 				if (fd > maxfd) maxfd = fd;
 				if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
-				//if (sds[i].events & ADHOC_EV_SEND) 
-				FD_SET(fd, &writefds); // Data can always be sent regardless of events bitmask?
+				if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds); // Does Data can always be sent regardless of events bitmask?
 				//if (sds[i].events & ADHOC_EV_ALERT) 
-				FD_SET(fd, &exceptfds); // can be raised on revents regardless of events bitmask?
+				FD_SET(fd, &exceptfds); // Does Alert can be raised on revents regardless of events bitmask?
 			}
 			timeval tmout;
 			tmout.tv_sec = timeout / 1000000; // seconds
@@ -924,19 +921,19 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			if (affectedsockets > 0) {
 				affectedsockets = 0;
 				for (int i = 0; i < count; i++) {
-					if (ptp[sds[i].id - 1] != NULL) {
+					if (sds[i].id <= 255 && ptp[sds[i].id - 1] != NULL) {
 						fd = ptp[sds[i].id - 1]->id;
 					}
 					else {
-						fd = pdp[sds[i].id - 1]->id;
+						fd = pdp[sds[i].id - 256]->id;
 					}
 					if (FD_ISSET(fd, &readfds)) 
 						sds[i].revents |= ADHOC_EV_RECV;
-					sds[i].revents &= sds[i].events;
 					if (FD_ISSET(fd, &writefds)) 
-						sds[i].revents |= ADHOC_EV_SEND; // Data can always be sent regardless of events bitmask?
+						sds[i].revents |= ADHOC_EV_SEND; // Does Data can always be sent regardless of events bitmask?
+					sds[i].revents &= sds[i].events;
 					if (FD_ISSET(fd, &exceptfds)) 
-						sds[i].revents |= ADHOC_EV_ALERT; // can be raised on revents regardless of events bitmask?
+						sds[i].revents |= ADHOC_EV_ALERT; // Does Alert can be raised on revents regardless of events bitmask?
 					if (sds[i].revents) affectedsockets++;
 				}
 			}
@@ -945,11 +942,12 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 
 			// No Events generated
 			// Non-blocking mode
-			// Bleach 7 seems to use nonblocking and check the return value > 0, or 0x80410709 (ERROR_NET_ADHOC_WOULD_BLOCK), also 0x80410717 (ERROR_NET_ADHOC_EXCEPTION_EVENT)
-			if (affectedsockets > 0)
-				return hleLogDebug(SCENET, affectedsockets, "success");
-
-			else if (affectedsockets == 0)
+			// Bleach 7 seems to use nonblocking and check the return value > 0, or 0x80410709 (ERROR_NET_ADHOC_WOULD_BLOCK), also 0x80410717 (ERROR_NET_ADHOC_EXCEPTION_EVENT), when using prx files on JPCSP it can return 0
+			if (affectedsockets >= 0) {
+				DEBUG_LOG(SCENET, "%08x=sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", affectedsockets, socketStructAddr, count, timeout, nonblock, currentMIPS->pc);
+				return affectedsockets;
+			}
+			else if (nonblock && affectedsockets < 0)
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 			return hleLogDebug(SCENET, ERROR_NET_ADHOC_EXCEPTION_EVENT, "exception event");
@@ -967,9 +965,9 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
-		if (id > 0 && id <= 255) {
+		if (id > 255 && id <= 510) {
 			// Cast Socket
-			SceNetAdhocPdpStat* sock = pdp[id - 1];
+			SceNetAdhocPdpStat* sock = pdp[id - 256];
 
 			// Valid Socket
 			if (sock != NULL) {
@@ -984,7 +982,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 				free(sock);
 
 				// Free Translation Slot
-				pdp[id - 1] = NULL;
+				pdp[id - 256] = NULL;
 
 				// Success
 				return 0;
@@ -1780,7 +1778,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					buf[i] = *pdp[j];
 
 					// Fix Client View Socket ID
-					buf[i].id = j + 1;
+					buf[i].id = j + 256;
 
 					// Write End of List Reference
 					buf[i].next = 0;
@@ -2867,7 +2865,7 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 	// Dummy Value
 	if (Memory::IsValidAddress(flagPtr)) {
 		s32_le * flag = (s32_le*)Memory::GetPointer(flagPtr);
-		*flag = 0;
+		*flag = 0; //ADHOC_F_ALERTALL
 	}
 
 	// Dummy Result
