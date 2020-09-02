@@ -1668,10 +1668,13 @@ void getLocalMac(SceNetEtherAddr * addr){
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {
 		memset(&mac, PPSSPP_ID, sizeof(mac));
+		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+		mac[0] &= 0xfc;
 	}
 	else
 	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+		memset(&mac, 0, sizeof(mac));
 	}
 	memcpy(addr, mac, ETHER_ADDR_LEN);
 }

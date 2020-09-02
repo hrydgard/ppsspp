@@ -609,6 +609,8 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	u8 *addr = Memory::GetPointer(addrAddr);
 	if (PPSSPP_ID > 1) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
+		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+		addr[0] &= 0xfc;
 	}
 	else
 	// Read MAC Address from config
