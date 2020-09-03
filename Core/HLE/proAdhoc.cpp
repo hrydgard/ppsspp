@@ -83,11 +83,16 @@ SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
+bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
+	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
+	return (memcmp(((const char*)addr1)+1, ((const char*)addr2)+1, ETHER_ADDR_LEN-1) == 0);
+}
+
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
 	getLocalMac(&saddr);
 
-	return (memcmp((const void*)addr, (const void*)&saddr, ETHER_ADDR_LEN) == 0);
+	return isMacMatch(addr, &saddr);
 }
 
 bool isPDPPortInUse(uint16_t port) {
@@ -123,6 +128,8 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	// Already existed
 	if (peer != NULL) {
 		WARN_LOG(SCENET, "Member Peer Already Existed! Updating [%s]", mac2str(mac).c_str());
+		peer->state = 0;
+		peer->sending = 0;
 		peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 	}
 	// Member is not added yet
@@ -132,8 +139,10 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 			memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
 			peer->mac = *mac;
 			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			peerlock.lock();
 			peer->next = context->peerlist;
 			context->peerlist = peer;
+			peerlock.unlock();
 		}
 	}
 	return peer;
@@ -193,7 +202,7 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 
 	// Iterate Friends
 	for (; peer != NULL; peer = peer->next) {
-		if (IsMatch(peer->mac_addr, *MAC)) break;
+		if (isMacMatch(&peer->mac_addr, MAC)) break;
 	}
 
 	// Return found friend
@@ -262,7 +271,7 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
 
 	// Iterate Groups
 	for (; group != NULL; group = group->next) {
-		if (IsMatch(group->bssid.mac_addr, *MAC)) break;
+		if (isMacMatch(&group->bssid.mac_addr, MAC)) break;
 	}
 
 	// Return found group
@@ -432,7 +441,7 @@ void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
 		// Unneeded Peer
-		if (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P && peer->state != PSP_ADHOC_MATCHING_PEER_PARENT) {
+		if (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P && peer->state != PSP_ADHOC_MATCHING_PEER_PARENT && peer->state != 0) {
 			deletePeer(context, peer);
 			delcount++;
 		}
@@ -445,7 +454,7 @@ void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 	// Free Peer Lock
 	peerlock.unlock();
 
-	INFO_LOG(SCENET, "Removing Unneeded Peer (%i/%i)", delcount, peercount);
+	INFO_LOG(SCENET, "Removing Unneeded Peers (%i/%i)", delcount, peercount);
 }
 
 /**
@@ -461,39 +470,52 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 	// As the buffer of "siblings" isn't properly aligned I don't want to risk a crash.
 	uint8_t * siblings_u8 = (uint8_t *)siblings;
 
-	// Iterate Siblings
-	for (int i = 0; i < siblingcount; i++)
+	peerlock.lock();
+	// Iterate Siblings. Reversed so these siblings are added into peerlist in the same order with the peerlist on host/parent side
+	for (int i = siblingcount - 1; i >= 0 ; i--)
 	{
-		// Allocate Memory
-		SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+		SceNetEtherAddr* mac = (SceNetEtherAddr*)(siblings_u8 + sizeof(SceNetEtherAddr) * i);
 
-		// Allocated Memory
-		if (sibling != NULL)
-		{
-			// Clear Memory
-			memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
-
-			// Save MAC Address
-			memcpy(&sibling->mac, siblings_u8 + sizeof(SceNetEtherAddr) * i, sizeof(SceNetEtherAddr));
-
+		auto peer = findPeer(context, mac);
+		// Already exist
+		if (peer != NULL) {
 			// Set Peer State
-			sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
+			peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
+			peer->sending = 0;
+			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			WARN_LOG(SCENET, "Updating Sibling Peer %s", mac2str(mac).c_str());
+		}
+		else {
+			// Allocate Memory
+			SceNetAdhocMatchingMemberInternal* sibling = (SceNetAdhocMatchingMemberInternal*)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
-			// Initialize Ping Timer
-			sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+			// Allocated Memory
+			if (sibling != NULL)
+			{
+				// Clear Memory
+				memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
 
-			peerlock.lock();
-			// Link Peer, should check whether it's already added before
-			sibling->next = context->peerlist;
-			context->peerlist = sibling;
-			peerlock.unlock();
+				// Save MAC Address
+				memcpy(&sibling->mac, mac, sizeof(SceNetEtherAddr));
 
-			// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
-			//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+				// Set Peer State
+				sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
-			INFO_LOG(SCENET, "Accepting Peer %s", mac2str(&sibling->mac).c_str());
+				// Initialize Ping Timer
+				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+
+				// Link Peer
+				sibling->next = context->peerlist;
+				context->peerlist = sibling;
+
+				// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
+				//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+
+				INFO_LOG(SCENET, "Accepting Sibling Peer %s", mac2str(&sibling->mac).c_str());
+			}
 		}
 	}
+	peerlock.unlock();
 }
 
 /**
@@ -533,7 +555,7 @@ SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * contex
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
-		if (memcmp(&peer->mac, mac, sizeof(SceNetEtherAddr)) == 0)
+		if (isMacMatch(&peer->mac, mac))
 		{
 			// Return Peer Pointer
 			return peer;
@@ -883,13 +905,14 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0
 		// Timeout!, may be we shouldn't kick timedout members ourself and let the game do it
-		if ((now - peer->lastping) >= context->timeout) 
+		if (peer->state != 0 && (now - peer->lastping) >= context->timeout) 
 		{
 			// Spawn Timeout Event
-			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
+			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (/*peer->state == PSP_ADHOC_MATCHING_PEER_CHILD ||*/ peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P)) {
-				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL); // This is the only code that use PSP_ADHOC_MATCHING_EVENT_TIMEOUT, should we let it timedout?
+				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
+				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 			}
 
 			INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout/1000));
@@ -1663,10 +1686,13 @@ void getLocalMac(SceNetEtherAddr * addr){
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {
 		memset(&mac, PPSSPP_ID, sizeof(mac));
+		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+		mac[0] &= 0xfc;
 	}
 	else
 	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+		memset(&mac, 0, sizeof(mac));
 	}
 	memcpy(addr, mac, ETHER_ADDR_LEN);
 }
@@ -1911,6 +1937,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	}
 }
 
+bool isZeroMAC(const SceNetEtherAddr* addr) {
+	return (memcmp(addr->data, "\x00\x00\x00\x00\x00\x00", ETHER_ADDR_LEN) == 0);
+}
+
 bool isBroadcastMAC(const SceNetEtherAddr * addr) {
 	return (memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0);
 }
@@ -1958,7 +1988,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
 	// Local MAC Requested
-	if (memcmp(&localMac, mac, sizeof(SceNetEtherAddr)) == 0) {
+	if (isMacMatch(&localMac, mac)) {
 		// Get Local IP Address
 		sockaddr_in sockAddr;
 		getLocalIp(&sockAddr);
@@ -1975,7 +2005,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	// Iterate Peers
 	for (; peer != NULL; peer = peer->next) {
 		// Found Matching Peer
-		if (memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
 			// Copy Data
 			*ip = peer->ip_addr;
 

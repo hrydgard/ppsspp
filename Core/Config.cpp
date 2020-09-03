@@ -378,6 +378,10 @@ std::string CreateRandMAC() {
 	srand(time(nullptr));
 	for (int i = 0; i < 6; i++) {
 		u32 value = rand() % 256;
+		if (i == 0) {
+			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+			value &= 0xfc;
+		}
 		if (value <= 15)
 			randStream << '0' << std::hex << value;
 		else

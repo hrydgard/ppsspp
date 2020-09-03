@@ -646,10 +646,10 @@ enum {
 #define PSP_ADHOC_MATCHING_EVENT_DENY			4
 #define PSP_ADHOC_MATCHING_EVENT_CANCEL			5
 #define PSP_ADHOC_MATCHING_EVENT_ACCEPT			6
-#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7
-#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8
+#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
+#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_ERROR			9
-#define PSP_ADHOC_MATCHING_EVENT_BYE			10
+#define PSP_ADHOC_MATCHING_EVENT_BYE			10	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_DATA			11
 #define PSP_ADHOC_MATCHING_EVENT_DATA_ACK		12
 #define PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT	13
@@ -858,9 +858,16 @@ int IsAdhocctlInCallback();
 int SetAdhocctlInCallback(bool IsInCB);
 
 /**
+ * Compare MAC Addresses
+ * @param addr1 & addr2 To-be-compared MAC Address
+ * @return True if both matched
+ */
+bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2);
+
+/**
  * Local MAC Check
  * @param saddr To-be-checked MAC Address
- * @return 1 if valid or... 0
+ * @return True if it's local mac
  */
 bool isLocalMAC(const SceNetEtherAddr * addr);
 
@@ -1245,6 +1252,13 @@ int getPTPSocketCount();
  * @return 0 on success or... -1
  */
 int initNetwork(SceNetAdhocctlAdhocId *adhocid);
+
+/**
+ * Zero MAC Check
+ * @param addr To-be-checked MAC Address
+ * @return true if MAC is all zeroes
+ */
+bool isZeroMAC(const SceNetEtherAddr* addr);
 
 /**
  * Broadcast MAC Check

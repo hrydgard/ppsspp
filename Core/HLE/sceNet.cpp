@@ -468,7 +468,8 @@ void __NetApctlCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback.
-	hleDelayResult(0, "Prevent Apctl thread from blocking", delayus);
+	sceKernelDelayThread(delayus);
+	hleSkipDeadbeef();;
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -609,6 +610,8 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	u8 *addr = Memory::GetPointer(addrAddr);
 	if (PPSSPP_ID > 1) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
+		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+		addr[0] &= 0xfc;
 	}
 	else
 	// Read MAC Address from config
@@ -756,6 +759,9 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
 
+	apctlEvents.clear();
+	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
+
 	// Set default value before connected to an AP
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo)); // NetApctl_InitInfo();
 	std::string APname = "Wifi"; // fake AP/hotspot
@@ -776,7 +782,6 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	}
 
 	netApctlInited = true;
-	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 
 	return 0;
 }
