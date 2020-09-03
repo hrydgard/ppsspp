@@ -5466,7 +5466,7 @@ int matchingEventThread(int matchingId)
 					INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s][%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), mac2str(&msg->mac).c_str(), msg->optlen);
 
 					// Unlock to prevent race-condition with other threads due to recursive lock
-					context->eventlock->unlock();
+					//context->eventlock->unlock();
 					// Call Event Handler
 					//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 					// Notify Event Handlers
@@ -5477,7 +5477,7 @@ int matchingEventThread(int matchingId)
 					//sleep_ms(10); //sceKernelDelayThread(10000);
 
 					// Lock again
-					context->eventlock->lock();
+					//context->eventlock->lock();
 
 					// Pop event stack from front (this should be queue instead of stack?)
 					context->event_stack = msg->next;
@@ -5514,12 +5514,12 @@ int matchingEventThread(int matchingId)
 
 				INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [EVENT=%d]\n", matchingId, msg->opcode);
 
-				context->eventlock->unlock();
+				//context->eventlock->unlock();
 				// Original Call Event Handler
 				//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 				// Notify Event Handlers
 				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
-				context->eventlock->lock();
+				//context->eventlock->lock();
 			}
 
 			// Clear Event Message Stack
@@ -5618,7 +5618,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 
 					// Iterate Message List
 					ThreadMessage* msg = context->input_stack;
-					for (; msg != NULL; msg = msg->next)
+					while (msg != NULL)
 					{
 						// Default Optional Data
 						void* opt = NULL;
@@ -5626,7 +5626,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						// Grab Optional Data
 						if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
 
-						context->inputlock->unlock(); // Unlock to prevent race condition when locking peerlock
+						//context->inputlock->unlock(); // Unlock to prevent race condition when locking peerlock
 
 						// Send Accept Packet
 						if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
@@ -5646,11 +5646,13 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
 						//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
 
-						context->inputlock->lock(); // Lock again
-					}
+						//context->inputlock->lock(); // Lock again
 
-					// Clear IO Message Stack
-					clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
+						// Pop input stack from front (this should be queue instead of stack?)
+						context->input_stack = msg->next;
+						free(msg);
+						msg = context->input_stack;
+					}
 
 					// Free Stack
 					context->inputlock->unlock();
@@ -5727,6 +5729,9 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 		}
 
 		if (contexts != NULL) {
+			// Clear IO Message Stack
+			clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
+
 			// Send Bye Messages
 			sendByePacket(context);
 
