@@ -468,7 +468,8 @@ void __NetApctlCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback.
-	hleDelayResult(0, "Prevent Apctl thread from blocking", delayus);
+	sceKernelDelayThread(delayus);
+	hleSkipDeadbeef();;
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -758,6 +759,9 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
 
+	apctlEvents.clear();
+	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
+
 	// Set default value before connected to an AP
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo)); // NetApctl_InitInfo();
 	std::string APname = "Wifi"; // fake AP/hotspot
@@ -778,7 +782,6 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	}
 
 	netApctlInited = true;
-	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 
 	return 0;
 }

@@ -248,6 +248,7 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		Memory::ReadStruct(productAddr, &product_code);
 	}
 
+	adhocctlEvents.clear();
 	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 
 	// Create fake PSP Thread for callback
@@ -3007,6 +3008,7 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 	fakePoolSize = memsize;
 
 	// Initialize Library
+	matchingEvents.clear();
 	netAdhocMatchingInited = true;
 
 	// Return Success
@@ -4077,7 +4079,8 @@ void __NetTriggerCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	hleDelayResult(0, "Prevent Adhocctl thread from blocking", delayus);
+	sceKernelDelayThread(delayus);
+	hleSkipDeadbeef();
 }
 
 void __NetMatchingCallbacks() //(int matchingId)
@@ -4108,7 +4111,8 @@ void __NetMatchingCallbacks() //(int matchingId)
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
-	hleDelayResult(0, "Prevent AdhocMatching thread from blocking", delayus);
+	sceKernelDelayThread(delayus);
+	hleSkipDeadbeef();
 }
 
 const HLEFunction sceNetAdhoc[] = {
