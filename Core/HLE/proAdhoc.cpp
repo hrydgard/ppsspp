@@ -128,6 +128,8 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	// Already existed
 	if (peer != NULL) {
 		WARN_LOG(SCENET, "Member Peer Already Existed! Updating [%s]", mac2str(mac).c_str());
+		peer->state = 0;
+		peer->sending = 0;
 		peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 	}
 	// Member is not added yet
@@ -137,8 +139,10 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 			memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
 			peer->mac = *mac;
 			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			peerlock.lock();
 			peer->next = context->peerlist;
 			context->peerlist = peer;
+			peerlock.unlock();
 		}
 	}
 	return peer;
@@ -437,7 +441,7 @@ void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
 		// Unneeded Peer
-		if (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P && peer->state != PSP_ADHOC_MATCHING_PEER_PARENT) {
+		if (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P && peer->state != PSP_ADHOC_MATCHING_PEER_PARENT && peer->state != 0) {
 			deletePeer(context, peer);
 			delcount++;
 		}
@@ -450,7 +454,7 @@ void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 	// Free Peer Lock
 	peerlock.unlock();
 
-	INFO_LOG(SCENET, "Removing Unneeded Peer (%i/%i)", delcount, peercount);
+	INFO_LOG(SCENET, "Removing Unneeded Peers (%i/%i)", delcount, peercount);
 }
 
 /**
@@ -466,39 +470,52 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 	// As the buffer of "siblings" isn't properly aligned I don't want to risk a crash.
 	uint8_t * siblings_u8 = (uint8_t *)siblings;
 
-	// Iterate Siblings
-	for (int i = 0; i < siblingcount; i++)
+	peerlock.lock();
+	// Iterate Siblings. Reversed so these siblings are added into peerlist in the same order with the peerlist on host/parent side
+	for (int i = siblingcount - 1; i >= 0 ; i--)
 	{
-		// Allocate Memory
-		SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+		SceNetEtherAddr* mac = (SceNetEtherAddr*)(siblings_u8 + sizeof(SceNetEtherAddr) * i);
 
-		// Allocated Memory
-		if (sibling != NULL)
-		{
-			// Clear Memory
-			memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
-
-			// Save MAC Address
-			memcpy(&sibling->mac, siblings_u8 + sizeof(SceNetEtherAddr) * i, sizeof(SceNetEtherAddr));
-
+		auto peer = findPeer(context, mac);
+		// Already exist
+		if (peer != NULL) {
 			// Set Peer State
-			sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
+			peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
+			peer->sending = 0;
+			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			WARN_LOG(SCENET, "Updating Sibling Peer %s", mac2str(mac).c_str());
+		}
+		else {
+			// Allocate Memory
+			SceNetAdhocMatchingMemberInternal* sibling = (SceNetAdhocMatchingMemberInternal*)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
-			// Initialize Ping Timer
-			sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+			// Allocated Memory
+			if (sibling != NULL)
+			{
+				// Clear Memory
+				memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
 
-			peerlock.lock();
-			// Link Peer, should check whether it's already added before
-			sibling->next = context->peerlist;
-			context->peerlist = sibling;
-			peerlock.unlock();
+				// Save MAC Address
+				memcpy(&sibling->mac, mac, sizeof(SceNetEtherAddr));
 
-			// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
-			//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+				// Set Peer State
+				sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
-			INFO_LOG(SCENET, "Accepting Peer %s", mac2str(&sibling->mac).c_str());
+				// Initialize Ping Timer
+				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+
+				// Link Peer
+				sibling->next = context->peerlist;
+				context->peerlist = sibling;
+
+				// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
+				//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+
+				INFO_LOG(SCENET, "Accepting Sibling Peer %s", mac2str(&sibling->mac).c_str());
+			}
 		}
 	}
+	peerlock.unlock();
 }
 
 /**
@@ -888,13 +905,14 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0
 		// Timeout!, may be we shouldn't kick timedout members ourself and let the game do it
-		if ((now - peer->lastping) >= context->timeout) 
+		if (peer->state != 0 && (now - peer->lastping) >= context->timeout) 
 		{
 			// Spawn Timeout Event
-			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
+			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (/*peer->state == PSP_ADHOC_MATCHING_PEER_CHILD ||*/ peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P)) {
-				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL); // This is the only code that use PSP_ADHOC_MATCHING_EVENT_TIMEOUT, should we let it timedout?
+				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
+				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 			}
 
 			INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout/1000));

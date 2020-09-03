@@ -646,10 +646,10 @@ enum {
 #define PSP_ADHOC_MATCHING_EVENT_DENY			4
 #define PSP_ADHOC_MATCHING_EVENT_CANCEL			5
 #define PSP_ADHOC_MATCHING_EVENT_ACCEPT			6
-#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7
-#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8
+#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
+#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_ERROR			9
-#define PSP_ADHOC_MATCHING_EVENT_BYE			10
+#define PSP_ADHOC_MATCHING_EVENT_BYE			10	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_DATA			11
 #define PSP_ADHOC_MATCHING_EVENT_DATA_ACK		12
 #define PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT	13

@@ -3691,13 +3691,15 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 					// Filled Request Counter
 					int filledpeers = 0;
 
-					// Add Self-Peer
 					if (requestedpeers > 0)
 					{
-						// Add Local MAC
-						buf2[filledpeers++].mac_addr = context->mac;
+						// Add Self-Peer first, unless if there is existing Parent/P2P peer
+						if (peercount == 1 || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
+							// Add Local MAC
+							buf2[filledpeers++].mac_addr = context->mac;
 
-						DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac).c_str());
+							DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac).c_str());
+						}
 
 						// Room for more than local peer
 						if (requestedpeers > 1)
@@ -3726,6 +3728,23 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 							// Parent or Child Mode
 							else
 							{
+								// Add Parent first
+								SceNetAdhocMatchingMemberInternal* parentpeer = findParent(context);
+								if (parentpeer != NULL) {
+									// Faking lastping
+									auto friendpeer = findFriend(&parentpeer->mac);
+									if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
+										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+
+									// Add Parent MAC
+									buf2[filledpeers++].mac_addr = parentpeer->mac;
+
+									DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&parentpeer->mac).c_str());
+								}
+
+								// We may need to rearrange children where last joined player placed last
+								std::deque<SceNetAdhocMatchingMemberInternal*> sortedPeers;
+
 								// Iterate Peer List
 								SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
 								for (; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
@@ -3737,35 +3756,45 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 											peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
-										// Parent Mode
-										if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-											// Interested in Children
-											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-												// Add Child MAC
-												buf2[filledpeers++].mac_addr = peer->mac;
-
-												DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
-											}
-										}
-
-										// Children Mode
-										else {
-											// Interested in Parent & Siblings
-											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD ||
-												peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) {
-												// Add Peer MAC
-												buf2[filledpeers++].mac_addr = peer->mac;
-
-												if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)
-													DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&peer->mac).c_str());
-												else
-													DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
-											}
-										}
+										// Add Peer MAC
+										sortedPeers.push_front(peer);
 									}
 								}
-							}
 
+								// Iterate rearranged peers
+								for (const auto& peer : sortedPeers) {
+									// Parent Mode
+									if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+										// Interested in Children
+										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+											// Add Child MAC
+											buf2[filledpeers++].mac_addr = peer->mac;
+
+											DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
+										}
+									}
+
+									// Child Mode
+									else {
+										// Interested in Siblings
+										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+											// Add Peer MAC
+											buf2[filledpeers++].mac_addr = peer->mac;
+
+											DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
+										}
+										// Self Peer
+										else if (peer->state == 0) {
+											// Add Local MAC
+											buf2[filledpeers++].mac_addr = peer->mac;
+
+											DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
+										}
+
+									}
+								}
+								sortedPeers.clear();
+							}
 						}
 
 						// Link Result List
@@ -3773,7 +3802,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 						{
 							// Link Next Element
 							//buf2[i].next = &buf2[i + 1];
-							buf2[i].next = buf + (sizeof(SceNetAdhocMatchingMemberInfoEmu)*i) + sizeof(SceNetAdhocMatchingMemberInfoEmu);
+							buf2[i].next = buf + (sizeof(SceNetAdhocMatchingMemberInfoEmu)*(i+1LL));
 						}
 						// Fix Last Element
 						if (filledpeers > 0) buf2[filledpeers - 1].next = 0;
@@ -5052,7 +5081,15 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 							postAcceptCleanPeerList(context);
 
 							// Add Sibling Peers
-							if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) postAcceptAddSiblings(context, siblingcount, siblings);
+							if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
+								// Add existing siblings
+								postAcceptAddSiblings(context, siblingcount, siblings);
+
+								// Add Self Peer to the following position (using peer->state = 0 to identify as Self)
+								SceNetEtherAddr selfMAC;
+								getLocalMac(&selfMAC);
+								addMember(context, &selfMAC);
+							}
 
 							// IMPORTANT! The Event Order here is ok!
 							// Internally the Event Stack appends to the front, so the order will be switched around.
@@ -5081,15 +5118,6 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, sendermac);
 
-	// Get Parent
-	SceNetAdhocMatchingMemberInternal * parent = findParent(context);
-
-	// Get Outgoing Join Request
-	SceNetAdhocMatchingMemberInternal * request = findOutgoingRequest(context);
-
-	// Get P2P Partner
-	SceNetAdhocMatchingMemberInternal * p2p = findP2P(context);
-
 	// Interest Condition fulfilled
 	if (peer != NULL)
 	{
@@ -5108,9 +5136,15 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				// Extract Optional Data Pointer
 				if (optlen > 0) opt = context->rxbuf + 5;
 
+				// Get Outgoing Join Request
+				SceNetAdhocMatchingMemberInternal* request = findOutgoingRequest(context);
+
 				// Child Mode
 				if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD)
 				{
+					// Get Parent
+					SceNetAdhocMatchingMemberInternal* parent = findParent(context);
+
 					// Join Request denied
 					if (request == peer)
 					{
@@ -5168,6 +5202,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				// P2P Mode
 				else
 				{
+					// Get P2P Partner
+					SceNetAdhocMatchingMemberInternal* p2p = findP2P(context);
+
 					// Join Request denied
 					if (request == peer)
 					{
@@ -5348,8 +5385,10 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 			(context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 			(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P))
 		{
-			// Spawn Leave / Kick Event
-			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
+			if (context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
+				// Spawn Leave / Kick Event. FIXME: DISCONNECT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
+				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
+			}
 
 			// Delete Peer
 			deletePeer(context, peer);
@@ -5360,17 +5399,8 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 		// Parent Bye
 		else if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)
 		{
-			// Iterate Peers
-			SceNetAdhocMatchingMemberInternal * item = context->peerlist; 
-			for (; item != NULL; item = item->next)
-			{
-				// Established Peer
-				if (item->state == PSP_ADHOC_MATCHING_PEER_CHILD || item->state == PSP_ADHOC_MATCHING_PEER_PARENT)
-				{
-					// Spawn Leave / Kick Event
-					spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_BYE, &item->mac, 0, NULL);
-				}
-			}
+			// Spawn Leave / Kick Event. FIXME: DISCONNECT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
+			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
 
 			// Delete Peer from List
 			clearPeerList(context);
