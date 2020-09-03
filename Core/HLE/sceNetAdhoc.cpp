@@ -94,14 +94,13 @@ void __NetAdhocShutdown() {
 	}
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
-		sceNetAdhocMatchingTerm();
+		NetAdhocMatching_Term();
 	}
 	if (netAdhocctlInited) {
-		sceNetAdhocctlTerm();
+		NetAdhocctl_Term();
 	}
 	if (netAdhocInited) {
-		// Should not really call HLE funcs from shutdown, but we need to cleanup
-		sceNetAdhocTerm();
+		NetAdhoc_Term();
 	}
 	if (dummyThreadHackAddr) {
 		kernelMemory.Free(dummyThreadHackAddr);
