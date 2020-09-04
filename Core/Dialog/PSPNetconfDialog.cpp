@@ -47,7 +47,7 @@ static const float FONT_SCALE = 0.65f;
 const static int NET_INIT_DELAY_US = 300000;
 const static int NET_SHUTDOWN_DELAY_US = 260000;
 const static int NET_RUNNING_DELAY_US = 1000000; // KHBBS is showing adhoc dialog for about 3-4 seconds, but feels too long, so we're faking it to 1 sec instead to let players read the text
-const static int NET_CONNECT_TIMEOUT = 5000000;
+const static int NET_CONNECT_TIMEOUT = 15000000; // Using 15 secs to match the timeout on Adhoc Server side (SERVER_USER_TIMEOUT)
 
 struct ScanInfos {
 	s32_le sz;

@@ -1606,16 +1606,20 @@ static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-// FIXME: Scan probably not a blocking function since there is ADHOCCTL_STATE_SCANNING state that can be polled by the game, right?
+// FIXME: Scan probably not a blocking function since there is ADHOCCTL_STATE_SCANNING state that can be polled by the game, right? But apparently it need to be delayed for Naruto Shippuden Ultimate Ninja Heroes 3
 int sceNetAdhocctlScan() {
 	INFO_LOG(SCENET, "sceNetAdhocctlScan() at %08x", currentMIPS->pc);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
 
 	// Library initialized
 	if (netAdhocctlInited) {
+		int us = adhocEventPollDelayMS * 1000;
 
+		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
-			int us = adhocEventPollDelayMS * 1000;
 
 			// Reset Networks/Group list to prevent other threads from using these soon to be replaced networks
 			peerlock.lock();
@@ -1642,15 +1646,20 @@ int sceNetAdhocctlScan() {
 					return WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl scan");
 				}
 			}
-			else 
-				hleDelayResult(0, "give a little time to be ready to receive the callback", us); // Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
-
-			// Return Success
-			return 0;
+			else {
+				// Return Success and let friendFinder thread to notify the handler when scan completed
+				// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
+				return hleDelayResult(0, "give a little time to be ready to receive the callback", us);
+			}
 		}
+		else if (adhocctlState == ADHOCCTL_STATE_SCANNING)
+			return ERROR_NET_ADHOCCTL_BUSY;
 
-		// Library is busy
-		return ERROR_NET_ADHOCCTL_BUSY; // ERROR_NET_ADHOCCTL_BUSY may trigger the game (ie. Ford Street Racing) to call sceNetAdhocctlDisconnect
+		// Already connected to a group. Should we fake a success?
+		// We need to notify the handler on success, even if it was faked
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+		// FIXME: returning ERROR_NET_ADHOCCTL_BUSY may trigger the game (ie. Ford Street Racing) to call sceNetAdhocctlDisconnect, But Not returning a Success(0) will cause Valhalla Knights 2 not working properly
+		return hleDelayResult(0, "give a little time to be ready to receive the callback", us);
 	}
 
 	// Library uninitialized
@@ -1750,6 +1759,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
 // TODO: Should we allow the same handler to be added more than once?
+// FIXME: Do all Adhocctl HLE returning 0 and expecting error code through callback handler if there were error, instead of returning error code through the HLE ?
 static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
 	u32 retval = 0;
@@ -2093,7 +2103,7 @@ int NetAdhocctl_Create(const char* groupName) {
 				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), 0);
 				int error = errno;
 
-				if (iResult == SOCKET_ERROR) {
+				if (iResult == SOCKET_ERROR && error != EAGAIN && error != EWOULDBLOCK) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
 					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
 					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
@@ -4589,7 +4599,7 @@ void __NetTriggerCallbacks()
 			}
 
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
-				DEBUG_LOG(SCENET, "AdhocctlCallback: [ID=%i][EVENT=%i]", it->first, flags);
+				DEBUG_LOG(SCENET, "AdhocctlCallback: [ID=%i][EVENT=%i][Error=%08x]", it->first, flags, error);
 				args[2] = it->second.argument;
 				AfterAdhocMipsCall* after = (AfterAdhocMipsCall*)__KernelCreateAction(actionAfterAdhocMipsCall);
 				after->SetData(it->first, flags, args[2]);
