@@ -5089,9 +5089,7 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 								postAcceptAddSiblings(context, siblingcount, siblings);
 
 								// Add Self Peer to the following position (using peer->state = 0 to identify as Self)
-								SceNetEtherAddr selfMAC;
-								getLocalMac(&selfMAC);
-								addMember(context, &selfMAC);
+								addMember(context, &context->mac);
 							}
 
 							// IMPORTANT! The Event Order here is ok!
