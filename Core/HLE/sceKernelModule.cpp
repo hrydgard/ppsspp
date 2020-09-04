@@ -2327,6 +2327,12 @@ static u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
+u32 sceKernelFindModuleByUID(u32 uid)
+{
+	ERROR_LOG(SCEMODULE, "UNIMPL sceKernelFindModuleByUID(%s)", uid);
+	return 0;
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
 	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelFindModuleByName(%s)", name);

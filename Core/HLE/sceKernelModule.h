@@ -45,6 +45,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 void __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
 u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
+u32 sceKernelFindModuleByUID(u32 uid);
 
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
