@@ -158,7 +158,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XAE7C6E76, nullptr,                                            "sceKernelRegisterModule",                 '?', ""   },
 	{0X74CF001A, nullptr,                                            "sceKernelReleaseModule",                  '?', ""   },
 	{0XFB8AE27D, nullptr,                                            "sceKernelFindModuleByAddress",            '?', ""   },
-	{0XCCE4A157, &WrapU_U<sceKernelFindModuleByUID>,                 "sceKernelFindModuleByUID",                '?', "" ,      HLE_KERNEL_SYSCALL },
+	{0XCCE4A157, &WrapU_U<sceKernelFindModuleByUID>,                 "sceKernelFindModuleByUID",                'x', "" ,      HLE_KERNEL_SYSCALL },
 	{0X82CE54ED, nullptr,                                            "sceKernelModuleCount",                    '?', ""   },
 	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
 	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
