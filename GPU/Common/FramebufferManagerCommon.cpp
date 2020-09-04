@@ -1292,7 +1292,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 		}
 	}
 
-	if (!dstBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
+	if (srcBuffer && !dstBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
 		GEBufferFormat ramFormat;
 		// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
 		if (bpp == 4) {
