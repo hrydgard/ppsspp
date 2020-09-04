@@ -188,7 +188,7 @@ const HLEFunction KDebugForKernel[] =
 	{0XE892D9A1, nullptr,                                            "KDebugForKernel_E892D9A1",                '?', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
-};/**/
+};
 
 const HLEFunction pspeDebug[] = 
 {
