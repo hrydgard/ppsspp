@@ -34,6 +34,7 @@ struct SceUtilityNetconfParam {
 	int netWifiSpot;			// Flag to allow WIFI connections
 };
 
+
 class PSPNetconfDialog: public PSPDialog {
 public:
 	PSPNetconfDialog();
@@ -57,11 +58,15 @@ private:
 
 	SceUtilityNetconfParam request = {};
 	u32 requestAddr = 0;
-	int connResult = 0;
+	int connResult = -1;
 	bool hideNotice = false;
 
 	int yesnoChoice = 0;
 	float scrollPos_ = 0.0f;
 	int framesUpHeld_ = 0;
 	int framesDownHeld_ = 0;
+
+	u32 scanInfosAddr = 0;
+	int scanStep = 0;
+	u64 startTime = 0;
 };

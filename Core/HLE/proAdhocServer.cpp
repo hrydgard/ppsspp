@@ -2075,7 +2075,7 @@ int server_loop(int server)
 		sleep_ms(1);
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (adhocServerRunning && Core_IsStepping()) sleep_ms(1);
+		while (adhocServerRunning && Core_IsStepping() && coreState != CORE_POWERDOWN) sleep_ms(1);
 	}
 
 	// Free User Database Memory
