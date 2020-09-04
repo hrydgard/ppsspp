@@ -2329,7 +2329,7 @@ static u32 sceKernelGetModuleId()
 
 u32 sceKernelFindModuleByUID(u32 uid)
 {
-	ERROR_LOG(SCEMODULE, "UNIMPL sceKernelFindModuleByUID(%s)", uid);
+	ERROR_LOG(SCEMODULE, "UNIMPL sceKernelFindModuleByUID(%d)", uid);
 	return 0;
 }
 
