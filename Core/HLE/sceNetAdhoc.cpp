@@ -2327,7 +2327,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 			int i = 0;
 
 			// Iterate Translation Table
-			for (int j = 0; j < 255 && i < count; j++)
+			for (int j = 0; j < MAX_SOCKET && i < count; j++)
 			{
 				// Valid Socket Entry
 				if (pdp[j] != NULL)
@@ -2336,7 +2336,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					buf[i] = *pdp[j];
 
 					// Fix Client View Socket ID
-					buf[i].id = j + 256;
+					buf[i].id = j + PdpIdStart;
 
 					// Write End of List Reference
 					buf[i].next = 0;
@@ -2405,7 +2405,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 			int i = 0;
 			
 			// Iterate Sockets
-			for (int j = 0; j < 255 && i < count; j++) {
+			for (int j = 0; j < MAX_SOCKET && i < count; j++) {
 				// Active Socket
 				if (ptp[j] != NULL) {
 					// Copy Socket Data from internal Memory
