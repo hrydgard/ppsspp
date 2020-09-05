@@ -4708,7 +4708,7 @@ static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
