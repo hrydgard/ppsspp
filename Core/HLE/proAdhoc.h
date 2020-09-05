@@ -302,18 +302,29 @@ typedef struct SceNetAdhocPollSd{
   s32_le revents;
 } PACK SceNetAdhocPollSd;
 
-// PDP Socket Status
-typedef struct SceNetAdhocPdpStat{
+// PDP Socket Status (Internal use only)
+typedef struct SceNetAdhocPdpStatInternal{
   u32_le next; // struct SceNetAdhocPdpStat * next;
   s32_le id;
   SceNetEtherAddr laddr;
   u16_le lport;
   u32_le rcv_sb_cc;
-} PACK SceNetAdhocPdpStat;
 
-// PTP Socket Status
-typedef struct SceNetAdhocPtpStat {
-  u32_le next; // Changed the pointer to u32
+  s32_le flags; // Socket Alert Flags
+} PACK SceNetAdhocPdpStatInternal;
+
+// PDP Socket Status
+typedef struct SceNetAdhocPdpStatEmu {
+	u32_le next; 
+	s32_le id;
+	SceNetEtherAddr laddr;
+	u16_le lport;
+	u32_le rcv_sb_cc;
+} PACK SceNetAdhocPdpStatEmu;
+
+// PTP Socket Status (Internal use only)
+typedef struct SceNetAdhocPtpStatInternal {
+  u32_le next; // struct SceNetAdhocPtpStat * next;
   s32_le id;
   SceNetEtherAddr laddr;
   SceNetEtherAddr paddr;
@@ -322,7 +333,22 @@ typedef struct SceNetAdhocPtpStat {
   s32_le snd_sb_cc;
   s32_le rcv_sb_cc;
   s32_le state;
-} PACK SceNetAdhocPtpStat;
+
+  s32_le flags; // Socket Alert Flags
+} PACK SceNetAdhocPtpStatInternal;
+
+// PTP Socket Status
+typedef struct SceNetAdhocPtpStatEmu {
+	u32_le next; // Changed the pointer to u32
+	s32_le id;
+	SceNetEtherAddr laddr;
+	SceNetEtherAddr paddr;
+	u16_le lport;
+	u16_le pport;
+	s32_le snd_sb_cc;
+	s32_le rcv_sb_cc;
+	s32_le state;
+} PACK SceNetAdhocPtpStatEmu;
 
 // Gamemode Optional Peer Buffer Data
 typedef struct SceNetAdhocGameModeOptData {
@@ -827,10 +853,10 @@ extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
-extern SceNetAdhocPdpStat * pdp[MAX_SOCKET];
-extern SceNetAdhocPtpStat * ptp[MAX_SOCKET];
-extern const int PdpIdStart;
-extern const int PdpIdEnd;
+extern SceNetAdhocPdpStatInternal * pdp[MAX_SOCKET];
+extern SceNetAdhocPtpStatInternal * ptp[MAX_SOCKET];
+extern const int PdpIdStart;  //256
+extern const int PdpIdEnd; //511
 extern std::map<int, int> ptpConnectCount;
 
 union SockAddrIN4 {
