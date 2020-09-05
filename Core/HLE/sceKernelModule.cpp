@@ -2335,14 +2335,10 @@ u32 sceKernelFindModuleByUID(u32 uid)
 
 u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelFindModuleByName(%s)", name);
-	
 	int index = GetModuleIndex(name);
-
-	if (index == -1)
-		return 0;
-	
-	return 1;
+	u32 temp = index + 1;
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", temp, name);
+	return temp;
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
