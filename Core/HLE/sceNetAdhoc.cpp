@@ -3608,8 +3608,8 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								context->hello_int = hello_int; // client might set this to 0
 								if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 								context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
-								context->timeout = ((u64_le)keepalive_int * (u64_le)init_count);
-								context->timeout = std::max(context->timeout, adhocDefaultTimeout * 1000ULL); // For internet play we need higher timeout than what the game wanted
+								context->timeout = (((u64)(keepalive_int) + (u64)rexmt_int) * (u64)init_count);
+								context->timeout += (adhocDefaultTimeout * 1000ULL); // For internet play we need higher timeout than what the game wanted
 								context->handler = handler;
 
 								// Fill in Selfpeer
