@@ -4327,11 +4327,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Ys vs. Sora no Kiseki seems to be using this function even after AdhocMatching is Terminated, May be member list persist even after AdhocMatching terminated until the next init?
-	if (!netAdhocMatchingInited) {
-		//WARN_LOG(SCENET, "sceNetAdhocMatchingGetMembers - AdhocMatching is Not Initialized");
-		return 0; // ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
-	}
+	if (!netAdhocMatchingInited)
+		return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 
 	// Minimum Argument
 	if (!Memory::IsValidAddress(sizeAddr)) 
