@@ -281,7 +281,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
-	SceNetAdhocPdpStat* pdpsocket = pdp[req.id - 256];
+	SceNetAdhocPdpStat* pdpsocket = pdp[req.id - PdpIdStart];
 
 	result = 0;
 	bool retry = false;
@@ -904,10 +904,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 
 							// Find Free Translator Index
 							int i = 0; 
-							for (; i < 255; i++) if (pdp[i] == NULL) break;
+							for (; i < MAX_SOCKET; i++) if (pdp[i] == NULL) break;
 
 							// Found Free Translator Index
-							if (i < 255) {
+							if (i < MAX_SOCKET) {
 								// Fill in Data
 								internal->id = usocket;
 								internal->laddr = *saddr;
@@ -925,7 +925,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								changeBlockingMode(usocket, 1);
 
 								// Success
-								return i + 256;
+								return i + PdpIdStart;
 							} 
 
 							// Free Memory for Internal Data
@@ -1028,9 +1028,9 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 			// Valid Data Length
 			if (len >= 0) { // should we allow 0 size packet (for ping) ?
 				// Valid Socket ID
-				if (id > 255 && id <= 510 && pdp[id - 256] != NULL) {
+				if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL) {
 					// Cast Socket
-					SceNetAdhocPdpStat * socket = pdp[id - 256];
+					SceNetAdhocPdpStat * socket = pdp[id - PdpIdStart];
 
 					// Valid Data Buffer
 					if (data != NULL) {
@@ -1233,9 +1233,9 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 	int * len = (int *)dataLength;
 	if (netAdhocInited) {
 		// Valid Socket ID
-		if (id > 255 && id <= 510 && pdp[id - 256] != NULL) {
+		if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL) {
 			// Cast Socket
-			SceNetAdhocPdpStat * socket = pdp[id - 256];
+			SceNetAdhocPdpStat * socket = pdp[id - PdpIdStart];
 
 			// Valid Arguments
 			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len > 0) { 
@@ -1413,14 +1413,14 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 	for (int i = 0; i < count; i++) {
 		sds[i].revents = 0;
 		// Fill in Socket ID
-		if (sds[i].id <= 255 && ptp[sds[i].id - 1] != NULL) {
+		if (sds[i].id <= MAX_SOCKET && ptp[sds[i].id - 1] != NULL) {
 			fd = ptp[sds[i].id - 1]->id;
 			if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_LISTEN) sds[i].revents |= ADHOC_EV_ACCEPT;
 			else
 				if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_CLOSED) sds[i].revents |= ADHOC_EV_CONNECT;
 		}
 		else {
-			fd = pdp[sds[i].id - 256]->id;
+			fd = pdp[sds[i].id - PdpIdStart]->id;
 		}
 		if (fd > maxfd) maxfd = fd;
 		if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
@@ -1435,11 +1435,11 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 	if (affectedsockets > 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
-			if (sds[i].id <= 255 && ptp[sds[i].id - 1] != NULL) {
+			if (sds[i].id <= MAX_SOCKET && ptp[sds[i].id - 1] != NULL) {
 				fd = ptp[sds[i].id - 1]->id;
 			}
 			else {
-				fd = pdp[sds[i].id - 256]->id;
+				fd = pdp[sds[i].id - PdpIdStart]->id;
 			}
 			if (FD_ISSET(fd, &readfds))
 				sds[i].revents |= ADHOC_EV_RECV;
@@ -1468,7 +1468,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			for (int i = 0; i < count; i++)
 			{
 				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > 510 || (pdp[sds[i].id - 256] == NULL && ptp[sds[i].id - 1] == NULL)) 
+				if (sds[i].id < 1 || sds[i].id >= PdpIdEnd || (pdp[sds[i].id - PdpIdStart] == NULL && ptp[sds[i].id - 1] == NULL))
 					return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 			}
 
@@ -1526,9 +1526,9 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
-		if (id > 255 && id <= 510) {
+		if (id >= PdpIdStart && id < PdpIdEnd) {
 			// Cast Socket
-			SceNetAdhocPdpStat* sock = pdp[id - 256];
+			SceNetAdhocPdpStat* sock = pdp[id - PdpIdStart];
 
 			// Valid Socket
 			if (sock != NULL) {
@@ -1544,7 +1544,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 				free(sock);
 
 				// Free Translation Slot
-				pdp[id - 256] = NULL;
+				pdp[id - PdpIdStart] = NULL;
 
 				// Success
 				return 0;
@@ -2522,10 +2522,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 							if (internal != NULL) {
 								// Find Free Translator ID
 								int i = 0; 
-								for (; i < 255; i++) if (ptp[i] == NULL) break;
+								for (; i < MAX_SOCKET; i++) if (ptp[i] == NULL) break;
 								
 								// Found Free Translator ID
-								if (i < 255) {
+								if (i < MAX_SOCKET) {
 									// Clear Memory
 									memset(internal, 0, sizeof(SceNetAdhocPtpStat));
 									
@@ -2619,10 +2619,10 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 			if (internal != NULL) {
 				// Find Free Translator ID
 				int i = 0;
-				for (; i < 255; i++) if (ptp[i] == NULL) break;
+				for (; i < MAX_SOCKET; i++) if (ptp[i] == NULL) break;
 
 				// Found Free Translator ID
-				if (i < 255) {
+				if (i < MAX_SOCKET) {
 					// Clear Memory
 					memset(internal, 0, sizeof(SceNetAdhocPtpStat));
 
@@ -2708,7 +2708,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
@@ -2783,7 +2783,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	if (netAdhocInited)
 	{
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 
@@ -2871,7 +2871,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments & Atleast one Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
 			SceNetAdhocPtpStat* socket = ptp[id - 1];
 
@@ -3007,10 +3007,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 								if (internal != NULL) {
 									// Find Free Translator ID
 									int i = 0; 
-									for (; i < 255; i++) if (ptp[i] == NULL) break;
+									for (; i < MAX_SOCKET; i++) if (ptp[i] == NULL) break;
 									
 									// Found Free Translator ID
-									if (i < 255) {
+									if (i < MAX_SOCKET) {
 										// Clear Memory
 										memset(internal, 0, sizeof(SceNetAdhocPtpStat));
 										
@@ -3103,7 +3103,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
@@ -3191,7 +3191,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL && ptp[id - 1]->state == ADHOC_PTP_STATE_ESTABLISHED) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL && ptp[id - 1]->state == ADHOC_PTP_STATE_ESTABLISHED) {
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
@@ -3289,7 +3289,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 	// Library initialized
 	if (netAdhocInited) {
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
 			SceNetAdhocPtpStat* socket = ptp[id - 1];
 

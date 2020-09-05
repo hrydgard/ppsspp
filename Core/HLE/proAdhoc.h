@@ -820,14 +820,17 @@ private:
 extern int actionAfterAdhocMipsCall;
 extern int actionAfterMatchingMipsCall;
 
+#define MAX_SOCKET	255
 // Aux vars
 extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
-extern SceNetAdhocPdpStat * pdp[255];
-extern SceNetAdhocPtpStat * ptp[255];
+extern SceNetAdhocPdpStat * pdp[MAX_SOCKET];
+extern SceNetAdhocPtpStat * ptp[MAX_SOCKET];
+extern const int PdpIdStart;
+extern const int PdpIdEnd;
 extern std::map<int, int> ptpConnectCount;
 
 union SockAddrIN4 {
