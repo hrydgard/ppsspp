@@ -1232,6 +1232,7 @@ std::vector<std::string> getChatLog() {
 
 int friendFinder(){
 	setCurrentThreadName("FriendFinder");
+	auto n = GetI18NCategory("Networking");
 	// Receive Buffer
 	int rxpos = 0;
 	uint8_t rx[1024];
@@ -1292,6 +1293,7 @@ int friendFinder(){
 							shutdown(metasocket, SD_BOTH);
 							closesocket(metasocket);
 							metasocket = (int)INVALID_SOCKET;
+							host->NotifyUserMessage(std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")", 2.0, 0x0000ff);
 						}
 					}
 					else {
