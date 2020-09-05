@@ -281,7 +281,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
-	SceNetAdhocPdpStat* pdpsocket = pdp[req.id - 1];
+	SceNetAdhocPdpStat* pdpsocket = pdp[req.id - 256];
 
 	result = 0;
 	bool retry = false;
