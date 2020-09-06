@@ -64,9 +64,9 @@ void StringUpper(char *str, int len) {
 void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 	Buffer buffer;
 	for (size_t i = 0; i < size; i++) {
-		buffer.Printf("%02x ", data[i]);
 		if (i && !(i & 15))
 			buffer.Printf("\n");
+		buffer.Printf("%02x ", data[i]);
 	}
 	buffer.TakeAll(output);
 }
