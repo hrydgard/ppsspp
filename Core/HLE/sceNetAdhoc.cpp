@@ -23,6 +23,11 @@
 #include <netinet/tcp.h>
 #endif
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
+
 #include <mutex>
 #include "thread/threadutil.h"
 // sceNetAdhoc
@@ -160,7 +165,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	// Send Packet if it wasn't succesfully sent before
 	if (len > 0) {
 		if (IsSocketReady(metasocket, false, true) > 0) {
-			int ret = send(metasocket, (const char*)&packet, len, 0);
+			int ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
 			int sockerr = errno;
 
 			if (ret > 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
@@ -223,12 +228,12 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
 
-	int ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_PEEK, (sockaddr*)&sin, &sinlen);
+	int ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_PEEK | MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 	int sockerr = errno;
 
 	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
 	if (ret >= 0 && ret <= *req.length) {
-		ret = recvfrom(uid, (char*)req.buffer, *req.length, 0, (sockaddr*)&sin, &sinlen);
+		ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		if (ret > 0) {
 			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
@@ -292,7 +297,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		target.sin_addr.s_addr = peer->ip;
 		target.sin_port = htons(peer->port + ((isOriPort && !isPrivateIP(peer->ip)) ? 0 : portOffset));
 
-		int ret = sendto(pdpsocket->id, (const char*)req.buffer, targetPeers.length, 0, (sockaddr*)&target, sizeof(target));
+		int ret = sendto(pdpsocket->id, (const char*)req.buffer, targetPeers.length, MSG_NOSIGNAL, (sockaddr*)&target, sizeof(target));
 		int sockerr = errno;
 
 		if (ret >= 0) {
@@ -327,7 +332,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	auto ptpsocket = ptp[req.id - 1];
 
 	// Send Data
-	int ret = send(uid, (const char*)req.buffer, *req.length, 0);
+	int ret = send(uid, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
 	int sockerr = errno;
 
 	// Success
@@ -367,7 +372,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	auto ptpsocket = ptp[req.id - 1];
 
-	int ret = recv(uid, (char*)req.buffer, *req.length, 0);
+	int ret = recv(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL);
 	int sockerr = errno;
 
 	// Received Data
@@ -869,9 +874,11 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 					// Enable KeepAlive
 					setSockKeepAlive(usocket, true);
 
+					// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+					setSockNoSIGPIPE(usocket, 1);
+
 					// Enable Port Re-use, this will allow binding to an already used port, but only one of them can read the data (shared receive buffer?)
-					int one = 1;
-					setsockopt(usocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one)); // NO idea if we need this
+					setsockopt(usocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 
 					// Binding Information for local Port
 					sockaddr_in addr;
@@ -1062,7 +1069,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									//_acquireNetworkLock();
 
 									// Send Data. UDP are guaranteed to be sent as a whole or nothing(failed if len > SO_MAX_MSG_SIZE), and never be partially sent/recv
-									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+									int sent = sendto(socket->id, (const char *)data, len, MSG_NOSIGNAL, (sockaddr *)&target, sizeof(target));
 									int error = errno;
 
 									if (sent == SOCKET_ERROR) {
@@ -1159,7 +1166,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 										target.sin_addr.s_addr = peer.ip;
 										target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(peer.ip)) ? 0 : portOffset));
 
-										int sent = sendto(socket->id, (const char*)data, len, 0, (sockaddr*)&target, sizeof(target));
+										int sent = sendto(socket->id, (const char*)data, len, MSG_NOSIGNAL, (sockaddr*)&target, sizeof(target));
 										int error = errno;
 										if (sent == SOCKET_ERROR) {
 											DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](BC) [size=%i]", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
@@ -1283,7 +1290,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				
 				// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
 				// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
-				received = recvfrom(socket->id, (char*)buf, *len, MSG_PEEK, (sockaddr*)&sin, &sinlen);
+				received = recvfrom(socket->id, (char*)buf, *len, MSG_PEEK | MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 				if (received != SOCKET_ERROR && *len < received) {
 					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(socket->id), received, *len, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 					*len = received;
@@ -1309,7 +1316,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 					return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE; //received;
 				}
-				received = recvfrom(socket->id, (char*)buf, *len, 0, (sockaddr*)&sin, &sinlen);
+				received = recvfrom(socket->id, (char*)buf, *len, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 				error = errno;
 
 				if (received == SOCKET_ERROR) {
@@ -1645,7 +1652,7 @@ int sceNetAdhocctlScan() {
 			uint8_t opcode = OPCODE_SCAN;
 
 			// Send Scan Request Packet, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-			int iResult = send(metasocket, (char *)&opcode, 1, 0);
+			int iResult = send(metasocket, (char *)&opcode, 1, MSG_NOSIGNAL);
 			int error = errno;
 
 			if (iResult == SOCKET_ERROR) {
@@ -1833,7 +1840,7 @@ u32 NetAdhocctl_Disconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			iResult = send(metasocket, (const char*)&opcode, 1, 0);
+			iResult = send(metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 			error = errno;
 
 			// Sending may get socket error 10053 if the AdhocServer is already shutted down
@@ -2114,7 +2121,7 @@ int NetAdhocctl_Create(const char* groupName) {
 				// Acquire Network Lock
 
 				// Send Packet
-				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), 0);
+				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 				int error = errno;
 
 				if (iResult == SOCKET_ERROR && error != EAGAIN && error != EWOULDBLOCK) {
@@ -2512,6 +2519,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						// Enable KeepAlive
 						setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
 
+						// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+						setSockNoSIGPIPE(tcpsocket, 1);
+
 						// Enable Port Re-use
 						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 
@@ -2617,6 +2627,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port) {
 	// Cast Socket
 	auto socket = ptp[ptpId - 1];
+
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE(newsocket, 1);
 
 	// Enable Port Re-use
 	setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
@@ -2996,6 +3009,9 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						// Enable KeepAlive
 						setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
 
+						// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+						setSockNoSIGPIPE(tcpsocket, 1);
+
 						// Enable Port Re-use
 						setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 
@@ -3146,7 +3162,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// _acquireNetworkLock();
 					
 					// Send Data
-					int sent = send(socket->id, data, *len, 0);
+					int sent = send(socket->id, data, *len, MSG_NOSIGNAL);
 					int error = errno;
 					
 					// Free Network Lock
@@ -3236,7 +3252,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 				int error = 0;
 
 				// Receive Data
-				received = recv(socket->id, (char*)buf, *len, 0);
+				received = recv(socket->id, (char*)buf, *len, MSG_NOSIGNAL);
 				error = errno;
 
 				if (received == SOCKET_ERROR) {
@@ -3331,7 +3347,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 
 				// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
 				//changeBlockingMode(socket->id, nonblock);
-				int sent = send(socket->id, 0, 0, 0);
+				int sent = send(socket->id, 0, 0, MSG_NOSIGNAL);
 				int error = errno;
 				//changeBlockingMode(socket->id, 1);
 

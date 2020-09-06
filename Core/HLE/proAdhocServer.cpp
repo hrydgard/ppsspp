@@ -44,6 +44,11 @@
 #include <errno.h>
 //#include <sqlite3.h>
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
+
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
 
@@ -848,7 +853,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = user->resolver.ip;
 
 					// Send Data
-					int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+					int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send peer] (Socket error %d)", errno);
 
 					// Set Player Name
@@ -861,7 +866,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = peer->resolver.ip;
 
 					// Send Data
-					iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+					iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user] (Socket error %d)", errno);
 
 					// Set BSSID
@@ -883,7 +888,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 				g->playercount++;
 
 				// Send Network BSSID to User
-				int iResult = send(user->stream, (const char*)&bssid, sizeof(bssid), 0);
+				int iResult = send(user->stream, (const char*)&bssid, sizeof(bssid), MSG_NOSIGNAL);
 				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user bssid] (Socket error %d)", errno);
 
 				// Notify User
@@ -975,7 +980,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 			packet.ip = user->resolver.ip;
 
 			// Send Data
-			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: disconnect_user[send peer] (Socket error %d)", errno);
 
 			// Move Pointer
@@ -1074,13 +1079,13 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 			}
 
 			// Send Group Packet
-			int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send user] (Socket error %d)", errno);
 		}
 
 		// Notify Player of End of Scan
 		uint8_t opcode = OPCODE_SCAN_COMPLETE;
-		int iResult = send(user->stream, (const char*)&opcode, 1, 0);
+		int iResult = send(user->stream, (const char*)&opcode, 1, MSG_NOSIGNAL);
 		if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send peer complete] (Socket error %d)", errno);
 
 		// Notify User
@@ -1139,7 +1144,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 				strcpy(packet.base.message, message);
 
 				// Send Data
-				int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+				int iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send user chat] (Socket error %d)", errno);
 			}
 		}
@@ -1181,7 +1186,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 			packet.name = user->resolver.name;
 
 			// Send Data
-			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send peer chat] (Socket error %d)", errno);
 
 			// Move Pointer
@@ -1930,7 +1935,7 @@ int server_loop(int server)
 			SceNetAdhocctlUserNode * next = user->next;
 
 			// Receive Data from User
-			int recvresult = recv(user->stream, (char*)user->rx + user->rxpos, sizeof(user->rx) - user->rxpos, 0);
+			int recvresult = recv(user->stream, (char*)user->rx + user->rxpos, sizeof(user->rx) - user->rxpos, MSG_NOSIGNAL);
 
 			// Connection Closed or Timed Out
 			if(recvresult == 0 || (recvresult == -1 && errno != EAGAIN && errno != EWOULDBLOCK) || get_user_state(user) == USER_STATE_TIMED_OUT)
