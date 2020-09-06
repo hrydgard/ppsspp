@@ -71,9 +71,9 @@ SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
 std::recursive_mutex peerlock;
-SceNetAdhocPdpStat * pdp[MAX_SOCKET];
-SceNetAdhocPtpStat * ptp[MAX_SOCKET];
-const int PdpIdStart = MAX_SOCKET + 1; //256
+SceNetAdhocPdpStatInternal * pdp[MAX_SOCKET];
+SceNetAdhocPtpStatInternal * ptp[MAX_SOCKET];
+const int PdpIdStart = MAX_SOCKET + 1;
 const int PdpIdEnd = PdpIdStart + MAX_SOCKET;
 std::map<int, int> ptpConnectCount;
 std::vector<std::string> chatLog;

@@ -281,7 +281,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
-	SceNetAdhocPdpStat* pdpsocket = pdp[req.id - PdpIdStart];
+	auto pdpsocket = pdp[req.id - PdpIdStart];
 
 	result = 0;
 	bool retry = false;
@@ -324,7 +324,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 }
 
 int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
-	SceNetAdhocPtpStat* ptpsocket = ptp[req.id - 1];
+	auto ptpsocket = ptp[req.id - 1];
 
 	// Send Data
 	int ret = send(uid, (const char*)req.buffer, *req.length, 0);
@@ -365,7 +365,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
-	SceNetAdhocPtpStat* ptpsocket = ptp[req.id - 1];
+	auto ptpsocket = ptp[req.id - 1];
 
 	int ret = recv(uid, (char*)req.buffer, *req.length, 0);
 	int sockerr = errno;
@@ -447,7 +447,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 
 	// Connection is ready
 	if (ret > 0) {
-		SceNetAdhocPtpStat* ptpsocket = ptp[req.id - 1];
+		auto ptpsocket = ptp[req.id - 1];
 		sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
@@ -895,12 +895,12 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 						}
 
 						// Allocate Memory for Internal Data
-						SceNetAdhocPdpStat * internal = (SceNetAdhocPdpStat *)malloc(sizeof(SceNetAdhocPdpStat));
+						SceNetAdhocPdpStatInternal * internal = (SceNetAdhocPdpStatInternal *)malloc(sizeof(SceNetAdhocPdpStatInternal));
 
 						// Allocated Memory
 						if (internal != NULL) {
 							// Clear Memory
-							memset(internal, 0, sizeof(SceNetAdhocPdpStat));
+							memset(internal, 0, sizeof(SceNetAdhocPdpStatInternal));
 
 							// Find Free Translator Index
 							int i = 0; 
@@ -1030,7 +1030,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 				// Valid Socket ID
 				if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL) {
 					// Cast Socket
-					SceNetAdhocPdpStat * socket = pdp[id - PdpIdStart];
+					auto socket = pdp[id - PdpIdStart];
 
 					// Valid Data Buffer
 					if (data != NULL) {
@@ -1235,7 +1235,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 		// Valid Socket ID
 		if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL) {
 			// Cast Socket
-			SceNetAdhocPdpStat * socket = pdp[id - PdpIdStart];
+			auto socket = pdp[id - PdpIdStart];
 
 			// Valid Arguments
 			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len > 0) { 
@@ -1396,11 +1396,25 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
+int NetAdhoc_SetSocketAlert(int id, int flag) {
+	// FIXME: Should we check for valid Alert Flags and/or Mask them? Should we return an error if we found an invalid flag?
+	int flg = flag & ADHOC_F_ALERTALL;
+
+	if (id > 0 && id < MAX_SOCKET && ptp[id - 1] != NULL)
+		ptp[id - 1]->flags = flg;
+	else if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL)
+		pdp[id - PdpIdStart]->flags = flg;
+	else
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+
+	return 0;
+}
+
 // Flags seems to be bitmasks of ADHOC_F_ALERT...
 int sceNetAdhocSetSocketAlert(int id, int flag) {
- 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
+ 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
-	return 0; //Dummy Result
+	return NetAdhoc_SetSocketAlert(id, flag);
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
@@ -1528,7 +1542,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 		// Valid Arguments
 		if (id >= PdpIdStart && id < PdpIdEnd) {
 			// Cast Socket
-			SceNetAdhocPdpStat* sock = pdp[id - PdpIdStart];
+			auto sock = pdp[id - PdpIdStart];
 
 			// Valid Socket
 			if (sock != NULL) {
@@ -2300,14 +2314,17 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 	{
 		s32_le *buflen = NULL;
 		if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointer(structSize);
-		SceNetAdhocPdpStat *buf = NULL;
-		if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPdpStat *)Memory::GetPointer(structAddr);
+		SceNetAdhocPdpStatEmu *buf = NULL;
+		if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPdpStatEmu *)Memory::GetPointer(structAddr);
+
+		// Socket Count
+		int socketcount = getPDPSocketCount();
 
 		// Length Returner Mode
 		if (buflen != NULL && buf == NULL)
 		{
 			// Return Required Size
-			*buflen = sizeof(SceNetAdhocPdpStat) * getPDPSocketCount();
+			*buflen = sizeof(SceNetAdhocPdpStatEmu) * socketcount;
 
 			// Success
 			return 0;
@@ -2316,34 +2333,31 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 		// Status Returner Mode
 		else if (buflen != NULL && buf != NULL)
 		{
-			// Socket Count
-			int socketcount = getPDPSocketCount();
-
 			// Figure out how many Sockets we will return
-			int count = *buflen / sizeof(SceNetAdhocPdpStat);
+			int count = *buflen / sizeof(SceNetAdhocPdpStatEmu);
 			if (count > socketcount) count = socketcount;
 
 			// Copy Counter
 			int i = 0;
 
 			// Iterate Translation Table
-			for (int j = 0; j < 255 && i < count; j++)
+			for (int j = 0; j < MAX_SOCKET && i < count; j++)
 			{
 				// Valid Socket Entry
 				if (pdp[j] != NULL)
 				{
 					// Copy Socket Data from Internal Memory
-					buf[i] = *pdp[j];
+					memcpy(&buf[i], pdp[j], sizeof(SceNetAdhocPdpStatEmu));
 
 					// Fix Client View Socket ID
-					buf[i].id = j + 256;
+					buf[i].id = j + PdpIdStart;
 
 					// Write End of List Reference
 					buf[i].next = 0;
 
 					// Link Previous Element
 					if (i > 0) 
-						buf[i - 1].next = structAddr + ((i - 1LL) * sizeof(SceNetAdhocPdpStat)) + sizeof(SceNetAdhocPdpStat);
+						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPdpStatEmu));
 
 					// Increment Counter
 					i++;
@@ -2351,7 +2365,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 			}
 
 			// Update Buffer Length
-			*buflen = i * sizeof(SceNetAdhocPdpStat);
+			*buflen = i * sizeof(SceNetAdhocPdpStatEmu);
 
 			// Success
 			return 0;
@@ -2378,15 +2392,18 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 
 	s32_le *buflen = NULL;
 	if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointer(structSize);
-	SceNetAdhocPtpStat *buf = NULL;
-	if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPtpStat *)Memory::GetPointer(structAddr);
+	SceNetAdhocPtpStatEmu *buf = NULL;
+	if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPtpStatEmu *)Memory::GetPointer(structAddr);
 
 	// Library is initialized
 	if (netAdhocInited) {
+		// Socket Count
+		int socketcount = getPTPSocketCount();
+
 		// Length Returner Mode
 		if (buflen != NULL && buf == NULL) {
 			// Return Required Size
-			*buflen = sizeof(SceNetAdhocPtpStat) * getPTPSocketCount();
+			*buflen = sizeof(SceNetAdhocPtpStatEmu) * socketcount;
 			
 			// Success
 			return 0;
@@ -2394,22 +2411,19 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		
 		// Status Returner Mode
 		else if (buflen != NULL && buf != NULL) {
-			// Socket Count
-			int socketcount = getPTPSocketCount();
-			
 			// Figure out how many Sockets we will return
-			int count = *buflen / sizeof(SceNetAdhocPtpStat);
+			int count = *buflen / sizeof(SceNetAdhocPtpStatEmu);
 			if (count > socketcount) count = socketcount;
 			
 			// Copy Counter
 			int i = 0;
 			
 			// Iterate Sockets
-			for (int j = 0; j < 255 && i < count; j++) {
+			for (int j = 0; j < MAX_SOCKET && i < count; j++) {
 				// Active Socket
 				if (ptp[j] != NULL) {
 					// Copy Socket Data from internal Memory
-					buf[i] = *ptp[j];
+					memcpy(&buf[i], ptp[j], sizeof(SceNetAdhocPtpStatEmu));
 					
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
@@ -2419,7 +2433,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					
 					// Link previous Element to this one
 					if (i > 0)
-						buf[i - 1].next = structAddr + ((i - 1LL) * sizeof(SceNetAdhocPtpStat)) + sizeof(SceNetAdhocPtpStat);
+						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPtpStatEmu));
 					
 					// Increment Counter
 					i++;
@@ -2427,7 +2441,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 			}
 			
 			// Update Buffer Length
-			*buflen = i * sizeof(SceNetAdhocPtpStat);
+			*buflen = i * sizeof(SceNetAdhocPtpStatEmu);
 			
 			// Success
 			return 0;
@@ -2526,7 +2540,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 							}
 							
 							// Allocate Memory
-							SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+							SceNetAdhocPtpStatInternal * internal = (SceNetAdhocPtpStatInternal *)malloc(sizeof(SceNetAdhocPtpStatInternal));
 							
 							// Allocated Memory
 							if (internal != NULL) {
@@ -2537,7 +2551,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Found Free Translator ID
 								if (i < MAX_SOCKET) {
 									// Clear Memory
-									memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+									memset(internal, 0, sizeof(SceNetAdhocPtpStatInternal));
 									
 									// Copy Infrastructure Socket ID
 									internal->id = tcpsocket;
@@ -2602,7 +2616,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port) {
 	// Cast Socket
-	SceNetAdhocPtpStat* socket = ptp[ptpId - 1];
+	auto socket = ptp[ptpId - 1];
 
 	// Enable Port Re-use
 	setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
@@ -2623,7 +2637,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 		// Find Peer MAC
 		if (resolveIP(peeraddr.sin_addr.s_addr, &mac)) {
 			// Allocate Memory
-			SceNetAdhocPtpStat* internal = (SceNetAdhocPtpStat*)malloc(sizeof(SceNetAdhocPtpStat));
+			SceNetAdhocPtpStatInternal* internal = (SceNetAdhocPtpStatInternal*)malloc(sizeof(SceNetAdhocPtpStatInternal));
 
 			// Allocated Memory
 			if (internal != NULL) {
@@ -2634,7 +2648,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 				// Found Free Translator ID
 				if (i < MAX_SOCKET) {
 					// Clear Memory
-					memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+					memset(internal, 0, sizeof(SceNetAdhocPtpStatInternal));
 
 					// Copy Socket Descriptor to Structure
 					internal->id = newsocket;
@@ -2720,7 +2734,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 			
 			// Listener Socket
 			if (socket->state == ADHOC_PTP_STATE_LISTEN) {
@@ -2795,7 +2809,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 
 			// Phantasy Star Portable 2 will try to reconnect even when previous connect already success, so we should return success too if it's already connected
 			if (socket->state == ADHOC_PTP_STATE_ESTABLISHED)
@@ -2883,7 +2897,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 		// Valid Arguments & Atleast one Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
-			SceNetAdhocPtpStat* socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 
 			// Close Connection
 			shutdown(socket->id, SD_BOTH);
@@ -3011,7 +3025,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 							// Switch into Listening Mode
 							if ((iResult = listen(tcpsocket, backlog)) == 0) {
 								// Allocate Memory
-								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+								SceNetAdhocPtpStatInternal * internal = (SceNetAdhocPtpStatInternal *)malloc(sizeof(SceNetAdhocPtpStatInternal));
 								
 								// Allocated Memory
 								if (internal != NULL) {
@@ -3022,7 +3036,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									// Found Free Translator ID
 									if (i < MAX_SOCKET) {
 										// Clear Memory
-										memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+										memset(internal, 0, sizeof(SceNetAdhocPtpStatInternal));
 										
 										// Copy Infrastructure Socket ID
 										internal->id = tcpsocket;
@@ -3115,7 +3129,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 			
 			// Connected Socket
 			if (socket->state == ADHOC_PTP_STATE_ESTABLISHED) {
@@ -3203,7 +3217,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL && ptp[id - 1]->state == ADHOC_PTP_STATE_ESTABLISHED) {
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 			
 			// Valid Arguments
 			if (buf != NULL && len != NULL && *len > 0) {
@@ -3301,7 +3315,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && ptp[id - 1] != NULL) {
 			// Cast Socket
-			SceNetAdhocPtpStat* socket = ptp[id - 1];
+			auto socket = ptp[id - 1];
 
 			// Connected Socket
 			if (socket->state == ADHOC_PTP_STATE_ESTABLISHED) {
@@ -3367,15 +3381,21 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 }
 
 int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetSocketAlert(%i, %08x) at %08x", id, flagPtr, currentMIPS->pc);
-	
-	// Dummy Value
-	if (Memory::IsValidAddress(flagPtr)) {
-		s32_le * flag = (s32_le*)Memory::GetPointer(flagPtr);
-		*flag = 0; //ADHOC_F_ALERTALL
-	}
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGetSocketAlert(%i, %08x) at %08x", id, flagPtr, currentMIPS->pc);
+	s32_le flg = 0;
 
-	// Dummy Result
+	if (id > 0 && id < MAX_SOCKET && ptp[id - 1] != NULL)
+		flg = ptp[id - 1]->flags;
+	else if (id >= PdpIdStart && id < PdpIdEnd && pdp[id - PdpIdStart] != NULL)
+		flg = pdp[id - PdpIdStart]->flags;
+	else
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+
+	if (!Memory::IsValidAddress(flagPtr))
+		return ERROR_NET_ADHOC_INVALID_ARG;
+		
+	Memory::Write_U32(flg, flagPtr);
+
 	return 0;
 }
 
@@ -3383,6 +3403,9 @@ int NetAdhocMatching_Stop(int matchingId) {
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
 	if (item != NULL) {
+		// This will cause using PdpRecv on this socket to return ERROR_NET_ADHOC_SOCKET_ALERTED (Based on Ys vs. Sora no Kiseki when tested with JPCSP + prx files). Is this used to abort inprogress socket activity?
+		NetAdhoc_SetSocketAlert(item->socket, ADHOC_F_ALERTRECV);
+
 		item->inputRunning = false;
 		if (item->inputThread.joinable()) {
 			item->inputThread.join();
