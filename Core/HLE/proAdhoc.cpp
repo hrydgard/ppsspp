@@ -30,6 +30,11 @@
 #include <ifaddrs.h>
 #endif
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
+
 #include <cstring>
 
 #include "i18n/i18n.h"
@@ -1203,7 +1208,7 @@ void sendChat(std::string chatString) {
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
 			if (IsSocketReady(metasocket, false, true) > 0) {
-				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), 0);
+				int chatResult = send(metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 				name = g_Config.sNickName.c_str();
 				chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
@@ -1283,7 +1288,7 @@ int friendFinder(){
 
 				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
 				if (IsSocketReady(metasocket, false, true) > 0) {
-					int iResult = send(metasocket, (const char*)&opcode, 1, 0);
+					int iResult = send(metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 					int error = errno;
 					// KHBBS seems to be getting error 10053 often
 					if (iResult == SOCKET_ERROR) {
@@ -1306,7 +1311,7 @@ int friendFinder(){
 
 			// Check for Incoming Data
 			if (IsSocketReady(metasocket, true, false) > 0) {
-				int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, 0);
+				int received = recv(metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
 
 				// Free Network Lock
 				//_freeNetworkLock();
@@ -1807,6 +1812,15 @@ int setSockNoDelay(int tcpsock, int flag) {
 	return setsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt));
 }
 
+int setSockNoSIGPIPE(int sock, int flag) {
+	// Set SIGPIPE when supported (ie. BSD/MacOS X)
+	int opt = flag;
+#if defined(SO_NOSIGPIPE)
+	return setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, (void*)&opt, sizeof(opt));
+#endif
+	return -1;
+}
+
 #if !defined(TCP_KEEPIDLE)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif
@@ -1978,7 +1992,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
 	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout * 1000);
-	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
+	int sent = send(metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
