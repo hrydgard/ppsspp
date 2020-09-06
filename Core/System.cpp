@@ -68,6 +68,7 @@
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Debugger/RecordFormat.h"
 
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
@@ -185,7 +186,23 @@ bool CPU_HasPendingAction() {
 
 void CPU_Shutdown();
 
-bool DiscIDFromGEDumpPath(const std::string &path, std::string *id) {
+bool DiscIDFromGEDumpPath(const std::string &path, FileLoader *fileLoader, std::string *id) {
+	using namespace GPURecord;
+
+	// For newer files, it's stored in the dump.
+	Header header;
+	if (fileLoader->ReadAt(0, sizeof(header), &header) == sizeof(header)) {
+		const bool magicMatch = memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) == 0;
+		if (magicMatch && header.version <= VERSION && header.version >= 4) {
+			size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
+			if (gameIDLength != 0) {
+				*id = std::string(header.gameID, gameIDLength);
+				return true;
+			}
+		}
+	}
+
+	// Fall back to using the filename.
 	std::string filename = File::GetFilename(path);
 	// Could be more discerning, but hey..
 	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
@@ -254,7 +271,7 @@ bool CPU_Init() {
 		// Try to grab the disc ID from the filename, since unfortunately, we don't store
 		// it in the GE dump. This should probably be fixed, but as long as you don't rename the dumps,
 		// this will do the trick.
-		if (!DiscIDFromGEDumpPath(filename, &discID)) {
+		if (!DiscIDFromGEDumpPath(filename, loadedFile, &discID)) {
 			// Failed? Let the param SFO autogen a fake disc ID.
 			discID = g_paramSFO.GetDiscID();
 		}
