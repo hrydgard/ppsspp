@@ -71,6 +71,34 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 	buffer.TakeAll(output);
 }
 
+void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
+	Buffer buffer;
+	size_t i = 0;
+	for (; i < size; i++) {
+		if (i && !(i & 15)) {
+			buffer.Printf(" ");
+			for (size_t j = i - 16; j < i; j++) {
+				buffer.Printf("%c", ((data[j] < 0x20) || (data[j] > 0x7e)) ? 0x2e : data[j]);
+			}
+			buffer.Printf("\n");
+		}
+		if (!(i & 15))
+			buffer.Printf("%s%08x  ", prefix, startAddr + i);
+		buffer.Printf("%02x ", data[i]);
+	}
+	if (size & 15) {
+		size_t padded_size = ((size-1) | 15) + 1;
+		for (size_t j = size; j < padded_size; j++) {
+			buffer.Printf("   ");
+		}
+		buffer.Printf(" ");
+		for (size_t j = size & ~UINT64_C(0xF); j < size; j++) {
+			buffer.Printf("%c", ((data[j] < 0x20) || (data[j] > 0x7e)) ? 0x2e : data[j]);
+		}
+	}
+	buffer.TakeAll(output);
+}
+
 std::string StringFromFormat(const char* format, ...)
 {
 	va_list args;
