@@ -248,8 +248,8 @@ typedef struct SceNetAdhocctlNickname {
 typedef struct SceNetAdhocctlParameter {
   s32_le channel;
   SceNetAdhocctlGroupName group_name; // This group name is probably similar to SSID name on AP
-  SceNetAdhocctlBSSId bssid;
-  SceNetAdhocctlNickname nickname;
+  SceNetAdhocctlNickname nickname; // According to the old PSPSDK this is the bssid, but according to the dumped content when using newer firmware this is the nickname (this is also the nickname on VitaSDK)
+  SceNetAdhocctlBSSId bssid; // FIXME: bssid and nickname position might be swapped on older/newer firmware?
 } PACK SceNetAdhocctlParameter;
 
 // Peer Information (internal use only)
@@ -270,7 +270,7 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
   u16_le padding; //00 00
-  u32_le flags; //00 04 00 00 // State of the peer? Or related to sceNetAdhocAuth_CF4D9BED ?
+  u32_le flags; //00 04 00 00 on KHBBS and FF FF FF FF on Ys vs. Sora no Kiseki // State of the peer? Or related to sceNetAdhocAuth_CF4D9BED ?
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfoEmu;
 
