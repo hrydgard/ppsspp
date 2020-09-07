@@ -244,7 +244,9 @@ void __NetDoState(PointerWrap &p) {
 		Do(p, netApctlState);
 		Do(p, netApctlInfo);
 		Do(p, actionAfterApctlMipsCall);
-		__KernelRestoreActionType(actionAfterApctlMipsCall, AfterApctlMipsCall::Create);
+		if (actionAfterApctlMipsCall != -1) {
+			__KernelRestoreActionType(actionAfterApctlMipsCall, AfterApctlMipsCall::Create);
+		}
 		Do(p, apctlThreadHackAddr);
 		Do(p, apctlThreadID);
 	}

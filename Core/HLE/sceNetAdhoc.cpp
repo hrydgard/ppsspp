@@ -650,7 +650,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 
 	if (s >= 2) {
 		Do(p, actionAfterMatchingMipsCall);
-		__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
+		if (actionAfterMatchingMipsCall != -1) {
+			__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
+		}
 
 		Do(p, dummyThreadHackAddr);
 	}
@@ -660,7 +662,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 	}
 	if (s >= 3) {
 		Do(p, actionAfterAdhocMipsCall);
-		__KernelRestoreActionType(actionAfterAdhocMipsCall, AfterAdhocMipsCall::Create);
+		if (actionAfterAdhocMipsCall != -1) {
+			__KernelRestoreActionType(actionAfterAdhocMipsCall, AfterAdhocMipsCall::Create);
+		}
 
 		Do(p, matchingThreadHackAddr);
 	}

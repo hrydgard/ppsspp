@@ -683,6 +683,7 @@ int __KernelRegisterActionType(ActionCreator creator)
 
 void __KernelRestoreActionType(int actionType, ActionCreator creator)
 {
+	_assert_(actionType >= 0);
 	mipsCalls.restoreActionType(actionType, creator);
 }
 
