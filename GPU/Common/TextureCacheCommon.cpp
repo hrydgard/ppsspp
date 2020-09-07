@@ -561,34 +561,35 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset) {
 	bool success = false;
+	bool anyIgnores = false;
 
 	std::vector<AttachCandidate> candidates;
-
-	bool anyIgnores = false;
+	std::vector<AttachCandidate> detaches;
 
 	FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		uint32_t fb_addr = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, texAddrOffset, channel);
-		if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
-		} else if (match.match == FramebufferMatch::IGNORE) {
+		if (match.match == FramebufferMatch::IGNORE) {
 			anyIgnores = true;
+		} else if (match.match == FramebufferMatch::NO_MATCH) {
+			detaches.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+		} else {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+		}
+	}
+
+	// If this is set, we want to defer the decision, apparently.
+	if (!anyIgnores) {
+		// If not set, always detach.  They may affect inexact matches.
+		for (AttachCandidate &candidate : detaches) {
+			DetachFramebuffer(entry, entry->addr, entry->framebuffer, channel);
 		}
 	}
 
 	if (!candidates.size()) {
 		// No candidates at all.
-		if (anyIgnores) {
-			// We want to defer the decision, apparently.
-			return false;
-		}
-
-		// Actively detach the current framebuffer.
-		if (entry->framebuffer) {
-			DetachFramebuffer(entry, entry->addr, entry->framebuffer, channel);
-		}
 		return false;
 	}
 
