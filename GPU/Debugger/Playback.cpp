@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -671,15 +672,22 @@ bool RunMountedReplay(const std::string &filename) {
 	if (lastExecFilename != filename) {
 		PROFILE_THIS_SCOPE("ReplayLoad");
 		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-		u8 header[8]{};
-		int version = 0;
-		pspFileSystem.ReadFile(fp, header, sizeof(header));
-		pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
+		Header header;
+		pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
 
-		if (memcmp(header, HEADER, sizeof(header)) != 0 || version > VERSION || version < MIN_VERSION) {
+		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
 			ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
 			pspFileSystem.CloseFile(fp);
 			return false;
+		}
+		if (header.version <= 3) {
+			pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
+			memset(header.gameID, 0, sizeof(header.gameID));
+		}
+
+		size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
+		if (gameIDLength != 0) {
+			g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
 		}
 
 		u32 sz = 0;
