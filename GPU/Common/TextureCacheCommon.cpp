@@ -584,7 +584,7 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 	if (!anyIgnores) {
 		// If not set, always detach.  They may affect inexact matches.
 		for (AttachCandidate &candidate : detaches) {
-			DetachFramebuffer(entry, entry->addr, entry->framebuffer, channel);
+			DetachFramebuffer(entry, entry->addr, candidate.fb, channel);
 		}
 	}
 
