@@ -682,9 +682,13 @@ void __NetAdhocDoState(PointerWrap &p) {
 		Do(p, adhocConnectionType);
 		Do(p, adhocctlState);
 		Do(p, adhocctlNotifyEvent);
-		CoreTiming::RestoreRegisterEvent(adhocctlNotifyEvent, "__AdhocctlNotify", __AdhocctlNotify);
+		if (adhocctlNotifyEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(adhocctlNotifyEvent, "__AdhocctlNotify", __AdhocctlNotify);
+		}
 		Do(p, adhocSocketNotifyEvent);
-		CoreTiming::RestoreRegisterEvent(adhocSocketNotifyEvent, "__AdhocSocketNotify", __AdhocSocketNotify);
+		if (adhocSocketNotifyEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(adhocSocketNotifyEvent, "__AdhocSocketNotify", __AdhocSocketNotify);
+		}
 	}
 	else {
 		adhocConnectionType = ADHOC_CONNECT;
