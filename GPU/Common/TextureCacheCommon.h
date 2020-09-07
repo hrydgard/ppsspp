@@ -193,10 +193,15 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
 // TODO: Try to get rid of IGNORE, it doesn't match what we want to do
 enum class FramebufferMatch {
+	// Valid, exact match.
 	VALID = 0,
+	// Valid match that is exact after depal.
 	VALID_DEPAL,
-	INVALID,
+	// Inexact match (such as wrong fmt or at a questionable offset.)
+	INEXACT,
+	// Not a match, remove if currently attached.
 	NO_MATCH,
+	// Not a match, but don't remove yet.  Used to avoid deatching depth mismatch.
 	IGNORE,
 };
 
@@ -288,7 +293,7 @@ protected:
 	bool AttachBestCandidate(const std::vector<AttachCandidate> &candidates);
 
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
+	void AttachFramebufferInexact(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
 
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);

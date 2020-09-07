@@ -622,7 +622,7 @@ bool TextureCacheCommon::AttachBestCandidate(const std::vector<AttachCandidate> 
 		case FramebufferMatch::VALID_DEPAL:
 			relevancy += 1000;
 			break;
-		case FramebufferMatch::INVALID:
+		case FramebufferMatch::INEXACT:
 			relevancy += 100;
 			break;
 		}
@@ -859,8 +859,8 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 	}
 }
 
-void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
-	_dbg_assert_(fbInfo.match == FramebufferMatch::INVALID);
+void TextureCacheCommon::AttachFramebufferInexact(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
+	_dbg_assert_(fbInfo.match == FramebufferMatch::INEXACT);
 	const u64 cachekey = entry->CacheKey();
 
 	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
@@ -902,8 +902,8 @@ bool TextureCacheCommon::ApplyFramebufferMatch(FramebufferMatchInfo match, TexCa
 		AttachFramebufferValid(entry, framebuffer, match, channel);
 		entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 		return true;
-	case FramebufferMatch::INVALID:
-		AttachFramebufferInvalid(entry, framebuffer, match, channel);
+	case FramebufferMatch::INEXACT:
+		AttachFramebufferInexact(entry, framebuffer, match, channel);
 		return true;
 	case FramebufferMatch::NO_MATCH:
 		DetachFramebuffer(entry, address, framebuffer, channel);
@@ -1063,7 +1063,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(TexCacheEntry *entry, 
 			} else {
 				WARN_LOG_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
 				// If we return VALID here, God of War Ghost of Sparta/Chains of Olympus will be missing some special effect according to an old comment.
-				fbInfo.match = FramebufferMatch::INVALID;
+				fbInfo.match = FramebufferMatch::INEXACT;
 				return fbInfo;
 			}
 		} else {
