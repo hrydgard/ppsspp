@@ -561,34 +561,35 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset) {
 	bool success = false;
+	bool anyIgnores = false;
 
 	std::vector<AttachCandidate> candidates;
-
-	bool anyIgnores = false;
+	std::vector<AttachCandidate> detaches;
 
 	FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		uint32_t fb_addr = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, texAddrOffset, channel);
-		if (match.match != FramebufferMatch::IGNORE && match.match != FramebufferMatch::NO_MATCH) {
-			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
-		} else if (match.match == FramebufferMatch::IGNORE) {
+		if (match.match == FramebufferMatch::IGNORE) {
 			anyIgnores = true;
+		} else if (match.match == FramebufferMatch::NO_MATCH) {
+			detaches.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+		} else {
+			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+		}
+	}
+
+	// If this is set, we want to defer the decision, apparently.
+	if (!anyIgnores) {
+		// If not set, always detach.  They may affect inexact matches.
+		for (AttachCandidate &candidate : detaches) {
+			DetachFramebuffer(entry, entry->addr, entry->framebuffer, channel);
 		}
 	}
 
 	if (!candidates.size()) {
 		// No candidates at all.
-		if (anyIgnores) {
-			// We want to defer the decision, apparently.
-			return false;
-		}
-
-		// Actively detach the current framebuffer.
-		if (entry->framebuffer) {
-			DetachFramebuffer(entry, entry->addr, entry->framebuffer, channel);
-		}
 		return false;
 	}
 
@@ -621,7 +622,7 @@ bool TextureCacheCommon::AttachBestCandidate(const std::vector<AttachCandidate> 
 		case FramebufferMatch::VALID_DEPAL:
 			relevancy += 1000;
 			break;
-		case FramebufferMatch::INVALID:
+		case FramebufferMatch::INEXACT:
 			relevancy += 100;
 			break;
 		}
@@ -858,8 +859,8 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 	}
 }
 
-void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
-	_dbg_assert_(fbInfo.match == FramebufferMatch::INVALID);
+void TextureCacheCommon::AttachFramebufferInexact(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel) {
+	_dbg_assert_(fbInfo.match == FramebufferMatch::INEXACT);
 	const u64 cachekey = entry->CacheKey();
 
 	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
@@ -901,8 +902,8 @@ bool TextureCacheCommon::ApplyFramebufferMatch(FramebufferMatchInfo match, TexCa
 		AttachFramebufferValid(entry, framebuffer, match, channel);
 		entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 		return true;
-	case FramebufferMatch::INVALID:
-		AttachFramebufferInvalid(entry, framebuffer, match, channel);
+	case FramebufferMatch::INEXACT:
+		AttachFramebufferInexact(entry, framebuffer, match, channel);
 		return true;
 	case FramebufferMatch::NO_MATCH:
 		DetachFramebuffer(entry, address, framebuffer, channel);
@@ -1062,7 +1063,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(TexCacheEntry *entry, 
 			} else {
 				WARN_LOG_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
 				// If we return VALID here, God of War Ghost of Sparta/Chains of Olympus will be missing some special effect according to an old comment.
-				fbInfo.match = FramebufferMatch::INVALID;
+				fbInfo.match = FramebufferMatch::INEXACT;
 				return fbInfo;
 			}
 		} else {
