@@ -63,9 +63,10 @@ enum AdhocSocketRequestType : int
 	PTP_ACCEPT = 1,
 	PTP_SEND = 2,
 	PTP_RECV = 3,
-	PDP_SEND = 4,
-	PDP_RECV = 5,
-	ADHOC_POLL_SOCKET = 6,
+	PTP_FLUSH = 4,
+	PDP_SEND = 5,
+	PDP_RECV = 6,
+	ADHOC_POLL_SOCKET = 7,
 };
 
 class PointerWrap;
