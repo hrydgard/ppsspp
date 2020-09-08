@@ -269,8 +269,14 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET || sockerr == ETIMEDOUT) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-			
+		auto pdpsocket = pdp[req.id - PdpIdStart];
+		if (pdpsocket && (pdpsocket->flags & ADHOC_F_ALERTRECV)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			pdpsocket->flags &= ~ADHOC_F_ALERTRECV;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			// Try again later
 			return -1;
 		}
 		else
@@ -308,7 +314,13 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
 				u64 now = (u64)(real_time_now() * 1000000.0);
-				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+				if (pdpsocket && (pdpsocket->flags & ADHOC_F_ALERTSEND)) {
+					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+					// FIXME: Should we clear the flag after alert signaled?
+					pdpsocket->flags &= ~ADHOC_F_ALERTSEND;
+					break;
+				}
+				else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
 				else
@@ -345,19 +357,21 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		// Return Success
 		result = 0;
 	}
-
-	// Non-Critical Error
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-
+		if (ptpsocket && (ptpsocket->flags & ADHOC_F_ALERTSEND)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			ptpsocket->flags &= ~ADHOC_F_ALERTSEND;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
 
-	// Change Socket State
+	// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
 	ptpsocket->state = ADHOC_PTP_STATE_CLOSED;
 
 	// Disconnected
@@ -389,17 +403,21 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 		result = 0;
 	}
-	// Non-Critical Error
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (ptpsocket && (ptpsocket->flags & ADHOC_F_ALERTRECV)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			ptpsocket->flags &= ~ADHOC_F_ALERTRECV;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
 	else {
-		// Change Socket State
+		// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
 		ptpsocket->state = ADHOC_PTP_STATE_CLOSED;
 
 		// Disconnected
@@ -413,6 +431,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
+	auto ptpsocket = ptp[req.id - 1];
 	sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
@@ -429,7 +448,12 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	else if (ret == SOCKET_ERROR && connectInProgress(sockerr)) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (ptpsocket && (ptpsocket->flags & ADHOC_F_ALERTACCEPT)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			ptpsocket->flags &= ~ADHOC_F_ALERTACCEPT;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
@@ -445,6 +469,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 }
 
 int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
+	auto ptpsocket = ptp[req.id - 1];
 	int sockerr;
 
 	// Wait for Connection (assuming "connect" has been called before)		
@@ -452,7 +477,6 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 
 	// Connection is ready
 	if (ret > 0) {
-		auto ptpsocket = ptp[req.id - 1];
 		sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		socklen_t sinlen = sizeof(sin);
@@ -469,7 +493,12 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	// Timeout
 	else if (ret == 0) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (ptpsocket && (ptpsocket->flags & ADHOC_F_ALERTCONNECT)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			ptpsocket->flags &= ~ADHOC_F_ALERTCONNECT;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
@@ -493,9 +522,11 @@ int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
 			return -1;
 		}
 		else if (ret == 0)
-			result = ERROR_NET_ADHOC_TIMEOUT;
+			ret = ERROR_NET_ADHOC_TIMEOUT;
 		else
-			result = ERROR_NET_ADHOC_EXCEPTION_EVENT;
+			ret = ERROR_NET_ADHOC_EXCEPTION_EVENT;
+		if (ret == ERROR_NET_ADHOC_WOULD_BLOCK)
+			ret = ERROR_NET_ADHOC_TIMEOUT;
 	}
 	result = ret;
 
@@ -1464,11 +1495,16 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 	if (affectedsockets > 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
+			s32_le* fd_flags;
 			if (sds[i].id <= MAX_SOCKET && ptp[sds[i].id - 1] != NULL) {
-				fd = ptp[sds[i].id - 1]->id;
+				auto sock = ptp[sds[i].id - 1];
+				fd = sock->id;
+				fd_flags = &sock->flags;
 			}
 			else {
-				fd = pdp[sds[i].id - PdpIdStart]->id;
+				auto sock = pdp[sds[i].id - PdpIdStart];
+				fd = sock->id;
+				fd_flags = &sock->flags;
 			}
 			if (FD_ISSET(fd, &readfds))
 				sds[i].revents |= ADHOC_EV_RECV;
@@ -1478,7 +1514,17 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 			if (FD_ISSET(fd, &exceptfds))
 				sds[i].revents |= ADHOC_EV_ALERT; // Does Alert can be raised on revents regardless of events bitmask?
 			if (sds[i].revents) affectedsockets++;
+
+			if (*fd_flags & ADHOC_F_ALERTPOLL) {
+				affectedsockets = ERROR_NET_ADHOC_SOCKET_ALERTED;
+				// FIXME: Should we clear the flag after alert signaled?
+				*fd_flags &= ~ADHOC_F_ALERTPOLL;
+				break;
+			}
 		}
+	}
+	else if (affectedsockets < 0) {
+		affectedsockets = ERROR_NET_ADHOC_WOULD_BLOCK;
 	}
 	return affectedsockets;
 }
