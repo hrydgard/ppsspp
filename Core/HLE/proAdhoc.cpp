@@ -92,7 +92,7 @@ bool isOriPort = false;
 bool isLocalServer = false;
 SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
-int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_1; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
+int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
 	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
