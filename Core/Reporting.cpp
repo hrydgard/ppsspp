@@ -34,6 +34,7 @@
 #include "Core/System.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/ELF/ParamSFO.h"
@@ -497,7 +498,7 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		if (CheatsInEffect())
+		if (CheatsInEffect() || HLEPlugins::HasEnabled())
 			return false;
 		if (g_Config.iLockedCPUSpeed != 0)
 			return false;

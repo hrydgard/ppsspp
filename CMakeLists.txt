@@ -1565,6 +1565,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/KernelWaitHelpers.h
 	Core/HLE/KUBridge.h
 	Core/HLE/KUBridge.cpp
+	Core/HLE/Plugins.h
+	Core/HLE/Plugins.cpp
 	Core/HLE/ThreadQueueList.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h

@@ -368,6 +368,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
+	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \

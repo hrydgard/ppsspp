@@ -2246,10 +2246,7 @@ bool __KernelIsDispatchEnabled()
 	return dispatchEnabled && __InterruptsEnabled();
 }
 
-int sceKernelRotateThreadReadyQueue(int priority)
-{
-	VERBOSE_LOG(SCEKERNEL, "sceKernelRotateThreadReadyQueue(%x)", priority);
-
+int KernelRotateThreadReadyQueue(int priority) {
 	PSPThread *cur = __GetCurrentThread();
 
 	// 0 is special, it means "my current priority."
@@ -2259,11 +2256,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	if (!threadReadyQueue.empty(priority))
-	{
+	if (!threadReadyQueue.empty(priority)) {
 		// In other words, yield to everyone else.
-		if (cur->nt.currentPriority == priority)
-		{
+		if (cur->nt.currentPriority == priority) {
 			threadReadyQueue.push_back(priority, currentThread);
 			cur->nt.status = (cur->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
 		}
@@ -2272,9 +2267,16 @@ int sceKernelRotateThreadReadyQueue(int priority)
 			threadReadyQueue.rotate(priority);
 	}
 
-	hleReSchedule("rotatethreadreadyqueue");
-	hleEatCycles(250);
 	return 0;
+}
+
+int sceKernelRotateThreadReadyQueue(int priority) {
+	int result = KernelRotateThreadReadyQueue(priority);
+	if (result == 0) {
+		hleReSchedule("rotatethreadreadyqueue");
+		hleEatCycles(250);
+	}
+	return hleLogSuccessVerboseI(SCEKERNEL, result);
 }
 
 int sceKernelDeleteThread(int threadID) {
