@@ -237,8 +237,10 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	bool coord_check =
 		(xdiff == udiff || xdiff == -udiff) &&
 		(ydiff == vdiff || ydiff == -vdiff);
+	// Currently only works for TL/BR, which is the most common but not required.
+	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	bool state_check = !gstate.isModeClear();  // TODO: Add support for clear modes in Rasterizer::DrawSprite.
-	if ((coord_check || !gstate.isTextureMapEnabled()) && state_check) {
+	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1);
 		return true;
 	}
