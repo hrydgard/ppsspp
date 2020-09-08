@@ -95,6 +95,7 @@ int matchingEventThread(int matchingId);
 int matchingInputThread(int matchingId); 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout);
+int FlushPtpSocket(int socketId);
 
 
 void __NetAdhocShutdown() {
@@ -513,6 +514,40 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
+int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
+	auto ptpsocket = ptp[req.id - 1];
+
+	// Try Sending Empty Data
+	//int ret = send(uid, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
+	int sockerr = FlushPtpSocket(uid);
+
+	if (sockerr >= 0) {
+		result = 0;
+		return 0;
+	}
+	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT) {
+		u64 now = (u64)(real_time_now() * 1000000.0);
+		if (ptpsocket && (ptpsocket->flags & ADHOC_F_ALERTFLUSH)) {
+			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+			// FIXME: Should we clear the flag after alert signaled?
+			ptpsocket->flags &= ~ADHOC_F_ALERTFLUSH;
+		}
+		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			return -1;
+		}
+		else
+			result = ERROR_NET_ADHOC_TIMEOUT;
+	}
+
+	// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
+	ptpsocket->state = ADHOC_PTP_STATE_CLOSED;
+
+	// Disconnected
+	result = ERROR_NET_ADHOC_DISCONNECTED;
+
+	return 0;
+}
+
 int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
 	int ret = PollAdhocSocket(sds, req.id, 0);
@@ -603,6 +638,14 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 
 	case PTP_CONNECT:
 		if (DoBlockingPtpConnect(uid, req, result)) {
+			// Try again in another 0.5ms until data available or timedout.
+			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
+			return;
+		}
+		break;
+
+	case PTP_FLUSH:
+		if (DoBlockingPtpFlush(uid, req, result)) {
 			// Try again in another 0.5ms until data available or timedout.
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
@@ -3377,6 +3420,25 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
+int FlushPtpSocket(int socketId) {
+	// Get original Nagle algo value
+	int n = getSockNoDelay(socketId);
+
+	// Disable Nagle Algo to send immediately
+	setSockNoDelay(socketId, 1);
+
+	// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
+	//changeBlockingMode(socket->id, nonblock);
+	int ret = send(socketId, nullptr, 0, MSG_NOSIGNAL);
+	if (ret == SOCKET_ERROR) ret = errno;
+	//changeBlockingMode(socket->id, 1);
+
+	// Restore/Enable Nagle Algo
+	setSockNoDelay(socketId, n);
+
+	return ret;
+}
+
 /**
  * Adhoc Emulator PTP Flusher
  * @param id Socket File Descriptor
@@ -3403,23 +3465,20 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 				// Apply Send Timeout Settings to Socket
 				setSockTimeout(socket->id, SO_SNDTIMEO, timeout);
 
-				// Get original Nagle algo value
-				int n = getSockNoDelay(socket->id);
+				int error = FlushPtpSocket(socket->id);
 
-				// Disable Nagle Algo to send immediately
-				setSockNoDelay(socket->id, 1);
+				if (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT) {
+					// Non-Blocking
+					if (nonblock)
+						return ERROR_NET_ADHOC_WOULD_BLOCK;
 
-				// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
-				//changeBlockingMode(socket->id, nonblock);
-				int sent = send(socket->id, 0, 0, MSG_NOSIGNAL);
-				int error = errno;
-				//changeBlockingMode(socket->id, 1);
-
-				// Restore/Enable Nagle Algo
-				setSockNoDelay(socket->id, n);
+					// Simulate blocking behaviour with non-blocking socket
+					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | socket->id;
+					return WaitBlockingAdhocSocket(threadSocketId, PTP_FLUSH, id, nullptr, nullptr, timeout, nullptr, nullptr, "ptp flush");
+				}
 			}
 
-			// Dummy Result, Always success
+			// Dummy Result, Always success?
 			return 0;
 		}
 		
