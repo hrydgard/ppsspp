@@ -341,3 +341,4 @@ Credit goes to:
 [#10909]: https://github.com/hrydgard/ppsspp/issues/10909 "WebSocket based debugger interface"
 [#11447]: https://github.com/hrydgard/ppsspp/issues/11447 "Avoid calling any GL calls during shutdown on Android. Should help #11063"
 [#11350]: https://github.com/hrydgard/ppsspp/issues/11350 "TexCache: Optimize DXT3/DXT5 decode to single pass"
+[![Run on Repl.it](https://repl.it/badge/github/kevincodes101/ppsspp)](https://repl.it/github/kevincodes101/ppsspp)
