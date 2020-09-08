@@ -712,7 +712,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
 static int sceNetGetMallocStat(u32 statPtr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
 	else
