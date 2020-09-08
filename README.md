@@ -4,7 +4,7 @@ PPSSPP - a fast and portable PSP emulator
 Created by Henrik Rydgård
 
 Additional code by many contributors, see the Credits screen
-
+[![Run on Repl.it](https://repl.it/badge/github/hrydgard/ppsspp)](https://repl.it/github/hrydgard/ppsspp)
 Originally released under the GPL 2.0 (and later) in November 2012
 
 Official website:
