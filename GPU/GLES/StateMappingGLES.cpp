@@ -259,13 +259,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		bool cullEnable;
 		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
-		if (gstate.isModeClear()) {
-			// Culling
-			cullEnable = false;
-		} else {
-			// Set cull
-			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		}
+		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
 	}
 

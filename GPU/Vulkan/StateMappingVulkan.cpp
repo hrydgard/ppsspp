@@ -255,14 +255,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+
 		if (gstate.isModeClear() || gstate.isModeThrough()) {
-			key.cullMode = VK_CULL_MODE_NONE;
 			// TODO: Might happen in clear mode if not through...
 			key.depthClampEnable = false;
 		} else {
 			// Set cull
-			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...
