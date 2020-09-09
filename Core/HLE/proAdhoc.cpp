@@ -1974,12 +1974,19 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	iResult = connect(metasocket, (sockaddr*)&server_addr, sizeof(server_addr));
 	errorcode = errno;
 
-	if (iResult == SOCKET_ERROR && errorcode != EISCONN && (IsSocketReady(metasocket, true, true, nullptr, adhocDefaultTimeout * 1000) <= 0)) {
-		char buffer[512];
-		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
-		ERROR_LOG(SCENET, "%s", buffer);
-		host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
-		return iResult;
+	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
+		u64 startTime = (u64)(real_time_now() * 1000.0);
+		while (IsSocketReady(metasocket, true, true) <= 0) {
+			u64 now = (u64)(real_time_now() * 1000.0);
+			if (coreState == CORE_POWERDOWN) return iResult;
+			if (now - startTime > adhocDefaultTimeout) break;
+			sleep_ms(10);
+		}
+		if (IsSocketReady(metasocket, true, true) <= 0) {
+			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
+			host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
+			return iResult;
+		}
 	}
 
 	// Prepare Login Packet
