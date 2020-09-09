@@ -503,11 +503,8 @@ u32 Net_Term() {
 
 	// Library is initialized
 	if (netInited) {
-		// Delete PDP Sockets
-		deleteAllPDP();
-
-		// Delete PTP Sockets
-		deleteAllPTP();
+		// Delete Adhoc Sockets
+		deleteAllAdhocSockets();
 
 		// Delete GameMode Buffer
 		//deleteAllGMB();
@@ -587,8 +584,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	netMallocStat.free = poolSize - netMallocStat.maximum;
 
 	// Clear Socket Translator Memory
-	memset(&pdp, 0, sizeof(pdp));
-	memset(&ptp, 0, sizeof(ptp));
+	memset(&adhocSockets, 0, sizeof(adhocSockets));
 	ptpConnectCount.clear();
 	
 	return hleLogSuccessI(SCENET, 0);
