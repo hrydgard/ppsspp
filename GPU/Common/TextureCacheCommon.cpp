@@ -1853,7 +1853,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 					return true;
 				}
 			} else {
-				// It wasn't found, so we're about to throw away entry and rebuild a texture.
+				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
 				// Let's save this in the secondary cache in case it gets used again.
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);

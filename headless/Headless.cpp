@@ -328,14 +328,6 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
-
-	std::string error_string;
-	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
-
 	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
@@ -347,6 +339,14 @@ int main(int argc, const char* argv[])
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
+
+	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
+	host = headlessHost;
+
+	std::string error_string;
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;

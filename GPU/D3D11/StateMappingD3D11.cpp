@@ -276,14 +276,13 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		keys_.raster.value = 0;
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
+
 		if (gstate.isModeClear() || gstate.isModeThrough()) {
-			keys_.raster.cullMode = D3D11_CULL_NONE;
 			// TODO: Might happen in clear mode if not through...
 			keys_.raster.depthClipEnable = 1;
 		} else {
-			// Set cull
-			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...

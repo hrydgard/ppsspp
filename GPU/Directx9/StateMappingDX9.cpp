@@ -202,15 +202,12 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			dxstate.dither.disable();
 		}
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		dxstate.cullMode.set(wantCull, gstate.getCullMode());
 		if (gstate.isModeClear()) {
-			// Set Cull 
-			dxstate.cullMode.set(false, false);
 			// Well, probably doesn't matter...
 			dxstate.shadeMode.set(D3DSHADE_GOURAUD);
 		} else {
-			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			dxstate.cullMode.set(wantCull, gstate.getCullMode());
 			dxstate.shadeMode.set(gstate.getShadeMode() == GE_SHADE_GOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
 		}
 	}
