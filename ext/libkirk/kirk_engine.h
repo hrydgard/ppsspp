@@ -49,6 +49,18 @@ typedef unsigned int u32;
 #define KIRK_INVALID_SIZE 0xF
 #define KIRK_DATA_SIZE_ZERO 0x10
 
+#ifdef __GNUC__
+#pragma scalar_storage_order little-endian
+#endif
+
+typedef struct
+{
+	int unk_0; //0
+	int unk_4; //4
+	int unk_8; //8
+	int seed;  //C
+}KIRK_AES128CBC_BLOCK;
+
 typedef struct
 {
 	int mode;    //0
@@ -132,6 +144,10 @@ typedef struct
 	u8 message_hash[0x14];				//28
 	ECDSA_SIG signature;					//3C
 } KIRK_CMD17_BUFFER;//0x64
+
+#ifdef __GNUC__
+#pragma scalar_storage_order default
+#endif
 
 //mode passed to sceUtilsBufferCopyWithRange
 #define KIRK_CMD_DECRYPT_PRIVATE 1
