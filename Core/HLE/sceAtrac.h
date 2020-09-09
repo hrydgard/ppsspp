@@ -42,12 +42,6 @@ enum AtracStatus : u8 {
 	ATRAC_STATUS_STREAMED_MASK = 4,
 };
 
-#if COMMON_LITTLE_ENDIAN
-typedef AtracStatus AtracStatus_le;
-#else
-typedef swap_struct_t<AtracStatus, swap_32_t<AtracStatus> > AtracStatus_le;
-#endif
-
 typedef struct
 {
     u32_le decodePos; // 0
@@ -58,7 +52,7 @@ typedef struct
     char numFrame; // 20
     // 2: all the stream data on the buffer
     // 6: looping -> second buffer needed
-    AtracStatus_le state; // 21
+    AtracStatus state; // 21
     char unk22;
     char numChan; // 23
     u16_le sampleSize; // 24

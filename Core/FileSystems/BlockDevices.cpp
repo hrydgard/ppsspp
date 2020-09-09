@@ -169,7 +169,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	const u32 indexSize = numFrames + 1;
 	const size_t headerEnd = hdr.ver > 1 ? (size_t)hdr.header_size : sizeof(hdr);
 
-#if COMMON_LITTLE_ENDIAN
+#if __LITTLE_ENDIAN__
 	index = new u32[indexSize];
 	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, index) != indexSize) {
 		NotifyReadError();

@@ -28,6 +28,7 @@
 
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
+	SimpleVertex() {}
 	float uv[2];
 	union {
 		u8 color[4];

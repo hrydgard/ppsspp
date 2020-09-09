@@ -133,7 +133,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_565:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = 255;
 		r = Convert5To8((src >> 0) & 0x1F);
@@ -143,7 +143,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_5551:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = (src >> 15) ? 255 : 0;
 		r = Convert5To8((src >> 0) & 0x1F);
@@ -153,7 +153,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_4444:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = Convert4To8((src >> 12) & 0xF);
 		r = Convert4To8((src >> 0) & 0xF);
@@ -163,7 +163,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_8888:
 		src = buf32[offset];
 		if (rev) {
-			src = bswap32(src);
+			src = swap32(src);
 		}
 		a = (src >> 24) & 0xFF;
 		r = (src >> 0) & 0xFF;

@@ -367,7 +367,7 @@ static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 		for (int offset = 0; offset < end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
-				header = bswap32(Memory::Read_U32(addr + offset));
+				header = swap32(Memory::Read_U32(addr + offset));
 				return offset;
 			}
 		}

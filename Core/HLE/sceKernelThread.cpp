@@ -178,19 +178,13 @@ public:
 	NativeCallback nc;
 };
 
-#if COMMON_LITTLE_ENDIAN
-typedef WaitType WaitType_le;
-#else
-typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
-#endif
-
 // Real PSP struct, don't change the fields.
 struct SceKernelThreadRunStatus
 {
 	SceSize_le size;
 	u32_le status;
 	s32_le currentPriority;
-	WaitType_le waitType;
+	LEndian<WaitType> waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	SceKernelSysClock runForClocks;
@@ -215,7 +209,7 @@ struct NativeThread
 
 	s32_le initialPriority;
 	s32_le currentPriority;
-	WaitType_le waitType;
+	LEndian<WaitType> waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	s32_le exitStatus;
