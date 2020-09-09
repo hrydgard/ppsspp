@@ -93,11 +93,11 @@ static int typeFromMode(int mode)
 
 static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 {
-	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
-	*(int*)(data+4) = 0;
-	*(int*)(data+8) = 0;
-	*(int*)(data+12) = num;
-	*(int*)(data+16) = length;
+	*(s32_le*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
+	*(s32_le*)(data+4) = 0;
+	*(s32_le*)(data+8) = 0;
+	*(s32_le*)(data+12) = num;
+	*(s32_le*)(data+16) = length;
 
 	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_0 : KIRK_CMD_DECRYPT_IV_0))
 		return -257;
@@ -107,11 +107,11 @@ static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 
 static int kirkSendFuseCmd(u8* data, int length, bool encrypt)
 {
-	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
-	*(int*)(data+4) = 0;
-	*(int*)(data+8) = 0;
-	*(int*)(data+12) = 256;
-	*(int*)(data+16) = length;
+	*(s32_le*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
+	*(s32_le*)(data+4) = 0;
+	*(s32_le*)(data+8) = 0;
+	*(s32_le*)(data+12) = 256;
+	*(s32_le*)(data+16) = length;
 
 	// Note: CMD 5 and 8 are not available, will always return -1
 	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_FUSE : KIRK_CMD_DECRYPT_IV_FUSE))
@@ -172,7 +172,7 @@ static int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data
 	else
 	{
 		memcpy(sp0, sp16, 12);
-		*(u32*)(sp0+12) = data3-1;
+		*(u32_le*)(sp0+12) = data3-1;
 	}
 
 	if (alignedLen > 0)
@@ -180,7 +180,7 @@ static int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data
 		for(int i = 20; i < alignedLen + 20; i += 16)
 		{
 			memcpy(data_out+i, sp16, 12);
-			*(u32*)(data_out+12+i) = data3;
+			*(u32_le*)(data_out+12+i) = data3;
 			data3++;
 		}
 	}

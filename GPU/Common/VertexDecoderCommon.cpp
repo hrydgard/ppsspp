@@ -285,7 +285,7 @@ void VertexDecoder::Step_TcU8ToFloat() const
 void VertexDecoder::Step_TcU16ToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
+	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 32768.0f);
 	uv[1] = uvdata[1] * (1.0f / 32768.0f);
 }
@@ -293,7 +293,7 @@ void VertexDecoder::Step_TcU16ToFloat() const
 void VertexDecoder::Step_TcU16DoubleToFloat() const
 {
 	float *uv = (float*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
+	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 16384.0f);
 	uv[1] = uvdata[1] * (1.0f / 16384.0f);
 }
@@ -301,20 +301,20 @@ void VertexDecoder::Step_TcU16DoubleToFloat() const
 void VertexDecoder::Step_TcU16ThroughToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
+	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 
-	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, uvdata[0]);
-	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, uvdata[0]);
-	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, uvdata[1]);
-	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, uvdata[1]);
+	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, (u16)uvdata[0]);
+	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, (u16)uvdata[0]);
+	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, (u16)uvdata[1]);
+	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, (u16)uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU16ThroughDoubleToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
+	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
 }
@@ -621,7 +621,7 @@ void VertexDecoder::Step_NormalS8ToFloat() const
 void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
-	const s16 *sv = (const s16_le*)(ptr_ + nrmoff);
+	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = sv[j];
 	normal[3] = 0;
@@ -630,7 +630,7 @@ void VertexDecoder::Step_NormalS16() const
 void VertexDecoder::Step_NormalFloat() const
 {
 	u32 *normal = (u32 *)(decoded_ + decFmt.nrmoff);
-	const u32 *fv = (const u32_le*)(ptr_ + nrmoff);
+	const u32_le *fv = (const u32_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = fv[j];
 }
@@ -646,7 +646,7 @@ void VertexDecoder::Step_NormalS8Skin() const
 void VertexDecoder::Step_NormalS16Skin() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	const s16 *sv = (const s16_le*)(ptr_ + nrmoff);
+	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Norm3ByMatrix43(normal, fn, skinMatrix);
 }
@@ -675,7 +675,7 @@ void VertexDecoder::Step_NormalS16Morph() const
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	memset(normal, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		const s16 *sv = (const s16_le *)(ptr_ + onesize_*n + nrmoff);
+		const s16_le *sv = (const s16_le *)(ptr_ + onesize_*n + nrmoff);
 		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += sv[j] * multiplier;
@@ -710,7 +710,7 @@ void VertexDecoder::Step_NormalS16MorphSkin() const {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	float nrm[3]{};
 	for (int n = 0; n < morphcount; n++) {
-		const s16 *sv = (const s16_le *)(ptr_ + onesize_ * n + nrmoff);
+		const s16_le *sv = (const s16_le *)(ptr_ + onesize_ * n + nrmoff);
 		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
 		for (int j = 0; j < 3; j++)
 			nrm[j] += sv[j] * multiplier;
@@ -741,7 +741,7 @@ void VertexDecoder::Step_PosS8() const
 void VertexDecoder::Step_PosS16() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
-	const s16 *sv = (const s16_le *)(ptr_ + posoff);
+	const s16_le *sv = (const s16_le *)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		pos[j] = sv[j] * (1.0f / 32768.0f);
 }

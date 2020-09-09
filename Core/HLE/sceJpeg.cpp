@@ -76,7 +76,7 @@ static void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 	int width = (widthHeight >> 16) & 0xFFF;
 	int lineWidth = std::min(width, bufferWidth);
 	int skipEndOfLine = std::max(0, bufferWidth - lineWidth);
-	u32 *imageBuffer = (u32*)Memory::GetPointer(imageAddr);
+	u32_le *imageBuffer = (u32_le*)Memory::GetPointer(imageAddr);
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
 	u8 *Y = (u8*)Memory::GetPointer(yCbCrAddr);
@@ -142,7 +142,7 @@ static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
 
 	if (actual_components == 3) {
 			u24_be *imageBuffer = (u24_be*)jpegBuf;
-			u32 *abgr = (u32*)Memory::GetPointer(imageAddr);
+			u32_le *abgr = (u32_le*)Memory::GetPointer(imageAddr);
 			int pspWidth = 0;
 			for (int w = 2; w <= 4096; w *= 2) {
 				if (w >= width && w >= height) {

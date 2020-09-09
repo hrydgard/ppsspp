@@ -173,7 +173,7 @@ struct NpAuthHandler {
 };
 
 struct NpAuthArgs {
-	u32_le data[3]; // id, result, ArgAddr
+	u32 data[3]; // id, result, ArgAddr
 };
 
 using SceNpAuthCallback = s32(s32 id, s32 result, PSPPointer<void> arg);

@@ -107,8 +107,8 @@ struct PsmfData {
 
 struct PsmfPlayerCreateData {
 	PSPPointer<u8> buffer;
-	u32 bufferSize;
-	int threadPriority;
+	u32_le bufferSize;
+	s32_le threadPriority;
 };
 
 struct PsmfPlayerData {
@@ -1084,7 +1084,7 @@ static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 
 static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 {
-	auto player = PSPPointer<u32>::Create(psmfPlayer);
+	auto player = PSPPointer<u32_le>::Create(psmfPlayer);
 	const auto data = PSPPointer<const PsmfPlayerCreateData>::Create(dataPtr);
 
 	if (!player.IsValid() || !data.IsValid()) {

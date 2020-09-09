@@ -3,6 +3,7 @@
 #include "file/file_util.h"
 
 #include "Common/Log.h"
+#include "Common/Swap.h"
 
 inline uint32_t flipID(uint32_t id) {
 	return ((id >> 24) & 0xFF) | ((id >> 8) & 0xFF00) | ((id << 8) & 0xFF0000) | ((id << 24) & 0xFF000000);
@@ -24,7 +25,7 @@ RIFFReader::~RIFFReader() {
 int RIFFReader::ReadInt() {
 	if (data_ && pos_ < eof_ - 3) {
 		pos_ += 4;
-		return *(int *)(data_ + pos_ - 4);
+		return *(s32_le *)(data_ + pos_ - 4);
 	}
 	return 0;
 }

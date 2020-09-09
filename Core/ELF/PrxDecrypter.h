@@ -19,6 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
+#include "Common/Swap.h"
 
 #ifdef _MSC_VER
 #pragma pack(push, 1)
@@ -54,7 +55,7 @@ typedef struct
 	u32_le      key_data2;       // 12C
 	u32_le      oe_tag;          // 130
 	u8          key_data3[0x1C]; // 134
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__BIG_ENDIAN__)
 } PSP_Header;
 #else
 } __attribute__((packed)) PSP_Header;

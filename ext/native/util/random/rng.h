@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "Common/Swap.h"
 
 // George Marsaglia-style random number generator.
 class GMRng {
@@ -57,8 +58,8 @@ private:
 		MT_SIZE = 624,
 	};
 
-	uint32_t index_;
-	uint32_t mt_[MT_SIZE];
+	u32_le index_;
+	u32_le mt_[MT_SIZE];
 
 	void gen() {
 		for(uint32_t i = 0; i < MT_SIZE; i++){

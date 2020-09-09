@@ -1089,7 +1089,7 @@ static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 
 		// Refresh and write
 		m->nm.currentCount = workarea->lockLevel;
-		m->nm.lockThread = workarea->lockThread == 0 ? -1 : workarea->lockThread;
+		m->nm.lockThread = workarea->lockThread == 0 ? -1 : (SceUID)workarea->lockThread;
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct(infoPtr, &m->nm);
 	}

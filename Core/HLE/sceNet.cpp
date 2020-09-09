@@ -104,7 +104,7 @@ void AfterApctlMipsCall::run(MipsCall& call) {
 	//call.setReturnValue(v0);
 }
 
-void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32_le ArgsAddr) {
+void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32 ArgsAddr) {
 	handlerID = HandlerID;
 	oldState = OldState;
 	newState = NewState;

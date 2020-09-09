@@ -404,17 +404,17 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	sceDrmBBCipherUpdate(&ckey, np_header+0x40, 0x60);
 	sceDrmBBCipherFinal(&ckey);
 
-	lbaStart = *(u32*)(np_header+0x54); // LBA start
-	lbaEnd   = *(u32*)(np_header+0x64); // LBA end
+	lbaStart = *(u32_le*)(np_header+0x54); // LBA start
+	lbaEnd   = *(u32_le*)(np_header+0x64); // LBA end
 	lbaSize  = (lbaEnd-lbaStart+1);     // LBA size of ISO
-	blockLBAs = *(u32*)(np_header+0x0c); // block size in LBA
+	blockLBAs = *(u32_le*)(np_header+0x0c); // block size in LBA
 	blockSize = blockLBAs*2048;
 	numBlocks = (lbaSize+blockLBAs-1)/blockLBAs; // total blocks;
 
 	blockBuf = new u8[blockSize];
 	tempBuf  = new u8[blockSize];
 
-	tableOffset = *(u32*)(np_header+0x6c); // table offset
+	tableOffset = *(u32_le*)(np_header+0x6c); // table offset
 
 	tableSize = numBlocks*32;
 	table = new table_info[numBlocks];

@@ -20,15 +20,9 @@
 #include <deque>
 #include "Core/HLE/proAdhoc.h"
 
-#ifdef _MSC_VER
-#pragma pack(push,1)
-#endif
 typedef struct MatchingArgs {
-	u32_le data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
-} PACK MatchingArgs;
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif
+	u32 data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
+} MatchingArgs;
 
 struct AdhocctlRequest {
 	u8 opcode;
@@ -73,7 +67,7 @@ class PointerWrap;
 
 void Register_sceNetAdhoc();
 
-u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
+u32 __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);

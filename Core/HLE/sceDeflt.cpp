@@ -31,7 +31,7 @@ static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer
 	uLong crc;
 	z_stream stream;
 	u8 *outBufferPtr;
-	u32 *crc32AddrPtr = 0;
+	u32_le *crc32AddrPtr = 0;
 
 	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
 		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
@@ -42,7 +42,7 @@ static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer
 			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
 			return 0;
 		}
-		crc32AddrPtr = (u32 *)Memory::GetPointer(Crc32Addr);
+		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
 	}
 	outBufferPtr = Memory::GetPointer(OutBuffer);
 	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
@@ -77,7 +77,7 @@ static int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u
 	uLong crc;
 	z_stream stream;
 	u8 *outBufferPtr;
-	u32 *crc32AddrPtr = 0;
+	u32_le *crc32AddrPtr = 0;
 
 	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
 		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
@@ -88,7 +88,7 @@ static int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u
 			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
 			return 0;
 		}
-		crc32AddrPtr = (u32 *)Memory::GetPointer(Crc32Addr);
+		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
 	}
 	outBufferPtr = Memory::GetPointer(OutBuffer);
 	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
@@ -122,7 +122,7 @@ static int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u
 	uLong crc;
 	z_stream stream;
 	u8 *outBufferPtr;
-	u32 *crc32AddrPtr = 0;
+	u32_le *crc32AddrPtr = 0;
 
 	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
 		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
@@ -133,7 +133,7 @@ static int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u
 			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
 			return 0;
 		}
-		crc32AddrPtr = (u32 *)Memory::GetPointer(Crc32Addr);
+		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
 	}
 	outBufferPtr = Memory::GetPointer(OutBuffer);
 	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);

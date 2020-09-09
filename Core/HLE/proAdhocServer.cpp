@@ -1908,7 +1908,7 @@ int server_loop(int server)
 
 				// Login User (Stream)
 				if (loginresult != -1) {
-					u32_le sip = addr.sin_addr.s_addr;
+					u32 sip = addr.sin_addr.s_addr;
 					/* // Replacing 127.0.0.x with Ethernet IP will cause issue with multiple-instance of localhost (127.0.0.x)
 					if (sip == 0x0100007f) { //127.0.0.1 should be replaced with LAN/WAN IP whenever available
 						char str[100];

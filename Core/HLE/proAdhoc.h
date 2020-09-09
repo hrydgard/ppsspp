@@ -32,17 +32,20 @@
 #include <errno.h>
 #endif
 
-#ifdef _MSC_VER
-#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
-#else
-#define PACK __attribute__((packed))
-#endif
-
 #include <thread>
 #include <mutex>
 
 #include "net/resolve.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Swap.h"
+
+#ifdef _MSC_VER
+#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
+#elif defined(__BIG_ENDIAN__)
+#define PACK  // can't use __attribute__((packed)) with non-pod swap_t<>
+#else
+#define PACK __attribute__((packed))
+#endif
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -833,12 +836,12 @@ public:
 	static PSPAction* Create() { return new AfterAdhocMipsCall(); }
 	void DoState(PointerWrap& p) override;
 	void run(MipsCall& call) override;
-	void SetData(int handlerID, int eventId, u32_le argsAddr);
+	void SetData(int handlerID, int eventId, u32 argsAddr);
 
 private:
 	int HandlerID = -1;
 	int EventID = -1;
-	u32_le argsAddr = 0;
+	u32 argsAddr = 0;
 };
 
 class AfterMatchingMipsCall : public PSPAction {
@@ -847,12 +850,12 @@ public:
 	static PSPAction *Create() { return new AfterMatchingMipsCall(); }
 	void DoState(PointerWrap &p) override;
 	void run(MipsCall &call) override;
-	void SetData(int ContextID, int eventId, u32_le BufAddr);
+	void SetData(int ContextID, int eventId, u32 BufAddr);
 
 private:
 	int contextID = -1;
 	int EventID = -1;
-	u32_le bufAddr = 0;
+	u32 bufAddr = 0;
 	SceNetAdhocMatchingContext* context = nullptr;
 };
 
@@ -1061,7 +1064,7 @@ SceNetAdhocMatchingContext * findMatchingContext(int id);
 /*
 * Notify Matching Event Handler
 */
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args);
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args);
 // Notifiy Adhocctl Handlers
 void notifyAdhocctlHandlers(u32 flag, u32 error);
 
@@ -1158,7 +1161,7 @@ void sendDeathMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingM
 * @param context Matching Context Pointer
 * @return Number of Children
 */
-s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTimedout = false);
+s32 countChildren(SceNetAdhocMatchingContext * context, const bool excludeTimedout = false);
 
 /**
 * Delete Peer from List

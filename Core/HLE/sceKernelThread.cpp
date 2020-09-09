@@ -1189,7 +1189,7 @@ void __KernelThreadingShutdown() {
 
 std::string __KernelThreadingSummary() {
 	PSPThread *t = __GetCurrentThread();
-	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? t->nt.attr : 0);
+	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? (u32)t->nt.attr : 0);
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1397,7 +1397,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 	}
 
 	u32 total = 0;
-	auto uids = PSPPointer<SceUID>::Create(readBufPtr);
+	auto uids = PSPPointer<SceUID_le>::Create(readBufPtr);
 	u32 error;
 	if (type > 0 && type <= SCE_KERNEL_TMID_Tlspl) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
@@ -2018,7 +2018,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 		return error;
 
 	PSPThread *cur = __GetCurrentThread();
-	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
+	__KernelResetThread(startThread, cur ? (s32)cur->nt.currentPriority : 0);
 
 	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	// Force args means just use those as a0/a1 without any special treatment.

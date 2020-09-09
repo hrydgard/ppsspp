@@ -599,10 +599,10 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 * @param context Matching Context Pointer
 * @return Number of Children
 */
-s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTimedout)
+s32 countChildren(SceNetAdhocMatchingContext * context, const bool excludeTimedout)
 {
 	// Children Counter
-	s32_le count = 0;
+	s32 count = 0;
 
 	// Iterate Peer List for Matching Target
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
@@ -979,7 +979,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 		// Get Next Pointer (to avoid crash on memory freeing)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
-		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
+		u64 now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
 		// Timeout!
 		if (peer->state != 0 && (now - peer->lastping) > context->timeout) 
 		{
@@ -1117,7 +1117,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	//call.setReturnValue(v0);
 }
 
-void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr) {
+void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32 BufAddr) {
 	contextID = ContextID;
 	EventID = eventId;
 	bufAddr = BufAddr;
@@ -1166,7 +1166,7 @@ void AfterAdhocMipsCall::run(MipsCall& call) {
 	//call.setReturnValue(v0);
 }
 
-void AfterAdhocMipsCall::SetData(int handlerID, int eventId, u32_le ArgsAddr) {
+void AfterAdhocMipsCall::SetData(int handlerID, int eventId, u32 ArgsAddr) {
 	HandlerID = handlerID;
 	EventID = eventId;
 	argsAddr = ArgsAddr;
@@ -1192,11 +1192,11 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 // Matching callback is void function: typedef void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt);
 // Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game (ie. DBZ Tag Team) may need to prepare something for the next callback event to use
 // Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args) {
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
 	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
 	MatchingArgs argsNew;
-	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
-	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
+	u32 dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
+	u32 dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
 	uint8_t * dataPtr = Memory::GetPointer(dataBufAddr);
 	memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
 	if (msg->optlen > 0) 
@@ -1491,7 +1491,7 @@ int friendFinder(){
 						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 
 						// Log Incoming Peer
-                        u32_le ipaddr = packet->ip;
+                        u32 ipaddr = packet->ip;
 						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
 
 						// Add User

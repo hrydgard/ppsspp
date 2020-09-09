@@ -125,7 +125,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	u32 psar_offset = 0, psar_id = 0;
+	u32_le psar_offset = 0, psar_id = 0;
 	u32 _id = id;
 	if (!memcmp(&_id, "PK\x03\x04", 4) || !memcmp(&_id, "PK\x05\x06", 4) || !memcmp(&_id, "PK\x07\x08", 4)) {
 		return IdentifiedFileType::ARCHIVE_ZIP;

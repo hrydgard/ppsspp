@@ -195,7 +195,7 @@ struct ApctlHandler {
 };
 
 struct ApctlArgs {
-	u32_le data[5]; // OldState, NewState, Event, Error, ArgsAddr
+	u32 data[5]; // OldState, NewState, Event, Error, ArgsAddr
 };
 
 class PointerWrap;
@@ -206,7 +206,7 @@ public:
 	static PSPAction* Create() { return new AfterApctlMipsCall(); }
 	void DoState(PointerWrap& p) override;
 	void run(MipsCall& call) override;
-	void SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32_le ArgsAddr);
+	void SetData(int HandlerID, int OldState, int NewState, int Event, int Error, u32 ArgsAddr);
 
 private:
 	int handlerID = -1;
@@ -214,7 +214,7 @@ private:
 	int newState = 0;
 	int event = 0;
 	int error = 0;
-	u32_le argsAddr = 0;
+	u32 argsAddr = 0;
 };
 
 extern bool netInetInited;
