@@ -83,12 +83,12 @@ struct HLEMipsCallStack {
 			u32_le func;
 			u32_le actionIndex;
 			u32_le argc;
-		};
+		} vars;
 		struct {
 			u32_le ra;
 			u32_le v0;
 			u32_le v1;
-		};
+		} regs;
 	};
 };
 
@@ -422,9 +422,9 @@ void hleFlushCalls() {
 	sp -= sizeof(HLEMipsCallStack);
 	stackData.ptr = sp;
 	stackData->nextOff = 0xFFFFFFFF;
-	stackData->ra = currentMIPS->pc;
-	stackData->v0 = currentMIPS->r[MIPS_REG_V0];
-	stackData->v1 = currentMIPS->r[MIPS_REG_V1];
+	stackData->regs.ra = currentMIPS->pc;
+	stackData->regs.v0 = currentMIPS->r[MIPS_REG_V0];
+	stackData->regs.v1 = currentMIPS->r[MIPS_REG_V1];
 
 	// Now we'll set up the first in the chain.
 	currentMIPS->pc = enqueuedMipsCalls[0].func;
@@ -443,14 +443,14 @@ void hleFlushCalls() {
 		sp -= stackAligned;
 		stackData.ptr = sp;
 		stackData->nextOff = stackAligned;
-		stackData->func = info.func;
+		stackData->vars.func = info.func;
 		if (info.action) {
-			stackData->actionIndex = (int)mipsCallActions.size();
+			stackData->vars.actionIndex = (int)mipsCallActions.size();
 			mipsCallActions.push_back(info.action);
 		} else {
-			stackData->actionIndex = 0xFFFFFFFF;
+			stackData->vars.actionIndex = 0xFFFFFFFF;
 		}
-		stackData->argc = (int)info.args.size();
+		stackData->vars.argc = (int)info.args.size();
 		for (int j = 0; j < (int)info.args.size(); ++j) {
 			Memory::Write_U32(info.args[j], sp + sizeof(HLEMipsCallStack) + j * sizeof(u32));
 		}
@@ -473,9 +473,9 @@ void HLEReturnFromMipsCall() {
 		return;
 	}
 
-	if (stackData->actionIndex != 0xFFFFFFFF && stackData->actionIndex < (u32)mipsCallActions.size()) {
-		PSPAction *&action = mipsCallActions[stackData->actionIndex];
-		VERBOSE_LOG(HLE, "Executing action for HLE mips call at %08x, sp=%08x", stackData->func, sp);
+	if (stackData->vars.actionIndex != 0xFFFFFFFF && stackData->vars.actionIndex < (u32)mipsCallActions.size()) {
+		PSPAction *&action = mipsCallActions[stackData->vars.actionIndex];
+		VERBOSE_LOG(HLE, "Executing action for HLE mips call at %08x, sp=%08x", stackData->vars.func, sp);
 
 		// Search for the saved v0/v1 values, to preserve the PSPAction API...
 		PSPPointer<HLEMipsCallStack> finalMarker = stackData;
@@ -490,11 +490,11 @@ void HLEReturnFromMipsCall() {
 		}
 
 		MipsCall mc;
-		mc.savedV0 = finalMarker->v0;
-		mc.savedV1 = finalMarker->v1;
+		mc.savedV0 = finalMarker->regs.v0;
+		mc.savedV1 = finalMarker->regs.v1;
 		action->run(mc);
-		finalMarker->v0 = mc.savedV0;
-		finalMarker->v1 = mc.savedV1;
+		finalMarker->regs.v0 = mc.savedV0;
+		finalMarker->regs.v1 = mc.savedV1;
 
 		delete action;
 		action = nullptr;
@@ -507,9 +507,9 @@ void HLEReturnFromMipsCall() {
 
 	if (stackData->nextOff == 0xFFFFFFFF) {
 		// We're done.  Grab the HLE result's v0/v1 and return from the syscall.
-		currentMIPS->pc = stackData->ra;
-		currentMIPS->r[MIPS_REG_V0] = stackData->v0;
-		currentMIPS->r[MIPS_REG_V1] = stackData->v1;
+		currentMIPS->pc = stackData->regs.ra;
+		currentMIPS->r[MIPS_REG_V0] = stackData->regs.v0;
+		currentMIPS->r[MIPS_REG_V1] = stackData->regs.v1;
 
 		sp += sizeof(HLEMipsCallStack);
 
@@ -527,9 +527,9 @@ void HLEReturnFromMipsCall() {
 
 	// Alright, we have another to call.
 	hleSkipDeadbeef();
-	currentMIPS->pc = stackData->func;
+	currentMIPS->pc = stackData->vars.func;
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
-	for (int i = 0; i < (int)stackData->argc; i++) {
+	for (int i = 0; i < (int)stackData->vars.argc; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
 	}
 	DEBUG_LOG(HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
