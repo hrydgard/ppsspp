@@ -76,10 +76,7 @@ SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
 std::recursive_mutex peerlock;
-SceNetAdhocPdpStatInternal * pdp[MAX_SOCKET];
-SceNetAdhocPtpStatInternal * ptp[MAX_SOCKET];
-const int PdpIdStart = MAX_SOCKET + 1;
-const int PdpIdEnd = PdpIdStart + MAX_SOCKET;
+AdhocSocket* adhocSockets[MAX_SOCKET];
 std::map<int, int> ptpConnectCount;
 std::vector<std::string> chatLog;
 std::string name = "";
@@ -108,16 +105,24 @@ bool isLocalMAC(const SceNetEtherAddr * addr) {
 
 bool isPDPPortInUse(uint16_t port) {
 	// Iterate Elements
-	for (int i = 0; i < MAX_SOCKET; i++) if (pdp[i] != NULL && pdp[i]->lport == port) return true;
-
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		auto sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PDP)
+			if (sock->data.pdp.lport == port)
+				return true;
+	}
 	// Unused Port
 	return false;
 }
 
 bool isPTPPortInUse(uint16_t port) {
 	// Iterate Sockets
-	for(int i = 0; i < MAX_SOCKET; i++) if(ptp[i] != NULL && ptp[i]->lport == port) return true;
-	
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		auto sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PTP)
+			if (sock->data.ptp.lport == port)
+				return true;
+	}
 	// Unused Port
 	return false;
 }
@@ -323,37 +328,29 @@ void freeGroupsRecursive(SceNetAdhocctlScanInfo * node) {
 	node = NULL;
 }
 
-void deleteAllPDP() {
+void deleteAllAdhocSockets() {
 	// Iterate Element
-	for (int i = 0; i < 255; i++) {
+	for (int i = 0; i < MAX_SOCKET; i++) {
 		// Active Socket
-		if (pdp[i] != NULL) {
-			// Close Socket
-			closesocket(pdp[i]->id);
+		if (adhocSockets[i] != NULL) {
+			auto sock = adhocSockets[i];
+			int fd = -1;
 
+			if (sock->type == SOCK_PTP)
+				fd = sock->data.ptp.id;
+			else if (sock->type == SOCK_PDP)
+				fd = sock->data.pdp.id;
+
+			if (fd > 0) {
+				// Close Socket
+				shutdown(fd, SD_BOTH);
+				closesocket(fd);
+			}
 			// Free Memory
-			free(pdp[i]);
+			free(adhocSockets[i]);
 
 			// Delete Reference
-			pdp[i] = NULL;
-		}
-	}
-}
-
-void deleteAllPTP() {
-	// Iterate Element
-	for (int i = 0; i < 255; i++) {
-		// Active Socket
-		if (ptp[i] != NULL) {
-			// Close Socket
-			closesocket(ptp[i]->id);
-
-			// Free Memory
-			free(ptp[i]);
-
-			// Delete Reference
-			ptp[i] = NULL;
-			ptpConnectCount.erase(i);
+			adhocSockets[i] = NULL;
 		}
 	}
 }
@@ -1879,7 +1876,9 @@ int getPDPSocketCount()
 	int counter = 0;
 
 	// Count Sockets
-	for (int i = 0; i < MAX_SOCKET; i++) if (pdp[i] != NULL) counter++;
+	for (int i = 0; i < MAX_SOCKET; i++) 
+		if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP) 
+			counter++;
 
 	// Return Socket Count
 	return counter;
@@ -1890,7 +1889,9 @@ int getPTPSocketCount() {
 	int counter = 0;
 
 	// Count Sockets
-	for (int i = 0; i < MAX_SOCKET; i++) if (ptp[i] != NULL) counter++;
+	for (int i = 0; i < MAX_SOCKET; i++)
+		if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PTP)
+			counter++;
 
 	// Return Socket Count
 	return counter;

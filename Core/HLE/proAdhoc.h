@@ -302,43 +302,17 @@ typedef struct SceNetAdhocPollSd{
   s32_le revents;
 } PACK SceNetAdhocPollSd;
 
-// PDP Socket Status (Internal use only)
-typedef struct SceNetAdhocPdpStatInternal{
-  u32_le next; // struct SceNetAdhocPdpStat * next;
-  s32_le id;
-  SceNetEtherAddr laddr;
-  u16_le lport;
-  u32_le rcv_sb_cc;
-
-  s32_le flags; // Socket Alert Flags
-} PACK SceNetAdhocPdpStatInternal;
-
 // PDP Socket Status
-typedef struct SceNetAdhocPdpStatEmu {
+typedef struct SceNetAdhocPdpStat {
 	u32_le next; 
 	s32_le id;
 	SceNetEtherAddr laddr;
 	u16_le lport;
 	u32_le rcv_sb_cc;
-} PACK SceNetAdhocPdpStatEmu;
-
-// PTP Socket Status (Internal use only)
-typedef struct SceNetAdhocPtpStatInternal {
-  u32_le next; // struct SceNetAdhocPtpStat * next;
-  s32_le id;
-  SceNetEtherAddr laddr;
-  SceNetEtherAddr paddr;
-  u16_le lport;
-  u16_le pport;
-  s32_le snd_sb_cc;
-  s32_le rcv_sb_cc;
-  s32_le state;
-
-  s32_le flags; // Socket Alert Flags
-} PACK SceNetAdhocPtpStatInternal;
+} PACK SceNetAdhocPdpStat;
 
 // PTP Socket Status
-typedef struct SceNetAdhocPtpStatEmu {
+typedef struct SceNetAdhocPtpStat {
 	u32_le next; // Changed the pointer to u32
 	s32_le id;
 	SceNetEtherAddr laddr;
@@ -348,7 +322,17 @@ typedef struct SceNetAdhocPtpStatEmu {
 	s32_le snd_sb_cc;
 	s32_le rcv_sb_cc;
 	s32_le state;
-} PACK SceNetAdhocPtpStatEmu;
+} PACK SceNetAdhocPtpStat;
+
+// PDP & PTP Socket Union (Internal use only)
+typedef struct AdhocSocket {
+	s32_le type;
+	s32_le flags; // Socket Alert Flags
+	union {
+		SceNetAdhocPdpStat pdp;
+		SceNetAdhocPtpStat ptp;
+	} data;
+} PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
 typedef struct SceNetAdhocGameModeOptData {
@@ -846,17 +830,16 @@ private:
 extern int actionAfterAdhocMipsCall;
 extern int actionAfterMatchingMipsCall;
 
-#define MAX_SOCKET	255
+#define MAX_SOCKET	255 // FIXME: PSP might not allows more than 255 sockets? Hotshots Tennis doesn't seems to works with socketId > 255
+#define SOCK_PDP	1
+#define SOCK_PTP	2
 // Aux vars
 extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
-extern SceNetAdhocPdpStatInternal * pdp[MAX_SOCKET];
-extern SceNetAdhocPtpStatInternal * ptp[MAX_SOCKET];
-extern const int PdpIdStart;  //256
-extern const int PdpIdEnd; //511
+extern AdhocSocket* adhocSockets[MAX_SOCKET];
 extern std::map<int, int> ptpConnectCount;
 
 union SockAddrIN4 {
@@ -989,14 +972,9 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC);
 void freeGroupsRecursive(SceNetAdhocctlScanInfo * node);
 
 /**
- * Closes & Deletes all PDP Sockets
+ * Closes & Deletes all PDP & PTP Sockets
  */
-void deleteAllPDP();
-
-/**
- * Closes & Deletes all PTP sockets
- */
-void deleteAllPTP();
+void deleteAllAdhocSockets();
 
 /**
  * Delete Friend from Local List
