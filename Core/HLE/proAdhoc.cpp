@@ -87,6 +87,7 @@ bool updateChatScreen = false;
 int newChat = 0;
 bool isOriPort = false;
 bool isLocalServer = false;
+SockAddrIN4 g_adhocServerIP;
 SockAddrIN4 g_localhostIP;
 sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
@@ -1254,6 +1255,26 @@ int friendFinder(){
 	// Log Startup
 	INFO_LOG(SCENET, "FriendFinder: Begin of Friend Finder Thread");
 
+	// Resolve and cache AdhocServer DNS
+	addrinfo* resolved = nullptr;
+	std::string err;
+	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
+	if (!net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
+		ERROR_LOG(SCENET, "DNS Error Resolving %s\n", g_Config.proAdhocServer.c_str());
+		host->NotifyUserMessage(n->T("DNS Error Resolving ") + g_Config.proAdhocServer, 2.0f, 0x0000ff);
+	}
+	if (resolved) {
+		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
+			switch (ptr->ai_family) {
+			case AF_INET:
+				g_adhocServerIP.in = *(sockaddr_in*)ptr->ai_addr;
+				break;
+			}
+		}
+		net::DNSResolveFree(resolved);
+	}
+	g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
+
 	// Finder Loop
 	while (friendFinderRunning) {
 		// Acquire Network Lock
@@ -1912,35 +1933,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	// Switch to Nonblocking Behaviour
 	changeBlockingMode(metasocket, 1);
 
-	struct sockaddr_in server_addr;
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too
-
-	// Resolve dns
-	addrinfo * resultAddr;
-	addrinfo * ptr;
-	in_addr serverIp;
-	serverIp.s_addr = INADDR_NONE;
-
-	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
-	if (iResult != 0) {
-		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
-		host->NotifyUserMessage(n->T("DNS Error connecting to ") + g_Config.proAdhocServer, 2.0f, 0x0000ff);
-		return iResult;
-	}
-	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
-		switch (ptr->ai_family) {
-		case AF_INET:
-			serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
-			break;
-		}
-	}
-
-	freeaddrinfo(resultAddr);
-
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (((uint8_t*)&serverIp.s_addr)[0] == 0x7f) { // (serverIp.S_un.S_un_b.s_b1 == 0x7f) 
+	if (((uint8_t*)&g_adhocServerIP.in.sin_addr.s_addr)[0] == 0x7f) { // (serverIp.S_un.S_un_b.s_b1 == 0x7f) 
 		int on = 1;
 		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
@@ -1967,11 +1962,14 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	product_code.type = adhoc_id->type;
 	memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
+	// Don't need to connect if AdhocServer DNS was not resolved
+	if (g_adhocServerIP.in.sin_addr.s_addr == INADDR_NONE)
+		return -1;
+
 	// Connect to Adhoc Server
-	server_addr.sin_addr = serverIp;
 	int errorcode = 0;
 	int cnt = 0;
-	iResult = connect(metasocket, (sockaddr*)&server_addr, sizeof(server_addr));
+	iResult = connect(metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
 	errorcode = errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
@@ -1983,7 +1981,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			sleep_ms(10);
 		}
 		if (IsSocketReady(metasocket, true, true) <= 0) {
-			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
+			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(g_adhocServerIP.in.sin_addr), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
 			return iResult;
 		}
