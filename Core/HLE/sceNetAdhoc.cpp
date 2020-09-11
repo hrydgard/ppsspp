@@ -4327,11 +4327,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Ys vs. Sora no Kiseki seems to be using this function even after AdhocMatching is Terminated, May be member list persist even after AdhocMatching terminated until the next init?
-	if (!netAdhocMatchingInited) {
-		//WARN_LOG(SCENET, "sceNetAdhocMatchingGetMembers - AdhocMatching is Not Initialized");
-		return 0; // ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
-	}
+	if (!netAdhocMatchingInited)
+		return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 
 	// Minimum Argument
 	if (!Memory::IsValidAddress(sizeAddr)) 
@@ -4418,6 +4415,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									auto friendpeer = findFriend(&p2p->mac);
 									if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled();
+									else
+										p2p->lastping = 0;
 
 									// Add P2P Brother MAC
 									buf2[filledpeers++].mac_addr = p2p->mac;
@@ -4436,6 +4435,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									auto friendpeer = findFriend(&parentpeer->mac);
 									if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+									else
+										parentpeer->lastping = 0;
 
 									// Add Parent MAC
 									buf2[filledpeers++].mac_addr = parentpeer->mac;
@@ -4456,6 +4457,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 										auto friendpeer = findFriend(&peer->mac);
 										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
 											peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+										else
+											peer->lastping = 0;
 
 										// Add Peer MAC
 										sortedPeers.push_front(peer);
@@ -4711,7 +4714,7 @@ static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x)", poolstatPtr);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -5520,9 +5523,6 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 		// Packet Buffer
 		uint8_t packet[7];
 
-		// Set Opcode
-		packet[0] = PSP_ADHOC_MATCHING_PACKET_DEATH;
-
 		// Set abandoned Child MAC
 		memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
 
@@ -5530,18 +5530,32 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 		SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
 		for (; peer != NULL; peer = peer->next)
 		{
-			// Skip dead Child
-			if (peer == deadkid) continue;
+			// Skip dead Child? Or May be we should also tells the disconnected Child, that they have been disconnected from the Host (in the case they were disconnected because they went to PPSSPP settings for too long)
+			if (peer == deadkid) {
+				// Set Opcode
+				packet[0] = PSP_ADHOC_MATCHING_PACKET_BYE;
 
-			// Send only to children
+				// Send Bye Packet
+				context->socketlock->lock();
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+				context->socketlock->unlock();
+			}
+			else
+			// Send to other children
 			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)
 			{
-				// Send Packet
+				// Set Opcode
+				packet[0] = PSP_ADHOC_MATCHING_PACKET_DEATH;
+
+				// Send Death Packet
 				context->socketlock->lock();
 				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 		}
+
+		// Delete Peer
+		deletePeer(context, deadkid);
 	}
 }
 
@@ -5695,7 +5709,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					// If we got the peer in the table already and are a parent, there is nothing left to be done.
 					// This is because the only way a parent can know of a child is via a join request...
 					// If we thus know of a possible child, then we already had a previous join request thus no need for double tapping.
-					if (peer != NULL && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+					if (peer != NULL && peer->lastping != 0 && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
 						WARN_LOG(SCENET, "Join Event(2) Ignored");
 						return;
 					}
@@ -5740,6 +5754,9 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					{
 						// Set Peer State
 						peer->state = PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST;
+
+						// Initialize Ping Timer
+						peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
 						// Spawn Request Event
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
@@ -6220,7 +6237,7 @@ int matchingEventThread(int matchingId)
 			sleep_ms(10); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning) sleep_ms(1);
+			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning) sleep_ms(10);
 		}
 
 		// Process Last Messages
@@ -6374,6 +6391,9 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						// Send Birth Packet
 						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
 
+						// Send Death Packet
+						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
+
 						// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
 						//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
 
@@ -6459,7 +6479,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 			sleep_ms(10); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning) sleep_ms(1);
+			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning) sleep_ms(10);
 		}
 
 		if (contexts != NULL) {
