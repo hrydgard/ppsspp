@@ -1589,10 +1589,10 @@ int friendFinder(){
 			}
 		}
 		// This delay time should be 100ms when there is an event otherwise 500ms ?
-		sleep_ms(1); // Using 1ms for faster response just like AdhocServer?
+		sleep_ms(10); // Using 1ms for faster response just like AdhocServer?
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning) sleep_ms(1);
+		while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning) sleep_ms(10);
 	}
 
 	// Groups/Networks should be deallocated isn't?
