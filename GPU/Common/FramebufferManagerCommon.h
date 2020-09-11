@@ -396,7 +396,6 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
 	bool gameUsesSequentialCopies_ = false;
-	bool clearFramebufferOnFirstUseHack_ = false;
 
 	// Sampled in BeginFrame for safety.
 	float renderWidth_ = 0.0f;

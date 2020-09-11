@@ -44,10 +44,6 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		displayFormat_(GE_FORMAT_565) {
 	presentation_ = new PresentationCommon(draw);
-
-	// See comment from where it's used below.
-	// As for the use of IsGLES, just the way it was. Scary to change it.
-	clearFramebufferOnFirstUseHack_ = gl_extensions.IsGLES;
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
@@ -536,7 +532,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
 			shaderManager_->DirtyLastShader();
-			if (clearFramebufferOnFirstUseHack_) {
+			if (g_Config.bClearFramebuffersOnFirstUseHack) {
 				// HACK: Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 				// to it (or in Vulkan, clear during framebuffer load). This is a hack to force this
 				// the first time a framebuffer is bound for rendering in a frame.
