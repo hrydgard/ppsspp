@@ -935,22 +935,23 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0
-		// Timeout!, may be we shouldn't kick timedout members ourself and let the game do it
-		if (peer->state != 0 && (now - peer->lastping) >= context->timeout) 
+		// Timeout!
+		if (peer->state != 0 && (now - peer->lastping) > context->timeout) 
 		{
 			// Spawn Timeout Event
-			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (/*peer->state == PSP_ADHOC_MATCHING_PEER_CHILD ||*/ peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
+			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P)) {
 				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
+
+				INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout / 1000));
+
+				if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) 
+					sendDeathMessage(context, peer);
+				else 
+					sendCancelMessage(context, peer, 0, NULL);
 			}
-
-			INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout/1000));
-
-			// Delete Peer from List
-			deletePeer(context, peer);
-			//peer->lastping = 0; //Let's just make the game kick timedout members during sceNetAdhocMatchingGetMembers
 		}
 
 		// Move Pointer
