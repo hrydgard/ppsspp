@@ -2077,10 +2077,10 @@ int server_loop(int server)
 		}
 
 		// Prevent needless CPU Overload (1ms Sleep)
-		sleep_ms(1);
+		sleep_ms(10);
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (adhocServerRunning && Core_IsStepping() && coreState != CORE_POWERDOWN) sleep_ms(1);
+		while (adhocServerRunning && Core_IsStepping() && coreState != CORE_POWERDOWN) sleep_ms(10);
 	}
 
 	// Free User Database Memory
