@@ -230,6 +230,10 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	fd_set readfds, writefds;
 	timeval tval;
 
+	// Avoid getting Fatal signal 6 (SIGABRT) on linux/android
+	if (fd < 0)
+	    return SOCKET_ERROR;
+
 	FD_ZERO(&readfds);
 	writefds = readfds;
 	if (readfd) {	
