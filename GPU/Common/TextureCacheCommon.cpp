@@ -541,6 +541,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 }
 
 std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset) {
+	gpuStats.numFramebufferEvaluations++;
 	bool success = false;
 	bool anyIgnores = false;
 
