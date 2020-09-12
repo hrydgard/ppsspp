@@ -52,6 +52,7 @@ public:
 	void BootDone() override;
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;
+	void NotifySymbolMapUpdated() override;
 	void SetWindowTitle(const char *message) override;
 
 	void ToggleDebugConsoleVisibility() override;

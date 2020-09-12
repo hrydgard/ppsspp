@@ -44,6 +44,7 @@ public:
 
 	bool IsDebuggingEnabled() override { return false; }
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
+	void NotifySymbolMapUpdated() override {}
 
 	bool ShouldSkipUI() override { return true; }
 

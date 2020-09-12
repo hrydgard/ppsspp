@@ -158,6 +158,10 @@ void UWPHost::SaveSymbolMap() {
 	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap").c_str());
 }
 
+void UWPHost::NotifySymbolMapUpdated() {
+	g_symbolMap->SortSymbols();
+}
+
 bool UWPHost::IsDebuggingEnabled() {
 	return false;
 }

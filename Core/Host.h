@@ -48,6 +48,7 @@ public:
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap();
 	virtual void SaveSymbolMap() {}
+	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetWindowTitle(const char *message) {}
 
 	virtual bool CanCreateShortcut() {return false;}

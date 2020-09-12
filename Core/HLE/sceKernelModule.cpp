@@ -1743,6 +1743,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		return false;
 	}
 
+	host->NotifySymbolMapUpdated();
+
 	mipsr4k.pc = module->nm.entry_addr;
 
 	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
