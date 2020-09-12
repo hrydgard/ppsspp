@@ -966,7 +966,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 					setSockNoSIGPIPE(usocket, 1);
 
 					// Enable Port Re-use, this will allow binding to an already used port, but only one of them can read the data (shared receive buffer?)
-					setsockopt(usocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
+					setSockReuseAddrPort(usocket);
 
 					// Binding Information for local Port
 					sockaddr_in addr;
@@ -2627,13 +2627,14 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					setSockNoSIGPIPE(tcpsocket, 1);
 
 					// Enable Port Re-use
-					setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
+					setSockReuseAddrPort(tcpsocket);
 
 					// Apply Default Send Timeout Settings to Socket
 					setSockTimeout(tcpsocket, SO_SNDTIMEO, rexmt_int);
 
 					// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-					if (g_Config.bTCPNoDelay) setSockNoDelay(tcpsocket, 1);
+					if (g_Config.bTCPNoDelay) 
+						setSockNoDelay(tcpsocket, 1);
 
 					// Binding Information for local Port
 					sockaddr_in addr;
@@ -2736,10 +2737,11 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 	setSockNoSIGPIPE(newsocket, 1);
 
 	// Enable Port Re-use
-	setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
+	setSockReuseAddrPort(newsocket);
 
 	// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-	if (g_Config.bTCPNoDelay) setSockNoDelay(newsocket, 1);
+	if (g_Config.bTCPNoDelay) 
+		setSockNoDelay(newsocket, 1);
 
 	// Local Address Information
 	sockaddr_in local;
@@ -3123,13 +3125,14 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					setSockNoSIGPIPE(tcpsocket, 1);
 
 					// Enable Port Re-use
-					setsockopt(tcpsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
+					setSockReuseAddrPort(tcpsocket);
 
 					// Apply Default Receive Timeout Settings to Socket
 					setSockTimeout(tcpsocket, SO_RCVTIMEO, rexmt_int);
 
 					// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-					if (g_Config.bTCPNoDelay) setSockNoDelay(tcpsocket, 1);
+					if (g_Config.bTCPNoDelay) 
+						setSockNoDelay(tcpsocket, 1);
 
 					// Binding Information for local Port
 					sockaddr_in addr;
