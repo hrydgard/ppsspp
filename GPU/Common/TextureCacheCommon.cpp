@@ -471,6 +471,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 		int index = GetBestCandidateIndex(candidates);
 		if (index != -1) {
 			nextTexture_ = nullptr;
+			nextNeedsRebuild_ = false;
 			SetTextureFramebuffer(candidates[index]);
 			return nullptr;
 		}
@@ -552,7 +553,7 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
 		auto framebuffer = framebuffers[i];
 		uint32_t fb_addr = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
-		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, 0, channel);
+		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, texAddrOffset, channel);
 		if (match.match == FramebufferMatch::IGNORE) {
 			anyIgnores = true;
 		} else if (match.match != FramebufferMatch::NO_MATCH) {
