@@ -1733,11 +1733,8 @@ void interrupt(int sig)
  */
 void enable_address_reuse(int fd)
 {
-	// Enable Value
-	int on = 1;
-
 	// Enable Port Reuse
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+	setSockReuseAddrPort(fd);
 }
 
 /**

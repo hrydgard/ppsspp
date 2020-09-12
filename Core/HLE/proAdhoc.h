@@ -1225,6 +1225,11 @@ int setSockNoDelay(int tcpsock, int flag);
 int setSockNoSIGPIPE(int sock, int flag);
 
 /*
+* Set Socket SO_REUSEADDR and SO_REUSEPORT when supported
+*/
+int setSockReuseAddrPort(int sock);
+
+/*
 * Set Socket KeepAlive (opt = SO_KEEPALIVE)
 */
 int setSockKeepAlive(int sock, bool keepalive, const int keepinvl = 60, const int keepcnt = 20, const int keepidle = 180);
