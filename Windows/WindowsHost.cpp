@@ -312,6 +312,11 @@ void WindowsHost::SaveSymbolMap() {
 	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
+void WindowsHost::NotifySymbolMapUpdated() {
+	g_symbolMap->SortSymbols();
+	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
+}
+
 bool WindowsHost::IsDebuggingEnabled() {
 #ifdef _DEBUG
 	return true;
