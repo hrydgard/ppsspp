@@ -603,6 +603,12 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 			relevancy += 9;
 		}
 
+		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
+			relevancy += 5;
+		} else if (candidate.channel == NOTIFY_FB_DEPTH && candidate.fb->last_frame_depth_render == gpuStats.numFlips) {
+			relevancy += 5;
+		}
+
 		if (relevancy > bestRelevancy) {
 			bestRelevancy = relevancy;
 			bestIndex = i;
