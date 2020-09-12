@@ -340,9 +340,7 @@ protected:
 	TexCache secondCache_;
 	u32 secondCacheSizeEstimate_;
 
-	std::vector<VirtualFramebuffer *> fbCache_;
 	std::map<u64, FramebufferMatchInfo> fbTexInfo_;
-
 	std::map<u32, int> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32_;

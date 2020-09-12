@@ -311,6 +311,10 @@ public:
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
+	const std::vector<VirtualFramebuffer *> &Framebuffers() {
+		return vfbs_;
+	}
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);

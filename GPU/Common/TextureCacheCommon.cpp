@@ -567,8 +567,11 @@ bool TextureCacheCommon::AttachFramebufferToEntry(TexCacheEntry *entry, u32 texA
 	std::vector<AttachCandidate> detaches;
 
 	FramebufferNotificationChannel channel = (entry->status & TexCacheEntry::STATUS_DEPTH) ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
+
+	auto framebuffers = framebufferManager_->Framebuffers();
+
+	for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
+		auto framebuffer = framebuffers[i];
 		uint32_t fb_addr = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, texAddrOffset, channel);
 		if (match.match == FramebufferMatch::IGNORE) {
@@ -765,14 +768,6 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		// Try to match the new framebuffer to existing textures.
 		// Backwards from the "usual" texturing case so can't share a utility function.
 
-		// Ensure it's in the framebuffer cache.
-		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
-			// TODO: This is kind of silly. We should probably simply share this list of framebuffers
-			// with the framebuffer manager.
-			WARN_LOG(G3D, "TextureCache got info about new framebuffer, at %08x", address);
-			fbCache_.push_back(framebuffer);
-		}
-
 		std::vector<AttachCandidate> candidates;
 
 		// TODO: Rework this to not try to "apply" all matches, only the best one.
@@ -810,8 +805,6 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		break;
 	}
 	case NOTIFY_FB_DESTROYED:
-		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(), framebuffer), fbCache_.end());
-
 		// We may have an offset texture attached.  So we use fbTexInfo as a guide.
 		// We're not likely to have many attached framebuffers.
 		for (auto it = fbTexInfo_.begin(); it != fbTexInfo_.end(); ) {
@@ -1205,8 +1198,9 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			static const u32 MAX_CLUT_OFFSET = 4096;
 
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
-			for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-				auto framebuffer = fbCache_[i];
+			auto framebuffers = framebufferManager_->Framebuffers();
+			for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
+				auto framebuffer = framebuffers[i];
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
 				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
 				u32 offset = clutFramebufAddr - fb_address;
