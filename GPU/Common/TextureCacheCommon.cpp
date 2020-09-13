@@ -154,7 +154,10 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
 	mode = mipMode;
+
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
+
+	// TODO: Slope mipmap bias is still not well understood.
 	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
@@ -162,8 +165,9 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 
 	// If mip level is forced to zero, disable mipmapping.
 	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
-	if (IsFakeMipmapChange())
+	if (IsFakeMipmapChange()) {
 		noMip = noMip || !autoMip;
+	}
 
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
@@ -171,44 +175,54 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = 0.0f;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
-		bool isVideo = videos_.find(addr & 0x3FFFFFFF) != videos_.end();
-		if (isVideo) {
+	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
+		if (videos_.find(addr & 0x3FFFFFFF) != videos_.end()) {
+			// Enforce bilinear filtering on magnification.
+			magFilt |= 1;
+		}
+	}
+
+	// Filtering overrides
+	switch (g_Config.iTexFiltering) {
+	case TEX_FILTER_AUTO:
+		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
+		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
+		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
+			if (uglyColorTest) {
+				// Force to nearest.
+				magFilt &= ~1;
+				minFilt &= ~1;
+			}
+		}
+		break;
+	case TEX_FILTER_FORCE_LINEAR:
+		// Override to linear filtering if there's no alpha or color testing going on.
+		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
+		    (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
 			magFilt |= 1;
 			minFilt |= 1;
 		}
-	}
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
-		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
-			magFilt |= 1;
-			minFilt |= 1;
-		}
-	}
-	bool forceNearest = g_Config.iTexFiltering == TEX_FILTER_NEAREST;
-	// Force Nearest when color test enabled and rendering resolution greater than 480x272
-	if ((gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue()) && g_Config.iInternalResolution != 1 && gstate.isModeThrough()) {
-		// Some games use 0 as the color test color, which won't be too bad if it bleeds.
-		// Fuchsia and green, etc. are the problem colors.
-		if (gstate.getColorTestRef() != 0) {
-			forceNearest = true;
-		}
-	}
-	if (forceNearest) {
+		break;
+	case TEX_FILTER_FORCE_NEAREST:
+	default:
+		// Just force to nearest without checks. Safe (but ugly).
 		magFilt &= ~1;
 		minFilt &= ~1;
+		break;
 	}
 }
 
-void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
+void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
 	// TODO: Make GetSamplingParams write SamplerCacheKey directly
 	int minFilt;
 	int magFilt;
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	int maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
 	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
+
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, texAddr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -224,7 +238,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	} else {
 		switch (mode) {
 		case GE_TEXLEVEL_MODE_AUTO:
-			key.maxLevel = entry.maxLevel * 256;
+			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
 			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
@@ -241,7 +255,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			// It's incorrect to use the slope as a bias. Instead it should be passed
 			// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
 			// lodBias in this mode, working around #9772.
-			key.maxLevel = entry.maxLevel * 256;
+			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = 0;
 			break;

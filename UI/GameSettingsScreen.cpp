@@ -512,7 +512,7 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
+	static const char *texFilters[] = { "Auto", "Nearest", "Linear" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };

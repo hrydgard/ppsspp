@@ -629,7 +629,6 @@ BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
             MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
             MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
-            MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
         END
         POPUP "Screen Scaling Filter",                      ID_OPTIONS_SCREENFILTER_MENU
         BEGIN
