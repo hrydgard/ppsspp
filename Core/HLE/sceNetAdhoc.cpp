@@ -1553,10 +1553,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 	if (affectedsockets > 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
-			s32_le* fd_flags;
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 				auto sock = adhocSockets[sds[i].id - 1];
-				fd_flags = &sock->flags;
 				if (sock->type == SOCK_PTP) {
 					fd = sock->data.ptp.id;					
 				}
@@ -1572,10 +1570,10 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 					sds[i].revents |= ADHOC_EV_ALERT; // Does Alert can be raised on revents regardless of events bitmask?
 				if (sds[i].revents) affectedsockets++;
 
-				if (*fd_flags & ADHOC_F_ALERTPOLL) {
+				if (sock->flags & ADHOC_F_ALERTPOLL) {
 					affectedsockets = ERROR_NET_ADHOC_SOCKET_ALERTED;
 					// FIXME: Should we clear the flag after alert signaled?
-					*fd_flags &= ~ADHOC_F_ALERTPOLL;
+                    sock->flags &= ~ADHOC_F_ALERTPOLL;
 					break;
 				}
 			}
