@@ -26,11 +26,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef UTIL_SNAPPY_SNAPPY_SINKSOURCE_H_
-#define UTIL_SNAPPY_SNAPPY_SINKSOURCE_H_
+#ifndef THIRD_PARTY_SNAPPY_SNAPPY_SINKSOURCE_H_
+#define THIRD_PARTY_SNAPPY_SNAPPY_SINKSOURCE_H_
 
 #include <stddef.h>
-
 
 namespace snappy {
 
@@ -60,6 +59,47 @@ class Sink {
   // The default implementation always returns the scratch buffer.
   virtual char* GetAppendBuffer(size_t length, char* scratch);
 
+  // For higher performance, Sink implementations can provide custom
+  // AppendAndTakeOwnership() and GetAppendBufferVariable() methods.
+  // These methods can reduce the number of copies done during
+  // compression/decompression.
+
+  // Append "bytes[0,n-1] to the sink. Takes ownership of "bytes"
+  // and calls the deleter function as (*deleter)(deleter_arg, bytes, n)
+  // to free the buffer. deleter function must be non NULL.
+  //
+  // The default implementation just calls Append and frees "bytes".
+  // Other implementations may avoid a copy while appending the buffer.
+  virtual void AppendAndTakeOwnership(
+      char* bytes, size_t n, void (*deleter)(void*, const char*, size_t),
+      void *deleter_arg);
+
+  // Returns a writable buffer for appending and writes the buffer's capacity to
+  // *allocated_size. Guarantees *allocated_size >= min_size.
+  // May return a pointer to the caller-owned scratch buffer which must have
+  // scratch_size >= min_size.
+  //
+  // The returned buffer is only valid until the next operation
+  // on this ByteSink.
+  //
+  // After writing at most *allocated_size bytes, call Append() with the
+  // pointer returned from this function and the number of bytes written.
+  // Many Append() implementations will avoid copying bytes if this function
+  // returned an internal buffer.
+  //
+  // If the sink implementation allocates or reallocates an internal buffer,
+  // it should use the desired_size_hint if appropriate. If a caller cannot
+  // provide a reasonable guess at the desired capacity, it should set
+  // desired_size_hint = 0.
+  //
+  // If a non-scratch buffer is returned, the caller may only pass
+  // a prefix to it to Append(). That is, it is not correct to pass an
+  // interior pointer to Append().
+  //
+  // The default implementation always returns the scratch buffer.
+  virtual char* GetAppendBufferVariable(
+      size_t min_size, size_t desired_size_hint, char* scratch,
+      size_t scratch_size, size_t* allocated_size);
 
  private:
   // No copying
@@ -122,6 +162,12 @@ class UncheckedByteArraySink : public Sink {
   virtual ~UncheckedByteArraySink();
   virtual void Append(const char* data, size_t n);
   virtual char* GetAppendBuffer(size_t len, char* scratch);
+  virtual char* GetAppendBufferVariable(
+      size_t min_size, size_t desired_size_hint, char* scratch,
+      size_t scratch_size, size_t* allocated_size);
+  virtual void AppendAndTakeOwnership(
+      char* bytes, size_t n, void (*deleter)(void*, const char*, size_t),
+      void *deleter_arg);
 
   // Return the current output pointer so that a caller can see how
   // many bytes were produced.
@@ -131,7 +177,6 @@ class UncheckedByteArraySink : public Sink {
   char* dest_;
 };
 
+}  // namespace snappy
 
-}
-
-#endif  // UTIL_SNAPPY_SNAPPY_SINKSOURCE_H_
+#endif  // THIRD_PARTY_SNAPPY_SNAPPY_SINKSOURCE_H_

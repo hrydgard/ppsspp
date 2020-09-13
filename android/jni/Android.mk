@@ -193,6 +193,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/sfmt19937/SFMT.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy-sinksource.cpp \
+  $(SRC)/ext/snappy/snappy-stubs-internal.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/ext/udis86/decode.c \
   $(SRC)/ext/udis86/itab.c \

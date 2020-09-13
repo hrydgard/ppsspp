@@ -359,6 +359,8 @@
     <ClCompile Include="..\ext\disarm.cpp" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy-sinksource.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy-stubs-internal.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="..\git-version.cpp" />
     <ClCompile Include="..\ext\udis86\decode.c" />
