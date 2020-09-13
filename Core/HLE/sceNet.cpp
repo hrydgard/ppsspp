@@ -590,7 +590,6 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
-	ptpConnectCount.clear();
 	
 	return hleLogSuccessI(SCENET, 0);
 }

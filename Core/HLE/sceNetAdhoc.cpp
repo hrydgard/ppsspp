@@ -393,7 +393,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	int ret = recv(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL);
 	int sockerr = errno;
 
-	// Received Data
+	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 	if (ret > 0) {
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
 		// Save Length
@@ -1413,7 +1413,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 				error = errno;
 
-				if (received == SOCKET_ERROR) {
+				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
 					if (flag == 0) {
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
@@ -2670,6 +2670,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 								// Socket Type
 								internal->type = SOCK_PTP;
+								internal->send_timeout = rexmt_int;
 
 								// Copy Infrastructure Socket ID
 								internal->data.ptp.id = tcpsocket;
@@ -2685,7 +2686,6 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 								// Link PTP Socket
 								adhocSockets[i] = internal;
-								ptpConnectCount[i] = 0;
 
 								// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
 								//sceNetPortOpen("TCP", sport);
@@ -2798,7 +2798,6 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 
 					// Link PTP Socket
 					adhocSockets[i] = internal;
-					ptpConnectCount[i] = 0;
 
 					// Add Port Forward to Router. Or may be doesn't need to be forwarded since local port already accessible from outside if others were able to connect & get accepted at this point, right?
 					//sceNetPortOpen("TCP", internal->lport);
@@ -2872,7 +2871,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					int newsocket = accept(ptpsocket.id, (sockaddr*)&peeraddr, &peeraddrlen);
 					int error = errno;
 
-					if (newsocket == SOCKET_ERROR) {
+					if (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
 						if (flag == 0) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
@@ -2974,7 +2973,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 
 					// Instant Connection (Lucky!)
 					if (connectresult != SOCKET_ERROR || errorcode == EISCONN) {
-						ptpConnectCount[id - 1]++;
+						socket->connectCount++;
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 						
@@ -2985,9 +2984,9 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					
 					// Connection in Progress
 					else if (connectresult == SOCKET_ERROR && connectInProgress(errorcode)) {
-						ptpConnectCount[id - 1]++;
+						socket->connectCount++;
 						// Nonblocking Mode. First attempt need to be blocking for GvG Next Plus to work, even though it used non-blocking flag but only try to connect once per socket, which mean treating it just like blocking socket instead of non-blocking :(
-						if (flag && ptpConnectCount[id - 1] > 1) {
+						if (flag && socket->connectCount > 1) {
 							//if (errorcode == EALREADY) return ERROR_NET_ADHOC_BUSY;
 							return ERROR_NET_ADHOC_WOULD_BLOCK;
 						}
@@ -2995,7 +2994,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						else {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, timeout, nullptr, nullptr, "ptp connect");
+							return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag)? socket->send_timeout: timeout, nullptr, nullptr, "ptp connect");
 						}
 					}
 				}
@@ -3042,7 +3041,6 @@ int NetAdhocPtp_Close(int id, int unknown) {
 
 				// Free Reference
 				adhocSockets[id - 1] = NULL;
-				ptpConnectCount.erase(id - 1);
 
 				// Success
 				return 0;
@@ -3169,6 +3167,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 									// Socket Type
 									internal->type = SOCK_PTP;
+									internal->recv_timeout = rexmt_int;
 
 									// Copy Infrastructure Socket ID
 									internal->data.ptp.id = tcpsocket;
@@ -3185,7 +3184,6 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 									// Link PTP Socket
 									adhocSockets[i] = internal;
-									ptpConnectCount[i] = 0;
 
 									// Add Port Forward to Router
 									//sceNetPortOpen("TCP", sport);
@@ -3367,11 +3365,11 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int received = 0;
 					int error = 0;
 
-					// Receive Data
+					// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 					received = recv(ptpsocket.id, (char*)buf, *len, MSG_NOSIGNAL);
 					error = errno;
 
-					if (received == SOCKET_ERROR) {
+					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
 						if (flag == 0) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
