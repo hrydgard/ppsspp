@@ -205,17 +205,10 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 enum class FramebufferMatch {
 	// Valid, exact match.
 	VALID = 0,
-	// Valid match that is exact after depal.
-	VALID_DEPAL,
-	// Inexact match (such as wrong fmt or at a questionable offset.)
-	INEXACT,
 	// Not a match, remove if currently attached.
 	NO_MATCH,
-	// Not a match, but don't remove yet.  Used to avoid deatching depth mismatch.
-	IGNORE,
 };
 
-// Separate to keep main texture cache size down.
 struct FramebufferMatchInfo {
 	FramebufferMatch match;
 	u32 xOffset;
@@ -249,10 +242,11 @@ public:
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture(TexCacheEntry *entry = nullptr) = 0;
 	virtual void Clear(bool delete_them);
-
-	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
 	virtual void NotifyConfigChanged();
+
+	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
+	// so that it can invalidate TexCacheEntries pointed at those addresses.
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	size_t NumLoadedTextures() const {
@@ -295,7 +289,7 @@ protected:
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
+	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
 
 	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
 	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);

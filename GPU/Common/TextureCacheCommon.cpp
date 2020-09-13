@@ -543,7 +543,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset) {
 	gpuStats.numFramebufferEvaluations++;
 	bool success = false;
-	bool anyIgnores = false;
 
 	std::vector<AttachCandidate> candidates;
 
@@ -553,12 +552,13 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
 		auto framebuffer = framebuffers[i];
-		uint32_t fb_addr = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
-		FramebufferMatchInfo match = MatchFramebuffer(entry, fb_addr, framebuffer, texAddrOffset, channel);
-		if (match.match == FramebufferMatch::IGNORE) {
-			anyIgnores = true;
-		} else if (match.match != FramebufferMatch::NO_MATCH) {
+		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer, texAddrOffset, channel);
+		switch (match.match) {
+		case FramebufferMatch::VALID:
 			candidates.push_back(AttachCandidate{ match, entry, framebuffer, channel });
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -582,27 +582,25 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 	int bestRelevancy = -1;
 	int bestIndex = -1;
 
+	// TODO: Instead of scores, we probably want to use std::min_element to pick the top element, using 
+	// a comparison function.
 	for (int i = 0; i < (int)candidates.size(); i++) {
 		const AttachCandidate &candidate = candidates[i];
 		int relevancy = 0;
 		switch (candidate.match.match) {
 		case FramebufferMatch::VALID:
-		case FramebufferMatch::VALID_DEPAL:
 			relevancy += 1000;
-			break;
-		case FramebufferMatch::INEXACT:
-			relevancy += 100;
 			break;
 		}
 
 		// Bonus point for matching stride.
 		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->fb_stride == candidate.entry.bufw) {
-			relevancy += 10;
+			relevancy += 100;
 		}
 
 		// Bonus points for no offset.
 		if (candidate.match.xOffset == 0 && candidate.match.yOffset == 0) {
-			relevancy += 9;
+			relevancy += 10;
 		}
 
 		if (candidate.channel == NOTIFY_FB_COLOR && candidate.fb->last_frame_render == gpuStats.numFlips) {
@@ -765,10 +763,10 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 
 FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 	const TextureDefinition &entry,
-	u32 fb_address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const {
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
-	const u32 mirrorMask = 0x00600000;
+	uint32_t fb_address = channel == NOTIFY_FB_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
 
 	u32 addr = fb_address & 0x3FFFFFFF;
 	u32 texaddr = entry.addr + texaddrOffset;
@@ -782,6 +780,8 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 	}
 
 	if (texInVRAM) {
+		const u32 mirrorMask = 0x00600000;
+
 		// This bit controls swizzle. The swizzles at 0x00200000 and 0x00600000 are designed
 		// to perfectly match reading depth as color (which one to use I think might be related
 		// to the bpp of the color format used when rendering to it).
@@ -792,15 +792,14 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		case 0x00400000:
 			// Don't match the depth channel with these addresses when texturing.
 			if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH) {
-				// God of War: If we actively detach here, the shadows disappear.
-				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
+				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 			}
 			break;
 		case 0x00200000:
 		case 0x00600000:
 			// Don't match the color channel with these addresses when texturing.
 			if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
-				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
+				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 			}
 			break;
 		}
@@ -824,16 +823,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (entry.format != (GETextureFormat)framebuffer->format) {
 			WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-			// Let's avoid using it when we know the format is wrong. May be a video/etc. updating memory.
-			// However, some games use a different format to clear the buffer.
-			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
-				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
-			} else {
-				// TODO: This is a weird outcome. The purpose seems to be to delay
-				// a decision to the next frame.
-				// Should really try to map it to something else.
-				return FramebufferMatchInfo{ FramebufferMatch::IGNORE };
-			}
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		} else {
 			return FramebufferMatchInfo{ FramebufferMatch::VALID };
 		}
@@ -897,7 +887,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			if (!noOffset) {
 				WARN_LOG_ONCE(subareaClut, G3D, "Texturing from framebuffer using CLUT with offset at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
 			}
-			fbInfo.match = FramebufferMatch::VALID_DEPAL;
+			fbInfo.match = FramebufferMatch::VALID;  // We check the format again later, no need to return a special value here.
 			return fbInfo;
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
 			WARN_LOG_ONCE(fourEightBit, G3D, "%s format not supported when texturing from framebuffer of format %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
@@ -909,11 +899,9 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			if (framebuffer->format != entry.format) {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
-				return fbInfo; // Valid!
+				return fbInfo;
 			} else {
-				WARN_LOG_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
-				// If we return VALID here, God of War Ghost of Sparta/Chains of Olympus will be missing some special effect according to an old comment.
-				fbInfo.match = FramebufferMatch::INEXACT;
+				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
 				return fbInfo;
 			}
 		} else {
