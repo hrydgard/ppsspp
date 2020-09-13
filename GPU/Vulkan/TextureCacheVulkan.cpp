@@ -516,10 +516,9 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
-	SamplerCacheKey key{};
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	UpdateSamplingParams(maxLevel, entry->addr, key);
-	curSampler_ = samplerCache_.GetOrCreateSampler(key);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);
 }
@@ -531,8 +530,7 @@ void TextureCacheVulkan::Unbind() {
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;

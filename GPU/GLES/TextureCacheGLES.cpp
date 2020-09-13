@@ -230,9 +230,9 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	SamplerCacheKey key;
-	UpdateSamplingParams(entry->maxLevel, entry->addr, key);
-	ApplySamplingParams(key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
 }
 
@@ -360,12 +360,11 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
 			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-			SamplerCacheKey key;
-			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
-			key.magFilt = false;
-			key.minFilt = false;
-			key.mipEnable = false;
-			ApplySamplingParams(key);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			samplerKey.magFilt = false;
+			samplerKey.minFilt = false;
+			samplerKey.mipEnable = false;
+			ApplySamplingParams(samplerKey);
 			InvalidateLastTexture();
 
 			// Since we started/ended render passes, might need these.
@@ -416,9 +415,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 
 	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
 
-	SamplerCacheKey key;
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
-	ApplySamplingParams(key);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
@@ -602,9 +600,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// Need to actually bind it now - it might only have gotten bound in the init phase.
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, entry->textureName);
 
-	SamplerCacheKey key;
-	UpdateSamplingParams(entry->maxLevel, entry->addr, key);
-	ApplySamplingParams(key);
+	SamplerCacheKey samplerKey = GetSamplingParams(entry->maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

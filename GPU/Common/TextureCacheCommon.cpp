@@ -146,7 +146,9 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr) {
+	SamplerCacheKey key;
+
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = gstate.isMagnifyFilteringEnabled();
 	bool sClamp = gstate.isTexCoordClampedS();
@@ -250,11 +252,14 @@ void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, Sampler
 			break;
 		}
 	}
+
+	return key;
 }
 
-void TextureCacheCommon::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	UpdateSamplingParams(0, 0, key);
+SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+	SamplerCacheKey key = GetSamplingParams(0, 0);
 
+	// Kill any mipmapping settings.
 	key.mipEnable = false;
 	key.minFilt &= 1;
 	key.mipFilt = 0;
@@ -268,6 +273,7 @@ void TextureCacheCommon::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 		key.sClamp = true;
 		key.tClamp = true;
 	}
+	return key;
 }
 
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {

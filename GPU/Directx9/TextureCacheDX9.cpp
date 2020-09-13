@@ -203,10 +203,9 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
-
-	SamplerCacheKey key;
-	UpdateSamplingParams(entry->maxLevel, entry->addr, key);
-	ApplySamplingParams(key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheDX9::Unbind() {
@@ -393,9 +392,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, G
 
 	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
 
-	SamplerCacheKey key;
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
-	ApplySamplingParams(key);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {

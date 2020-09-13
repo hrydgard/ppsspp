@@ -285,8 +285,8 @@ protected:
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 
-	void UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
+	SamplerCacheKey GetSamplingParams(int maxLevel, u32 texAddr);
+	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
 	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
