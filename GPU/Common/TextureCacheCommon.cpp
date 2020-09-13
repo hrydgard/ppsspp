@@ -187,10 +187,10 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	case TEX_FILTER_AUTO:
 		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
 		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
-		// This does duplicate the body of the above if, but it's clearer this way.
 		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
 			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 			if (uglyColorTest) {
+				// Force to nearest.
 				magFilt &= ~1;
 				minFilt &= ~1;
 			}
@@ -206,7 +206,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		break;
 	case TEX_FILTER_FORCE_NEAREST:
 	default:
-		// Just override everything to nearest without checks. Safe (but ugly).
+		// Just force to nearest without checks. Safe (but ugly).
 		magFilt &= ~1;
 		minFilt &= ~1;
 		break;
