@@ -183,36 +183,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 		}
 	}
 
-	// Filtering overrides
-	switch (g_Config.iTexFiltering) {
-	case TEX_FILTER_AUTO:
-		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
-		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
-		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
-			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
-			if (uglyColorTest) {
-				// Force to nearest.
-				magFilt &= ~1;
-				minFilt &= ~1;
-			}
-		}
-		break;
-	case TEX_FILTER_FORCE_LINEAR:
-		// Override to linear filtering if there's no alpha or color testing going on.
-		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-		    (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
-			magFilt |= 1;
-			minFilt |= 1;
-		}
-		break;
-	case TEX_FILTER_FORCE_NEAREST:
-	default:
-		// Just force to nearest without checks. Safe (but ugly).
-		magFilt &= ~1;
-		minFilt &= ~1;
-		break;
-	}
-
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -251,6 +221,37 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 			key.lodBias = 0;
 			break;
 		}
+	}
+
+	// Filtering overrides
+	switch (g_Config.iTexFiltering) {
+	case TEX_FILTER_AUTO:
+		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
+		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
+		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
+			if (uglyColorTest) {
+				// Force to nearest.
+				key.magFilt = 0;
+				key.minFilt = 0;
+			}
+		}
+		break;
+	case TEX_FILTER_FORCE_LINEAR:
+		// Override to linear filtering if there's no alpha or color testing going on.
+		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
+			(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+			key.magFilt = 1;
+			key.minFilt = 1;
+			key.mipFilt = 1;
+		}
+		break;
+	case TEX_FILTER_FORCE_NEAREST:
+	default:
+		// Just force to nearest without checks. Safe (but ugly).
+		key.magFilt = 0;
+		key.minFilt = 0;
+		break;
 	}
 
 	return key;
