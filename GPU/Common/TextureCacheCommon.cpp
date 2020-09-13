@@ -176,13 +176,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 		lodBias = 0.0f;
 	}
 
-	if (!(magFilt & 1) && texAddr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
-		if (videos_.find(texAddr & 0x3FFFFFFF) != videos_.end()) {
-			// Enforce bilinear filtering on magnification.
-			magFilt |= 1;
-		}
-	}
-
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -220,6 +213,14 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 			key.minLevel = 0;
 			key.lodBias = 0;
 			break;
+		}
+	}
+
+	// Video bilinear override
+	if (!key.magFilt && texAddr != 0) {
+		if (videos_.find(texAddr & 0x3FFFFFFF) != videos_.end()) {
+			// Enforce bilinear filtering on magnification.
+			key.magFilt = 1;
 		}
 	}
 
