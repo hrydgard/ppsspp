@@ -108,7 +108,7 @@ u8* MemArena::Find4GBBase() {
 	// aligned to 4GB for the movk trick. We can ensure that we get an aligned 4GB
 	// address by grabbing 8GB and aligning the pointer.
 	const uint64_t EIGHT_GIGS = 0x200000000ULL;
-	void *base = mmap(0, EIGHT_GIGS, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+	void *base = mmap(0, EIGHT_GIGS, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_NORESERVE, -1, 0);
 	if (base && base != MAP_FAILED) {
 		INFO_LOG(MEMMAP, "base: %p", base);
 		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
@@ -124,7 +124,7 @@ u8* MemArena::Find4GBBase() {
 	}
 #else
 	size_t size = 0x10000000;
-	void* base = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+	void* base = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_NORESERVE, -1, 0);
 	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
 	munmap(base, size);
 	return static_cast<u8*>(base);
