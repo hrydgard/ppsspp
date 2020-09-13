@@ -282,48 +282,6 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-// #define DEBUG_TEXTURES
-
-#ifdef DEBUG_TEXTURES
-bool SetDebugTexture() {
-	static const int highlightFrames = 30;
-
-	static int numTextures = 0;
-	static int lastFrames = 0;
-	static int mostTextures = 1;
-
-	if (lastFrames != gpuStats.numFlips) {
-		mostTextures = std::max(mostTextures, numTextures);
-		numTextures = 0;
-		lastFrames = gpuStats.numFlips;
-	}
-
-	static GLuint solidTexture = 0;
-
-	bool changed = false;
-	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFlips % highlightFrames == 0) {
-			NOTICE_LOG(G3D, "Highlighting texture # %d / %d", numTextures, mostTextures);
-		}
-		static const u32 solidTextureData[] = {0x99AA99FF};
-
-		if (solidTexture == 0) {
-			glGenTextures(1, &solidTexture);
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-			glPixelStorei(GL_PACK_ALIGNMENT, 1);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
-		} else {
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-		}
-		changed = true;
-	}
-
-	++numTextures;
-	return changed;
-}
-#endif
-
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (entry->textureName != lastBoundTexture) {
 		render_->BindTexture(0, entry->textureName);

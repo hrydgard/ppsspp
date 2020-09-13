@@ -296,14 +296,6 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 }
 
 TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
-#ifdef DEBUG_TEXTURES
-	if (SetDebugTexture()) {
-		// A different texture was bound, let's rebind next time.
-		InvalidateLastTexture();
-		return;
-	}
-#endif
-
 	if (force) {
 		InvalidateLastTexture();
 	}
