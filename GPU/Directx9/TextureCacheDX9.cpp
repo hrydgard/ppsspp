@@ -119,23 +119,6 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	return D3DFMT_A8R8G8B8;
 }
 
-void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	UpdateSamplingParams(0, 0, key);
-
-	key.mipEnable = false;
-	key.minFilt &= 1;
-	key.mipFilt = 0;
-	key.magFilt &= 1;
-
-	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-}
-
 void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 	dxstate.texMinFilter.set(key.minFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	dxstate.texMipFilter.set(key.mipFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);

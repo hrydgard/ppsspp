@@ -130,20 +130,6 @@ void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 		MagFiltGL[magKey], key.minFilt ? GL_LINEAR : GL_NEAREST, aniso);
 }
 
-void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	UpdateSamplingParams(0, 0, key);
-	key.mipEnable = false; // framebuffers can't mipmap.
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-	key.aniso = 0.0f;
-}
-
 static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;

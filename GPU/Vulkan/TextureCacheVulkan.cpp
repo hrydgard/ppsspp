@@ -439,25 +439,6 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_LINEAR
 };
 
-void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	UpdateSamplingParams(0, 0, key);
-
-	key.mipEnable = false;
-	key.minFilt &= 1;
-	key.mipFilt = 0;
-	key.magFilt &= 1;
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-}
-
 void TextureCacheVulkan::StartFrame() {
 	InvalidateLastTexture();
 	depalShaderCache_->Decimate();

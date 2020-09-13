@@ -252,6 +252,24 @@ void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, Sampler
 	}
 }
 
+void TextureCacheCommon::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
+	UpdateSamplingParams(0, 0, key);
+
+	key.mipEnable = false;
+	key.minFilt &= 1;
+	key.mipFilt = 0;
+	key.magFilt &= 1;
+	key.aniso = 0.0;
+
+	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
+	if (w != bufferWidth || h != bufferHeight) {
+		key.sClamp = true;
+		key.tClamp = true;
+	}
+}
+
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
 	if (entry->dim >= 0x900) {
