@@ -154,7 +154,10 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
 	mode = mipMode;
+
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
+
+	// TODO: Slope mipmap bias is still not well understood.
 	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
@@ -162,8 +165,9 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 
 	// If mip level is forced to zero, disable mipmapping.
 	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
-	if (IsFakeMipmapChange())
+	if (IsFakeMipmapChange()) {
 		noMip = noMip || !autoMip;
+	}
 
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
@@ -171,29 +175,27 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = 0.0f;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
-		bool isVideo = videos_.find(addr & 0x3FFFFFFF) != videos_.end();
-		if (isVideo) {
+	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
+		if (videos_.find(addr & 0x3FFFFFFF) != videos_.end()) {
 			magFilt |= 1;
 			minFilt |= 1;
 		}
 	}
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
-		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
+
+	// Filtering overrides
+	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR) {
+		// Only override to linear filtering if there's no alpha or color testing going on.
+		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
+		    (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
 			magFilt |= 1;
 			minFilt |= 1;
 		}
-	}
-	bool forceNearest = g_Config.iTexFiltering == TEX_FILTER_NEAREST;
-	// Force Nearest when color test enabled and rendering resolution greater than 480x272
-	if ((gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue()) && g_Config.iInternalResolution != 1 && gstate.isModeThrough()) {
+	} else if (g_Config.iTexFiltering == TEX_FILTER_NEAREST ||
+		(gstate.isModeThrough() && g_Config.iInternalResolution != 1 &&
+		gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0)) {
+		// Force Nearest when override is on, or color test enabled and rendering resolution greater than 480x272
 		// Some games use 0 as the color test color, which won't be too bad if it bleeds.
 		// Fuchsia and green, etc. are the problem colors.
-		if (gstate.getColorTestRef() != 0) {
-			forceNearest = true;
-		}
-	}
-	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
 	}
@@ -208,6 +210,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	float lodBias;
 	int maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
 	GETexLevelMode mode;
+
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
