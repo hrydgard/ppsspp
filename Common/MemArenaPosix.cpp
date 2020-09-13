@@ -109,7 +109,7 @@ u8* MemArena::Find4GBBase() {
 	// address by grabbing 8GB and aligning the pointer.
 	const uint64_t EIGHT_GIGS = 0x200000000ULL;
 	void *base = mmap(0, EIGHT_GIGS, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-	if (base) {
+	if (base && base != MAP_FAILED) {
 		INFO_LOG(MEMMAP, "base: %p", base);
 		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
 		INFO_LOG(MEMMAP, "aligned_base: %p", (void *)aligned_base);
