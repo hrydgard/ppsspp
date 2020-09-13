@@ -130,14 +130,9 @@ void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 		MagFiltGL[magKey], key.minFilt ? GL_LINEAR : GL_NEAREST, aniso);
 }
 
-void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint) {
-	SamplerCacheKey key;
+void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
 	UpdateSamplingParams(0, 0, key);
 	key.mipEnable = false; // framebuffers can't mipmap.
-	if (forcePoint) {
-		key.magFilt = false;
-		key.minFilt = false;
-	}
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
 	int w = gstate.getTextureWidth(0);
@@ -147,7 +142,6 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 		key.tClamp = true;
 	}
 	key.aniso = 0.0f;
-	ApplySamplingParams(key);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
@@ -380,7 +374,12 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
 			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, true);
+			SamplerCacheKey key;
+			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
+			key.magFilt = false;
+			key.minFilt = false;
+			key.mipEnable = false;
+			ApplySamplingParams(key);
 			InvalidateLastTexture();
 
 			// Since we started/ended render passes, might need these.
@@ -430,7 +429,10 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	}
 
 	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, false);
+
+	SamplerCacheKey key;
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
+	ApplySamplingParams(key);
 
 	// Since we started/ended render passes, might need these.
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);

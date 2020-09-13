@@ -119,8 +119,7 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	return D3DFMT_A8R8G8B8;
 }
 
-void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	SamplerCacheKey key;
+void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
 	UpdateSamplingParams(0, 0, key);
 
 	key.mipEnable = false;
@@ -135,8 +134,6 @@ void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHe
 		key.sClamp = true;
 		key.tClamp = true;
 	}
-
-	ApplySamplingParams(key);
 }
 
 void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -412,7 +409,10 @@ void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, G
 	}
 
 	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+	SamplerCacheKey key;
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
+	ApplySamplingParams(key);
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {

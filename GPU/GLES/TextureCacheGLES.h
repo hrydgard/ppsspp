@@ -63,7 +63,7 @@ public:
 		}
 	}
 
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint);
+	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
 	void DeviceLost();
