@@ -1034,8 +1034,9 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 	}
 	if (param->msData.IsValid())
 	{
-		const std::string gameName(param->msData->gameName, strnlen(param->msData->gameName, sizeof(param->msData->gameName)));
-		const std::string saveName(param->msData->saveName, strnlen(param->msData->saveName, sizeof(param->msData->saveName)));
+		const SceUtilitySavedataMsDataInfo *msData = param->msData;
+		const std::string gameName(msData->gameName, strnlen(msData->gameName, sizeof(msData->gameName)));
+		const std::string saveName(msData->saveName, strnlen(msData->saveName, sizeof(msData->saveName)));
 		// TODO: How should <> be handled?
 		std::string path = GetSaveFilePath(param, gameName + (saveName == "<>" ? "" : saveName));
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
