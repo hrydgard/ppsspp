@@ -77,7 +77,6 @@ SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 AdhocSocket* adhocSockets[MAX_SOCKET];
-std::map<int, int> ptpConnectCount;
 std::vector<std::string> chatLog;
 std::string name = "";
 std::string incoming = "";
@@ -1322,12 +1321,14 @@ int friendFinder(){
 							closesocket(metasocket);
 							metasocket = (int)INVALID_SOCKET;
 							host->NotifyUserMessage(std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")", 2.0, 0x0000ff);
+							// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
+							timeoutFriendsRecursive(friends);
 						}
 					}
 					else {
 						// Update Ping Time
 						lastping = now;
-						DEBUG_LOG(SCENET, "FriendFinder: Sending OPCODE_PING (%llu)", now);
+						DEBUG_LOG(SCENET, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
 					}
 				}
 			}

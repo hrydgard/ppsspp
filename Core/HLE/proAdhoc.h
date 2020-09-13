@@ -328,6 +328,9 @@ typedef struct SceNetAdhocPtpStat {
 typedef struct AdhocSocket {
 	s32_le type;
 	s32_le flags; // Socket Alert Flags
+	u32 send_timeout;
+	u32 recv_timeout;
+	s32 connectCount;
 	union {
 		SceNetAdhocPdpStat pdp;
 		SceNetAdhocPtpStat ptp;
@@ -840,7 +843,6 @@ extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
 extern AdhocSocket* adhocSockets[MAX_SOCKET];
-extern std::map<int, int> ptpConnectCount;
 
 union SockAddrIN4 {
 	sockaddr addr;
@@ -987,9 +989,9 @@ void deleteFriendByIP(uint32_t ip);
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
-void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
+void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
 /**
  * Friend Finder Thread (Receives Peer Information)
