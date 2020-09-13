@@ -240,7 +240,8 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = textureView;
 	}
 	SamplerCacheKey key{};
-	UpdateSamplingParams(*entry, key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	UpdateSamplingParams(maxLevel, entry->addr, key);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
 	context_->PSSetSamplers(0, 1, &state);
 }

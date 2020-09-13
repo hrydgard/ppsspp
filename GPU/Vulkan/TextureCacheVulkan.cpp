@@ -492,7 +492,7 @@ void TextureCacheVulkan::EndFrame() {
 	computeShaderManager_.EndFrame();
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 }
 
@@ -542,7 +542,8 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
 	SamplerCacheKey key{};
-	UpdateSamplingParams(*entry, key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	UpdateSamplingParams(maxLevel, entry->addr, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);

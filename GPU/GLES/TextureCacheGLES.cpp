@@ -227,7 +227,7 @@ void TextureCacheGLES::StartFrame() {
 	}
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 	texelsScaledThisFrame_ = 0;
 	if (clearCacheNextFrame_) {

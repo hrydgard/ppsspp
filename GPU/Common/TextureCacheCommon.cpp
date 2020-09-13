@@ -201,17 +201,16 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	}
 }
 
-void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
+void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
 	// TODO: Make GetSamplingParams write SamplerCacheKey directly
 	int minFilt;
 	int magFilt;
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	int maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
 	GETexLevelMode mode;
 
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, texAddr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -227,7 +226,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	} else {
 		switch (mode) {
 		case GE_TEXLEVEL_MODE_AUTO:
-			key.maxLevel = entry.maxLevel * 256;
+			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
 			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
@@ -244,7 +243,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			// It's incorrect to use the slope as a bias. Instead it should be passed
 			// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
 			// lodBias in this mode, working around #9772.
-			key.maxLevel = entry.maxLevel * 256;
+			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = 0;
 			break;
