@@ -146,74 +146,30 @@ static const u8 MagFilt[2] = {
 	D3DTEXF_LINEAR
 };
 
-void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
-
-	if (maxLevel != 0) {
-		if (mode == GE_TEXLEVEL_MODE_AUTO) {
-			dxstate.texMaxMipLevel.set(0);
-			dxstate.texMipLodBias.set(lodBias);
-		} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
-			// Unfortunately, this doesn't support a const 1.5 or etc.
-			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)maxLevel, (int)lodBias)));
-			dxstate.texMipLodBias.set(-1000.0f);
-		} else {  // if (mode == GE_TEXLEVEL_MODE_SLOPE{
-			dxstate.texMaxMipLevel.set(0);
-			dxstate.texMipLodBias.set(0.0f);
-		}
-	} else {
-		dxstate.texMaxMipLevel.set(0);
-		dxstate.texMipLodBias.set(0.0f);
-	}
-
-	D3DTEXTUREFILTERTYPE minf = (D3DTEXTUREFILTERTYPE)MinFilt[minFilt];
-	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
-	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
-		minf = D3DTEXF_ANISOTROPIC;
-	}
-
-	dxstate.texMinFilter.set(minf);
-	dxstate.texMipFilter.set(mipf);
-	dxstate.texMagFilter.set(magf);
-	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-}
-
 void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
+	SamplerCacheKey key;
+	UpdateSamplingParams(0, 0, key);
 
-	dxstate.texMinFilter.set(MinFilt[minFilt]);
-	dxstate.texMipFilter.set(MipFilt[minFilt]);
-	dxstate.texMagFilter.set(MagFilt[magFilt]);
-	dxstate.texMipLodBias.set(0.0f);
-	dxstate.texMaxMipLevel.set(0.0f);
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
+	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	if (w != bufferWidth || h != bufferHeight) {
-		return;
+		key.sClamp = true;
+		key.tClamp = true;
 	}
 
-	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
+	ApplySamplingParams(key);
+}
+
+void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
+	dxstate.texMinFilter.set(key.minFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	dxstate.texMipFilter.set(key.mipFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	dxstate.texMagFilter.set(key.magFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	dxstate.texMipLodBias.set((float)key.lodBias / 256.0f);
+	dxstate.texMaxMipLevel.set(key.maxLevel / 256);
+
+	dxstate.texAddressU.set(key.sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
+	dxstate.texAddressV.set(key.tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 }
 
 void TextureCacheDX9::StartFrame() {
@@ -236,7 +192,6 @@ void TextureCacheDX9::StartFrame() {
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
 	}
-
 }
 
 void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -281,7 +236,10 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
-	UpdateSamplingParams(*entry, false);
+
+	SamplerCacheKey key;
+	UpdateSamplingParams(entry->maxLevel, entry->addr, key);
+	ApplySamplingParams(key);
 }
 
 void TextureCacheDX9::Unbind() {

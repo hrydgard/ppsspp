@@ -161,6 +161,8 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 }
 
 void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint) {
+	SamplerCacheKey key;
+	UpdateSamplingParams(0, 0, key);
 	int minFilt;
 	int magFilt;
 	bool sClamp;

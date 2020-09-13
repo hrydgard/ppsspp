@@ -62,7 +62,8 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
 private:
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+	void ApplySamplingParams(const SamplerCacheKey &key);
+
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
