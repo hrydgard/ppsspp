@@ -821,6 +821,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("ClearFramebuffersOnFirstUseHack", &g_Config.bClearFramebuffersOnFirstUseHack, false, true, true),
 
+
 	ConfigSetting(false),
 };
 

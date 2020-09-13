@@ -313,7 +313,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING);
-		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING_CG);
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENFILTER_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFLINEARFILTER);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFNEARESTFILTER);
@@ -979,9 +978,8 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(TEX_FILTER_AUTO); break;
-		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_NEAREST); break;
-		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_LINEAR); break;
-		case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(TEX_FILTER_LINEAR_VIDEO); break;
+		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
+		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
 
 		case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
 		case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
@@ -1221,12 +1219,11 @@ namespace MainWindow {
 			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
-			ID_OPTIONS_LINEARFILTERING_CG,
 		};
 		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
 			g_Config.iTexFiltering = TEX_FILTER_AUTO;
-		else if (g_Config.iTexFiltering > TEX_FILTER_LINEAR_VIDEO)
-			g_Config.iTexFiltering = TEX_FILTER_LINEAR_VIDEO;
+		else if (g_Config.iTexFiltering > TEX_FILTER_FORCE_LINEAR)
+			g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));

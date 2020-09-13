@@ -175,7 +175,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = 0.0f;
 	}
 
-	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
+	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
 		if (videos_.find(addr & 0x3FFFFFFF) != videos_.end()) {
 			magFilt |= 1;
 			minFilt |= 1;
@@ -183,14 +183,14 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	}
 
 	// Filtering overrides
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR) {
+	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
 		// Only override to linear filtering if there's no alpha or color testing going on.
 		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
 		    (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
 			magFilt |= 1;
 			minFilt |= 1;
 		}
-	} else if (g_Config.iTexFiltering == TEX_FILTER_NEAREST ||
+	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST ||
 		(gstate.isModeThrough() && g_Config.iInternalResolution != 1 &&
 		gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0)) {
 		// Force Nearest when override is on, or color test enabled and rendering resolution greater than 480x272

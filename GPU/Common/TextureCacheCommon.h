@@ -30,9 +30,8 @@
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
-	TEX_FILTER_NEAREST = 2,
-	TEX_FILTER_LINEAR = 3,
-	TEX_FILTER_LINEAR_VIDEO = 4,
+	TEX_FILTER_FORCE_NEAREST = 2,
+	TEX_FILTER_FORCE_LINEAR = 3,
 };
 
 enum FramebufferNotification {
