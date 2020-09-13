@@ -119,36 +119,14 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	return D3DFMT_A8R8G8B8;
 }
 
-static const u8 MinFilt[8] = {
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR,
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_NEAREST,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_NEAREST,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_LINEAR,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
-};
-
-static const u8 MipFilt[8] = {
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_NEAREST,
-	D3DTEXF_POINT,	// GL_LINEAR_MIPMAP_NEAREST,
-	D3DTEXF_LINEAR,	// GL_NEAREST_MIPMAP_LINEAR,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
-};
-
-static const u8 MagFilt[2] = {
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR
-};
-
 void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key;
 	UpdateSamplingParams(0, 0, key);
+
+	key.mipEnable = false;
+	key.minFilt &= 1;
+	key.mipFilt = 0;
+	key.magFilt &= 1;
 
 	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
 	int w = gstate.getTextureWidth(0);
@@ -165,8 +143,17 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 	dxstate.texMinFilter.set(key.minFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	dxstate.texMipFilter.set(key.mipFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	dxstate.texMagFilter.set(key.magFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-	dxstate.texMipLodBias.set((float)key.lodBias / 256.0f);
-	dxstate.texMaxMipLevel.set(key.maxLevel / 256);
+
+	// DX9 mip levels are .. odd. The "max level" sets the LARGEST mip to use.
+	// We can enforce only the top mip level by setting a massive negative lod bias.
+
+	if (!key.mipEnable) {
+		dxstate.texMaxMipLevel.set(0);
+		dxstate.texMipLodBias.set(-100.0f);
+	} else {
+		dxstate.texMipLodBias.set((float)key.lodBias / 256.0f);
+		dxstate.texMaxMipLevel.set(key.minLevel / 256);
+	}
 
 	dxstate.texAddressU.set(key.sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	dxstate.texAddressV.set(key.tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);

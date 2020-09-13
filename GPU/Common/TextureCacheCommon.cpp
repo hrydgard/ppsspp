@@ -146,19 +146,18 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel, u32 addr, GETexLevelMode &mode) {
-	minFilt = gstate.texfilter & 0x7;
-	magFilt = gstate.isMagnifyFilteringEnabled();
-	sClamp = gstate.isTexCoordClampedS();
-	tClamp = gstate.isTexCoordClampedT();
+void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
+	int minFilt = gstate.texfilter & 0x7;
+	int magFilt = gstate.isMagnifyFilteringEnabled();
+	bool sClamp = gstate.isTexCoordClampedS();
+	bool tClamp = gstate.isTexCoordClampedT();
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
-	mode = mipMode;
 
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 
 	// TODO: Slope mipmap bias is still not well understood.
-	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+	float lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
 	}
@@ -175,8 +174,8 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = 0.0f;
 	}
 
-	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
-		if (videos_.find(addr & 0x3FFFFFFF) != videos_.end()) {
+	if (!(magFilt & 1) && texAddr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
+		if (videos_.find(texAddr & 0x3FFFFFFF) != videos_.end()) {
 			// Enforce bilinear filtering on magnification.
 			magFilt |= 1;
 		}
@@ -211,18 +210,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		minFilt &= ~1;
 		break;
 	}
-}
 
-void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
-	// TODO: Make GetSamplingParams write SamplerCacheKey directly
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, texAddr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -235,8 +223,9 @@ void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, Sampler
 		key.maxLevel = 0;
 		key.minLevel = 0;
 		key.lodBias = 0;
+		key.mipFilt = 0;
 	} else {
-		switch (mode) {
+		switch (mipMode) {
 		case GE_TEXLEVEL_MODE_AUTO:
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;

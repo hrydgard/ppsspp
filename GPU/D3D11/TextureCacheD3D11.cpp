@@ -159,6 +159,7 @@ void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
 	UpdateSamplingParams(0, 0, key);
 
+	key.mipEnable = false;
 	key.minFilt &= 1;
 	key.mipFilt = 0;
 	key.magFilt &= 1;
