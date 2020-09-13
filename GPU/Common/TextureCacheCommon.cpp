@@ -150,12 +150,15 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 	SamplerCacheKey key;
 
 	int minFilt = gstate.texfilter & 0x7;
-	int magFilt = gstate.isMagnifyFilteringEnabled();
-	bool sClamp = gstate.isTexCoordClampedS();
-	bool tClamp = gstate.isTexCoordClampedT();
+	key.minFilt = minFilt & 1;
+	key.mipEnable = (minFilt >> 2) & 1;
+	key.mipFilt = (minFilt >> 1) & 1;
+	key.magFilt = gstate.isMagnifyFilteringEnabled();
+	key.sClamp = gstate.isTexCoordClampedS();
+	key.tClamp = gstate.isTexCoordClampedT();
+	key.aniso = false;
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
-
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 
 	// TODO: Slope mipmap bias is still not well understood.
@@ -172,17 +175,10 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
-		minFilt &= 1; // no mipmaps yet
+		key.mipEnable = false;
+		key.mipFilt = 0;
 		lodBias = 0.0f;
 	}
-
-	key.minFilt = minFilt & 1;
-	key.mipEnable = (minFilt >> 2) & 1;
-	key.mipFilt = (minFilt >> 1) & 1;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-	key.aniso = false;
 
 	if (!key.mipEnable) {
 		key.maxLevel = 0;
