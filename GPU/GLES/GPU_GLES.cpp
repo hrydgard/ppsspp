@@ -454,14 +454,13 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	snprintf(buffer, bufsize - 1,
 		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
+		"Draw calls: %i, flushes %i, clears %i (cached: %d)\n"
 		"Num Tracked Vertex Arrays: %i\n"
 		"GPU cycles executed: %d (%f per vertex)\n"
 		"Commands per call level: %i %i %i %i\n"
 		"Vertices submitted: %i\n"
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
+		"FBOs active: %i (evaluations: %d)\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
 		"Readbacks: %d, uploads: %d\n"
 		"Vertex, Fragment, Programs loaded: %i, %i, %i\n",
@@ -478,6 +477,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManagerGL_->NumVFBs(),
+		gpuStats.numFramebufferEvaluations,
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,

@@ -93,7 +93,19 @@ struct SamplerCacheKey {
 class GLRTexture;
 class VulkanTexture;
 
+// Enough information about a texture to match it to framebuffers.
+struct TextureDefinition {
+	u32 addr;
+	GETextureFormat format;
+	u32 dim;
+	u32 bufw;
+};
+
+
 // TODO: Shrink this struct. There is some fluff.
+
+// NOTE: These only handle textures loaded directly from PSP memory contents.
+// Framebuffer textures do not have entries, we bind the framebuffers directly.
 struct TexCacheEntry {
 	~TexCacheEntry() {
 		if (texturePtr || textureName || vkTex)
@@ -115,7 +127,6 @@ struct TexCacheEntry {
 		STATUS_CLUT_VARIANTS = 0x08,   // Has multiple CLUT variants.
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
-		STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
 		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
 		STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
 		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
@@ -125,7 +136,8 @@ struct TexCacheEntry {
 
 		STATUS_BAD_MIPS = 0x400,       // Has bad or unusable mipmap levels.
 
-		STATUS_DEPTH = 0x800,
+		STATUS_FRAMEBUFFER_OVERLAP = 0x800,
+
 		STATUS_FORCE_REBUILD = 0x1000,
 	};
 
@@ -134,7 +146,6 @@ struct TexCacheEntry {
 
 	u32 addr;
 	u32 hash;
-	VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO. TODO: Collapse into texturePtr
 	u32 sizeInRAM;  // Could be computed
 	u8 format;  // GeTextureFormat
 	u8 maxLevel;
@@ -181,8 +192,7 @@ struct TexCacheEntry {
 	static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 };
 
-class FramebufferManagerCommon;
-// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
+// Can't be unordered_map, we use lower_bound ... although for some reason that (used to?) compiles on MSVC.
 // Would really like to replace this with DenseHashMap but can't as long as we need lower_bound.
 typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
@@ -195,17 +205,10 @@ typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 enum class FramebufferMatch {
 	// Valid, exact match.
 	VALID = 0,
-	// Valid match that is exact after depal.
-	VALID_DEPAL,
-	// Inexact match (such as wrong fmt or at a questionable offset.)
-	INEXACT,
 	// Not a match, remove if currently attached.
 	NO_MATCH,
-	// Not a match, but don't remove yet.  Used to avoid deatching depth mismatch.
-	IGNORE,
 };
 
-// Separate to keep main texture cache size down.
 struct FramebufferMatchInfo {
 	FramebufferMatch match;
 	u32 xOffset;
@@ -214,10 +217,12 @@ struct FramebufferMatchInfo {
 
 struct AttachCandidate {
 	FramebufferMatchInfo match;
-	TexCacheEntry *entry;
+	TextureDefinition entry;
 	VirtualFramebuffer *fb;
 	FramebufferNotificationChannel channel;
 };
+
+class FramebufferManagerCommon;
 
 class TextureCacheCommon {
 public:
@@ -227,7 +232,7 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
-	void SetTexture(bool force = false);
+	TexCacheEntry *SetTexture(bool force = false);
 	void ApplyTexture();
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
@@ -237,13 +242,12 @@ public:
 	virtual void ForgetLastTexture() = 0;
 	virtual void InvalidateLastTexture(TexCacheEntry *entry = nullptr) = 0;
 	virtual void Clear(bool delete_them);
-
-	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
 	virtual void NotifyConfigChanged();
-	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
-	int AttachedDrawingHeight();
+	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
+	// so that it can invalidate TexCacheEntries pointed at those addresses.
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
+	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	size_t NumLoadedTextures() const {
 		return cache_.size();
@@ -264,7 +268,8 @@ protected:
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(bool forcePressure = false);
 
-	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
+	virtual void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) = 0;
+
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
@@ -284,19 +289,12 @@ protected:
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	FramebufferMatchInfo MatchFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
+	FramebufferMatchInfo MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel) const;
 
-	bool AttachFramebufferToEntry(TexCacheEntry *entry, u32 texAddrOffset);
+	std::vector<AttachCandidate> GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset);
+	int GetBestCandidateIndex(const std::vector<AttachCandidate> &candidates);
 
-	// Temporary utility during conversion
-	bool ApplyFramebufferMatch(FramebufferMatchInfo match, TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
-	bool AttachBestCandidate(const std::vector<AttachCandidate> &candidates);
-
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
-	void AttachFramebufferInexact(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const FramebufferMatchInfo &fbInfo, FramebufferNotificationChannel channel);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
-
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
 	void DecimateVideos();
 
@@ -327,8 +325,8 @@ protected:
 	TextureReplacer replacer_;
 	FramebufferManagerCommon *framebufferManager_;
 
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
+	bool clearCacheNextFrame_ = false;
+	bool lowMemoryMode_ = false;
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
@@ -340,15 +338,13 @@ protected:
 	TexCache secondCache_;
 	u32 secondCacheSizeEstimate_;
 
-	std::vector<VirtualFramebuffer *> fbCache_;
-	std::map<u64, FramebufferMatchInfo> fbTexInfo_;
-
 	std::map<u32, int> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32_;
 	SimpleBuf<u32> tmpTexBufRearrange_;
 
-	TexCacheEntry *nextTexture_;
+	TexCacheEntry *nextTexture_ = nullptr;
+	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
 
 	u32 clutHash_ = 0;
 

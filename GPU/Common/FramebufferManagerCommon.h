@@ -49,24 +49,12 @@ namespace Draw {
 class VulkanFBO;
 
 struct VirtualFramebuffer {
-	int last_frame_used;
-	int last_frame_attached;
-	int last_frame_render;
-	int last_frame_displayed;
-	int last_frame_clut;
-	int last_frame_failed;
-	int last_frame_depth_updated;
-	int last_frame_depth_render;
-	u32 clutUpdatedBytes;
-	bool memoryUpdated;
-	bool firstFrameSaved;
-
 	u32 fb_address;
 	u32 z_address;  // If 0, it's a "RAM" framebuffer.
 	int fb_stride;
 	int z_stride;
 
-	// There's also a top left of the drawing region, but meh...
+	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
@@ -89,8 +77,6 @@ struct VirtualFramebuffer {
 	u16 newHeight;
 	int lastFrameNewSize;
 
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
-
 	// TODO: Handle fbo and colorDepth better.
 	u8 colorDepth;
 	Draw::Framebuffer *fbo;
@@ -103,6 +89,18 @@ struct VirtualFramebuffer {
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
+
+	int last_frame_used;
+	int last_frame_attached;
+	int last_frame_render;
+	int last_frame_displayed;
+	int last_frame_clut;
+	int last_frame_failed;
+	int last_frame_depth_updated;
+	int last_frame_depth_render;
+	u32 clutUpdatedBytes;
+	bool memoryUpdated;
+	bool firstFrameSaved;
 };
 
 struct FramebufferHeuristicParams {
@@ -313,6 +311,10 @@ public:
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
+	const std::vector<VirtualFramebuffer *> &Framebuffers() {
+		return vfbs_;
+	}
+
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SetViewport2D(int x, int y, int w, int h);
@@ -354,7 +356,7 @@ protected:
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
 
-	void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
+	static void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->clutUpdatedBytes = 0;
 		dstBuffer->dirtyAfterDisplay = true;

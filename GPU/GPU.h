@@ -67,6 +67,7 @@ struct GPUStatistics {
 		numShaderSwitches = 0;
 		numFlushes = 0;
 		numTexturesDecoded = 0;
+		numFramebufferEvaluations = 0;
 		numReadbacks = 0;
 		numUploads = 0;
 		numClears = 0;
@@ -88,6 +89,7 @@ struct GPUStatistics {
 	int numTextureSwitches;
 	int numShaderSwitches;
 	int numTexturesDecoded;
+	int numFramebufferEvaluations;
 	int numReadbacks;
 	int numUploads;
 	int numClears;
