@@ -126,6 +126,8 @@ SOURCES_C   += $(EXTDIR)/xxhash.c
 
 SOURCES_CXX += \
 	$(EXTDIR)/snappy/snappy-c.cpp \
+	$(EXTDIR)/snappy/snappy-sinksource.cpp \
+	$(EXTDIR)/snappy/snappy-stubs-internal.cpp \
 	$(EXTDIR)/snappy/snappy.cpp
 
 SOURCES_CXX += $(EXTDIR)/xbrz/xbrz.cpp

@@ -563,6 +563,12 @@
     <ClCompile Include="..\..\ext\snappy\snappy-c.cpp">
       <Filter>Ext\snappy</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\snappy\snappy-sinksource.cpp">
+      <Filter>Ext\snappy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\snappy\snappy-stubs-internal.cpp">
+      <Filter>Ext\snappy</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\udis86\decode.c">
       <Filter>Ext\udis86</Filter>
     </ClCompile>
