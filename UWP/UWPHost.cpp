@@ -17,6 +17,8 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+
 #include "file/file_util.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"

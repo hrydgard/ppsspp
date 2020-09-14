@@ -16,7 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ColorConv.h"
+#include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Vulkan/VulkanContext.h"
+#include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"

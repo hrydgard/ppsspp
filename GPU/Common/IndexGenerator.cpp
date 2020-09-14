@@ -16,9 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "IndexGenerator.h"
 
-#include "Common/Common.h"
+#include "IndexGenerator.h"
 
 // Points don't need indexing...
 const u8 IndexGenerator::indexedPrimitiveType[7] = {

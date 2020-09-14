@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
+#include <algorithm>
+
 #include "math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"

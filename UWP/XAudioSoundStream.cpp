@@ -1,4 +1,6 @@
 #include "pch.h"
+
+#include <algorithm>
 #include <XAudio2.h>
 
 #include "thread/threadutil.h"
