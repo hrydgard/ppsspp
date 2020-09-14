@@ -440,10 +440,15 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
+	int ret, sockerr;
 
-	// Accept Connection
-	int ret = accept(uid, (sockaddr*)&sin, &sinlen);
-	int sockerr = errno;
+	// Check if listening socket is ready to accept
+	ret = IsSocketReady(uid, true, false, &sockerr);
+	if (ret > 0) {
+		// Accept Connection
+		ret = accept(uid, (sockaddr*)&sin, &sinlen);
+		sockerr = errno;
+	}
 
 	// Accepted New Connection
 	if (ret > 0) {
@@ -451,7 +456,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 		if (newid > 0)
 			result = newid;
 	}
-	else if (ret == SOCKET_ERROR && connectInProgress(sockerr)) {
+	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT))) {
 		u64 now = (u64)(real_time_now() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTACCEPT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -479,7 +484,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	int sockerr;
 
 	// Wait for Connection (assuming "connect" has been called before)		
-	int ret = IsSocketReady(uid, true, true, &sockerr);
+	int ret = IsSocketReady(uid, false, true, &sockerr);
 
 	// Connection is ready
 	if (ret > 0) {
@@ -2669,6 +2674,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Socket Type
 								internal->type = SOCK_PTP;
 								internal->send_timeout = rexmt_int;
+								internal->retry_count = rexmt_cnt;
 
 								// Copy Infrastructure Socket ID
 								internal->data.ptp.id = tcpsocket;
@@ -2737,6 +2743,9 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 	// Enable Port Re-use
 	setSockReuseAddrPort(newsocket);
 
+	// Enable KeepAlive
+	setSockKeepAlive(newsocket, true, socket->recv_timeout / 1000000L, socket->retry_count);
+
 	// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
 	if (g_Config.bTCPNoDelay) 
 		setSockNoDelay(newsocket, 1);
@@ -2801,6 +2810,9 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					//sceNetPortOpen("TCP", internal->lport);
 					//g_PortManager.Add(IP_PROTOCOL_TCP, internal->lport + portOffset);
 
+					// Switch to non-blocking for futher usage
+					changeBlockingMode(newsocket, 1);
+
 					INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u)", ptpId, i + 1, internal->data.ptp.lport, inet_ntoa(peeraddr.sin_addr), internal->data.ptp.pport);
 
 					// Return Socket
@@ -2864,16 +2876,22 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					sockaddr_in peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
 					socklen_t peeraddrlen = sizeof(peeraddr);
+					int error;
 
-					// Accept Connection
-					int newsocket = accept(ptpsocket.id, (sockaddr*)&peeraddr, &peeraddrlen);
-					int error = errno;
+					// Check if listening socket is ready to accept
+					int newsocket = IsSocketReady(ptpsocket.id, true, false, &error);
+					if (newsocket > 0) {
+						// Accept Connection
+						newsocket = accept(ptpsocket.id, (sockaddr*)&peeraddr, &peeraddrlen);
+						error = errno;
+					}
 
-					if (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
+					if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT))) {
+						socket->attemptCount++;
 						if (flag == 0) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_ACCEPT, id, nullptr, nullptr, timeout, addr, port, "ptp accept");
+							return WaitBlockingAdhocSocket(threadSocketId, PTP_ACCEPT, id, nullptr, nullptr, (flag) ? socket->recv_timeout : timeout, addr, port, "ptp accept");
 						}
 						// Prevent spamming Debug Log with retries of non-bocking socket
 						else {
@@ -2883,6 +2901,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 					// Accepted New Connection
 					if (newsocket > 0) {
+						socket->attemptCount++;
 						int newid = AcceptPtpSocket(id, newsocket, peeraddr, addr, port);
 						if (newid >= 0)
 							return newid;
@@ -2971,7 +2990,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 
 					// Instant Connection (Lucky!)
 					if (connectresult != SOCKET_ERROR || errorcode == EISCONN) {
-						socket->connectCount++;
+						socket->attemptCount++;
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 						
@@ -2982,9 +3001,9 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					
 					// Connection in Progress
 					else if (connectresult == SOCKET_ERROR && connectInProgress(errorcode)) {
-						socket->connectCount++;
+						socket->attemptCount++;
 						// Nonblocking Mode. First attempt need to be blocking for GvG Next Plus to work, even though it used non-blocking flag but only try to connect once per socket, which mean treating it just like blocking socket instead of non-blocking :(
-						if (flag && socket->connectCount > 1) {
+						if (flag && socket->attemptCount > 1) {
 							//if (errorcode == EALREADY) return ERROR_NET_ADHOC_BUSY;
 							return ERROR_NET_ADHOC_WOULD_BLOCK;
 						}
@@ -3166,6 +3185,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									// Socket Type
 									internal->type = SOCK_PTP;
 									internal->recv_timeout = rexmt_int;
+									internal->retry_count = rexmt_cnt;
 
 									// Copy Infrastructure Socket ID
 									internal->data.ptp.id = tcpsocket;
