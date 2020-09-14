@@ -115,76 +115,19 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// This should not have to be done per texture! OpenGL is silly yo
-void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
-
+void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		float minLod = 0.0f;
-		float maxLod = 0.0f;
-		if (maxLevel != 0) {
-			// TODO: What about a swap of autoMip mode?
-			if (true) {
-				if (mode == GE_TEXLEVEL_MODE_AUTO) {
-					minLod = 0.0f;
-					maxLod = (float)maxLevel;
-				} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-					minLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
-					maxLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
-				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
-					// It's incorrect to use the slope as a bias. Instead it should be passed
-					// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
-					// lodBias in this mode, working around #9772.
-#ifndef USING_GLES2
-					lodBias = 0.0f;
-#endif
-					minLod = 0.0f;
-					maxLod = (float)maxLevel;
-				}
-			}
-		} else {
-			minLod = 0.0f;
-			maxLod = 0.0f;
-		}
+		float minLod = (float)key.minLevel / 256.0f;
+		float maxLod = (float)key.maxLevel / 256.0f;
+		float lodBias = (float)key.lodBias / 256.0f;
 		render_->SetTextureLod(0, minLod, maxLod, lodBias);
 	}
 
 	float aniso = 0.0f;
-	render_->SetTextureSampler(0, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
-}
-
-void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	minFilt &= 1;  // framebuffers can't mipmap.
-	if (forcePoint) {
-		minFilt &= ~1;
-		magFilt &= ~1;
-	}
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		sClamp = true;
-		tClamp = true;
-	}
-	float aniso = 0.0f;
-	render_->SetTextureSampler(TEX_SLOT_PSP_TEXTURE, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
+	int magKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.magFilt);
+	render_->SetTextureSampler(0,
+		key.sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, key.tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT,
+		MagFiltGL[magKey], key.minFilt ? GL_LINEAR : GL_NEAREST, aniso);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
@@ -287,7 +230,9 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	UpdateSamplingParams(*entry, false);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
 }
 
@@ -415,7 +360,11 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
 			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, true);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			samplerKey.magFilt = false;
+			samplerKey.minFilt = false;
+			samplerKey.mipEnable = false;
+			ApplySamplingParams(samplerKey);
 			InvalidateLastTexture();
 
 			// Since we started/ended render passes, might need these.
@@ -465,7 +414,9 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	}
 
 	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, false);
+
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
@@ -648,7 +599,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// This will rebind it, but that's okay.
 	// Need to actually bind it now - it might only have gotten bound in the init phase.
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, entry->textureName);
-	UpdateSamplingParams(*entry, true);
+
+	SamplerCacheKey samplerKey = GetSamplingParams(entry->maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

@@ -156,31 +156,6 @@ void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	key.minFilt = minFilt & 1;
-	key.mipFilt = 0;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-}
-
 void TextureCacheD3D11::StartFrame() {
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
@@ -239,10 +214,9 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
-	SamplerCacheKey key{};
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	UpdateSamplingParams(maxLevel, entry->addr, key);
-	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
 }
 
@@ -428,8 +402,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");  // Probably not necessary.
 	}
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
 

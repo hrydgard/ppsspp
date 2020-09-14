@@ -146,19 +146,23 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel, u32 addr, GETexLevelMode &mode) {
-	minFilt = gstate.texfilter & 0x7;
-	magFilt = gstate.isMagnifyFilteringEnabled();
-	sClamp = gstate.isTexCoordClampedS();
-	tClamp = gstate.isTexCoordClampedT();
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr) {
+	SamplerCacheKey key;
+
+	int minFilt = gstate.texfilter & 0x7;
+	key.minFilt = minFilt & 1;
+	key.mipEnable = (minFilt >> 2) & 1;
+	key.mipFilt = (minFilt >> 1) & 1;
+	key.magFilt = gstate.isMagnifyFilteringEnabled();
+	key.sClamp = gstate.isTexCoordClampedS();
+	key.tClamp = gstate.isTexCoordClampedT();
+	key.aniso = false;
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
-	mode = mipMode;
-
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 
 	// TODO: Slope mipmap bias is still not well understood.
-	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+	float lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
 	}
@@ -171,72 +175,18 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
-		minFilt &= 1; // no mipmaps yet
+		key.mipEnable = false;
+		key.mipFilt = 0;
 		lodBias = 0.0f;
 	}
-
-	if (!(magFilt & 1) && addr != 0 && g_Config.iTexFiltering != TEX_FILTER_FORCE_NEAREST) {
-		if (videos_.find(addr & 0x3FFFFFFF) != videos_.end()) {
-			// Enforce bilinear filtering on magnification.
-			magFilt |= 1;
-		}
-	}
-
-	// Filtering overrides
-	switch (g_Config.iTexFiltering) {
-	case TEX_FILTER_AUTO:
-		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
-		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
-		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
-			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
-			if (uglyColorTest) {
-				// Force to nearest.
-				magFilt &= ~1;
-				minFilt &= ~1;
-			}
-		}
-		break;
-	case TEX_FILTER_FORCE_LINEAR:
-		// Override to linear filtering if there's no alpha or color testing going on.
-		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-		    (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
-			magFilt |= 1;
-			minFilt |= 1;
-		}
-		break;
-	case TEX_FILTER_FORCE_NEAREST:
-	default:
-		// Just force to nearest without checks. Safe (but ugly).
-		magFilt &= ~1;
-		minFilt &= ~1;
-		break;
-	}
-}
-
-void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, SamplerCacheKey &key) {
-	// TODO: Make GetSamplingParams write SamplerCacheKey directly
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, texAddr, mode);
-	key.minFilt = minFilt & 1;
-	key.mipEnable = (minFilt >> 2) & 1;
-	key.mipFilt = (minFilt >> 1) & 1;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-	key.aniso = false;
 
 	if (!key.mipEnable) {
 		key.maxLevel = 0;
 		key.minLevel = 0;
 		key.lodBias = 0;
+		key.mipFilt = 0;
 	} else {
-		switch (mode) {
+		switch (mipMode) {
 		case GE_TEXLEVEL_MODE_AUTO:
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
@@ -261,6 +211,67 @@ void TextureCacheCommon::UpdateSamplingParams(int maxLevel, u32 texAddr, Sampler
 			break;
 		}
 	}
+
+	// Video bilinear override
+	if (!key.magFilt && texAddr != 0) {
+		if (videos_.find(texAddr & 0x3FFFFFFF) != videos_.end()) {
+			// Enforce bilinear filtering on magnification.
+			key.magFilt = 1;
+		}
+	}
+
+	// Filtering overrides
+	switch (g_Config.iTexFiltering) {
+	case TEX_FILTER_AUTO:
+		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
+		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
+		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
+			if (uglyColorTest) {
+				// Force to nearest.
+				key.magFilt = 0;
+				key.minFilt = 0;
+			}
+		}
+		break;
+	case TEX_FILTER_FORCE_LINEAR:
+		// Override to linear filtering if there's no alpha or color testing going on.
+		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
+			(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+			key.magFilt = 1;
+			key.minFilt = 1;
+			key.mipFilt = 1;
+		}
+		break;
+	case TEX_FILTER_FORCE_NEAREST:
+	default:
+		// Just force to nearest without checks. Safe (but ugly).
+		key.magFilt = 0;
+		key.minFilt = 0;
+		break;
+	}
+
+	return key;
+}
+
+SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+	SamplerCacheKey key = GetSamplingParams(0, 0);
+
+	// Kill any mipmapping settings.
+	key.mipEnable = false;
+	key.minFilt &= 1;
+	key.mipFilt = 0;
+	key.magFilt &= 1;
+	key.aniso = 0.0;
+
+	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
+	if (w != bufferWidth || h != bufferHeight) {
+		key.sClamp = true;
+		key.tClamp = true;
+	}
+	return key;
 }
 
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {

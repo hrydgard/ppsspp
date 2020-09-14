@@ -28,7 +28,6 @@
 #include "Core/Reporting.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
-#include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"

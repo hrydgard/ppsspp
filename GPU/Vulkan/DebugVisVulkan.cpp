@@ -25,6 +25,7 @@
 #include "Common/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
+#include "GPU/Vulkan/TextureCacheVulkan.h"
 
 #undef DrawText
 
