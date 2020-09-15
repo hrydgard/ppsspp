@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "ppsspp_config.h"
 #include "profiler/profiler.h"
 #include "Common/ColorConv.h"
@@ -743,20 +744,21 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
 	// Mask to ignore the Z memory mirrors if the address is in VRAM.
 	// These checks are mainly to reduce scanning all textures.
+
 	const u32 mirrorMask = 0x00600000;
 	const u32 address = channel == NOTIFY_FB_COLOR ? framebuffer->fb_address : framebuffer->z_address;
 	const u32 addr = Memory::IsVRAMAddress(address) ? (address & ~mirrorMask) : address;
 	const u32 bpp = (framebuffer->format == GE_FORMAT_8888 && channel == NOTIFY_FB_COLOR) ? 4 : 2;
 	const u32 stride = channel == NOTIFY_FB_COLOR ? framebuffer->fb_stride : framebuffer->z_stride;
-	const u32 endAddr = addr + stride * framebuffer->height * bpp;
+
+	// NOTE: Some games like Burnout massively misdetects the height of some framebuffers, leading to a lot of unnecessary invalidations.
+	// Let's only actually get rid of textures that cover the very start of the framebuffer.
+	const u32 endAddr = addr + stride * std::min((int)framebuffer->height, 16) * bpp;
+
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
 	const u64 cacheKeyEnd = (u64)endAddr << 32;
-
-	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
-	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
-	const u64 mirrorCacheKeyEnd = (u64)0x04800000 << 32;
 
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
@@ -771,20 +773,19 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
 			// Color - no need to look in the mirrors.
 			for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-				// Just mark them all dirty somehow.
 				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
 				gpuStats.numTextureInvalidationsByFramebuffer++;
 			}
 		} else {
-			// Depth. Just look in the mirrors.
-			for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-				const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
-				// Let's still make sure it's in the cache range.
-				if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
-					// Just mark them all dirty somehow.
-					it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-					gpuStats.numTextureInvalidationsByFramebuffer++;
-				}
+			// Depth. Just look at the range, but in each mirror (0x04200000 and 0x04600000).
+			// Games don't use 0x04400000 as far as I know - it has no swizzle effect so kinda useless.
+			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
+				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
+			}
+			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
+				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
 			}
 		}
 		break;
