@@ -386,6 +386,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 		// Check for FBO changes.
 		if (entry->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
+			entry->status &= ~TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
 			match = false;
 		}
 
@@ -551,6 +552,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	gstate_c.curTextureHeight = h;
 
 	nextTexture_ = entry;
+	if (nextFramebufferTexture_) {
+		nextFramebufferTexture_ = nullptr;  // in case it was accidentally set somehow?
+	}
 	nextNeedsRehash_ = false;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
@@ -731,16 +735,19 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	entry->numFrames = 0;
 }
 
-void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
+void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
 	// Mask to ignore the Z memory mirrors if the address is in VRAM.
 	// These checks are mainly to reduce scanning all textures.
 	const u32 mirrorMask = 0x00600000;
+	const u32 address = channel == NOTIFY_FB_COLOR ? framebuffer->fb_address : framebuffer->z_address;
 	const u32 addr = Memory::IsVRAMAddress(address) ? (address & ~mirrorMask) : address;
 	const u32 bpp = (framebuffer->format == GE_FORMAT_8888 && channel == NOTIFY_FB_COLOR) ? 4 : 2;
+	const u32 stride = channel == NOTIFY_FB_COLOR ? framebuffer->fb_stride : framebuffer->z_stride;
+	const u32 endAddr = addr + stride * framebuffer->height * bpp;
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
+	const u64 cacheKeyEnd = (u64)endAddr << 32;
 
 	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
 	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
@@ -761,6 +768,7 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
 				// Just mark them all dirty somehow.
 				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
 			}
 		} else {
 			// Depth. Just look in the mirrors.
@@ -770,6 +778,7 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 				if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
 					// Just mark them all dirty somehow.
 					it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+					gpuStats.numTextureInvalidationsByFramebuffer++;
 				}
 			}
 		}
@@ -958,8 +967,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		nextTexture_ = nullptr;
 		nextFramebufferTexture_ = framebuffer;
+		nextTexture_ = nullptr;
 	} else {
 		if (framebuffer->fbo) {
 			framebuffer->fbo->Release();
@@ -967,6 +976,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 		Unbind();
 		gstate_c.SetNeedShaderTexclamp(false);
+		nextFramebufferTexture_ = nullptr;
+		nextTexture_ = nullptr;
 	}
 
 	nextNeedsRehash_ = false;
@@ -1571,7 +1582,7 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 
 void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
-	if (entry == nullptr) {
+	if (!entry) {
 		// Maybe we bound a framebuffer?
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
