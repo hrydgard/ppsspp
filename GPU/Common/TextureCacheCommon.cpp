@@ -365,7 +365,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 
-	TexCache::iterator iter = cache_.find(cachekey);
+	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
@@ -377,8 +377,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	}
 	gstate_c.bgraTexture = isBgraBackend_;
 
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
+	if (entryIter != cache_.end()) {
+		entry = entryIter->second.get();
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
 		const char *reason = "different params";
@@ -488,6 +488,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	if (candidates.size() > 0) {
 		int index = GetBestCandidateIndex(candidates);
 		if (index != -1) {
+			// If we had a texture entry here, let's get rid of it.
+			if (entryIter != cache_.end()) {
+				DeleteTexture(entryIter);
+			}
+
 			nextTexture_ = nullptr;
 			nextNeedsRebuild_ = false;
 			SetTextureFramebuffer(candidates[index]);
