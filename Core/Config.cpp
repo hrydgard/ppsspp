@@ -806,6 +806,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),
 	ReportedConfigSetting("HardwareTessellation", &g_Config.bHardwareTessellation, false, true, true),
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", true, true),
+	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, true, true),
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
 	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false, true, true),

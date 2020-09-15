@@ -763,7 +763,7 @@ void __DisplayFlip(int cyclesLate) {
 
 	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
 	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(unthrottleNeedsSkip && !FrameTimingThrottled())) {
-		postEffectRequiresFlip = duplicateFrames || PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
 	const bool fbDirty = gpu->FramebufferDirty();

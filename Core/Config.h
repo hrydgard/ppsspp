@@ -215,6 +215,7 @@ public:
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;

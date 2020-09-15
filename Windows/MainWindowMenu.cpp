@@ -1070,6 +1070,7 @@ namespace MainWindow {
 					g_Config.vPostShaderNames.push_back(availableShaders[index]);
 				g_Config.vPostShaderNames.push_back("Off");
 				g_ShaderNameListChanged = true;
+				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 				NativeMessageReceived("gpu_resized", "");
 				break;
 			}

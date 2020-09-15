@@ -311,7 +311,7 @@ void GameSettingsScreen::CreateViews() {
 
 	std::vector<std::string> alreadyAddedShader;
 	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
-		// Vector pointer get invalidated on resize, cache name to have always a valid reference for drawing
+		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = g_Config.vPostShaderNames[i];
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
@@ -1257,6 +1257,7 @@ void GameSettingsScreen::update() {
 	}
 	if (g_ShaderNameListChanged) {
 		g_ShaderNameListChanged = false;
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 		RecreateViews();
 	}
 }
