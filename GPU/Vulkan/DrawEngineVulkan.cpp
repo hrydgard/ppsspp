@@ -172,6 +172,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
+	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 

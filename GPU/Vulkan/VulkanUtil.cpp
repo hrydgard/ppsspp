@@ -549,7 +549,8 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	pci.layout = pipelineLayout_;
 	pci.flags = 0;
 
-	vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+	_assert_(res == VK_SUCCESS);
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
