@@ -129,6 +129,9 @@ int PSPSaveDialog::Init(int paramAddr)
 		break;
 	}
 
+	if(!param.wouldHasMultiSaveName(param.GetPspParam()))
+		currentSelectedSave = 0;
+
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
