@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "gfx_es2/gpu_features.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"

@@ -31,11 +31,7 @@
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
 // won't get any bone data, etc.
 
-#include <map>
-#include <unordered_map>
-
 #include "Common/Hashmaps.h"
-#include "Common/Vulkan/VulkanMemory.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 

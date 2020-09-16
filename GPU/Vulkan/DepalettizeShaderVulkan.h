@@ -21,9 +21,6 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanMemory.h"
-#include "GPU/ge_constants.h"
 #include "thin3d/thin3d.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
@@ -45,6 +42,7 @@ public:
 
 class VulkanTexture;
 class Vulkan2D;
+class VulkanPushBuffer;
 
 // Caches both shaders and palette textures.
 // Could even avoid bothering with palette texture and just use uniform data...
@@ -74,7 +72,6 @@ private:
 	VkShaderModule vshader_ = VK_NULL_HANDLE;
 	Vulkan2D *vulkan2D_ = nullptr;
 
-	// GLuint vertexShader_;
 	std::map<u32, DepalShaderVulkan *> cache_;
 	std::map<u32, DepalTextureVulkan *> texCache_;
 };

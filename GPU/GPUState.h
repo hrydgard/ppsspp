@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <cmath>
-
 #include "Common/Common.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"

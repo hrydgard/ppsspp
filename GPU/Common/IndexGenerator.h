@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "GPU/ge_constants.h"

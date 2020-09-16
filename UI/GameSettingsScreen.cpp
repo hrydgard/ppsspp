@@ -17,6 +17,8 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+
 #include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 
 #include "base/colorutil.h"
