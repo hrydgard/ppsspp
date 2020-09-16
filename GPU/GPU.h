@@ -63,6 +63,7 @@ struct GPUStatistics {
 		numUncachedVertsDrawn = 0;
 		numTrackedVertexArrays = 0;
 		numTextureInvalidations = 0;
+		numTextureInvalidationsByFramebuffer = 0;
 		numTextureSwitches = 0;
 		numShaderSwitches = 0;
 		numFlushes = 0;
@@ -86,6 +87,7 @@ struct GPUStatistics {
 	int numUncachedVertsDrawn;
 	int numTrackedVertexArrays;
 	int numTextureInvalidations;
+	int numTextureInvalidationsByFramebuffer;
 	int numTextureSwitches;
 	int numShaderSwitches;
 	int numTexturesDecoded;

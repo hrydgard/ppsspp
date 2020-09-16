@@ -363,7 +363,8 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	_assert_(res == VK_SUCCESS);
 
 	CompileScalingShader();
 

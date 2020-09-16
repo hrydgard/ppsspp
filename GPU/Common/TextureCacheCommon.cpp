@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "ppsspp_config.h"
 #include "profiler/profiler.h"
 #include "Common/ColorConv.h"
@@ -365,7 +366,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 
-	TexCache::iterator iter = cache_.find(cachekey);
+	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
@@ -377,8 +378,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	}
 	gstate_c.bgraTexture = isBgraBackend_;
 
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
+	if (entryIter != cache_.end()) {
+		entry = entryIter->second.get();
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
 		const char *reason = "different params";
@@ -386,6 +387,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 		// Check for FBO changes.
 		if (entry->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
+			entry->status &= ~TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
 			match = false;
 		}
 
@@ -487,6 +489,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	if (candidates.size() > 0) {
 		int index = GetBestCandidateIndex(candidates);
 		if (index != -1) {
+			// If we had a texture entry here, let's get rid of it.
+			if (entryIter != cache_.end()) {
+				DeleteTexture(entryIter);
+			}
+
 			nextTexture_ = nullptr;
 			nextNeedsRebuild_ = false;
 			SetTextureFramebuffer(candidates[index]);
@@ -551,6 +558,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
 	gstate_c.curTextureHeight = h;
 
 	nextTexture_ = entry;
+	if (nextFramebufferTexture_) {
+		nextFramebufferTexture_ = nullptr;  // in case it was accidentally set somehow?
+	}
 	nextNeedsRehash_ = false;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
@@ -731,20 +741,24 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	entry->numFrames = 0;
 }
 
-void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
+void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
 	// Mask to ignore the Z memory mirrors if the address is in VRAM.
 	// These checks are mainly to reduce scanning all textures.
+
 	const u32 mirrorMask = 0x00600000;
+	const u32 address = channel == NOTIFY_FB_COLOR ? framebuffer->fb_address : framebuffer->z_address;
 	const u32 addr = Memory::IsVRAMAddress(address) ? (address & ~mirrorMask) : address;
 	const u32 bpp = (framebuffer->format == GE_FORMAT_8888 && channel == NOTIFY_FB_COLOR) ? 4 : 2;
+	const u32 stride = channel == NOTIFY_FB_COLOR ? framebuffer->fb_stride : framebuffer->z_stride;
+
+	// NOTE: Some games like Burnout massively misdetects the height of some framebuffers, leading to a lot of unnecessary invalidations.
+	// Let's only actually get rid of textures that cover the very start of the framebuffer.
+	const u32 endAddr = addr + stride * std::min((int)framebuffer->height, 16) * bpp;
+
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
-
-	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
-	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
-	const u64 mirrorCacheKeyEnd = (u64)0x04800000 << 32;
+	const u64 cacheKeyEnd = (u64)endAddr << 32;
 
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
@@ -759,18 +773,19 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
 			// Color - no need to look in the mirrors.
 			for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-				// Just mark them all dirty somehow.
 				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
 			}
 		} else {
-			// Depth. Just look in the mirrors.
-			for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-				const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
-				// Let's still make sure it's in the cache range.
-				if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
-					// Just mark them all dirty somehow.
-					it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				}
+			// Depth. Just look at the range, but in each mirror (0x04200000 and 0x04600000).
+			// Games don't use 0x04400000 as far as I know - it has no swizzle effect so kinda useless.
+			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
+				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
+			}
+			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
+				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
 			}
 		}
 		break;
@@ -958,8 +973,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
-		nextTexture_ = nullptr;
 		nextFramebufferTexture_ = framebuffer;
+		nextTexture_ = nullptr;
 	} else {
 		if (framebuffer->fbo) {
 			framebuffer->fbo->Release();
@@ -967,6 +982,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 		Unbind();
 		gstate_c.SetNeedShaderTexclamp(false);
+		nextFramebufferTexture_ = nullptr;
+		nextTexture_ = nullptr;
 	}
 
 	nextNeedsRehash_ = false;
@@ -1571,7 +1588,7 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 
 void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
-	if (entry == nullptr) {
+	if (!entry) {
 		// Maybe we bound a framebuffer?
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));

@@ -49,7 +49,8 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	buf.size = readbackBufferSize_;
 	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-	vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
+	VkResult res = vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
+	_assert_(res == VK_SUCCESS);
 
 	VkMemoryRequirements reqs{};
 	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
@@ -75,7 +76,7 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	_assert_(successTypeReqs != 0);
 	readbackBufferIsCoherent_ = (successTypeReqs & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
 
-	VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
+	res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
 	if (res != VK_SUCCESS) {
 		readbackMemory_ = VK_NULL_HANDLE;
 		vkDestroyBuffer(device, readbackBuffer_, nullptr);

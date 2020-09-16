@@ -38,7 +38,9 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRen
 	fbci.height = height;
 	fbci.layers = 1;
 
-	vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
+	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
+	_assert_(res == VK_SUCCESS);
+
 	if (tag && vk->Extensions().EXT_debug_utils) {
 		vk->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_color_%s", tag).c_str());
 		vk->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, StringFromFormat("fb_depth_%s", tag).c_str());
@@ -86,7 +88,8 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}
 
-	vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
+	VkResult res = vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
+	_dbg_assert_(res == VK_SUCCESS);
 
 	VkMemoryRequirements memreq;
 	bool dedicatedAllocation = false;
@@ -102,7 +105,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 	vulkan->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex);
 
-	VkResult res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
+	res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
 	_dbg_assert_(res == VK_SUCCESS);
 
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);

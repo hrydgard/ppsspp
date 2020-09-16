@@ -172,6 +172,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
+	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
@@ -287,6 +288,9 @@ void DrawEngineVulkan::BeginFrame() {
 		vertexCache_->Destroy(vulkan_);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
 		vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
+			delete vai;
+		});
 		vai_.Clear();
 	}
 
