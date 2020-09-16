@@ -353,6 +353,8 @@ public:
 	int GetLastEmptySave();
 	int GetSaveNameIndex(SceUtilitySavedataParam* param);
 
+	bool wouldHasMultiSaveName(SceUtilitySavedataParam* param);
+
 	void DoState(PointerWrap &p);
 
 private:

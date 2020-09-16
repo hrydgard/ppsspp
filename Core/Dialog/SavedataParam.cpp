@@ -1398,7 +1398,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0)
+		if (saveDataListCount > 0 && wouldHasMultiSaveName(param))
 		{
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
@@ -1722,6 +1722,27 @@ int SavedataParam::GetSaveNameIndex(SceUtilitySavedataParam* param)
 	}
 
 	return 0;
+}
+
+bool SavedataParam::wouldHasMultiSaveName(SceUtilitySavedataParam* param) {
+	switch ((SceUtilitySavedataType)(u32)param->mode) {
+	case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
+	case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+		return false;
+	default:
+		return true;
+	}
 }
 
 void SavedataParam::DoState(PointerWrap &p)
