@@ -967,7 +967,7 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	block  = pgd->file_offset/pgd->block_size;
 	offset = pgd->file_offset%pgd->block_size;
 
-	if (size > pgd->data_size)
+	if (size > (int)pgd->data_size)
 		size = pgd->data_size;
 	remain_size = size;
 
