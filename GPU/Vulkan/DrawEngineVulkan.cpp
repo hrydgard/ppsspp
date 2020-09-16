@@ -388,6 +388,10 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 }
 
 VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
+	_dbg_assert_(base != VK_NULL_HANDLE);
+	_dbg_assert_(light != VK_NULL_HANDLE);
+	_dbg_assert_(bone != VK_NULL_HANDLE);
+
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
@@ -396,9 +400,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
-	_dbg_assert_(base != VK_NULL_HANDLE);
-	_dbg_assert_(light != VK_NULL_HANDLE);
-	_dbg_assert_(bone != VK_NULL_HANDLE);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
@@ -443,6 +444,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	int n = 0;
 	VkDescriptorImageInfo tex[3]{};
 	if (imageView) {
+		_dbg_assert_(sampler != VK_NULL_HANDLE);
+
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
