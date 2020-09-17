@@ -43,6 +43,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -618,7 +619,19 @@ namespace SaveState
 			if (File::GetModifTime(fn, time)) {
 				char buf[256];
 				// TODO: Use local time format? Americans and some others might not like ISO standard :)
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				switch (g_Config.iDateFormat) {
+				case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+					strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+					strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+					break;
+				default: // Should never happen
+					return "";
+				}
 				return std::string(buf);
 			}
 		}
