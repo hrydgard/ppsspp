@@ -263,21 +263,6 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 	}
 }
 
-void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
-
-	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
-	if (matchingDepthBuffer && matchingSize && gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
-		int w = std::min(src->renderWidth, dst->renderWidth);
-		int h = std::min(src->renderHeight, dst->renderHeight);
-		// Let's only do this if not clearing depth.
-		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-		RebindFramebuffer("BlitFramebufferDepth");
-		dst->last_frame_depth_updated = gpuStats.numFlips;
-	}
-}
-
 void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		render_->BindTexture(stage, nullptr);

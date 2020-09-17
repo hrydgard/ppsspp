@@ -305,19 +305,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-		bool matchingSize = src->width == dst->width && src->height == dst->height;
-		if (matchingDepthBuffer && matchingSize) {
-			// Should use StretchRect here?  Note: should only copy depth and ideally NOT copy stencil.  See #9740.
-			int w = std::min(src->renderWidth, dst->renderWidth);
-			int h = std::min(src->renderHeight, dst->renderHeight);
-			draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
-			RebindFramebuffer("RebindFramebuffer - BlitFramebufferDepth");
-			dst->last_frame_depth_updated = gpuStats.numFlips;
-		}
-	}
-
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
 		D3DSURFACE_DESC desc = {};
 		HRESULT hr = similarSurface->GetDesc(&desc);
