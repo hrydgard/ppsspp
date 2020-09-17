@@ -224,7 +224,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;

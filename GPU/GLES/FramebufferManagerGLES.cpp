@@ -272,7 +272,7 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 		int w = std::min(src->renderWidth, dst->renderWidth);
 		int h = std::min(src->renderHeight, dst->renderHeight);
 
-		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+		if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
 			// Let's only do this if not clearing depth.
 			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 			dst->last_frame_depth_updated = gpuStats.numFlips;
@@ -330,8 +330,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
-	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;

@@ -182,14 +182,8 @@ void GPU_GLES::CheckGPUFeatures() {
 		}
 	}
 	
-	if (gl_extensions.ARB_framebuffer_object || gl_extensions.EXT_framebuffer_object || gl_extensions.IsGLES) {
-		features |= GPU_SUPPORTS_FBO;
-	}
-	if (gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3) {
-		features |= GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT;
-	}
-	if (gl_extensions.NV_framebuffer_blit) {
-		features |= GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT;
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.NV_framebuffer_blit || gl_extensions.GLES3) {
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
 	}
 	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
 		features |= GPU_SUPPORTS_VAO;
