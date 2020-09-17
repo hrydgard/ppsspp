@@ -901,8 +901,8 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 }
 
 void FPURegCache::Invariant() const {
-#ifdef _DEBUG
-	_dbg_assert_msg_(SanityCheck() == 0, "Sanity check failed: %d", SanityCheck());
+#if 0
+	_assert_msg_(SanityCheck() == 0, "Sanity check failed: %d", SanityCheck());
 #endif
 }
 
