@@ -1146,6 +1146,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			if (!tex) {
 				break;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->canWrap) {
 				if (tex->wrapS != c.textureSampler.wrapS) {
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
@@ -1156,14 +1157,17 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					tex->wrapT = c.textureSampler.wrapT;
 				}
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->magFilter != c.textureSampler.magFilter) {
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
 				tex->magFilter = c.textureSampler.magFilter;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->minFilter != c.textureSampler.minFilter) {
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
 				tex->minFilter = c.textureSampler.minFilter;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->anisotropy != c.textureSampler.anisotropy) {
 				if (c.textureSampler.anisotropy != 0.0f) {
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
