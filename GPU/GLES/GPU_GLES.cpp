@@ -214,7 +214,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
 	if (gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image)
-		features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+		features |= GPU_SUPPORTS_COPY_IMAGE;
 
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;

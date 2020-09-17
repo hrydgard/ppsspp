@@ -351,8 +351,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		if (vfb->z_address == vfb->fb_address) {
 			// Probably indicates that the game doesn't care about Z for this VFB.
 			// Let's avoid matching it for Z copies.
-			// vfb->z_address = 0;
-			// vfb->z_stride = 0;
+			vfb->z_address = 0;
+			vfb->z_stride = 0;
 		}
 
 		vfb->width = drawing_width;

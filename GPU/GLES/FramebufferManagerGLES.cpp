@@ -268,15 +268,13 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
 
 	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
-	if (matchingDepthBuffer && matchingSize) {
+	if (matchingDepthBuffer && matchingSize && gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
 		int w = std::min(src->renderWidth, dst->renderWidth);
 		int h = std::min(src->renderHeight, dst->renderHeight);
-
-		if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
-			// Let's only do this if not clearing depth.
-			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-			dst->last_frame_depth_updated = gpuStats.numFlips;
-		}
+		// Let's only do this if not clearing depth.
+		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
+		RebindFramebuffer("BlitFramebufferDepth");
+		dst->last_frame_depth_updated = gpuStats.numFlips;
 	}
 }
 
@@ -360,7 +358,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE)) {
+	if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
 		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 		// In case the src goes outside, we just skip the optimization in that case.
 		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
