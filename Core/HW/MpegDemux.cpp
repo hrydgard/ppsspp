@@ -202,6 +202,7 @@ bool MpegDemux::demux(int audioChannel)
 		}
 		// Not enough data available yet.
 		if (m_readSize - m_index < 16) {
+			looksValid = true;
 			m_index -= 4;
 			break;
 		}
