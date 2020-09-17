@@ -347,6 +347,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->fb_stride = params.fb_stride;
 		vfb->z_address = params.z_address;
 		vfb->z_stride = params.z_stride;
+
+		if (vfb->z_address == vfb->fb_address) {
+			// Probably indicates that the game doesn't care about Z for this VFB.
+			// Let's avoid matching it for Z copies.
+			vfb->z_address = 0;
+			vfb->z_stride = 0;
+		}
+
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->newWidth = drawing_width;
@@ -459,6 +467,26 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 		prevPrevDisplayFramebuf_ = nullptr;
 
 	delete v;
+}
+
+void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+	bool matchingSize = src->width == dst->width && src->height == dst->height;
+
+	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
+	if (matchingDepthBuffer && matchingSize) {
+		int w = std::min(src->renderWidth, dst->renderWidth);
+		int h = std::min(src->renderHeight, dst->renderHeight);
+		// Let's only do this if not clearing depth.
+		if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
+			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
+			RebindFramebuffer("BlitFramebufferDepth");
+		} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
+			draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
+			RebindFramebuffer("BlitFramebufferDepth");
+		}
+		dst->last_frame_depth_updated = gpuStats.numFlips;
+	}
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {

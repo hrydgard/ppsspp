@@ -34,9 +34,11 @@ std::string GLEnumToString(uint16_t value) {
 	}
 }
 
-void CheckGLError(const char *file, int line) {
+bool CheckGLError(const char *file, int line) {
 	GLenum err = glGetError();
 	if (err != GL_NO_ERROR) {
 		ERROR_LOG(G3D, "GL error %s on %s:%d", GLEnumToString(err).c_str(), file, line);
+		return false;
 	}
+	return true;
 }

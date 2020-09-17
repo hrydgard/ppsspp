@@ -89,8 +89,12 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::DestroyDeviceObjects");
-	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+	if (readbackMemory_) {
+		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
+	}
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+	}
 	readbackBufferSize_ = 0;
 
 	renderPasses_.Iterate([&](const RPKey &rpkey, VkRenderPass rp) {

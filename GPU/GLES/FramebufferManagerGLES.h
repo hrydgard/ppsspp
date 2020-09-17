@@ -49,8 +49,6 @@ public:
 	void DeviceLost();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
-
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 

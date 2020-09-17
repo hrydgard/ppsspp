@@ -10,8 +10,8 @@
 
 #if defined(DEBUG_OPENGL)
 
-void CheckGLError(const char *file, int line);
-#define CHECK_GL_ERROR_IF_DEBUG() CheckGLError(__FILE__, __LINE__)
+bool CheckGLError(const char *file, int line);
+#define CHECK_GL_ERROR_IF_DEBUG() if (!CheckGLError(__FILE__, __LINE__)) __debugbreak();
 
 #else
 
