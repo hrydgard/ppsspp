@@ -124,10 +124,10 @@ void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 	}
 
 	float aniso = 0.0f;
-	int magKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.magFilt);
+	int minKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.minFilt);
 	render_->SetTextureSampler(0,
 		key.sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, key.tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT,
-		MagFiltGL[magKey], key.minFilt ? GL_LINEAR : GL_NEAREST, aniso);
+		key.magFilt ? GL_LINEAR : GL_NEAREST, MinFiltGL[minKey], aniso);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
