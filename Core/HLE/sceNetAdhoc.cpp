@@ -2170,7 +2170,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			buf->mac_addr = *maddr;
 			buf->flags = 0x0400;
 			buf->padding = 0;
-			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
+			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
 
 			// Success
 			retval = 0;
@@ -2184,7 +2184,8 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
 			if (peer != NULL) {
 				// Fake Receive Time
-				if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+				if (peer->last_recv != 0) 
+					peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 				//buf->next = 0;
 				buf->nickname = peer->nickname;
@@ -4420,7 +4421,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Faking lastping
 									auto friendpeer = findFriend(&p2p->mac);
 									if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled();
+										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 									else
 										p2p->lastping = 0;
 
@@ -4440,7 +4441,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Faking lastping
 									auto friendpeer = findFriend(&parentpeer->mac);
 									if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 									else
 										parentpeer->lastping = 0;
 
@@ -4462,7 +4463,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 										// Faking lastping
 										auto friendpeer = findFriend(&peer->mac);
 										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-											peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+											peer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 										else
 											peer->lastping = 0;
 
@@ -4765,7 +4766,8 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 
 		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		if (flags != ADHOCCTL_EVENT_CONNECT || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0)
+		u64 now = (u64)(real_time_now() * 1000.0);
+		if (flags != ADHOCCTL_EVENT_CONNECT || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || now - adhocctlStartTime > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {
@@ -4957,12 +4959,12 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 						if (!excludeTimedout || peer->last_recv != 0) {
 							// Faking Last Receive Time
 							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].flags = 0x0400; //peer->ip_addr;
+							buf[discovered].flags = 0x0400;
 							buf[discovered].last_recv = peer->last_recv;
 							discovered++;
 
@@ -5050,8 +5052,8 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						buf[discovered].nickname = parameter.nickname;
 						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 						getLocalMac(&buf[discovered].mac_addr);
-						buf[discovered].flags = 0x0400; //addr.sin_addr.s_addr;
-						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
+						buf[discovered].flags = 0x0400;
+						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
 					}
 
 					// Peer Reference
@@ -5065,13 +5067,13 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						{
 							// Fake Receive Time
 							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //sceKernelGetSystemTimeWide();
+								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].flags = 0x0400; //peer->ip_addr;
+							buf[discovered].flags = 0x0400;
 							buf[discovered++].last_recv = peer->last_recv;
 						}
 					}
