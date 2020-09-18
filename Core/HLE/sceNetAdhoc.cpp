@@ -2287,8 +2287,9 @@ int NetAdhocctl_Create(const char* groupName) {
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG, ADHOCCTL_BUSY
  */
 int sceNetAdhocctlCreate(const char *groupName) {
-	char grpName[9] = { 0 };
-	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (groupName)
+		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(SCENET, "sceNetAdhocctlCreate(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
@@ -2299,8 +2300,9 @@ int sceNetAdhocctlCreate(const char *groupName) {
 }
 
 int sceNetAdhocctlConnect(const char* groupName) {
-	char grpName[9] = { 0 };
-	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (groupName)
+		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(SCENET, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
@@ -2323,8 +2325,8 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 		if (Memory::IsValidAddress(scanInfoAddr))
 		{
 			SceNetAdhocctlScanInfoEmu* sinfo = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfoAddr);
-			char grpName[9] = { 0 };
-			memcpy(grpName, sinfo->group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+			char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+			memcpy(grpName, sinfo->group_name.data, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 			DEBUG_LOG(SCENET, "sceNetAdhocctlJoin - Group: %s", grpName);
 
 			// We can ignore minor connection process differences here
@@ -2341,27 +2343,34 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-// Connect to the Adhoc control game mode (as a Host)
-static int sceNetAdhocctlCreateEnterGameMode(const char *groupName, int unknown, int playerNum, u32 macsAddr, int timeout, int unknown2) {
-	char grpName[9] = { 0 };
-	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
-
+int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int num_members, u32 membersAddr, u32 timeout, int flag) {
 	SceNetEtherAddr* addrs = NULL; // List of participating MAC addresses (started from host)
-	if (Memory::IsValidAddress(macsAddr)) {
-		addrs = PSPPointer<SceNetEtherAddr>::Create(macsAddr);
+	if (Memory::IsValidAddress(membersAddr)) {
+		addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr);
 	}
 
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, unknown, playerNum, macsAddr, timeout, unknown2, currentMIPS->pc);
-	
+	// TODO: Implement this
+
 	return 0;
 }
 
-// Connect to the Adhoc control game mode (as a Client)
-static int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, int timeout, int unknown2) {
-	char grpName[9] = { 0 };
-	memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+// Connect to the Adhoc control game mode (as a Host)
+static int sceNetAdhocctlCreateEnterGameMode(const char * group_name, int game_type, int num_members, u32 membersAddr, int timeout, int flag) {
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (group_name)
+		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)macAddr).c_str(), timeout, unknown2, currentMIPS->pc);
+	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
+}
+
+// Connect to the Adhoc control game mode (as a Client)
+static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *macAddr, int timeout, int flag) {
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (group_name)
+		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)macAddr).c_str(), timeout, flag, currentMIPS->pc);
 
 	return 0;
 }
@@ -2379,11 +2388,12 @@ static int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *ma
 */
 int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, int min_members, int num_members, u32 membersAddr, u32 timeout, int flag)
 {
-	char grpName[9] = { 0 };
-	memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	if (group_name)
+		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 	// We don't really need the Minimum User Check
-	return sceNetAdhocctlCreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag); //0;
+	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag); //0;
 }
 
 int NetAdhoc_Term() {
