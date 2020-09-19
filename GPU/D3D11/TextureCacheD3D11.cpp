@@ -387,6 +387,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
 		shaderApply.Shade();
 
+		context_->PSSetShaderResources(0, 1, &nullTexture);  // Make D3D11 validation happy. Really of no consequence since we rebind anyway.
 		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
