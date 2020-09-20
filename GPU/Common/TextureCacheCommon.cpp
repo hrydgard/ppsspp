@@ -321,11 +321,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 	}
 }
 
-TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
-	if (force) {
-		InvalidateLastTexture();
-	}
-
+TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u8 level = 0;
 	if (IsFakeMipmapChange())
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);

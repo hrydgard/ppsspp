@@ -104,7 +104,7 @@ enum : uint64_t {
 
 	// Other dirty elements that aren't uniforms!
 	DIRTY_FRAMEBUF = 1ULL << 40,
-	DIRTY_TEXTURE_IMAGE = 1ULL << 41,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 41,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
 	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
 
 	// Render State

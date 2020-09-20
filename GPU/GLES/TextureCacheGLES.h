@@ -57,10 +57,8 @@ public:
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
-		if (!entry || entry->textureName == lastBoundTexture) {
-			lastBoundTexture = nullptr;
-		}
+	void InvalidateLastTexture() override {
+		lastBoundTexture = nullptr;
 	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;

@@ -509,11 +509,8 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
-		return;
-	}
+	_assert_(entry);
+	_assert_(entry->vkTex);
 
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
@@ -1114,7 +1111,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(false);
+	SetTexture();
 	if (!nextTexture_) {
 		if (nextFramebufferTexture_) {
 			VirtualFramebuffer *vfb = nextFramebufferTexture_;

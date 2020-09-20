@@ -88,10 +88,8 @@ public:
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
-		if (!entry || entry->vkTex == lastBoundTexture) {
-			lastBoundTexture = nullptr;
-		}
+	void InvalidateLastTexture() override {
+		lastBoundTexture = nullptr;
 	}
 
 	void NotifyConfigChanged() override;

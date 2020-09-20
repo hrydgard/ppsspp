@@ -30,7 +30,8 @@ public:
 	}
 
 	GLuint texture = 0;
-	// Could also trust OpenGL defaults I guess..
+
+	// We don't trust OpenGL defaults - setting wildly off values ensures that we'll end up overwriting these parameters.
 	GLenum target = 0xFFFF;
 	GLenum wrapS = 0xFFFF;
 	GLenum wrapT = 0xFFFF;
@@ -63,7 +64,7 @@ public:
 
 	int width;
 	int height;
-	GLuint colorDepth;
+	GLuint colorDepth = 0;
 
 	bool z_stencil_;
 };

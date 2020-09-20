@@ -97,10 +97,8 @@ void TextureCacheDX9::ForgetLastTexture() {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
-void TextureCacheDX9::InvalidateLastTexture(TexCacheEntry *entry) {
-	if (!entry || entry->texturePtr == lastBoundTexture) {
-		lastBoundTexture = INVALID_TEX;
-	}
+void TextureCacheDX9::InvalidateLastTexture() {
+	lastBoundTexture = INVALID_TEX;
 }
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
@@ -690,7 +688,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 }
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(true);
+	SetTexture();
 	ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
