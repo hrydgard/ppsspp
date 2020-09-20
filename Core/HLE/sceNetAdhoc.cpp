@@ -36,6 +36,7 @@
 // All credit goes to him!
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/MemMapHelpers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -56,6 +57,7 @@
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "i18n/i18n.h"
+
 
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.
@@ -2491,7 +2493,7 @@ static int sceNetAdhocctlCreateEnterGameMode(const char * group_name, int game_t
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameMode, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 
 	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
 }
@@ -2510,7 +2512,7 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)hostMac).c_str(), timeout, flag, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlJoinEnterGameMode, SCENET, "UNTESTED sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)hostMac).c_str(), timeout, flag, currentMIPS->pc);
 
 	if (!netAdhocctlInited)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
@@ -2546,7 +2548,7 @@ int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, 
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameModeMin, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 	// We don't really need the Minimum User Check
 	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
 }
