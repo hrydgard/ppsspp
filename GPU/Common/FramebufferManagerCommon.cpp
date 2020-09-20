@@ -469,23 +469,18 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 }
 
 void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
+	int w = std::min(src->renderWidth, dst->renderWidth);
+	int h = std::min(src->renderHeight, dst->renderHeight);
 
-	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
-	if (matchingDepthBuffer && matchingSize) {
-		int w = std::min(src->renderWidth, dst->renderWidth);
-		int h = std::min(src->renderHeight, dst->renderHeight);
-		// Let's only do this if not clearing depth.
-		if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
-			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-			RebindFramebuffer("BlitFramebufferDepth");
-		} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
-			draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
-			RebindFramebuffer("BlitFramebufferDepth");
-		}
-		dst->last_frame_depth_updated = gpuStats.numFlips;
+	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want. See #9740.
+	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
+		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
+		RebindFramebuffer("BlitFramebufferDepth");
+	} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
+		RebindFramebuffer("BlitFramebufferDepth");
 	}
+	dst->last_frame_depth_updated = gpuStats.numFlips;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -546,7 +541,11 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			// If depth wasn't updated, then we're at least "two degrees" away from the data.
 			// This is an optimization: it probably doesn't need to be copied in this case.
 		} else {
-			BlitFramebufferDepth(prevVfb, vfb);
+			bool matchingDepthBuffer = prevVfb->z_address == vfb->z_address && prevVfb->z_stride != 0 && vfb->z_stride != 0;
+			bool matchingSize = prevVfb->width == vfb->width && prevVfb->height == vfb->height;
+			if (matchingDepthBuffer && matchingSize) {
+				BlitFramebufferDepth(prevVfb, vfb);
+			}
 		}
 	}
 	if (vfb->drawnFormat != vfb->format) {
