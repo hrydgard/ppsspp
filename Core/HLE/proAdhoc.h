@@ -104,10 +104,16 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 // Server Listening Port
 #define SERVER_PORT 27312
 
+// Default GameMode Port
+#define ADHOC_GAMEMODE_PORT 31000
+
+#define GAMEMODE_UPDATE_INTERVAL 12000 // usec, based on JPCSP
+#define GAMEMODE_BUFFER_SIZE     0x8000
+
 // psp strutcs and definitions
-#define ADHOCCTL_MODE_NONE -1
-#define ADHOCCTL_MODE_ADHOC 0 //ADHOCCTL_MODE_NORMAL
-#define ADHOCCTL_MODE_GAMEMODE 1
+#define ADHOCCTL_MODE_NONE     -1
+#define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC
+#define ADHOCCTL_MODE_GAMEMODE  1
 
 // Event Types for Event Handler
 #define ADHOCCTL_EVENT_ERROR 0
@@ -292,8 +298,26 @@ typedef struct SceNetAdhocMatchingMemberInfoEmu {
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
 typedef struct SceNetAdhocctlGameModeInfo {
   s32_le num;
-  SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+  SceNetEtherAddr members[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
 } PACK SceNetAdhocctlGameModeInfo;
+
+// GameModeUpdateInfo
+typedef struct GameModeUpdateInfo {
+	s32_le updated;
+	u64_le timeStamp;
+} PACK GameModeUpdateInfo;
+
+// GameModeArea (Internal use only)
+typedef struct GameModeArea {
+	int id; // started from 1 for replica? master = 0 or -1?
+	int size;
+	u32 addr;
+	//int socket; // PDP socket?
+	u64 updateTimestamp;
+	int dataUpdated;
+	SceNetEtherAddr mac;
+	u8* data;  // upto "size" bytes started from "addr" ?
+} PACK GameModeArea;
 
 // Socket Polling Event Listener
 typedef struct SceNetAdhocPollSd{
@@ -867,7 +891,15 @@ extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
 extern int adhocctlState;
+extern int adhocctlCurrentMode;
 extern int adhocConnectionType;
+
+extern int gameModeSocket;
+extern u8* gameModeBuffer;
+extern GameModeArea masterGameModeArea;
+extern std::vector<GameModeArea> replicaGameModeAreas;
+extern std::vector<SceNetEtherAddr> requiredGameModeMacs;
+extern std::vector<SceNetEtherAddr> gameModeMacs;
 // End of Aux vars
 
 enum AdhocConnectionType : int
@@ -944,6 +976,11 @@ extern int newChat;
  */
 SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC);
 
+/*
+ * Find a Peer/Friend by IP address
+ */
+SceNetAdhocctlPeerInfo* findFriendByIP(uint32_t ip);
+
 /**
  * Get the Readability(ie. recv) and/or Writability(ie. send) of a socket
  * @param fd File Descriptor of the socket
@@ -979,6 +1016,11 @@ void freeGroupsRecursive(SceNetAdhocctlScanInfo * node);
  * Closes & Deletes all PDP & PTP Sockets
  */
 void deleteAllAdhocSockets();
+
+/*
+* Deletes all GameMode Buffers
+*/
+void deleteAllGMB();
 
 /**
  * Delete Friend from Local List

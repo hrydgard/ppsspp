@@ -36,6 +36,7 @@
 // All credit goes to him!
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/MemMapHelpers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -57,13 +58,16 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "i18n/i18n.h"
 
+
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
 bool networkInited = false;
 
-static bool netAdhocMatchingInited;
+bool netAdhocGameModeEntered;
+
+bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 int adhocDefaultTimeout = 2000; //5000 ms
 int adhocExtraPollDelayMS = 10; //10
@@ -86,6 +90,8 @@ std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 
+int gameModeNotifyEvent = -1;
+
 u32 dummyThreadHackAddr = 0;
 u32_le dummyThreadCode[3];
 u32 matchingThreadHackAddr = 0;
@@ -96,6 +102,9 @@ int matchingInputThread(int matchingId);
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout);
 int FlushPtpSocket(int socketId);
+int NetAdhocctl_ExitGameMode();
+static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
+static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
 
 void __NetAdhocShutdown() {
@@ -124,6 +133,57 @@ void __NetAdhocShutdown() {
 		kernelMemory.Free(matchingThreadHackAddr);
 		matchingThreadHackAddr = 0;
 	}
+}
+
+bool IsGameModeActive() {
+	return netAdhocGameModeEntered && gameModeBuffer != nullptr && gameModeSocket > 0 && adhocSockets[gameModeSocket - 1] != nullptr;
+}
+
+static void __GameModeNotify(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+
+	// TODO: May be we should check for timeout too? since EnterGammeMode have timeout arg
+	if (IsGameModeActive()) {
+		auto sock = adhocSockets[gameModeSocket - 1];
+
+		// Send Master data		
+		if (masterGameModeArea.dataUpdated) {
+			for (auto& gma : replicaGameModeAreas) {
+				if (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
+					int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+					if (sent >= 0) {
+						masterGameModeArea.dataUpdated = 0;
+						DEBUG_LOG(SCENET, "GameMode Sent %d bytes to %s", masterGameModeArea.size, mac2str(&gma.mac).c_str());
+					}
+				}
+			}
+		}
+
+		// Recv new Replica data
+		while (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+			SceNetEtherAddr sendermac;
+			s32_le senderport = ADHOC_GAMEMODE_PORT;
+			s32_le bufsz = GAMEMODE_BUFFER_SIZE;
+			int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
+			if (ret >= 0 && bufsz > 0) {
+				for (auto& gma : replicaGameModeAreas) {
+					if (IsMatch(gma.mac, sendermac)) {
+						DEBUG_LOG(SCENET, "GameMode Received %d bytes of new Data for Area [%s]", bufsz, mac2str(&sendermac).c_str());
+						memcpy(gma.data, gameModeBuffer, std::min(gma.size, bufsz));
+						gma.dataUpdated = 1;
+						gma.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
+						break;
+					}
+				}
+			}
+		}
+
+		// ReSchedule
+		CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL) - cyclesLate, gameModeNotifyEvent, userdata);
+		return;
+	}
+	INFO_LOG(SCENET, "GameMode Scheduler (%d) has finished", uid);
 }
 
 static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
@@ -221,6 +281,20 @@ int WaitAdhocctlState(AdhocctlRequest request, int state, int usec, const char* 
 	__KernelWaitCurThread(WAITTYPE_NET, uid, state, 0, false, reason);
 
 	// faked success
+	return 0;
+}
+
+int StartGameModeScheduler() {
+	if (gameModeSocket < 0)
+		return -1;
+
+	if (gameModeNotifyEvent < 0)
+		gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
+
+	INFO_LOG(SCENET, "GameMode Scheduler (%d) has started", gameModeSocket);
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | gameModeSocket;
+	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL), gameModeNotifyEvent, param);
+
 	return 0;
 }
 
@@ -720,7 +794,7 @@ void netAdhocValidateLoopMemory() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 5);
+	auto s = p.Section("sceNetAdhoc", 1, 6);
 	if (!s)
 		return;
 
@@ -785,6 +859,15 @@ void __NetAdhocDoState(PointerWrap &p) {
 		adhocctlNotifyEvent = -1;
 		adhocSocketNotifyEvent = -1;
 	}
+	if (s >= 6) {
+		Do(p, gameModeNotifyEvent);
+		if (gameModeNotifyEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(gameModeNotifyEvent, "__GameModeNotify", __GameModeNotify);
+		}
+	}
+	else {
+		gameModeNotifyEvent = -1;
+	}
 	
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -827,6 +910,7 @@ u32_le __CreateHLELoop(u32_le *loopAddr, const char *sceFuncName, const char *hl
 void __AdhocNotifInit() {
 	adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
+	gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
 
 	adhocctlRequests.clear();
 	adhocSocketRequests.clear();
@@ -1995,6 +2079,7 @@ u32 NetAdhocctl_Disconnect() {
 		// Multithreading Unlock
 		//peerlock.unlock();
 
+		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 		//hleCheckCurrentCallbacks();
@@ -2032,8 +2117,12 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int NetAdhocctl_Term() {
 	if (netAdhocctlInited) {
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED)
-			NetAdhocctl_Disconnect();
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) {
+			if (netAdhocGameModeEntered)
+				NetAdhocctl_ExitGameMode();
+			else
+				NetAdhocctl_Disconnect();
+		}
 
 		// Terminate Adhoc Threads
 		friendFinderRunning = false;
@@ -2060,6 +2149,7 @@ int NetAdhocctl_Term() {
 			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
 			threadAdhocID = 0;
 		}
+		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		netAdhocctlInited = false;
 	}
 
@@ -2170,7 +2260,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			buf->mac_addr = *maddr;
 			buf->flags = 0x0400;
 			buf->padding = 0;
-			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
+			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
 
 			// Success
 			retval = 0;
@@ -2184,7 +2274,8 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
 			if (peer != NULL) {
 				// Fake Receive Time
-				if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+				if (peer->last_recv != 0) 
+					peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 				//buf->next = 0;
 				buf->nickname = peer->nickname;
@@ -2244,10 +2335,16 @@ int NetAdhocctl_Create(const char* groupName) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
 					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
 					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
-					adhocctlState = ADHOCCTL_STATE_CONNECTED;
-					// Notify Event Handlers, Needed for the Nickname to be shown on the screen when success is faked
-					// Connected Event's mipscall need be executed before returning from sceNetAdhocctlCreate (or before the next sceNet function?)
-					__UpdateAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); 
+					if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+						adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+					}
+					else {
+						adhocctlState = ADHOCCTL_STATE_CONNECTED;
+						// Notify Event Handlers, Needed for the Nickname to be shown on the screen when success is faked
+						// Connected Event's mipscall need be executed before returning from sceNetAdhocctlCreate (or before the next sceNet function?)
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); 
+					}
 				}
 
 				// Free Network Lock
@@ -2295,6 +2392,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 		return -1;
 	}
 
+	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CREATE;
 	return NetAdhocctl_Create(groupName);
 }
@@ -2308,6 +2406,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 		return -1;
 	}
 
+	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CONNECT;
 	return NetAdhocctl_Create(groupName);
 }
@@ -2331,6 +2430,7 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 
 			// We can ignore minor connection process differences here
 			// TODO: Adhoc Server may need to be changed to differentiate between Host/Create and Join, otherwise it can't support multiple Host using the same Group name, thus causing one of the Host to be confused being treated as Join.
+			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 			adhocConnectionType = ADHOC_JOIN;
 			return NetAdhocctl_Create(grpName);
 		}
@@ -2344,35 +2444,93 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 }
 
 int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int num_members, u32 membersAddr, u32 timeout, int flag) {
-	SceNetEtherAddr* addrs = NULL; // List of participating MAC addresses (started from host)
-	if (Memory::IsValidAddress(membersAddr)) {
-		addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+
+	if (!Memory::IsValidAddress(membersAddr))
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	if (game_type <= 0 || game_type > 3 || num_members < 2 || num_members > 16 || (game_type == 1 && num_members > 4))
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	if (gameModeBuffer)
+		free(gameModeBuffer);
+	gameModeBuffer = (u8*)malloc(GAMEMODE_BUFFER_SIZE);
+
+	SceNetEtherAddr* addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr); // List of participating MAC addresses (started from host)
+	gameModeMacs.clear();
+	requiredGameModeMacs.clear();
+	for (int i = 0; i < num_members; i++) {
+		requiredGameModeMacs.push_back(*addrs);
+		DEBUG_LOG(SCENET, "GameMode macAddress#%d=%s", i, mac2str(addrs).c_str());
+		addrs++;
 	}
+	// Add local MAC (Host) first
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	gameModeMacs.push_back(localMac);
 
-	// TODO: Implement this
-
-	return 0;
+	// We have to wait for all the MACs to have joined to go into CONNECTED state
+	adhocctlCurrentMode = ADHOCCTL_MODE_GAMEMODE;
+	adhocConnectionType = ADHOC_CREATE;
+	netAdhocGameModeEntered = true;
+	return NetAdhocctl_Create(group_name);
 }
 
-// Connect to the Adhoc control game mode (as a Host)
+/**
+* Connect to the Adhoc control game mode (as a host)
+*
+* @param group_name - The name of the connection (maximum 8 alphanumeric characters).
+* @param game_type - Pass 1.
+* @param num_members - The total number of players (including the host).
+* @param membersmacAddr - A pointer to a list of the participating mac addresses, host first, then clients.
+* @param timeout - Timeout in microseconds.
+* @param flag - pass 0.
+*
+* @return 0 on success, < 0 on error.
+*/
 static int sceNetAdhocctlCreateEnterGameMode(const char * group_name, int game_type, int num_members, u32 membersAddr, int timeout, int flag) {
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameMode, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 
 	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
 }
 
-// Connect to the Adhoc control game mode (as a Client)
-static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *macAddr, int timeout, int flag) {
+/**
+* Connect to the Adhoc control game mode (as a client)
+*
+* @param group_name - The name of the connection (maximum 8 alphanumeric characters).
+* @param hostmacAddr - The mac address of the host.
+* @param timeout - Timeout in microseconds.
+* @param flag - pass 0.
+*
+* @return 0 on success, < 0 on error.
+*/
+static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *hostMac, int timeout, int flag) {
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlJoinEnterGameMode, SCENET, "UNTESTED sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)hostMac).c_str(), timeout, flag, currentMIPS->pc);
 
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i) at %08x", grpName, mac2str((SceNetEtherAddr*)macAddr).c_str(), timeout, flag, currentMIPS->pc);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
-	return 0;
+	if (!hostMac)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	if (gameModeBuffer)
+		free(gameModeBuffer);
+	gameModeBuffer = (u8*)malloc(GAMEMODE_BUFFER_SIZE);
+
+	// Add host mac first
+	gameModeMacs.push_back(*(SceNetEtherAddr*)hostMac);
+
+	adhocctlCurrentMode = ADHOCCTL_MODE_GAMEMODE;
+	adhocConnectionType = ADHOC_JOIN;
+	netAdhocGameModeEntered = true;
+	return NetAdhocctl_Create(group_name);
 }
 
 /**
@@ -2386,14 +2544,13 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 * @param flag Unused Bitflags
 * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_INVALID_ARG, ADHOCCTL_BUSY, ADHOCCTL_CHANNEL_NOT_AVAILABLE
 */
-int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, int min_members, int num_members, u32 membersAddr, u32 timeout, int flag)
-{
+int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, int min_members, int num_members, u32 membersAddr, u32 timeout, int flag) {
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (group_name)
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameModeMin, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 	// We don't really need the Minimum User Check
-	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag); //0;
+	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
 }
 
 int NetAdhoc_Term() {
@@ -2408,8 +2565,8 @@ int NetAdhoc_Term() {
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
 
-		// Delete Gamemode Buffer
-		//deleteAllGMB();
+		// Delete GameMode Buffers
+		deleteAllGMB();
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
@@ -3529,33 +3686,189 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-static int sceNetAdhocGameModeCreateMaster(u32 data, int size) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateMaster(%08x, %i) at %08x", data, size, currentMIPS->pc);
-	return 0;
+/**
+* Create own game object type data.
+*
+* @param dataAddr - A pointer to the game object data.
+* @param size - Size of the game data.
+*
+* @return 0 on success, < 0 on error.
+*/
+static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGameModeCreateMaster(%08x, %i) at %08x", dataAddr, size, currentMIPS->pc);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+
+	if (adhocctlCurrentMode != ADHOCCTL_MODE_GAMEMODE)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_IN_GAMEMODE, "not in gamemode");
+
+	if (!netAdhocGameModeEntered)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE, "not enter gamemode");
+
+	if (size < 0 || !Memory::IsValidAddress(dataAddr))
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	u8* data = (u8*)malloc(size);
+	if (data) {
+		Memory::Memcpy(data, dataAddr, size);
+		gameModeSocket = sceNetAdhocPdpCreate((const char*)&localMac, ADHOC_GAMEMODE_PORT, GAMEMODE_BUFFER_SIZE, 0);
+		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, localMac, data };
+		StartGameModeScheduler();
+	}
+
+	return 0; // returned an id just like CreateReplica? always return 0?
 }
 
-static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 data, int size) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateReplica(%s, %08x, %i) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), data, size, currentMIPS->pc);
-	return 0;
+/**
+* Create peer game object type data.
+*
+* @param mac - The mac address of the peer.
+* @param dataAddr - A pointer to the game object data.
+* @param size - Size of the game data.
+*
+* @return The id of the replica on success, < 0 on error.
+*/
+static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int size) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGameModeCreateReplica(%s, %08x, %i) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), dataAddr, size, currentMIPS->pc);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+
+	if (adhocctlCurrentMode != ADHOCCTL_MODE_GAMEMODE)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_IN_GAMEMODE, "not in gamemode");
+
+	if (!netAdhocGameModeEntered)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE, "not enter gamemode");
+
+	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr))
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	int maxid = 0;
+	auto it = std::find_if(replicaGameModeAreas.begin(), replicaGameModeAreas.end(),
+		[mac, &maxid](GameModeArea const& e) {
+			if (e.id > maxid) maxid = e.id;
+			return IsMatch(e.mac, mac);
+		});
+	// MAC address already existed!
+	if (it != replicaGameModeAreas.end()) {
+		WARN_LOG(SCENET, "sceNetAdhocGameModeCreateReplica - [%s] is already existed (id: %d)", mac2str((SceNetEtherAddr*)mac).c_str(), it->id);
+		return it->id;
+	}
+
+	int ret = 0;
+	u8* data = (u8*)malloc(size);
+	if (data) {
+		Memory::Memcpy(data, dataAddr, size);
+		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, GAMEMODE_BUFFER_SIZE, 0);
+		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, *(SceNetEtherAddr*)mac, data };
+		replicaGameModeAreas.push_back(gma);
+		ret = gma.id;
+	}
+	return hleLogSuccessInfoI(SCENET, ret, "success"); // valid id for replica started from 1?
 }
 
 static int sceNetAdhocGameModeUpdateMaster() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeUpdateMaster()");
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateMaster()");
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+
+	if (adhocctlCurrentMode != ADHOCCTL_MODE_GAMEMODE)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_IN_GAMEMODE, "not in gamemode");
+
+	if (!netAdhocGameModeEntered)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE, "not enter gamemode");
+
+	if (masterGameModeArea.data) {
+		Memory::Memcpy(masterGameModeArea.data, masterGameModeArea.addr, masterGameModeArea.size);
+		masterGameModeArea.dataUpdated = 1;
+		masterGameModeArea.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
+	}
+
 	return 0;
 }
 
 static int sceNetAdhocGameModeDeleteMaster() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeDeleteMaster()");
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGameModeDeleteMaster()");
+	if (isZeroMAC(&masterGameModeArea.mac))
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
+
+	if (masterGameModeArea.data) {
+		free(masterGameModeArea.data);
+	}
+	//sceNetAdhocPdpDelete(masterGameModeArea.socket, 0);
+	masterGameModeArea = { 0 };
+	
+	if (replicaGameModeAreas.size() <= 0) {
+		sceNetAdhocPdpDelete(gameModeSocket, 0);
+		gameModeSocket = (int)INVALID_SOCKET;
+	}
+	
 	return 0;
 }
 
 static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeUpdateReplica(%i, %08x)", id, infoAddr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateReplica(%i, %08x)", id, infoAddr);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+
+	if (adhocctlCurrentMode != ADHOCCTL_MODE_GAMEMODE)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_IN_GAMEMODE, "not in gamemode");
+
+	if (!netAdhocGameModeEntered)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE, "not enter gamemode");
+
+	auto it = std::find_if(replicaGameModeAreas.begin(), replicaGameModeAreas.end(),
+		[id](GameModeArea const& e) {
+			return e.id == id;
+		});
+
+	if (it == replicaGameModeAreas.end())
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
+
+	for (auto gma : replicaGameModeAreas) {
+		if (gma.id == id) {
+			if (Memory::IsValidAddress(infoAddr)) {
+				GameModeUpdateInfo* gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
+				if (gma.data && gma.dataUpdated) {
+					memcpy(Memory::GetPointer(gma.addr), gma.data, gma.size);
+					gma.dataUpdated = 0;
+					gmuinfo->updated = 1;
+				}
+				else {
+					gmuinfo->updated = 0;
+				}
+				gmuinfo->timeStamp = CoreTiming::GetGlobalTimeUsScaled();
+			}
+			break;
+		}
+	}
+
 	return 0;
 }
 
 static int sceNetAdhocGameModeDeleteReplica(int id) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeDeleteReplica(%i)", id);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGameModeDeleteReplica(%i)", id);
+	auto it = std::find_if(replicaGameModeAreas.begin(), replicaGameModeAreas.end(),
+		[id](GameModeArea const& e) {
+			return e.id == id;
+		});
+
+	if (it == replicaGameModeAreas.end())
+		return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
+
+	if (it->data) {
+		free(it->data);
+		it->data = nullptr;
+	}
+	//sceNetAdhocPdpDelete(it->socket, 0);
+	replicaGameModeAreas.erase(it);
+
+	if (replicaGameModeAreas.size() <= 0 && isZeroMAC(&masterGameModeArea.mac)) {
+		//sceNetAdhocPdpDelete(gameModeSocket, 0);
+		//gameModeSocket = (int)INVALID_SOCKET;
+	}
+
 	return 0;
 }
 
@@ -3605,7 +3918,7 @@ int NetAdhocMatching_Stop(int matchingId) {
 		// Multithreading Lock
 		peerlock.lock();
 
-		// Remove your own MAC, or All memebers, or don't remove at all or we should do this on MatchingDelete ?
+		// Remove your own MAC, or All members, or don't remove at all or we should do this on MatchingDelete ?
 		clearPeerList(item); //deleteAllMembers(item);
 
 		item->running = 0;
@@ -3787,9 +4100,9 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 					// Allocated Memory
 					if (context != NULL) {
 						// Create PDP Socket
-						SceNetEtherAddr localmac; getLocalMac(&localmac);
-						const char * mac = (const	char *)&localmac.data;
-						int socket = sceNetAdhocPdpCreate(mac, (uint32_t)port, rxbuflen, 0);
+						SceNetEtherAddr localmac; 
+						getLocalMac(&localmac);
+						int socket = sceNetAdhocPdpCreate((const char*)&localmac, (uint32_t)port, rxbuflen, 0);
 						// Created PDP Socket
 						if (socket > 0) {
 							// Clear Memory
@@ -4420,7 +4733,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Faking lastping
 									auto friendpeer = findFriend(&p2p->mac);
 									if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled();
+										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 									else
 										p2p->lastping = 0;
 
@@ -4440,7 +4753,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 									// Faking lastping
 									auto friendpeer = findFriend(&parentpeer->mac);
 									if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 									else
 										parentpeer->lastping = 0;
 
@@ -4462,7 +4775,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 										// Faking lastping
 										auto friendpeer = findFriend(&peer->mac);
 										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-											peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+											peer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
 										else
 											peer->lastping = 0;
 
@@ -4765,7 +5078,8 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 
 		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		if (flags != ADHOCCTL_EVENT_CONNECT || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0)
+		u64 now = (u64)(real_time_now() * 1000.0);
+		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || now - adhocctlStartTime > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {
@@ -4786,6 +5100,7 @@ void __NetTriggerCallbacks()
 				break;
 			case ADHOCCTL_EVENT_GAME:
 				adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+				delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
 				break;
 			case ADHOCCTL_EVENT_DISCOVER:
 				adhocctlState = ADHOCCTL_STATE_DISCOVER;
@@ -4895,17 +5210,41 @@ const HLEFunction sceNetAdhocMatching[] = {
 	{0X756E6F00, &WrapV_V<__NetMatchingCallbacks>,                     "__NetMatchingCallbacks",                 'v', ""         },
 };
 
+int NetAdhocctl_ExitGameMode() {
+	if (gameModeSocket > 0)
+		sceNetAdhocPdpDelete(gameModeSocket, 0);
+
+	deleteAllGMB();
+
+	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
+	netAdhocGameModeEntered = false;
+	return NetAdhocctl_Disconnect();
+}
+
 static int sceNetAdhocctlExitGameMode() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlExitGameMode()");
-	return 0;
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlExitGameMode()");
+	
+	return NetAdhocctl_ExitGameMode();
 }
 
 static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
-	SceNetAdhocctlGameModeInfo* gmInfo = NULL;
-	if (Memory::IsValidAddress(infoAddr)) gmInfo = (SceNetAdhocctlGameModeInfo*)Memory::GetPointer(infoAddr);
-	// TODO: Writes number of participants and each participating MAC address into infoAddr/gmInfo
+	if (!Memory::IsValidAddress(infoAddr))
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+
+	SceNetAdhocctlGameModeInfo* gmInfo = (SceNetAdhocctlGameModeInfo*)Memory::GetPointer(infoAddr);
+	// Writes number of participants and each participating MAC address into infoAddr/gmInfo
+	gmInfo->num = static_cast<s32_le>(gameModeMacs.size());
+	int i = 0;
+	for (auto& mac : gameModeMacs) {
+		INFO_LOG(SCENET, "GameMode macAddress#%d=%s", i, mac2str(&mac).c_str());
+		gmInfo->members[i++] = mac;
+		if (i >= ADHOCCTL_GAMEMODE_MAX_MEMBERS) 
+			break;
+	}
 
 	return 0;
 }
@@ -4957,12 +5296,12 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 						if (!excludeTimedout || peer->last_recv != 0) {
 							// Faking Last Receive Time
 							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].flags = 0x0400; //peer->ip_addr;
+							buf[discovered].flags = 0x0400;
 							buf[discovered].last_recv = peer->last_recv;
 							discovered++;
 
@@ -5050,8 +5389,8 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						buf[discovered].nickname = parameter.nickname;
 						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 						getLocalMac(&buf[discovered].mac_addr);
-						buf[discovered].flags = 0x0400; //addr.sin_addr.s_addr;
-						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
+						buf[discovered].flags = 0x0400;
+						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
 					}
 
 					// Peer Reference
@@ -5065,13 +5404,13 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						{
 							// Fake Receive Time
 							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //sceKernelGetSystemTimeWide();
+								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
 							buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 							buf[discovered].mac_addr = peer->mac_addr;
-							buf[discovered].flags = 0x0400; //peer->ip_addr;
+							buf[discovered].flags = 0x0400;
 							buf[discovered++].last_recv = peer->last_recv;
 						}
 					}

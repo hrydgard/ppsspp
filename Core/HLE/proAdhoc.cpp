@@ -63,7 +63,15 @@ SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
+int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
 int adhocConnectionType               = ADHOC_CONNECT;
+
+int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
+u8* gameModeBuffer                    = nullptr;
+GameModeArea masterGameModeArea;
+std::vector<GameModeArea> replicaGameModeAreas;
+std::vector<SceNetEtherAddr> requiredGameModeMacs;
+std::vector<SceNetEtherAddr> gameModeMacs;
 
 int actionAfterAdhocMipsCall;
 int actionAfterMatchingMipsCall;
@@ -225,6 +233,19 @@ SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC) {
 	return peer;
 }
 
+SceNetAdhocctlPeerInfo* findFriendByIP(uint32_t ip) {
+	// Friends Reference
+	SceNetAdhocctlPeerInfo* peer = friends;
+
+	// Iterate Friends
+	for (; peer != NULL; peer = peer->next) {
+		if (peer->ip_addr == ip) break;
+	}
+
+	// Return found friend
+	return peer;
+}
+
 int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeoutUS) {
 	fd_set readfds, writefds;
 	timeval tval;
@@ -357,6 +378,26 @@ void deleteAllAdhocSockets() {
 			adhocSockets[i] = NULL;
 		}
 	}
+}
+
+void deleteAllGMB() {
+	if (gameModeBuffer) {
+		free(gameModeBuffer);
+		gameModeBuffer = nullptr;
+	}
+	if (masterGameModeArea.data) {
+		free(masterGameModeArea.data);
+		masterGameModeArea = { 0 };
+	}
+	for (auto& it : replicaGameModeAreas) {
+		if (it.data) {
+			free(it.data);
+			it.data = nullptr;
+		}
+	}
+	replicaGameModeAreas.clear();
+	gameModeMacs.clear();
+	requiredGameModeMacs.clear();
 }
 
 void deleteFriendByIP(uint32_t ip) {
@@ -1365,19 +1406,30 @@ int friendFinder(){
 						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 
 						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
-						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-							setState(ADHOCCTL_STATE_GAMEMODE);
-							notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+						// Notify Event Handlers
+						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+							SceNetEtherAddr localMac;
+							getLocalMac(&localMac);
+							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+								[localMac](SceNetEtherAddr const& e) {
+									return IsMatch(e, localMac);
+								}) == gameModeMacs.end()) {
+								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
+								gameModeMacs.push_back(localMac);
+							}
+							else
+								WARN_LOG(SCENET, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
+
+							if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
+								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+							}
 						}
 						else {
-							setState(ADHOCCTL_STATE_CONNECTED);
+							//adhocctlState = ADHOCCTL_STATE_CONNECTED;
 							notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-						}*/
+						}
 
-						// Notify Event Handlers
-						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-						// Change State
-						//threadStatus = ADHOCCTL_STATE_CONNECTED;
 						// Give time a little time
 						//sceKernelDelayThread(adhocEventDelayMS * 1000);
 						//sleep_ms(adhocEventDelayMS);
@@ -1445,10 +1497,39 @@ int friendFinder(){
 						// Add User
 						addFriend(packet);
 
-						/* // Make sure GameMode participants are all joined (including self MAC)
-						if (adhocctlCurrentMode == PSP_ADHOCCTL_MODE_GAMEMODE) {
+						// Make sure GameMode participants are all joined (including self MAC)
+						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+								[packet](SceNetEtherAddr const& e) {
+									return IsMatch(e, packet->mac);
+								}) == gameModeMacs.end()) {
+								// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
+								SceNetEtherAddr localMac;
+								getLocalMac(&localMac);
+								auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+									[localMac](SceNetEtherAddr const& e) {
+										return IsMatch(e, localMac);
+									});
+								// Starting from our self the rest of new players will be added to the back
+								if (it != gameModeMacs.end()) {
+									gameModeMacs.push_back(packet->mac);
+								}
+								else {
+									it = gameModeMacs.begin() + 1;
+									gameModeMacs.insert(it, packet->mac);
+								}
+							}
+							else
+								WARN_LOG(SCENET, "GameMode Member [%s] Already Existed!", mac2str(&packet->mac).c_str());
+
 							// From JPCSP: Join complete when all the required MACs have joined
-						}*/
+							if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() >= requiredGameModeMacs.size()) {
+								// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
+								//gameModeMacs = requiredGameModeMacs;
+								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+							}
+						}
 
 						// Update HUD User Count
 						incoming = "";
@@ -1487,6 +1568,14 @@ int friendFinder(){
 
 						// Log Incoming Peer Delete Request
 						INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
+
+						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+							auto peer = findFriendByIP(packet->ip);
+							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
+								[peer](auto const& e) {
+									return IsMatch(e, peer->mac_addr);
+								}), gameModeMacs.end());
+						}*/
 
 						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
 						deleteFriendByIP(packet->ip);
@@ -1541,7 +1630,7 @@ int friendFinder(){
 							// Set group parameters
 							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
 							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
+							group->mode = adhocctlCurrentMode;
 
 							// Link into Group List
 							newnetworks = group;
@@ -1575,16 +1664,6 @@ int friendFinder(){
 
 					// Notify Event Handlers
 					notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-					//int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-					//{
-					//        // Active Handler
-					//        if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
-					//}
-					// Change State
-					//threadStatus = ADHOCCTL_STATE_DISCONNECTED;
-					// Give time a little time
-					//sceKernelDelayThread(adhocEventDelayMS * 1000);
-					//sleep_ms(adhocEventDelayMS);
 
 					// Move RX Buffer
 					memmove(rx, rx + 1, sizeof(rx) - 1);
