@@ -55,6 +55,7 @@ struct GPUStatistics {
 		// Never add a vtable :)
 		memset(this, 0, sizeof(*this));
 	}
+
 	void ResetFrame() {
 		numDrawCalls = 0;
 		numCachedDrawCalls = 0;
@@ -64,7 +65,9 @@ struct GPUStatistics {
 		numTrackedVertexArrays = 0;
 		numTextureInvalidations = 0;
 		numTextureInvalidationsByFramebuffer = 0;
+		numTexturesHashed = 0;
 		numTextureSwitches = 0;
+		numTextureDataBytesHashed = 0;
 		numShaderSwitches = 0;
 		numFlushes = 0;
 		numTexturesDecoded = 0;
@@ -88,6 +91,8 @@ struct GPUStatistics {
 	int numTrackedVertexArrays;
 	int numTextureInvalidations;
 	int numTextureInvalidationsByFramebuffer;
+	int numTexturesHashed;
+	int numTextureDataBytesHashed;
 	int numTextureSwitches;
 	int numShaderSwitches;
 	int numTexturesDecoded;

@@ -248,7 +248,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
-	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
+	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	size_t NumLoadedTextures() const {
@@ -312,6 +312,8 @@ protected:
 
 		const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+		gpuStats.numTextureDataBytesHashed += sizeInRAM;
 
 		if (Memory::IsValidAddress(addr + sizeInRAM)) {
 			return DoQuickTexHash(checkp, sizeInRAM);

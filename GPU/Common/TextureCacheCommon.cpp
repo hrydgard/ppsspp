@@ -737,24 +737,21 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	entry->numFrames = 0;
 }
 
-void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel) {
-	// Mask to ignore the Z memory mirrors if the address is in VRAM.
-	// These checks are mainly to reduce scanning all textures.
-
+void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
 	const u32 mirrorMask = 0x00600000;
-	const u32 address = channel == NOTIFY_FB_COLOR ? framebuffer->fb_address : framebuffer->z_address;
-	const u32 addr = Memory::IsVRAMAddress(address) ? (address & ~mirrorMask) : address;
-	const u32 bpp = (framebuffer->format == GE_FORMAT_8888 && channel == NOTIFY_FB_COLOR) ? 4 : 2;
-	const u32 stride = channel == NOTIFY_FB_COLOR ? framebuffer->fb_stride : framebuffer->z_stride;
+	const u32 fb_addr = framebuffer->fb_address;
+
+	const u32 z_addr = framebuffer->z_address & ~mirrorMask;  // Probably unnecessary.
+
+	const u32 fb_bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
+	const u32 z_bpp = 2;  // No other format exists.
+	const u32 fb_stride = framebuffer->fb_stride;
+	const u32 z_stride = framebuffer->z_stride;
 
 	// NOTE: Some games like Burnout massively misdetects the height of some framebuffers, leading to a lot of unnecessary invalidations.
 	// Let's only actually get rid of textures that cover the very start of the framebuffer.
-	const u32 endAddr = addr + stride * std::min((int)framebuffer->height, 16) * bpp;
-
-	const u64 cacheKey = (u64)addr << 32;
-	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
-	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = (u64)endAddr << 32;
+	const u32 fb_endAddr = fb_addr + fb_stride * std::min((int)framebuffer->height, 16) * fb_bpp;
+	const u32 z_endAddr = z_addr + z_stride * std::min((int)framebuffer->height, 16) * z_bpp;
 
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
@@ -765,16 +762,22 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 		std::vector<AttachCandidate> candidates;
 
-		// TODO: Rework this to not try to "apply" all matches, only the best one.
-		if (channel == FramebufferNotificationChannel::NOTIFY_FB_COLOR) {
-			// Color - no need to look in the mirrors.
-			for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				gpuStats.numTextureInvalidationsByFramebuffer++;
-			}
-		} else {
+		u64 cacheKey = (u64)fb_addr << 32;
+		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+		u64 cacheKeyEnd = (u64)fb_endAddr << 32;
+
+		// Color - no need to look in the mirrors.
+		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
+			it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+			gpuStats.numTextureInvalidationsByFramebuffer++;
+		}
+
+		if (z_stride != 0) {
 			// Depth. Just look at the range, but in each mirror (0x04200000 and 0x04600000).
 			// Games don't use 0x04400000 as far as I know - it has no swizzle effect so kinda useless.
+			cacheKey = (u64)z_addr << 32;
+			cacheKeyEnd = (u64)z_endAddr << 32;
 			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
 				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
 				gpuStats.numTextureInvalidationsByFramebuffer++;
@@ -1759,8 +1762,9 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		// This is an active signal from the game that something in the texture cache may have changed.
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	} else {
-		// Do a quick check to see if the current texture is in range.
+		// Do a quick check to see if the current texture could potentially be in range.
 		const u32 currentAddr = gstate.getTextureAddress(0);
+		// TODO: This can be made tighter.
 		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
