@@ -83,13 +83,8 @@ public:
 		push_ = push;
 	}
 
-	void ForgetLastTexture() override {
-		lastBoundTexture = nullptr;
-	}
-
-	void InvalidateLastTexture() override {
-		lastBoundTexture = nullptr;
-	}
+	void ForgetLastTexture() override {}
+	void InvalidateLastTexture() override {}
 
 	void NotifyConfigChanged() override;
 
@@ -132,8 +127,6 @@ private:
 	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;
-
-	VulkanTexture *lastBoundTexture = nullptr;
 
 	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;

@@ -1589,6 +1589,7 @@ void TextureCacheCommon::ApplyTexture() {
 		InvalidateLastTexture();
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
+			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
