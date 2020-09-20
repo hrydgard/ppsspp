@@ -47,7 +47,6 @@
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
-	lastBoundTexture = nullptr;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	SetupTextureDecoder();
@@ -537,8 +536,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
-
-	lastBoundTexture = entry->textureName;
 	
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -595,13 +592,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
-
-	// This will rebind it, but that's okay.
-	// Need to actually bind it now - it might only have gotten bound in the init phase.
-	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, entry->textureName);
-
-	SamplerCacheKey samplerKey = GetSamplingParams(entry->maxLevel, entry->addr);
-	ApplySamplingParams(samplerKey);
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

@@ -85,7 +85,7 @@ private:
 
 	TextureScalerGLES scaler;
 
-	GLRTexture *lastBoundTexture;
+	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DepalShaderCacheGLES *depalShaderCache_;

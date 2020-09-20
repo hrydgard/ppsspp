@@ -1644,6 +1644,7 @@ void TextureCacheCommon::ApplyTexture() {
 	if (nextNeedsRebuild_) {
 		_assert_(!entry->texturePtr);
 		BuildTexture(entry);
+		InvalidateLastTexture();
 	}
 
 	entry->lastFrame = gpuStats.numFlips;
