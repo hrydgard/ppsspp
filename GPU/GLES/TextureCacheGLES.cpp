@@ -730,7 +730,9 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 		gstate.texbufwidth[0] = gstate.texbufwidth[level];
 	}
 
-	SetTexture(true);
+	InvalidateLastTexture();
+	SetTexture();
+
 	if (!nextTexture_) {
 		if (nextFramebufferTexture_) {
 			VirtualFramebuffer *vfb = nextFramebufferTexture_;

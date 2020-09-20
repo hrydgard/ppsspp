@@ -698,6 +698,8 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 
 	*bytesRead = vertexCount * dec_->VertexSize();
+
+	// Check that we have enough vertices to form the requested primitive.
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
 		return;
 

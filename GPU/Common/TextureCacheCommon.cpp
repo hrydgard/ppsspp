@@ -321,11 +321,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 	}
 }
 
-TexCacheEntry *TextureCacheCommon::SetTexture(bool force) {
-	if (force) {
-		InvalidateLastTexture();
-	}
-
+TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u8 level = 0;
 	if (IsFakeMipmapChange())
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
@@ -1592,6 +1588,7 @@ void TextureCacheCommon::ApplyTexture() {
 		// Maybe we bound a framebuffer?
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
+			InvalidateLastTexture();
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
