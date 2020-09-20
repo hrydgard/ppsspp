@@ -1759,8 +1759,9 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		// This is an active signal from the game that something in the texture cache may have changed.
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	} else {
-		// Do a quick check to see if the current texture is in range.
+		// Do a quick check to see if the current texture could potentially be in range.
 		const u32 currentAddr = gstate.getTextureAddress(0);
+		// TODO: This can be made tighter.
 		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
