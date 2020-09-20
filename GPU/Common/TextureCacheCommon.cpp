@@ -1588,6 +1588,7 @@ void TextureCacheCommon::ApplyTexture() {
 		// Maybe we bound a framebuffer?
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
+			InvalidateLastTexture();
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}

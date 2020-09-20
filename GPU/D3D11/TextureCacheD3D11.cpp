@@ -145,6 +145,7 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 void TextureCacheD3D11::ForgetLastTexture() {
 	InvalidateLastTexture();
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+
 	ID3D11ShaderResourceView *nullTex[2]{};
 	context_->PSSetShaderResources(0, 2, nullTex);
 }
