@@ -1797,7 +1797,6 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 		return it->second.fbo;
 	}
 
-	textureCache_->ForgetLastTexture();
 	bool z_stencil = reason == TempFBO::STENCIL;
 	char name[128];
 	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w, h, z_stencil ? "_depth" : "");

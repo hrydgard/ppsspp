@@ -55,7 +55,6 @@ public:
 
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 	void InvalidateLastTexture() override {
 		lastBoundTexture = nullptr;
