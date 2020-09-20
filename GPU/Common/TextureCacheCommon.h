@@ -313,6 +313,8 @@ protected:
 		const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
 
+		gpuStats.numTextureDataBytesHashed += sizeInRAM;
+
 		if (Memory::IsValidAddress(addr + sizeInRAM)) {
 			return DoQuickTexHash(checkp, sizeInRAM);
 		} else {
