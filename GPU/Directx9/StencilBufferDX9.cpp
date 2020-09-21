@@ -185,7 +185,6 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	dxstate.colorMask.set(false, false, false, true);
 	dxstate.stencilTest.enable();
 	dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
@@ -197,7 +196,6 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	}
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
@@ -255,6 +253,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	dxstate.stencilMask.set(0xFF);
 	dxstate.viewport.restore();
 	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }
 

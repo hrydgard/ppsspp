@@ -872,7 +872,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			entry->vkTex = nullptr;
 		}
 	}
-	lastBoundTexture = entry->vkTex;
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	if (replacer_.Enabled() && !replaced.Valid()) {
@@ -997,8 +996,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
-
-	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

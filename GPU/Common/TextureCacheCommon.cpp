@@ -338,13 +338,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
-		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
-		// TODO: Better assumption?
+		// TODO: Better assumption? Doesn't really matter, these are invalid.
 		format = GE_TFMT_5650;
 	}
-	bool hasClut = gstate.isTextureFormatIndexed();
 
-	// Ignore uncached/kernel when caching.
+	bool hasClut = gstate.isTextureFormatIndexed();
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -446,7 +444,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		if (match) {
-			// TODO: Mark the entry reliable if it's been safe for long enough?
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
@@ -1589,9 +1586,10 @@ void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
+		InvalidateLastTexture();
 		if (nextFramebufferTexture_) {
 			bool depth = Memory::IsDepthTexVRAMAddress(gstate.getTextureAddress(0));
-			InvalidateLastTexture();
+			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), depth ? NOTIFY_FB_DEPTH : NOTIFY_FB_COLOR);
 			nextFramebufferTexture_ = nullptr;
 		}
@@ -1644,6 +1642,7 @@ void TextureCacheCommon::ApplyTexture() {
 	if (nextNeedsRebuild_) {
 		_assert_(!entry->texturePtr);
 		BuildTexture(entry);
+		InvalidateLastTexture();
 	}
 
 	entry->lastFrame = gpuStats.numFlips;

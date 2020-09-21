@@ -199,7 +199,6 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
 	context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
 	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -244,5 +243,6 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 
 	tex->Release();
 	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

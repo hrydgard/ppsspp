@@ -330,7 +330,7 @@ void DrawEngineD3D11::DoFlush() {
 	int curRenderStepId = draw_->GetCurrentStepId();
 	if (lastRenderStepId_ != curRenderStepId) {
 		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		lastRenderStepId_ = curRenderStepId;
 	}
 
