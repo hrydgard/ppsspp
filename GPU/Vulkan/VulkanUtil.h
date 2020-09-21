@@ -163,7 +163,7 @@ private:
 		VkDescriptorPool descPool;
 		int numDescriptors;
 	};
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	struct PipelineKey {
 		VkShaderModule module;

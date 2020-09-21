@@ -463,7 +463,9 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 
 void VulkanComputeShaderManager::DestroyDeviceObjects() {
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		if (frameData_[i].descPool) {
+			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		}
 	}
 	if (descriptorSetLayout_) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
