@@ -352,6 +352,7 @@ typedef struct SceNetAdhocPtpStat {
 typedef struct AdhocSocket {
 	s32_le type; // SOCK_PDP/SOCK_PTP
 	s32_le flags; // Socket Alert Flags
+	s32_le alerted_flags; // Socket Alerted Flags
 	u32 send_timeout; // default connect timeout
 	u32 recv_timeout; // default accept timeout
 	s32 retry_count; // combined with timeout to be used on keepalive

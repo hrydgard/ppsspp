@@ -349,6 +349,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTRECV;
+			sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
@@ -394,6 +395,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 					// FIXME: Should we clear the flag after alert signaled?
 					sock->flags &= ~ADHOC_F_ALERTSEND;
+					sock->alerted_flags |= ADHOC_F_ALERTSEND;
 					break;
 				}
 				else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -440,6 +442,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTSEND;
+			sock->alerted_flags |= ADHOC_F_ALERTSEND;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -487,6 +490,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTRECV;
+			sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -536,6 +540,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTACCEPT;
+			sock->alerted_flags |= ADHOC_F_ALERTACCEPT;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -582,6 +587,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTCONNECT;
+			sock->alerted_flags |= ADHOC_F_ALERTCONNECT;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -615,6 +621,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
 			sock->flags &= ~ADHOC_F_ALERTFLUSH;
+			sock->alerted_flags |= ADHOC_F_ALERTFLUSH;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -1595,6 +1602,7 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	s32_le flg = flag & ADHOC_F_ALERTALL;
 
 	adhocSockets[id - 1]->flags = flg;
+	adhocSockets[id - 1]->alerted_flags = 0;
 
 	return 0;
 }
@@ -1630,7 +1638,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 			}
 			if (fd > maxfd) maxfd = fd;
 			if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
-			if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds); // Does Data can always be sent regardless of events bitmask?
+			if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds);
 			//if (sds[i].events & ADHOC_EV_ALERT) 
 			FD_SET(fd, &exceptfds); // Does Alert can be raised on revents regardless of events bitmask?
 		}
@@ -1653,16 +1661,17 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 				if (FD_ISSET(fd, &readfds))
 					sds[i].revents |= ADHOC_EV_RECV;
 				if (FD_ISSET(fd, &writefds))
-					sds[i].revents |= ADHOC_EV_SEND; // Does Data can always be sent regardless of events bitmask?
+					sds[i].revents |= ADHOC_EV_SEND;				
+				if (FD_ISSET(fd, &exceptfds) || sock->alerted_flags)
+					sds[i].revents |= ADHOC_EV_ALERT;
 				sds[i].revents &= sds[i].events;
-				if (FD_ISSET(fd, &exceptfds))
-					sds[i].revents |= ADHOC_EV_ALERT; // Does Alert can be raised on revents regardless of events bitmask?
 				if (sds[i].revents) affectedsockets++;
 
 				if (sock->flags & ADHOC_F_ALERTPOLL) {
 					affectedsockets = ERROR_NET_ADHOC_SOCKET_ALERTED;
 					// FIXME: Should we clear the flag after alert signaled?
                     sock->flags &= ~ADHOC_F_ALERTPOLL;
+					sock->alerted_flags |= ADHOC_F_ALERTPOLL;
 					break;
 				}
 			}
