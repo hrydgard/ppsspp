@@ -205,6 +205,13 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->z_address = (gstate.getDepthBufRawAddress() & 0x3FFFFFFF) | 0x04000000;
 	params->z_stride = gstate.DepthBufStride();
 
+	if (params->z_address == params->fb_address) {
+		// Probably indicates that the game doesn't care about Z for this VFB.
+		// Let's avoid matching it for Z copies and other shenanigans.
+		params->z_address = 0;
+		params->z_stride = 0;
+	}
+
 	params->fmt = gstate.FrameBufFormat();
 
 	params->isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
@@ -265,7 +272,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->format = params.fmt;
 			}
 
-			if (vfb->z_address == 0 && vfb->z_stride == 0) {
+			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
 				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
 				// we just recreate it immediately.
 				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
@@ -347,14 +354,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->fb_stride = params.fb_stride;
 		vfb->z_address = params.z_address;
 		vfb->z_stride = params.z_stride;
-
-		if (vfb->z_address == vfb->fb_address) {
-			// Probably indicates that the game doesn't care about Z for this VFB.
-			// Let's avoid matching it for Z copies.
-			vfb->z_address = 0;
-			vfb->z_stride = 0;
-		}
-
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->newWidth = drawing_width;
