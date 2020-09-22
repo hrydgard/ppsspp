@@ -506,7 +506,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		entry = entryNew;
-		if (g_Config.bTextureBackoffCache) {
+		if (Memory::IsKernelAddress(texaddr)) {
+			// It's the builtin font texture.
+			entry->status = TexCacheEntry::STATUS_RELIABLE;
+		} else if (g_Config.bTextureBackoffCache) {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
@@ -707,7 +710,8 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 		ReleaseTexture(entry, true);
 		entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 	}
-	// Clear the reliable bit if set.
+
+	// Mark as hashing, if marked as reliable.
 	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
 	}
@@ -723,7 +727,6 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 		}
 	}
 
-	entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
 		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
 			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
