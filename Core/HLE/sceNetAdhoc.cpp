@@ -1005,11 +1005,12 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	if (!Memory::IsValidAddress(ptrToStatus))
 		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
-	// Return Thread Status
-	Memory::Write_U32(NetAdhocctl_GetState(), ptrToStatus);
-	// Return Success
-	return hleLogSuccessVerboseI(SCENET, 0);
+	int state = NetAdhocctl_GetState();
+	// Output Adhocctl State
+	Memory::Write_U32(state, ptrToStatus);
 
+	// Return Success
+	return hleLogSuccessVerboseI(SCENET, 0, "state = %d", state);
 }
 
 /**
@@ -2603,7 +2604,7 @@ int sceNetAdhocTerm() {
 }
 
 static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
-	VERBOSE_LOG(SCENET, "UNTESTED sceNetAdhocGetPdpStat(%08x, %08x) at %08x", structSize, structAddr, currentMIPS->pc);
+	VERBOSE_LOG(SCENET, "sceNetAdhocGetPdpStat(%08x, %08x) at %08x", structSize, structAddr, currentMIPS->pc);
 	
 	// Library is initialized
 	if (netAdhocInited)
@@ -2621,6 +2622,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 		{
 			// Return Required Size
 			*buflen = sizeof(SceNetAdhocPdpStat) * socketcount;
+			VERBOSE_LOG(SCENET, "PDP Socket Count: %d", socketcount);
 
 			// Success
 			return 0;
@@ -2657,6 +2659,8 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// Link Previous Element
 					if (i > 0) 
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPdpStat));
+
+					VERBOSE_LOG(SCENET, "PDP Socket Id: %d, LPort: %d, RecvSbCC: %d", buf[i].id, buf[i].lport, buf[i].rcv_sb_cc);
 
 					// Increment Counter
 					i++;
@@ -2703,6 +2707,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		if (buflen != NULL && buf == NULL) {
 			// Return Required Size
 			*buflen = sizeof(SceNetAdhocPtpStat) * socketcount;
+			VERBOSE_LOG(SCENET, "PTP Socket Count: %d", socketcount);
 			
 			// Success
 			return 0;
@@ -2737,6 +2742,8 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					// Link previous Element to this one
 					if (i > 0)
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPtpStat));
+
+					VERBOSE_LOG(SCENET, "PTP Socket Id: %d, LPort: %d, RecvSbCC: %d", buf[i].id, buf[i].lport, buf[i].rcv_sb_cc);
 					
 					// Increment Counter
 					i++;
