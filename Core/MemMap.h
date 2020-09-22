@@ -261,6 +261,10 @@ inline bool IsVRAMAddress(const u32 address) {
 inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0x3FE00000) == 0x04200000) || ((address & 0x3FE00000) == 0x04600000);
 }
+inline bool IsKernelAddress(const u32 address) {
+	return ((address & 0x3F800000) == 0x08000000);
+}
+
 bool IsScratchpadAddress(const u32 address);
 
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -
