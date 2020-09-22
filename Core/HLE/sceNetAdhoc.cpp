@@ -2063,6 +2063,11 @@ u32 NetAdhocctl_Disconnect() {
 					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
 					WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl disconnect");
 				}
+				else {
+					// Set Disconnected State
+					//adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+					return ERROR_NET_ADHOCCTL_BUSY;
+				}
 			}
 
 			// Free Network Lock
@@ -2094,23 +2099,21 @@ u32 NetAdhocctl_Disconnect() {
 		//hleCheckCurrentCallbacks();
 
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
-		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED || iResult != SOCKET_ERROR)
-			hleDelayResult(0, "give time to init/cleanup", us);
-
 		return 0;
 	}
 
 	// Library uninitialized
-	return 0; //ERROR_NET_ADHOC_NOT_INITIALIZED; // Wipeout Pulse will repeatedly calling this function if returned value is ERROR_NET_ADHOC_NOT_INITIALIZED
+	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
 static u32 sceNetAdhocctlDisconnect() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
 	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
-	INFO_LOG(SCENET, "sceNetAdhocctlDisconnect() at %08x [group=%s]", currentMIPS->pc, grpName);
+	int ret = NetAdhocctl_Disconnect();
+	INFO_LOG(SCENET, "%08x=sceNetAdhocctlDisconnect() at %08x [group=%s]", ret, currentMIPS->pc, grpName);
 
-	return NetAdhocctl_Disconnect();
+	return ret;
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
