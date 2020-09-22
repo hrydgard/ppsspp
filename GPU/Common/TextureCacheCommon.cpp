@@ -571,10 +571,9 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 
 	FramebufferNotificationChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? FramebufferNotificationChannel::NOTIFY_FB_DEPTH : FramebufferNotificationChannel::NOTIFY_FB_COLOR;
 
-	auto framebuffers = framebufferManager_->Framebuffers();
+	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
-	for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
-		auto framebuffer = framebuffers[i];
+	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match = MatchFramebuffer(entry, framebuffer, texAddrOffset, channel);
 		switch (match.match) {
 		case FramebufferMatch::VALID:
@@ -1076,9 +1075,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			static const u32 MAX_CLUT_OFFSET = 4096;
 
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
-			auto framebuffers = framebufferManager_->Framebuffers();
-			for (size_t i = 0, n = framebuffers.size(); i < n; ++i) {
-				auto framebuffer = framebuffers[i];
+			const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
+			for (VirtualFramebuffer *framebuffer : framebuffers) {
 				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
 				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
 				u32 offset = clutFramebufAddr - fb_address;
