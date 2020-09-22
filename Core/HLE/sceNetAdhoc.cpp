@@ -2115,11 +2115,14 @@ static u32 sceNetAdhocctlDisconnect() {
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
+	if (!netAdhocctlInited)
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "adhocctl not initialized");
+
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlDelHandler(%d)", handlerID);
+		INFO_LOG(SCENET, "sceNetAdhocctlDelHandler(%d)", handlerID);
 	} else {
-		ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlDelHandler(%d): Invalid Handler ID", handlerID);
+		WARN_LOG(SCENET, "sceNetAdhocctlDelHandler(%d): Invalid Handler ID", handlerID);
 	}
 
 	return 0;
