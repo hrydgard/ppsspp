@@ -1867,8 +1867,18 @@ uint16_t getLocalPort(int sock) {
 	return ntohs(localAddr.sin_port);
 }
 
+u_long getAvailToRecv(int sock) {
+	u_long n = 0; // Typical MTU size is 1500
+#if defined(_WIN32) // May not be available on all platform
+	ioctlsocket(sock, FIONREAD, &n);
+#else
+	ioctl(sock, FIONREAD, &n);
+#endif
+	return n;
+}
+
 int getSockMaxSize(int udpsock) {
-	int n = 1500; // Typical MTU size as default
+	int n = PSP_ADHOC_PDP_MTU; // Typical MTU size is 1500
 #if defined(SO_MAX_MSG_SIZE) // May not be available on all platform
 	socklen_t m = sizeof(n);
 	getsockopt(udpsock, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&n, &m);
@@ -1877,7 +1887,7 @@ int getSockMaxSize(int udpsock) {
 }
 
 int getSockBufferSize(int sock, int opt) { // opt = SO_RCVBUF/SO_SNDBUF
-	int n = 16384;
+	int n = PSP_ADHOC_PDP_MFS; // 16384;
 	socklen_t m = sizeof(n);
 	getsockopt(sock, SOL_SOCKET, opt, (char *)&n, &m); // in linux the value is twice of the value being set using setsockopt
 	return (n/2);
