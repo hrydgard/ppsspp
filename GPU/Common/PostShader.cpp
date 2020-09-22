@@ -213,6 +213,25 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 	return backwards;
 }
 
+std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names) {
+	std::vector<const ShaderInfo *> fullChain;
+	for (auto shaderName : names) {
+		if (shaderName == "Off")
+			break;
+		auto shaderChain = GetPostShaderChain(shaderName);
+		fullChain.insert(fullChain.end(), shaderChain.begin(), shaderChain.end());
+	}
+	return fullChain;
+}
+
+bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain) {
+	for (auto shaderInfo : chain) {
+		if (shaderInfo->requires60fps)
+			return true;
+	}
+	return false;
+}
+
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {
 	return shaderInfo;
 }

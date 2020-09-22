@@ -950,7 +950,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::PostShader:
 		{
-			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
 			if (op.PostShaderUniform.shader < shaderChain.size()) {
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
 				if (shaderName != "Off")
@@ -961,7 +961,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::PostShaderFromMemory:
 		{
-			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
 			if (Memory::IsValidAddress(op.addr) && op.PostShaderUniform.shader < shaderChain.size()) {
 				union {
 					float f;

@@ -210,9 +210,9 @@ static std::string ReadShaderSrc(const std::string &filename) {
 // Note: called on resize and settings changes.
 bool PresentationCommon::UpdatePostShader() {
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	DestroyPostShader();
@@ -754,9 +754,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa) {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	bool firstIsUpscalingFilter = shaderInfo.empty() ? false : shaderInfo.front()->isUpscalingFilter;
