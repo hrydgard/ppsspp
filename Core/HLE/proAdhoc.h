@@ -329,22 +329,22 @@ typedef struct SceNetAdhocPollSd{
 // PDP Socket Status
 typedef struct SceNetAdhocPdpStat {
 	u32_le next; 
-	s32_le id;
+	s32_le id; // posix socket id
 	SceNetEtherAddr laddr;
 	u16_le lport;
-	u32_le rcv_sb_cc;
+	u32_le rcv_sb_cc; // Obscure The Aftermath will check if this is 0 or not before calling PdpRecv, Might to be number of bytes available to be Received?
 } PACK SceNetAdhocPdpStat;
 
 // PTP Socket Status
 typedef struct SceNetAdhocPtpStat {
 	u32_le next; // Changed the pointer to u32
-	s32_le id;
+	s32_le id; // posix socket id
 	SceNetEtherAddr laddr;
 	SceNetEtherAddr paddr;
 	u16_le lport;
 	u16_le pport;
-	s32_le snd_sb_cc;
-	s32_le rcv_sb_cc;
+	s32_le snd_sb_cc; // Number of bytes existed in buffer to be sent/flushed?
+	s32_le rcv_sb_cc; // Number of bytes available in buffer to be received?
 	s32_le state;
 } PACK SceNetAdhocPtpStat;
 
@@ -1234,6 +1234,11 @@ uint32_t getLocalIp(int sock);
  * Check if an IP (big-endian/network order) is Private or Public IP
  */
 bool isPrivateIP(uint32_t ip);
+
+/*
+ * Get Number of bytes available in buffer to be Received
+ */
+u_long getAvailToRecv(int sock);
 
 /*
  * Get UDP Socket Max Message Size

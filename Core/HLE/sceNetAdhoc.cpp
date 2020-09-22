@@ -1051,9 +1051,9 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if (usocket != INVALID_SOCKET) {
-					// Change socket buffer size when necessary
-					if (getSockBufferSize(usocket, SO_SNDBUF) < bufferSize) setSockBufferSize(usocket, SO_SNDBUF, bufferSize);
-					if (getSockBufferSize(usocket, SO_RCVBUF) < bufferSize) setSockBufferSize(usocket, SO_RCVBUF, bufferSize);
+					// Change socket buffer size, unlike TCP, UDP need to be Received in full size to prevent leftover data getting discarded/lost, so we need to use the exact buffer size the game want/expects.
+					setSockBufferSize(usocket, SO_SNDBUF, bufferSize);
+					setSockBufferSize(usocket, SO_RCVBUF, bufferSize);
 
 					// Enable KeepAlive
 					setSockKeepAlive(usocket, true);
@@ -1106,7 +1106,6 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								internal->data.pdp.id = usocket;
 								internal->data.pdp.laddr = *saddr;
 								internal->data.pdp.lport = port; //getLocalPort(usocket) - portOffset;
-								internal->data.pdp.rcv_sb_cc = bufferSize;
 
 								// Link Socket to Translator ID
 								adhocSockets[i] = internal;
@@ -1238,8 +1237,6 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 							// Apply Send Timeout Settings to Socket
 							if (timeout > 0) 
 								setSockTimeout(pdpsocket.id, SO_SNDTIMEO, timeout);
-
-							int maxlen = getSockMaxSize(pdpsocket.id);
 
 							// Single Target
 							if (!isBroadcastMAC(daddr)) {
@@ -2651,6 +2648,9 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
 
+					// Set available bytes to be received
+					buf[i].rcv_sb_cc = getAvailToRecv(sock->data.pdp.id);
+
 					// Write End of List Reference
 					buf[i].next = 0;
 
@@ -2727,6 +2727,9 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
+
+					// Set available bytes to be received
+					buf[i].rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
 					
 					// Write End of List Reference
 					buf[i].next = 0;
@@ -2864,9 +2867,6 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								internal->data.ptp.lport = sport;
 								internal->data.ptp.pport = dport;
 
-								// Set Buffer Size
-								internal->data.ptp.rcv_sb_cc = bufsize;
-
 								// Link PTP Socket
 								adhocSockets[i] = internal;
 
@@ -2961,11 +2961,9 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Copy Socket Descriptor to Structure
 					internal->data.ptp.id = newsocket;
 
-					// Set Buffer Size
-					if (getSockBufferSize(newsocket, SO_RCVBUF) < ptpsocket.rcv_sb_cc) setSockBufferSize(newsocket, SO_RCVBUF, ptpsocket.rcv_sb_cc);
-					if (getSockBufferSize(newsocket, SO_SNDBUF) < ptpsocket.snd_sb_cc) setSockBufferSize(newsocket, SO_SNDBUF, ptpsocket.snd_sb_cc);
-					internal->data.ptp.rcv_sb_cc = ptpsocket.rcv_sb_cc;
-					internal->data.ptp.snd_sb_cc = ptpsocket.snd_sb_cc;
+					// Set Default Buffer Size
+					if (getSockBufferSize(newsocket, SO_RCVBUF) < PSP_ADHOC_PTP_MSS) setSockBufferSize(newsocket, SO_RCVBUF, PSP_ADHOC_PTP_MSS);
+					if (getSockBufferSize(newsocket, SO_SNDBUF) < PSP_ADHOC_PTP_MSS) setSockBufferSize(newsocket, SO_SNDBUF, PSP_ADHOC_PTP_MSS);
 
 					// Copy Local Address Data to Structure
 					getLocalMac(&internal->data.ptp.laddr);
@@ -3375,9 +3373,6 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 									// Flag Socket as Listener
 									internal->data.ptp.state = ADHOC_PTP_STATE_LISTEN;
-
-									// Set Buffer Size
-									internal->data.ptp.rcv_sb_cc = bufsize;
 
 									// Link PTP Socket
 									adhocSockets[i] = internal;
