@@ -1052,9 +1052,12 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if (usocket != INVALID_SOCKET) {
-					// Change socket buffer size, unlike TCP, UDP need to be Received in full size to prevent leftover data getting discarded/lost, so we need to use the exact buffer size the game want/expects.
-					setSockBufferSize(usocket, SO_SNDBUF, bufferSize);
-					setSockBufferSize(usocket, SO_RCVBUF, bufferSize);
+					// Change socket buffer size.
+					int pdpbufsize = std::max(bufferSize, PSP_ADHOC_PDP_MFS); //bufferSize*10;
+					// Send Buffer should be smaller than Recv Buffer to prevent faster device from flooding slower device too much.
+					setSockBufferSize(usocket, SO_SNDBUF, pdpbufsize);
+					// Recv Buffer should be equal or larger than Send Buffer. Using larger Recv Buffer might helped reduces dropped packets during a slowdown, but too large may cause slow performance on Warriors Orochi 2.
+					setSockBufferSize(usocket, SO_RCVBUF, pdpbufsize*10);
 
 					// Enable KeepAlive
 					setSockKeepAlive(usocket, true);
@@ -2653,8 +2656,12 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
 
-					// Set available bytes to be received
-					buf[i].rcv_sb_cc = getAvailToRecv(sock->data.pdp.id);
+					// Set available bytes to be received. With FIOREAD There might be lingering 1 byte in recv buffer when remote peer's socket got closed
+					u32 avail = 0;
+					if (IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+						avail = getAvailToRecv(sock->data.pdp.id);
+					}
+					buf[i].rcv_sb_cc = avail;
 
 					// Write End of List Reference
 					buf[i].next = 0;
@@ -2811,9 +2818,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 				// Valid Socket produced
 				if (tcpsocket > 0) {
-					// Change socket buffer size when necessary
-					if (getSockBufferSize(tcpsocket, SO_SNDBUF) < bufsize) setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize);
-					if (getSockBufferSize(tcpsocket, SO_RCVBUF) < bufsize) setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize);
+					// Change socket buffer size to be consistent on all platforms.
+					int ptpbufsize = std::max(bufsize, PSP_ADHOC_PTP_MSS);
+					setSockBufferSize(tcpsocket, SO_SNDBUF, ptpbufsize);
+					setSockBufferSize(tcpsocket, SO_RCVBUF, ptpbufsize*10);
 
 					// Enable KeepAlive
 					setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
@@ -2972,8 +2980,8 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					internal->data.ptp.id = newsocket;
 
 					// Set Default Buffer Size
-					if (getSockBufferSize(newsocket, SO_RCVBUF) < PSP_ADHOC_PTP_MSS) setSockBufferSize(newsocket, SO_RCVBUF, PSP_ADHOC_PTP_MSS);
-					if (getSockBufferSize(newsocket, SO_SNDBUF) < PSP_ADHOC_PTP_MSS) setSockBufferSize(newsocket, SO_SNDBUF, PSP_ADHOC_PTP_MSS);
+					setSockBufferSize(newsocket, SO_SNDBUF, PSP_ADHOC_PTP_MSS);
+					setSockBufferSize(newsocket, SO_RCVBUF, PSP_ADHOC_PTP_MSS*10);
 
 					// Copy Local Address Data to Structure
 					getLocalMac(&internal->data.ptp.laddr);
@@ -3316,9 +3324,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 				// Valid Socket produced
 				if (tcpsocket > 0) {
-					// Change socket buffer size when necessary
-					if (getSockBufferSize(tcpsocket, SO_SNDBUF) < bufsize) setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize);
-					if (getSockBufferSize(tcpsocket, SO_RCVBUF) < bufsize) setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize);
+					// Change socket buffer size to be consistent on all platforms.
+					int ptpbufsize = std::max(bufsize, PSP_ADHOC_PTP_MSS);
+					setSockBufferSize(tcpsocket, SO_SNDBUF, ptpbufsize);
+					setSockBufferSize(tcpsocket, SO_RCVBUF, ptpbufsize*10);
 
 					// Enable KeepAlive
 					setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
