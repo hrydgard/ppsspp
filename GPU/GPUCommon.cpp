@@ -1231,7 +1231,7 @@ void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -1253,7 +1253,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 			UpdatePC(currentList->pc, target - 4);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		} else {
-			ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+			ERROR_LOG(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 			UpdateState(GPUSTATE_ERROR);
 		}
 	}
@@ -1264,7 +1264,7 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -1297,7 +1297,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	}
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-		ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
+		ERROR_LOG(G3D, "CALL: Stack full!");
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;
@@ -1310,7 +1310,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 	if (currentList->stackptr == 0) {
-		DEBUG_LOG_REPORT(G3D, "RET: Stack empty!");
+		DEBUG_LOG(G3D, "RET: Stack empty!");
 	} else {
 		auto &stackEntry = currentList->stack[--currentList->stackptr];
 		gstate_c.offsetAddr = stackEntry.offsetAddr;
