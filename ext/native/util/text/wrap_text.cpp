@@ -130,8 +130,8 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 		scanForNewline_ = false;
 	} else {
 		// We may have appended a newline - check.
-		size_t pos = out_.find_last_of("\n");
-		if (pos != out_.npos && pos >= lastLineStart_) {
+		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
+		if (pos != out_.npos) {
 			lastLineStart_ += pos;
 		}
 	}
