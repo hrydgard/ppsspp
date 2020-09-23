@@ -22,10 +22,8 @@
 #include "Debugger/Debugger_MemoryDlg.h"
 #include "Common/CommonWindows.h"
 
-#define MAX_CPUCOUNT 1
-
-extern CDisasm *disasmWindow[MAX_CPUCOUNT];
-extern CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
+extern CDisasm *disasmWindow;
+extern CMemoryDlg *memoryWindow;
 
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"

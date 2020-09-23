@@ -88,11 +88,11 @@ extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #if PPSSPP_API(ANY_GL)
-CGEDebugger* geDebuggerWindow = 0;
+CGEDebugger* geDebuggerWindow = nullptr;
 #endif
 
-CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
-CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
+CDisasm *disasmWindow = nullptr;
+CMemoryDlg *memoryWindow = nullptr;
 
 static std::string langRegion;
 static std::string osName;
@@ -678,7 +678,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			accel = hAccelTable;
 			break;
 		case WINDOW_CPUDEBUGGER:
-			wnd = disasmWindow[0] ? disasmWindow[0]->GetDlgHandle() : 0;
+			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : 0;
 			accel = hDebugAccelTable;
 			break;
 		case WINDOW_GEDEBUGGER:

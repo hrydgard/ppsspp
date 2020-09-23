@@ -10,8 +10,6 @@
 #include "../../Core/HLE/sceKernelThread.h"
 #include "util/text/utf8.h"
 
-static const int numCPUs = 1;
-
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
@@ -375,22 +373,18 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 void CtrlBreakpointList::gotoBreakpointAddress(int itemIndex)
 {
 	bool isMemory;
-	int index = getBreakpointIndex(itemIndex,isMemory);
-	if (index == -1) return;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1)
+		return;
 
-	if (isMemory)
-	{
+	if (isMemory) {
 		u32 address = displayedMemChecks_[index].start;
-			
-		for (int i=0; i<numCPUs; i++)
-			if (memoryWindow[i])
-				memoryWindow[i]->Goto(address);
+		if (memoryWindow)
+			memoryWindow->Goto(address);
 	} else {
 		u32 address = displayedBreakPoints_[index].addr;
-		
-		for (int i=0; i<numCPUs; i++)
-			if (disasmWindow[i])
-				disasmWindow[i]->Goto(address);
+		if (disasmWindow)
+			disasmWindow->Goto(address);
 	}
 }
 
@@ -413,8 +407,7 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 int CtrlBreakpointList::getTotalBreakpointCount()
 {
 	int count = (int)CBreakPoints::GetMemChecks().size();
-	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++)
-	{
+	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++) {
 		if (!displayedBreakPoints_[i].temporary) count++;
 	}
 

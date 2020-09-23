@@ -29,8 +29,8 @@ private:
 	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
-	bool keepStatusBarText;
-	bool hideBottomTabs;
+	bool keepStatusBarText = false;
+	bool hideBottomTabs = false;
 
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
@@ -40,17 +40,14 @@ private:
 	void stepOver();
 	void stepOut();
 	void runToLine();
+
 public:
-	int index; //helper 
+	int index;
 
 	CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu);
 	~CDisasm();
-	//
-	// --- tools ---
-	//
-	
-	virtual void Update()
-	{
+
+	virtual void Update() {
 		UpdateDialog(true);
 		SetDebugMode(Core_IsStepping(), false);
 		breakpointList->reloadBreakpoints();
@@ -58,7 +55,7 @@ public:
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
 	void SetDebugMode(bool _bDebug, bool switchPC);
-	// show dialog
+
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
 };
