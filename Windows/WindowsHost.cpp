@@ -72,8 +72,6 @@
 #include "Windows/main.h"
 #include "UI/OnScreenDisplay.h"
 
-static const int numCPUs = 1;
-
 float g_mouseDeltaX = 0;
 float g_mouseDeltaY = 0;
 
@@ -201,21 +199,18 @@ void WindowsHost::UpdateUI() {
 }
 
 void WindowsHost::UpdateMemView() {
-	for (int i = 0; i < numCPUs; i++)
-		if (memoryWindow[i])
-			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
+	if (memoryWindow)
+		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
 }
 
 void WindowsHost::UpdateDisassembly() {
-	for (int i = 0; i < numCPUs; i++)
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
 }
 
 void WindowsHost::SetDebugMode(bool mode) {
-	for (int i = 0; i < numCPUs; i++)
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
 void WindowsHost::PollControllers() {

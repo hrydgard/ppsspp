@@ -80,7 +80,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 
 	if (allocator && !dedicatedAllocation) {
 		allocator_ = allocator;
-		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
+		// ok to use the tag like this, because the lifetime of the VulkanImage exceeds that of the allocation.
+		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag().c_str());
 		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
 			ERROR_LOG(G3D, "Image memory allocation failed (mem_reqs.size=%d, typebits=%08x", (int)mem_reqs.size, (int)mem_reqs.memoryTypeBits);
 			// Destructor will take care of the image.

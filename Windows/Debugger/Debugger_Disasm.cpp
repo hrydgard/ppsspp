@@ -31,12 +31,10 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-static const int numCPUs = 1;
-
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
-const int TEMP_BREAKPOINT_WAIT_MS = 100;
+static const int TEMP_BREAKPOINT_WAIT_MS = 100;
 
-FAR WNDPROC DefGotoEditProc;
+static FAR WNDPROC DefGotoEditProc;
 
 LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -66,7 +64,7 @@ LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 	return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
 }
 
-FAR WNDPROC DefFuncListProc;
+static FAR WNDPROC DefFuncListProc;
 
 LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -94,8 +92,6 @@ LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
 	lastTicks = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
-	keepStatusBarText = false;
-	hideBottomTabs = false;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 
@@ -113,8 +109,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 	// init status bar
 	statusBarWnd = CreateWindowEx(0, STATUSCLASSNAME, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hDlg, (HMENU)IDC_DISASMSTATUSBAR, _hInstance, NULL);
-	if (g_Config.bDisplayStatusBar == false)
-	{
+	if (g_Config.bDisplayStatusBar == false) {
 		ShowWindow(statusBarWnd,SW_HIDE);
 	}
 
@@ -853,22 +848,33 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	}
 }
 
-void CDisasm::NotifyMapLoaded()
-{
-	if (g_symbolMap)
-		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+void CDisasm::Show(bool bShow) {
+	if (deferredSymbolFill_ && bShow) {
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+		deferredSymbolFill_ = false;
+	}
+	Dialog::Show(bShow);
+}
+
+void CDisasm::NotifyMapLoaded() {
+	if (m_bShowState == SW_SHOW) {
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+	} else {
+		deferredSymbolFill_ = true;
+	}
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->clearFunctions();
 	ptr->redraw();
 }
 
 void CDisasm::Goto(u32 addr)
 {
-	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->gotoAddr(addr);
 	SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->redraw();
-	
 }
 
 void CDisasm::UpdateDialog(bool _bComplete)
@@ -897,9 +903,8 @@ void CDisasm::UpdateDialog(bool _bComplete)
 		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 	}
 	// Update Register Dialog
-	for (int i=0; i<numCPUs; i++)
-		if (memoryWindow[i])
-			memoryWindow[i]->Update();
+	if (memoryWindow)
+		memoryWindow->Update();
 
 	// repaint windows at the bottom. only the memory view needs to be forced to
 	// redraw. all others are updated manually

@@ -9,8 +9,6 @@
 
 #include <algorithm>
 
-static const int numCPUs = 1;
-
 const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
 const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;
@@ -308,9 +306,8 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,POPUP_SUBMENU_ID_DISPLAYLISTVIEW),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
-			for (int i=0; i<numCPUs; i++)
-				if (memoryWindow[i])
-					memoryWindow[i]->Goto(curAddress);
+			if (memoryWindow)
+				memoryWindow->Goto(curAddress);
 			break;
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();

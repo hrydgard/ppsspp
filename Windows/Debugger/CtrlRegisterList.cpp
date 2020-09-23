@@ -19,8 +19,6 @@
 
 #include "Windows/main.h"
 
-static const int numCPUs = 1;
-
 extern HMENU g_hPopupMenus;
 
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
@@ -520,9 +518,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,val,0);
 			break;
 		case ID_REGLIST_GOTOINDISASM:
-			for (int i=0; i<numCPUs; i++)
-				if (disasmWindow[i])
-					disasmWindow[i]->Goto(val);
+			if (disasmWindow)
+				disasmWindow->Goto(val);
 			break;
 		case ID_REGLIST_COPYVALUE:
 			copyRegisterValue();

@@ -536,23 +536,23 @@ namespace MainWindow
 	}
 
 	void CreateDebugWindows() {
-		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-		DialogManager::AddDlg(disasmWindow[0]);
-		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
+		disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(disasmWindow);
+		disasmWindow->Show(g_Config.bShowDebuggerOnLoad);
 
 #if PPSSPP_API(ANY_GL)
 		geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
 		DialogManager::AddDlg(geDebuggerWindow);
 #endif
-		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-		DialogManager::AddDlg(memoryWindow[0]);
+		memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(memoryWindow);
 	}
 
 	void DestroyDebugWindows() {
-		DialogManager::RemoveDlg(disasmWindow[0]);
-		if (disasmWindow[0])
-			delete disasmWindow[0];
-		disasmWindow[0] = 0;
+		DialogManager::RemoveDlg(disasmWindow);
+		if (disasmWindow)
+			delete disasmWindow;
+		disasmWindow = 0;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
@@ -561,10 +561,10 @@ namespace MainWindow
 		geDebuggerWindow = 0;
 #endif
 
-		DialogManager::RemoveDlg(memoryWindow[0]);
-		if (memoryWindow[0])
-			delete memoryWindow[0];
-		memoryWindow[0] = 0;
+		DialogManager::RemoveDlg(memoryWindow);
+		if (memoryWindow)
+			delete memoryWindow;
+		memoryWindow = 0;
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -678,10 +678,8 @@ namespace MainWindow
 			break;
 
 		case WM_TOUCH:
-			{
-				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
-				return 0;
-			}
+			touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
+			return 0;
 
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -725,8 +723,8 @@ namespace MainWindow
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools
-						if (disasmWindow[0])
-							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
+						if (disasmWindow)
+							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
 							Core_EnableStepping(pause);
 					}
@@ -928,13 +926,13 @@ namespace MainWindow
 			break;
 
 		case WM_USER + 1:
-			if (disasmWindow[0])
-				disasmWindow[0]->NotifyMapLoaded();
-			if (memoryWindow[0])
-				memoryWindow[0]->NotifyMapLoaded();
+			if (disasmWindow)
+				disasmWindow->NotifyMapLoaded();
+			if (memoryWindow)
+				memoryWindow->NotifyMapLoaded();
 
-			if (disasmWindow[0])
-				disasmWindow[0]->UpdateDialog();
+			if (disasmWindow)
+				disasmWindow->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;
