@@ -8,7 +8,7 @@ Dialog::Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent)
 {
 	m_hInstance = _hInstance;
 	m_hParent = _hParent;
-	m_hResource=res;
+	m_hResource = res;
 	m_bValid = true;
 	Create();
 }
@@ -32,11 +32,11 @@ void Dialog::Destroy()
 
 void Dialog::Show(bool _bShow)
 {
-	ShowWindow(m_hDlg, _bShow ? SW_NORMAL : SW_HIDE);
+	m_bShowState = _bShow ? SW_NORMAL : SW_HIDE;
+	ShowWindow(m_hDlg, m_bShowState);
 	if (_bShow)
 		BringWindowToTop(m_hDlg);
 }
-
 
 INT_PTR Dialog::DlgProcStatic(HWND hdlg, UINT message, WPARAM wParam, LPARAM lParam)
 {

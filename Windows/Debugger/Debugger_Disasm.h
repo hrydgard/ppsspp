@@ -16,7 +16,8 @@
 class CDisasm : public Dialog
 {
 private:
-	int minWidth,minHeight;
+	int minWidth;
+	int minHeight;
 	DebugInterface *cpu;
 	u64 lastTicks;
 
@@ -31,8 +32,9 @@ private:
 	std::vector<MemCheck> displayedMemChecks_;
 	bool keepStatusBarText = false;
 	bool hideBottomTabs = false;
+	bool deferredSymbolFill_ = false;
 
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void updateThreadLabel(bool clear);
@@ -47,7 +49,9 @@ public:
 	CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu);
 	~CDisasm();
 
-	virtual void Update() {
+	void Show(bool bShow) override;
+
+	void Update() override {
 		UpdateDialog(true);
 		SetDebugMode(Core_IsStepping(), false);
 		breakpointList->reloadBreakpoints();

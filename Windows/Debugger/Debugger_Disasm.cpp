@@ -848,22 +848,33 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	}
 }
 
-void CDisasm::NotifyMapLoaded()
-{
-	if (g_symbolMap)
-		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
-	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+void CDisasm::Show(bool bShow) {
+	if (deferredSymbolFill_ && bShow) {
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+		deferredSymbolFill_ = false;
+	}
+	Dialog::Show(bShow);
+}
+
+void CDisasm::NotifyMapLoaded() {
+	if (m_bShowState == SW_SHOW) {
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+	} else {
+		deferredSymbolFill_ = true;
+	}
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->clearFunctions();
 	ptr->redraw();
 }
 
 void CDisasm::Goto(u32 addr)
 {
-	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->gotoAddr(addr);
 	SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->redraw();
-	
 }
 
 void CDisasm::UpdateDialog(bool _bComplete)
