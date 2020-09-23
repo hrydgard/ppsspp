@@ -30,10 +30,10 @@ public:
 
 	void Destroy();
 
-	void SetTag(const std::string &tag) {
+	void SetTag(const char *tag) {
 		tag_ = tag;
 	}
-	std::string Tag() const {
+	const std::string &Tag() const {
 		return tag_;
 	}
 	void Touch();

@@ -149,7 +149,8 @@ public:
 	}
 
 	// May return ALLOCATE_FAILED if the allocation fails.
-	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const std::string &tag);
+	// NOTE: Lifetime of the string tag points to must exceed that of the allocation.
+	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const char *tag);
 
 	// Crashes on a double or misfree.
 	void Free(VkDeviceMemory deviceMemory, size_t offset);
@@ -177,9 +178,9 @@ private:
 	static const uint32_t UNDEFINED_MEMORY_TYPE = -1;
 
 	struct UsageInfo {
-		std::string tag;
 		double created;
 		double touched;
+		const char *tag;
 	};
 
 	struct Slab {
@@ -212,7 +213,7 @@ private:
 	}
 
 	bool AllocateSlab(VkDeviceSize minBytes, int memoryTypeIndex);
-	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag);
+	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const char *tag);
 	void Decimate();
 	void DoTouch(VkDeviceMemory deviceMemory, size_t offset);
 	void ExecuteFree(FreeInfo *userdata);

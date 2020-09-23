@@ -191,7 +191,7 @@ void VulkanDeviceAllocator::Destroy() {
 	destroyed_ = true;
 }
 
-size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const std::string &tag) {
+size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const char *tag) {
 	_assert_(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
@@ -244,7 +244,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	return ALLOCATE_FAILED;
 }
 
-bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag) {
+bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const char *tag) {
 	_assert_(!destroyed_);
 	bool matched = true;
 
@@ -278,7 +278,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
-	slab.tags[start] = { tag, time_now_d(), 0.0 };
+	slab.tags[start] = { time_now_d(), 0.0, tag };
 	slab.totalUsage += blocks;
 	return true;
 }
@@ -442,7 +442,7 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 		const auto &slab = slabs_[i];
 
 		bool hasOldAllocs = false;
-		for (auto it : slab.tags) {
+		for (auto &it : slab.tags) {
 			const auto info = it.second;
 			double touchedAge = now - info.touched;
 			if (touchedAge >= OLD_AGE) {
@@ -453,12 +453,12 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 
 		if (hasOldAllocs) {
 			NOTICE_LOG(G3D, "Slab %d usage:", (int)i);
-			for (auto it : slab.tags) {
+			for (auto &it : slab.tags) {
 				const auto info = it.second;
 
 				double createAge = now - info.created;
 				double touchedAge = now - info.touched;
-				NOTICE_LOG(G3D, "  * %s (created %fs ago, used %fs ago)", info.tag.c_str(), createAge, touchedAge);
+				NOTICE_LOG(G3D, "  * %s (created %fs ago, used %fs ago)", info.tag, createAge, touchedAge);
 			}
 		}
 	}

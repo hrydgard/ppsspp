@@ -1753,6 +1753,9 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	// They could invalidate inside the texture, let's just give a bit of leeway.
+	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
+	// humongous unrealistic value.
+
 	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
 
 	addr &= 0x3FFFFFFF;
@@ -1785,7 +1788,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		u32 texAddr = iter->second->addr;
 		u32 texEnd = iter->second->addr + iter->second->sizeInRAM;
 
-		if (texAddr < addr_end && addr < texEnd) {
+		// Quick check for overlap. Yes the check is right.
+		if (addr < texEnd && addr_end > texAddr) {
 			if (iter->second->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 				iter->second->SetHashStatus(TexCacheEntry::STATUS_HASHING);
 			}
