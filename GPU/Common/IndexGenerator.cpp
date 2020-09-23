@@ -17,6 +17,13 @@
 
 #include <cstring>
 
+#include "CPUDetect.h"
+#include "Common.h"
+
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
 #include "IndexGenerator.h"
 
 // Points don't need indexing...
@@ -82,12 +89,47 @@ void IndexGenerator::AddList(int numVerts, bool clockwise) {
 	}
 }
 
+inline __m128i mm_set_epi16_backwards(short w0, short w1, short w2, short w3, short w4, short w5, short w6, short w7) {
+	return _mm_set_epi16(w7, w6, w5, w4, w3, w2, w1, w0);
+}
+
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	int wind = clockwise ? 1 : 2;
-	const int numTris = numVerts - 2;
+	int numTris = numVerts - 2;
 	u16 *outInds = inds_;
 	int ibase = index_;
-	size_t numPairs = numTris / 2;
+
+	int remainingTris = numTris;
+#ifdef _M_SSE
+	// In an SSE2 register we can fit 8 16-bit integers.
+	// However, we need to output a multiple of 3 indices.
+	// The first such multiple is 24, which means we'll generate 24 indices per cycle,
+	// which corresponds to 8 triangles. That's pretty cool.
+
+	int numChunks = numTris / 8;
+	if (numChunks) {
+		__m128i ibase8 = _mm_set1_epi16(ibase);
+		__m128i increment = _mm_set1_epi16(8);
+		// TODO: Precompute two sets of these depending on wind, and just load directly.
+		__m128i offsets0 = mm_set_epi16_backwards(0, 0 + wind, (wind ^ 3), /**/  1, 1 + (wind ^ 3), 1 + wind, /**/ 2, 2 + wind);
+		__m128i offsets1 = mm_set_epi16_backwards(2 + (wind ^ 3), /**/  3, 3 + (wind ^ 3), 3 + wind, /**/ 4, 4 + wind, 4 + (wind ^ 3), /**/ 5);
+		__m128i offsets2 = mm_set_epi16_backwards(5 + (wind ^ 3), 5 + wind, /**/  6, 6 + wind, 6 + (wind ^ 3), /**/ 7, 7 + (wind ^ 3), 7 + wind);
+		__m128i *dst = (__m128i *)outInds;
+		for (int i = 0; i < numChunks; i++) {
+			_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
+			_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
+			_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
+			ibase8 = _mm_add_epi16(ibase8, increment);
+			dst += 3;
+		}
+		remainingTris -= numChunks * 8;
+		outInds += numChunks * 24;
+		ibase += numChunks * 8;
+	}
+	// wind doesn't need to be updated, an even number of triangles have been drawn.
+#endif
+
+	size_t numPairs = remainingTris / 2;
 	while (numPairs > 0) {
 		*outInds++ = ibase;
 		*outInds++ = ibase + wind;
@@ -95,6 +137,8 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		*outInds++ = ibase + 1;
 		*outInds++ = ibase + 1 + (wind ^ 3);
 		*outInds++ = ibase + 1 + wind;
+		// *outInds++ = ibase + 2;
+		// *outInds++ = ibase + 2 + wind;
 		ibase += 2;
 		numPairs--;
 	}
