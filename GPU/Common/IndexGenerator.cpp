@@ -17,13 +17,21 @@
 
 #include <cstring>
 
+#include "ppsspp_config.h"
 #include "CPUDetect.h"
 #include "Common.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
+#if PPSSPP_ARCH(ARM_NEON)
 
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
 #include "IndexGenerator.h"
 
 // Points don't need indexing...
@@ -95,6 +103,28 @@ inline __m128i mm_set_epi16_backwards(short w0, short w1, short w2, short w3, sh
 }
 #endif
 
+alignas(16) static const u16 offsets_clockwise[24] = {
+	0, (u16)(0 + 1), (u16)(0 + 2),
+	1, (u16)(1 + 2), (u16)(1 + 1),
+	2, (u16)(2 + 1), (u16)(2 + 2),
+	3, (u16)(3 + 2), (u16)(3 + 1),
+	4, (u16)(4 + 1), (u16)(4 + 2),
+	5, (u16)(5 + 2), (u16)(5 + 1),
+	6, (u16)(6 + 1), (u16)(6 + 2),
+	7, (u16)(7 + 2), (u16)(7 + 1),
+};
+
+alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
+	0, (u16)(0 + 2), (u16)(0 + 1),
+	1, (u16)(1 + 1), (u16)(1 + 2),
+	2, (u16)(2 + 2), (u16)(2 + 1),
+	3, (u16)(3 + 1), (u16)(3 + 2),
+	4, (u16)(4 + 2), (u16)(4 + 1),
+	5, (u16)(5 + 1), (u16)(5 + 2),
+	6, (u16)(6 + 2), (u16)(6 + 1),
+	7, (u16)(7 + 1), (u16)(7 + 2),
+};
+
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	int wind = clockwise ? 1 : 2;
 	int numTris = numVerts - 2;
@@ -108,14 +138,16 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	// The first such multiple is 24, which means we'll generate 24 indices per cycle,
 	// which corresponds to 8 triangles. That's pretty cool.
 
+	// TODO: Overshooting wouldn't be so bad here - maybe better than entering the narrow loop?
 	int numChunks = numTris / 8;
 	if (numChunks) {
 		__m128i ibase8 = _mm_set1_epi16(ibase);
 		__m128i increment = _mm_set1_epi16(8);
+		const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
 		// TODO: Precompute two sets of these depending on wind, and just load directly.
-		__m128i offsets0 = mm_set_epi16_backwards(0, 0 + wind, (wind ^ 3), /**/  1, 1 + (wind ^ 3), 1 + wind, /**/ 2, 2 + wind);
-		__m128i offsets1 = mm_set_epi16_backwards(2 + (wind ^ 3), /**/  3, 3 + (wind ^ 3), 3 + wind, /**/ 4, 4 + wind, 4 + (wind ^ 3), /**/ 5);
-		__m128i offsets2 = mm_set_epi16_backwards(5 + (wind ^ 3), 5 + wind, /**/  6, 6 + wind, 6 + (wind ^ 3), /**/ 7, 7 + (wind ^ 3), 7 + wind);
+		__m128i offsets0 = _mm_load_si128(offsets);
+		__m128i offsets1 = _mm_load_si128(offsets + 1);
+		__m128i offsets2 = _mm_load_si128(offsets + 2);
 		__m128i *dst = (__m128i *)outInds;
 		for (int i = 0; i < numChunks; i++) {
 			_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
@@ -129,6 +161,29 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		ibase += numChunks * 8;
 	}
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
+#elif PPSSPP_ARCH(ARM_NEON)
+	int numChunks = numTris / 8;
+	if (numChunks) {
+		uint16x8_t ibase8 = vdupq_n_u16(ibase);
+		uint16x8_t increment = vdupq_n_u16(8);
+		const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
+
+		// TODO: Precompute two sets of these depending on wind, and just load directly.
+		uint16x8_t offsets0 = vld1q_u16(offsets);
+		uint16x8_t offsets1 = vld1q_u16(offsets + 8);
+		uint16x8_t offsets2 = vld1q_u16(offsets + 16);
+		uint16x8_t *dst = (uint16x8_t *)outInds;
+		for (int i = 0; i < numChunks; i++) {
+			vst1q_u16(outInds, vaddq_u16(ibase8, offsets0));
+			vst1q_u16(outInds + 8, vaddq_u16(ibase8, offsets1));
+			vst1q_u16(outInds + 16, vaddq_u16(ibase8, offsets2));
+			ibase8 = vaddq_u16(ibase8, increment);
+			dst += 3;
+			outInds += 24;
+		}
+		remainingTris -= numChunks * 8;
+		ibase += numChunks * 8;
+	}
 #endif
 
 	size_t numPairs = remainingTris / 2;
