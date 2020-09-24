@@ -120,12 +120,8 @@ alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
 };
 
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
-	int wind = clockwise ? 1 : 2;
 	int numTris = numVerts - 2;
-	u16 *outInds = inds_;
-	int ibase = index_;
 
-	int remainingTris = numTris;
 #ifdef _M_SSE
 	// In an SSE2 register we can fit 8 16-bit integers.
 	// However, we need to output a multiple of 3 indices.
@@ -135,46 +131,45 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	// We allow ourselves to write some extra indices to avoid the fallback loop.
 	// That's alright as we're appending to a buffer - they will get overwritten anyway.
 	int numChunks = (numTris + 7) / 8;
-	if (numChunks) {
-		__m128i ibase8 = _mm_set1_epi16(ibase);
-		__m128i increment = _mm_set1_epi16(8);
-		const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
-		__m128i offsets0 = _mm_load_si128(offsets);
-		__m128i offsets1 = _mm_load_si128(offsets + 1);
-		__m128i offsets2 = _mm_load_si128(offsets + 2);
-		__m128i *dst = (__m128i *)outInds;
-		for (int i = 0; i < numChunks; i++) {
-			_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
-			_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
-			_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
-			ibase8 = _mm_add_epi16(ibase8, increment);
-			dst += 3;
-		}
-		outInds += numTris * 3;
+	__m128i ibase8 = _mm_set1_epi16(index_);
+	__m128i increment = _mm_set1_epi16(8);
+	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
+	__m128i offsets0 = _mm_load_si128(offsets);
+	__m128i offsets1 = _mm_load_si128(offsets + 1);
+	__m128i offsets2 = _mm_load_si128(offsets + 2);
+	__m128i *dst = (__m128i *)inds_;
+	for (int i = 0; i < numChunks; i++) {
+		_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
+		_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
+		_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
+		ibase8 = _mm_add_epi16(ibase8, increment);
+		dst += 3;
 	}
+	inds_ += numTris * 3;
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
 #elif PPSSPP_ARCH(ARM_NEON)
 	int numChunks = (numTris + 7) / 8;
-	if (numChunks) {
-		uint16x8_t ibase8 = vdupq_n_u16(ibase);
-		uint16x8_t increment = vdupq_n_u16(8);
-		const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
-		uint16x8_t offsets0 = vld1q_u16(offsets);
-		uint16x8_t offsets1 = vld1q_u16(offsets + 8);
-		uint16x8_t offsets2 = vld1q_u16(offsets + 16);
-		u16 *dst = outInds;
-		for (int i = 0; i < numChunks; i++) {
-			vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
-			vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
-			vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
-			ibase8 = vaddq_u16(ibase8, increment);
-			dst += 3 * 8;
-		}
-		outInds += numTris * 3;
+	uint16x8_t ibase8 = vdupq_n_u16(index_);
+	uint16x8_t increment = vdupq_n_u16(8);
+	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
+	uint16x8_t offsets0 = vld1q_u16(offsets);
+	uint16x8_t offsets1 = vld1q_u16(offsets + 8);
+	uint16x8_t offsets2 = vld1q_u16(offsets + 16);
+	u16 *dst = inds_;
+	for (int i = 0; i < numChunks; i++) {
+		vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
+		vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
+		vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
+		ibase8 = vaddq_u16(ibase8, increment);
+		dst += 3 * 8;
 	}
+	inds_ += numTris * 3;
 #else
 	// Slow fallback loop.
-	size_t numPairs = remainingTris / 2;
+	int wind = clockwise ? 1 : 2;
+	int ibase = index_;
+	size_t numPairs = numTris / 2;
+	u16 *outInds = inds_;
 	while (numPairs > 0) {
 		*outInds++ = ibase;
 		*outInds++ = ibase + wind;
@@ -191,9 +186,9 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		wind ^= 3;  // toggle between 1 and 2
 		*outInds++ = ibase + wind;
 	}
+	inds_ = outInds;
 #endif
 
-	inds_ = outInds;
 	index_ += numVerts;
 	if (numTris > 0)
 		count_ += numTris * 3;
