@@ -260,10 +260,9 @@ SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth
 
 	// Kill any mipmapping settings.
 	key.mipEnable = false;
-	key.minFilt &= 1;
-	key.mipFilt = 0;
-	key.magFilt &= 1;
+	key.mipFilt = false;
 	key.aniso = 0.0;
+	key.maxLevel = 0.0f;
 
 	// Often the framebuffer will not match the texture size. We'll wrap/clamp in the shader in that case.
 	int w = gstate.getTextureWidth(0);
