@@ -89,9 +89,11 @@ void IndexGenerator::AddList(int numVerts, bool clockwise) {
 	}
 }
 
+#ifdef _M_SSE
 inline __m128i mm_set_epi16_backwards(short w0, short w1, short w2, short w3, short w4, short w5, short w6, short w7) {
 	return _mm_set_epi16(w7, w6, w5, w4, w3, w2, w1, w0);
 }
+#endif
 
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	int wind = clockwise ? 1 : 2;
