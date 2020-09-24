@@ -138,8 +138,9 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	// The first such multiple is 24, which means we'll generate 24 indices per cycle,
 	// which corresponds to 8 triangles. That's pretty cool.
 
-	// TODO: Overshooting wouldn't be so bad here - maybe better than entering the narrow loop?
-	int numChunks = numTris / 8;
+	// We allow ourselves to write some extra indices to avoid the fallback loop.
+	// That's alright as we're appending to a buffer - they will get overwritten anyway.
+	int numChunks = (numTris + 7) / 8;
 	if (numChunks) {
 		__m128i ibase8 = _mm_set1_epi16(ibase);
 		__m128i increment = _mm_set1_epi16(8);
@@ -156,13 +157,11 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 			ibase8 = _mm_add_epi16(ibase8, increment);
 			dst += 3;
 		}
-		remainingTris -= numChunks * 8;
-		outInds += numChunks * 24;
-		ibase += numChunks * 8;
+		outInds += numTris * 3;
 	}
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
 #elif PPSSPP_ARCH(ARM_NEON)
-	int numChunks = numTris / 8;
+	int numChunks = (numTris + 7) / 8;
 	if (numChunks) {
 		uint16x8_t ibase8 = vdupq_n_u16(ibase);
 		uint16x8_t increment = vdupq_n_u16(8);
@@ -172,20 +171,18 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		uint16x8_t offsets0 = vld1q_u16(offsets);
 		uint16x8_t offsets1 = vld1q_u16(offsets + 8);
 		uint16x8_t offsets2 = vld1q_u16(offsets + 16);
-		uint16x8_t *dst = (uint16x8_t *)outInds;
+		u16 *dst = outInds;
 		for (int i = 0; i < numChunks; i++) {
-			vst1q_u16(outInds, vaddq_u16(ibase8, offsets0));
-			vst1q_u16(outInds + 8, vaddq_u16(ibase8, offsets1));
-			vst1q_u16(outInds + 16, vaddq_u16(ibase8, offsets2));
+			vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
+			vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
+			vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
 			ibase8 = vaddq_u16(ibase8, increment);
-			dst += 3;
-			outInds += 24;
+			dst += 3 * 8;
 		}
-		remainingTris -= numChunks * 8;
-		ibase += numChunks * 8;
+		outInds += numTris * 3;
 	}
-#endif
-
+#else
+	// Slow fallback loop.
 	size_t numPairs = remainingTris / 2;
 	while (numPairs > 0) {
 		*outInds++ = ibase;
@@ -205,6 +202,8 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		wind ^= 3;  // toggle between 1 and 2
 		*outInds++ = ibase + wind;
 	}
+#endif
+
 	inds_ = outInds;
 	index_ += numVerts;
 	if (numTris > 0)
