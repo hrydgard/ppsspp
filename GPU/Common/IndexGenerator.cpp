@@ -97,12 +97,6 @@ void IndexGenerator::AddList(int numVerts, bool clockwise) {
 	}
 }
 
-#ifdef _M_SSE
-inline __m128i mm_set_epi16_backwards(short w0, short w1, short w2, short w3, short w4, short w5, short w6, short w7) {
-	return _mm_set_epi16(w7, w6, w5, w4, w3, w2, w1, w0);
-}
-#endif
-
 alignas(16) static const u16 offsets_clockwise[24] = {
 	0, (u16)(0 + 1), (u16)(0 + 2),
 	1, (u16)(1 + 2), (u16)(1 + 1),
@@ -145,7 +139,6 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		__m128i ibase8 = _mm_set1_epi16(ibase);
 		__m128i increment = _mm_set1_epi16(8);
 		const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
-		// TODO: Precompute two sets of these depending on wind, and just load directly.
 		__m128i offsets0 = _mm_load_si128(offsets);
 		__m128i offsets1 = _mm_load_si128(offsets + 1);
 		__m128i offsets2 = _mm_load_si128(offsets + 2);
@@ -166,8 +159,6 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		uint16x8_t ibase8 = vdupq_n_u16(ibase);
 		uint16x8_t increment = vdupq_n_u16(8);
 		const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
-
-		// TODO: Precompute two sets of these depending on wind, and just load directly.
 		uint16x8_t offsets0 = vld1q_u16(offsets);
 		uint16x8_t offsets1 = vld1q_u16(offsets + 8);
 		uint16x8_t offsets2 = vld1q_u16(offsets + 16);
@@ -191,8 +182,6 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 		*outInds++ = ibase + 1;
 		*outInds++ = ibase + 1 + (wind ^ 3);
 		*outInds++ = ibase + 1 + wind;
-		// *outInds++ = ibase + 2;
-		// *outInds++ = ibase + 2 + wind;
 		ibase += 2;
 		numPairs--;
 	}
