@@ -257,11 +257,11 @@ static void ExecuteWebServer() {
 
 	g_Config.iRemoteISOPort = http->Port();
 	RegisterServer(http->Port());
-	double lastRegister = real_time_now();
+	double lastRegister = time_now_d();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		http->RunSlice(1.0);
 
-		double now = real_time_now();
+		double now = time_now_d();
 		if (now > lastRegister + 540.0) {
 			RegisterServer(http->Port());
 			lastRegister = now;

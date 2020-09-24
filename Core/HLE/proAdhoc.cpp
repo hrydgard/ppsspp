@@ -578,7 +578,7 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 				sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
 				// Initialize Ping Timer
-				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 				// Link Peer
 				sibling->next = context->peerlist;
@@ -979,7 +979,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 		// Get Next Pointer (to avoid crash on memory freeing)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
-		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0
+		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
 		// Timeout!
 		if (peer->state != 0 && (now - peer->lastping) > context->timeout) 
 		{
@@ -1343,7 +1343,7 @@ int friendFinder(){
 
 		if (networkInited) {
 			// Ping Server
-			now = real_time_now() * 1000000.0; // Use real_time_now()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
+			now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
 			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
 				// Prepare Packet
@@ -2078,9 +2078,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	errorcode = errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
-		u64 startTime = (u64)(real_time_now() * 1000.0);
+		u64 startTime = (u64)(time_now_d() * 1000.0);
 		while (IsSocketReady(metasocket, false, true) <= 0) {
-			u64 now = (u64)(real_time_now() * 1000.0);
+			u64 now = (u64)(time_now_d() * 1000.0);
 			if (coreState == CORE_POWERDOWN) return iResult;
 			if (now - startTime > adhocDefaultTimeout) break;
 			sleep_ms(10);

@@ -24,7 +24,7 @@ LARGE_INTEGER frequency;
 double frequencyMult;
 LARGE_INTEGER startTime;
 
-double real_time_now() {
+double time_now_d() {
 	if (frequency.QuadPart == 0) {
 		QueryPerformanceFrequency(&frequency);
 		QueryPerformanceCounter(&startTime);
@@ -42,7 +42,7 @@ double real_time_now() {
 uint64_t _frequency = 0;
 uint64_t _starttime = 0;
 
-double real_time_now() {
+double time_now_d() {
 	static time_t start;
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -54,18 +54,6 @@ double real_time_now() {
 }
 
 #endif
-
-void time_update() {
-	curtime = real_time_now();
-}
-
-double time_now_d() {
-	return curtime;
-}
-
-int time_now_ms() {
-	return int(curtime*1000.0);
-}
 
 void sleep_ms(int ms) {
 #ifdef _WIN32
@@ -79,7 +67,6 @@ void sleep_ms(int ms) {
 
 LoggingDeadline::LoggingDeadline(const char *name, int ms) : name_(name), endCalled_(false) {
 	totalTime_ = (double)ms * 0.001;
-	time_update();
 	endTime_ = time_now_d() + totalTime_;
 }
 
@@ -90,9 +77,9 @@ LoggingDeadline::~LoggingDeadline() {
 
 bool LoggingDeadline::End() {
 	endCalled_ = true;
-	time_update();
-	if (time_now_d() > endTime_) {
-		double late = (time_now_d() - endTime_);
+	double now = time_now_d();
+	if (now > endTime_) {
+		double late = (now - endTime_);
 		double totalTime = late + totalTime_;
 		ERROR_LOG(SYSTEM, "===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
 		return false;

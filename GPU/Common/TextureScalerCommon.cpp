@@ -542,7 +542,7 @@ void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &widt
 
 bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
 #ifdef SCALING_MEASURE_TIME
-	double t_start = real_time_now();
+	double t_start = time_now_d();
 #endif
 
 	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
@@ -583,7 +583,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 
 #ifdef SCALING_MEASURE_TIME
 	if (width*height > 64 * 64 * factor*factor) {
-		double t = real_time_now() - t_start;
+		double t = time_now_d() - t_start;
 		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
 			width*height, t, (width*height) / (t * 1000 * 1000));
 	}

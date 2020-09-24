@@ -249,7 +249,6 @@ static LocationHelper *locationHelper;
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
-			time_update();
 		}
 
 

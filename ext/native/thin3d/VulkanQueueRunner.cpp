@@ -479,7 +479,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
 	if (profile)
-		profile->cpuStartTime = real_time_now();
+		profile->cpuStartTime = time_now_d();
 
 	bool emitLabels = vulkan_->Extensions().EXT_debug_utils;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -528,7 +528,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	}
 
 	if (profile)
-		profile->cpuEndTime = real_time_now();
+		profile->cpuEndTime = time_now_d();
 }
 
 void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {

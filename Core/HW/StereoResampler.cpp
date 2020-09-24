@@ -291,7 +291,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 }
 
 void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
-	double elapsed = real_time_now() - startTime_;
+	double elapsed = time_now_d() - startTime_;
 
 	double effective_input_sample_rate = (double)inputSampleCount_ / elapsed;
 	double effective_output_sample_rate = (double)outputSampleCount_ / elapsed;
@@ -335,7 +335,7 @@ void StereoResampler::ResetStatCounters() {
 	overrunCountTotal_ = 0;
 	inputSampleCount_ = 0;
 	outputSampleCount_ = 0;
-	startTime_ = real_time_now();
+	startTime_ = time_now_d();
 }
 
 void StereoResampler::DoState(PointerWrap &p) {

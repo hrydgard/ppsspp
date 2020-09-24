@@ -170,9 +170,7 @@ bool PPSSPP_UWPMain::Render() {
 		hasSetThreadName = true;
 	}
 
-	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
-
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
 	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;

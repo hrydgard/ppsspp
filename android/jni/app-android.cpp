@@ -864,7 +864,6 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 	NativeUpdate();
 
 	NativeRender(graphicsContext);
-	time_update();
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -1287,7 +1286,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			NativeUpdate();
 
 			NativeRender(graphicsContext);
-			time_update();
 
 			graphicsContext->SwapBuffers();
 

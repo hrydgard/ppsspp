@@ -427,12 +427,12 @@ void RemoteISOConnectScreen::update() {
 		break;
 
 	case ScanStatus::FAILED:
-		nextRetry_ = real_time_now() + 15.0;
+		nextRetry_ = time_now_d() + 15.0;
 		status_ = ScanStatus::RETRY_SCAN;
 		break;
 
 	case ScanStatus::RETRY_SCAN:
-		if (nextRetry_ < real_time_now()) {
+		if (nextRetry_ < time_now_d()) {
 			status_ = ScanStatus::SCANNING;
 			nextRetry_ = 0.0;
 

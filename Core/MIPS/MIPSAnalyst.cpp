@@ -924,13 +924,13 @@ skip:
 
 		// TODO: Load from cache file if available instead.
 
-		double st = real_time_now();
+		double st = time_now_d();
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			const AnalyzedFunction &f = *iter;
 
 			PrecompileFunction(f.start, f.end - f.start + 4);
 		}
-		double et = real_time_now();
+		double et = time_now_d();
 
 		NOTICE_LOG(JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
 	}

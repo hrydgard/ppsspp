@@ -850,7 +850,6 @@ void ShaderManagerGLES::Load(const std::string &filename) {
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
 		return;
 	}
-	time_update();
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
@@ -908,12 +907,12 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 
 	PSP_SetLoading("Compiling shaders...");
 
-	double start = real_time_now();
+	double start = time_now_d();
 	// Let's try to keep it under sliceTime if possible.
 	double end = start + sliceTime;
 
 	for (size_t &i = pending.vertPos; i < pending.vert.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -943,7 +942,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.fragPos; i < pending.frag.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -957,7 +956,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.linkPos; i < pending.link.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -974,7 +973,6 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	// Okay, finally done.  Time to report status.
-	time_update();
 	double finish = time_now_d();
 
 	NOTICE_LOG(G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
