@@ -131,9 +131,6 @@
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="base\backtrace.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="math\lin\plane.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -438,9 +435,6 @@
     </ClCompile>
     <ClCompile Include="ui\screen.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="base\backtrace.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>

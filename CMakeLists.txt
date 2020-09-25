@@ -939,8 +939,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/backtrace.cpp
-	ext/native/base/backtrace.h
 	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h

@@ -382,7 +382,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Qt\QtMain.h" />
-    <ClInclude Include="base\backtrace.h" />
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
@@ -490,7 +489,6 @@
     <ClInclude Include="util\tiny_set.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="base\backtrace.cpp" />
     <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
