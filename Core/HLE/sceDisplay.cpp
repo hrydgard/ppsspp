@@ -192,7 +192,7 @@ static void ScheduleLagSync(int over = 0) {
 			over = 0;
 		}
 		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
-		lastLagSync = real_time_now();
+		lastLagSync = time_now_d();
 	}
 }
 
@@ -296,7 +296,7 @@ void __DisplayDoState(PointerWrap &p) {
 		Do(p, lagSyncEvent);
 		Do(p, lagSyncScheduled);
 		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
-		lastLagSync = real_time_now();
+		lastLagSync = time_now_d();
 		if (lagSyncScheduled != g_Config.bForceLagSync) {
 			ScheduleLagSync();
 		}
@@ -451,7 +451,6 @@ static bool IsRunningSlow() {
 }
 
 static void CalculateFPS() {
-	time_update();
 	double now = time_now_d();
 
 	if (now >= lastFpsTime + 1.0) {
@@ -580,8 +579,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (!throttle && !doFrameSkip)
 		return;
 
-	time_update();
-
 	float scaledTimestep = timestep;
 	if (fpsLimit > 0 && fpsLimit != 60) {
 		scaledTimestep *= 60.0f / fpsLimit;
@@ -636,7 +633,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 				const double left = nextFrameTime - curFrameTime;
 				usleep((long)(left * 1000000));
 #endif
-				time_update();
 			}
 		}
 		curFrameTime = time_now_d();
@@ -651,8 +647,6 @@ static void DoFrameIdleTiming() {
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
-
-	time_update();
 
 	double before = time_now_d();
 	double dist = before - lastFrameTime;
@@ -681,7 +675,6 @@ static void DoFrameIdleTiming() {
 			const double left = goal - time_now_d();
 			usleep((long)(left * 1000000));
 #endif
-			time_update();
 		}
 
 		if (g_Config.bDrawFrameGraph) {
@@ -846,7 +839,7 @@ void __DisplayFlip(int cyclesLate) {
 
 		if (g_Config.bDrawFrameGraph) {
 			// Track how long we sleep (whether vsync or sleep_ms.)
-			frameSleepHistory[frameSleepPos] += real_time_now() - lastFrameTimeHistory;
+			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
 		}
 	} else {
 		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
@@ -894,23 +887,23 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
-	time_update();
 	double before = time_now_d();
 	// Don't lag too long ever, if they leave it paused.
-	while (time_now_d() < goal && goal < time_now_d() + 0.01) {
+	double now = before;
+	while (now < goal && goal < now + 0.01) {
 #ifndef _WIN32
 		const double left = goal - time_now_d();
 		usleep((long)(left * 1000000));
 #endif
-		time_update();
+		now = time_now_d();
 	}
 
 	const int emuOver = (int)cyclesToUs(cyclesLate);
-	const int over = (int)((time_now_d() - goal) * 1000000);
+	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
 	if (g_Config.bDrawFrameGraph) {
-		frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
+		frameSleepHistory[frameTimeHistoryPos] += now - before;
 	}
 }
 

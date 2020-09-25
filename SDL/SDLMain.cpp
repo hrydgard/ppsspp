@@ -1122,7 +1122,6 @@ int main(int argc, char *argv[]) {
 		ToggleFullScreenIfFlagSet(window);
 
 		// Simple throttling to not burn the GPU in the menu.
-		time_update();
 		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
 			double diffTime = time_now_d() - startTime;
 			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
@@ -1130,7 +1129,6 @@ int main(int argc, char *argv[]) {
 				sleep_ms(sleepTime);
 		}
 
-		time_update();
 		framecount++;
 	}
 

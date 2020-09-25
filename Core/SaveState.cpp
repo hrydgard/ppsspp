@@ -683,12 +683,12 @@ namespace SaveState
 			return;
 
 		// For fast-forwarding, otherwise they may be useless and too close.
-		time_update();
-		float diff = time_now_d() - rewindLastTime;
+		double now = time_now_d();
+		float diff = now - rewindLastTime;
 		if (diff < rewindMaxWallFrequency)
 			return;
 
-		rewindLastTime = time_now_d();
+		rewindLastTime = now;
 		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}

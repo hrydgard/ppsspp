@@ -243,7 +243,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	if (adhocctlState != waitVal && error == 0) {
 		// Detecting Adhocctl Initialization using waitVal < 0
 		if (waitVal >= 0 || (waitVal < 0 && (g_Config.bEnableWlan && !networkInited))) {
-			u64 now = (u64)(real_time_now() * 1000.0);
+			u64 now = (u64)(time_now_d() * 1000.0);
 			if (now - adhocctlStartTime <= adhocDefaultTimeout) {
 				// Try again in another 0.5ms until state matched or timedout.
 				CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocctlNotifyEvent, userdata);
@@ -275,7 +275,7 @@ int WaitAdhocctlState(AdhocctlRequest request, int state, int usec, const char* 
 		adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
-	adhocctlStartTime = (u64)(real_time_now() * 1000.0);
+	adhocctlStartTime = (u64)(time_now_d() * 1000.0);
 	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, state, 0, false, reason);
@@ -343,7 +343,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET || sockerr == ETIMEDOUT) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		auto sock = adhocSockets[req.id - 1];
 		if (sock->flags & ADHOC_F_ALERTRECV) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -390,7 +390,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		}
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
-				u64 now = (u64)(real_time_now() * 1000000.0);
+				u64 now = (u64)(time_now_d() * 1000000.0);
 				if (sock->flags & ADHOC_F_ALERTSEND) {
 					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 					// FIXME: Should we clear the flag after alert signaled?
@@ -437,7 +437,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTSEND) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
@@ -485,7 +485,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTRECV) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
@@ -535,7 +535,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 			result = newid;
 	}
 	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT))) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTACCEPT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
@@ -582,7 +582,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	// Timeout
 	else if (ret == 0) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTCONNECT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
@@ -616,7 +616,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		return 0;
 	}
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTFLUSH) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 			// FIXME: Should we clear the flag after alert signaled?
@@ -643,7 +643,7 @@ int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
 	int ret = PollAdhocSocket(sds, req.id, 0);
 	if (ret <= 0) {
-		u64 now = (u64)(real_time_now() * 1000000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -776,7 +776,7 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	if (tmout > 0)
 		tmout = std::max(tmout, minSocketTimeoutUS);
 
-	u64 startTime = (u64)(real_time_now() * 1000000.0);
+	u64 startTime = (u64)(time_now_d() * 1000000.0);
 	adhocSocketRequests[threadSocketId] = { type, pspSocketId, buffer, len, tmout, startTime, remoteMAC, remotePort };
 	// Some games (ie. Power Stone Collection) are using as small as 100 usec timeout
 	CoreTiming::ScheduleEvent(usToCycles(100), adhocSocketNotifyEvent, threadSocketId);
@@ -2299,7 +2299,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 				buf->mac_addr = *maddr;
 				buf->flags = 0x0400; //peer->ip_addr;
 				buf->padding = 0;
-				buf->last_recv = peer->last_recv; //CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL); //This timestamp is important issue on Dissidia 012
+				buf->last_recv = peer->last_recv; //CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0; //(uint64_t)time(NULL); //This timestamp is important issue on Dissidia 012
 
 				// Success
 				retval = 0;
@@ -5104,7 +5104,7 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 
 		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		u64 now = (u64)(real_time_now() * 1000.0);
+		u64 now = (u64)(time_now_d() * 1000.0);
 		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || now - adhocctlStartTime > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
@@ -5968,7 +5968,7 @@ void actOnPingPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 	if (peer != NULL)
 	{
 		// Update Receive Timer
-		peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+		peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 	}
 }
 
@@ -6020,7 +6020,7 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 						peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
 
 						// Initialize Ping Timer
-						peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+						peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 						peerlock.lock();
 						// Link Peer into List
@@ -6104,7 +6104,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 							peer->state = PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST;
 
 							// Initialize Ping Timer
-							peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+							peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 							peerlock.lock();
 							// Link Peer into List
@@ -6431,7 +6431,7 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 				sibling->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
 				// Initialize Ping Timer
-				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+				sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 				peerlock.lock();
 
@@ -6701,7 +6701,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 			peerlock.unlock();
 
 			if (context != NULL) {
-				now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
+				now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 				// Hello Message Sending Context with unoccupied Slots
 				if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (countChildren(context) < (context->maxpeers - 1))) || (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && findP2P(context) == NULL))

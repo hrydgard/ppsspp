@@ -705,7 +705,6 @@ void CallSyscall(MIPSOpcode op)
 	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
 	if (coreCollectDebugStats) {
-		time_update();
 		start = time_now_d();
 	}
 
@@ -729,7 +728,6 @@ void CallSyscall(MIPSOpcode op)
 	}
 
 	if (coreCollectDebugStats) {
-		time_update();
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;

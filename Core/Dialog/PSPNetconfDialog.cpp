@@ -91,7 +91,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	connResult = -1;
 	scanInfosAddr = 0;
 	scanStep = 0;
-	startTime = (u64)(real_time_now() * 1000000.0);
+	startTime = (u64)(time_now_d() * 1000000.0);
 
 	StartFade(true);
 	return 0;
@@ -252,7 +252,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	UpdateButtons();
 	auto di = GetI18NCategory("Dialog");
 	auto err = GetI18NCategory("Error");
-	u64 now = (u64)(real_time_now() * 1000000.0);
+	u64 now = (u64)(time_now_d() * 1000000.0);
 	
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
 	if (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET || request.netAction == NETCONF_CONNECT_APNET_LAST) {

@@ -311,8 +311,6 @@ void BackgroundAudio::Clear(bool hard) {
 }
 
 void BackgroundAudio::SetGame(const std::string &path) {
-	time_update();
-
 	std::lock_guard<std::mutex> lock(mutex_);
 	if (path == bgGamePath_) {
 		// Do nothing
@@ -332,8 +330,6 @@ void BackgroundAudio::SetGame(const std::string &path) {
 }
 
 int BackgroundAudio::Play() {
-	time_update();
-
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.

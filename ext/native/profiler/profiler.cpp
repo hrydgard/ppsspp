@@ -140,7 +140,7 @@ int internal_profiler_enter(const char *category_name, int *out_thread_id) {
 
 	int &depth = profiler.depth[thread_id];
 	if (profiler.eventStart[thread_id][category] == 0.0f) {
-		double now = real_time_now();
+		double now = time_now_d();
 		int parent = profiler.parentCategory[thread_id][depth];
 		// Temporarily suspend the parent on entering a child.
 		if (parent != -1) {
@@ -170,7 +170,7 @@ void internal_profiler_leave(int thread_id, int category) {
 		return;
 	}
 
-	double now = real_time_now();
+	double now = time_now_d();
 
 	depth--;
 	_assert_msg_(depth >= 0, "Profiler enter/leave mismatch!");
@@ -191,7 +191,7 @@ void internal_profiler_leave(int thread_id, int category) {
 void internal_profiler_end_frame() {
 	int thread_id = internal_profiler_find_thread();
 	_assert_msg_(profiler.depth[thread_id] == 0, "Can't be inside a profiler scope at end of frame!");
-	profiler.curFrameStart = real_time_now();
+	profiler.curFrameStart = time_now_d();
 	profiler.historyPos++;
 	profiler.historyPos &= (HISTORY_SIZE - 1);
 	memset(&history[MAX_THREADS * profiler.historyPos], 0, sizeof(CategoryFrame) * MAX_THREADS);

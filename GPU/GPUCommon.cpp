@@ -928,7 +928,6 @@ u32 GPUCommon::Break(int mode) {
 
 void GPUCommon::NotifySteppingEnter() {
 	if (coreCollectDebugStats) {
-		time_update();
 		timeSteppingStarted_ = time_now_d();
 	}
 }
@@ -937,7 +936,6 @@ void GPUCommon::NotifySteppingExit() {
 		if (timeSteppingStarted_ <= 0.0) {
 			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
 		}
-		time_update();
 		timeSpentStepping_ += time_now_d() - timeSteppingStarted_;
 		timeSteppingStarted_ = 0.0;
 	}
@@ -947,7 +945,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
 	if (coreCollectDebugStats) {
-		time_update();
 		start = time_now_d();
 	}
 
@@ -1012,7 +1009,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	list.offsetAddr = gstate_c.offsetAddr;
 
 	if (coreCollectDebugStats) {
-		time_update();
 		double total = time_now_d() - start - timeSpentStepping_;
 		hleSetSteppingTime(timeSpentStepping_);
 		timeSpentStepping_ = 0.0;

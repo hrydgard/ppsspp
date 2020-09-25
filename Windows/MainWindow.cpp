@@ -614,14 +614,14 @@ namespace MainWindow
 
 				// Simulate doubleclick, doesn't work with RawInput enabled
 				static double lastMouseDown;
-				double now = real_time_now();
+				double now = time_now_d();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
 					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;
 				} else {
-					lastMouseDown = real_time_now();
+					lastMouseDown = time_now_d();
 				}
 			}
 			break;
