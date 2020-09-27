@@ -282,10 +282,9 @@ void MemoryMap_Shutdown(u32 flags) {
 }
 
 bool Init() {
-	// On some 32 bit platforms, you can only map < 32 megs at a time.
-	// TODO: Wait, wtf? What platforms are those? This seems bad.
+	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
-	_dbg_assert_msg_(g_MemorySize < MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
+	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
 			views[i].size = std::min((int)g_MemorySize, MAX_MMAP_SIZE);

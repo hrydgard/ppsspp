@@ -282,12 +282,19 @@ std::string System_GetProperty(SystemProperty prop) {
 		// Set c and c++ strings back to POSIX
 		std::locale::global(std::locale("POSIX"));
 		if (!locale.empty()) {
+			// Technically, this is an opaque string, but try to find the locale code.
+			size_t messagesPos = locale.find("LC_MESSAGES=");
+			if (messagesPos != std::string::npos) {
+				messagesPos += strlen("LC_MESSAGES=");
+				size_t semi = locale.find(';', messagesPos);
+				locale = locale.substr(messagesPos, semi - messagesPos);
+			}
+
 			if (locale.find("_", 0) != std::string::npos) {
 				if (locale.find(".", 0) != std::string::npos) {
 					return locale.substr(0, locale.find(".",0));
-				} else {
-					return locale;
 				}
+				return locale;
 			}
 		}
 		return "en_US";
