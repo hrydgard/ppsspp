@@ -4,14 +4,10 @@
 #include "libretro/LibretroGraphicsContext.h"
 #include "thin3d/GLRenderManager.h"
 
-class LibretroGLContext : public LibretroHWRenderContext {
+class LibretroGLCoreContext : public LibretroHWRenderContext {
 public:
-	LibretroGLContext()
-#ifdef USING_GLES2
-		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGLES2)
-#else
-		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL)
-#endif
+	LibretroGLCoreContext()
+		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 1)
 	{
 		hw_render_.bottom_left_origin = true;
 	}
@@ -33,7 +29,7 @@ public:
 	}
 
 	GPUCore GetGPUCore() override { return GPUCORE_GLES; }
-	const char *Ident() override { return "OpenGL"; }
+	const char *Ident() override { return "OpenGL Core"; }
 
 private:
 	GLRenderManager *renderManager_ = nullptr;
