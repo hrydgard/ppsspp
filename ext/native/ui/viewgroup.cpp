@@ -70,9 +70,8 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 		tag = anonId;
 	}
 
-	ITOA stringify;
 	for (size_t i = 0; i < views_.size(); i++) {
-		views_[i]->PersistData(status, tag + "/" + stringify.p((int)i), storage);
+		views_[i]->PersistData(status, tag + "/" + StringFromInt((int)i), storage);
 	}
 }
 

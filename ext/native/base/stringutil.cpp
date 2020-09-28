@@ -34,30 +34,9 @@ std::string LineNumberString(const std::string &str) {
 	return output.str();
 }
 
-void StringTrimEndNonAlphaNum(char *str) {
-	ssize_t n = strlen(str);
-	while (!isalnum(str[n]) && n >= 0) {
-		str[n--] = '\0';
-	}
-}
-
 void SkipSpace(const char **ptr) {
 	while (**ptr && isspace(**ptr)) {
 		(*ptr)++;
-	}
-}
-
-void StringUpper(char *str) {
-	while (*str) {
-		*str = toupper(*str);
-		str++;
-	}
-}
-
-void StringUpper(char *str, int len) {
-	while (len--) {
-		*str = toupper(*str);
-		str++;
 	}
 }
 
@@ -140,11 +119,6 @@ std::string StringFromInt(int value)
 	return temp;
 }
 
-std::string StringFromBool(bool value)
-{
-	return value ? "True" : "False";
-}
-
 // Turns "  hej " into "hej". Also handles tabs.
 std::string StripSpaces(const std::string &str)
 {
@@ -165,27 +139,6 @@ std::string StripQuotes(const std::string& s)
 		return s.substr(1, s.size() - 2);
 	else
 		return s;
-}
-
-// For Debugging. Read out an u8 array.
-std::string ArrayToString(const uint8_t *data, uint32_t size, int line_len, bool spaces)
-{
-	std::ostringstream oss;
-	oss << std::setfill('0') << std::hex;
-
-	for (int line = 0; size; ++data, --size)
-	{
-		oss << std::setw(2) << (int)*data;
-		if (line_len == ++line)
-		{
-			oss << '\n';
-			line = 0;
-		}
-		else if (spaces)
-			oss << ' ';
-	}
-
-	return oss.str();
 }
 
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output)
@@ -242,10 +195,4 @@ std::string ReplaceAll(std::string result, const std::string& src, const std::st
 		pos += dest.size();
 	}
 	return result;
-}
-
-int strcmpIgnore(std::string str1, std::string str2, std::string ignorestr1, std::string ignorestr2) {
-	str1 = ReplaceAll(str1, ignorestr1, ignorestr2);
-	str2 = ReplaceAll(str2, ignorestr1, ignorestr2);
-	return strcmp(str1.c_str(),str2.c_str());
 }

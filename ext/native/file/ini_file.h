@@ -52,7 +52,7 @@ public:
 
 	void Set(const char* key, bool newValue, bool defaultValue);
 	void Set(const char* key, bool newValue) {
-		Set(key, StringFromBool(newValue).c_str());
+		Set(key, newValue ? "True" : "False");
 	}
 	void Set(const char* key, const std::vector<std::string>& newValues);
 

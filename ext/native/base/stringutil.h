@@ -13,16 +13,6 @@
 #include <strings.h>
 #endif
 
-// Dumb wrapper around itoa, providing a buffer. Declare this on the stack.
-class ITOA {
-public:
-  char buffer[16];
-  const char *p(int i) {
-    sprintf(buffer, "%i", i);
-    return &buffer[0];
-  }
-};
-
 // Useful for shaders with error messages..
 std::string LineNumberString(const std::string &str);
 
@@ -62,9 +52,6 @@ inline void StringToHexString(const std::string &data, std::string *output) {
 
 std::string StringFromFormat(const char* format, ...);
 std::string StringFromInt(int value);
-std::string StringFromBool(bool value);
-
-std::string ArrayToString(const uint8_t *data, uint32_t size, int line_len = 20, bool spaces = true);
 
 std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
@@ -75,10 +62,4 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 
 std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
 
-// Compare two strings, ignore the difference between the ignorestr1 and the ignorestr2 in str1 and str2.
-int strcmpIgnore(std::string str1, std::string str2, std::string ignorestr1, std::string ignorestr2);
-
-void StringTrimEndNonAlphaNum(char *str);
 void SkipSpace(const char **ptr);
-void StringUpper(char *str);
-void StringUpper(char *str, int len);
