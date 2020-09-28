@@ -458,7 +458,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = false;
 			// Might need a rebuild if the hash fails, but that will be set later.
 			nextNeedsRebuild_ = false;
-			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
+			VERBOSE_LOG(G3D, "Texture at %08x found in cache, applying", texaddr);
 			return entry; //Done!
 		} else {
 			// Wasn't a match, we will rebuild.
@@ -556,7 +556,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (nextFramebufferTexture_) {
 		nextFramebufferTexture_ = nullptr;  // in case it was accidentally set somehow?
 	}
-	nextNeedsRehash_ = false;
+	nextNeedsRehash_ = true;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
 	return entry;
