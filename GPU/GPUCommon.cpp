@@ -2337,9 +2337,9 @@ void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 }
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
-	const int num = gstate.boneMatrixNumber & 0x7F;
-	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+	const u32 num = gstate.boneMatrixNumber & 0x7F;
+	const u32 mtxNum = num / 12;
+	u32 uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
 	if (num != 12 * mtxNum) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
