@@ -26,7 +26,7 @@
 Buffer::Buffer() { }
 Buffer::~Buffer() { }
 
-char *Buffer::Append(ssize_t length) {
+char *Buffer::Append(size_t length) {
 	if (length > 0) {
 		size_t old_size = data_.size();
 		data_.resize(old_size + length);
@@ -120,8 +120,8 @@ void Buffer::Printf(const char *fmt, ...) {
   char buffer[2048];
   va_list vl;
   va_start(vl, fmt);
-  ssize_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
-  if (retval >= (ssize_t)sizeof(buffer)) {
+  size_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
+  if ((int)retval >= (int)sizeof(buffer)) {
     // Output was truncated. TODO: Do something.
     ERROR_LOG(IO, "Buffer::Printf truncated output");
   }
@@ -135,7 +135,7 @@ void Buffer::Printf(const char *fmt, ...) {
 
 bool Buffer::Flush(int fd) {
   // Look into using send() directly.
-  bool success = (ssize_t)data_.size() == fd_util::WriteLine(fd, &data_[0], data_.size());
+  bool success = data_.size() == fd_util::WriteLine(fd, &data_[0], data_.size());
   if (success) {
     data_.resize(0);
   }

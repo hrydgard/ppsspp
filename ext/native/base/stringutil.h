@@ -46,9 +46,6 @@ inline bool endsWithNoCase(const std::string &str, const std::string &what) {
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
-inline void StringToHexString(const std::string &data, std::string *output) {
-	DataToHexString((uint8_t *)(&data[0]), data.size(), output);
-}
 
 std::string StringFromFormat(const char* format, ...);
 std::string StringFromInt(int value);

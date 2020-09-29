@@ -16,8 +16,7 @@ class Buffer {
 
   // Write max [length] bytes to the returned pointer.
   // Any other operation on this Buffer invalidates the pointer.
-  char *Append(ssize_t length);
-  char *Append(size_t length) { return Append((ssize_t)length); }
+  char *Append(size_t length);
 
 	// These work pretty much like you'd expect.
 	void Append(const char *str);  // str null-terminated. The null is not copied.
