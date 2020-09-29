@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="stdafx.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
@@ -96,9 +95,29 @@
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="SysError.h" />
+    <ClInclude Include="..\ext\libpng17\png.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pngconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pngdebug.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pnginfo.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pnglibconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pngpriv.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libpng17\pngstruct.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
@@ -164,6 +183,54 @@
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="SysError.cpp" />
+    <ClCompile Include="..\ext\libpng17\png.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngerror.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngget.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngmem.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngpread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngrio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngrtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngrutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngset.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngtest.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngtrans.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwrite.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -181,5 +248,16 @@
     <Filter Include="Serialize">
       <UniqueIdentifier>{7be79ad5-3520-46a1-a370-dce2a943978c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{b2685193-5954-4ab6-af7c-d6064f63e278}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\libpng17">
+      <UniqueIdentifier>{1d04f87f-73a2-4027-a6ff-e998e92e7d3c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\ext\libpng17\CMakeLists.txt">
+      <Filter>ext\libpng17</Filter>
+    </Text>
   </ItemGroup>
 </Project>

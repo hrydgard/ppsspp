@@ -4,9 +4,14 @@
     <Filter Include="Crypto">
       <UniqueIdentifier>{da855697-f7aa-49bf-b969-7a90c5b4d259}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{c2303262-a4f0-4400-8dd7-35ad6ac5f443}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\libpng17">
+      <UniqueIdentifier>{b0ac485c-3153-4708-b098-f5a518a95b79}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\Common\ABI.cpp" />
     <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
@@ -30,7 +35,6 @@
     <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
-    <ClCompile Include="..\..\Common\stdafx.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
     <ClCompile Include="..\..\Common\ThreadPools.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
@@ -47,9 +51,57 @@
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\ext\libpng17\png.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngerror.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngget.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngmem.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngpread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngset.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngtest.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngtrans.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwrite.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\Common\ABI.h" />
     <ClInclude Include="..\..\Common\Arm64Emitter.h" />
@@ -58,11 +110,6 @@
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerDeque.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerFuncs.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerList.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerMap.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerSet.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
     <ClInclude Include="..\..\Common\ColorConv.h" />
     <ClInclude Include="..\..\Common\ColorConvNEON.h" />
@@ -85,7 +132,6 @@
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
-    <ClInclude Include="..\..\Common\stdafx.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
     <ClInclude Include="..\..\Common\SysError.h" />
@@ -105,5 +151,37 @@
     <ClInclude Include="..\..\Common\Crypto\sha256.h">
       <Filter>Crypto</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeList.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeMap.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeSet.h" />
+    <ClInclude Include="..\..\ext\libpng17\png.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngdebug.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pnginfo.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pnglibconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngpriv.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngstruct.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\libpng17\CMakeLists.txt">
+      <Filter>ext\libpng17</Filter>
+    </Text>
   </ItemGroup>
 </Project>
