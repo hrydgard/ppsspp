@@ -379,13 +379,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\native\base\buffer.h" />
     <ClInclude Include="..\..\ext\native\base\colorutil.h" />
     <ClInclude Include="..\..\ext\native\base\display.h" />
-    <ClInclude Include="..\..\ext\native\base\linked_ptr.h" />
     <ClInclude Include="..\..\ext\native\base\NativeApp.h" />
-    <ClInclude Include="..\..\ext\native\base\NKCodeFromQt.h" />
-    <ClInclude Include="..\..\ext\native\base\NKCodeFromSDL.h" />
     <ClInclude Include="..\..\ext\native\data\base64.h" />
     <ClInclude Include="..\..\ext\native\data\compression.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\city.h" />
@@ -467,7 +463,6 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\ext\native\base\buffer.cpp" />
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
     <ClCompile Include="..\..\ext\native\data\base64.cpp" />

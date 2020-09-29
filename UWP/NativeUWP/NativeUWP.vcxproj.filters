@@ -64,9 +64,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\base\buffer.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -463,19 +460,10 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\buffer.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\base\colorutil.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\base\display.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\linked_ptr.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\logging.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\base\NativeApp.h">
