@@ -19,9 +19,9 @@
 
 #include "math/math_util.h"
 
-#include "Common/ByteSwap.h"
-#include "Common/Common.h"
+#include "Common/BitSet.h"
 #include "Common/BitScan.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"

@@ -25,7 +25,7 @@
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Common/CPUDetect.h"
-#include "Common/ByteSwap.h"
+#include "Common/BitSet.h"
 
 using namespace MIPSAnalyst;
 
