@@ -20,7 +20,6 @@
 #include <thread>
 #include <mutex>
 
-#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
 #include "util/text/parsers.h"
@@ -28,6 +27,7 @@
 #include "Common/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
 #include "Core/SaveState.h"

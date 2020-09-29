@@ -18,9 +18,9 @@
 #include <algorithm>
 #include <cstdio>
 
-#include "base/stringutil.h"
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"

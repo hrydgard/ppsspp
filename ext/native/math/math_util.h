@@ -5,8 +5,7 @@
 
 #include <cmath>
 #include <cstring>
-
-#include "base/basictypes.h"
+#include <cstdint>
 
 typedef unsigned short float16;
 
@@ -101,7 +100,7 @@ inline int is_even(float d) {
 
 // Rounds *.5 to closest even number
 inline double round_ieee_754(double d) {
-	float i = floor(d);
+	float i = (float)floor(d);
 	d -= i;
 	if (d < 0.5f)
 		return i;

@@ -68,9 +68,6 @@
     <ClInclude Include="file\zip_read.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="base\basictypes.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -79,9 +76,6 @@
     </ClInclude>
     <ClInclude Include="input\gesture_detector.h">
       <Filter>input</Filter>
-    </ClInclude>
-    <ClInclude Include="base\stringutil.h">
-      <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="ext\sha1\sha1.h">
       <Filter>ext</Filter>
@@ -109,9 +103,6 @@
     </ClInclude>
     <ClInclude Include="net\http_client.h">
       <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="base\buffer.h">
-      <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="file\fd_util.h">
       <Filter>file</Filter>
@@ -406,14 +397,8 @@
     <ClCompile Include="net\http_client.cpp">
       <Filter>net</Filter>
     </ClCompile>
-    <ClCompile Include="base\buffer.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="file\fd_util.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="base\stringutil.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="net\resolve.cpp">
       <Filter>net</Filter>

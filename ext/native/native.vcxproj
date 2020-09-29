@@ -382,12 +382,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Qt\QtMain.h" />
-    <ClInclude Include="base\basictypes.h" />
-    <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\NativeApp.h" />
-    <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="data\base64.h" />
     <ClInclude Include="data\compression.h" />
     <ClInclude Include="ext\cityhash\city.h" />
@@ -486,7 +483,6 @@
     <ClInclude Include="util\tiny_set.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="..\..\SDL\SDLMain.cpp">
@@ -509,7 +505,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="data\base64.cpp" />
     <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp">

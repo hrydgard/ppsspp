@@ -26,7 +26,6 @@
 #include <iostream>
 
 #include "ppsspp_config.h"
-#include "base/basictypes.h"
 #include "base/display.h"
 
 #include "Common/FileUtil.h"

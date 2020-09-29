@@ -5,15 +5,12 @@
 #include "ppsspp_config.h"
 
 #include <limits>
-#include <algorithm>
 #include <vector>
 #include <cmath>
 #include <cinttypes>
 
-#include <stdlib.h>
-#include <string.h>
-
-#include "base/basictypes.h"
+#include <cstdlib>
+#include <cstring>
 
 #include "Arm64Emitter.h"
 #include "MathUtil.h"

@@ -10,10 +10,9 @@
 
 #include "ppsspp_config.h"
 
-#include <map>
 #include <memory>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
 #include "util/text/wrap_text.h"
 
@@ -39,12 +38,6 @@ struct TextMeasureEntry {
 	int width;
 	int height;
 	int lastUsedFrame;
-};
-
-// Not yet functional
-enum {
-	FONTSTYLE_BOLD = 1,
-	FONTSTYLE_ITALIC = 2,
 };
 
 class TextDrawer {
@@ -99,11 +92,10 @@ protected:
 	bool ignoreGlobalDpi_ = false;
 };
 
-
 class TextDrawerWordWrapper : public WordWrapper {
 public:
-	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW, int flags) : WordWrapper(str, maxW, flags), drawer_(drawer) {
-	}
+	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW, int flags)
+		: WordWrapper(str, maxW, flags), drawer_(drawer) {}
 
 protected:
 	float MeasureWidth(const char *str, size_t bytes) override;

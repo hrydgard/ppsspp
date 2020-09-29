@@ -24,7 +24,6 @@
 #include "CommonWindows.h"
 #endif
 
-#include "base/stringutil.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
 #include "input/input_state.h"
@@ -32,6 +31,7 @@
 
 #include "Common/Log.h"
 #include "Common/KeyMap.h"
+#include "Common/StringUtils.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
 

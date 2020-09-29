@@ -19,7 +19,6 @@
 
 #include <cstring>
 
-#include "base/basictypes.h"
 #include "Common/CommonTypes.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"

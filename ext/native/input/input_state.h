@@ -8,7 +8,6 @@
 #include <mutex>
 
 #include "math/lin/vec3.h"
-#include "base/basictypes.h"
 #include "input/keycodes.h"
 
 // Default device IDs

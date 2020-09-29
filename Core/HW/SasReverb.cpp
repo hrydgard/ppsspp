@@ -18,7 +18,6 @@
 #include <cstdint>
 #include <cstring>
 
-#include "base/basictypes.h"
 #include "Core/HW/SasReverb.h"
 #include "Core/Util/AudioFormat.h"
 

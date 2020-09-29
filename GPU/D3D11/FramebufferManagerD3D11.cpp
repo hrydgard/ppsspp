@@ -22,8 +22,8 @@
 #include "base/display.h"
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
-#include "base/basictypes.h"
 
+#include "Common/Common.h"
 #include "Common/ColorConv.h"
 #include "Common/MathUtil.h"
 #include "Core/MemMap.h"

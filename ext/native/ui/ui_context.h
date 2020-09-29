@@ -2,8 +2,8 @@
 
 #include <memory>
 #include <vector>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "math/geom2d.h"
 #include "math/lin/vec3.h"
 #include "gfx/texture_atlas.h"

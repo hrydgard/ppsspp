@@ -27,6 +27,7 @@
 #include "file/vfs.h"
 #include "gfx_es2/gpu_features.h"
 
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "GPU/Common/PostShader.h"
 

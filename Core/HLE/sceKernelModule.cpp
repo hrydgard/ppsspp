@@ -21,7 +21,6 @@
 
 #include "zlib.h"
 
-#include "base/stringutil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"

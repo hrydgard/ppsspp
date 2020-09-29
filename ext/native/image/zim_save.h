@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdio>
+#include <cstdint>
 
-#include "base/basictypes.h"
-#include "image/zim_load.h"
+// For the type enums etc.
+#include "zim_load.h"
 
 // SaveZIM's responsibility:
 // * Write the ZIM format

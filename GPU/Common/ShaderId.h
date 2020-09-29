@@ -3,7 +3,8 @@
 #include <string>
 #include <cstring>
 #include <cstdint>
-#include "base/basictypes.h"
+
+#include "Common/Common.h"
 
 // TODO: There will be additional bits, indicating that groups of these will be
 // sent to the shader and processed there. This will cut down the number of shaders ("ubershader approach")

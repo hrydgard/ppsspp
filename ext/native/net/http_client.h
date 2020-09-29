@@ -3,9 +3,8 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <cstdint>
 
-#include "base/basictypes.h"
-#include "base/buffer.h"
 #include "net/resolve.h"
 
 #ifdef _WIN32
@@ -20,6 +19,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
+
+#include "Common/Buffer.h"
 
 namespace net {
 

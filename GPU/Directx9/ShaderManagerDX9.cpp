@@ -23,7 +23,6 @@
 #include <map>
 
 #include "gfx/d3d9_shader.h"
-#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
@@ -33,6 +32,8 @@
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

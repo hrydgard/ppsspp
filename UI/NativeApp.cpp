@@ -44,8 +44,6 @@
 #endif
 
 #include "base/display.h"
-#include "base/stringutil.h"
-#include "Common/TimeUtil.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -71,6 +69,8 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/KeyMap.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"

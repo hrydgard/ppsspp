@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "base/stringutil.h"
 #include "file/fd_util.h"
 #include "net/sinks.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 namespace http {
 

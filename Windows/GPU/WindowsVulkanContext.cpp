@@ -55,7 +55,6 @@
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
 
-#include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/VulkanRenderManager.h"

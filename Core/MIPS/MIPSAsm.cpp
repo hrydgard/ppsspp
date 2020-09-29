@@ -7,8 +7,6 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
-
-// This has to be before basictypes to avoid a define conflict.
 #include "ext/armips/Core/Assembler.h"
 
 #include "util/text/utf8.h"

@@ -17,7 +17,6 @@
 
 #include <algorithm>
 
-#include "base/basictypes.h"
 #include "profiler/profiler.h"
 
 #include "Common/Serialize/SerializeFuncs.h"

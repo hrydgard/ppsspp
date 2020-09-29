@@ -3,8 +3,8 @@
 // "Immediate mode"-lookalike buffered drawing. Very fast way to draw 2D.
 
 #include <vector>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "base/colorutil.h"
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"
@@ -45,11 +45,6 @@ enum {
 namespace Draw {
 	class Pipeline;
 }
-
-enum DrawBufferPrimitiveMode {
-	DBMODE_NORMAL = 0,
-	DBMODE_LINES = 1
-};
 
 struct GradientStop {
 	float t;
@@ -190,7 +185,6 @@ private:
 
 	Vertex *verts_;
 	int count_;
-	DrawBufferPrimitiveMode mode_;
 	const Atlas *atlas;
 
 	bool inited_;

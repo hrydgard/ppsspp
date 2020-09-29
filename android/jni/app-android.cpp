@@ -49,8 +49,6 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "thread/threadutil.h"
@@ -67,7 +65,9 @@ struct JNIEnv {};
 
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
 #include "AndroidEGLContext.h"

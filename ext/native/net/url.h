@@ -1,12 +1,11 @@
 #pragma once
 
 #include <string>
-#include <string.h>
-#include <stdio.h>
+#include <cstring>
+#include <cstdio>
 #include <cstdarg>
+#include <cstdint>
 #include <vector>
-
-#include "base/basictypes.h"
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #undef snprintf

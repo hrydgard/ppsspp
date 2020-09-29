@@ -24,10 +24,11 @@
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-#include "base/stringutil.h"
 #include "util/text/utf8.h"
 
 #include "Common/CommonWindows.h"
+#include "Common/StringUtils.h"
+
 #include <windowsx.h>
 #include <commctrl.h>
 

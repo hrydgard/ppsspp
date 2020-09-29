@@ -1,7 +1,7 @@
-#include "base/stringutil.h"
 #include "net/url.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
 const char *UrlEncoder::hexChars = "0123456789ABCDEF";

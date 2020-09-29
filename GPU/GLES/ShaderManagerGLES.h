@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "Common/Hashmaps.h"
 #include "thin3d/GLRenderManager.h"
 #include "GPU/Common/ShaderCommon.h"

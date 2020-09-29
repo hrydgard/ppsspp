@@ -3,7 +3,6 @@
 #include <sstream>
 
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "math/curves.h"
@@ -15,6 +14,7 @@
 #include "gfx_es2/draw_buffer.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 static const bool ClickDebug = false;
 

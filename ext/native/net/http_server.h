@@ -1,10 +1,8 @@
-#ifndef _HTTP_SERVER_H
-#define _HTTP_SERVER_H
+#pragma once
 
 #include <functional>
 #include <map>
 
-#include "base/buffer.h"
 #include "net/http_headers.h"
 #include "net/resolve.h"
 #include "thread/executor.h"
@@ -114,5 +112,3 @@ private:
 };
 
 }  // namespace http
-
-#endif  // _HTTP_SERVER_H

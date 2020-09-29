@@ -1,9 +1,9 @@
-#ifndef _NET_HTTP_HTTP_HEADERS
-#define _NET_HTTP_HTTP_HEADERS
+#pragma once
 
 #include <string>
 #include <unordered_map>
-#include "base/buffer.h"
+
+#include "Common/Buffer.h"
 
 namespace net {
 class InputSink;
@@ -48,5 +48,3 @@ class RequestHeader {
 };
 
 }  // namespace http
-
-#endif

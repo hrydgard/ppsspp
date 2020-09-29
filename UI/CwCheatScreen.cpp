@@ -15,13 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/stringutil.h"
 #include "ext/xxhash.h"
 #include "i18n/i18n.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
 
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"

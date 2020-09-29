@@ -2,6 +2,7 @@
 #include <cstring>
 #include <utility>
 
+#include "Common/ByteSwap.h"
 #include "Common/Log.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"

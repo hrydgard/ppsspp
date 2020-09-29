@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "ext/gason/gason.h"
+#include "Common/Common.h"
 #include "Common/Log.h"
 
 namespace json {

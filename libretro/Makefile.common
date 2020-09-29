@@ -144,6 +144,7 @@ SOURCES_CXX += \
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
+	$(COMMONDIR)/Common/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FileUtil.cpp \
@@ -152,7 +153,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
-	$(COMMONDIR)/Misc.cpp \
+	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/Timer.cpp \
 	$(COMMONDIR)/TimeUtil.cpp \
@@ -214,10 +215,8 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/buffer.cpp \
 	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
-	$(EXTDIR)/native/base/stringutil.cpp \
 	$(EXTDIR)/native/data/compression.cpp \
 	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \

@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 
-#include "base/basictypes.h"
 #include "base/display.h"
 #include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"

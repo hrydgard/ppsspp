@@ -15,9 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 

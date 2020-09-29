@@ -25,7 +25,7 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#include "base/stringutil.h"
+#include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"

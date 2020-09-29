@@ -11,7 +11,6 @@
 #include <thread>
 
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"

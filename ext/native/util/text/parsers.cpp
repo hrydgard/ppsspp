@@ -2,8 +2,9 @@
 #include <cstdio>
 #include <string>
 
-#include "base/stringutil.h"
 #include "util/text/parsers.h"
+
+#include "Common/StringUtils.h"
 
 bool Version::ParseVersionString(std::string str) {
 	if (str.empty())

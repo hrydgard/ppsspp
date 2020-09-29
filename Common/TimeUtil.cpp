@@ -1,6 +1,6 @@
 #include <cstdio>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "Common/TimeUtil.h"
 
 #ifdef _WIN32

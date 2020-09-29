@@ -427,8 +427,6 @@ add_library(Common STATIC
 	${CommonFake}
 	${CommonWindows}
 	${CommonVulkan}
-	Common/ColorConv.cpp
-	Common/ColorConv.h
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -436,14 +434,28 @@ add_library(Common STATIC
 	Common/Serialize/SerializeList.h
 	Common/Serialize/SerializeMap.h
 	Common/Serialize/SerializeSet.h
-	Common/ConsoleListener.cpp
-	Common/ConsoleListener.h
 	Common/Crypto/md5.cpp
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
+	Common/BitScan.h
+	Common/BitSet.h
+	Common/Buffer.h
+	Common/Buffer.cpp
+	Common/ByteSwap.h
+	Common/CodeBlock.h
+	Common/ColorConv.cpp
+	Common/ColorConv.h
+	Common/Common.h
+	Common/CommonFuncs.h
+	Common/CommonTypes.h
+	Common/ConsoleListener.cpp
+	Common/ConsoleListener.h
+	Common/DbgNew.h
+	Common/FakeEmitter.h
+	Common/FixedSizeQueue.h
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
 	Common/FileUtil.cpp
@@ -463,11 +475,12 @@ add_library(Common STATIC
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h
-	Common/Misc.cpp
 	Common/OSVersion.cpp
 	Common/OSVersion.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
+	Common/SysError.h
+	Common/SysError.cpp
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
 	Common/ThreadSafeList.h
@@ -939,16 +952,10 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/basictypes.h
-	ext/native/base/buffer.cpp
-	ext/native/base/buffer.h
 	ext/native/base/colorutil.cpp
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/linked_ptr.h
-	ext/native/base/stringutil.cpp
-	ext/native/base/stringutil.h
 	ext/native/data/base64.cpp
 	ext/native/data/base64.h
 	ext/native/data/compression.cpp

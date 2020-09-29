@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "base/basictypes.h"
+#include <cstdint>
 #include <string>
 
 uint32_t u8_nextchar(const char *s, int *i);

@@ -3,7 +3,10 @@
 #include <cstdio>
 
 #include "image/png_load.h"
+#include "image/zim_load.h"
 #include "image/zim_save.h"
+
+#include "Common/Common.h"
 
 char magic[5] = "ZIMG";
 

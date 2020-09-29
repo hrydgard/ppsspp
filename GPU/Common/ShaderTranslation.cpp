@@ -34,9 +34,9 @@
 #undef free
 #endif
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "thin3d/thin3d.h"

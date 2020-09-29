@@ -17,7 +17,7 @@
 
 #include <algorithm>
 #include <memory>
-#include "base/stringutil.h"
+
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
@@ -25,6 +25,8 @@
 #include "ui/ui_context.h"
 #include "ui/ui_screen.h"
 #include "thin3d/thin3d.h"
+
+#include "Common/StringUtils.h"
 
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"

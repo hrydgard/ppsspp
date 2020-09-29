@@ -32,7 +32,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "base/basictypes.h"
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
 #include "Common/Serialize/SerializeFuncs.h"

@@ -1,5 +1,7 @@
 #include "net/http_client.h"
+
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -15,17 +17,16 @@
 #endif
 
 #include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
-#include "base/buffer.h"
-#include "base/stringutil.h"
 #include "data/compression.h"
 #include "file/fd_util.h"
 #include "net/resolve.h"
 #include "net/url.h"
 #include "thread/threadutil.h"
 
+#include "Common/Buffer.h"
 #include "Common/Log.h"
 
 namespace net {

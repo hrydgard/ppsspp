@@ -16,7 +16,6 @@
 #include <string>
 #include <vector>
 
-#include "base/stringutil.h"
 #include "file/ini_file.h"
 #include "file/vfs.h"
 #include "util/text/parsers.h"
@@ -24,6 +23,8 @@
 #ifdef _WIN32
 #include "util/text/utf8.h"
 #endif
+
+#include "Common/StringUtils.h"
 
 static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyOut) {
 	std::string key = "";
@@ -162,6 +163,22 @@ std::string* Section::GetLine(const char* key, std::string* valueOut, std::strin
 			return &line;
 	}
 	return 0;
+}
+
+void Section::Set(const char* key, uint32_t newValue) {
+	Set(key, StringFromFormat("0x%08x", newValue).c_str());
+}
+
+void Section::Set(const char* key, float newValue) {
+	Set(key, StringFromFormat("%f", newValue).c_str());
+}
+
+void Section::Set(const char* key, double newValue) {
+	Set(key, StringFromFormat("%f", newValue).c_str());
+}
+
+void Section::Set(const char* key, int newValue) {
+	Set(key, StringFromInt(newValue).c_str());
 }
 
 void Section::Set(const char* key, const char* newValue)

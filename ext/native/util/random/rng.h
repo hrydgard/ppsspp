@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/basictypes.h"
+#include <cstdint>
 
 // George Marsaglia-style random number generator.
 class GMRng {

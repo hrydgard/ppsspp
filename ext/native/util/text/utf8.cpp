@@ -18,15 +18,15 @@
 #undef max
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cstdarg>
+#include <cstdint>
 
 #include <algorithm>
 #include <string>
 
-#include "base/basictypes.h"
 #include "utf8.h"
 #include "utf16.h"
 

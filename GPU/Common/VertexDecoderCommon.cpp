@@ -19,11 +19,11 @@
 #include <cstdio>
 
 #include "ppsspp_config.h"
-#include "base/basictypes.h"
 
 #include "Common/Log.h"
 #include "Common/CPUDetect.h"
 #include "Common/ColorConv.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/MemMap.h"

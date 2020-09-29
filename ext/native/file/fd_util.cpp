@@ -18,6 +18,7 @@
 #endif
 #include <fcntl.h>
 
+#include "Common/Common.h"
 #include "Common/Log.h"
 
 namespace fd_util {
@@ -25,12 +26,12 @@ namespace fd_util {
 // Slow as hell and should only be used for prototyping.
 // Reads from a socket, up to an '\n'. This means that if the line ends
 // with '\r', the '\r' will be returned.
-ssize_t ReadLine(int fd, char *vptr, size_t buf_size) {
+size_t ReadLine(int fd, char *vptr, size_t buf_size) {
   char *buffer = vptr;
   size_t n;
   for (n = 1; n < buf_size; n++) {
     char c;
-    ssize_t rc;
+    size_t rc;
     if ((rc = read(fd, &c, 1)) == 1) {
       *buffer++ = c;
       if (c == '\n')
@@ -54,7 +55,7 @@ ssize_t ReadLine(int fd, char *vptr, size_t buf_size) {
 }
 
 // Misnamed, it just writes raw data in a retry loop.
-ssize_t WriteLine(int fd, const char *vptr, size_t n) {
+size_t WriteLine(int fd, const char *vptr, size_t n) {
   const char *buffer = vptr;
   size_t nleft = n;
 
@@ -73,11 +74,11 @@ ssize_t WriteLine(int fd, const char *vptr, size_t n) {
   return n;
 }
 
-ssize_t WriteLine(int fd, const char *buffer) {
+size_t WriteLine(int fd, const char *buffer) {
   return WriteLine(fd, buffer, strlen(buffer));
 }
 
-ssize_t Write(int fd, const std::string &str) {
+size_t Write(int fd, const std::string &str) {
   return WriteLine(fd, str.c_str(), str.size());
 }
 

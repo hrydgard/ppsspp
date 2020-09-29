@@ -26,8 +26,10 @@
 
 #include <cstring>
 #include <memory>
-#include "FileUtil.h"
-#include "StringUtils.h"
+
+#include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/SysError.h"
 
 #ifdef _WIN32
 #include "CommonWindows.h"
@@ -245,8 +247,7 @@ bool IsDirectory(const std::string &filename)
 	struct stat file_info;
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
-		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
-				 fn.c_str(), GetLastErrorMsg());
+		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", fn.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	return S_ISDIR(file_info.st_mode);
@@ -273,14 +274,13 @@ bool Delete(const std::string &filename) {
 
 #ifdef _WIN32
 	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str())) {
-		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
-				 filename.c_str(), GetLastErrorMsg());
+		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 #else
 	if (unlink(filename.c_str()) == -1) {
 		WARN_LOG(COMMON, "Delete: unlink failed on %s: %s", 
-				 filename.c_str(), GetLastErrorMsg());
+				 filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 #endif
@@ -389,7 +389,7 @@ bool DeleteDir(const std::string &filename)
 	if (rmdir(filename.c_str()) == 0)
 		return true;
 #endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", filename.c_str(), GetLastErrorMsg());
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 
 	return false;
 }
@@ -409,7 +409,7 @@ bool Rename(const std::string &srcFilename, const std::string &destFilename)
 		return true;
 #endif
 	ERROR_LOG(COMMON, "Rename: failed %s --> %s: %s", 
-			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 }
 
@@ -428,7 +428,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 		return true;
 #endif
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
-			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 #else
 
@@ -442,7 +442,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	if (!input)
 	{
 		ERROR_LOG(COMMON, "Copy: input failed %s --> %s: %s", 
-				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 
@@ -452,7 +452,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	{
 		fclose(input);
 		ERROR_LOG(COMMON, "Copy: output failed %s --> %s: %s", 
-				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 
@@ -467,7 +467,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 			{
 				ERROR_LOG(COMMON, 
 						"Copy: failed reading from source, %s --> %s: %s", 
-						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 				fclose(input);
 				fclose(output);		
 				return false;
@@ -480,7 +480,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 		{
 			ERROR_LOG(COMMON, 
 					"Copy: failed writing to output, %s --> %s: %s", 
-					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 			fclose(input);
 			fclose(output);				
 			return false;
@@ -622,14 +622,12 @@ u64 GetFileSize(FILE *f) {
 	// can't use off_t here because it can be 32-bit
 	u64 pos = ftello(f);
 	if (fseeko(f, 0, SEEK_END) != 0) {
-		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s",
-			  f, GetLastErrorMsg());
+		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s", f, GetLastErrorMsg().c_str());
 		return 0;
 	}
 	u64 size = ftello(f);
 	if ((size != pos) && (fseeko(f, pos, SEEK_SET) != 0)) {
-		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s",
-			  f, GetLastErrorMsg());
+		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s", f, GetLastErrorMsg().c_str());
 		return 0;
 	}
 	return size;
@@ -642,8 +640,7 @@ bool CreateEmptyFile(const std::string &filename)
 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
-		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s",
-				  filename.c_str(), GetLastErrorMsg());
+		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	fclose(pFile);
@@ -805,7 +802,7 @@ const std::string &GetExeDirectory()
 			sz = GetModuleFileName(nullptr, &program_path[0], (DWORD)program_path.size());
 		} while (sz >= program_path.size());
 
-		TCHAR *last_slash = _tcsrchr(&program_path[0], '\\');
+		const wchar_t *last_slash = wcsrchr(&program_path[0], '\\');
 		if (last_slash != nullptr)
 			program_path.resize(last_slash - &program_path[0] + 1);
 		else

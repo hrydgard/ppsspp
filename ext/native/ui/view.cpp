@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <mutex>
 
-#include "base/stringutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
@@ -16,6 +15,7 @@
 #include "base/NativeApp.h"
 
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 namespace UI {
 

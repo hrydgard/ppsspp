@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/basictypes.h"
+#include <cstdint>
 
 // Warning: decodes/encodes JIS, not Unicode.
 // Use a table to map.

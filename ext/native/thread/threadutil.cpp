@@ -9,8 +9,8 @@
 #endif
 
 #include <cstring>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "thread/threadutil.h"
 
 #include "Common/Log.h"
@@ -20,7 +20,7 @@
 #endif
 
 #ifdef TLS_SUPPORTED
-static __THREAD const char *curThreadName;
+static thread_local const char *curThreadName;
 #endif
 
 #ifdef __MINGW32__

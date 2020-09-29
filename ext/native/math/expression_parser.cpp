@@ -1,7 +1,8 @@
 #include "expression_parser.h"
 #include <ctype.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 
 typedef enum {
 	EXOP_BRACKETL, EXOP_BRACKETR, EXOP_MEML, EXOP_MEMR, EXOP_MEMSIZE, EXOP_SIGNPLUS, EXOP_SIGNMINUS,
@@ -457,11 +458,11 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 					valueStack.push_back(val);
 				}
 				break;
-			case EXOP_SIGNPLUS:		// keine aktion nötig
+			case EXOP_SIGNPLUS:		// keine aktion nÃ¶tig
 				break;
 			case EXOP_SIGNMINUS:	// -0
 				if (useFloat)
-					valueStack.push_back(0.0-fArg[0]);
+					valueStack.push_back(0.0 - fArg[0]);
 				else
 					valueStack.push_back(0-arg[0]);
 				break;

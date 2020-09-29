@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "math/math_util.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
@@ -14,6 +13,7 @@
 #include "util/text/wrap_text.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 enum {
 	// Enough?

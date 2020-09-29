@@ -19,12 +19,16 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <set>
+#include <cstdlib>
+#include <cstdarg>
 
 #include "Core/Reporting.h"
 
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -44,14 +48,8 @@
 #include "net/resolve.h"
 #include "net/url.h"
 
-#include "base/stringutil.h"
-#include "base/buffer.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
-
-#include <set>
-#include <stdlib.h>
-#include <cstdarg>
 
 namespace Reporting
 {

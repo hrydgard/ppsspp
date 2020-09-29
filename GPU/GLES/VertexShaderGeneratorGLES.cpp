@@ -25,7 +25,7 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#include "base/stringutil.h"
+#include "Common/StringUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"

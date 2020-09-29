@@ -34,8 +34,8 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "base/stringutil.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
