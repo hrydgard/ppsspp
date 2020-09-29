@@ -19,6 +19,7 @@
 
 #include "math/math_util.h"
 
+#include "Common/ByteSwap.h"
 #include "Common/Common.h"
 #include "Common/BitScan.h"
 #include "Core/Config.h"

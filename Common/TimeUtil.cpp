@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 
 #include "Common/TimeUtil.h"
 
