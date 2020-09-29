@@ -94,6 +94,7 @@
     </ClInclude>
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="ByteSwap.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

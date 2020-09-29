@@ -427,8 +427,6 @@ add_library(Common STATIC
 	${CommonFake}
 	${CommonWindows}
 	${CommonVulkan}
-	Common/ColorConv.cpp
-	Common/ColorConv.h
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -436,14 +434,26 @@ add_library(Common STATIC
 	Common/Serialize/SerializeList.h
 	Common/Serialize/SerializeMap.h
 	Common/Serialize/SerializeSet.h
-	Common/ConsoleListener.cpp
-	Common/ConsoleListener.h
 	Common/Crypto/md5.cpp
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
+	Common/BitScan.h
+	Common/BitSet.h
+	Common/ByteSwap.h
+	Common/CodeBlock.h
+	Common/ColorConv.cpp
+	Common/ColorConv.h
+	Common/Common.h
+	Common/CommonFuncs.h
+	Common/CommonTypes.h
+	Common/ConsoleListener.cpp
+	Common/ConsoleListener.h
+	Common/DbgNew.h
+	Common/FakeEmitter.h
+	Common/FixedSizeQueue.h
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
 	Common/FileUtil.cpp
@@ -939,7 +949,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h
 	ext/native/base/colorutil.cpp

@@ -1,9 +1,6 @@
-#ifndef _UTIL_HASH_HASH_H
-#define _UTIL_HASH_HASH_H
+#pragma once
 
 #include <cstdlib>
-
-#include "base/basictypes.h"
 
 namespace hash {
 
@@ -12,4 +9,3 @@ uint32_t Adler32(const uint8_t *data, size_t len);
 
 }  // namespace hash
 
-#endif

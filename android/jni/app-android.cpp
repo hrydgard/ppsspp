@@ -49,7 +49,6 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
-#include "base/basictypes.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "thread/threadutil.h"

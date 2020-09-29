@@ -68,9 +68,6 @@
     <ClInclude Include="file\zip_read.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="base\basictypes.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>

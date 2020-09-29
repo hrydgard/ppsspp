@@ -379,7 +379,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\native\base\basictypes.h" />
     <ClInclude Include="..\..\ext\native\base\buffer.h" />
     <ClInclude Include="..\..\ext\native\base\colorutil.h" />
     <ClInclude Include="..\..\ext\native\base\display.h" />
