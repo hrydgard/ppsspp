@@ -21,7 +21,6 @@
 #include <map>
 
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "image/zim_load.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
@@ -29,6 +28,7 @@
 #include "thin3d/VulkanRenderManager.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanImage.h"
 #include "Common/Vulkan/VulkanMemory.h"

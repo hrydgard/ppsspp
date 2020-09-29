@@ -27,6 +27,7 @@
 #include "thin3d/VulkanRenderManager.h"
 
 #include "Common/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"

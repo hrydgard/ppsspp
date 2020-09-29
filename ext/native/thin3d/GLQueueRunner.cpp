@@ -1,6 +1,5 @@
 #include <algorithm>
 
-#include "base/stringutil.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
@@ -10,6 +9,7 @@
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Reporting.h"
 #include "GLQueueRunner.h"

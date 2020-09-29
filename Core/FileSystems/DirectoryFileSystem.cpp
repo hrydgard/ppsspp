@@ -19,13 +19,14 @@
 
 #include <algorithm>
 #include <limits>
-#include "base/stringutil.h"
+
 #include "file/free.h"
 #include "file/zip_read.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Common/FileUtil.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"

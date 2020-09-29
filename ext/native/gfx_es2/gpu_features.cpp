@@ -3,7 +3,7 @@
 #include <cstring>
 #include <set>
 
-#include "base/stringutil.h"
+#include "Common/StringUtils.h"
 
 #if PPSSPP_API(ANY_GL)
 #include "gfx/gl_common.h"

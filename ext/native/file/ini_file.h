@@ -8,7 +8,6 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "base/stringutil.h"
 
 class Section
 {
@@ -34,21 +33,13 @@ public:
 	}
 	bool Get(const char* key, std::string* value, const char* defaultValue);
 
-	void Set(const char* key, uint32_t newValue) {
-		Set(key, StringFromFormat("0x%08x", newValue).c_str());
-	}
-	void Set(const char* key, float newValue) {
-		Set(key, StringFromFormat("%f", newValue).c_str());
-	}
+	void Set(const char* key, uint32_t newValue);
+	void Set(const char* key, float newValue);
 	void Set(const char* key, const float newValue, const float defaultValue);
-	void Set(const char* key, double newValue) {
-		Set(key, StringFromFormat("%f", newValue).c_str());
-	}
+	void Set(const char* key, double newValue);
 
 	void Set(const char* key, int newValue, int defaultValue);
-	void Set(const char* key, int newValue) {
-		Set(key, StringFromInt(newValue).c_str());
-	}
+	void Set(const char* key, int newValue);
 
 	void Set(const char* key, bool newValue, bool defaultValue);
 	void Set(const char* key, bool newValue) {

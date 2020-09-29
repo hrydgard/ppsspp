@@ -10,7 +10,6 @@ LOCAL_SRC_FILES :=\
     base/buffer.cpp \
     base/display.cpp \
     base/colorutil.cpp \
-    base/stringutil.cpp \
     data/base64.cpp \
     data/compression.cpp \
     ext/cityhash/city.cpp \

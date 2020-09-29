@@ -25,7 +25,6 @@
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
-#include "base/stringutil.h"
 #include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -34,6 +33,7 @@
 
 #include "Common/FileUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

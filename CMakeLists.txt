@@ -946,9 +946,6 @@ add_library(native STATIC
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/linked_ptr.h
-	ext/native/base/stringutil.cpp
-	ext/native/base/stringutil.h
 	ext/native/data/base64.cpp
 	ext/native/data/base64.h
 	ext/native/data/compression.cpp

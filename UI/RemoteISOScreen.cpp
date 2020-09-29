@@ -25,7 +25,6 @@
 #include <netfw.h>
 #endif
 
-#include "base/stringutil.h"
 #include "file/path.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"
@@ -34,8 +33,10 @@
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
+
 #include "Common/Common.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/WebServer.h"
 #include "UI/RemoteISOScreen.h"

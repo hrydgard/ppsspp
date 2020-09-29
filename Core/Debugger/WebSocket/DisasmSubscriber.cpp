@@ -17,8 +17,10 @@
 
 #include <algorithm>
 #include <cctype>
-#include "base/stringutil.h"
+
 #include "util/text/utf8.h"
+
+#include "Common/StringUtils.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"

@@ -1,5 +1,4 @@
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
 #include "util/text/wrap_text.h"

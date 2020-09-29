@@ -19,9 +19,10 @@
 #include <ctype.h>
 
 #include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "file/file_util.h"
 #include "util/text/utf8.h"
+
+#include "Common/StringUtils.h"
 
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
@@ -123,22 +124,6 @@ bool readFileToString(bool text_file, const char *filename, std::string &str)
 	str = std::string(buf, len);
 	fclose(f);
 	delete [] buf;
-	return true;
-}
-
-
-bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int size, const char *filename)
-{
-	FILE *f = openCFile(filename, text_file ? "r" : "rb");
-	if (!f)
-		return false;
-	size_t len = (size_t)GetSize(f);
-	if(len < size) {
-		fclose(f);
-		return false;
-	}
-	data[fread(data, 1, size, f)] = 0;
-	fclose(f);
 	return true;
 }
 

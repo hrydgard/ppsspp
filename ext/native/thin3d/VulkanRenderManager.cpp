@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "thin3d/VulkanRenderManager.h"

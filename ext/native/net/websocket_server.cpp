@@ -15,7 +15,6 @@
 #include <ws2tcpip.h>
 #endif
 
-#include "base/stringutil.h"
 #include "data/base64.h"
 #include "net/http_server.h"
 #include "net/sinks.h"
@@ -23,6 +22,7 @@
 
 #include "Common/Crypto/sha1.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

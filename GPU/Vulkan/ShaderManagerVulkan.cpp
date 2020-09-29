@@ -19,7 +19,6 @@
 //#define SHADERLOG
 #endif
 
-#include "base/stringutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
@@ -27,6 +26,7 @@
 #include "thin3d/thin3d.h"
 #include "util/text/utf8.h"
 
+#include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Log.h"

@@ -22,7 +22,6 @@
 #include <memory>
 #include <algorithm>
 
-#include "base/stringutil.h"
 #include "file/file_util.h"
 #include "file/zip_read.h"
 #include "thin3d/thin3d.h"

@@ -1,5 +1,7 @@
 #include "net/http_client.h"
+
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -19,7 +21,6 @@
 #include <stdlib.h>
 
 #include "base/buffer.h"
-#include "base/stringutil.h"
 #include "data/compression.h"
 #include "file/fd_util.h"
 #include "net/resolve.h"

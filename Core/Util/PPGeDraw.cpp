@@ -18,7 +18,6 @@
 #include <algorithm>
 
 #include "base/colorutil.h"
-#include "base/stringutil.h"
 #include "file/vfs.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_text.h"
@@ -28,6 +27,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"

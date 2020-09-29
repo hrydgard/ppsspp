@@ -7,7 +7,6 @@
 
 #include "resource.h"
 
-#include "base/stringutil.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "base/NativeApp.h"
@@ -19,6 +18,7 @@
 #include "Common/ConsoleListener.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
+#include "Common/StringUtils.h"
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"

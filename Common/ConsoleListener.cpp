@@ -34,8 +34,9 @@
 #include "ppsspp_config.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
-#include "Common.h"
-#include "ConsoleListener.h" // Common
+#include "Common/Common.h"
+#include "Common/ConsoleListener.h"
+#include "Common/StringUtils.h"
 
 #if defined(USING_WIN_UI)
 const int LOG_PENDING_MAX = 120 * 10000;

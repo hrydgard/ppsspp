@@ -3,7 +3,6 @@
 #include <set>
 #include <mutex>
 
-#include "base/stringutil.h"
 #include "input/keycodes.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
@@ -15,6 +14,7 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 namespace UI {
 

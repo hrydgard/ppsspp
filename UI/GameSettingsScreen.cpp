@@ -22,8 +22,6 @@
 #include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 
 #include "base/colorutil.h"
-#include "base/stringutil.h"
-#include "Common/TimeUtil.h"
 #include "math/curves.h"
 #include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
@@ -54,6 +52,8 @@
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"

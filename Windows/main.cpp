@@ -32,7 +32,6 @@
 #include <mmsystem.h>
 
 #include "base/display.h"
-#include "base/stringutil.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -51,6 +50,7 @@
 
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
+#include "Common/StringUtils.h"
 
 #include "Commctrl.h"
 
