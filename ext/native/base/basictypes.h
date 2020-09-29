@@ -58,10 +58,3 @@ inline uint64_t swap64(uint64_t data) {return ((uint64_t)swap32(data) << 32) | s
 inline uint16_t swap16(const uint8_t* _pData) {return swap16(*(const uint16_t*)_pData);}
 inline uint32_t swap32(const uint8_t* _pData) {return swap32(*(const uint32_t*)_pData);}
 inline uint64_t swap64(const uint8_t* _pData) {return swap64(*(const uint64_t*)_pData);}
-
-// Thread local storage
-#ifdef _MSC_VER
-#define __THREAD __declspec( thread ) 
-#else
-#define __THREAD __thread
-#endif
