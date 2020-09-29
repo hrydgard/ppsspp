@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include "Common/ByteSwap.h"
+#include "Common/BitSet.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"

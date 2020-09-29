@@ -355,7 +355,6 @@
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
-    <ClInclude Include="ByteSwap.h" />
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />

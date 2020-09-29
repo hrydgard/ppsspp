@@ -444,7 +444,6 @@ add_library(Common STATIC
 	Common/BitSet.h
 	Common/Buffer.h
 	Common/Buffer.cpp
-	Common/ByteSwap.h
 	Common/CodeBlock.h
 	Common/ColorConv.cpp
 	Common/ColorConv.h

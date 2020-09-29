@@ -386,7 +386,6 @@
     <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\Buffer.h" />
-    <ClInclude Include="..\..\Common\ByteSwap.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "Common/ByteSwap.h"
+#include "Common/BitSet.h"
 
 // Should optimize out.
 #define UTF16_IS_LITTLE_ENDIAN (*(const uint16_t *)"\0\xff" >= 0x100)
