@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
