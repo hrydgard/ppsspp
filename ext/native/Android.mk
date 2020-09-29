@@ -52,8 +52,6 @@ LOCAL_SRC_FILES :=\
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
-    math/lin/plane.cpp.arm \
-    math/lin/quat.cpp.arm \
     math/lin/vec3.cpp.arm \
     math/lin/matrix4x4.cpp.arm \
     net/http_client.cpp \

@@ -1022,11 +1022,6 @@ add_library(native STATIC
 	ext/native/math/expression_parser.h
 	ext/native/math/lin/matrix4x4.cpp
 	ext/native/math/lin/matrix4x4.h
-	ext/native/math/lin/plane.cpp
-	ext/native/math/lin/plane.h
-	ext/native/math/lin/quat.cpp
-	ext/native/math/lin/quat.h
-	ext/native/math/lin/ray.h
 	ext/native/math/lin/vec3.cpp
 	ext/native/math/lin/vec3.h
 	ext/native/math/math_util.cpp

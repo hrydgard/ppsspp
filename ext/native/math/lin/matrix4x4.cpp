@@ -3,7 +3,6 @@
 #include <cstdio>
 
 #include "math/lin/vec3.h"
-#include "math/lin/quat.h"
 #include "math/fast/fast_matrix.h"
 
 #ifdef _WIN32

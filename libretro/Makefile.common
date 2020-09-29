@@ -301,8 +301,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/math/curves.cpp \
 	       $(NATIVEDIR)/math/expression_parser.cpp \
 	       $(NATIVEDIR)/math/lin/matrix4x4.cpp \
-          $(NATIVEDIR)/math/lin/plane.cpp \
-          $(NATIVEDIR)/math/lin/quat.cpp \
           $(NATIVEDIR)/math/lin/vec3.cpp \
 	       $(NATIVEDIR)/net/http_client.cpp \
 	       $(NATIVEDIR)/net/resolve.cpp \

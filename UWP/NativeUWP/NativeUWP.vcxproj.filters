@@ -166,12 +166,6 @@
     <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp">
       <Filter>math</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\plane.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\quat.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\vec3.cpp">
       <Filter>math</Filter>
     </ClCompile>
@@ -599,12 +593,6 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\plane.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\quat.h">
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\math\lin\ray.h">

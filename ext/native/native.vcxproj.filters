@@ -41,9 +41,6 @@
     <ClInclude Include="image\zim_save.h">
       <Filter>image</Filter>
     </ClInclude>
-    <ClInclude Include="math\lin\quat.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="math\lin\matrix4x4.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -124,9 +121,6 @@
     </ClInclude>
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="math\lin\plane.h">
-      <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
@@ -361,9 +355,6 @@
     <ClCompile Include="math\lin\matrix4x4.cpp">
       <Filter>math</Filter>
     </ClCompile>
-    <ClCompile Include="math\lin\quat.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="math\lin\vec3.cpp">
       <Filter>math</Filter>
     </ClCompile>
@@ -429,9 +420,6 @@
     </ClCompile>
     <ClCompile Include="ui\screen.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="math\lin\plane.cpp">
-      <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="math\curves.cpp">
       <Filter>math</Filter>
@@ -857,9 +845,6 @@
     </Filter>
     <Filter Include="data">
       <UniqueIdentifier>{d5fa3d62-88bf-4dc4-9814-28f3c0444e62}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="io">
-      <UniqueIdentifier>{1e85f968-7106-483c-ae7d-77d0ef58d787}</UniqueIdentifier>
     </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>

@@ -434,8 +434,6 @@
     <ClInclude Include="..\..\ext\native\math\fast\fast_matrix.h" />
     <ClInclude Include="..\..\ext\native\math\geom2d.h" />
     <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h" />
-    <ClInclude Include="..\..\ext\native\math\lin\plane.h" />
-    <ClInclude Include="..\..\ext\native\math\lin\quat.h" />
     <ClInclude Include="..\..\ext\native\math\lin\ray.h" />
     <ClInclude Include="..\..\ext\native\math\lin\vec3.h" />
     <ClInclude Include="..\..\ext\native\math\math_util.h" />
@@ -1585,8 +1583,6 @@
       </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp" />
-    <ClCompile Include="..\..\ext\native\math\lin\plane.cpp" />
-    <ClCompile Include="..\..\ext\native\math\lin\quat.cpp" />
     <ClCompile Include="..\..\ext\native\math\lin\vec3.cpp" />
     <ClCompile Include="..\..\ext\native\math\math_util.cpp" />
     <ClCompile Include="..\..\ext\native\net\http_client.cpp" />
