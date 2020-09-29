@@ -28,7 +28,7 @@
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
     <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
-    <ClCompile Include="..\..\Common\Misc.cpp" />
+    <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\stdafx.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
@@ -89,6 +89,7 @@
     <ClInclude Include="..\..\Common\stdafx.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
+    <ClInclude Include="..\..\Common\SysError.h" />
     <ClInclude Include="..\..\Common\ThreadPools.h" />
     <ClInclude Include="..\..\Common\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />

@@ -221,10 +221,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/MemoryUtil.cpp \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtils.cpp \
+  $(SRC)/Common/SysError.cpp \
   $(SRC)/Common/ThreadPools.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/TimeUtil.cpp \
-  $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \

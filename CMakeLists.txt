@@ -475,11 +475,12 @@ add_library(Common STATIC
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h
-	Common/Misc.cpp
 	Common/OSVersion.cpp
 	Common/OSVersion.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
+	Common/SysError.h
+	Common/SysError.cpp
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
 	Common/ThreadSafeList.h

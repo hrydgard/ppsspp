@@ -96,6 +96,7 @@
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="ByteSwap.h" />
     <ClInclude Include="Buffer.h" />
+    <ClInclude Include="SysError.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -105,7 +106,6 @@
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
-    <ClCompile Include="Misc.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
@@ -164,6 +164,7 @@
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Buffer.cpp" />
+    <ClCompile Include="SysError.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

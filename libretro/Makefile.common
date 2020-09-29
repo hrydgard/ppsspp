@@ -153,7 +153,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
-	$(COMMONDIR)/Misc.cpp \
+	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/Timer.cpp \
 	$(COMMONDIR)/TimeUtil.cpp \
