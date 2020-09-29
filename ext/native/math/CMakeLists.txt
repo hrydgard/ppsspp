@@ -1,9 +1,8 @@
 set(SRCS
   lin/matrix4x4.cpp
   lin/vec3.cpp
-  lin/quat.cpp
-	curves.cpp
-	math_util.cpp
+  curves.cpp
+  math_util.cpp
   )
 
 set(SRCS ${SRCS})

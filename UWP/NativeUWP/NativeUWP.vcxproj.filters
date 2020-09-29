@@ -64,9 +64,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\base\backtrace.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\base\buffer.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -167,12 +164,6 @@
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\plane.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\quat.cpp">
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\vec3.cpp">
@@ -475,9 +466,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\backtrace.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\base\basictypes.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -607,12 +595,6 @@
     <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\plane.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\quat.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\math\lin\ray.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -716,9 +698,6 @@
       <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\data\compression.h">
-      <Filter>data</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\data\listable.h">
       <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\json\json_reader.h" />

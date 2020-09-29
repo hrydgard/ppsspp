@@ -8,9 +8,6 @@
 
 #include "base/basictypes.h"
 
-inline float sqr(float f)	{return f*f;}
-inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
-
 typedef unsigned short float16;
 
 // This ain't a 1.5.10 float16, it's a stupid hack format where we chop 16 bits off a float.
@@ -56,33 +53,6 @@ inline uint32_t log2i(uint32_t val) {
 #define M_PI 3.141592653589793f
 #endif
 
-// Calculate pseudo-random 32 bit number based on linear congruential method. 
-void SetSeed(unsigned int seed);
-unsigned int GenerateRandomNumber();
-inline float GenerateRandomFloat01() {
-	return (float)((double)GenerateRandomNumber() / 0xFFFFFFFF);
-}
-inline float GenerateRandomSignedFloat() {
-	return (float)((double)GenerateRandomNumber() / 0x80000000) - 1.0f;
-}
-
-
-inline float GaussRand()
-{
-	float R1 = GenerateRandomFloat01();
-	float R2 = GenerateRandomFloat01();
-
-	float X = sqrtf(-2.0f * logf(R1)) * cosf(2.0f * PI * R2);
-	if (X > 4.0f) X = 4.0f;
-	if (X < -4.0f) X = -4.0f;
-	return X;
-}
-
-// Accuracy unknown
-inline double atan_fast(double x) {
-	return (x / (1.0 + 0.28 * (x * x)));
-}
-
 template<class T>
 inline T clamp_value(T val, T floor, T cap) {
 	if (val > cap)
@@ -91,18 +61,6 @@ inline T clamp_value(T val, T floor, T cap) {
 		return floor;
 	else
 		return val;
-}
-
-// linear -> dB conversion
-inline float lin2dB(float lin) {
-	const float LOG_2_DB = 8.6858896380650365530225783783321f;	// 20 / ln( 10 )
-	return logf(lin) * LOG_2_DB;
-}
-
-// dB -> linear conversion
-inline float dB2lin(float dB) {
-	const float DB_2_LOG = 0.11512925464970228420089957273422f;	// ln( 10 ) / 20
-	return expf(dB * DB_2_LOG);
 }
 
 union FP32 {

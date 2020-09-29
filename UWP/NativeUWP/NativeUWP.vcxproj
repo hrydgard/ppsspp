@@ -379,7 +379,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\native\base\backtrace.h" />
     <ClInclude Include="..\..\ext\native\base\basictypes.h" />
     <ClInclude Include="..\..\ext\native\base\buffer.h" />
     <ClInclude Include="..\..\ext\native\base\colorutil.h" />
@@ -391,7 +390,6 @@
     <ClInclude Include="..\..\ext\native\base\stringutil.h" />
     <ClInclude Include="..\..\ext\native\data\base64.h" />
     <ClInclude Include="..\..\ext\native\data\compression.h" />
-    <ClInclude Include="..\..\ext\native\data\listable.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\city.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\citycrc.h" />
     <ClInclude Include="..\..\ext\native\ext\gason\gason.h" />
@@ -436,8 +434,6 @@
     <ClInclude Include="..\..\ext\native\math\fast\fast_matrix.h" />
     <ClInclude Include="..\..\ext\native\math\geom2d.h" />
     <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h" />
-    <ClInclude Include="..\..\ext\native\math\lin\plane.h" />
-    <ClInclude Include="..\..\ext\native\math\lin\quat.h" />
     <ClInclude Include="..\..\ext\native\math\lin\ray.h" />
     <ClInclude Include="..\..\ext\native\math\lin\vec3.h" />
     <ClInclude Include="..\..\ext\native\math\math_util.h" />
@@ -473,7 +469,6 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\ext\native\base\backtrace.cpp" />
     <ClCompile Include="..\..\ext\native\base\buffer.cpp" />
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
@@ -1588,8 +1583,6 @@
       </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp" />
-    <ClCompile Include="..\..\ext\native\math\lin\plane.cpp" />
-    <ClCompile Include="..\..\ext\native\math\lin\quat.cpp" />
     <ClCompile Include="..\..\ext\native\math\lin\vec3.cpp" />
     <ClCompile Include="..\..\ext\native\math\math_util.cpp" />
     <ClCompile Include="..\..\ext\native\net\http_client.cpp" />

@@ -1,7 +1,7 @@
 #pragma once
 
-// RIFF file format reader/writer. Very old code, basically a total mess but it still works.
-// Has nothing to do with the ChunkFile.h used in Dolphin or PPSSPP.
+// Simple RIFF file format reader/writer.
+// Unrelated to the ChunkFile.h used in Dolphin and PPSSPP.
 
 // TO REMEMBER WHEN USING:
 

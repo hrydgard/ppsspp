@@ -6415,7 +6415,7 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 			SceNetEtherAddr mac;
 			memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
 
-			// Allocate Memory (If this fails... we are fucked.)
+			// Allocate Memory
 			SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
 			// Allocated Memory

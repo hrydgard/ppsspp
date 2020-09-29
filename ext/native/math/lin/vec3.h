@@ -14,7 +14,6 @@ public:
 	float x,y,z,w;
 	Vec4(){}
 	Vec4(float a, float b, float c, float d) {x=a;y=b;z=c;w=d;}
-	Vec4 multiply4D(Matrix4x4 &m) const;
 };
 
 class Vec3 {
@@ -80,7 +79,6 @@ public:
 	void operator *=(const Matrix4x4 &m) {
 		*this = *this * m;
 	}
-	Vec4 multiply4D(const Matrix4x4 &m) const;
 	Vec3 rotatedBy(const Matrix4x4 &m) const;
 	Vec3 operator %(const Vec3 &v) const {
 		return Vec3(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x);
@@ -132,10 +130,6 @@ inline float dot(const Vec3 &a, const Vec3 &b) {
 
 inline Vec3 cross(const Vec3 &a, const Vec3 &b) {
 	return a % b;
-}
-
-inline float sqr(const Vec3 &v) {
-	return dot(v, v);
 }
 
 class AABBox {

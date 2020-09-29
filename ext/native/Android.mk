@@ -7,7 +7,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := libnative
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
-    base/backtrace.cpp \
     base/buffer.cpp \
     base/display.cpp \
     base/colorutil.cpp \
@@ -53,8 +52,6 @@ LOCAL_SRC_FILES :=\
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
-    math/lin/plane.cpp.arm \
-    math/lin/quat.cpp.arm \
     math/lin/vec3.cpp.arm \
     math/lin/matrix4x4.cpp.arm \
     net/http_client.cpp \

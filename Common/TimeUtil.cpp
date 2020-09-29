@@ -20,9 +20,9 @@ static double curtime = 0;
 
 #ifdef _WIN32
 
-LARGE_INTEGER frequency;
-double frequencyMult;
-LARGE_INTEGER startTime;
+static LARGE_INTEGER frequency;
+static double frequencyMult;
+static LARGE_INTEGER startTime;
 
 double time_now_d() {
 	if (frequency.QuadPart == 0) {
@@ -39,8 +39,8 @@ double time_now_d() {
 
 #else
 
-uint64_t _frequency = 0;
-uint64_t _starttime = 0;
+static uint64_t _frequency = 0;
+static uint64_t _starttime = 0;
 
 double time_now_d() {
 	static time_t start;
@@ -64,26 +64,3 @@ void sleep_ms(int ms) {
 	usleep(ms * 1000);
 #endif
 }
-
-LoggingDeadline::LoggingDeadline(const char *name, int ms) : name_(name), endCalled_(false) {
-	totalTime_ = (double)ms * 0.001;
-	endTime_ = time_now_d() + totalTime_;
-}
-
-LoggingDeadline::~LoggingDeadline() {
-	if (!endCalled_)
-		End();
-}
-
-bool LoggingDeadline::End() {
-	endCalled_ = true;
-	double now = time_now_d();
-	if (now > endTime_) {
-		double late = (now - endTime_);
-		double totalTime = late + totalTime_;
-		ERROR_LOG(SYSTEM, "===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
-		return false;
-	}
-	return true;
-}
-

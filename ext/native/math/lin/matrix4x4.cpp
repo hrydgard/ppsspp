@@ -3,7 +3,6 @@
 #include <cstdio>
 
 #include "math/lin/vec3.h"
-#include "math/lin/quat.h"
 #include "math/fast/fast_matrix.h"
 
 #ifdef _WIN32
@@ -15,32 +14,6 @@
 // no wait. http://code.google.com/p/math-neon/
 
 namespace Lin {
-
-Matrix4x4 Matrix4x4::simpleInverse() const {
-	Matrix4x4 out;
-	out.xx = xx;
-	out.xy = yx;
-	out.xz = zx;
-
-	out.yx = xy;
-	out.yy = yy;
-	out.yz = zy;
-
-	out.zx = xz;
-	out.zy = yz;
-	out.zz = zz;
-
-	out.wx = -(xx * wx + xy * wy + xz * wz);
-	out.wy = -(yx * wx + yy * wy + yz * wz);
-	out.wz = -(zx * wx + zy * wy + zz * wz);
-
-	out.xw = 0.0f;
-	out.yw = 0.0f;
-	out.zw = 0.0f;
-	out.ww = 1.0f;
-
-	return out;
-}
 
 Matrix4x4 Matrix4x4::transpose() const
 {
@@ -59,100 +32,6 @@ Matrix4x4 Matrix4x4::operator * (const Matrix4x4 &other) const
 	return temp;
 }
 
-Matrix4x4 Matrix4x4::inverse() const {
-	Matrix4x4 temp;
-	float dW = 1.0f / (xx*(yy*zz - yz*zy) - xy*(yx*zz - yz*zx) - xz*(yy*zx - yx*zy));
-
-	temp.xx = (yy*zz - yz*zy) * dW;
-	temp.xy = (xz*zy - xy*zz) * dW;
-	temp.xz = (xy*yz - xz*yy) * dW;
-	temp.xw = xw;
-
-	temp.yx = (yz*zx - yx*zz) * dW;
-	temp.yy = (xx*zz - xz*zx) * dW;
-	temp.yz = (xz*yx - xx*zx) * dW;
-	temp.yw = yw;
-
-	temp.zx = (yx*zy - yy*zx) * dW;
-	temp.zy = (xy*zx - xx*zy) * dW;
-	temp.zz = (xx*yy - xy*yx) * dW;
-	temp.zw = zw;
-
-	temp.wx = (yy*(zx*wz - zz*wx) + yz*(zy*wx - zx*wy) - yx*(zy*wz - zz*wy)) * dW;
-	temp.wy = (xx*(zy*wz - zz*wy) + xy*(zz*wx - zx*wz) + xz*(zx*wy - zy*wx)) * dW;
-	temp.wz = (xy*(yx*wz - yz*wx) + xz*(yy*wx - yx*wy) - xx*(yy*wz - yz*wy)) * dW;
-	temp.ww = ww;
-
-	return temp;
-}
-
-void Matrix4x4::setViewLookAt(const Vec3 &vFrom, const Vec3 &vAt, const Vec3 &vWorldUp) {
-	Vec3 vView = vFrom - vAt;	// OpenGL, sigh...
-	vView.normalize();
-	float DotProduct = vWorldUp * vView;
-	Vec3 vUp = vWorldUp - vView * DotProduct;
-	float Length = vUp.length();
-
-	if (1e-6f > Length) {
-		// EMERGENCY
-		vUp = Vec3(0.0f, 1.0f, 0.0f) - vView * vView.y;
-		// If we still have near-zero length, resort to a different axis.
-		Length = vUp.length();
-		if (1e-6f > Length)
-		{
-			vUp		 = Vec3(0.0f, 0.0f, 1.0f) - vView * vView.z;
-			Length	= vUp.length();
-			if (1e-6f > Length)
-				return;
-		}
-	}
-	vUp.normalize(); 
-	Vec3 vRight = vUp % vView;
-	empty();
-
-	xx = vRight.x; xy = vUp.x; xz=vView.x;
-	yx = vRight.y; yy = vUp.y; yz=vView.y;
-	zx = vRight.z; zy = vUp.z; zz=vView.z;
-
-	wx = -vFrom * vRight;
-	wy = -vFrom * vUp;
-	wz = -vFrom * vView;
-	ww = 1.0f;
-}
-
-void Matrix4x4::setViewLookAtD3D(const Vec3 &vFrom, const Vec3 &vAt, const Vec3 &vWorldUp) {
-	Vec3 vView = vAt - vFrom;
-	vView.normalize();
-	float DotProduct = vWorldUp * vView;
-	Vec3 vUp = vWorldUp - vView * DotProduct;
-	float Length = vUp.length();
-
-	if (1e-6f > Length) {
-		vUp = Vec3(0.0f, 1.0f, 0.0f) - vView * vView.y;
-		// If we still have near-zero length, resort to a different axis.
-		Length = vUp.length();
-		if (1e-6f > Length)
-		{
-			vUp		 = Vec3(0.0f, 0.0f, 1.0f) - vView * vView.z;
-			Length	= vUp.length();
-			if (1e-6f > Length)
-				return;
-		}
-	}
-	vUp.normalize(); 
-	Vec3 vRight = vUp % vView;
-	empty();
-
-	xx = vRight.x; xy = vUp.x; xz=vView.x;
-	yx = vRight.y; yy = vUp.y; yz=vView.y;
-	zx = vRight.z; zy = vUp.z; zz=vView.z;
-
-	wx = -vFrom * vRight;
-	wy = -vFrom * vUp;
-	wz = -vFrom * vView;
-	ww = 1.0f;
-}
-
 void Matrix4x4::setViewFrame(const Vec3 &pos, const Vec3 &vRight, const Vec3 &vView, const Vec3 &vUp) {
 	xx = vRight.x; xy = vUp.x; xz=vView.x; xw = 0.0f;
 	yx = vRight.y; yy = vUp.y; yz=vView.y; yw = 0.0f;
@@ -162,44 +41,6 @@ void Matrix4x4::setViewFrame(const Vec3 &pos, const Vec3 &vRight, const Vec3 &vV
 	wy = -pos * vUp;
 	wz = -pos * vView;
 	ww = 1.0f;
-}
-
-//YXZ euler angles
-void Matrix4x4::setRotation(float x,float y, float z) 
-{
-	setRotationY(y);
-	Matrix4x4 temp;
-	temp.setRotationX(x);
-	*this *= temp;
-	temp.setRotationZ(z);
-	*this *= temp;
-}
-
-void Matrix4x4::setProjection(float near, float far, float fov_horiz, float aspect) {
-	// Now OpenGL style.
-	empty();
-
-	float xFac = tanf(fov_horiz * 3.14f/360);
-	float yFac = xFac * aspect;	
-	xx = 1.0f / xFac;
-	yy = 1.0f / yFac;
-	zz = -(far+near)/(far-near);
-	zw = -1.0f;
-	wz = -(2*far*near)/(far-near);
-}
-
-void Matrix4x4::setProjectionD3D(float near_plane, float far_plane, float fov_horiz, float aspect) {
-	empty();
-	float Q, f;
-
-	f = fov_horiz*0.5f;
-	Q = far_plane / (far_plane - near_plane);
-
-	xx = (float)(1.0f / tanf(f));;
-	yy = (float)(1.0f / tanf(f*aspect)); 
-	zz = Q; 
-	wz = -Q * near_plane;
-	zw = 1.0f;
 }
 
 void Matrix4x4::setOrtho(float left, float right, float bottom, float top, float near, float far) {
