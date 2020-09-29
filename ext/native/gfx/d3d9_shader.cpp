@@ -3,6 +3,7 @@
 #include "ppsspp_config.h"
 #include "d3d9_shader.h"
 #include "Common/CommonFuncs.h"
+#include "Common/SysError.h"
 
 #if PPSSPP_API(D3DX9)
 #include "thin3d/d3dx9_loader.h"
