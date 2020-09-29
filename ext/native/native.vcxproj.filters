@@ -110,12 +110,6 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="data\listable.h">
-      <Filter>data</Filter>
-    </ClInclude>
-    <ClInclude Include="base\logging.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="net\http_client.h">
       <Filter>net</Filter>
     </ClInclude>
@@ -774,9 +768,6 @@
     </ClCompile>
     <ClCompile Include="thin3d\d3d11_loader.cpp">
       <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="base\logging.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_win.cpp">
       <Filter>gfx</Filter>

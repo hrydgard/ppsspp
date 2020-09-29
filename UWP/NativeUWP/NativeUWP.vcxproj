@@ -390,7 +390,6 @@
     <ClInclude Include="..\..\ext\native\base\stringutil.h" />
     <ClInclude Include="..\..\ext\native\data\base64.h" />
     <ClInclude Include="..\..\ext\native\data\compression.h" />
-    <ClInclude Include="..\..\ext\native\data\listable.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\city.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\citycrc.h" />
     <ClInclude Include="..\..\ext\native\ext\gason\gason.h" />

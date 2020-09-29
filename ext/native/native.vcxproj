@@ -390,7 +390,6 @@
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="data\base64.h" />
     <ClInclude Include="data\compression.h" />
-    <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
     <ClInclude Include="ext\gason\gason.h" />

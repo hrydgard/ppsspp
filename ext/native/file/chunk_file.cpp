@@ -29,7 +29,6 @@ int RIFFReader::ReadInt() {
 	return 0;
 }
 
-// let's get into the business
 bool RIFFReader::Descend(uint32_t intoId) {
 	if (depth_ > 30)
 		return false;
@@ -83,7 +82,6 @@ bool RIFFReader::Descend(uint32_t intoId) {
 	return true;
 }
 
-// let's ascend out
 void RIFFReader::Ascend() {
 	// ascend, and restore information
 	depth_--;
@@ -91,7 +89,6 @@ void RIFFReader::Ascend() {
 	eof_ = stack[depth_].parentEOF;
 }
 
-// read a block
 void RIFFReader::ReadData(void *what, int count) {
 	memcpy(what, data_ + pos_, count);
 	pos_ += count;
