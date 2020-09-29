@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/basictypes.h"
+#include <cstdint>
 
 // LoadZIM's responsibility:
 // * Parse the ZIM format

@@ -17,7 +17,6 @@
 #include <fcntl.h>
 #endif
 
-#include "base/basictypes.h"
 #include "util/text/utf8.h"
 
 bool free_disk_space(const std::string &dir, uint64_t &space) {

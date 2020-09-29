@@ -9,8 +9,8 @@
 #endif
 
 #include <cstring>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "thread/threadutil.h"
 
 #include "Common/Log.h"

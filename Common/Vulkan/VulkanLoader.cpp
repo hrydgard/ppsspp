@@ -21,7 +21,6 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "base/basictypes.h"
 #include "base/NativeApp.h"
 
 #ifndef _WIN32

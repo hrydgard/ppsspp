@@ -18,6 +18,7 @@
 #endif
 #include <fcntl.h>
 
+#include "Common/Common.h"
 #include "Common/Log.h"
 
 namespace fd_util {

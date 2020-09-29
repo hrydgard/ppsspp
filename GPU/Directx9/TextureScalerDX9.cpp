@@ -15,15 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// On Visual Studio 2012, include this before anything else so
-// _VARIADIC_MAX gets set to 10, to avoid std::bind compile errors.
-// See header file for reasons why.
-#if defined(_WIN32) && _MSC_VER == 1700
-#include "../native/base/basictypes.h"
-#endif
-
 #include <algorithm>
 
+#include "Common/Common.h"
 #include "Common/ColorConv.h"
 #include "Common/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"

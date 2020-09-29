@@ -20,7 +20,7 @@
 #include <map>
 #include <cstdint>
 
-#include "base/basictypes.h"
+#include "Common/Common.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Common/ShaderCommon.h"

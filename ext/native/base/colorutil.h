@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/basictypes.h"
+#include <cstdint>
 
 uint32_t whiteAlpha(float alpha);
 uint32_t blackAlpha(float alpha);

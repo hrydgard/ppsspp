@@ -18,7 +18,6 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-#include "base/basictypes.h"
 #include "file/file_util.h"
 #include "util/text/utf8.h"
 

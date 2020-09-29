@@ -18,8 +18,8 @@
 #pragma once
 
 #include <cstdio>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "Common/Hashmaps.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../base/basictypes.h"
+#include <cstdint>
 #include <vector>
 
 typedef std::pair<uint32_t, uint32_t> ExpressionPair;

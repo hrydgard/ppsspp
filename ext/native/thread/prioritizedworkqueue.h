@@ -5,8 +5,9 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "base/basictypes.h"
 #include "thread/threadutil.h"
+
+#include "Common/Common.h"
 
 // Priorities can change dynamically.
 // Try to make priority() fast, it will be called a lot.

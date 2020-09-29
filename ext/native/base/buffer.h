@@ -3,8 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
-
 #include "Common/Common.h"
 
 // Acts as a queue. Intended to be as fast as possible for most uses.

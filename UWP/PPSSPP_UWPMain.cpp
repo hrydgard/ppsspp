@@ -3,7 +3,6 @@
 
 #include <mutex>
 
-#include "base/basictypes.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
 #include "file/vfs.h"
@@ -16,6 +15,7 @@
 #include "thin3d/thin3d_create.h"
 #include "util/text/utf8.h"
 
+#include "Common/Common.h"
 #include "Common/DirectXHelper.h"
 #include "Common/FileUtil.h"
 #include "Common/Log.h"

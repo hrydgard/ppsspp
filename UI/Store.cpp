@@ -17,7 +17,6 @@
 
 #include <functional>
 
-#include "base/basictypes.h"
 #include "json/json_reader.h"
 
 #include "i18n/i18n.h"
@@ -26,6 +25,7 @@
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
 
+#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

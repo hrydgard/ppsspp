@@ -4,9 +4,7 @@
 #include <list>
 #include <mutex>
 
-#include "base/basictypes.h"
 #include "math/geom2d.h"
-
 #include "ui/view.h"
 
 class DrawBuffer;
@@ -37,7 +35,6 @@ public:
 	const std::list<Message> &Messages() { return messages_; }
 
 private:
-
 	std::list<Message> messages_;
 	std::mutex mutex_;
 };

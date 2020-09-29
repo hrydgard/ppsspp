@@ -7,9 +7,9 @@
 #include <zip.h>
 #endif
 
-#include "base/basictypes.h"
 #include "file/zip_read.h"
 
+#include "Common/Common.h"
 #include "Common/Log.h"
 
 #ifdef __ANDROID__
@@ -200,6 +200,11 @@ bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 }
 
 #endif
+
+DirectoryAssetReader::DirectoryAssetReader(const char *path) {
+	strncpy(path_, path, ARRAY_SIZE(path_));
+	path_[ARRAY_SIZE(path_) - 1] = '\0';
+}
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 	char new_path[2048];

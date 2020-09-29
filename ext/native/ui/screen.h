@@ -16,9 +16,10 @@
 #include <vector>
 #include <mutex>
 
-#include "base/basictypes.h"
 #include "base/NativeApp.h"
 #include "input/input_state.h"
+
+#include "Common/Common.h"
 
 namespace UI {
 	class View;

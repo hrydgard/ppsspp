@@ -3,8 +3,6 @@
 #include <cstring>
 #include <string>
 
-#include "base/basictypes.h"
-
 namespace fd_util {
 
 // Slow as hell and should only be used for prototyping.

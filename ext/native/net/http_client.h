@@ -3,8 +3,8 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <cstdint>
 
-#include "base/basictypes.h"
 #include "base/buffer.h"
 #include "net/resolve.h"
 

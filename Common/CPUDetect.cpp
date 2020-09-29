@@ -29,7 +29,6 @@
 #include <memory.h>
 #include <set>
 
-#include "base/basictypes.h"
 #include "file/file_util.h"
 
 #include "Common/Common.h"

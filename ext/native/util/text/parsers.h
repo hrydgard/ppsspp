@@ -2,8 +2,7 @@
 
 #include <string>
 #include <sstream>
-
-#include "base/basictypes.h"
+#include <cstdint>
 
 #undef major
 #undef minor

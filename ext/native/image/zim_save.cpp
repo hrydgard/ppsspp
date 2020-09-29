@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cmath>
 
+#include "image/zim_load.h"
 #include "image/zim_save.h"
 #include "zlib.h"
 
@@ -76,8 +77,6 @@ bool ispowerof2 (int x) {
 	else
 		return true; 
 } 
-
-
 
 void Convert(const uint8_t *image_data, int width, int height, int pitch, int flags,
 	uint8_t **data, int *data_size) {
@@ -157,10 +156,10 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	int degamma[256];
 	int gamma[32768];
 	for (int i =0; i < 256; i++) {
-		degamma[i] = powf((float)i / 255.0f, 1.0f/2.2f) * 8191.0f;
+		degamma[i] = (int)(powf((float)i / 255.0f, 1.0f/2.2f) * 8191.0f);
 	}
 	for (int i = 0; i < 32768; i++) {
-		gamma[i] = powf((float)i / 32764.0f, 2.2f) * 255.0f;
+		gamma[i] = (int)(powf((float)i / 32764.0f, 2.2f) * 255.0f);
 	}
 
 	// Really stupid mipmap downsampling - at least it does gamma though.

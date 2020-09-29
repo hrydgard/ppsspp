@@ -1,9 +1,6 @@
 #pragma once
 
-#include "base/basictypes.h"
-
 // Easy curve computation for fades etc.
-
 
 // output range: [0.0, 1.0]
 float linearInOut(int t, int fadeInLength, int solidLength, int fadeOutLength);
