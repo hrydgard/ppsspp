@@ -458,11 +458,11 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 					valueStack.push_back(val);
 				}
 				break;
-			case EXOP_SIGNPLUS:		// keine aktion nötig
+			case EXOP_SIGNPLUS:		// keine aktion nÃ¶tig
 				break;
 			case EXOP_SIGNMINUS:	// -0
 				if (useFloat)
-					valueStack.push_back(0.0-fArg[0]);
+					valueStack.push_back(0.0 - fArg[0]);
 				else
 					valueStack.push_back(0-arg[0]);
 				break;

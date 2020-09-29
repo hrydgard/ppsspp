@@ -7,6 +7,7 @@
 #include "gfx_es2/draw_text_uwp.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #if PPSSPP_PLATFORM(UWP)
 

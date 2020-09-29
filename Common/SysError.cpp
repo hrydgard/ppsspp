@@ -23,6 +23,8 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#else
+#include <errno.h>
 #endif
 
 // Generic function to get last error message.

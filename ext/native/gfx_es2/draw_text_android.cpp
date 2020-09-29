@@ -9,6 +9,7 @@
 #include "android/jni/app-android.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 

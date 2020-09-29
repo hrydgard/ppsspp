@@ -318,7 +318,7 @@ std::vector<std::string> getWindowsDrives()
 	std::vector<std::string> drives;
 
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
-	std::vector<TCHAR> buff(buffsize);
+	std::vector<wchar_t> buff(buffsize);
 	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
 	{
 		auto drive = buff.data();

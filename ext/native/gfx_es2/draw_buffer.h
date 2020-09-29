@@ -46,11 +46,6 @@ namespace Draw {
 	class Pipeline;
 }
 
-enum DrawBufferPrimitiveMode {
-	DBMODE_NORMAL = 0,
-	DBMODE_LINES = 1
-};
-
 struct GradientStop {
 	float t;
 	uint32_t color;
@@ -190,7 +185,6 @@ private:
 
 	Vertex *verts_;
 	int count_;
-	DrawBufferPrimitiveMode mode_;
 	const Atlas *atlas;
 
 	bool inited_;

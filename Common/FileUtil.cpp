@@ -802,7 +802,7 @@ const std::string &GetExeDirectory()
 			sz = GetModuleFileName(nullptr, &program_path[0], (DWORD)program_path.size());
 		} while (sz >= program_path.size());
 
-		TCHAR *last_slash = _tcsrchr(&program_path[0], '\\');
+		const wchar_t *last_slash = wcsrchr(&program_path[0], '\\');
 		if (last_slash != nullptr)
 			program_path.resize(last_slash - &program_path[0] + 1);
 		else
