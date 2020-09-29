@@ -56,13 +56,13 @@ HWND CreateHiddenWindow() {
 		LoadCursor(NULL, IDC_ARROW),
 		(HBRUSH) GetStockObject(BLACK_BRUSH),
 		NULL,
-		_T("PPSSPPHeadless"),
+		L"PPSSPPHeadless",
 		NULL,
 	};
 	RegisterClassEx(&wndClass);
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
-	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
+	return CreateWindowEx(0, L"PPSSPPHeadless", L"PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
 }
 
 void WindowsHeadlessHost::LoadNativeAssets()

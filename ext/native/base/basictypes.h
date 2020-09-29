@@ -28,12 +28,6 @@
 	}
 #endif
 
-#ifdef _WIN32
-
-#include <tchar.h>
-
-#endif  // _WIN32
-
 // Byteswapping
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
@@ -71,9 +65,3 @@ inline uint64_t swap64(const uint8_t* _pData) {return swap64(*(const uint64_t*)_
 #else
 #define __THREAD __thread
 #endif
-
-// For really basic windows code compat
-#ifndef _TCHAR_DEFINED
-typedef char TCHAR;
-#endif
-
