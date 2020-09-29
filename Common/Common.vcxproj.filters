@@ -95,6 +95,7 @@
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="ByteSwap.h" />
+    <ClInclude Include="Buffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -162,6 +163,7 @@
     </ClCompile>
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="Log.cpp" />
+    <ClCompile Include="Buffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

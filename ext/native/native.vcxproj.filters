@@ -104,9 +104,6 @@
     <ClInclude Include="net\http_client.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="base\buffer.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="file\fd_util.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -399,9 +396,6 @@
     </ClCompile>
     <ClCompile Include="net\http_client.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="base\buffer.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="file\fd_util.cpp">
       <Filter>file</Filter>

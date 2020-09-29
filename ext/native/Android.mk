@@ -7,7 +7,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := libnative
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
-    base/buffer.cpp \
     base/display.cpp \
     base/colorutil.cpp \
     data/base64.cpp \

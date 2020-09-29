@@ -442,6 +442,8 @@ add_library(Common STATIC
 	Common/Crypto/sha256.h
 	Common/BitScan.h
 	Common/BitSet.h
+	Common/Buffer.h
+	Common/Buffer.cpp
 	Common/ByteSwap.h
 	Common/CodeBlock.h
 	Common/ColorConv.cpp
@@ -949,8 +951,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/buffer.cpp
-	ext/native/base/buffer.h
 	ext/native/base/colorutil.cpp
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp

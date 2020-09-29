@@ -144,6 +144,7 @@ SOURCES_CXX += \
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
+	$(COMMONDIR)/Common/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FileUtil.cpp \
@@ -214,7 +215,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/buffer.cpp \
 	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
 	$(EXTDIR)/native/data/compression.cpp \

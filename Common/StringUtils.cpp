@@ -41,10 +41,9 @@
 #include <algorithm>
 #include <iomanip>
 
-#include "base/buffer.h"
-
-#include "Common.h"
-#include "StringUtils.h"
+#include "Common/Common.h"
+#include "Common/Buffer.h"
+#include "Common/StringUtils.h"
 
 void truncate_cpy(char *dest, size_t destSize, const char *src) {
 	size_t len = strlen(src);

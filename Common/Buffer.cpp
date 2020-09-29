@@ -1,4 +1,3 @@
-#include "base/buffer.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,9 +17,10 @@
 #define MSG_NOSIGNAL 0x00
 #endif
 
-#include "Common/TimeUtil.h"
 #include "file/fd_util.h"
 
+#include "Common/TimeUtil.h"
+#include "Common/Buffer.h"
 #include "Common/Log.h"
 
 Buffer::Buffer() { }

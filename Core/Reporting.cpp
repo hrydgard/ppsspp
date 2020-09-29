@@ -48,7 +48,6 @@
 #include "net/resolve.h"
 #include "net/url.h"
 
-#include "base/buffer.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 

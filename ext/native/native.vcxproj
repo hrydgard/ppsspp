@@ -382,7 +382,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Qt\QtMain.h" />
-    <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\NativeApp.h" />
@@ -484,7 +483,6 @@
     <ClInclude Include="util\tiny_set.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="..\..\SDL\SDLMain.cpp">

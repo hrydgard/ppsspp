@@ -354,6 +354,7 @@
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
+    <ClInclude Include="Buffer.h" />
     <ClInclude Include="ByteSwap.h" />
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
@@ -441,6 +442,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
+    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="ColorConvNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
