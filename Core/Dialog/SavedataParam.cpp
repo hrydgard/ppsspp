@@ -343,10 +343,10 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 
 int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	if (!param) {
-		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 	}
 	if (param->fileName[0] == '\0') {
-		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+		return 0;
 	}
 
 	std::string subFolder = GetGameName(param) + GetSaveName(param);
@@ -359,6 +359,8 @@ int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
 		pspFileSystem.RemoveFile(filename);
+	} else {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 	}
 	return 0;
 }
@@ -1736,6 +1738,8 @@ bool SavedataParam::wouldHasMultiSaveName(SceUtilitySavedataParam* param) {
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
