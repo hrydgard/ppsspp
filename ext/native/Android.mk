@@ -86,9 +86,9 @@ ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
     math/fast/fast_matrix_neon.S.neon \
-    ext/libpng17/arm/arm_init.c \
-    ext/libpng17/arm/filter_neon_intrinsics.c \
-    ext/libpng17/arm/filter_neon.S.neon
+    ../../ext/libpng17/arm/arm_init.c \
+    ../../ext/libpng17/arm/filter_neon_intrinsics.c \
+    ../../ext/libpng17/arm/filter_neon.S.neon
 
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
