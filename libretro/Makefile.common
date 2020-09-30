@@ -23,71 +23,71 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
-	-I$(NATIVEDIR)/ext \
+	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \
-	-I$(NATIVEDIR)/ext/libpng17 \
+	-I$(EXTDIR)/libpng17 \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
 	-I$(EXTDIR)/xxhash \
 	-I$(EXTDIR)/glew
 
 ifeq ($(PLATFORM_EXT), android)
-	INCFLAGS += -I$(NATIVEDIR)/ext/libzip
+	INCFLAGS += -I$(EXTDIR)/libzip
 	SOURCES_C += \
-		$(NATIVEDIR)/ext/libzip/mkstemp.c \
-		$(NATIVEDIR)/ext/libzip/zip_add.c \
-		$(NATIVEDIR)/ext/libzip/zip_add_dir.c \
-		$(NATIVEDIR)/ext/libzip/zip_close.c \
-		$(NATIVEDIR)/ext/libzip/zip_delete.c \
-		$(NATIVEDIR)/ext/libzip/zip_dirent.c \
-		$(NATIVEDIR)/ext/libzip/zip_entry_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_entry_new.c \
-		$(NATIVEDIR)/ext/libzip/zip_err_str.c \
-		$(NATIVEDIR)/ext/libzip/zip_error.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_clear.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_get.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_get_sys_type.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_to_str.c \
-		$(NATIVEDIR)/ext/libzip/zip_fclose.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_error_clear.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_error_get.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_get_offset.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_filerange_crc.c \
-		$(NATIVEDIR)/ext/libzip/zip_fopen.c \
-		$(NATIVEDIR)/ext/libzip/zip_fopen_index.c \
-		$(NATIVEDIR)/ext/libzip/zip_fread.c \
-		$(NATIVEDIR)/ext/libzip/zip_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_archive_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_archive_flag.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_file_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_name.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_num_files.c \
-		$(NATIVEDIR)/ext/libzip/zip_memdup.c \
-		$(NATIVEDIR)/ext/libzip/zip_name_locate.c \
-		$(NATIVEDIR)/ext/libzip/zip_new.c \
-		$(NATIVEDIR)/ext/libzip/zip_open.c \
-		$(NATIVEDIR)/ext/libzip/zip_rename.c \
-		$(NATIVEDIR)/ext/libzip/zip_replace.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_archive_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_archive_flag.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_file_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_name.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_buffer.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_file.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_filep.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_function.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_zip.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat_index.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat_init.c \
-		$(NATIVEDIR)/ext/libzip/zip_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_all.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_archive.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_data.c
+		$(EXTDIR)/libzip/mkstemp.c \
+		$(EXTDIR)/libzip/zip_add.c \
+		$(EXTDIR)/libzip/zip_add_dir.c \
+		$(EXTDIR)/libzip/zip_close.c \
+		$(EXTDIR)/libzip/zip_delete.c \
+		$(EXTDIR)/libzip/zip_dirent.c \
+		$(EXTDIR)/libzip/zip_entry_free.c \
+		$(EXTDIR)/libzip/zip_entry_new.c \
+		$(EXTDIR)/libzip/zip_err_str.c \
+		$(EXTDIR)/libzip/zip_error.c \
+		$(EXTDIR)/libzip/zip_error_clear.c \
+		$(EXTDIR)/libzip/zip_error_get.c \
+		$(EXTDIR)/libzip/zip_error_get_sys_type.c \
+		$(EXTDIR)/libzip/zip_error_strerror.c \
+		$(EXTDIR)/libzip/zip_error_to_str.c \
+		$(EXTDIR)/libzip/zip_fclose.c \
+		$(EXTDIR)/libzip/zip_file_error_clear.c \
+		$(EXTDIR)/libzip/zip_file_error_get.c \
+		$(EXTDIR)/libzip/zip_file_get_offset.c \
+		$(EXTDIR)/libzip/zip_file_strerror.c \
+		$(EXTDIR)/libzip/zip_filerange_crc.c \
+		$(EXTDIR)/libzip/zip_fopen.c \
+		$(EXTDIR)/libzip/zip_fopen_index.c \
+		$(EXTDIR)/libzip/zip_fread.c \
+		$(EXTDIR)/libzip/zip_free.c \
+		$(EXTDIR)/libzip/zip_get_archive_comment.c \
+		$(EXTDIR)/libzip/zip_get_archive_flag.c \
+		$(EXTDIR)/libzip/zip_get_file_comment.c \
+		$(EXTDIR)/libzip/zip_get_name.c \
+		$(EXTDIR)/libzip/zip_get_num_files.c \
+		$(EXTDIR)/libzip/zip_memdup.c \
+		$(EXTDIR)/libzip/zip_name_locate.c \
+		$(EXTDIR)/libzip/zip_new.c \
+		$(EXTDIR)/libzip/zip_open.c \
+		$(EXTDIR)/libzip/zip_rename.c \
+		$(EXTDIR)/libzip/zip_replace.c \
+		$(EXTDIR)/libzip/zip_set_archive_comment.c \
+		$(EXTDIR)/libzip/zip_set_archive_flag.c \
+		$(EXTDIR)/libzip/zip_set_file_comment.c \
+		$(EXTDIR)/libzip/zip_set_name.c \
+		$(EXTDIR)/libzip/zip_source_buffer.c \
+		$(EXTDIR)/libzip/zip_source_file.c \
+		$(EXTDIR)/libzip/zip_source_filep.c \
+		$(EXTDIR)/libzip/zip_source_free.c \
+		$(EXTDIR)/libzip/zip_source_function.c \
+		$(EXTDIR)/libzip/zip_source_zip.c \
+		$(EXTDIR)/libzip/zip_stat.c \
+		$(EXTDIR)/libzip/zip_stat_index.c \
+		$(EXTDIR)/libzip/zip_stat_init.c \
+		$(EXTDIR)/libzip/zip_strerror.c \
+		$(EXTDIR)/libzip/zip_unchange.c \
+		$(EXTDIR)/libzip/zip_unchange_all.c \
+		$(EXTDIR)/libzip/zip_unchange_archive.c \
+		$(EXTDIR)/libzip/zip_unchange_data.c
 
 	SOURCES_C +=\
 		$(NATIVEDIR)/gfx_es2/gl3stub.c \
@@ -106,20 +106,20 @@ SOURCES_C += \
 	$(EXTDIR)/libkirk/kirk_engine.c
 
 SOURCES_C += \
-	$(NATIVEDIR)/ext/libpng17/png.c \
-	$(NATIVEDIR)/ext/libpng17/pngerror.c \
-	$(NATIVEDIR)/ext/libpng17/pngget.c \
-	$(NATIVEDIR)/ext/libpng17/pngmem.c \
-	$(NATIVEDIR)/ext/libpng17/pngread.c \
-	$(NATIVEDIR)/ext/libpng17/pngrio.c \
-	$(NATIVEDIR)/ext/libpng17/pngrtran.c \
-	$(NATIVEDIR)/ext/libpng17/pngrutil.c \
-	$(NATIVEDIR)/ext/libpng17/pngset.c \
-	$(NATIVEDIR)/ext/libpng17/pngtrans.c \
-	$(NATIVEDIR)/ext/libpng17/pngwio.c \
-	$(NATIVEDIR)/ext/libpng17/pngwrite.c \
-	$(NATIVEDIR)/ext/libpng17/pngwtran.c \
-	$(NATIVEDIR)/ext/libpng17/pngwutil.c
+	$(EXTDIR)/libpng17/png.c \
+	$(EXTDIR)/libpng17/pngerror.c \
+	$(EXTDIR)/libpng17/pngget.c \
+	$(EXTDIR)/libpng17/pngmem.c \
+	$(EXTDIR)/libpng17/pngread.c \
+	$(EXTDIR)/libpng17/pngrio.c \
+	$(EXTDIR)/libpng17/pngrtran.c \
+	$(EXTDIR)/libpng17/pngrutil.c \
+	$(EXTDIR)/libpng17/pngset.c \
+	$(EXTDIR)/libpng17/pngtrans.c \
+	$(EXTDIR)/libpng17/pngwio.c \
+	$(EXTDIR)/libpng17/pngwrite.c \
+	$(EXTDIR)/libpng17/pngwtran.c \
+	$(EXTDIR)/libpng17/pngwutil.c
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
@@ -133,9 +133,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/xbrz/xbrz.cpp
 
 SOURCES_CXX += \
-	$(NATIVEDIR)/ext/gason/gason.cpp
+	$(EXTDIR)/gason/gason.cpp
 
-SOURCES_CXX += $(NATIVEDIR)/ext/cityhash/city.cpp
+SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
@@ -324,8 +324,8 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/util/text/utf8.cpp \
 	       $(NATIVEDIR)/util/text/parsers.cpp \
 	       $(NATIVEDIR)/util/text/wrap_text.cpp \
-	       $(NATIVEDIR)/ext/jpge/jpgd.cpp \
-	       $(NATIVEDIR)/ext/jpge/jpge.cpp \
+	       $(EXTDIR)/jpge/jpgd.cpp \
+	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
@@ -519,10 +519,10 @@ ifeq ($(WITH_DYNAREC),1)
 					 $(COMMONDIR)/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
-			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
-				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
+			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
+				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
 			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
-				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
@@ -549,10 +549,10 @@ ifeq ($(WITH_DYNAREC),1)
 					 $(COMMONDIR)/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
-			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
-				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
+			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
+				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
 			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
-				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))

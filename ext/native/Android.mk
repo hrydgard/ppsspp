@@ -11,27 +11,6 @@ LOCAL_SRC_FILES :=\
     base/colorutil.cpp \
     data/base64.cpp \
     data/compression.cpp \
-    ext/cityhash/city.cpp \
-    ext/libpng17/png.c \
-    ext/libpng17/pngerror.c \
-    ext/libpng17/pngget.c \
-    ext/libpng17/pngmem.c \
-    ext/libpng17/pngpread.c \
-    ext/libpng17/pngread.c \
-    ext/libpng17/pngrio.c \
-    ext/libpng17/pngrtran.c \
-    ext/libpng17/pngrutil.c \
-    ext/libpng17/pngset.c \
-    ext/libpng17/pngtest.c \
-    ext/libpng17/pngtrans.c \
-    ext/libpng17/pngwio.c \
-    ext/libpng17/pngwrite.c \
-    ext/libpng17/pngwtran.c \
-    ext/libpng17/pngwutil.c \
-    ext/jpge/jpgd.cpp \
-    ext/jpge/jpge.cpp \
-    ext/sha1/sha1.cpp \
-    ext/gason/gason.cpp \
     file/fd_util.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
@@ -98,7 +77,7 @@ LOCAL_SRC_FILES :=\
 
 LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libpng17 $(LOCAL_PATH)/ext/libzip $(LOCAL_PATH)/ext/glslang ..
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../ext $(LOCAL_PATH)/../../ext/libpng17 $(LOCAL_PATH)/../../ext/libzip $(LOCAL_PATH)/../../ext/glslang ..
 
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
@@ -107,9 +86,9 @@ ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
     math/fast/fast_matrix_neon.S.neon \
-    ext/libpng17/arm/arm_init.c \
-    ext/libpng17/arm/filter_neon_intrinsics.c \
-    ext/libpng17/arm/filter_neon.S.neon
+    ../../ext/libpng17/arm/arm_init.c \
+    ../../ext/libpng17/arm/filter_neon_intrinsics.c \
+    ../../ext/libpng17/arm/filter_neon.S.neon
 
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6

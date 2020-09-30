@@ -400,12 +400,6 @@ if(NOT (X86 OR ARM OR MIPS))
 	source_group(Fake FILES ${CommonFake})
 endif()
 
-set(CommonWindows
-	Common/stdafx.cpp
-	Common/stdafx.h
-)
-source_group(Windows FILES ${CommonWindows})
-
 set(CommonVulkan ${CommonExtra}
 	Common/Vulkan/VulkanDebug.cpp
 	Common/Vulkan/VulkanDebug.h
@@ -425,7 +419,6 @@ add_library(Common STATIC
 	${CommonARM64}
 	${CommonMIPS}
 	${CommonFake}
-	${CommonWindows}
 	${CommonVulkan}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
@@ -518,8 +511,8 @@ if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 endif()
 
 add_library(gason STATIC
-	ext/native/ext/gason/gason.cpp
-	ext/native/ext/gason/gason.h
+	ext/gason/gason.cpp
+	ext/gason/gason.h
 )
 
 if(USE_FFMPEG)
@@ -610,9 +603,9 @@ else()
 endif()
 
 add_library(cityhash STATIC
-	ext/native/ext/cityhash/city.cpp
-	ext/native/ext/cityhash/city.h
-	ext/native/ext/cityhash/citycrc.h
+	ext/cityhash/city.cpp
+	ext/cityhash/city.h
+	ext/cityhash/citycrc.h
 )
 include_directories(ext/cityhash)
 
@@ -631,64 +624,64 @@ if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
-		ext/native/ext/libzip/zip.h
-		ext/native/ext/libzip/mkstemp.c
-		ext/native/ext/libzip/zip_add.c
-		ext/native/ext/libzip/zip_add_dir.c
-		ext/native/ext/libzip/zip_close.c
-		ext/native/ext/libzip/zip_delete.c
-		ext/native/ext/libzip/zip_dirent.c
-		ext/native/ext/libzip/zip_entry_free.c
-		ext/native/ext/libzip/zip_entry_new.c
-		ext/native/ext/libzip/zip_err_str.c
-		ext/native/ext/libzip/zip_error.c
-		ext/native/ext/libzip/zip_error_clear.c
-		ext/native/ext/libzip/zip_error_get.c
-		ext/native/ext/libzip/zip_error_get_sys_type.c
-		ext/native/ext/libzip/zip_error_strerror.c
-		ext/native/ext/libzip/zip_error_to_str.c
-		ext/native/ext/libzip/zip_fclose.c
-		ext/native/ext/libzip/zip_file_error_clear.c
-		ext/native/ext/libzip/zip_file_error_get.c
-		ext/native/ext/libzip/zip_file_get_offset.c
-		ext/native/ext/libzip/zip_file_strerror.c
-		ext/native/ext/libzip/zip_filerange_crc.c
-		ext/native/ext/libzip/zip_fopen.c
-		ext/native/ext/libzip/zip_fopen_index.c
-		ext/native/ext/libzip/zip_fread.c
-		ext/native/ext/libzip/zip_free.c
-		ext/native/ext/libzip/zip_get_archive_comment.c
-		ext/native/ext/libzip/zip_get_archive_flag.c
-		ext/native/ext/libzip/zip_get_file_comment.c
-		ext/native/ext/libzip/zip_get_name.c
-		ext/native/ext/libzip/zip_get_num_files.c
-		ext/native/ext/libzip/zip_memdup.c
-		ext/native/ext/libzip/zip_name_locate.c
-		ext/native/ext/libzip/zip_new.c
-		ext/native/ext/libzip/zip_open.c
-		ext/native/ext/libzip/zip_rename.c
-		ext/native/ext/libzip/zip_replace.c
-		ext/native/ext/libzip/zip_set_archive_comment.c
-		ext/native/ext/libzip/zip_set_archive_flag.c
-		ext/native/ext/libzip/zip_set_file_comment.c
-		ext/native/ext/libzip/zip_set_name.c
-		ext/native/ext/libzip/zip_source_buffer.c
-		ext/native/ext/libzip/zip_source_file.c
-		ext/native/ext/libzip/zip_source_filep.c
-		ext/native/ext/libzip/zip_source_free.c
-		ext/native/ext/libzip/zip_source_function.c
-		ext/native/ext/libzip/zip_source_zip.c
-		ext/native/ext/libzip/zip_stat.c
-		ext/native/ext/libzip/zip_stat_index.c
-		ext/native/ext/libzip/zip_stat_init.c
-		ext/native/ext/libzip/zip_strerror.c
-		ext/native/ext/libzip/zip_unchange.c
-		ext/native/ext/libzip/zip_unchange_all.c
-		ext/native/ext/libzip/zip_unchange_archive.c
-		ext/native/ext/libzip/zip_unchange_data.c
+		ext/libzip/zip.h
+		ext/libzip/mkstemp.c
+		ext/libzip/zip_add.c
+		ext/libzip/zip_add_dir.c
+		ext/libzip/zip_close.c
+		ext/libzip/zip_delete.c
+		ext/libzip/zip_dirent.c
+		ext/libzip/zip_entry_free.c
+		ext/libzip/zip_entry_new.c
+		ext/libzip/zip_err_str.c
+		ext/libzip/zip_error.c
+		ext/libzip/zip_error_clear.c
+		ext/libzip/zip_error_get.c
+		ext/libzip/zip_error_get_sys_type.c
+		ext/libzip/zip_error_strerror.c
+		ext/libzip/zip_error_to_str.c
+		ext/libzip/zip_fclose.c
+		ext/libzip/zip_file_error_clear.c
+		ext/libzip/zip_file_error_get.c
+		ext/libzip/zip_file_get_offset.c
+		ext/libzip/zip_file_strerror.c
+		ext/libzip/zip_filerange_crc.c
+		ext/libzip/zip_fopen.c
+		ext/libzip/zip_fopen_index.c
+		ext/libzip/zip_fread.c
+		ext/libzip/zip_free.c
+		ext/libzip/zip_get_archive_comment.c
+		ext/libzip/zip_get_archive_flag.c
+		ext/libzip/zip_get_file_comment.c
+		ext/libzip/zip_get_name.c
+		ext/libzip/zip_get_num_files.c
+		ext/libzip/zip_memdup.c
+		ext/libzip/zip_name_locate.c
+		ext/libzip/zip_new.c
+		ext/libzip/zip_open.c
+		ext/libzip/zip_rename.c
+		ext/libzip/zip_replace.c
+		ext/libzip/zip_set_archive_comment.c
+		ext/libzip/zip_set_archive_flag.c
+		ext/libzip/zip_set_file_comment.c
+		ext/libzip/zip_set_name.c
+		ext/libzip/zip_source_buffer.c
+		ext/libzip/zip_source_file.c
+		ext/libzip/zip_source_filep.c
+		ext/libzip/zip_source_free.c
+		ext/libzip/zip_source_function.c
+		ext/libzip/zip_source_zip.c
+		ext/libzip/zip_stat.c
+		ext/libzip/zip_stat_index.c
+		ext/libzip/zip_stat_init.c
+		ext/libzip/zip_strerror.c
+		ext/libzip/zip_unchange.c
+		ext/libzip/zip_unchange_all.c
+		ext/libzip/zip_unchange_archive.c
+		ext/libzip/zip_unchange_data.c
 	)
 	target_link_libraries(libzip)
-	include_directories(ext/native/ext/libzip)
+	include_directories(ext/libzip)
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
@@ -705,38 +698,38 @@ if(PNG_FOUND)
 else()
 	if(ARM)
 		set(PNG_ARM_INCLUDES
-			ext/native/ext/libpng17/arm/arm_init.c
-			ext/native/ext/libpng17/arm/filter_neon.S
-			ext/native/ext/libpng17/arm/filter_neon_intrinsics.c
+			ext/libpng17/arm/arm_init.c
+			ext/libpng17/arm/filter_neon.S
+			ext/libpng17/arm/filter_neon_intrinsics.c
 		)
 	endif()
 	add_library(png17 STATIC
-		ext/native/ext/libpng17/pngconf.h
-		ext/native/ext/libpng17/pngdebug.h
-		ext/native/ext/libpng17/png.c
-		ext/native/ext/libpng17/png.h
-		ext/native/ext/libpng17/pngerror.c
-		ext/native/ext/libpng17/pngget.c
-		ext/native/ext/libpng17/pnginfo.h
-		ext/native/ext/libpng17/pnglibconf.h
-		ext/native/ext/libpng17/pngmem.c
-		ext/native/ext/libpng17/pngpread.c
-		ext/native/ext/libpng17/pngpriv.h
-		ext/native/ext/libpng17/pngread.c
-		ext/native/ext/libpng17/pngrio.c
-		ext/native/ext/libpng17/pngrtran.c
-		ext/native/ext/libpng17/pngrutil.c
-		ext/native/ext/libpng17/pngset.c
-		ext/native/ext/libpng17/pngstruct.h
-		ext/native/ext/libpng17/pngtrans.c
-		ext/native/ext/libpng17/pngwio.c
-		ext/native/ext/libpng17/pngwrite.c
-		ext/native/ext/libpng17/pngwtran.c
-		ext/native/ext/libpng17/pngwutil.c
+		ext/libpng17/pngconf.h
+		ext/libpng17/pngdebug.h
+		ext/libpng17/png.c
+		ext/libpng17/png.h
+		ext/libpng17/pngerror.c
+		ext/libpng17/pngget.c
+		ext/libpng17/pnginfo.h
+		ext/libpng17/pnglibconf.h
+		ext/libpng17/pngmem.c
+		ext/libpng17/pngpread.c
+		ext/libpng17/pngpriv.h
+		ext/libpng17/pngread.c
+		ext/libpng17/pngrio.c
+		ext/libpng17/pngrtran.c
+		ext/libpng17/pngrutil.c
+		ext/libpng17/pngset.c
+		ext/libpng17/pngstruct.h
+		ext/libpng17/pngtrans.c
+		ext/libpng17/pngwio.c
+		ext/libpng17/pngwrite.c
+		ext/libpng17/pngwtran.c
+		ext/libpng17/pngwutil.c
 		${PNG_ARM_INCLUDES}
 	)
 	set(PNG_LIBRARIES png17)
-	include_directories(ext/native/ext/libpng17)
+	include_directories(ext/libpng17)
 endif()
 
 set(nativeExtra)
@@ -1087,10 +1080,10 @@ add_library(native STATIC
 	ext/native/util/text/wrap_text.cpp
 	ext/native/util/const_map.h
 	ext/native/util/tiny_set.h
-	ext/native/ext/jpge/jpgd.cpp
-	ext/native/ext/jpge/jpgd.h
-	ext/native/ext/jpge/jpge.cpp
-	ext/native/ext/jpge/jpge.h
+	ext/jpge/jpgd.cpp
+	ext/jpge/jpgd.h
+	ext/jpge/jpge.cpp
+	ext/jpge/jpge.h
 )
 include_directories(ext/native)
 

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 #include "Misc.h"
 #include "PropertySheet.h"
 #include "util/text/utf8.h"

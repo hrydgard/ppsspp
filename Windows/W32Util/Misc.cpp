@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "ppsspp_config.h"
 #include "CommonWindows.h"
 

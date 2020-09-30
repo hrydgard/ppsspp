@@ -14,9 +14,8 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/miniupnp \
   $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/$(NATIVE)/base \
-  $(LOCAL_PATH)/$(NATIVE)/ext \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libpng17 \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
+  $(LOCAL_PATH)/../../ext/libpng17 \
+  $(LOCAL_PATH)/../../ext/libzip \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 

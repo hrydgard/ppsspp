@@ -1,6 +1,6 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 #include <windowsx.h>
 #include "..\resource.h"
 

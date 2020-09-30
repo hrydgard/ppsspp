@@ -156,11 +156,55 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
+EXT_FILES := \
+  $(SRC)/ext/cityhash/city.cpp \
+  $(SRC)/ext/libpng17/png.c \
+  $(SRC)/ext/libpng17/pngerror.c \
+  $(SRC)/ext/libpng17/pngget.c \
+  $(SRC)/ext/libpng17/pngmem.c \
+  $(SRC)/ext/libpng17/pngpread.c \
+  $(SRC)/ext/libpng17/pngread.c \
+  $(SRC)/ext/libpng17/pngrio.c \
+  $(SRC)/ext/libpng17/pngrtran.c \
+  $(SRC)/ext/libpng17/pngrutil.c \
+  $(SRC)/ext/libpng17/pngset.c \
+  $(SRC)/ext/libpng17/pngtest.c \
+  $(SRC)/ext/libpng17/pngtrans.c \
+  $(SRC)/ext/libpng17/pngwio.c \
+  $(SRC)/ext/libpng17/pngwrite.c \
+  $(SRC)/ext/libpng17/pngwtran.c \
+  $(SRC)/ext/libpng17/pngwutil.c \
+  $(SRC)/ext/jpge/jpgd.cpp \
+  $(SRC)/ext/jpge/jpge.cpp \
+  $(SRC)/ext/sha1/sha1.cpp \
+  $(SRC)/ext/gason/gason.cpp \
+  $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/amctrl.c \
+  $(SRC)/ext/libkirk/SHA1.c \
+  $(SRC)/ext/libkirk/bn.c \
+  $(SRC)/ext/libkirk/ec.c \
+  $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/sfmt19937/SFMT.c \
+  $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy-sinksource.cpp \
+  $(SRC)/ext/snappy/snappy-stubs-internal.cpp \
+  $(SRC)/ext/snappy/snappy.cpp \
+  $(SRC)/ext/udis86/decode.c \
+  $(SRC)/ext/udis86/itab.c \
+  $(SRC)/ext/udis86/syn-att.c \
+  $(SRC)/ext/udis86/syn-intel.c \
+  $(SRC)/ext/udis86/syn.c \
+  $(SRC)/ext/udis86/udis86.c \
+  $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/xxhash.c \
+
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
   $(SPIRV_CROSS_FILES) \
+  $(EXT_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -185,25 +229,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
   $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
   $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
-  $(SRC)/ext/libkirk/AES.c \
-  $(SRC)/ext/libkirk/amctrl.c \
-  $(SRC)/ext/libkirk/SHA1.c \
-  $(SRC)/ext/libkirk/bn.c \
-  $(SRC)/ext/libkirk/ec.c \
-  $(SRC)/ext/libkirk/kirk_engine.c \
-  $(SRC)/ext/sfmt19937/SFMT.c \
-  $(SRC)/ext/snappy/snappy-c.cpp \
-  $(SRC)/ext/snappy/snappy-sinksource.cpp \
-  $(SRC)/ext/snappy/snappy-stubs-internal.cpp \
-  $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/ext/udis86/decode.c \
-  $(SRC)/ext/udis86/itab.c \
-  $(SRC)/ext/udis86/syn-att.c \
-  $(SRC)/ext/udis86/syn-intel.c \
-  $(SRC)/ext/udis86/syn.c \
-  $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp \
-  $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Buffer.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \

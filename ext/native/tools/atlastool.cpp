@@ -354,7 +354,7 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 }
 
 void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
-	FT_Library freetype;
+	FT_Library freetype = 0;
 	assert(FT_Init_FreeType(&freetype) == 0);
 
 	vector<FT_Face> fonts;
