@@ -2,7 +2,7 @@
 
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 
 #include <functional>
 #include <thread>
