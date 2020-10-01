@@ -136,9 +136,14 @@ int PSPSaveDialog::Init(int paramAddr)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 			DEBUG_LOG(SCEUTILITY, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
-			if (param.GetFileInfo(0).size != 0)
-				display = DS_LOAD_CONFIRM;
-			else
+			if (param.GetFileInfo(0).size != 0) {
+				if (param.GetFileInfo(0).broken) {
+					param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+					display = DS_LOAD_FAILED;
+				} else {
+					display = DS_LOAD_CONFIRM;
+				}
+			} else
 				display = DS_LOAD_NODATA;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
@@ -461,7 +466,11 @@ void PSPSaveDialog::DisplaySaveDataInfo1() {
 	std::lock_guard<std::mutex> guard(paramLock);
 	const SaveFileInfo &saveInfo = param.GetFileInfo(currentSelectedSave);
 
-	if (saveInfo.size == 0) {
+	if (saveInfo.broken) {
+		auto di = GetI18NCategory("Dialog");
+		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
+		PPGeDrawText(di->T("Corrupted Data"), 180, 136, textStyle);
+	} else if (saveInfo.size == 0) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 		PPGeDrawText(di->T("NEW DATA"), 180, 136, textStyle);
@@ -811,7 +820,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(di->T("LoadingFailed", "Unable to load data."));
+			DisplayMessage(di->T("LoadingFailed", "Load failed\nThe data is corrupted."));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -821,7 +830,6 @@ int PSPSaveDialog::Update(int animSpeed)
 				if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_LOAD) {
 					display = DS_LOAD_LIST_CHOICE;
 				} else {
-					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
 					StartFade(false);
 				}
 			}
@@ -937,7 +945,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayBanner(DB_DELETE);
 
 			if (IsButtonPressed(cancelButtonFlag)) {
-				display = DS_DELETE_LIST_CHOICE;
+				if (param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE)
+					display = DS_DELETE_LIST_CHOICE;
+				else
+					StartFade(false);
 			}
 
 			EndDraw();
@@ -1009,10 +1020,12 @@ int PSPSaveDialog::Update(int animSpeed)
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
+	auto &result = param.GetPspParam()->common.result;
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
 	case DS_LOAD_LOADING:
-		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave) == 0) {
+		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);
+		if (result == 0) {
 			display = DS_LOAD_DONE;
 		} else {
 			display = DS_LOAD_FAILED;
@@ -1027,8 +1040,10 @@ void PSPSaveDialog::ExecuteIOAction() {
 		break;
 	case DS_DELETE_DELETING:
 		if (param.Delete(param.GetPspParam(),currentSelectedSave)) {
+			result = 0;
 			display = DS_DELETE_DONE;
 		} else {
+			//result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;// What the result should be?
 			display = DS_DELETE_FAILED;
 		}
 		break;
@@ -1109,15 +1124,9 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
-		if (!param.IsSaveDirectoryExist(param.GetPspParam())){
+		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE);
+		if(result == SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA)
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-		} else if (!param.IsSfoFileExist(param.GetPspParam())) {
-			result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
-		} else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE) == 0) {
-			result = 0;
-		} else {
-			result = SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
-		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:

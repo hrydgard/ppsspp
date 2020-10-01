@@ -341,27 +341,39 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 	return true;
 }
 
-int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
+int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 	}
-	if (param->fileName[0] == '\0') {
-		return 0;
-	}
 
 	std::string subFolder = GetGameName(param) + GetSaveName(param);
-	std::string filename = savePath + subFolder + "/" + GetFileName(param);
-	if (!subFolder.size()) {
-		ERROR_LOG(SCEUTILITY, "Bad subfolder, ignoring delete of %s", filename.c_str());
+	std::string fileName = GetFileName(param);
+	std::string dirPath = savePath + subFolder;
+	std::string filePath = dirPath + "/" + fileName;
+	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
+
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+	}
+
+	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
+
+	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
+	}
+
+	if (fileName == "") {
 		return 0;
 	}
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if (info.exists) {
-		pspFileSystem.RemoveFile(filename);
-	} else {
-		return SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
+	if (!subFolder.size()) {
+		ERROR_LOG(SCEUTILITY, "Bad subfolder, ignoring delete of %s", filePath.c_str());
+		return 0;
 	}
+
+	pspFileSystem.RemoveFile(filePath);
+
 	return 0;
 }
 
@@ -577,7 +589,23 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
+	bool isRWMode = param->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATA || param->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE;
+
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
+	std::string fileName = GetFileName(param);
+	std::string filePath = dirPath + "/" + fileName;
+	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
+
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
+	}
+
+	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
+		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN : SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+
+	if (fileName != "" && !pspFileSystem.GetFileInfo(filePath).exists) {
+		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
+	}
 
 	LoadSFO(param, dirPath);  // Load sfo
 
@@ -595,14 +623,9 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	// Load SND0.AT3
 	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
 
-	std::string fileName = GetFileName(param);
 	if (fileName == "") {
 		// Don't load savedata but return success.
 		return 0;
-	}
-	std::string filePath = dirPath + "/" + fileName;
-	if (!pspFileSystem.GetFileInfo(filePath).exists) {
-		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
 	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
@@ -1456,6 +1479,16 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				std::string fileDataDir = savePath + GetGameName(param) + thisSaveName;
 				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
 				if (info.exists) {
+					auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
+					bool firstFile = true;
+					for (auto file : allFiles) {
+						if (firstFile) {
+							// Use a file in save directory to determine the directory info.
+							info = file;
+							firstFile = false;
+						} else
+							info.size += file.size;
+					}
 					SetFileInfo(realCount, info, thisSaveName);
 
 					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
@@ -1486,6 +1519,16 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
 		if (info.exists)
 		{
+			auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
+			bool firstFile = true;
+			for (auto file : allFiles) {
+				if (firstFile) {
+					// Use a file in save directory to determine the directory info.
+					info = file;
+					firstFile = false;
+				} else
+					info.size += file.size;
+			}
 			SetFileInfo(0, info, GetSaveName(param));
 
 			DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
@@ -1533,17 +1576,17 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	// Load info in PARAM.SFO
 	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + SFO_FILENAME;
 	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-	if (info2.exists)
-	{
+	if (info2.exists) {
 		std::vector<u8> sfoData;
 		pspFileSystem.ReadEntireFile(fileDataPath2, sfoData);
 		ParamSFOData sfoFile;
-		if (sfoFile.ReadSFO(sfoData))
-		{
+		if (sfoFile.ReadSFO(sfoData)) {
 			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
 			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveInfo.saveTitle, sizeof(saveInfo.saveTitle));
 			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
 		}
+	} else {
+		saveInfo.broken = true;
 	}
 }
 
@@ -1557,6 +1600,7 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, const std::string &sav
 	saveInfo.size = 0;
 	saveInfo.saveName = saveName;
 	saveInfo.idx = 0;
+	saveInfo.broken = false;
 	if (saveInfo.texture != NULL) {
 		if (!noSaveIcon || saveInfo.texture != noSaveIcon->texture) {
 			delete saveInfo.texture;

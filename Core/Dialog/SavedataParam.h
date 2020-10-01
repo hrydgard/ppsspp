@@ -279,11 +279,13 @@ struct SaveFileInfo
 	char saveTitle[128];
 	char saveDetail[1024];
 
+	bool broken;
+
 	tm modif_time;
 
 	PPGeImage *texture;
 
-	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL)
+	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL), broken(false)
 	{
 		memset(title, 0, 128);
 		memset(saveTitle, 0, 128);
