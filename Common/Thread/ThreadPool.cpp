@@ -1,5 +1,5 @@
-#include "thread/threadpool.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadPool.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Common/Log.h"
 #include "Common/MakeUnique.h"

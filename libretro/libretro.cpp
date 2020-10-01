@@ -29,7 +29,7 @@
 #include "GPU/Common/TextureScalerCommon.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"

@@ -6,7 +6,6 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/ExceptionHandlerSetup.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -16,9 +15,9 @@
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
-#include "ext/native/thread/threadutil.h"
-
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/MachineContext.h"
+#include "Common/ExceptionHandlerSetup.h"
 
 static BadAccessHandler g_badAccessHandler;
 static void *altStack = nullptr;

@@ -11,9 +11,8 @@
 #include <cstring>
 #include <cstdint>
 
-#include "thread/threadutil.h"
-
 #include "Common/Log.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 #include <pthread.h>

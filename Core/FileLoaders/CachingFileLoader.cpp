@@ -19,7 +19,7 @@
 #include <thread>
 #include <algorithm>
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 

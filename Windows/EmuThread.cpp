@@ -23,7 +23,7 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 enum class EmuThreadState {
 	DISABLED,

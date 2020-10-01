@@ -446,10 +446,6 @@
     <ClInclude Include="net\sinks.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
-    <ClInclude Include="thread\executor.h" />
-    <ClInclude Include="thread\prioritizedworkqueue.h" />
-    <ClInclude Include="thread\threadpool.h" />
-    <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
@@ -562,10 +558,6 @@
     <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
     <ClCompile Include="thin3d\thin3d_gl.cpp" />
     <ClCompile Include="thin3d\thin3d_vulkan.cpp" />
-    <ClCompile Include="thread\executor.cpp" />
-    <ClCompile Include="thread\prioritizedworkqueue.cpp" />
-    <ClCompile Include="thread\threadpool.cpp" />
-    <ClCompile Include="thread\threadutil.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />

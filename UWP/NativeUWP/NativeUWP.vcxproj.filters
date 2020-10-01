@@ -55,18 +55,6 @@
     <ClCompile Include="..\..\ext\native\thin3d\thin3d_d3d11.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\thread\executor.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\thread\prioritizedworkqueue.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\thread\threadpool.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\thread\threadutil.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\util\hash\hash.cpp">
       <Filter>util</Filter>
     </ClCompile>
@@ -225,18 +213,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h">
       <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\thread\executor.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\thread\threadpool.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\thread\threadutil.h">
-      <Filter>thread</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\util\const_map.h">
       <Filter>util</Filter>

@@ -8,7 +8,7 @@
 #include "file/path.h"
 #include "net/http_client.h"
 #include "net/url.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileInfo> &files) {
 	http::Client http;

@@ -233,6 +233,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
+  $(SRC)/Common/Thread/Executor.cpp \
+  $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
+  $(SRC)/Common/Thread/ThreadPool.cpp \
+  $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \

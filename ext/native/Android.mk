@@ -39,10 +39,6 @@ LOCAL_SRC_FILES :=\
     net/url.cpp \
     net/websocket_server.cpp \
     profiler/profiler.cpp \
-    thread/executor.cpp \
-    thread/threadutil.cpp \
-    thread/prioritizedworkqueue.cpp \
-    thread/threadpool.cpp \
     gfx_es2/glsl_program.cpp \
     gfx_es2/gpu_features.cpp \
     gfx_es2/gl3stub.c \

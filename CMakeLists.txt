@@ -433,6 +433,14 @@ add_library(Common STATIC
 	Common/Crypto/sha1.h
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
+	Common/Thread/Executor.cpp
+	Common/Thread/Executor.h
+	Common/Thread/PrioritizedWorkQueue.cpp
+	Common/Thread/PrioritizedWorkQueue.h
+	Common/Thread/ThreadUtil.cpp
+	Common/Thread/ThreadUtil.h
+	Common/Thread/ThreadPool.cpp
+	Common/Thread/ThreadPool.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h
@@ -1045,14 +1053,6 @@ add_library(native STATIC
 	ext/native/thin3d/thin3d.h
 	ext/native/thin3d/thin3d_create.h
 	${THIN3D_PLATFORMS}
-	ext/native/thread/executor.cpp
-	ext/native/thread/executor.h
-	ext/native/thread/prioritizedworkqueue.cpp
-	ext/native/thread/prioritizedworkqueue.h
-	ext/native/thread/threadutil.cpp
-	ext/native/thread/threadutil.h
-	ext/native/thread/threadpool.cpp
-	ext/native/thread/threadpool.h
 	ext/native/ui/root.cpp
 	ext/native/ui/root.h
 	ext/native/ui/screen.cpp

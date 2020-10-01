@@ -57,7 +57,7 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 	typedef struct {
 		void         *start;

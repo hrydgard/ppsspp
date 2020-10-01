@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <shlwapi.h>
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
 #include "BufferLock.h"
 #include "ext/jpge/jpge.h"

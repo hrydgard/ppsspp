@@ -32,7 +32,7 @@ SDLJoystick *joystick = NULL;
 #include "util/text/utf8.h"
 #include "math/math_util.h"
 #include "thin3d/GLRenderManager.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "math.h"
 
 #include "SDL_syswm.h"

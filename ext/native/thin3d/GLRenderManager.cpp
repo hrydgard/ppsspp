@@ -1,7 +1,7 @@
 #include "GLRenderManager.h"
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"

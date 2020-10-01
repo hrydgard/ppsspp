@@ -29,7 +29,7 @@
 #endif
 
 #include <mutex>
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 // sceNetAdhoc
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/

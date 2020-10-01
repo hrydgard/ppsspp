@@ -51,7 +51,7 @@ struct JNIEnv {};
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"

@@ -11,7 +11,7 @@
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "base/display.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "thin3d/thin3d_create.h"
 #include "util/text/utf8.h"
 

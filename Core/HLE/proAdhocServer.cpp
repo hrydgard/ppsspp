@@ -50,7 +50,7 @@
 #endif
 
 #include "i18n/i18n.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Common/FileUtil.h"
 #include "Common/TimeUtil.h"

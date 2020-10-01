@@ -38,7 +38,7 @@
 #include <cstring>
 
 #include "i18n/i18n.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "util/text/parsers.h"
 
 #include "Common/Serialize/SerializeFuncs.h"
