@@ -507,7 +507,8 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	if(param->dataBuf.IsValid())	// Can launch save without save data in mode 13
 	{
-		std::string filePath = dirPath+"/"+GetFileName(param);
+		std::string fileName = GetFileName(param);
+		std::string filePath = dirPath + "/" + fileName;
 		u8 *data_ = 0;
 		SceSize saveSize = 0;
 		if(cryptedData == 0) // Save decrypted data
@@ -529,13 +530,16 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		// copy back save name in request
 		strncpy(param->saveName, saveDirName.c_str(), 20);
 
-		if (!WritePSPFile(filePath, data_, saveSize))
-		{
-			ERROR_LOG(SCEUTILITY,"Error writing file %s",filePath.c_str());
+		if (fileName == "") {
 			delete[] cryptedData;
-			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
-		}
-		delete[] cryptedData;
+		} else {
+			if (!WritePSPFile(filePath, data_, saveSize)) {
+				ERROR_LOG(SCEUTILITY, "Error writing file %s", filePath.c_str());
+				delete[] cryptedData;
+				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
+			}
+			delete[] cryptedData;
+		}	
 	}
 
 
@@ -574,14 +578,6 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
-	std::string filePath = dirPath + "/" + GetFileName(param);
-	if (!pspFileSystem.GetFileInfo(filePath).exists) {
-		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
-	}
-
-	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
-	if (result != 0)
-		return result;
 
 	LoadSFO(param, dirPath);  // Load sfo
 
@@ -598,6 +594,20 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	LoadFile(dirPath, PIC1_FILENAME, &param->pic1FileData);
 	// Load SND0.AT3
 	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
+
+	std::string fileName = GetFileName(param);
+	if (fileName == "") {
+		// Don't load savedata but return success.
+		return 0;
+	}
+	std::string filePath = dirPath + "/" + fileName;
+	if (!pspFileSystem.GetFileInfo(filePath).exists) {
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
+	}
+
+	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
+	if (result != 0)
+		return result;
 
 	return 0;
 }
@@ -1443,19 +1453,15 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
 				DEBUG_LOG(SCEUTILITY, "Name : %s", thisSaveName.c_str());
 
-				std::string fileDataPath = savePath + GetGameName(param) + thisSaveName + "/" + GetFileName(param);
-				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
-				if (info.exists)
-				{
+				std::string fileDataDir = savePath + GetGameName(param) + thisSaveName;
+				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
+				if (info.exists) {
 					SetFileInfo(realCount, info, thisSaveName);
 
-					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
+					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
 					realCount++;
-				}
-				else
-				{
-					if (listEmptyFile)
-					{
+				} else {
+					if (listEmptyFile) {
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
 						DEBUG_LOG(SCEUTILITY,"Don't Exist");
 						realCount++;
@@ -1476,13 +1482,13 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		// get and stock file info for each file
 		DEBUG_LOG(SCEUTILITY,"Name : %s",GetSaveName(param).c_str());
 
-		std::string fileDataPath = savePath + GetGameName(param) + GetSaveName(param) + "/" + GetFileName(param);
-		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
+		std::string fileDataDir = savePath + GetGameName(param) + GetSaveName(param);
+		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
 		if (info.exists)
 		{
 			SetFileInfo(0, info, GetSaveName(param));
 
-			DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataPath.c_str());
+			DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
 			saveNameListDataCount = 1;
 		}
 		else
