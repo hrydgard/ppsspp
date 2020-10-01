@@ -1,5 +1,5 @@
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include <vector>
 
 const char *GetDeviceName(int deviceId) {

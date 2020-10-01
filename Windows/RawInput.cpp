@@ -21,7 +21,7 @@
 
 #include "base/NativeApp.h"
 #include "base/display.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/MainWindow.h"

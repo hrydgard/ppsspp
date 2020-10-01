@@ -10,6 +10,12 @@
     <Filter Include="ext\libpng17">
       <UniqueIdentifier>{b0ac485c-3153-4708-b098-f5a518a95b79}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{819c6967-1ed6-4fec-8415-a018ae524180}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{7368a8e7-cf29-49e9-87be-f1e69771555e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -100,6 +106,24 @@
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Input\GestureDetector.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Input\InputState.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\Executor.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -177,6 +201,27 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h">
       <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\GestureDetector.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\InputState.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\KeyCodes.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\Executor.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ThreadPool.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ThreadUtil.h">
+      <Filter>Thread</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

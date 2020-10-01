@@ -4,7 +4,7 @@
 #include <mutex>
 
 #include "base/NativeApp.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "file/file_util.h"

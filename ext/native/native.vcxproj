@@ -424,9 +424,6 @@
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
-    <ClInclude Include="input\gesture_detector.h" />
-    <ClInclude Include="input\input_state.h" />
-    <ClInclude Include="input\keycodes.h" />
     <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\dataconv.h" />
@@ -531,8 +528,6 @@
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
-    <ClCompile Include="input\gesture_detector.cpp" />
-    <ClCompile Include="input\input_state.cpp" />
     <ClCompile Include="json\json_writer.cpp" />
     <ClCompile Include="math\curves.cpp" />
     <ClCompile Include="math\expression_parser.cpp" />

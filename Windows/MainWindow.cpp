@@ -37,8 +37,8 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "i18n/i18n.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "util/text/utf8.h"
 

@@ -53,7 +53,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"

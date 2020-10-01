@@ -3,7 +3,7 @@
 #include <mutex>
 
 #include "thin3d/thin3d.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/DeviceResources.h"

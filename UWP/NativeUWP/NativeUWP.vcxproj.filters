@@ -94,12 +94,6 @@
     <ClCompile Include="..\..\ext\native\file\zip_read.cpp">
       <Filter>file</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\input\gesture_detector.cpp">
-      <Filter>input</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\input\input_state.cpp">
-      <Filter>input</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\ui\root.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -267,15 +261,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\file\zip_read.h">
       <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\input\gesture_detector.h">
-      <Filter>input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\input\input_state.h">
-      <Filter>input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\input\keycodes.h">
-      <Filter>input</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\root.h">
       <Filter>ui</Filter>

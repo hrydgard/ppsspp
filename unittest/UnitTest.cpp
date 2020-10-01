@@ -35,7 +35,7 @@
 
 #include "ppsspp_config.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
 #include "util/text/parsers.h"

@@ -3,7 +3,7 @@
 // Zoom gesture a la http://www.zdnet.com/blog/burnette/how-to-use-multi-touch-in-android-2-part-6-implementing-the-pinch-zoom-gesture/1847
 
 #include "Common/TimeUtil.h"
-#include "input/gesture_detector.h"
+#include "Common/Input/GestureDetector.h"
 
 const float estimatedInertiaDamping = 0.75f;
 

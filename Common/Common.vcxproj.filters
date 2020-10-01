@@ -128,6 +128,15 @@
     <ClInclude Include="Thread\Executor.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="Input\GestureDetector.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\InputState.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\KeyCodes.h">
+      <Filter>Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -255,6 +264,12 @@
     <ClCompile Include="Thread\Executor.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
+    <ClCompile Include="Input\GestureDetector.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\InputState.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -280,6 +295,9 @@
     </Filter>
     <Filter Include="Thread">
       <UniqueIdentifier>{41bcd391-8641-432c-ae4a-ab03812df762}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{fd0bac4f-e3e2-4201-8902-2d19b50d5bf7}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

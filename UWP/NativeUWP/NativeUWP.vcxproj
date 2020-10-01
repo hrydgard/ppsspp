@@ -402,9 +402,6 @@
     <ClInclude Include="..\..\ext\native\i18n\i18n.h" />
     <ClInclude Include="..\..\ext\native\image\png_load.h" />
     <ClInclude Include="..\..\ext\native\image\zim_load.h" />
-    <ClInclude Include="..\..\ext\native\input\gesture_detector.h" />
-    <ClInclude Include="..\..\ext\native\input\input_state.h" />
-    <ClInclude Include="..\..\ext\native\input\keycodes.h" />
     <ClInclude Include="..\..\ext\native\math\curves.h" />
     <ClInclude Include="..\..\ext\native\math\dataconv.h" />
     <ClInclude Include="..\..\ext\native\math\expression_parser.h" />
@@ -464,8 +461,6 @@
     <ClCompile Include="..\..\ext\native\i18n\i18n.cpp" />
     <ClCompile Include="..\..\ext\native\image\png_load.cpp" />
     <ClCompile Include="..\..\ext\native\image\zim_load.cpp" />
-    <ClCompile Include="..\..\ext\native\input\gesture_detector.cpp" />
-    <ClCompile Include="..\..\ext\native\input\input_state.cpp" />
     <ClCompile Include="..\..\ext\native\math\curves.cpp" />
     <ClCompile Include="..\..\ext\native\math\dataconv.cpp" />
     <ClCompile Include="..\..\ext\native\math\expression_parser.cpp" />

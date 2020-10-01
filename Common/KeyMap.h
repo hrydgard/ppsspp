@@ -21,8 +21,8 @@
 #include <map>
 #include <vector>
 #include <set>
-#include "input/input_state.h" // KeyDef
-#include "input/keycodes.h"     // keyboard keys
+#include "Common/Input/InputState.h" // KeyDef
+#include "Common/Input/KeyCodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1

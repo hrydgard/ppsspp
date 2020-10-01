@@ -433,6 +433,11 @@ add_library(Common STATIC
 	Common/Crypto/sha1.h
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
+	Common/Input/GestureDetector.cpp
+	Common/Input/GestureDetector.h
+	Common/Input/KeyCodes.h
+	Common/Input/InputState.cpp
+	Common/Input/InputState.h
 	Common/Thread/Executor.cpp
 	Common/Thread/Executor.h
 	Common/Thread/PrioritizedWorkQueue.cpp
@@ -1008,11 +1013,6 @@ add_library(native STATIC
 	ext/native/image/zim_load.h
 	ext/native/image/zim_save.cpp
 	ext/native/image/zim_save.h
-	ext/native/input/gesture_detector.cpp
-	ext/native/input/gesture_detector.h
-	ext/native/input/keycodes.h
-	ext/native/input/input_state.h
-	ext/native/input/input_state.cpp
 	ext/native/json/json_reader.h
 	ext/native/json/json_reader.cpp
 	ext/native/json/json_writer.h

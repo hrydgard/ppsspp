@@ -360,6 +360,9 @@
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="Input\GestureDetector.h" />
+    <ClInclude Include="Input\InputState.h" />
+    <ClInclude Include="Input\KeyCodes.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -611,6 +614,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Input\GestureDetector.cpp" />
+    <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />

@@ -21,7 +21,7 @@
 #include <vector>
 #include <list>
 
-#include "input/keycodes.h"
+#include "Common/Input/KeyCodes.h"
 #include "ui/screen.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_tween.h"

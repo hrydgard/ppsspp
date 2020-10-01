@@ -6,7 +6,7 @@
 #include <mutex>
 
 #include "math/geom2d.h"
-#include "input/gesture_detector.h"
+#include "Common/Input/GestureDetector.h"
 #include "ui/view.h"
 
 namespace UI {

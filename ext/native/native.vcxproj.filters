@@ -50,9 +50,6 @@
     <ClInclude Include="profiler\profiler.h">
       <Filter>profiler</Filter>
     </ClInclude>
-    <ClInclude Include="input\input_state.h">
-      <Filter>input</Filter>
-    </ClInclude>
     <ClInclude Include="file\chunk_file.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -67,9 +64,6 @@
     </ClInclude>
     <ClInclude Include="math\math_util.h">
       <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="input\gesture_detector.h">
-      <Filter>input</Filter>
     </ClInclude>
     <ClInclude Include="base\colorutil.h">
       <Filter>base</Filter>
@@ -181,9 +175,6 @@
     </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="input\keycodes.h">
-      <Filter>input</Filter>
     </ClInclude>
     <ClInclude Include="file\free.h">
       <Filter>file</Filter>
@@ -301,9 +292,6 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="input\gesture_detector.cpp">
-      <Filter>input</Filter>
-    </ClCompile>
     <ClCompile Include="base\colorutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -372,9 +360,6 @@
     </ClCompile>
     <ClCompile Include="math\expression_parser.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="input\input_state.cpp">
-      <Filter>input</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
@@ -506,9 +491,6 @@
     </Filter>
     <Filter Include="profiler">
       <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="input">
-      <UniqueIdentifier>{4ba4474c-b80f-40da-95e8-2de57eb1b327}</UniqueIdentifier>
     </Filter>
     <Filter Include="file">
       <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>

@@ -237,6 +237,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
+  $(SRC)/Common/Input/GestureDetector.cpp \
+  $(SRC)/Common/Input/InputState.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \

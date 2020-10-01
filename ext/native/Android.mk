@@ -21,8 +21,6 @@ LOCAL_SRC_FILES :=\
     json/json_reader.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
-    input/gesture_detector.cpp \
-    input/input_state.cpp \
     math/fast/fast_math.c \
     math/fast/fast_matrix.c \
     math/dataconv.cpp \

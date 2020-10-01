@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "gfx_es2/draw_buffer.h"
 
 #include "ui/view.h"

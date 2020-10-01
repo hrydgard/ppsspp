@@ -4,7 +4,7 @@
 
 #include "base/NativeApp.h"
 #include "i18n/i18n.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "util/text/utf8.h"
 
 #include "Common/Log.h"
