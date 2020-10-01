@@ -693,7 +693,8 @@ endif
 SOURCES_CXX += \
 		$(LIBRETRODIR)/libretro.cpp \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
-		$(LIBRETRODIR)/LibretroGLContext.cpp
+		$(LIBRETRODIR)/LibretroGLContext.cpp \
+		$(LIBRETRODIR)/LibretroGLCoreContext.cpp
 
 ifneq ($(STATIC_LINKING), 1)
 SOURCES_C += \
