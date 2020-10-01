@@ -21,8 +21,6 @@ LOCAL_SRC_FILES :=\
     json/json_reader.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
-    input/gesture_detector.cpp \
-    input/input_state.cpp \
     math/fast/fast_math.c \
     math/fast/fast_matrix.c \
     math/dataconv.cpp \
@@ -39,10 +37,6 @@ LOCAL_SRC_FILES :=\
     net/url.cpp \
     net/websocket_server.cpp \
     profiler/profiler.cpp \
-    thread/executor.cpp \
-    thread/threadutil.cpp \
-    thread/prioritizedworkqueue.cpp \
-    thread/threadpool.cpp \
     gfx_es2/glsl_program.cpp \
     gfx_es2/gpu_features.cpp \
     gfx_es2/gl3stub.c \

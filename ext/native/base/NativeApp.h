@@ -10,7 +10,7 @@
 // from the framework, which exposes the native JNI api which is a bit
 // more complicated.
 
-// These are defined in input/input_state.h.
+// These are defined in Common/Input/InputState.cpp
 struct TouchInput;
 struct KeyInput;
 struct AxisInput;

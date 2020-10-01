@@ -10,7 +10,7 @@
 #undef __null
 #endif
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/OSVersion.h"
 #include "Core/ConfigValues.h"

@@ -15,11 +15,11 @@
 #include "base/display.h"
 #include "Common/TimeUtil.h"
 #include "file/zip_read.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
-#include "input/keycodes.h"
+#include "Common/Input/KeyCodes.h"
 #include "gfx_es2/gpu_features.h"
 
 #import "ios/AppDelegate.h"

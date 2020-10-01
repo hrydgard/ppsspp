@@ -35,8 +35,8 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "file/file_util.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include "util/text/utf8.h"
 
 #include "Common/StringUtils.h"

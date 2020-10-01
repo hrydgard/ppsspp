@@ -1,5 +1,5 @@
 #include "base/display.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "ui/root.h"
 #include "ui/screen.h"
 #include "ui/ui.h"

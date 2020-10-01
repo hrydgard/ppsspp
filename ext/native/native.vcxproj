@@ -424,9 +424,6 @@
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
-    <ClInclude Include="input\gesture_detector.h" />
-    <ClInclude Include="input\input_state.h" />
-    <ClInclude Include="input\keycodes.h" />
     <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\dataconv.h" />
@@ -446,10 +443,6 @@
     <ClInclude Include="net\sinks.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
-    <ClInclude Include="thread\executor.h" />
-    <ClInclude Include="thread\prioritizedworkqueue.h" />
-    <ClInclude Include="thread\threadpool.h" />
-    <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
@@ -535,8 +528,6 @@
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
-    <ClCompile Include="input\gesture_detector.cpp" />
-    <ClCompile Include="input\input_state.cpp" />
     <ClCompile Include="json\json_writer.cpp" />
     <ClCompile Include="math\curves.cpp" />
     <ClCompile Include="math\expression_parser.cpp" />
@@ -562,10 +553,6 @@
     <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
     <ClCompile Include="thin3d\thin3d_gl.cpp" />
     <ClCompile Include="thin3d\thin3d_vulkan.cpp" />
-    <ClCompile Include="thread\executor.cpp" />
-    <ClCompile Include="thread\prioritizedworkqueue.cpp" />
-    <ClCompile Include="thread\threadpool.cpp" />
-    <ClCompile Include="thread\threadutil.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />

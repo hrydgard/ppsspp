@@ -3,8 +3,8 @@
 #include <sstream>
 
 #include "base/display.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include "math/curves.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"

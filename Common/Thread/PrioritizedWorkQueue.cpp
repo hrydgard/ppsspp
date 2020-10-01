@@ -2,7 +2,7 @@
 #include <thread>
 
 #include "Common/TimeUtil.h"
-#include "thread/prioritizedworkqueue.h"
+#include "Common/Thread/PrioritizedWorkQueue.h"
 
 #include "Common/Log.h"
 

@@ -21,7 +21,7 @@
 
 #include "file/file_util.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Core.h"

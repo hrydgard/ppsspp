@@ -1,4 +1,4 @@
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "math/geom2d.h"
 
 // Mainly for detecting (multi-)touch gestures but also useable for left button mouse dragging etc.

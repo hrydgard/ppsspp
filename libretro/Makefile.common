@@ -144,6 +144,12 @@ SOURCES_CXX += \
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
+	$(COMMONDIR)/Thread/Executor.cpp \
+	$(COMMONDIR)/Thread/ThreadUtil.cpp \
+	$(COMMONDIR)/Thread/ThreadPool.cpp \
+	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/Input/GestureDetector.cpp \
+	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
@@ -295,8 +301,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/i18n/i18n.cpp \
 	       $(NATIVEDIR)/image/zim_load.cpp \
 	       $(NATIVEDIR)/image/png_load.cpp \
-	       $(NATIVEDIR)/input/gesture_detector.cpp \
-	       $(NATIVEDIR)/input/input_state.cpp \
 	       $(NATIVEDIR)/math/curves.cpp \
 	       $(NATIVEDIR)/math/expression_parser.cpp \
 	       $(NATIVEDIR)/math/lin/matrix4x4.cpp \
@@ -309,9 +313,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
           $(NATIVEDIR)/thin3d/GLRenderManager.cpp \
           $(NATIVEDIR)/thin3d/GLQueueRunner.cpp \
           $(NATIVEDIR)/thin3d/DataFormatGL.cpp \
-	       $(NATIVEDIR)/thread/threadutil.cpp \
-	       $(NATIVEDIR)/thread/threadpool.cpp \
-	       $(NATIVEDIR)/thread/prioritizedworkqueue.cpp \
 	       $(NATIVEDIR)/ui/root.cpp \
 	       $(NATIVEDIR)/ui/screen.cpp \
 	       $(NATIVEDIR)/ui/ui.cpp \

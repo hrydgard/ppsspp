@@ -26,7 +26,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 #include "math/curves.h"
 #include "ui/root.h"
 #include "ui/ui.h"

@@ -360,6 +360,9 @@
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="Input\GestureDetector.h" />
+    <ClInclude Include="Input\InputState.h" />
+    <ClInclude Include="Input\KeyCodes.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -420,6 +423,10 @@
     <ClInclude Include="SysError.h" />
     <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="ThreadSafeList.h" />
+    <ClInclude Include="Thread\Executor.h" />
+    <ClInclude Include="Thread\PrioritizedWorkQueue.h" />
+    <ClInclude Include="Thread\ThreadPool.h" />
+    <ClInclude Include="Thread\ThreadUtil.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="TimeUtil.h" />
@@ -607,6 +614,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Input\GestureDetector.cpp" />
+    <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
@@ -659,6 +668,10 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
+    <ClCompile Include="Thread\Executor.cpp" />
+    <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
+    <ClCompile Include="Thread\ThreadPool.cpp" />
+    <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="TimeUtil.cpp" />

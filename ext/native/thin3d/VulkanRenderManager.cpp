@@ -8,7 +8,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "thin3d/VulkanRenderManager.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)

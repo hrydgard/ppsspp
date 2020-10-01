@@ -5,8 +5,8 @@
 
 #include <mutex>
 
-#include "input/input_state.h"
 #include "base/NativeApp.h"
+#include "Common/Input/InputState.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 

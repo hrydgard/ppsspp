@@ -7,8 +7,8 @@
 #include "SDL_thread.h"
 #endif
 
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include "net/resolve.h"
 #include "base/NativeApp.h"
 

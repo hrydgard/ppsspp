@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "gfx_es2/draw_buffer.h"
-#include "input/input_state.h"
+#include "Common/Input/InputState.h"
 
 class UIContext;
 

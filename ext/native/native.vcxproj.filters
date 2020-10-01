@@ -50,9 +50,6 @@
     <ClInclude Include="profiler\profiler.h">
       <Filter>profiler</Filter>
     </ClInclude>
-    <ClInclude Include="input\input_state.h">
-      <Filter>input</Filter>
-    </ClInclude>
     <ClInclude Include="file\chunk_file.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -67,9 +64,6 @@
     </ClInclude>
     <ClInclude Include="math\math_util.h">
       <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="input\gesture_detector.h">
-      <Filter>input</Filter>
     </ClInclude>
     <ClInclude Include="base\colorutil.h">
       <Filter>base</Filter>
@@ -119,20 +113,11 @@
     <ClInclude Include="util\text\utf8.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="thread\prioritizedworkqueue.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="thread\threadutil.h">
-      <Filter>thread</Filter>
-    </ClInclude>
     <ClInclude Include="i18n\i18n.h">
       <Filter>i18n</Filter>
     </ClInclude>
     <ClInclude Include="file\ini_file.h">
       <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="thread\threadpool.h">
-      <Filter>thread</Filter>
     </ClInclude>
     <ClInclude Include="ui\view.h">
       <Filter>ui</Filter>
@@ -188,14 +173,8 @@
     <ClInclude Include="net\http_server.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="thread\executor.h">
-      <Filter>thread</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="input\keycodes.h">
-      <Filter>input</Filter>
     </ClInclude>
     <ClInclude Include="file\free.h">
       <Filter>file</Filter>
@@ -313,9 +292,6 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="input\gesture_detector.cpp">
-      <Filter>input</Filter>
-    </ClCompile>
     <ClCompile Include="base\colorutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -361,20 +337,11 @@
     <ClCompile Include="util\text\utf8.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="thread\prioritizedworkqueue.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
-    <ClCompile Include="thread\threadutil.cpp">
-      <Filter>thread</Filter>
-    </ClCompile>
     <ClCompile Include="i18n\i18n.cpp">
       <Filter>i18n</Filter>
     </ClCompile>
     <ClCompile Include="file\ini_file.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="thread\threadpool.cpp">
-      <Filter>thread</Filter>
     </ClCompile>
     <ClCompile Include="ui\view.cpp">
       <Filter>ui</Filter>
@@ -393,9 +360,6 @@
     </ClCompile>
     <ClCompile Include="math\expression_parser.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="input\input_state.cpp">
-      <Filter>input</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
@@ -435,9 +399,6 @@
     </ClCompile>
     <ClCompile Include="net\http_server.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="thread\executor.cpp">
-      <Filter>thread</Filter>
     </ClCompile>
     <ClCompile Include="..\..\SDL\SDLMain.cpp">
       <Filter>base</Filter>
@@ -531,9 +492,6 @@
     <Filter Include="profiler">
       <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
     </Filter>
-    <Filter Include="input">
-      <UniqueIdentifier>{4ba4474c-b80f-40da-95e8-2de57eb1b327}</UniqueIdentifier>
-    </Filter>
     <Filter Include="file">
       <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>
     </Filter>
@@ -557,9 +515,6 @@
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thread">
-      <UniqueIdentifier>{caa41117-1d90-47cc-9fba-f7e670e315a3}</UniqueIdentifier>
     </Filter>
     <Filter Include="i18n">
       <UniqueIdentifier>{02e8ef95-82c7-4420-b029-a189a5e0fcbd}</UniqueIdentifier>

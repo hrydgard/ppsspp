@@ -402,9 +402,6 @@
     <ClInclude Include="..\..\ext\native\i18n\i18n.h" />
     <ClInclude Include="..\..\ext\native\image\png_load.h" />
     <ClInclude Include="..\..\ext\native\image\zim_load.h" />
-    <ClInclude Include="..\..\ext\native\input\gesture_detector.h" />
-    <ClInclude Include="..\..\ext\native\input\input_state.h" />
-    <ClInclude Include="..\..\ext\native\input\keycodes.h" />
     <ClInclude Include="..\..\ext\native\math\curves.h" />
     <ClInclude Include="..\..\ext\native\math\dataconv.h" />
     <ClInclude Include="..\..\ext\native\math\expression_parser.h" />
@@ -423,10 +420,6 @@
     <ClInclude Include="..\..\ext\native\net\url.h" />
     <ClInclude Include="..\..\ext\native\net\websocket_server.h" />
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h" />
-    <ClInclude Include="..\..\ext\native\thread\executor.h" />
-    <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h" />
-    <ClInclude Include="..\..\ext\native\thread\threadpool.h" />
-    <ClInclude Include="..\..\ext\native\thread\threadutil.h" />
     <ClInclude Include="..\..\ext\native\ui\root.h" />
     <ClInclude Include="..\..\ext\native\ui\screen.h" />
     <ClInclude Include="..\..\ext\native\ui\ui.h" />
@@ -468,8 +461,6 @@
     <ClCompile Include="..\..\ext\native\i18n\i18n.cpp" />
     <ClCompile Include="..\..\ext\native\image\png_load.cpp" />
     <ClCompile Include="..\..\ext\native\image\zim_load.cpp" />
-    <ClCompile Include="..\..\ext\native\input\gesture_detector.cpp" />
-    <ClCompile Include="..\..\ext\native\input\input_state.cpp" />
     <ClCompile Include="..\..\ext\native\math\curves.cpp" />
     <ClCompile Include="..\..\ext\native\math\dataconv.cpp" />
     <ClCompile Include="..\..\ext\native\math\expression_parser.cpp" />
@@ -599,10 +590,6 @@
     <ClCompile Include="..\..\ext\native\net\websocket_server.cpp" />
     <ClCompile Include="..\..\ext\native\thin3d\thin3d.cpp" />
     <ClCompile Include="..\..\ext\native\thin3d\thin3d_d3d11.cpp" />
-    <ClCompile Include="..\..\ext\native\thread\executor.cpp" />
-    <ClCompile Include="..\..\ext\native\thread\prioritizedworkqueue.cpp" />
-    <ClCompile Include="..\..\ext\native\thread\threadpool.cpp" />
-    <ClCompile Include="..\..\ext\native\thread\threadutil.cpp" />
     <ClCompile Include="..\..\ext\native\ui\root.cpp" />
     <ClCompile Include="..\..\ext\native\ui\screen.cpp" />
     <ClCompile Include="..\..\ext\native\ui\ui.cpp" />

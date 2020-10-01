@@ -48,7 +48,7 @@
 #include "net/resolve.h"
 #include "net/url.h"
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "file/zip_read.h"
 
 namespace Reporting

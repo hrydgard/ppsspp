@@ -6,7 +6,7 @@
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include <mutex>
 #include <Objbase.h>

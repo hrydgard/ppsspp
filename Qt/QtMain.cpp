@@ -34,7 +34,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "util/text/utf8.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
