@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "util/text/utf8.h"
-#include "util/text/utf16.h"
-#include "util/text/shiftjis.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Encoding/Utf16.h"
+#include "Common/Data/Encoding/Shiftjis.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

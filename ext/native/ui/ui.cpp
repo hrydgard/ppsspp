@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstring>
 
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "gfx/texture_atlas.h"

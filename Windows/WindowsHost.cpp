@@ -37,7 +37,7 @@
 #include "file/file_util.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Core.h"

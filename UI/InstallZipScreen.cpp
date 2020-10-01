@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"

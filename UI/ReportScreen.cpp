@@ -18,21 +18,22 @@
 #include <string>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
 #include "thin3d/thin3d.h"
 #include "ui/ui_context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
-#include "Common/FileUtil.h"
-#include "Common/Log.h"
-#include "Common/StringUtils.h"
 
 using namespace UI;
 

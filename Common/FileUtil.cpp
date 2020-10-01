@@ -60,7 +60,7 @@
 #endif  // !defined(IOS)
 #endif  // __APPLE__
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include <sys/stat.h>
 

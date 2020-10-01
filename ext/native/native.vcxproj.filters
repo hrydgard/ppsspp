@@ -1,19 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <None Include="file\CMakeLists.txt">
-      <Filter>file</Filter>
-    </None>
-    <None Include="README.md" />
-    <None Include="base\CMakeLists.txt">
-      <Filter>base</Filter>
-    </None>
     <None Include="Android.mk" />
     <None Include="tools\CMakeLists.txt">
       <Filter>tools</Filter>
-    </None>
-    <None Include="ui\CMakeLists.txt">
-      <Filter>ui</Filter>
     </None>
     <None Include="math\fast\fast_matrix_neon.S">
       <Filter>math\fast</Filter>
@@ -65,9 +55,6 @@
     <ClInclude Include="math\math_util.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="base\colorutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="json\json_writer.h">
       <Filter>json</Filter>
     </ClInclude>
@@ -98,9 +85,6 @@
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="util\random\rng.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="math\curves.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -109,12 +93,6 @@
     </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="util\text\utf8.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="i18n\i18n.h">
-      <Filter>i18n</Filter>
     </ClInclude>
     <ClInclude Include="file\ini_file.h">
       <Filter>file</Filter>
@@ -134,17 +112,11 @@
     <ClInclude Include="ui\ui_screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="data\compression.h">
-      <Filter>data</Filter>
-    </ClInclude>
     <ClInclude Include="math\expression_parser.h">
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="util\text\parsers.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gl3stub.h">
       <Filter>gfx</Filter>
@@ -154,12 +126,6 @@
     </ClInclude>
     <ClInclude Include="math\fast\fast_matrix.h">
       <Filter>math\fast</Filter>
-    </ClInclude>
-    <ClInclude Include="util\text\utf16.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\text\shiftjis.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="thin3d\thin3d.h">
       <Filter>thin3d</Filter>
@@ -184,9 +150,6 @@
     </ClInclude>
     <ClInclude Include="net\sinks.h">
       <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="util\text\wrap_text.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="gfx\d3d9_shader.h">
       <Filter>gfx</Filter>
@@ -239,17 +202,11 @@
     <ClInclude Include="net\websocket_server.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="data\base64.h">
-      <Filter>data</Filter>
-    </ClInclude>
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
     <ClInclude Include="ui\root.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="util\tiny_set.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_text_uwp.h">
       <Filter>gfx</Filter>
@@ -292,9 +249,6 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="base\colorutil.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="json\json_writer.cpp">
       <Filter>json</Filter>
     </ClCompile>
@@ -334,12 +288,6 @@
     <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="util\text\utf8.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="i18n\i18n.cpp">
-      <Filter>i18n</Filter>
-    </ClCompile>
     <ClCompile Include="file\ini_file.cpp">
       <Filter>file</Filter>
     </ClCompile>
@@ -355,20 +303,11 @@
     <ClCompile Include="ui\ui_screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="data\compression.cpp">
-      <Filter>data</Filter>
-    </ClCompile>
     <ClCompile Include="math\expression_parser.cpp">
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="util\hash\hash.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="util\text\parsers.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\gl3stub.c">
       <Filter>gfx</Filter>
@@ -414,9 +353,6 @@
     </ClCompile>
     <ClCompile Include="net\sinks.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="util\text\wrap_text.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_d3d11.cpp">
       <Filter>thin3d</Filter>
@@ -466,9 +402,6 @@
     <ClCompile Include="net\websocket_server.cpp">
       <Filter>net</Filter>
     </ClCompile>
-    <ClCompile Include="data\base64.cpp">
-      <Filter>data</Filter>
-    </ClCompile>
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
@@ -504,20 +437,11 @@
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="util">
-      <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="data">
-      <UniqueIdentifier>{d5fa3d62-88bf-4dc4-9814-28f3c0444e62}</UniqueIdentifier>
-    </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="i18n">
-      <UniqueIdentifier>{02e8ef95-82c7-4420-b029-a189a5e0fcbd}</UniqueIdentifier>
     </Filter>
     <Filter Include="math\fast">
       <UniqueIdentifier>{5ce64c0e-98e4-4411-86cc-aacaf2f60b21}</UniqueIdentifier>

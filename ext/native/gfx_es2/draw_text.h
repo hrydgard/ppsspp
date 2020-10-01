@@ -14,7 +14,7 @@
 #include <cstdint>
 
 #include "gfx_es2/draw_buffer.h"
-#include "util/text/wrap_text.h"
+#include "Common/Data/Text/WrapText.h"
 
 namespace Draw {
 	class DrawContext;

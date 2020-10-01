@@ -4,7 +4,7 @@
 #include <tchar.h>
 
 #include "base/display.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Windows/W32Util/Misc.h"

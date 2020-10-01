@@ -10,7 +10,7 @@
 #include "ui/ui_context.h"
 #include "ui/screen.h"
 #include "ui/root.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "gfx_es2/draw_buffer.h"
 
 #include "Common/Log.h"

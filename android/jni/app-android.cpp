@@ -58,7 +58,7 @@ struct JNIEnv {};
 #include "profiler/profiler.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 #include "android/jni/AndroidAudio.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

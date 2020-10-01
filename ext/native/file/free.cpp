@@ -17,7 +17,7 @@
 #include <fcntl.h>
 #endif
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 bool free_disk_space(const std::string &dir, uint64_t &space) {
 #ifdef _WIN32

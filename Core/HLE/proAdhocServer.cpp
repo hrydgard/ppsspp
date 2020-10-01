@@ -49,7 +49,7 @@
 #define MSG_NOSIGNAL 0x00
 #endif
 
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Common/FileUtil.h"

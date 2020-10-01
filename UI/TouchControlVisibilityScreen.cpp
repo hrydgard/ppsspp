@@ -19,7 +19,7 @@
 
 #include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 static const int leftColumnWidth = 140;
 

@@ -8,6 +8,7 @@
 #include <QMainWindow>
 #include <QActionGroup>
 
+#include "base/NativeApp.h"
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"

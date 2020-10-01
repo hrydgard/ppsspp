@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "profiler/profiler.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"

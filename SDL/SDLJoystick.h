@@ -10,7 +10,6 @@
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "net/resolve.h"
-#include "base/NativeApp.h"
 
 class SDLJoystick{
 public:

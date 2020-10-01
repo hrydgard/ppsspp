@@ -5,7 +5,7 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/VulkanRenderManager.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Core/System.h"
 #include "SDLVulkanGraphicsContext.h"

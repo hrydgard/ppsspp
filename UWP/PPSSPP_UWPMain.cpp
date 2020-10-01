@@ -13,7 +13,7 @@
 #include "base/display.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "thin3d/thin3d_create.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Common.h"
 #include "Common/DirectXHelper.h"

@@ -17,7 +17,6 @@
 
 #include <mutex>
 
-#include "base/NativeApp.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"

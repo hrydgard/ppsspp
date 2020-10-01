@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "i18n/i18n.h"
+#include "base/NativeApp.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -26,6 +26,7 @@
 #include "ui/ui_screen.h"
 #include "thin3d/thin3d.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Reporting.h"

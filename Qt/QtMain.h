@@ -30,7 +30,6 @@ QTM_USE_NAMESPACE
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "thin3d/thin3d.h"
-#include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "NKCodeFromQt.h"
 

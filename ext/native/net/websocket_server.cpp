@@ -15,7 +15,7 @@
 #include <ws2tcpip.h>
 #endif
 
-#include "data/base64.h"
+#include "Common/Data/Encoding/Base64.h"
 #include "net/http_server.h"
 #include "net/sinks.h"
 #include "net/websocket_server.h"

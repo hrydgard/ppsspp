@@ -26,7 +26,7 @@
 #include "math/dataconv.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"

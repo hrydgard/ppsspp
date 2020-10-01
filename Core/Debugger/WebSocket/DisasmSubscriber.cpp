@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cctype>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Debugger/Breakpoints.h"

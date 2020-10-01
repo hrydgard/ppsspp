@@ -52,7 +52,7 @@
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "math/fast/fast_math.h"
 #include "math/math_util.h"
@@ -63,7 +63,7 @@
 #include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "android/jni/app-android.h"
 

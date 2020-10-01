@@ -1,4 +1,4 @@
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "file/ini_file.h"
 #include "file/vfs.h"
 

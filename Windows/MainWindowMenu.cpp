@@ -7,8 +7,8 @@
 
 #include "resource.h"
 
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "base/NativeApp.h"
 
 #include "gfx_es2/gpu_features.h"

@@ -10,9 +10,6 @@
     <Filter Include="thread">
       <UniqueIdentifier>{63177c91-8ebd-4e87-ad4e-e6b8b52879c8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="util">
-      <UniqueIdentifier>{58d2f6cf-2448-4095-8479-9fe5d765b573}</UniqueIdentifier>
-    </Filter>
     <Filter Include="gfx">
       <UniqueIdentifier>{8a254b8c-46f2-4ff1-bc53-deea7e614276}</UniqueIdentifier>
     </Filter>
@@ -31,21 +28,12 @@
     <Filter Include="net">
       <UniqueIdentifier>{d8c0dd74-7ad2-440a-a3e0-5dbf3435a2fc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="i18n">
-      <UniqueIdentifier>{a522f449-7873-4af7-908e-7cc91eb8bfc0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="image">
       <UniqueIdentifier>{96ac6deb-ad00-4ee4-9f0d-515d78d1886b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="data">
-      <UniqueIdentifier>{4d23e7d3-0b9b-4dbe-95df-6ab250782a66}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\base\colorutil.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\base\display.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -54,18 +42,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\native\thin3d\thin3d_d3d11.cpp">
       <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\util\hash\hash.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\util\text\parsers.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\util\text\utf8.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\util\text\wrap_text.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
@@ -160,9 +136,6 @@
     <ClCompile Include="..\..\ext\native\net\url.cpp">
       <Filter>net</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\i18n\i18n.cpp">
-      <Filter>i18n</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -175,9 +148,6 @@
     <ClCompile Include="..\..\ext\native\gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\data\compression.cpp">
-      <Filter>data</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\math\dataconv.cpp">
       <Filter>math</Filter>
     </ClCompile>
@@ -186,9 +156,6 @@
     <ClCompile Include="..\..\ext\native\net\websocket_server.cpp">
       <Filter>net</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\data\base64.cpp">
-      <Filter>data</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_text_uwp.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -196,9 +163,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\colorutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\base\display.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -207,30 +171,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h">
       <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\const_map.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\hash\hash.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\random\rng.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\text\parsers.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\text\shiftjis.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\text\utf8.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\text\utf16.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\util\text\wrap_text.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\gfx\texture_atlas.h">
       <Filter>gfx</Filter>
@@ -334,9 +274,6 @@
     <ClInclude Include="..\..\ext\native\net\url.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\i18n\i18n.h">
-      <Filter>i18n</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -349,16 +286,10 @@
     <ClInclude Include="..\..\ext\native\gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\data\compression.h">
-      <Filter>data</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\json\json_reader.h" />
     <ClInclude Include="..\..\ext\native\json\json_writer.h" />
     <ClInclude Include="..\..\ext\native\net\websocket_server.h">
       <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\data\base64.h">
-      <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_text_uwp.h">
       <Filter>gfx</Filter>

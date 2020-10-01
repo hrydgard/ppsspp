@@ -2,7 +2,7 @@
 #include "Common/CommonWindows.h"
 #include "Windows/InputBox.h"
 #include "Windows/resource.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 static std::wstring textBoxContents;
 static std::wstring out;

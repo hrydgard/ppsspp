@@ -20,12 +20,12 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "data/compression.h"
 #include "file/fd_util.h"
 #include "net/resolve.h"
 #include "net/url.h"
-#include "Common/Thread/ThreadUtil.h"
 
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Compression.h"
 #include "Common/Buffer.h"
 #include "Common/Log.h"
 

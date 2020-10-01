@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cstdio>
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Windows/Debugger/DumpMemoryWindow.h"

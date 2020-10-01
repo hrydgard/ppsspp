@@ -7,7 +7,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"
 #include "libretro/libretro_vulkan.h"
