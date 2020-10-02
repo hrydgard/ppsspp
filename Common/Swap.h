@@ -112,3 +112,43 @@ typedef BEndian<s64> s64_be;
 
 typedef BEndian<float> float_be;
 typedef BEndian<double> double_be;
+
+template <typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, (T)v, args...);
+}
+
+template <typename T0, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T2, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, T2 v2, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, v2, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T2, typename T3, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, T2 v2, T3 v3, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, v2, v3, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T2, typename T3, typename T4, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, T2 v2, T3 v3, T4 v4, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, v2, v3, v4, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T2, typename T3, typename T4, typename T5, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, v2, v3, v4, v5, (T)v, args...);
+}
+
+template <typename T0, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T, typename... Targs>
+static inline void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *fmt, T0 v0, T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, swap_t<T> v, Targs... args) {
+	GenericLog(level, type, file, line, fmt, v0, v1, v2, v3, v4, v5, v6, (T)v, args...);
+}
