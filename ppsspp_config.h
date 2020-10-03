@@ -120,6 +120,8 @@
     #define PPSSPP_ARCH_PPC750 1
     #define PPSSPP_PLATFORM_WIIU 1
     #define PPSSPP_API_GX2 1
+    #define __thread __thread __attribute((tls_model("global-dynamic")))
+    #define thread_local thread_local __attribute((tls_model("global-dynamic")))
 #elif defined(__linux__)
     #define PPSSPP_PLATFORM_LINUX 1
 #endif

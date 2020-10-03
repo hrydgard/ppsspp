@@ -38,6 +38,7 @@ link_directories(${WIIU_ROOT})
 
 add_definitions(-Werror=format -Wno-format-truncation -Wno-format-overflow)
 add_definitions(-D__wiiu__ -D__powerpc__ -DFD_SETSIZE=32)
+add_definitions(-D_POSIX_THREADS)
 
 add_compile_options(-mcpu=750 -meabi -mhard-float)
 add_compile_options(-msdata=eabi)

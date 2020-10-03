@@ -4,7 +4,7 @@
 #include <excpt.h>
 #endif
 #define TLS_SUPPORTED
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__wiiu__)
 #define TLS_SUPPORTED
 #endif
 
@@ -14,12 +14,8 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
+#if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE)) || defined(__wiiu__)
 #include <pthread.h>
-#endif
-
-#ifdef __wiiu__
-#include <wiiu/os/thread.h>
 #endif
 
 #ifdef TLS_SUPPORTED
@@ -102,14 +98,12 @@ void setCurrentThreadName(const char* threadName) {
 	{}
 #else
 
-#if defined(__ANDROID__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
+#if defined(__ANDROID__) || (defined(__GLIBC__) && defined(_GNU_SOURCE)) || defined(__wiiu__)
 	pthread_setname_np(pthread_self(), threadName);
 #elif defined(__APPLE__)
 	pthread_setname_np(threadName);
 // #else
 //	pthread_setname_np(threadName);
-#elif defined(__wiiu__)
-	OSSetThreadName(OSGetCurrentThread(), threadName);
 #endif
 
 	// Do nothing
@@ -121,10 +115,7 @@ void setCurrentThreadName(const char* threadName) {
 }
 
 void AssertCurrentThreadName(const char *threadName) {
-#if defined(TLS_SUPPORTED) || defined(__wiiu__)
-#ifdef __wiiu__
-	const char *curThreadName = OSGetThreadName(OSGetCurrentThread());
-#endif
+#ifdef TLS_SUPPORTED
 	if (strcmp(curThreadName, threadName) != 0) {
 		ERROR_LOG(SYSTEM, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
 	}
