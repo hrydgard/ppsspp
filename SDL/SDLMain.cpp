@@ -23,6 +23,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+#include "Common/Profiler/Profiler.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
@@ -459,6 +460,7 @@ static void EmuThreadJoin() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
+	PROFILE_INIT();
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);
