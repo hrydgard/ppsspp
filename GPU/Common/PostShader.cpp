@@ -22,9 +22,9 @@
 #include <vector>
 #include <algorithm>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 #include "file/file_util.h"
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "Common/StringUtils.h"

@@ -4,8 +4,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "file/vfs.h"
-#include "file/zip_read.h"
+#include "Common/File/VFS/VFS.h"
+//#include "file/zip_read.h"
 #include "glsl_program.h"
 
 #include "Common/Log.h"

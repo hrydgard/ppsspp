@@ -17,7 +17,7 @@
 
 #include <set>
 #include "file/file_util.h"
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Common/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"

@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "file/ini_file.h"
+
+#include "Common/Data/Format/IniFile.h"
 #include "Core/Compatibility.h"
 #include "Core/System.h"
 

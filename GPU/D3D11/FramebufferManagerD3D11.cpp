@@ -20,7 +20,7 @@
 #include <D3Dcompiler.h>
 
 #include "base/display.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/Common.h"

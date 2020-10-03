@@ -437,6 +437,8 @@ add_library(Common STATIC
 	Common/Data/Collections/TinySet.h
 	Common/Data/Color/RGBAUtil.cpp
 	Common/Data/Color/RGBAUtil.h
+	Common/Data/Convert/SmallDataConvert.cpp
+	Common/Data/Convert/SmallDataConvert.h
 	Common/Data/Encoding/Base64.cpp
 	Common/Data/Encoding/Base64.h
 	Common/Data/Encoding/Compression.cpp
@@ -445,6 +447,10 @@ add_library(Common STATIC
 	Common/Data/Encoding/Utf8.cpp
 	Common/Data/Encoding/Utf8.h
 	Common/Data/Encoding/Utf16.h
+	Common/Data/Format/RIFF.cpp
+	Common/Data/Format/RIFF.h
+	Common/Data/Format/IniFile.cpp
+	Common/Data/Format/IniFile.h
 	Common/Data/Hash/Hash.cpp
 	Common/Data/Hash/Hash.h
 	Common/Data/Text/I18n.cpp
@@ -454,11 +460,33 @@ add_library(Common STATIC
 	Common/Data/Text/WrapText.cpp
 	Common/Data/Text/WrapText.h
 	Common/Data/Random/Rng.h
+	Common/File/VFS/VFS.h
+	Common/File/VFS/VFS.cpp
+	Common/File/VFS/AssetReader.cpp
+	Common/File/VFS/AssetReader.h
+	Common/File/DiskFree.h
+	Common/File/DiskFree.cpp
+	Common/File/PathBrowser.h
+	Common/File/PathBrowser.cpp
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h
 	Common/Input/InputState.cpp
 	Common/Input/InputState.h
+	Common/Math/fast/fast_math.c
+	Common/Math/fast/fast_matrix.c
+	Common/Math/fast/fast_matrix_neon.S
+	Common/Math/fast/fast_matrix_sse.c
+	Common/Math/curves.cpp
+	Common/Math/curves.h
+	Common/Math/expression_parser.cpp
+	Common/Math/expression_parser.h
+	Common/Math/lin/matrix4x4.cpp
+	Common/Math/lin/matrix4x4.h
+	Common/Math/lin/vec3.cpp
+	Common/Math/lin/vec3.h
+	Common/Math/math_util.cpp
+	Common/Math/math_util.h
 	Common/Thread/Executor.cpp
 	Common/Thread/Executor.h
 	Common/Thread/PrioritizedWorkQueue.cpp
@@ -486,8 +514,6 @@ add_library(Common STATIC
 	Common/ExceptionHandlerSetup.h
 	Common/FileUtil.cpp
 	Common/FileUtil.h
-	Common/KeyMap.cpp
-	Common/KeyMap.h
 	Common/Hashmaps.h
 	Common/Log.h
 	Common/Log.cpp
@@ -980,21 +1006,10 @@ add_library(native STATIC
 	${nativeExtra}
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/file/chunk_file.cpp
-	ext/native/file/chunk_file.h
 	ext/native/file/fd_util.cpp
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp
 	ext/native/file/file_util.h
-	ext/native/file/free.cpp
-	ext/native/file/free.h
-	ext/native/file/ini_file.cpp
-	ext/native/file/ini_file.h
-	ext/native/file/path.cpp
-	ext/native/file/path.h
-	ext/native/file/vfs.h
-	ext/native/file/zip_read.cpp
-	ext/native/file/zip_read.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
@@ -1030,22 +1045,6 @@ add_library(native STATIC
 	ext/native/json/json_reader.cpp
 	ext/native/json/json_writer.h
 	ext/native/json/json_writer.cpp
-	ext/native/math/fast/fast_math.c
-	ext/native/math/fast/fast_matrix.c
-	ext/native/math/fast/fast_matrix_neon.S
-	ext/native/math/fast/fast_matrix_sse.c
-	ext/native/math/dataconv.cpp
-	ext/native/math/dataconv.h
-	ext/native/math/curves.cpp
-	ext/native/math/curves.h
-	ext/native/math/expression_parser.cpp
-	ext/native/math/expression_parser.h
-	ext/native/math/lin/matrix4x4.cpp
-	ext/native/math/lin/matrix4x4.h
-	ext/native/math/lin/vec3.cpp
-	ext/native/math/lin/vec3.h
-	ext/native/math/math_util.cpp
-	ext/native/math/math_util.h
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
 	ext/native/net/http_headers.cpp
@@ -1465,6 +1464,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.h
 	Core/Instance.cpp
 	Core/Instance.h
+	Core/KeyMap.cpp
+	Core/KeyMap.h
 	Core/ThreadEventQueue.h
 	Core/WebServer.cpp
 	Core/WebServer.h

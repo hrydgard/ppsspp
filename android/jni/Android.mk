@@ -270,13 +270,26 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
   $(SRC)/Common/Data/Color/RGBAUtil.cpp \
+  $(SRC)/Common/Data/Convert/SmallDataConvert.cpp \
   $(SRC)/Common/Data/Encoding/Base64.cpp \
   $(SRC)/Common/Data/Encoding/Compression.cpp \
   $(SRC)/Common/Data/Encoding/Utf8.cpp \
+  $(SRC)/Common/Data/Format/RIFF.cpp \
   $(SRC)/Common/Data/Hash/Hash.cpp \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
+  $(SRC)/Common/File/VFS/VFS.cpp \
+  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/DiskFree.cpp \
+  $(SRC)/Common/File/PathBrowser.cpp \
+  $(SRC)/Common/Math/fast/fast_math.c \
+  $(SRC)/Common/Math/fast/fast_matrix.c \
+  $(SRC)/Common/Math/math_util.cpp \
+  $(SRC)/Common/Math/curves.cpp \
+  $(SRC)/Common/Math/expression_parser.cpp \
+  $(SRC)/Common/Math/lin/vec3.cpp.arm \
+  $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
   $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \
@@ -286,7 +299,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
-  $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
@@ -373,6 +385,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
+  $(SRC)/Core/KeyMap.cpp \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
@@ -615,38 +628,25 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
 
-#NATIVE
-#LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
-#LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
-#LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../ext $(LOCAL_PATH)/../../ext/libpng17 $(LOCAL_PATH)/../../ext/libzip $(LOCAL_PATH)/../../ext/glslang ..
-
-#Portable native and separate code on android in future is easy you needs add files 
-#by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
-# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-    $(SRC)/ext/native/math/fast/fast_matrix_neon.S.neon \
-    ../../ext/libpng17/arm/arm_init.c \
-    ../../ext/libpng17/arm/filter_neon_intrinsics.c \
-    ../../ext/libpng17/arm/filter_neon.S.neon
+    $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
+    $(SRC)/ext/libpng17/arm/arm_init.c \
+    $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c \
+    $(SRC)/ext/libpng17/arm/filter_neon.S.neon
 
-else ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
 else ifeq ($(TARGET_ARCH_ABI),x86)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-    $(SRC)/ext/native/math/fast/fast_matrix_sse.c
+    $(SRC)/Common/Math/fast/fast_matrix_sse.c
 else ifeq ($(TARGET_ARCH_ABI),x86_64)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-    $(SRC)/ext/native/math/fast/fast_matrix_sse.c
+    $(SRC)/Common/Math/fast/fast_matrix_sse.c
 endif
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)
 endif
-
 
 ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)

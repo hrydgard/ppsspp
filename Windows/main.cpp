@@ -33,8 +33,8 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "profiler/profiler.h"
 #include "Common/Thread/ThreadUtil.h"

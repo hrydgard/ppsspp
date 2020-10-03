@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "file/ini_file.h"
-#include "file/vfs.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/Parsers.h"
 
 #ifdef _WIN32

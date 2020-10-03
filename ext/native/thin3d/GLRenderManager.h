@@ -10,7 +10,7 @@
 #include <condition_variable>
 
 #include "gfx/gl_common.h"
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
 

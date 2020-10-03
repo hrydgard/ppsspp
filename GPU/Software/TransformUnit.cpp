@@ -18,7 +18,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"

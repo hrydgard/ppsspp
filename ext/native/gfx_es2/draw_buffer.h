@@ -7,8 +7,8 @@
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "gfx/texture_atlas.h"
-#include "math/geom2d.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/geom2d.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 
 struct Atlas;

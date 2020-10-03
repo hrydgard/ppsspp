@@ -3,7 +3,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <string>
-#include <string.h>
+#include <cstring>
 #include <thread>
 #include <vector>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ public:
 		// Do nothing
 #elif defined(__linux)
 		char *home = getenv("HOME");
-		if (home != NULL && !strncmp(str.c_str(), home, strlen(home))) {
+		if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
 			str = str.substr(strlen(home));
 			str.insert(0, 1, '~');
 		}

@@ -30,7 +30,7 @@
 
 #include <cmath>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/CPUDetect.h"
 #include "Core/MemMap.h"

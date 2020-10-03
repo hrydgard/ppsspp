@@ -34,7 +34,7 @@
 #include "Core/Host.h"
 
 #include "ext/xxhash.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 
 namespace DX9 {

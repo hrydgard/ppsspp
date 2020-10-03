@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"

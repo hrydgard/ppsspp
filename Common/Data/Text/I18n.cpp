@@ -1,6 +1,6 @@
 #include "Common/Data/Text/I18n.h"
-#include "file/ini_file.h"
-#include "file/vfs.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/StringUtils.h"
 

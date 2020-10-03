@@ -5,7 +5,7 @@
 #include "base/display.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "math/curves.h"
+#include "Common/Math/curves.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"

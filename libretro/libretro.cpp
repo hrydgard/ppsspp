@@ -21,7 +21,7 @@
 #include "Log.h"
 #include "LogManager.h"
 #include "ConsoleListener.h"
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 #include "file/zip_read.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"

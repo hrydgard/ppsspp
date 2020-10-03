@@ -21,7 +21,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "Common/Data/Text/I18n.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "ui/ui_context.h"
 
 #include "Common/Common.h"

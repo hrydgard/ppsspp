@@ -2,7 +2,7 @@
 #include <string>
 
 #include "base/NativeApp.h"
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/FileUtil.h"
 #include "Core/Config.h"

@@ -18,7 +18,7 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"

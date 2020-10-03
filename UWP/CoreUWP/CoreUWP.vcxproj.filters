@@ -910,6 +910,7 @@
     <ClCompile Include="..\..\ext\libzip\zip_unchange_data.c">
       <Filter>Ext\libzip</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\KeyMap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1540,6 +1541,7 @@
     <ClInclude Include="..\..\ext\libzip\zipint.h">
       <Filter>Ext\libzip</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\KeyMap.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

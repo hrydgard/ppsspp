@@ -5,9 +5,6 @@
     <None Include="tools\CMakeLists.txt">
       <Filter>tools</Filter>
     </None>
-    <None Include="math\fast\fast_matrix_neon.S">
-      <Filter>math\fast</Filter>
-    </None>
     <None Include="..\..\ios\main.mm">
       <Filter>base</Filter>
     </None>
@@ -25,12 +22,6 @@
     <ClInclude Include="image\zim_save.h">
       <Filter>image</Filter>
     </ClInclude>
-    <ClInclude Include="math\lin\matrix4x4.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="math\lin\vec3.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -40,28 +31,13 @@
     <ClInclude Include="profiler\profiler.h">
       <Filter>profiler</Filter>
     </ClInclude>
-    <ClInclude Include="file\chunk_file.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\vfs.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\zip_read.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="math\math_util.h">
-      <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="json\json_writer.h">
       <Filter>json</Filter>
     </ClInclude>
     <ClInclude Include="file\file_util.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="file\path.h">
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="base\NativeApp.h">
@@ -85,17 +61,11 @@
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="math\curves.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="ui\ui_context.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="file\ini_file.h">
-      <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="ui\view.h">
       <Filter>ui</Filter>
@@ -103,29 +73,17 @@
     <ClInclude Include="ui\viewgroup.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="math\geom2d.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="net\url.h">
       <Filter>net</Filter>
     </ClInclude>
     <ClInclude Include="ui\ui_screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="math\expression_parser.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gl3stub.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="math\fast\fast_math.h">
-      <Filter>math\fast</Filter>
-    </ClInclude>
-    <ClInclude Include="math\fast\fast_matrix.h">
-      <Filter>math\fast</Filter>
     </ClInclude>
     <ClInclude Include="thin3d\thin3d.h">
       <Filter>thin3d</Filter>
@@ -141,12 +99,6 @@
     </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="file\free.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="math\dataconv.h">
-      <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="net\sinks.h">
       <Filter>net</Filter>
@@ -225,12 +177,6 @@
     <ClCompile Include="image\zim_save.cpp">
       <Filter>image</Filter>
     </ClCompile>
-    <ClCompile Include="math\lin\matrix4x4.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="math\lin\vec3.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\draw_buffer.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -239,12 +185,6 @@
     </ClCompile>
     <ClCompile Include="profiler\profiler.cpp">
       <Filter>profiler</Filter>
-    </ClCompile>
-    <ClCompile Include="file\chunk_file.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\zip_read.cpp">
-      <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
@@ -255,17 +195,11 @@
     <ClCompile Include="file\file_util.cpp">
       <Filter>file</Filter>
     </ClCompile>
-    <ClCompile Include="file\path.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
     <ClCompile Include="base\display.cpp">
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="math\math_util.cpp">
-      <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="net\http_client.cpp">
       <Filter>net</Filter>
@@ -279,17 +213,11 @@
     <ClCompile Include="ui\screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="math\curves.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="ui\ui_context.cpp">
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="file\ini_file.cpp">
-      <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="ui\view.cpp">
       <Filter>ui</Filter>
@@ -303,23 +231,11 @@
     <ClCompile Include="ui\ui_screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="math\expression_parser.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\gl3stub.c">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="math\fast\fast_math.c">
-      <Filter>math\fast</Filter>
-    </ClCompile>
-    <ClCompile Include="math\fast\fast_matrix.c">
-      <Filter>math\fast</Filter>
-    </ClCompile>
-    <ClCompile Include="math\fast\fast_matrix_sse.c">
-      <Filter>math\fast</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_gl.cpp">
       <Filter>thin3d</Filter>
@@ -344,9 +260,6 @@
     </ClCompile>
     <ClCompile Include="..\..\Qt\QtMain.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="file\free.cpp">
-      <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_vulkan.cpp">
       <Filter>thin3d</Filter>
@@ -374,9 +287,6 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_android.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="math\dataconv.cpp">
-      <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\VulkanQueueRunner.cpp">
       <Filter>thin3d</Filter>
@@ -419,9 +329,6 @@
     <Filter Include="image">
       <UniqueIdentifier>{828bddaf-63e5-4311-985b-bf377f86ff00}</UniqueIdentifier>
     </Filter>
-    <Filter Include="math">
-      <UniqueIdentifier>{f3f83007-7c3b-473f-a2f7-423c5087fbfa}</UniqueIdentifier>
-    </Filter>
     <Filter Include="profiler">
       <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
     </Filter>
@@ -442,9 +349,6 @@
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="math\fast">
-      <UniqueIdentifier>{5ce64c0e-98e4-4411-86cc-aacaf2f60b21}</UniqueIdentifier>
     </Filter>
     <Filter Include="thin3d">
       <UniqueIdentifier>{06c6305a-a646-485b-85b9-645a24dd6553}</UniqueIdentifier>

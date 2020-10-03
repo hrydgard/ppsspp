@@ -144,13 +144,22 @@ SOURCES_CXX += \
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Data/Color/RGBAUtil.cpp \
+	$(COMMONDIR)/Data/Convert/SmallDataConvert.cpp \
 	$(COMMONDIR)/Data/Encoding/Base64.cpp \
 	$(COMMONDIR)/Data/Encoding/Compression.cpp \
 	$(COMMONDIR)/Data/Encoding/Utf8.cpp \
+	$(COMMONDIR)/Data/Format/RIFF.cpp \
+	$(COMMONDIR)/Data/Format/IniFile.cpp \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
+
+SOURCES_CXX += \
+	$(COMMONDIR)/File/VFS/VFS.cpp \
+	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/DiskFree.cpp \
+	$(COMMONDIR)/File/PathBrowser.cpp
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
@@ -174,7 +183,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Timer.cpp \
 	$(COMMONDIR)/TimeUtil.cpp \
 	$(COMMONDIR)/ThreadPools.cpp
-
 
 
 SOURCES_CXX += \
@@ -295,9 +303,6 @@ endif
 SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/file/fd_util.cpp \
 	       $(NATIVEDIR)/file/file_util.cpp \
-	       $(NATIVEDIR)/file/ini_file.cpp \
-	       $(NATIVEDIR)/file/free.cpp \
-	       $(NATIVEDIR)/file/zip_read.cpp \
 	       $(NATIVEDIR)/gfx/gl_debug_log.cpp \
 	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
           $(NATIVEDIR)/gfx/d3d9_shader.cpp \

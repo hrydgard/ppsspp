@@ -114,6 +114,7 @@ bool SetCurrentDir(const std::string &directory);
 
 const std::string &GetExeDirectory();
 
+
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder

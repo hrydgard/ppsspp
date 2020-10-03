@@ -21,7 +21,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "Common/Data/Text/I18n.h"
-#include "math/curves.h"
+#include "Common/Math/curves.h"
 #include "Common/Thread/PrioritizedWorkQueue.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "ui/ui_context.h"

@@ -1,11 +1,11 @@
 #include <string>
 #include <mutex>
 
-#include "file/chunk_file.h"
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 #include "ui/root.h"
 
 #include "Common/CommonTypes.h"
+#include "Common/Data/Format/RIFF.h"
 #include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"

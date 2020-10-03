@@ -27,7 +27,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
-#include "math/curves.h"
+#include "Common/Math/curves.h"
 #include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
@@ -36,7 +36,6 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
-#include "Common/KeyMap.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
@@ -49,6 +48,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"

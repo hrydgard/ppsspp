@@ -7,7 +7,7 @@
 #include "thin3d/d3d11_loader.h"
 #endif
 #include "base/display.h"
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/ColorConv.h"

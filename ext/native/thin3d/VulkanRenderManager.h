@@ -12,8 +12,8 @@
 
 #include "base/display.h"
 #include "Common/Vulkan/VulkanContext.h"
-#include "math/dataconv.h"
-#include "math/math_util.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Math/math_util.h"
 #include "thin3d/DataFormat.h"
 #include "thin3d/VulkanQueueRunner.h"
 

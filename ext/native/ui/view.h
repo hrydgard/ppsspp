@@ -16,9 +16,9 @@
 #include <vector>
 
 #include "gfx/texture_atlas.h"
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/geom2d.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/geom2d.h"
 
 #include "Common/Common.h"
 

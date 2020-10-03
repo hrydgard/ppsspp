@@ -22,7 +22,6 @@
 // It's improving slowly, though. :)
 #include "stdafx.h"
 #include "Common/CommonWindows.h"
-#include "Common/KeyMap.h"
 #include "Common/OSVersion.h"
 #include "ppsspp_config.h"
 
@@ -47,6 +46,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Instance.h"
+#include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"

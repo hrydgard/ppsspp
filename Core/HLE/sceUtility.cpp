@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <set>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

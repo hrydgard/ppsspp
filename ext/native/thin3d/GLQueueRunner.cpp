@@ -4,12 +4,12 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "thin3d/DataFormatGL.h"
-#include "math/dataconv.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 
 #include "Core/Reporting.h"
 #include "GLQueueRunner.h"

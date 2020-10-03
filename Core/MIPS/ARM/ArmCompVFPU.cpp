@@ -19,7 +19,7 @@
 #if PPSSPP_ARCH(ARM)
 
 #include <cmath>
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
 #include "Core/Config.h"

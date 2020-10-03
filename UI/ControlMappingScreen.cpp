@@ -33,7 +33,7 @@
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
 #include "Common/Log.h"
-#include "Common/KeyMap.h"
+#include "Core/KeyMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/System.h"

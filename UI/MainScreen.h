@@ -19,10 +19,10 @@
 
 #include <functional>
 
-#include "file/path.h"
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
+#include "Common/File/PathBrowser.h"
 
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1

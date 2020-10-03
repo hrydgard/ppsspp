@@ -23,7 +23,7 @@
 #include "base/NativeApp.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
-#include "math/curves.h"
+#include "Common/Math/curves.h"
 #include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
@@ -50,7 +50,6 @@
 #include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 
-#include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
@@ -58,6 +57,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"

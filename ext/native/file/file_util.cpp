@@ -126,6 +126,34 @@ bool readFileToString(bool text_file, const char *filename, std::string &str)
 	return true;
 }
 
+uint8_t *ReadLocalFile(const char *filename, size_t *size) {
+	FILE *file = openCFile(filename, "rb");
+	if (!file) {
+		*size = 0;
+		return nullptr;
+	}
+	fseek(file, 0, SEEK_END);
+	size_t f_size = ftell(file);
+	if ((long)f_size < 0) {
+		*size = 0;
+		fclose(file);
+		return nullptr;
+	}
+	fseek(file, 0, SEEK_SET);
+	uint8_t *contents = new uint8_t[f_size + 1];
+	if (fread(contents, 1, f_size, file) != f_size) {
+		delete[] contents;
+		contents = nullptr;
+		*size = 0;
+	} else {
+		contents[f_size] = 0;
+		*size = f_size;
+	}
+	fclose(file);
+	return contents;
+}
+
+
 // Returns true if filename is a directory
 bool isDirectory(const std::string &filename) {
 	FileInfo info;

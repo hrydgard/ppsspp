@@ -4,9 +4,9 @@
 #include <algorithm>
 #include <map>
 
-#include "math/dataconv.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/DataFormatGL.h"
 #include "gfx/gl_common.h"

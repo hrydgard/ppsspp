@@ -26,7 +26,6 @@
 #endif
 
 #include "base/NativeApp.h"
-#include "file/path.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"
 #include "json/json_reader.h"
@@ -34,6 +33,7 @@
 #include "net/resolve.h"
 #include "net/url.h"
 
+#include "Common/File/PathBrowser.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"
 #include "Common/TimeUtil.h"

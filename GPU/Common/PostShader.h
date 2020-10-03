@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
 	std::string iniFile;  // which ini file was this definition in? So we can write settings back later

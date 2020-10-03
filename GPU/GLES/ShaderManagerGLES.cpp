@@ -23,12 +23,12 @@
 #include <cstdio>
 #include <map>
 
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "Common/Data/Text/I18n.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/GLRenderManager.h"

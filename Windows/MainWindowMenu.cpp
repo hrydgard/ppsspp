@@ -33,6 +33,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/KeyMap.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"

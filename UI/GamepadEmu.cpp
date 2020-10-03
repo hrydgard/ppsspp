@@ -21,7 +21,7 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "gfx/texture_atlas.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "ui/ui_context.h"
 
 #include "Common/Log.h"

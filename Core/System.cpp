@@ -33,7 +33,7 @@
 #include <condition_variable>
 
 #include "base/NativeApp.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 
