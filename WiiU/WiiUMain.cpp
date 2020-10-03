@@ -50,6 +50,9 @@ int main(int argc, char **argv) {
 		"sd:/ppsspp/PPSSPP.rpx",
 //		"-d",
 //		"-v",
+//		"-j",
+//		"-r",
+//		"-i",
 //		"sd:/cube.elf",
 		nullptr
 	};
@@ -73,17 +76,19 @@ int main(int argc, char **argv) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 	g_Config.iGPUBackend = (int)GPUBackend::GX2;
 	g_Config.bEnableSound = true;
 	g_Config.bPauseExitsEmulator = false;
 	g_Config.bPauseMenuExitsEmulator = false;
-	g_Config.iCpuCore = (int)CPUCore::JIT;
+//	g_Config.iCpuCore = (int)CPUCore::JIT;
 	g_Config.bVertexDecoderJit = false;
 	g_Config.bSoftwareRendering = false;
 //	g_Config.iFpsLimit = 0;
 	g_Config.bHardwareTransform = true;
 	g_Config.bSoftwareSkinning = false;
 	g_Config.bVertexCache = true;
+//	PSP_CoreParameter().gpuCore = GPUCORE_NULL;
 //	g_Config.bTextureBackoffCache = true;
 	std::string error_string;
 	GraphicsContext *ctx;
@@ -154,7 +159,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 float System_GetPropertyFloat(SystemProperty prop) {
-	return -1;
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 0.0f;
+	default:
+		return -1;
+	}
 }
 
 void System_AskForPermission(SystemPermission permission) {}

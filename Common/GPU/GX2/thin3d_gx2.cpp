@@ -916,6 +916,7 @@ void GX2DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, 
 		srcSurface = &((GX2Framebuffer *)srcfb)->depthBuffer.surface;
 		dstSurface = &((GX2Framebuffer *)dstfb)->depthBuffer.surface;
 	}
+	GX2Invalidate(GX2_INVALIDATE_MODE_COLOR_BUFFER, srcSurface->image, srcSurface->imageSize);
 	GX2CopySurfaceEx(srcSurface, level, z, dstSurface, dstLevel, dstZ, 1, &srcRegion, &dstCoords);
 	GX2SetContextState(context_state_);
 	GX2SetShaderMode(GX2_SHADER_MODE_UNIFORM_BLOCK);
@@ -1029,9 +1030,12 @@ void GX2DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo_, const Rend
 void GX2DrawContext::BindFramebufferAsTexture(Framebuffer *fbo_, int binding, FBChannel channelBit, int attachment) {
 	GX2Framebuffer *fbo = (GX2Framebuffer *)fbo_;
 	_assert_(channelBit == FB_COLOR_BIT);
+	_assert_(!attachment);
 
 	//	GX2DrawDone();
 	if (channelBit == FB_COLOR_BIT) {
+		GX2Invalidate(GX2_INVALIDATE_MODE_COLOR_BUFFER, fbo->colorBuffer.surface.image, fbo->colorBuffer.surface.imageSize);
+		GX2Invalidate(GX2_INVALIDATE_MODE_TEXTURE, fbo->colorTexture.surface.image, fbo->colorTexture.surface.imageSize);
 		GX2SetPixelTexture(&fbo->colorTexture, binding);
 	}
 }

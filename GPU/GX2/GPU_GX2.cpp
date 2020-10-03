@@ -54,7 +54,6 @@ GPU_GX2::GPU_GX2(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw,
 	(GX2ContextState *)draw->GetNativeObject(Draw::NativeObject::CONTEXT)) {
 	context_ = (GX2ContextState *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
-	lastVsync_ = g_Config.bVSync ? 1 : 0;
 
 	StockGX2::Init();
 

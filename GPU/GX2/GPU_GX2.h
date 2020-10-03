@@ -81,6 +81,5 @@ private:
 	DrawEngineGX2 drawEngine_;
 	ShaderManagerGX2 *shaderManagerGX2_;
 
-	int lastVsync_;
 	int vertexCost_ = 0;
 };
