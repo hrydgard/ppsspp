@@ -22,7 +22,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/thin3d.h"
 #include "Common/Data/Encoding/Utf8.h"
 

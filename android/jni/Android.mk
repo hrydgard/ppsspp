@@ -112,7 +112,6 @@ NATIVE_FILES :=\
   $(SRC)/ext/native/net/sinks.cpp \
   $(SRC)/ext/native/net/url.cpp \
   $(SRC)/ext/native/net/websocket_server.cpp \
-  $(SRC)/ext/native/profiler/profiler.cpp \
   $(SRC)/ext/native/gfx_es2/glsl_program.cpp \
   $(SRC)/ext/native/gfx_es2/gpu_features.cpp \
   $(SRC)/ext/native/gfx_es2/gl3stub.c \
@@ -278,6 +277,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/expression_parser.cpp \
   $(SRC)/Common/Math/lin/vec3.cpp.arm \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
+  $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \

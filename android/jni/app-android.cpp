@@ -56,7 +56,7 @@ struct JNIEnv {};
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Math/math_util.h"
 #include "net/resolve.h"
 #include "Common/Data/Text/Parsers.h"

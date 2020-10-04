@@ -36,7 +36,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Data/Text/I18n.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "net/resolve.h"

@@ -55,7 +55,7 @@
 #include "Common/Math/fast/fast_math.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/thin3d.h"
 #include "ui/ui.h"
 #include "ui/screen.h"

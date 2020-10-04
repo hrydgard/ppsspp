@@ -10,7 +10,7 @@
 #endif
 
 #include "base/NativeApp.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"

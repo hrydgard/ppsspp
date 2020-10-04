@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "base/display.h"
 #include "Common/Math/lin/matrix4x4.h"

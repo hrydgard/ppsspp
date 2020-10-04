@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(MIPS)
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"

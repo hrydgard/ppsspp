@@ -491,6 +491,8 @@ add_library(Common STATIC
 	Common/Math/lin/vec3.h
 	Common/Math/math_util.cpp
 	Common/Math/math_util.h
+	Common/Profiler/Profiler.cpp
+	Common/Profiler/Profiler.h
 	Common/Thread/Executor.cpp
 	Common/Thread/Executor.h
 	Common/Thread/PrioritizedWorkQueue.cpp
@@ -1059,8 +1061,6 @@ add_library(native STATIC
 	ext/native/net/url.h
 	ext/native/net/websocket_server.cpp
 	ext/native/net/websocket_server.h
-	ext/native/profiler/profiler.cpp
-	ext/native/profiler/profiler.h
 	ext/native/thin3d/thin3d.cpp
 	ext/native/thin3d/thin3d.h
 	ext/native/thin3d/thin3d_create.h

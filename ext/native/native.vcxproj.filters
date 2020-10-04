@@ -28,9 +28,6 @@
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="profiler\profiler.h">
-      <Filter>profiler</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -177,9 +174,6 @@
     <ClCompile Include="gfx_es2\glsl_program.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="profiler\profiler.cpp">
-      <Filter>profiler</Filter>
-    </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -316,9 +310,6 @@
     </Filter>
     <Filter Include="image">
       <UniqueIdentifier>{828bddaf-63e5-4311-985b-bf377f86ff00}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="profiler">
-      <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
     </Filter>
     <Filter Include="file">
       <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>

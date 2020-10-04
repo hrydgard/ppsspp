@@ -32,7 +32,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/thin3d.h"
 
 #include "GPU/Software/Rasterizer.h"

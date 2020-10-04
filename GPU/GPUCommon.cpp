@@ -2,7 +2,7 @@
 #include <type_traits>
 #include <mutex>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"

@@ -29,7 +29,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/GLRenderManager.h"
 

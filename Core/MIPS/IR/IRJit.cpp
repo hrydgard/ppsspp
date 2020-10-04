@@ -18,7 +18,7 @@
 #include <set>
 
 #include "ext/xxhash.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"

@@ -15,7 +15,7 @@
 #import "ViewController.h"
 
 #include "base/NativeApp.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #define	CS_OPS_STATUS		0	/* return status */
 #define CS_DEBUGGED 0x10000000  /* process is currently or has previously been debugged and allowed to run with invalid pages */

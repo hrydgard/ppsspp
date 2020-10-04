@@ -419,6 +419,7 @@
     <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h" />
     <ClInclude Include="..\..\Common\Math\lin\vec3.h" />
     <ClInclude Include="..\..\Common\Math\math_util.h" />
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
@@ -505,6 +506,7 @@
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
     <ClCompile Include="..\..\Common\Math\math_util.cpp" />
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\ColorConv.cpp" />
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />

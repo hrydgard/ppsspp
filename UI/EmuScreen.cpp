@@ -21,7 +21,7 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/gpu_features.h"

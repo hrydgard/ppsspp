@@ -226,6 +226,9 @@
     <ClInclude Include="Data\Format\JSONWriter.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
+    <ClInclude Include="Profiler\Profiler.h">
+      <Filter>Profiler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -433,6 +436,9 @@
     <ClCompile Include="Data\Format\JSONWriter.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
+    <ClCompile Include="Profiler\Profiler.cpp">
+      <Filter>Profiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -503,6 +509,9 @@
     </Filter>
     <Filter Include="File\VFS">
       <UniqueIdentifier>{b10822cf-4cc0-4bc3-91a9-b20cb66e5cbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiler">
+      <UniqueIdentifier>{8321632b-8fc5-4a67-adb7-126a328d50eb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -412,7 +412,6 @@
     <ClInclude Include="net\http_server.h" />
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="net\url.h" />
-    <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="net\sinks.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
@@ -488,7 +487,6 @@
     <ClCompile Include="net\http_server.cpp" />
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="net\url.cpp" />
-    <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="net\sinks.cpp" />
     <ClCompile Include="thin3d\d3dx9_loader.cpp" />
     <ClCompile Include="thin3d\thin3d.cpp" />

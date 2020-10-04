@@ -27,7 +27,7 @@
 #endif
 
 #include "Common/Data/Text/I18n.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"

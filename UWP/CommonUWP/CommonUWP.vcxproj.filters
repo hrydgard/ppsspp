@@ -58,6 +58,9 @@
     <Filter Include="File\VFS">
       <UniqueIdentifier>{b23bdba1-6007-4edb-ac75-a04cf8c5e172}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Profiler">
+      <UniqueIdentifier>{6673c122-d7ed-4ccc-969a-12d317ee1f93}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -239,6 +242,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp">
       <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp">
+      <Filter>Profiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -427,6 +433,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h">
       <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h">
+      <Filter>Profiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
