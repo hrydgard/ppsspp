@@ -23,11 +23,11 @@
 #include "headless/SDLHeadlessHost.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
-#include "Common/File/VFS/VFS.h"
-#include "file/zip_read.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
 
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"

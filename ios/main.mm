@@ -14,7 +14,8 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/Profiler/Profiler.h"
 
 #define	CS_OPS_STATUS		0	/* return status */

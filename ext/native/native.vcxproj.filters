@@ -31,9 +31,6 @@
     <ClInclude Include="file\file_util.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="base\NativeApp.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -295,9 +292,6 @@
     </Filter>
     <Filter Include="file">
       <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="base">
-      <UniqueIdentifier>{95e41110-57a2-497f-a938-b4c8e9dd6a27}</UniqueIdentifier>
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>

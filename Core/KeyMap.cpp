@@ -26,7 +26,8 @@
 
 #include "ppsspp_config.h"
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Input/InputState.h"
 #include "Common/Log.h"

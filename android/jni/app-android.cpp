@@ -49,8 +49,14 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "net/resolve.h"
+#include "android/jni/AndroidAudio.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
+
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
@@ -58,11 +64,7 @@ struct JNIEnv {};
 #include "Common/Input/KeyCodes.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/math_util.h"
-#include "net/resolve.h"
 #include "Common/Data/Text/Parsers.h"
-#include "android/jni/AndroidAudio.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
 
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"

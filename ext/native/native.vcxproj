@@ -364,7 +364,6 @@
     <None Include="tools\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />

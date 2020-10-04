@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/File/VFS/VFS.h"
 
 #include "Common/FileUtil.h"

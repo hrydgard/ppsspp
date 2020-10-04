@@ -10,7 +10,6 @@
 // otherwise the scheme breaks.
 
 #include <string>
-#include <cstdio>
 #include <cstdint>
 
 class RIFFReader {

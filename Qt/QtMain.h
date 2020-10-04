@@ -24,7 +24,8 @@ QTM_USE_NAMESPACE
 
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
-#include "file/zip_read.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "Common/Input/InputState.h"

@@ -34,10 +34,11 @@
 #endif
 
 #include "ppsspp_config.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/Input/InputState.h"
 #include "ext/disarm.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/ArmEmitter.h"

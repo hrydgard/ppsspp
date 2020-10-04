@@ -451,6 +451,9 @@
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
+    <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\NativeApp.h" />
+    <ClInclude Include="System\System.h" />
     <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="ThreadSafeList.h" />
     <ClInclude Include="Thread\Executor.h" />
@@ -722,6 +725,7 @@
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
+    <ClCompile Include="System\Display.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Thread\Executor.cpp" />
     <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />

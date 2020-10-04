@@ -19,10 +19,10 @@
 #include <set>
 #include <cstdint>
 
-#include "Common/System/Display.h"
-#include "base/NativeApp.h"
 #include "thin3d/thin3d.h"
 
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"

@@ -7,11 +7,12 @@
 
 #include "resource.h"
 
+#include "gfx_es2/gpu_features.h"
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "base/NativeApp.h"
-
-#include "gfx_es2/gpu_features.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"

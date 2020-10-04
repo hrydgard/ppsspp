@@ -8,7 +8,8 @@
 #include <QMessageBox>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceUmd.h"

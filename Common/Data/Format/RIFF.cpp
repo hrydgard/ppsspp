@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Common/Log.h"
 #include "Common/Data/Format/RIFF.h"
 

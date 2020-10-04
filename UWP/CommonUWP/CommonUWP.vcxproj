@@ -454,6 +454,8 @@
     <ClInclude Include="..\..\Common\Swap.h" />
     <ClInclude Include="..\..\Common\SysError.h" />
     <ClInclude Include="..\..\Common\System\Display.h" />
+    <ClInclude Include="..\..\Common\System\NativeApp.h" />
+    <ClInclude Include="..\..\Common\System\System.h" />
     <ClInclude Include="..\..\Common\ThreadPools.h" />
     <ClInclude Include="..\..\Common\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Thread\Executor.h" />

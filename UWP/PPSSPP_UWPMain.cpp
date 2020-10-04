@@ -3,11 +3,9 @@
 
 #include <mutex>
 
-#include "base/NativeApp.h"
 #include "file/file_util.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
-#include "Common/System/Display.h"
 #include "thin3d/thin3d_create.h"
 
 #include "Common/Common.h"
@@ -22,6 +20,9 @@
 #include "Common/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"

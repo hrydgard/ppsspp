@@ -19,7 +19,7 @@
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
 #include "Common/Math/math_util.h"
 #include "ui/ui_context.h"

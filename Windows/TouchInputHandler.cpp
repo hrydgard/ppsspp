@@ -5,7 +5,7 @@
 #include <algorithm>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
 
 #include "Common/CommonWindows.h"
 #include "Common/CommonFuncs.h"

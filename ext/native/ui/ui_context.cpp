@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"

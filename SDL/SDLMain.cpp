@@ -21,7 +21,8 @@ SDLJoystick *joystick = NULL;
 #include <locale>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
 #include "net/resolve.h"

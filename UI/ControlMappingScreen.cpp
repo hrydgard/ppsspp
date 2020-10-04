@@ -19,8 +19,6 @@
 #include <deque>
 #include <mutex>
 
-#include "Common/System/Display.h"
-#include "base/NativeApp.h"
 #include "gfx/texture_atlas.h"
 #include "ui/root.h"
 #include "ui/ui.h"
@@ -28,11 +26,13 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
+#include "Common/Log.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
-#include "Common/Log.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Core/KeyMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"

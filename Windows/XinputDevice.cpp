@@ -3,7 +3,7 @@
 #include <climits>
 #include <algorithm>
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"

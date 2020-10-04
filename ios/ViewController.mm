@@ -12,9 +12,6 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "Common/System/Display.h"
-#include "base/NativeApp.h"
-#include "file/zip_read.h"
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
@@ -22,11 +19,16 @@
 #include "thin3d/GLRenderManager.h"
 #include "gfx_es2/gpu_features.h"
 
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/VFS/VFS.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/GraphicsContext.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"

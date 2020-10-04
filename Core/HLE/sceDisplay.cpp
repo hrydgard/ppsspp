@@ -26,12 +26,11 @@
 #include <sys/time.h>
 #endif
 
-#include "Common/Data/Text/I18n.h"
-#include "Common/Profiler/Profiler.h"
-
-#include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"

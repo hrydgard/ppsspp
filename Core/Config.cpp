@@ -24,8 +24,6 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/System/Display.h"
-#include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
 #include "net/url.h"
@@ -39,6 +37,8 @@
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Common/OSVersion.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"

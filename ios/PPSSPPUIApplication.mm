@@ -13,9 +13,11 @@
 #import <GLKit/GLKit.h>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "Common/TimeUtil.h"
-#include "file/zip_read.h"
+#include "Common/VFS/VFS.h"
+#include "Common/VFS/AssetReader.h"
 #include "Common/Input/InputState.h"
 #include "net/resolve.h"
 #include "ui/screen.h"

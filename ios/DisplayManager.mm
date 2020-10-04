@@ -9,7 +9,8 @@
 #import "ViewController.h"
 #import "AppDelegate.h"
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "Core/System.h"
 #import <AVFoundation/AVFoundation.h>
 

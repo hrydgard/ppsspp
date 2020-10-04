@@ -5,11 +5,11 @@
 #include <vector>
 #include <cstdlib>
 
-#include "base/NativeApp.h"
-
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/FileUtil.h"
 #include "Common/Serialize/Serializer.h"

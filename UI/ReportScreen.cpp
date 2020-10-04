@@ -17,8 +17,6 @@
 
 #include <string>
 
-#include "Common/System/Display.h"
-#include "base/NativeApp.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"
 #include "thin3d/thin3d.h"
@@ -30,6 +28,8 @@
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"

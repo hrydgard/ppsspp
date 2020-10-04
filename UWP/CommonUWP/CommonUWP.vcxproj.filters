@@ -446,6 +446,12 @@
     <ClInclude Include="..\..\Common\System\Display.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\System\NativeApp.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\System.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\ext\libpng17\CMakeLists.txt">

@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="base">
-      <UniqueIdentifier>{903dae00-880d-4c12-bd10-29fca750376f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="thin3d">
       <UniqueIdentifier>{98343696-3517-451a-9b47-94d462263e3e}</UniqueIdentifier>
     </Filter>
@@ -25,9 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\base\display.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\thin3d\thin3d.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
@@ -110,12 +104,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\display.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\NativeApp.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h">
       <Filter>thin3d</Filter>
     </ClInclude>

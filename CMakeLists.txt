@@ -814,7 +814,6 @@ if(ANDROID)
 	)
 
 	set(NativeAppSource ${NativeAppSource}
-		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
 		android/jni/AndroidEGLContext.cpp
 		android/jni/AndroidEGLContext.h

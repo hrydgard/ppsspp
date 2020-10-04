@@ -19,7 +19,8 @@
 
 #include "ppsspp_config.h"
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "gfx_es2/gpu_features.h"
 #include "Common/Data/Text/I18n.h"
 #include "ui/ui_context.h"

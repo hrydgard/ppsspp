@@ -379,8 +379,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\native\base\display.h" />
-    <ClInclude Include="..\..\ext\native\base\NativeApp.h" />
     <ClInclude Include="..\..\ext\native\file\fd_util.h" />
     <ClInclude Include="..\..\ext\native\file\file_util.h" />
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_text_uwp.h" />
@@ -410,7 +408,6 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\ext\native\base\display.cpp" />
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp" />
     <ClCompile Include="..\..\ext\native\file\file_util.cpp" />
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_text_uwp.cpp" />

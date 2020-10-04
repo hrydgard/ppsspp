@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "Common/System/Display.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/ui_context.h"
