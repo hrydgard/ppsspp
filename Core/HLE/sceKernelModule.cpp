@@ -21,6 +21,7 @@
 
 #include "zlib.h"
 
+#include "base/stringutil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -2375,7 +2376,11 @@ u32 sceKernelFindModuleByName(const char *name)
 {
 	int index = GetModuleIndex(name);
 	u32 temp = index + 1;
-	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", temp, name);
+	std::string id = g_paramSFO.GetValueString("DISC_ID");
+	if ((id == "ULJM05262") && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/CHN_FONT_SPL.pgf").exists) & (strcmp(name, "FFSTJP") == 0))
+		//temp = 0x83FFE00; //find by jpcsp emulator
+		temp = 0x881F7C3C;  //find by real psp
+	INFO_LOG(SCEMODULE, "%d = Unimp sceKernelFindModuleByName(%s)", temp, name);
 	return temp;
 }
 
