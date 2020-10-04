@@ -21,7 +21,7 @@
 
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"

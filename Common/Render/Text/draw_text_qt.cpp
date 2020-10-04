@@ -3,8 +3,8 @@
 #include "Common/Data/Hash/Hash.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "gfx_es2/draw_text.h"
-#include "gfx_es2/draw_text_qt.h"
+#include "Common/Render/Text/draw_text.h"
+#include "Common/Render/Text/draw_text_qt.h"
 
 #include "Common/Log.h"
 

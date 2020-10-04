@@ -362,20 +362,6 @@
   <ItemGroup>
     <None Include="tools\CMakeLists.txt" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="gfx_es2\draw_text_android.h" />
-    <ClInclude Include="gfx_es2\draw_text_qt.h" />
-    <ClInclude Include="gfx_es2\draw_text_uwp.h" />
-    <ClInclude Include="gfx_es2\draw_text_win.h" />
-    <ClInclude Include="gfx_es2\draw_text.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="gfx_es2\draw_text_android.cpp" />
-    <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
-    <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
-    <ClCompile Include="gfx_es2\draw_text_win.cpp" />
-    <ClCompile Include="gfx_es2\draw_text.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

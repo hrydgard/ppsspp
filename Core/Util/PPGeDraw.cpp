@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/Render/TextureAtlas.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/File/VFS/VFS.h"

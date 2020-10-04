@@ -2,26 +2,9 @@
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\gfx_es2\draw_text.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\gfx_es2\draw_text_uwp.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\gfx_es2\draw_text.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\gfx_es2\draw_text_uwp.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="gfx">
-      <UniqueIdentifier>{85815953-a0f8-409b-bbe9-c28f126ae7bf}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
 </Project>

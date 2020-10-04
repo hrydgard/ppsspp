@@ -431,6 +431,11 @@
     <ClInclude Include="Profiler\Profiler.h" />
     <ClInclude Include="Render\DrawBuffer.h" />
     <ClInclude Include="Render\TextureAtlas.h" />
+    <ClInclude Include="Render\Text\draw_text.h" />
+    <ClInclude Include="Render\Text\draw_text_android.h" />
+    <ClInclude Include="Render\Text\draw_text_qt.h" />
+    <ClInclude Include="Render\Text\draw_text_uwp.h" />
+    <ClInclude Include="Render\Text\draw_text_win.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -753,6 +758,11 @@
     <ClCompile Include="Profiler\Profiler.cpp" />
     <ClCompile Include="Render\DrawBuffer.cpp" />
     <ClCompile Include="Render\TextureAtlas.cpp" />
+    <ClCompile Include="Render\Text\draw_text.cpp" />
+    <ClCompile Include="Render\Text\draw_text_android.cpp" />
+    <ClCompile Include="Render\Text\draw_text_qt.cpp" />
+    <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
+    <ClCompile Include="Render\Text\draw_text_win.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />

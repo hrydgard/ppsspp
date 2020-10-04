@@ -8,7 +8,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/Context.h"
 #include "Common/Render/DrawBuffer.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 
 #include "Common/Log.h"
 #include "UI/TextureUtil.h"

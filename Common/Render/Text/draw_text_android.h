@@ -3,7 +3,7 @@
 #include "ppsspp_config.h"
 
 #include <map>
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 

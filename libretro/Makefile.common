@@ -326,21 +326,21 @@ SOURCES_CXX += \
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
-	       $(NATIVEDIR)/gfx_es2/draw_text_win.cpp
+	       $(COMMONDIR)/Render/Text/draw_text_win.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
 SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
-			 $(NATIVEDIR)/gfx_es2/draw_text_android.cpp
+		   $(COMMONDIR)/Render/Text/draw_text_android.cpp
 else
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
 SOURCES_CXX += \
-           $(NATIVEDIR)/gfx_es2/draw_text.cpp \
+           $(COMMONDIR)/Render/Text/draw_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \

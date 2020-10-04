@@ -560,6 +560,16 @@ add_library(Common STATIC
 	Common/Render/TextureAtlas.h
 	Common/Render/DrawBuffer.cpp
 	Common/Render/DrawBuffer.h
+	Common/Render/Text/draw_text.cpp
+	Common/Render/Text/draw_text.h
+	Common/Render/Text/draw_text_android.cpp
+	Common/Render/Text/draw_text_android.h
+	Common/Render/Text/draw_text_qt.cpp
+	Common/Render/Text/draw_text_qt.h
+	Common/Render/Text/draw_text_win.cpp
+	Common/Render/Text/draw_text_win.h
+	Common/Render/Text/draw_text_uwp.cpp
+	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
 	Common/Thread/Executor.cpp
@@ -1062,14 +1072,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/gfx_es2/draw_text.cpp
-	ext/native/gfx_es2/draw_text.h
-	ext/native/gfx_es2/draw_text_win.cpp
-	ext/native/gfx_es2/draw_text_win.h
-	ext/native/gfx_es2/draw_text_qt.cpp
-	ext/native/gfx_es2/draw_text_qt.h
-	ext/native/gfx_es2/draw_text_android.cpp
-	ext/native/gfx_es2/draw_text_android.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp

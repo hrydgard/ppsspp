@@ -357,6 +357,21 @@
     <ClInclude Include="GPU\Vulkan\VulkanMemory.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="Render\Text\draw_text.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_android.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_qt.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_uwp.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_win.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -692,6 +707,21 @@
     <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Render\Text\draw_text.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Text\draw_text_android.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Text\draw_text_qt.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Text\draw_text_uwp.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Text\draw_text_win.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -789,6 +819,9 @@
     </Filter>
     <Filter Include="Render">
       <UniqueIdentifier>{c9aba118-5c31-4607-9a69-18eca9f92b44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render\Text">
+      <UniqueIdentifier>{9da96cce-c74a-4669-b755-c95defbe1e93}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -104,16 +104,16 @@ endif
 NATIVE_FILES :=\
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
+  $(SRC)/Common/GPU/OpenGL/gl3stub.c \
   $(SRC)/Common/GPU/OpenGL/thin3d_gl.cpp \
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
   $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
-  $(SRC)/Common/GPU/OpenGL/gl3stub.c \
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp \
-  $(SRC)/ext/native/gfx_es2/draw_text.cpp.arm \
-  $(SRC)/ext/native/gfx_es2/draw_text_android.cpp.arm
+  $(SRC)/Common/Render/Text/draw_text.cpp.arm \
+  $(SRC)/Common/Render/Text/draw_text_android.cpp.arm
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \

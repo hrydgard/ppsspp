@@ -13,8 +13,8 @@
 #include <memory>
 #include <cstdint>
 
-#include "Common/Render/DrawBuffer.h"
 #include "Common/Data/Text/WrapText.h"
+#include "Common/Render/DrawBuffer.h"
 
 namespace Draw {
 	class DrawContext;

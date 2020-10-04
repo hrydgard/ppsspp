@@ -7,7 +7,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/WrapText.h"
 

@@ -1,13 +1,16 @@
+#include "ppsspp_config.h"
+
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "gfx_es2/draw_text.h"
-#include "gfx_es2/draw_text_win.h"
-#include "gfx_es2/draw_text_uwp.h"
-#include "gfx_es2/draw_text_qt.h"
-#include "gfx_es2/draw_text_android.h"
+
+#include "Common/Render/Text/draw_text.h"
+#include "Common/Render/Text/draw_text_win.h"
+#include "Common/Render/Text/draw_text_uwp.h"
+#include "Common/Render/Text/draw_text_qt.h"
+#include "Common/Render/Text/draw_text_android.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.

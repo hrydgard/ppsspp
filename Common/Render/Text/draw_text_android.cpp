@@ -1,15 +1,14 @@
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "gfx_es2/draw_text.h"
-#include "gfx_es2/draw_text_android.h"
+#include "Common/Render/Text/draw_text.h"
+#include "Common/Render/Text/draw_text_android.h"
 
 #include "android/jni/app-android.h"
-
-#include "Common/Log.h"
-#include "Common/StringUtils.h"
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 

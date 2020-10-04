@@ -6,43 +6,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="gfx_es2\draw_text.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\draw_text_win.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\draw_text_qt.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\draw_text_android.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\draw_text_uwp.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="gfx_es2\draw_text.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\draw_text_win.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\draw_text_qt.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\draw_text_android.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\draw_text_uwp.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="gfx">
-      <UniqueIdentifier>{9da89505-72a1-40e6-86e5-705372db1608}</UniqueIdentifier>
-    </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
     </Filter>

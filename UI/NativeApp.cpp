@@ -46,7 +46,7 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Render/TextureAtlas.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"

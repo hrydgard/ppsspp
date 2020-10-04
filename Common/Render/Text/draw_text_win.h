@@ -3,16 +3,21 @@
 #include "ppsspp_config.h"
 
 #include <map>
-#include "gfx_es2/draw_text.h"
+#include "Common/Render/Text/draw_text.h"
 
-#if defined(USING_QT_UI)
+#if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
 
-#include <QtGui/QFont>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 
-class TextDrawerQt : public TextDrawer {
+struct TextDrawerContext;
+// Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)
+class TextDrawerFontContext;
+
+class TextDrawerWin32 : public TextDrawer {
 public:
-	TextDrawerQt(Draw::DrawContext *draw);
-	~TextDrawerQt();
+	TextDrawerWin32(Draw::DrawContext *draw);
+	~TextDrawerWin32();
 
 	uint32_t SetFont(const char *fontName, int size, int flags) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
@@ -25,10 +30,12 @@ public:
 
 protected:
 	void ClearCache() override;
+	void RecreateFonts();  // On DPI change
+
+	TextDrawerContext *ctx_;
+	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 
 	uint32_t fontHash_;
-	std::map<uint32_t, QFont *> fontMap_;
-
 	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
 	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };

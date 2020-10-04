@@ -82,6 +82,9 @@
     <Filter Include="GPU\GL">
       <UniqueIdentifier>{2eb259f7-2735-493a-88be-96eb38f1b34e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Render\Text">
+      <UniqueIdentifier>{28139b08-f8d5-41a2-a5ee-bf86cf1469c3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -346,6 +349,21 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp">
       <Filter>GPU\GL</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp">
+      <Filter>Render\Text</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -626,6 +644,21 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h">
       <Filter>GPU\GL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h">
+      <Filter>Render\Text</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
