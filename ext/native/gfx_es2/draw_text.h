@@ -21,10 +21,6 @@ namespace Draw {
 	class Texture;
 }
 
-#ifdef USING_QT_UI
-#include <QtGui/QFont>
-#endif
-
 struct TextStringEntry {
 	Draw::Texture *texture;
 	int width;

@@ -63,7 +63,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	break;
 
 	case PNG:
-		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0])) {
 			*num_levels = 1;
 			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			if (!image[0]) {

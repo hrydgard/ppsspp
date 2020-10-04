@@ -1202,7 +1202,7 @@ bool PPGeImage::Load() {
 	unsigned char *textureData;
 	int success;
 	if (filename_.empty()) {
-		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData, false);
+		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData);
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
@@ -1210,7 +1210,7 @@ bool PPGeImage::Load() {
 			return false;
 		}
 
-		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData, false);
+		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData);
 	}
 	if (!success) {
 		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
