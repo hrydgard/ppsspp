@@ -287,7 +287,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/UIScreen.cpp \
   $(SRC)/Common/UI/Tween.cpp \
   $(SRC)/Common/UI/View.cpp \
-  $(SRC)/Common/UI/Viewgroup.cpp \
+  $(SRC)/Common/UI/ViewGroup.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
