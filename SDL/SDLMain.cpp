@@ -693,7 +693,7 @@ int main(int argc, char *argv[]) {
 	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
 	int width = 0, height = 0;
 	unsigned char *imageData;
-	if (pngLoad(iconPath, &width, &height, &imageData, false) == 1) {
+	if (pngLoad(iconPath, &width, &height, &imageData) == 1) {
 		SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32,
 							0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 		memcpy(surface->pixels, imageData, width*height*4);

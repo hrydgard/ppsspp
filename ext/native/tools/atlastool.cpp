@@ -152,7 +152,7 @@ struct Image {
 	bool LoadPNG(const char *png_name) {
 		unsigned char *img_data;
 		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data, false)) {
+		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
 			printf("Failed to load %s\n", png_name);
 			exit(1);
 			return false;
