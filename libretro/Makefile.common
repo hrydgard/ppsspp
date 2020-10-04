@@ -340,6 +340,7 @@ SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
+		   $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
