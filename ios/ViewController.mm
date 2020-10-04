@@ -13,6 +13,7 @@
 #include <cassert>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "Common/TimeUtil.h"
 #include "file/zip_read.h"
 #include "Common/Input/InputState.h"
