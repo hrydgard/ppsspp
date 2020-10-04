@@ -195,7 +195,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/UIScreen.cpp \
 	$(COMMONDIR)/UI/Tween.cpp \
 	$(COMMONDIR)/UI/View.cpp \
-	$(COMMONDIR)/UI/Viewgroup.cpp \
+	$(COMMONDIR)/UI/ViewGroup.cpp \
 	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
@@ -343,14 +343,6 @@ SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
           $(NATIVEDIR)/thin3d/GLRenderManager.cpp \
           $(NATIVEDIR)/thin3d/GLQueueRunner.cpp \
           $(NATIVEDIR)/thin3d/DataFormatGL.cpp \
-	       $(NATIVEDIR)/ui/root.cpp \
-	       $(NATIVEDIR)/ui/screen.cpp \
-	       $(NATIVEDIR)/ui/ui.cpp \
-          $(NATIVEDIR)/ui/ui_context.cpp \
-	       $(NATIVEDIR)/ui/ui_screen.cpp \
-	       $(NATIVEDIR)/ui/ui_tween.cpp \
-	       $(NATIVEDIR)/ui/view.cpp \
-	       $(NATIVEDIR)/ui/viewgroup.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \

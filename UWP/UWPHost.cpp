@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-#include "file/file_util.h"
+#include "Common/File/DirListing.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Input/InputState.h"

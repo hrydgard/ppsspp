@@ -543,8 +543,8 @@ add_library(Common STATIC
 	Common/UI/Tween.h
 	Common/UI/View.cpp
 	Common/UI/View.h
-	Common/UI/Viewgroup.cpp
-	Common/UI/Viewgroup.h
+	Common/UI/ViewGroup.cpp
+	Common/UI/ViewGroup.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h

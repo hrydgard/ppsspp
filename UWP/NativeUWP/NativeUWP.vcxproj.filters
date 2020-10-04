@@ -7,9 +7,6 @@
     <Filter Include="gfx">
       <UniqueIdentifier>{8a254b8c-46f2-4ff1-bc53-deea7e614276}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ui">
-      <UniqueIdentifier>{9d02a269-6cdd-4726-ab58-34c012e37d37}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -24,30 +21,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_buffer.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\root.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\screen.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\ui.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\ui_context.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\ui_screen.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\ui_tween.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\view.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\viewgroup.cpp">
-      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
@@ -70,30 +43,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\root.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\screen.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\ui.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\ui_context.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\ui_screen.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\ui_tween.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\view.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\viewgroup.h">
-      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
