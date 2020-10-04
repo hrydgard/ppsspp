@@ -21,12 +21,6 @@
 
 #include <string>
 #include <cstdint>
-
-#include "Common/Log.h"
-#include "Common/FileUtil.h"
-#include "Common/MemoryUtil.h"
-#include "Common/MemArena.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -35,6 +29,11 @@
 
 #include <mach/mach.h>
 #include <mach/vm_map.h>
+
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
 
 size_t MemArena::roundup(size_t x) {
 	return x;
