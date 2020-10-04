@@ -322,12 +322,12 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 	}
 
 	// Sanity check, preventing full delete of savedata/ in MGS PW demo (!)
-	if (!strlen(param->gameName)) {
+	if (!strlen(param->gameName) && param->mode != SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
 		ERROR_LOG(SCEUTILITY, "Bad param with gameName empty - cannot delete save directory");
 		return false;
 	}
 
-	std::string dirPath = GetSaveFilePath(param,saveId);
+	std::string dirPath = GetSaveFilePath(param, GetSaveDir(saveId));
 	if (dirPath.size() == 0) {
 		ERROR_LOG(SCEUTILITY, "GetSaveFilePath returned empty - cannot delete save directory");
 		return false;
@@ -1411,6 +1411,34 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		return 0;
 	}
 
+	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
+		Clear();
+		int realCount = 0;
+		auto allSaves = pspFileSystem.GetDirListing(savePath);
+		saveDataListCount = (int)allSaves.size();
+		saveDataList = new SaveFileInfo[saveDataListCount];
+		for (auto save : allSaves) {
+			if (save.name == "." || save.name == "..")
+				continue;
+			std::string fileDataDir = savePath + save.name;
+			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
+			auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
+			bool firstFile = true;
+			for (auto file : allFiles) {
+				if (firstFile) {
+					// Use a file in save directory to determine the directory info.
+					info = file;
+					firstFile = false;
+				} else
+					info.size += file.size;
+			}
+			SetFileInfo(realCount, info, "", save.name);
+			realCount++;
+		}
+		saveNameListDataCount = realCount;
+		return 0;
+	}
+
 	bool listEmptyFile = true;
 	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD ||
 			param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
@@ -1548,12 +1576,15 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	return 0;
 }
 
-void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName)
+void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string savrDir)
 {
 	saveInfo.size = info.size;
 	saveInfo.saveName = saveName;
 	saveInfo.idx = 0;
 	saveInfo.modif_time = info.mtime;
+
+	std::string saveDir = savrDir == "" ? GetGameName(pspParam) + saveName : savrDir;
+	saveInfo.saveDir = saveDir;
 
 	// Start with a blank slate.
 	if (saveInfo.texture != NULL) {
@@ -1568,13 +1599,13 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 
 	// Search save image icon0
 	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-	std::string fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + ICON0_FILENAME;
+	std::string fileDataPath2 = savePath + saveDir + "/" + ICON0_FILENAME;
 	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 		saveInfo.texture = new PPGeImage(fileDataPath2);
 
 	// Load info in PARAM.SFO
-	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + SFO_FILENAME;
+	fileDataPath2 = savePath + saveDir + "/" + SFO_FILENAME;
 	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists) {
 		std::vector<u8> sfoData;
@@ -1590,9 +1621,9 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	}
 }
 
-void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
+void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir)
 {
-	SetFileInfo(saveDataList[idx], info, saveName);
+	SetFileInfo(saveDataList[idx], info, saveName, saveDir);
 	saveDataList[idx].idx = idx;
 }
 
@@ -1641,9 +1672,14 @@ const SaveFileInfo& SavedataParam::GetFileInfo(int idx)
 {
 	return saveDataList[idx];
 }
+
 std::string SavedataParam::GetFilename(int idx) const
 {
 	return saveDataList[idx].saveName;
+}
+
+std::string SavedataParam::GetSaveDir(int idx) const {
+	return saveDataList[idx].saveDir;
 }
 
 int SavedataParam::GetSelectedSave()

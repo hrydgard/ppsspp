@@ -65,11 +65,11 @@ static const char *const utilitySavedataTypeNames[] = {
 	"SAVE",
 	"LISTLOAD",
 	"LISTSAVE",
-	"DELETE",
 	"LISTDELETE",
+	"LISTALLDELETE",
 	"SIZES",
 	"AUTODELETE",
-	"SINGLEDELETE",
+	"DELETE",
 	"LIST",
 	"FILES",
 	"MAKEDATASECURE",
@@ -273,6 +273,7 @@ struct SaveFileInfo
 {
 	s64 size;
 	std::string saveName;
+	std::string saveDir;
 	int idx;
 
 	char title[128];
@@ -341,6 +342,7 @@ public:
 	int GetFilenameCount();
 	const SaveFileInfo& GetFileInfo(int idx);
 	std::string GetFilename(int idx) const;
+	std::string GetSaveDir(int idx) const;
 
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
@@ -361,8 +363,8 @@ public:
 
 private:
 	void Clear();
-	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
-	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
+	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);

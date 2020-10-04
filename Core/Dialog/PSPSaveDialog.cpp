@@ -180,7 +180,6 @@ int PSPSaveDialog::Init(int paramAddr)
 			display = DS_SAVE_LIST_CHOICE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE:
-			// TODO:Should displays all saves like a PSP?
 			DEBUG_LOG(SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
@@ -969,6 +968,8 @@ int PSPSaveDialog::Update(int animSpeed)
 				if (param.GetFilenameCount() == 0)
 					display = DS_DELETE_NODATA;
 				else if (param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
+					if (currentSelectedSave > param.GetFilenameCount() - 1)
+						currentSelectedSave = param.GetFilenameCount() - 1;
 					display = DS_DELETE_LIST_CHOICE;
 				} else {
 					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
@@ -1039,7 +1040,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		}
 		break;
 	case DS_DELETE_DELETING:
-		if (param.Delete(param.GetPspParam(),currentSelectedSave)) {
+		if (param.Delete(param.GetPspParam(), currentSelectedSave)) {
 			result = 0;
 			display = DS_DELETE_DONE;
 		} else {
