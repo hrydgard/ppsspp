@@ -22,7 +22,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
-#include "Common/VFS/VFS.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
