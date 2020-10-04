@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/Data/Color/RGBAUtil.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "gfx/texture_atlas.h"
 #include "Common/Math/math_util.h"

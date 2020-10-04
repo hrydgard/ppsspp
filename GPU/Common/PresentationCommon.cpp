@@ -19,7 +19,7 @@
 #include <set>
 #include <cstdint>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "thin3d/thin3d.h"
 

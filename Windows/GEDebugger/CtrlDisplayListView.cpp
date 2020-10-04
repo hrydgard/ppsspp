@@ -1,4 +1,4 @@
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"

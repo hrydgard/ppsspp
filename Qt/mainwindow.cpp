@@ -7,7 +7,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"

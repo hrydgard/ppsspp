@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "GPU/GPUState.h"

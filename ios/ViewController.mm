@@ -12,7 +12,7 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "file/zip_read.h"
 #include "net/resolve.h"

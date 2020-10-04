@@ -453,6 +453,7 @@
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
     <ClInclude Include="..\..\Common\SysError.h" />
+    <ClInclude Include="..\..\Common\System\Display.h" />
     <ClInclude Include="..\..\Common\ThreadPools.h" />
     <ClInclude Include="..\..\Common\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Thread\Executor.h" />
@@ -529,6 +530,7 @@
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
+    <ClCompile Include="..\..\Common\System\Display.cpp" />
     <ClCompile Include="..\..\Common\ThreadPools.cpp" />
     <ClCompile Include="..\..\Common\Thread\Executor.cpp" />
     <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp" />

@@ -2,7 +2,7 @@
 #include <cstring>
 #include <cstdint>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "thin3d/thin3d.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"

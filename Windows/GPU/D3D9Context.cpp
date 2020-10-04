@@ -5,7 +5,7 @@
 
 #include "gfx/d3d9_state.h"
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 

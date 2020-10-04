@@ -2,7 +2,7 @@
 #include <map>
 #include <sstream>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Math/curves.h"

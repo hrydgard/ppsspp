@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-#include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+#include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "base/NativeApp.h"
 
 #include "Common/Data/Color/RGBAUtil.h"

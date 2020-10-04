@@ -1,7 +1,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/VulkanRenderManager.h"

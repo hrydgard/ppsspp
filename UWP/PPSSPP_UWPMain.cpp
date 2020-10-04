@@ -7,7 +7,7 @@
 #include "file/file_util.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "thin3d/thin3d_create.h"
 
 #include "Common/Common.h"

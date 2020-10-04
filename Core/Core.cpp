@@ -23,7 +23,7 @@
 #include <condition_variable>
 
 #include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"

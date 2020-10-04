@@ -513,6 +513,9 @@
     <Filter Include="Profiler">
       <UniqueIdentifier>{8321632b-8fc5-4a67-adb7-126a328d50eb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="System">
+      <UniqueIdentifier>{89ddf0bd-3fc4-4a69-87a7-b82cfc412e0a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\libpng17\CMakeLists.txt">

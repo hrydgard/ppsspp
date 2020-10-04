@@ -102,7 +102,6 @@ ARCH_FILES := \
 endif
 
 NATIVE_FILES :=\
-  $(SRC)/ext/native/base/display.cpp \
   $(SRC)/ext/native/file/fd_util.cpp \
   $(SRC)/ext/native/file/file_util.cpp \
   $(SRC)/ext/native/net/http_client.cpp \
@@ -278,6 +277,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/lin/vec3.cpp.arm \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
   $(SRC)/Common/Profiler/Profiler.cpp \
+  $(SRC)/Common/System/Display.cpp \
   $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \

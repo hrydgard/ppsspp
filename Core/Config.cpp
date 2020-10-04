@@ -24,7 +24,7 @@
 
 #include "ppsspp_config.h"
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"

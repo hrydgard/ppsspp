@@ -1,6 +1,6 @@
 #include "AndroidVulkanContext.h"
 #include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"

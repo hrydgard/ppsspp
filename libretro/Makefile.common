@@ -170,6 +170,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
 	$(COMMONDIR)/Thread/ThreadPool.cpp \
 	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Buffer.cpp \
@@ -242,7 +243,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/display.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \

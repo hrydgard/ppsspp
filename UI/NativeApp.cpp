@@ -43,7 +43,7 @@
 #include "Windows/CaptureDevice.h"
 #endif
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "net/http_client.h"
 #include "net/resolve.h"

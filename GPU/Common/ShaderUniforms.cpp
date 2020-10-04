@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "ShaderUniforms.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"

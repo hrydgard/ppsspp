@@ -21,7 +21,7 @@
 #include <functional>
 
 #include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "gfx_es2/draw_buffer.h"
 #include "Common/Math/curves.h"
 #include "ui/ui_context.h"

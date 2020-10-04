@@ -49,7 +49,7 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/VFS/VFS.h"

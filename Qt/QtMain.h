@@ -22,7 +22,7 @@ QTM_USE_NAMESPACE
 #include <atomic>
 #include <thread>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
 #include "file/zip_read.h"
 #include "gfx/gl_common.h"

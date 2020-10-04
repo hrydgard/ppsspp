@@ -493,6 +493,8 @@ add_library(Common STATIC
 	Common/Math/math_util.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
+	Common/System/Display.cpp
+	Common/System/Display.h
 	Common/Thread/Executor.cpp
 	Common/Thread/Executor.h
 	Common/Thread/PrioritizedWorkQueue.cpp
@@ -1010,8 +1012,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/display.cpp
-	ext/native/base/display.h
 	ext/native/file/fd_util.cpp
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp

@@ -5,9 +5,6 @@
     <None Include="tools\CMakeLists.txt">
       <Filter>tools</Filter>
     </None>
-    <None Include="..\..\ios\main.mm">
-      <Filter>base</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -35,9 +32,6 @@
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="base\NativeApp.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\display.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="ui\ui.h">
@@ -127,9 +121,6 @@
     <ClInclude Include="ui\ui_tween.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Qt\QtMain.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="thin3d\GLRenderManager.h">
       <Filter>thin3d</Filter>
     </ClInclude>
@@ -179,9 +170,6 @@
     </ClCompile>
     <ClCompile Include="file\file_util.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="base\display.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
@@ -239,12 +227,6 @@
     </ClCompile>
     <ClCompile Include="net\http_server.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\SDL\SDLMain.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Qt\QtMain.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_vulkan.cpp">
       <Filter>thin3d</Filter>

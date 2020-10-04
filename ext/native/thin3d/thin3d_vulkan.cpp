@@ -20,7 +20,7 @@
 #include <string>
 #include <map>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "image/zim_load.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Data/Convert/SmallDataConvert.h"

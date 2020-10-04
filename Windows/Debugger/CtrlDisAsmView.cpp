@@ -22,7 +22,7 @@
 #include "Common/CommonWindows.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "ext/xxhash.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 
 #include <CommDlg.h>
 #include <tchar.h>

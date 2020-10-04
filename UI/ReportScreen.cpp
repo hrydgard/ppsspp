@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "base/NativeApp.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"

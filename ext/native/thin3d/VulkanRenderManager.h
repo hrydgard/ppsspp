@@ -10,7 +10,7 @@
 #include <mutex>
 #include <thread>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"

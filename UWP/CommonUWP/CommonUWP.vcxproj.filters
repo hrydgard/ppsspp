@@ -61,6 +61,9 @@
     <Filter Include="Profiler">
       <UniqueIdentifier>{6673c122-d7ed-4ccc-969a-12d317ee1f93}</UniqueIdentifier>
     </Filter>
+    <Filter Include="System">
+      <UniqueIdentifier>{661f7d9d-5922-48d6-88ea-2f24bb57419f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -245,6 +248,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\Profiler\Profiler.cpp">
       <Filter>Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\Display.cpp">
+      <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -436,6 +442,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Profiler\Profiler.h">
       <Filter>Profiler</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\Display.h">
+      <Filter>System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

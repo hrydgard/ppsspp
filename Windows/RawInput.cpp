@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Input/InputState.h"
 #include "Common/Log.h"
 #include "Windows/RawInput.h"
