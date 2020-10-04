@@ -19,9 +19,9 @@
 
 #include <functional>
 
-#include "ui/ui_screen.h"
-#include "ui/viewgroup.h"
-#include "net/http_client.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/Net/HTTPClient.h"
 
 #include "UI/MiscScreens.h"
 

@@ -23,11 +23,11 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
-#include "ui/root.h"
-#include "ui/ui.h"
-#include "ui/ui_context.h"
-#include "ui/ui_tween.h"
-#include "ui/view.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/Tween.h"
+#include "Common/UI/View.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"

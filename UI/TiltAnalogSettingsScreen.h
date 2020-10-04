@@ -19,7 +19,7 @@
 
 #include <functional>
 
-#include "ui/view.h"
+#include "Common/UI/View.h"
 #include "MiscScreens.h"
 
 class TiltAnalogSettingsScreen : public UIDialogScreenWithBackground {

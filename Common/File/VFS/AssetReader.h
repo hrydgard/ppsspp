@@ -9,7 +9,6 @@
 #include <string>
 
 #include "Common/File/VFS/VFS.h"
-#include "file/file_util.h"
 
 // Direct readers. deallocate using delete [].
 uint8_t *ReadLocalFile(const char *filename, size_t *size);

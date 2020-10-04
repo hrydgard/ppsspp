@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "ui/ui_context.h"
+#include "Common/UI/Context.h"
 #include "UI/DisplayLayoutEditor.h"
 
 void MultiTouchDisplay::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

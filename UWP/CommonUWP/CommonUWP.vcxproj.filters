@@ -64,6 +64,9 @@
     <Filter Include="System">
       <UniqueIdentifier>{661f7d9d-5922-48d6-88ea-2f24bb57419f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Net">
+      <UniqueIdentifier>{c0424523-60b1-4886-a15d-68eda99ff01b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -76,7 +79,6 @@
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="..\..\Common\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
@@ -252,6 +254,45 @@
     <ClCompile Include="..\..\Common\System\Display.cpp">
       <Filter>System</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\File\DirListing.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\FileUtil.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\FileDescriptor.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPClient.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPHeaders.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\Resolve.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\Sinks.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\URL.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\PNGLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\ZIMLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\ZIMSave.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -273,7 +314,6 @@
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
-    <ClInclude Include="..\..\Common\FileUtil.h" />
     <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
@@ -451,6 +491,45 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\System\System.h">
       <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\DirListing.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\FileUtil.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\FileDescriptor.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPClient.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPHeaders.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\Resolve.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\Sinks.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\URL.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\WebsocketServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\PNGLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\ZIMLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\ZIMSave.h">
+      <Filter>Data\Format</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -152,6 +152,12 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Format/IniFile.cpp \
 	$(COMMONDIR)/Data/Format/JSONReader.cpp \
 	$(COMMONDIR)/Data/Format/JSONWriter.cpp \
+	$(COMMONDIR)/Data/Format/PNGLoad.cpp \
+	$(COMMONDIR)/Data/Format/PNGLoad.h \
+	$(COMMONDIR)/Data/Format/ZIMLoad.cpp \
+	$(COMMONDIR)/Data/Format/ZIMLoad.h \
+	$(COMMONDIR)/Data/Format/ZIMSave.cpp \
+	$(COMMONDIR)/Data/Format/ZIMSave.h \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
@@ -160,23 +166,40 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/VFS/AssetReader.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
 	$(COMMONDIR)/File/PathBrowser.cpp \
+	$(COMMONDIR)/File/FileUtil.cpp \
+	$(COMMONDIR)/File/FileDescriptor.cpp \
+	$(COMMONDIR)/File/DirListing.cpp \
+	$(COMMONDIR)/Input/GestureDetector.cpp \
+	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Math/curves.cpp \
 	$(COMMONDIR)/Math/expression_parser.cpp \
 	$(COMMONDIR)/Math/math_util.cpp \
 	$(COMMONDIR)/Math/lin/vec3.cpp \
 	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
+	$(COMMONDIR)/Net/HTTPClient.cpp \
+	$(COMMONDIR)/Net/HTTPHeaders.cpp \
+	$(COMMONDIR)/Net/HTTPServer.cpp \
+	$(COMMONDIR)/Net/Resolve.cpp \
+	$(COMMONDIR)/Net/Sinks.cpp \
+	$(COMMONDIR)/Net/URL.cpp \
+	$(COMMONDIR)/Net/WebsocketServer.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/Executor.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
 	$(COMMONDIR)/Thread/ThreadPool.cpp \
 	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/UI/Root.cpp \
+	$(COMMONDIR)/UI/Screen.cpp \
+	$(COMMONDIR)/UI/UI.cpp \
+	$(COMMONDIR)/UI/Context.cpp \
+	$(COMMONDIR)/UI/UIScreen.cpp \
+	$(COMMONDIR)/UI/Tween.cpp \
+	$(COMMONDIR)/UI/View.cpp \
+	$(COMMONDIR)/UI/Viewgroup.cpp \
 	$(COMMONDIR)/System/Display.cpp \
-	$(COMMONDIR)/Input/GestureDetector.cpp \
-	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
-	$(COMMONDIR)/FileUtil.cpp \
 	$(COMMONDIR)/KeyMap.cpp \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/LogManager.cpp \
@@ -302,9 +325,7 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
-SOURCES_CXX += $(NATIVEDIR)/file/fd_util.cpp \
-	       $(NATIVEDIR)/file/file_util.cpp \
-	       $(NATIVEDIR)/gfx/gl_debug_log.cpp \
+SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
 	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
           $(NATIVEDIR)/gfx/d3d9_shader.cpp \
           $(NATIVEDIR)/gfx/d3d9_state.cpp \

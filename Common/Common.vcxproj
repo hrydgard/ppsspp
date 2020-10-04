@@ -136,7 +136,7 @@
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -158,7 +158,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -181,7 +181,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -205,7 +205,7 @@
       </ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -234,7 +234,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -260,7 +260,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -291,7 +291,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -322,7 +322,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -371,14 +371,20 @@
     <ClInclude Include="Data\Format\IniFile.h" />
     <ClInclude Include="Data\Format\JSONReader.h" />
     <ClInclude Include="Data\Format\JSONWriter.h" />
+    <ClInclude Include="Data\Format\PNGLoad.h" />
     <ClInclude Include="Data\Format\RIFF.h" />
+    <ClInclude Include="Data\Format\ZIMLoad.h" />
+    <ClInclude Include="Data\Format\ZIMSave.h" />
     <ClInclude Include="Data\Hash\Hash.h" />
     <ClInclude Include="Data\Random\Rng.h" />
     <ClInclude Include="Data\Text\I18n.h" />
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\WrapText.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="File\DirListing.h" />
     <ClInclude Include="File\DiskFree.h" />
+    <ClInclude Include="File\FileDescriptor.h" />
+    <ClInclude Include="File\FileUtil.h" />
     <ClInclude Include="File\PathBrowser.h" />
     <ClInclude Include="File\VFS\VFS.h" />
     <ClInclude Include="File\VFS\AssetReader.h" />
@@ -393,6 +399,13 @@
     <ClInclude Include="Math\lin\matrix4x4.h" />
     <ClInclude Include="Math\lin\vec3.h" />
     <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Net\HTTPClient.h" />
+    <ClInclude Include="Net\HTTPHeaders.h" />
+    <ClInclude Include="Net\HTTPServer.h" />
+    <ClInclude Include="Net\Resolve.h" />
+    <ClInclude Include="Net\Sinks.h" />
+    <ClInclude Include="Net\URL.h" />
+    <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
@@ -413,7 +426,6 @@
     <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
-    <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="GL\GLInterfaceBase.h" />
     <ClInclude Include="GL\GLInterface\EGL.h">
@@ -463,6 +475,14 @@
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="TimeUtil.h" />
+    <ClInclude Include="UI\Context.h" />
+    <ClInclude Include="UI\Root.h" />
+    <ClInclude Include="UI\Screen.h" />
+    <ClInclude Include="UI\Tween.h" />
+    <ClInclude Include="UI\UI.h" />
+    <ClInclude Include="UI\UIScreen.h" />
+    <ClInclude Include="UI\View.h" />
+    <ClInclude Include="UI\ViewGroup.h" />
     <ClInclude Include="Vulkan\VulkanContext.h" />
     <ClInclude Include="Vulkan\VulkanDebug.h" />
     <ClInclude Include="Vulkan\VulkanImage.h" />
@@ -655,12 +675,18 @@
     <ClCompile Include="Data\Format\IniFile.cpp" />
     <ClCompile Include="Data\Format\JSONReader.cpp" />
     <ClCompile Include="Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="Data\Format\PNGLoad.cpp" />
     <ClCompile Include="Data\Format\RIFF.cpp" />
+    <ClCompile Include="Data\Format\ZIMLoad.cpp" />
+    <ClCompile Include="Data\Format\ZIMSave.cpp" />
     <ClCompile Include="Data\Hash\Hash.cpp" />
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
+    <ClCompile Include="File\DirListing.cpp" />
     <ClCompile Include="File\DiskFree.cpp" />
+    <ClCompile Include="File\FileDescriptor.cpp" />
+    <ClCompile Include="File\FileUtil.cpp" />
     <ClCompile Include="File\PathBrowser.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
     <ClCompile Include="File\VFS\AssetReader.cpp" />
@@ -675,6 +701,13 @@
     <ClCompile Include="Math\lin\matrix4x4.cpp" />
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />
+    <ClCompile Include="Net\HTTPClient.cpp" />
+    <ClCompile Include="Net\HTTPHeaders.cpp" />
+    <ClCompile Include="Net\HTTPServer.cpp" />
+    <ClCompile Include="Net\Resolve.cpp" />
+    <ClCompile Include="Net\Sinks.cpp" />
+    <ClCompile Include="Net\URL.cpp" />
+    <ClCompile Include="Net\WebsocketServer.cpp" />
     <ClCompile Include="Profiler\Profiler.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
@@ -684,7 +717,6 @@
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
     <ClCompile Include="ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -734,6 +766,14 @@
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="UI\Context.cpp" />
+    <ClCompile Include="UI\Root.cpp" />
+    <ClCompile Include="UI\Screen.cpp" />
+    <ClCompile Include="UI\Tween.cpp" />
+    <ClCompile Include="UI\UI.cpp" />
+    <ClCompile Include="UI\UIScreen.cpp" />
+    <ClCompile Include="UI\View.cpp" />
+    <ClCompile Include="UI\ViewGroup.cpp" />
     <ClCompile Include="Vulkan\VulkanContext.cpp" />
     <ClCompile Include="Vulkan\VulkanDebug.cpp" />
     <ClCompile Include="Vulkan\VulkanImage.cpp" />

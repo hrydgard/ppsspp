@@ -156,7 +156,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -178,7 +178,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -201,7 +201,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -224,7 +224,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -251,7 +251,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -279,7 +279,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -309,7 +309,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -338,7 +338,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\libpng17;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -360,12 +360,9 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="Android.mk" />
     <None Include="tools\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="file\fd_util.h" />
-    <ClInclude Include="file\file_util.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />
     <ClInclude Include="gfx\d3d9_state.h" />
     <ClInclude Include="gfx\gl_common.h" />
@@ -375,7 +372,6 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
-    <ClInclude Include="net\websocket_server.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h" />
     <ClInclude Include="thin3d\DataFormat.h" />
@@ -385,34 +381,15 @@
     <ClInclude Include="thin3d\thin3d_create.h" />
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
-    <ClInclude Include="ui\root.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
     <ClInclude Include="gfx_es2\gl3stub.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gpu_features.h" />
-    <ClInclude Include="image\png_load.h" />
-    <ClInclude Include="image\zim_load.h" />
-    <ClInclude Include="image\zim_save.h" />
-    <ClInclude Include="net\http_client.h" />
-    <ClInclude Include="net\http_headers.h" />
-    <ClInclude Include="net\http_server.h" />
-    <ClInclude Include="net\resolve.h" />
-    <ClInclude Include="net\url.h" />
-    <ClInclude Include="net\sinks.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
-    <ClInclude Include="ui\screen.h" />
-    <ClInclude Include="ui\ui.h" />
-    <ClInclude Include="ui\ui_context.h" />
-    <ClInclude Include="ui\ui_screen.h" />
-    <ClInclude Include="ui\ui_tween.h" />
-    <ClInclude Include="ui\view.h" />
-    <ClInclude Include="ui\viewgroup.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="file\fd_util.cpp" />
-    <ClCompile Include="file\file_util.cpp" />
     <ClCompile Include="gfx\d3d9_shader.cpp" />
     <ClCompile Include="gfx\d3d9_state.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
@@ -421,7 +398,6 @@
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
-    <ClCompile Include="net\websocket_server.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp" />
     <ClCompile Include="thin3d\DataFormatGL.cpp" />
@@ -430,7 +406,6 @@
     <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
     <ClCompile Include="thin3d\VulkanRenderManager.cpp" />
-    <ClCompile Include="ui\root.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
     <ClCompile Include="gfx_es2\gl3stub.c">
@@ -445,27 +420,11 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gpu_features.cpp" />
-    <ClCompile Include="image\png_load.cpp" />
-    <ClCompile Include="image\zim_load.cpp" />
-    <ClCompile Include="image\zim_save.cpp" />
-    <ClCompile Include="net\http_client.cpp" />
-    <ClCompile Include="net\http_headers.cpp" />
-    <ClCompile Include="net\http_server.cpp" />
-    <ClCompile Include="net\resolve.cpp" />
-    <ClCompile Include="net\url.cpp" />
-    <ClCompile Include="net\sinks.cpp" />
     <ClCompile Include="thin3d\d3dx9_loader.cpp" />
     <ClCompile Include="thin3d\thin3d.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
     <ClCompile Include="thin3d\thin3d_gl.cpp" />
     <ClCompile Include="thin3d\thin3d_vulkan.cpp" />
-    <ClCompile Include="ui\screen.cpp" />
-    <ClCompile Include="ui\ui.cpp" />
-    <ClCompile Include="ui\ui_context.cpp" />
-    <ClCompile Include="ui\ui_screen.cpp" />
-    <ClCompile Include="ui\ui_tween.cpp" />
-    <ClCompile Include="ui\view.cpp" />
-    <ClCompile Include="ui\viewgroup.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

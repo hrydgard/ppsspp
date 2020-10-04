@@ -20,13 +20,13 @@
 #include "ppsspp_config.h"
 
 #include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Host.h"

@@ -21,7 +21,7 @@
 #include <functional>
 
 #include "Common/CommonWindows.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"
@@ -40,7 +40,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

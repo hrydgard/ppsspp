@@ -17,11 +17,10 @@
 
 #include <thread>
 
-#include "file/file_util.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"

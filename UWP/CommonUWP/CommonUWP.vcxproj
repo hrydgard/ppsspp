@@ -203,7 +203,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -217,7 +217,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -232,7 +232,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -248,7 +248,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -263,7 +263,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -277,7 +277,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -292,7 +292,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -307,7 +307,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -322,7 +322,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -338,7 +338,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -352,7 +352,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -367,7 +367,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -398,13 +398,19 @@
     <ClInclude Include="..\..\Common\Data\Format\IniFile.h" />
     <ClInclude Include="..\..\Common\Data\Format\JSONReader.h" />
     <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h" />
+    <ClInclude Include="..\..\Common\Data\Format\PNGLoad.h" />
     <ClInclude Include="..\..\Common\Data\Format\RIFF.h" />
+    <ClInclude Include="..\..\Common\Data\Format\ZIMLoad.h" />
+    <ClInclude Include="..\..\Common\Data\Format\ZIMSave.h" />
     <ClInclude Include="..\..\Common\Data\Hash\Hash.h" />
     <ClInclude Include="..\..\Common\Data\Random\Rng.h" />
     <ClInclude Include="..\..\Common\Data\Text\I18n.h" />
     <ClInclude Include="..\..\Common\Data\Text\Parsers.h" />
     <ClInclude Include="..\..\Common\Data\Text\WrapText.h" />
+    <ClInclude Include="..\..\Common\File\DirListing.h" />
     <ClInclude Include="..\..\Common\File\DiskFree.h" />
+    <ClInclude Include="..\..\Common\File\FileDescriptor.h" />
+    <ClInclude Include="..\..\Common\File\FileUtil.h" />
     <ClInclude Include="..\..\Common\File\PathBrowser.h" />
     <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
     <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
@@ -419,6 +425,13 @@
     <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h" />
     <ClInclude Include="..\..\Common\Math\lin\vec3.h" />
     <ClInclude Include="..\..\Common\Math\math_util.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPClient.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPHeaders.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPServer.h" />
+    <ClInclude Include="..\..\Common\Net\Resolve.h" />
+    <ClInclude Include="..\..\Common\Net\Sinks.h" />
+    <ClInclude Include="..\..\Common\Net\URL.h" />
+    <ClInclude Include="..\..\Common\Net\WebsocketServer.h" />
     <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
@@ -440,7 +453,6 @@
     <ClInclude Include="..\..\Common\Crypto\sha256.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
-    <ClInclude Include="..\..\Common\FileUtil.h" />
     <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
@@ -490,12 +502,18 @@
     <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp" />
     <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp" />
     <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\PNGLoad.cpp" />
     <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\ZIMLoad.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\ZIMSave.cpp" />
     <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\I18n.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\Parsers.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp" />
+    <ClCompile Include="..\..\Common\File\DirListing.cpp" />
     <ClCompile Include="..\..\Common\File\DiskFree.cpp" />
+    <ClCompile Include="..\..\Common\File\FileDescriptor.cpp" />
+    <ClCompile Include="..\..\Common\File\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
@@ -509,6 +527,13 @@
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
     <ClCompile Include="..\..\Common\Math\math_util.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPClient.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPHeaders.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPServer.cpp" />
+    <ClCompile Include="..\..\Common\Net\Resolve.cpp" />
+    <ClCompile Include="..\..\Common\Net\Sinks.cpp" />
+    <ClCompile Include="..\..\Common\Net\URL.cpp" />
+    <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp" />
     <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\ColorConv.cpp" />
@@ -519,7 +544,6 @@
     <ClCompile Include="..\..\Common\Crypto\sha1.cpp" />
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="..\..\Common\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />

@@ -19,13 +19,13 @@
 #include <mutex>
 #include <thread>
 
-#include "file/fd_util.h"
-#include "net/http_client.h"
-#include "net/http_server.h"
-#include "net/sinks.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPServer.h"
+#include "Common/Net/Sinks.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/FileDescriptor.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

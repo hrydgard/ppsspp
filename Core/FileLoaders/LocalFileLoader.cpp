@@ -19,10 +19,10 @@
 
 #include "ppsspp_config.h"
 
-#include "file/file_util.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
 #ifdef _WIN32

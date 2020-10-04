@@ -22,7 +22,7 @@
 #include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
 #include "Common/Math/math_util.h"
-#include "ui/ui_context.h"
+#include "Common/UI/Context.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"

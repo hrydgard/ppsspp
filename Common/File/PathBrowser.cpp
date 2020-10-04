@@ -2,8 +2,8 @@
 #include <cstring>
 #include <set>
 
-#include "net/http_client.h"
-#include "net/url.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/URL.h"
 
 #include "Common/File/PathBrowser.h"
 #include "Common/StringUtils.h"

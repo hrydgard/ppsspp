@@ -25,7 +25,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
 #include "thin3d/GLRenderManager.h"

@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/File/DirListing.h"
 
 struct ShaderInfo;
 struct TextureShaderInfo;

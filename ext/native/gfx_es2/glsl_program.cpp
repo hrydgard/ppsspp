@@ -1,11 +1,11 @@
 #include <set>
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <sys/stat.h>
 
 #include "Common/File/VFS/VFS.h"
-//#include "file/zip_read.h"
+#include "Common/File/FileUtil.h"
 #include "glsl_program.h"
 
 #include "Common/Log.h"

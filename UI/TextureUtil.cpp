@@ -1,17 +1,17 @@
 #include <algorithm>
 
-#include "Common/Data/Color/RGBAUtil.h"
 #include "thin3d/thin3d.h"
-#include "image/zim_load.h"
-#include "image/png_load.h"
+#include "ext/jpge/jpgd.h"
+#include "Common/UI/View.h"
+#include "Common/UI/Context.h"
+#include "gfx_es2/draw_buffer.h"
+
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/curves.h"
 #include "Common/File/VFS/VFS.h"
-#include "ext/jpge/jpgd.h"
-#include "ui/view.h"
-#include "ui/ui_context.h"
-#include "gfx_es2/draw_buffer.h"
-
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "UI/TextureUtil.h"

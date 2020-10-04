@@ -26,7 +26,7 @@
 #endif
 
 #include "Common/ColorConv.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"

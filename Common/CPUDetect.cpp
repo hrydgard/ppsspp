@@ -29,11 +29,9 @@
 #include <memory.h>
 #include <set>
 
-#include "file/file_util.h"
-
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
 #if defined(_WIN32) && !defined(__MINGW32__)

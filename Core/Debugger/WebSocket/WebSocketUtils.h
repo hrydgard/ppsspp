@@ -21,11 +21,10 @@
 
 #include <string>
 
-#include "net/websocket_server.h"
-
 #include "Common/Log.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Format/JSONWriter.h"
+#include "Common/Net/WebsocketServer.h"
 
 #if PPSSPP_PLATFORM(UWP)
 // Enum name overlapped with UWP macro, quick hack to disable it

@@ -7,7 +7,6 @@
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
-    <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
@@ -238,12 +237,74 @@
     <ClInclude Include="System\NativeApp.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="File\FileUtil.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="File\DirListing.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="File\FileDescriptor.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\HTTPServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\HTTPHeaders.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\HTTPClient.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\Resolve.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\Sinks.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\URL.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\WebsocketServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\ZIMLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\ZIMSave.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\PNGLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Context.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Root.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Screen.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Tween.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UI.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UIScreen.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\View.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ViewGroup.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
-    <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
@@ -451,6 +512,69 @@
     <ClCompile Include="System\Display.cpp">
       <Filter>System</Filter>
     </ClCompile>
+    <ClCompile Include="File\FileUtil.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="File\DirListing.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="File\FileDescriptor.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPHeaders.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPClient.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\Resolve.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\Sinks.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\URL.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\WebsocketServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\ZIMLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\ZIMSave.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\PNGLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Context.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Root.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Screen.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Tween.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UI.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UIScreen.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\View.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ViewGroup.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -527,6 +651,12 @@
     </Filter>
     <Filter Include="System">
       <UniqueIdentifier>{89ddf0bd-3fc4-4a69-87a7-b82cfc412e0a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Net">
+      <UniqueIdentifier>{b338dd13-cdae-4ef4-b122-b22967ae9bcb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{6a61d762-e71c-4428-8cef-c7ddda405ba5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

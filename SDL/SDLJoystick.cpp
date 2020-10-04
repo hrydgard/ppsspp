@@ -5,7 +5,7 @@
 #include "Common/System/System.h"
 #include "Common/File/VFS/VFS.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "SDL/SDLJoystick.h"
 

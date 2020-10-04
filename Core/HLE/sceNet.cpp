@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #endif
 
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"

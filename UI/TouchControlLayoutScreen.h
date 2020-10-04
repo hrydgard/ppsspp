@@ -20,8 +20,8 @@
 #include <functional>
 #include <vector>
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "MiscScreens.h"
 
 class ControlLayoutView;

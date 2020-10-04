@@ -49,7 +49,7 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

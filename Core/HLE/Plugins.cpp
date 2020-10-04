@@ -16,9 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
-#include "file/file_util.h"
+
 #include "Common/Data/Format/IniFile.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"

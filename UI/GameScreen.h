@@ -20,7 +20,7 @@
 #include <functional>
 
 #include "UI/MiscScreens.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.

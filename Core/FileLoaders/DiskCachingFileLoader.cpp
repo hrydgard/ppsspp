@@ -15,17 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <set>
 #include <mutex>
 #include <cstring>
 
-#include "ppsspp_config.h"
-#include "file/file_util.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/DiskFree.h"
-#include "Common/FileUtil.h"
+#include "Common/File/DirListing.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"

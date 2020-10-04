@@ -18,10 +18,8 @@
 #include <algorithm>
 #include <cstdio>
 
-#include "file/file_util.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
-
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"

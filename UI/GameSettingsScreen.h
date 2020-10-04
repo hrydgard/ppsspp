@@ -21,7 +21,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
 #include "UI/MiscScreens.h"
 
 class SettingInfoMessage;

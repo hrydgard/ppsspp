@@ -102,15 +102,6 @@ ARCH_FILES := \
 endif
 
 NATIVE_FILES :=\
-  $(SRC)/ext/native/file/fd_util.cpp \
-  $(SRC)/ext/native/file/file_util.cpp \
-  $(SRC)/ext/native/net/http_client.cpp \
-  $(SRC)/ext/native/net/http_server.cpp \
-  $(SRC)/ext/native/net/http_headers.cpp \
-  $(SRC)/ext/native/net/resolve.cpp \
-  $(SRC)/ext/native/net/sinks.cpp \
-  $(SRC)/ext/native/net/url.cpp \
-  $(SRC)/ext/native/net/websocket_server.cpp \
   $(SRC)/ext/native/gfx_es2/glsl_program.cpp \
   $(SRC)/ext/native/gfx_es2/gpu_features.cpp \
   $(SRC)/ext/native/gfx_es2/gl3stub.c \
@@ -129,15 +120,7 @@ NATIVE_FILES :=\
   $(SRC)/ext/native/thin3d/GLQueueRunner.cpp \
   $(SRC)/ext/native/thin3d/VulkanRenderManager.cpp \
   $(SRC)/ext/native/thin3d/VulkanQueueRunner.cpp \
-  $(SRC)/ext/native/thin3d/DataFormatGL.cpp \
-  $(SRC)/ext/native/ui/root.cpp \
-  $(SRC)/ext/native/ui/view.cpp \
-  $(SRC)/ext/native/ui/viewgroup.cpp \
-  $(SRC)/ext/native/ui/ui.cpp \
-  $(SRC)/ext/native/ui/ui_screen.cpp \
-  $(SRC)/ext/native/ui/ui_tween.cpp \
-  $(SRC)/ext/native/ui/ui_context.cpp \
-  $(SRC)/ext/native/ui/screen.cpp
+  $(SRC)/ext/native/thin3d/DataFormatGL.cpp
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \
@@ -261,6 +244,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Format/IniFile.cpp \
   $(SRC)/Common/Data/Format/JSONReader.cpp \
   $(SRC)/Common/Data/Format/JSONWriter.cpp \
+  $(SRC)/Common/Data/Format/PNGLoad.cpp \
+  $(SRC)/Common/Data/Format/PNGLoad.h \
+  $(SRC)/Common/Data/Format/ZIMLoad.cpp \
+  $(SRC)/Common/Data/Format/ZIMLoad.h \
+  $(SRC)/Common/Data/Format/ZIMSave.cpp \
+  $(SRC)/Common/Data/Format/ZIMSave.h \
   $(SRC)/Common/Data/Hash/Hash.cpp \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
@@ -269,6 +258,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/VFS/AssetReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \
+  $(SRC)/Common/File/FileUtil.cpp \
+  $(SRC)/Common/File/DirListing.cpp \
+  $(SRC)/Common/File/FileDescriptor.cpp \
+  $(SRC)/Common/Input/GestureDetector.cpp \
+  $(SRC)/Common/Input/InputState.cpp \
   $(SRC)/Common/Math/fast/fast_math.c \
   $(SRC)/Common/Math/fast/fast_matrix.c \
   $(SRC)/Common/Math/math_util.cpp \
@@ -276,14 +270,27 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/expression_parser.cpp \
   $(SRC)/Common/Math/lin/vec3.cpp.arm \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
+  $(SRC)/Common/Net/HTTPClient.cpp \
+  $(SRC)/Common/Net/HTTPHeaders.cpp \
+  $(SRC)/Common/Net/HTTPServer.cpp \
+  $(SRC)/Common/Net/Resolve.cpp \
+  $(SRC)/Common/Net/Sinks.cpp \
+  $(SRC)/Common/Net/URL.cpp \
+  $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
   $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
-  $(SRC)/Common/Input/GestureDetector.cpp \
-  $(SRC)/Common/Input/InputState.cpp \
+  $(SRC)/Common/UI/Root.cpp \
+  $(SRC)/Common/UI/Screen.cpp \
+  $(SRC)/Common/UI/UI.cpp \
+  $(SRC)/Common/UI/Context.cpp \
+  $(SRC)/Common/UI/UIScreen.cpp \
+  $(SRC)/Common/UI/Tween.cpp \
+  $(SRC)/Common/UI/View.cpp \
+  $(SRC)/Common/UI/Viewgroup.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
@@ -294,7 +301,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/MemArenaWin32.cpp \
   $(SRC)/Common/MemArenaPosix.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
-  $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/SysError.cpp \
   $(SRC)/Common/ThreadPools.cpp \

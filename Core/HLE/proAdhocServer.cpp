@@ -52,7 +52,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Core.h"
