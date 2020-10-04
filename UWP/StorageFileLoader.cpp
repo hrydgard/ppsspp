@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ppltasks.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "StorageFileLoader.h"
 #include "Common/Log.h"
