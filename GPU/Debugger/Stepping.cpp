@@ -18,10 +18,11 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "Common/Log.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUState.h"
-#include "Core/Core.h"
 
 namespace GPUStepping {
 

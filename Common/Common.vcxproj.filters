@@ -220,6 +220,12 @@
     <ClInclude Include="Data\Format\IniFile.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Format\JSONReader.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\JSONWriter.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -419,6 +425,12 @@
       <Filter>File\VFS</Filter>
     </ClCompile>
     <ClCompile Include="Data\Format\IniFile.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\JSONReader.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\JSONWriter.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
   </ItemGroup>

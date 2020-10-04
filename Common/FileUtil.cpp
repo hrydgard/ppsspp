@@ -27,6 +27,7 @@
 #include <cstring>
 #include <memory>
 
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/SysError.h"
@@ -511,7 +512,7 @@ bool GetFileDetails(const std::string &filename, FileDetails *details) {
 	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
 		return false;
 	details->isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-	details->size = ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
+	details->size = ((uint64_t)attr.nFileSizeHigh << 32) | (uint64_t)attr.nFileSizeLow;
 	details->atime = FiletimeToStatTime(attr.ftLastAccessTime);
 	details->mtime = FiletimeToStatTime(attr.ftLastWriteTime);
 	details->ctime = FiletimeToStatTime(attr.ftCreationTime);
@@ -588,14 +589,14 @@ std::string GetFilename(std::string path) {
 
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
-u64 GetFileSize(const std::string &filename) {
+uint64_t GetFileSize(const std::string &filename) {
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
 	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
 		return 0;
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;
-	return ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
+	return ((uint64_t)attr.nFileSizeHigh << 32) | (uint64_t)attr.nFileSizeLow;
 #else
 #if __ANDROID__ && __ANDROID_API__ < 21
 	struct stat file_info;
@@ -618,14 +619,14 @@ u64 GetFileSize(const std::string &filename) {
 }
 
 // Overloaded GetSize, accepts FILE*
-u64 GetFileSize(FILE *f) {
+uint64_t GetFileSize(FILE *f) {
 	// can't use off_t here because it can be 32-bit
-	u64 pos = ftello(f);
+	uint64_t pos = ftello(f);
 	if (fseeko(f, 0, SEEK_END) != 0) {
 		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s", f, GetLastErrorMsg().c_str());
 		return 0;
 	}
-	u64 size = ftello(f);
+	uint64_t size = ftello(f);
 	if ((size != pos) && (fseeko(f, pos, SEEK_SET) != 0)) {
 		ERROR_LOG(COMMON, "GetSize: seek failed %p: %s", f, GetLastErrorMsg().c_str());
 		return 0;
@@ -904,7 +905,7 @@ void IOFile::SetHandle(std::FILE* file)
 	m_file = file;
 }
 
-u64 IOFile::GetSize()
+uint64_t IOFile::GetSize()
 {
 	if (IsOpen())
 		return File::GetFileSize(m_file);
@@ -912,7 +913,7 @@ u64 IOFile::GetSize()
 		return 0;
 }
 
-bool IOFile::Seek(s64 off, int origin)
+bool IOFile::Seek(int64_t off, int origin)
 {
 	if (!IsOpen() || 0 != fseeko(m_file, off, origin))
 		m_good = false;
@@ -920,7 +921,7 @@ bool IOFile::Seek(s64 off, int origin)
 	return m_good;
 }
 
-u64 IOFile::Tell()
+uint64_t IOFile::Tell()
 {	
 	if (IsOpen())
 		return ftello(m_file);
@@ -936,7 +937,7 @@ bool IOFile::Flush()
 	return m_good;
 }
 
-bool IOFile::Resize(u64 size)
+bool IOFile::Resize(uint64_t size)
 {
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32

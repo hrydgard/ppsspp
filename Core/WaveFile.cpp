@@ -44,7 +44,7 @@ bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRa
 	Write(16);          // size of fmt block
 	Write(0x00020001);  // two channels, uncompressed
 
-	const u32 sample_rate = HLESampleRate;
+	const uint32_t sample_rate = HLESampleRate;
 	Write(sample_rate);
 	Write(sample_rate * 2 * 2);  // two channels, 16bit
 
@@ -53,7 +53,7 @@ bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRa
 	Write(100 * 1000 * 1000 - 32);
 
 	// We are now at offset 44
-	u64 offset = file.Tell();
+	uint64_t offset = file.Tell();
 	_assert_msg_(offset == 44, "Wrong offset: %lld", (long long)offset);
 	return true;
 }
@@ -70,7 +70,7 @@ void WaveFileWriter::Stop()
 	file.Close();
 }
 
-void WaveFileWriter::Write(u32 value)
+void WaveFileWriter::Write(uint32_t value)
 {
 	file.WriteArray(&value, 1);
 }
@@ -80,7 +80,7 @@ void WaveFileWriter::Write4(const char* ptr)
 	file.WriteBytes(ptr, 4);
 }
 
-void WaveFileWriter::AddStereoSamples(const short* sample_data, u32 count)
+void WaveFileWriter::AddStereoSamples(const short* sample_data, uint32_t count)
 {
 	_assert_msg_(file, "WaveFileWriter - file not open.");
 	_assert_msg_(count <= BUFFER_SIZE * 2, "WaveFileWriter - buffer too small (count = %u).", count);
@@ -89,7 +89,7 @@ void WaveFileWriter::AddStereoSamples(const short* sample_data, u32 count)
 	{
 		bool all_zero = true;
 
-		for (u32 i = 0; i < count * 2; i++)
+		for (uint32_t i = 0; i < count * 2; i++)
 		{
 			if (sample_data[i])
 				all_zero = false;

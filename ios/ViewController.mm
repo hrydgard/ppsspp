@@ -14,24 +14,24 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "Common/TimeUtil.h"
 #include "file/zip_read.h"
-#include "Common/Input/InputState.h"
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
-#include "Common/Input/KeyCodes.h"
 #include "gfx_es2/gpu_features.h"
 
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
-#include "Common/GraphicsContext.h"
-#include "Common/Log.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>

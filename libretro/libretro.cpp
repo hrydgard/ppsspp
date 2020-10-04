@@ -22,7 +22,7 @@
 #include "LogManager.h"
 #include "ConsoleListener.h"
 #include "Common/File/VFS/VFS.h"
-#include "file/zip_read.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"

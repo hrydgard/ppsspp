@@ -20,9 +20,10 @@
 #include <vector>
 #include <cstdint>
 
-#include "Common.h"
-#include "ArmCommon.h"
-#include "CodeBlock.h"
+#include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/ArmCommon.h"
+#include "Common/CodeBlock.h"
 
 // VCVT flags
 #define TO_FLOAT      0

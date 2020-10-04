@@ -18,7 +18,9 @@
 #include <cstring>
 #include <ctime>
 #include <vector>
+
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Replay.h"

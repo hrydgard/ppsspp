@@ -1,5 +1,5 @@
 #include "Common/File/VFS/VFS.h"
-#include "json/json_reader.h"
+#include "Common/Data/Format/JSONReader.h"
 
 namespace json {
 

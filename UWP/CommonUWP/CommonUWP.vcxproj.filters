@@ -234,6 +234,12 @@
     <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -414,6 +420,12 @@
       <Filter>File\VFS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Format\IniFile.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONReader.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
   </ItemGroup>

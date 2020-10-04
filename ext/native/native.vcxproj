@@ -388,7 +388,6 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
-    <ClInclude Include="json\json_reader.h" />
     <ClInclude Include="net\websocket_server.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h" />
@@ -408,7 +407,6 @@
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
-    <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\http_headers.h" />
     <ClInclude Include="net\http_server.h" />
@@ -458,7 +456,6 @@
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
-    <ClCompile Include="json\json_reader.cpp" />
     <ClCompile Include="net\websocket_server.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp" />
@@ -486,7 +483,6 @@
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
-    <ClCompile Include="json\json_writer.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\http_headers.cpp" />
     <ClCompile Include="net\http_server.cpp" />

@@ -34,9 +34,6 @@
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="json\json_writer.h">
-      <Filter>json</Filter>
-    </ClInclude>
     <ClInclude Include="file\file_util.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -148,9 +145,6 @@
     <ClInclude Include="thin3d\thin3d_create.h">
       <Filter>thin3d</Filter>
     </ClInclude>
-    <ClInclude Include="json\json_reader.h">
-      <Filter>json</Filter>
-    </ClInclude>
     <ClInclude Include="net\websocket_server.h">
       <Filter>net</Filter>
     </ClInclude>
@@ -188,9 +182,6 @@
     </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="json\json_writer.cpp">
-      <Filter>json</Filter>
     </ClCompile>
     <ClCompile Include="file\file_util.cpp">
       <Filter>file</Filter>
@@ -306,9 +297,6 @@
     <ClCompile Include="thin3d\DataFormatGL.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="json\json_reader.cpp">
-      <Filter>json</Filter>
-    </ClCompile>
     <ClCompile Include="net\websocket_server.cpp">
       <Filter>net</Filter>
     </ClCompile>
@@ -337,9 +325,6 @@
     </Filter>
     <Filter Include="base">
       <UniqueIdentifier>{95e41110-57a2-497f-a938-b4c8e9dd6a27}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="json">
-      <UniqueIdentifier>{cda27e9f-5763-4bf2-b6bc-85a377f7020e}</UniqueIdentifier>
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>

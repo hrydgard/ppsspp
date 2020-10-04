@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <time.h>
+#include <cstdint>
 
 #include "Common.h"
 
@@ -37,7 +38,7 @@ namespace File {
 
 struct FileDetails {
 	bool isDirectory;
-	u64 size;
+	uint64_t size;
 	uint64_t atime;
 	uint64_t mtime;
 	uint64_t ctime;
@@ -70,10 +71,10 @@ std::string GetFilename(std::string path);
 bool GetModifTime(const std::string &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
-u64 GetFileSize(const std::string &filename);
+uint64_t GetFileSize(const std::string &filename);
 
 // Overloaded GetSize, accepts FILE*
-u64 GetFileSize(FILE *f);
+uint64_t GetFileSize(FILE *f);
 
 // Returns true if successful, or path already exists.
 bool CreateDir(const std::string &filename);
@@ -121,7 +122,7 @@ const std::string &GetExeDirectory();
 class IOFile {
 public:
 	IOFile();
-	IOFile(std::FILE* file);
+	IOFile(FILE* file);
 	IOFile(const std::string& filename, const char openmode[]);
 	~IOFile();
 
@@ -172,10 +173,10 @@ public:
 
 	void SetHandle(std::FILE* file);
 
-	bool Seek(s64 off, int origin);
-	u64 Tell();
-	u64 GetSize();
-	bool Resize(u64 size);
+	bool Seek(int64_t off, int origin);
+	uint64_t Tell();
+	uint64_t GetSize();
+	bool Resize(uint64_t size);
 	bool Flush();
 
 	// clear error state

@@ -15,14 +15,15 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _DOLPHIN_INTEL_CODEGEN_
-#define _DOLPHIN_INTEL_CODEGEN_
+#pragma once
 
 #include "ppsspp_config.h"
 
 #include <cstddef>
-#include "Common.h"
-#include "CodeBlock.h"
+
+#include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/CodeBlock.h"
 
 #if PPSSPP_ARCH(64BIT)
 #define PTRBITS 64
@@ -1083,5 +1084,3 @@ public:
 };
 
 }  // namespace
-
-#endif

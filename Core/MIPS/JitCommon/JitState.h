@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
 struct JitBlock;

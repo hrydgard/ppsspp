@@ -154,7 +154,6 @@ private:
 	void DestroyDeviceObjects();
 
 	VulkanContext *vulkan_ = nullptr;
-	VkPipelineCache cache_ = VK_NULL_HANDLE;
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;

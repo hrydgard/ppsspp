@@ -23,16 +23,18 @@
 #include <sstream>
 
 #include "ppsspp_config.h"
+
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "Common/Data/Format/IniFile.h"
-#include "Common/Data/Text/I18n.h"
-#include "json/json_reader.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
-#include "Common/Data/Text/Parsers.h"
 #include "net/url.h"
 
+#include "Common/Log.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Format/JSONReader.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"

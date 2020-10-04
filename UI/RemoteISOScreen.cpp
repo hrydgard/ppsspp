@@ -28,12 +28,12 @@
 #include "base/NativeApp.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "gfx_es2/draw_buffer.h"
-#include "json/json_reader.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
 
 #include "Common/File/PathBrowser.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"
 #include "Common/TimeUtil.h"

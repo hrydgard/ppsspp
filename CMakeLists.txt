@@ -451,6 +451,10 @@ add_library(Common STATIC
 	Common/Data/Format/RIFF.h
 	Common/Data/Format/IniFile.cpp
 	Common/Data/Format/IniFile.h
+	Common/Data/Format/JSONReader.h
+	Common/Data/Format/JSONReader.cpp
+	Common/Data/Format/JSONWriter.h
+	Common/Data/Format/JSONWriter.cpp
 	Common/Data/Hash/Hash.cpp
 	Common/Data/Hash/Hash.h
 	Common/Data/Text/I18n.cpp
@@ -1041,10 +1045,6 @@ add_library(native STATIC
 	ext/native/image/zim_load.h
 	ext/native/image/zim_save.cpp
 	ext/native/image/zim_save.h
-	ext/native/json/json_reader.h
-	ext/native/json/json_reader.cpp
-	ext/native/json/json_writer.h
-	ext/native/json/json_writer.cpp
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
 	ext/native/net/http_headers.cpp

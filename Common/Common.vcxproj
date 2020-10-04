@@ -369,6 +369,8 @@
     <ClInclude Include="Data\Encoding\Utf16.h" />
     <ClInclude Include="Data\Encoding\Utf8.h" />
     <ClInclude Include="Data\Format\IniFile.h" />
+    <ClInclude Include="Data\Format\JSONReader.h" />
+    <ClInclude Include="Data\Format\JSONWriter.h" />
     <ClInclude Include="Data\Format\RIFF.h" />
     <ClInclude Include="Data\Hash\Hash.h" />
     <ClInclude Include="Data\Random\Rng.h" />
@@ -647,6 +649,8 @@
     <ClCompile Include="Data\Encoding\Compression.cpp" />
     <ClCompile Include="Data\Encoding\Utf8.cpp" />
     <ClCompile Include="Data\Format\IniFile.cpp" />
+    <ClCompile Include="Data\Format\JSONReader.cpp" />
+    <ClCompile Include="Data\Format\JSONWriter.cpp" />
     <ClCompile Include="Data\Format\RIFF.cpp" />
     <ClCompile Include="Data\Hash\Hash.cpp" />
     <ClCompile Include="Data\Text\I18n.cpp" />

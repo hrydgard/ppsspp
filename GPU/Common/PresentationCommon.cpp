@@ -24,6 +24,7 @@
 #include "thin3d/thin3d.h"
 
 #include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

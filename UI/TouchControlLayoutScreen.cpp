@@ -25,6 +25,7 @@
 #include "ui/ui_context.h"
 
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "UI/GamepadEmu.h"

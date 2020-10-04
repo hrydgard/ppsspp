@@ -104,22 +104,7 @@ endif
 NATIVE_FILES :=\
   $(SRC)/ext/native/base/display.cpp \
   $(SRC)/ext/native/file/fd_util.cpp \
-  $(SRC)/ext/native/file/chunk_file.cpp \
   $(SRC)/ext/native/file/file_util.cpp \
-  $(SRC)/ext/native/file/free.cpp \
-  $(SRC)/ext/native/file/path.cpp \
-  $(SRC)/ext/native/file/ini_file.cpp \
-  $(SRC)/ext/native/file/zip_read.cpp \
-  $(SRC)/ext/native/json/json_reader.cpp \
-  $(SRC)/ext/native/json/json_writer.cpp \
-  $(SRC)/ext/native/math/fast/fast_math.c \
-  $(SRC)/ext/native/math/fast/fast_matrix.c \
-  $(SRC)/ext/native/math/dataconv.cpp \
-  $(SRC)/ext/native/math/math_util.cpp \
-  $(SRC)/ext/native/math/curves.cpp \
-  $(SRC)/ext/native/math/expression_parser.cpp \
-  $(SRC)/ext/native/math/lin/vec3.cpp.arm \
-  $(SRC)/ext/native/math/lin/matrix4x4.cpp.arm \
   $(SRC)/ext/native/net/http_client.cpp \
   $(SRC)/ext/native/net/http_server.cpp \
   $(SRC)/ext/native/net/http_headers.cpp \
@@ -275,6 +260,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Encoding/Compression.cpp \
   $(SRC)/Common/Data/Encoding/Utf8.cpp \
   $(SRC)/Common/Data/Format/RIFF.cpp \
+  $(SRC)/Common/Data/Format/IniFile.cpp \
+  $(SRC)/Common/Data/Format/JSONReader.cpp \
+  $(SRC)/Common/Data/Format/JSONWriter.cpp \
   $(SRC)/Common/Data/Hash/Hash.cpp \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
