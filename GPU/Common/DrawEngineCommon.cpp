@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"

@@ -19,12 +19,11 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "file/path.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
-#include "math/curves.h"
 #include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -32,6 +31,8 @@
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/PathBrowser.h"
+#include "Common/Math/curves.h"
 #include "Common/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"

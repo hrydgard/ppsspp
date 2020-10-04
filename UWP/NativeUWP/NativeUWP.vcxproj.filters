@@ -1,14 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="base">
-      <UniqueIdentifier>{903dae00-880d-4c12-bd10-29fca750376f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="thin3d">
       <UniqueIdentifier>{98343696-3517-451a-9b47-94d462263e3e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thread">
-      <UniqueIdentifier>{63177c91-8ebd-4e87-ad4e-e6b8b52879c8}</UniqueIdentifier>
     </Filter>
     <Filter Include="gfx">
       <UniqueIdentifier>{8a254b8c-46f2-4ff1-bc53-deea7e614276}</UniqueIdentifier>
@@ -16,14 +10,8 @@
     <Filter Include="file">
       <UniqueIdentifier>{244992ec-8dcf-49f4-b63c-cae6ac437c58}</UniqueIdentifier>
     </Filter>
-    <Filter Include="input">
-      <UniqueIdentifier>{6f098c49-cf71-466b-9b1e-c4287681ab26}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{9d02a269-6cdd-4726-ab58-34c012e37d37}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="math">
-      <UniqueIdentifier>{8292cb5c-02c9-46a4-a8d5-ea5e8f362688}</UniqueIdentifier>
     </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{d8c0dd74-7ad2-440a-a3e0-5dbf3435a2fc}</UniqueIdentifier>
@@ -34,9 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="..\..\ext\native\base\display.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\thin3d\thin3d.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
@@ -49,25 +34,10 @@
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_buffer.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\file\chunk_file.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp">
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\file\file_util.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\file\free.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\file\ini_file.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\file\path.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\file\zip_read.cpp">
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\ui\root.cpp">
@@ -93,30 +63,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\native\ui\viewgroup.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\lin\vec3.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\curves.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\expression_parser.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\math_util.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\fast\fast_math.c">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\fast\fast_matrix.c">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\fast\fast_matrix_sse.c">
-      <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\net\http_client.cpp">
       <Filter>net</Filter>
@@ -148,11 +94,6 @@
     <ClCompile Include="..\..\ext\native\gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\math\dataconv.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\json\json_reader.cpp" />
-    <ClCompile Include="..\..\ext\native\json\json_writer.cpp" />
     <ClCompile Include="..\..\ext\native\net\websocket_server.cpp">
       <Filter>net</Filter>
     </ClCompile>
@@ -163,12 +104,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\display.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\NativeApp.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h">
       <Filter>thin3d</Filter>
     </ClInclude>
@@ -178,28 +113,10 @@
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\chunk_file.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\file\fd_util.h">
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\file\file_util.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\free.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\ini_file.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\path.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\vfs.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\file\zip_read.h">
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\root.h">
@@ -225,36 +142,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\viewgroup.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\ray.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\lin\vec3.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\curves.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\dataconv.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\expression_parser.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\geom2d.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\math_util.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\fast\fast_math.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\math\fast\fast_matrix.h">
-      <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\net\http_client.h">
       <Filter>net</Filter>
@@ -286,8 +173,6 @@
     <ClInclude Include="..\..\ext\native\gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\json\json_reader.h" />
-    <ClInclude Include="..\..\ext\native\json\json_writer.h" />
     <ClInclude Include="..\..\ext\native\net\websocket_server.h">
       <Filter>net</Filter>
     </ClInclude>

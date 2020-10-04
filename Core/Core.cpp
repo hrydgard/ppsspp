@@ -22,11 +22,12 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/Log.h"

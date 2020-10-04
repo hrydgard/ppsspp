@@ -23,7 +23,6 @@
     <ClInclude Include="Crypto\md5.h">
       <Filter>Crypto</Filter>
     </ClInclude>
-    <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="CommonWindows.h" />
     <ClInclude Include="Crypto\sha1.h">
@@ -176,6 +175,69 @@
     <ClInclude Include="Data\Color\RGBAUtil.h">
       <Filter>Data\Color</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Convert\SmallDataConvert.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\curves.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\expression_parser.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\geom2d.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\math_util.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\lin\matrix4x4.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\lin\vec3.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\fast\fast_math.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\fast\fast_matrix.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\RIFF.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="File\DiskFree.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="File\PathBrowser.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="File\VFS\VFS.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="File\VFS\AssetReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\IniFile.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\JSONReader.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Format\JSONWriter.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="Profiler\Profiler.h">
+      <Filter>Profiler</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Display.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\System.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\NativeApp.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -195,7 +257,6 @@
     <ClCompile Include="Crypto\md5.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
-    <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="Crypto\sha1.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
@@ -333,6 +394,63 @@
     <ClCompile Include="Data\Color\RGBAUtil.cpp">
       <Filter>Data\Color</Filter>
     </ClCompile>
+    <ClCompile Include="Data\Convert\SmallDataConvert.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\curves.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\expression_parser.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\math_util.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\lin\matrix4x4.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\lin\vec3.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\fast\fast_math.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\fast\fast_matrix.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\fast\fast_matrix_sse.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\RIFF.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="File\DiskFree.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="File\PathBrowser.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="File\VFS\VFS.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="File\VFS\AssetReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\IniFile.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\JSONReader.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Format\JSONWriter.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="Profiler\Profiler.cpp">
+      <Filter>Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Display.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -383,10 +501,45 @@
     <Filter Include="Data\Color">
       <UniqueIdentifier>{1ada1f0f-6f1c-4bf2-8450-1fc63d77da17}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{9f70c234-1671-49db-aa45-1a6a75698a40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Convert">
+      <UniqueIdentifier>{98967255-542c-490d-9183-a4b21c074703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\lin">
+      <UniqueIdentifier>{aa083b68-34ed-4679-a8de-1797a00a1772}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\fast">
+      <UniqueIdentifier>{ffa5052d-e78f-4c47-a43e-e3537c5e7ad0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Format">
+      <UniqueIdentifier>{3eebbd6c-0c35-4dac-9869-5d38419432a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File">
+      <UniqueIdentifier>{d9e60709-9bf4-4bc7-b902-742219df7ffb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File\VFS">
+      <UniqueIdentifier>{b10822cf-4cc0-4bc3-91a9-b20cb66e5cbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiler">
+      <UniqueIdentifier>{8321632b-8fc5-4a67-adb7-126a328d50eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="System">
+      <UniqueIdentifier>{89ddf0bd-3fc4-4a69-87a7-b82cfc412e0a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\libpng17\CMakeLists.txt">
       <Filter>ext\libpng17</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Math\lin\matrix_neon.s">
+      <Filter>Math\lin</Filter>
+    </None>
+    <None Include="Math\fast\fast_matrix_neon.S">
+      <Filter>Math\fast</Filter>
+    </None>
   </ItemGroup>
 </Project>

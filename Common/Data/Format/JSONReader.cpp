@@ -1,6 +1,5 @@
-#include "file/zip_read.h"
-#include "file/vfs.h"
-#include "json/json_reader.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Data/Format/JSONReader.h"
 
 namespace json {
 

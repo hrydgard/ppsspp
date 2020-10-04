@@ -1,8 +1,7 @@
-#include "file/chunk_file.h"
-#include "file/zip_read.h"
-#include "file/file_util.h"
+#include <cstring>
 
 #include "Common/Log.h"
+#include "Common/Data/Format/RIFF.h"
 
 inline uint32_t flipID(uint32_t id) {
 	return ((id >> 24) & 0xFF) | ((id >> 8) & 0xFF00) | ((id << 8) & 0xFF0000) | ((id << 24) & 0xFF000000);

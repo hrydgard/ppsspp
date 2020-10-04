@@ -15,17 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Data/Text/I18n.h"
-#include "Common/Data/Color/RGBAUtil.h"
-#include "base/display.h"
-#include "file/path.h"
+#include "Common/System/Display.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
-#include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/File/PathBrowser.h"
+#include "Common/Math/curves.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

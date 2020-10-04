@@ -21,8 +21,8 @@
 #include "ext/xxhash.h"
 #include "gfx/gl_debug_log.h"
 #include "Common/Data/Text/I18n.h"
-#include "math/math_util.h"
-#include "profiler/profiler.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/GLRenderManager.h"
 
 #include "Common/ColorConv.h"

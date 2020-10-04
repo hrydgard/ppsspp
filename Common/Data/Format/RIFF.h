@@ -1,6 +1,6 @@
 #pragma once
 
-// Simple RIFF file format reader/writer.
+// Simple RIFF file format reader.
 // Unrelated to the ChunkFile.h used in Dolphin and PPSSPP.
 
 // TO REMEMBER WHEN USING:
@@ -10,7 +10,6 @@
 // otherwise the scheme breaks.
 
 #include <string>
-#include <cstdio>
 #include <cstdint>
 
 class RIFFReader {

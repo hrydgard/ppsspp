@@ -25,7 +25,6 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/Reporting.h"
-#include "file/zip_read.h"
 #include "Common/Data/Encoding/Utf8.h"
 
 #ifdef _WIN32

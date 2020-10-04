@@ -4,8 +4,8 @@
 #include <vector>
 #include <cstdint>
 
-#include "math/geom2d.h"
-#include "math/lin/vec3.h"
+#include "Common/Math/geom2d.h"
+#include "Common/Math/lin/vec3.h"
 #include "gfx/texture_atlas.h"
 
 // Everything you need to draw a UI collected into a single unit that can be passed around.

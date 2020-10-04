@@ -28,7 +28,6 @@
 #pragma warning(disable:4996)
 #endif
 
-#include "Log.h"
 #include "CommonTypes.h"
 #include "CommonFuncs.h"
 

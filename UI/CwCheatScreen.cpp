@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/NativeApp.h"
 #include "ext/xxhash.h"
 #include "ui/ui.h"
 
@@ -23,6 +22,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"

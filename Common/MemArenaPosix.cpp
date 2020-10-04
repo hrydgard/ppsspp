@@ -21,9 +21,10 @@
 
 #include <string>
 
-#include "FileUtil.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
+#include "Common/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/Log.h"
 
 #include <sys/stat.h>
 #include <fcntl.h>

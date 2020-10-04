@@ -2,7 +2,7 @@
 
 #include <set>
 
-#include "math/lin/vec3.h"
+#include "Common/Math/lin/vec3.h"
 #include "ui/screen.h"
 #include "ui/viewgroup.h"
 

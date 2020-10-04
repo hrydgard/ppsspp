@@ -26,14 +26,15 @@
 
 #include "ppsspp_config.h"
 
-#include "base/NativeApp.h"
-#include "file/ini_file.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Common/Input/InputState.h"
 #include "Common/Log.h"
-#include "Common/KeyMap.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
+#include "Core/KeyMap.h"
 
 namespace KeyMap {
 

@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include "base/NativeApp.h"
-#include "Common/Data/Text/I18n.h"
-#include "math/math_util.h"
-#include "Common/Data/Encoding/Utf8.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/System.h"
+#include "Common/Serialize/Serializer.h"
+
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
@@ -29,7 +31,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "Common/Serialize/Serializer.h"
 #include "GPU/GPUState.h"
 
 #ifndef _WIN32

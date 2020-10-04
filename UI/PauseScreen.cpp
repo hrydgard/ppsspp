@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "base/NativeApp.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -28,18 +27,18 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceUmd.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-
-#include "Core/HLE/sceDisplay.h"
-#include "Core/HLE/sceUmd.h"
 
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"

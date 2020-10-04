@@ -22,10 +22,10 @@
 #include <list>
 
 #include "Common/Input/KeyCodes.h"
+#include "Core/KeyMap.h"
 #include "ui/screen.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_tween.h"
-#include "Common/KeyMap.h"
 
 struct AxisInput;
 

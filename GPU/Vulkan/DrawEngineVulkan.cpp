@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
-#include "math/dataconv.h"
-#include "profiler/profiler.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/VulkanRenderManager.h"
 
 #include "Common/Log.h"

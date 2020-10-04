@@ -17,9 +17,6 @@
 
 #include <functional>
 
-#include "json/json_reader.h"
-
-#include "Common/Data/Text/I18n.h"
 #include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/viewgroup.h"
@@ -27,6 +24,8 @@
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"

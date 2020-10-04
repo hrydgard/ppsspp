@@ -24,7 +24,7 @@
 #include "DinputDevice.h"
 #include "Core/Config.h"
 #include "Common/Input/InputState.h"
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
 #include "Common/Input/KeyCodes.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"

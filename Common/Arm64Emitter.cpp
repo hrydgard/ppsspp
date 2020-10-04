@@ -12,13 +12,12 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "Arm64Emitter.h"
-#include "MathUtil.h"
-#include "CommonTypes.h"
-#include "CommonWindows.h"
-#include "CPUDetect.h"
-
-#include "CommonWindows.h"
+#include "Common/Arm64Emitter.h"
+#include "Common/MathUtil.h"
+#include "Common/CommonTypes.h"
+#include "Common/CommonWindows.h"
+#include "Common/CPUDetect.h"
+#include "Common/Log.h"
 
 #ifdef IOS
 #include <libkern/OSCacheControl.h>

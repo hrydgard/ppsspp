@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <limits>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

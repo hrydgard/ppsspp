@@ -959,6 +959,9 @@
     <ClCompile Include="..\ext\libzip\zip_unchange_data.c">
       <Filter>Ext\libzip</Filter>
     </ClCompile>
+    <ClCompile Include="KeyMap.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1636,6 +1639,9 @@
     </ClInclude>
     <ClInclude Include="..\ext\libzip\zipint.h">
       <Filter>Ext\libzip</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyMap.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -360,32 +360,12 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="..\..\ios\main.mm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </None>
     <None Include="Android.mk" />
     <None Include="tools\CMakeLists.txt" />
-    <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Qt\QtMain.h" />
-    <ClInclude Include="base\display.h" />
-    <ClInclude Include="base\NativeApp.h" />
-    <ClInclude Include="file\chunk_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
-    <ClInclude Include="file\path.h" />
-    <ClInclude Include="file\ini_file.h" />
-    <ClInclude Include="file\vfs.h" />
-    <ClInclude Include="file\zip_read.h" />
-    <ClInclude Include="file\free.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />
     <ClInclude Include="gfx\d3d9_state.h" />
     <ClInclude Include="gfx\gl_common.h" />
@@ -395,7 +375,6 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
-    <ClInclude Include="json\json_reader.h" />
     <ClInclude Include="net\websocket_server.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h" />
@@ -415,22 +394,11 @@
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
-    <ClInclude Include="json\json_writer.h" />
-    <ClInclude Include="math\curves.h" />
-    <ClInclude Include="math\dataconv.h" />
-    <ClInclude Include="math\expression_parser.h" />
-    <ClInclude Include="math\geom2d.h" />
-    <ClInclude Include="math\lin\matrix4x4.h" />
-    <ClInclude Include="math\lin\vec3.h" />
-    <ClInclude Include="math\math_util.h" />
-    <ClInclude Include="math\fast\fast_math.h" />
-    <ClInclude Include="math\fast\fast_matrix.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\http_headers.h" />
     <ClInclude Include="net\http_server.h" />
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="net\url.h" />
-    <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="net\sinks.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
@@ -443,34 +411,8 @@
     <ClInclude Include="ui\viewgroup.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="base\display.cpp" />
-    <ClCompile Include="..\..\SDL\SDLMain.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\Qt\QtMain.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="file\chunk_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
-    <ClCompile Include="file\path.cpp" />
-    <ClCompile Include="file\ini_file.cpp" />
-    <ClCompile Include="file\zip_read.cpp" />
-    <ClCompile Include="file\free.cpp" />
     <ClCompile Include="gfx\d3d9_shader.cpp" />
     <ClCompile Include="gfx\d3d9_state.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
@@ -479,8 +421,6 @@
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
-    <ClCompile Include="json\json_reader.cpp" />
-    <ClCompile Include="math\dataconv.cpp" />
     <ClCompile Include="net\websocket_server.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp" />
@@ -508,25 +448,11 @@
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
-    <ClCompile Include="json\json_writer.cpp" />
-    <ClCompile Include="math\curves.cpp" />
-    <ClCompile Include="math\expression_parser.cpp" />
-    <ClCompile Include="math\lin\matrix4x4.cpp" />
-    <ClCompile Include="math\lin\vec3.cpp" />
-    <ClCompile Include="math\math_util.cpp" />
-    <ClCompile Include="math\fast\fast_math.c" />
-    <ClCompile Include="math\fast\fast_matrix.c" />
-    <ClCompile Include="math\fast\fast_matrix_sse.c">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">AssemblyAndSourceCode</AssemblerOutput>
-    </ClCompile>
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\http_headers.cpp" />
     <ClCompile Include="net\http_server.cpp" />
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="net\url.cpp" />
-    <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="net\sinks.cpp" />
     <ClCompile Include="thin3d\d3dx9_loader.cpp" />
     <ClCompile Include="thin3d\thin3d.cpp" />

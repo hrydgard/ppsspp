@@ -21,8 +21,8 @@
 #include <algorithm>
 #include <iterator>
 
-#include "math/math_util.h"
-#include "profiler/profiler.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

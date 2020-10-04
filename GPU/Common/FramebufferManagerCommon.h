@@ -22,6 +22,7 @@
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"

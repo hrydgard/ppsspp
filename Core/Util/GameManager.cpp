@@ -30,7 +30,7 @@
 #include "ext/libzip/zip.h"
 #endif
 #include "Common/Data/Encoding/Utf8.h"
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 #include "Common/Log.h"
 #include "Common/FileUtil.h"

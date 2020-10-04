@@ -18,15 +18,16 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "gfx_es2/gpu_features.h"
 #include "Common/Data/Text/I18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"

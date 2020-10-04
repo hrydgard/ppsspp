@@ -5,14 +5,14 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cstring>
 
-#include <string.h>
+#include "ppsspp_config.h"
+
+#include "gfx_es2/draw_buffer.h"
 
 #include "Common/TimeUtil.h"
-#include "gfx_es2/draw_buffer.h"
-#include "ppsspp_config.h"
-#include "profiler/profiler.h"
-
+#include "Common/Profiler/Profiler.h"
 #include "Common/Log.h"
 
 #define MAX_CATEGORIES 64 // Can be any number, represents max profiled names.

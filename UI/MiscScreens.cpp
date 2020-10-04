@@ -20,15 +20,17 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/NativeApp.h"
-#include "base/display.h"
 #include "gfx_es2/draw_buffer.h"
-#include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "file/vfs.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Math/curves.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"

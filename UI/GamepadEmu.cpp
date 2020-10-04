@@ -18,10 +18,10 @@
 #include <algorithm>
 
 #include "Common/Data/Color/RGBAUtil.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "ui/ui_context.h"
 
 #include "Common/Log.h"

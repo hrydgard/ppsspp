@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/glsl_program.h"

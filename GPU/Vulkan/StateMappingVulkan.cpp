@@ -20,7 +20,7 @@
 #include "Common/Vulkan/VulkanLoader.h"
 #include "thin3d/VulkanRenderManager.h"
 
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

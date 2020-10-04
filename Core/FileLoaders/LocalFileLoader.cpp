@@ -18,8 +18,10 @@
 #include <cstdio>
 
 #include "ppsspp_config.h"
-#include "Common/Data/Encoding/Utf8.h"
+
 #include "file/file_util.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Log.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 

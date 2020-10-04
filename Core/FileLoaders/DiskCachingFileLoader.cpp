@@ -23,9 +23,10 @@
 
 #include "ppsspp_config.h"
 #include "file/file_util.h"
-#include "file/free.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/DiskFree.h"
 #include "Common/FileUtil.h"
+#include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"

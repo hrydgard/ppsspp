@@ -21,7 +21,7 @@
 #include <mutex>
 #include <vector>
 #include <snappy-c.h>
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Core/Core.h"

@@ -4,8 +4,8 @@
 
 #include "zlib.h"
 #include "image/zim_load.h"
-#include "math/math_util.h"
-#include "file/vfs.h"
+#include "Common/Math/math_util.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/Log.h"
 

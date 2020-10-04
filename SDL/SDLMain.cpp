@@ -20,13 +20,14 @@ SDLJoystick *joystick = NULL;
 #include <thread>
 #include <locale>
 
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
 #include "net/resolve.h"
 #include "NKCodeFromSDL.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "thin3d/GLRenderManager.h"
 
 #include "SDL_syswm.h"

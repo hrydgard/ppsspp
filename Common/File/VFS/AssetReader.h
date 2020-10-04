@@ -8,7 +8,7 @@
 #include <string.h>
 #include <string>
 
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 #include "file/file_util.h"
 
 // Direct readers. deallocate using delete [].

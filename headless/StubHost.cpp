@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/FileUtil.h"
+#include "Common/Log.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"

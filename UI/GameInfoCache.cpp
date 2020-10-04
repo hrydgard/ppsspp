@@ -23,10 +23,9 @@
 #include <algorithm>
 
 #include "file/file_util.h"
-#include "file/zip_read.h"
 #include "thin3d/thin3d.h"
 #include "Common/Thread/PrioritizedWorkQueue.h"
-
+#include "Common/File/VFS/VFS.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"

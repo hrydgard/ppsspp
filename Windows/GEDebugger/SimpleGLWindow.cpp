@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <WindowsX.h>
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gpu_features.h"
 #include "Common/Common.h"

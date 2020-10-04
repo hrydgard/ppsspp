@@ -3,8 +3,8 @@
 #include <vector>
 #include <stddef.h>
 
-#include "base/display.h"
-#include "math/math_util.h"
+#include "Common/System/Display.h"
+#include "Common/Math/math_util.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/draw_buffer.h"

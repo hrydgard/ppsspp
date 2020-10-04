@@ -22,7 +22,10 @@
 #include <mutex>
 
 #include "ext/cityhash/city.h"
+#include "ext/xxhash.h"
+
 #include "Common/FileUtil.h"
+#include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -35,7 +38,6 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "ext/xxhash.h"
 
 using namespace MIPSCodeUtils;
 

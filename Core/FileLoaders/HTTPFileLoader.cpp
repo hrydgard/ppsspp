@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 

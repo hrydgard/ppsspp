@@ -1,9 +1,9 @@
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/lin/matrix4x4.h"
 
 #include <cstdio>
 
-#include "math/lin/vec3.h"
-#include "math/fast/fast_matrix.h"
+#include "Common/Math/lin/vec3.h"
+#include "Common/Math/fast/fast_matrix.h"
 
 #ifdef _WIN32
 #undef far

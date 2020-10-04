@@ -24,7 +24,7 @@
 #include <cstdarg>
 
 #include "Core/Reporting.h"
-
+#include "Common/File/VFS/VFS.h"
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -47,9 +47,8 @@
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
-
+#include "file/file_util.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "file/zip_read.h"
 
 namespace Reporting
 {

@@ -27,11 +27,11 @@
 #include <linux/ashmem.h>
 #include <dlfcn.h>
 
-#include "base/NativeApp.h"
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 
 // Hopefully this ABI will never change...
 

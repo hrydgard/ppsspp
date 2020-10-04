@@ -3,15 +3,15 @@
 #include <climits>
 #include <algorithm>
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/CommonWindows.h"
-#include "Common/KeyMap.h"
 #include "Common/Log.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "XinputDevice.h"
 #include "Core/Core.h"
+#include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Common/Timer.h"
 

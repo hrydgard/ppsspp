@@ -8,6 +8,7 @@ extern "C"
 #include "ext/libkirk/SHA1.h"
 }
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/ELF/PrxDecrypter.h"
 

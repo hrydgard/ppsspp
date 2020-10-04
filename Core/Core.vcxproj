@@ -453,6 +453,7 @@
     <ClCompile Include="HW\BufferQueue.cpp" />
     <ClCompile Include="HW\Camera.cpp" />
     <ClCompile Include="Instance.cpp" />
+    <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="MemFault.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
@@ -996,6 +997,7 @@
     <ClInclude Include="HLE\sceUsbMic.h" />
     <ClInclude Include="HW\Camera.h" />
     <ClInclude Include="Instance.h" />
+    <ClInclude Include="KeyMap.h" />
     <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />

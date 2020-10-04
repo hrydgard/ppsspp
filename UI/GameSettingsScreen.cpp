@@ -19,20 +19,21 @@
 
 #include <algorithm>
 
-#include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
-#include "base/NativeApp.h"
-
-#include "Common/Data/Color/RGBAUtil.h"
-#include "math/curves.h"
 #include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
-#include "Common/Data/Text/I18n.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "ui/root.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
+
+#include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Math/curves.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
@@ -50,7 +51,6 @@
 #include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 
-#include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
@@ -58,6 +58,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"

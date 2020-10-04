@@ -21,7 +21,7 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "base/NativeApp.h"
+#include "Common/System/System.h"
 
 #ifndef _WIN32
 #include <dlfcn.h>

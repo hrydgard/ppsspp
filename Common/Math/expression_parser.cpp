@@ -244,7 +244,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 				isFloat = true;
 			else if (parseNumber(subStr,16,subPos,value) == false)
 			{
-				sprintf(expressionError,"Invalid number \"%s\"",subStr);
+				snprintf(expressionError, sizeof(expressionError), "Invalid number \"%s\"",subStr);
 				return false;
 			}
 
@@ -273,14 +273,14 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 				continue;
 			}
 
-			sprintf(expressionError,"Invalid symbol \"%s\"",subStr);
+			snprintf(expressionError, sizeof(expressionError), "Invalid symbol \"%s\"",subStr);
 			return false;
 		} else {
 			int len;
 			ExpressionOpcodeType type = getExpressionOpcode(&infix[infixPos],len,lastOpcode);
 			if (type == EXOP_NONE)
 			{
-				sprintf(expressionError,"Invalid operator at \"%s\"",&infix[infixPos]);
+				snprintf(expressionError, sizeof(expressionError), "Invalid operator at \"%s\"",&infix[infixPos]);
 				return false;
 			}
 
@@ -295,7 +295,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 				{
 					if (opcodeStack.empty())
 					{		
-						sprintf(expressionError,"Closing parenthesis without opening one");
+						snprintf(expressionError, sizeof(expressionError), "Closing parenthesis without opening one");
 						return false;
 					}
 					ExpressionOpcodeType t = opcodeStack[opcodeStack.size()-1];
@@ -309,7 +309,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 				{
 					if (opcodeStack.empty())
 					{		
-						sprintf(expressionError,"Closing bracket without opening one");
+						snprintf(expressionError, sizeof(expressionError), "Closing bracket without opening one");
 						return false;
 					}
 					ExpressionOpcodeType t = opcodeStack[opcodeStack.size()-1];
@@ -362,7 +362,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 
 		if (t == EXOP_BRACKETL)	// opening bracket without closing one
 		{
-			sprintf(expressionError,"Parenthesis not closed");
+			snprintf(expressionError, sizeof(expressionError), "Parenthesis not closed");
 			return false;
 		}
 		dest.push_back(ExpressionPair(EXCOMM_OP,t));
@@ -421,7 +421,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			opcode = exp[num++].second;
 			if (valueStack.size() < ExpressionOpcodes[opcode].args)
 			{
-				sprintf(expressionError,"Not enough arguments");
+				snprintf(expressionError, sizeof(expressionError), "Not enough arguments");
 				return false;
 			}
 			for (int l = 0; l < ExpressionOpcodes[opcode].args; l++)
@@ -437,7 +437,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_MEMSIZE:	// must be followed by EXOP_MEM
 				if (exp[num++].second != EXOP_MEM)
 				{
-					sprintf(expressionError,"Invalid memsize operator");
+					snprintf(expressionError, sizeof(expressionError), "Invalid memsize operator");
 					return false;
 				}
 
@@ -481,7 +481,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_DIV:			// a/b
 				if (arg[0] == 0)
 				{
-					sprintf(expressionError,"Division by zero");
+					snprintf(expressionError, sizeof(expressionError), "Division by zero");
 					return false;
 				}
 				if (useFloat)
@@ -492,7 +492,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_MOD:			// a%b
 				if (arg[0] == 0)
 				{
-					sprintf(expressionError,"Modulo by zero");
+					snprintf(expressionError, sizeof(expressionError), "Modulo by zero");
 					return false;
 				}
 				valueStack.push_back(arg[1]%arg[0]);
@@ -565,7 +565,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 			case EXOP_TERTELSE:			// exp ? exp : exp, else muss zuerst kommen!
 				if (exp[num++].second != EXOP_TERTIF)
 				{
-					sprintf(expressionError,"Invalid tertiary operator");
+					snprintf(expressionError, sizeof(expressionError), "Invalid tertiary operator");
 					return false;
 				}
 				valueStack.push_back(arg[2]?arg[1]:arg[0]);
@@ -589,6 +589,6 @@ bool parseExpression(char* exp, IExpressionFunctions* funcs, uint32_t& dest)
 
 const char* getExpressionError()
 {
-	if (expressionError[0] == 0) strcpy(expressionError,"Invalid expression");
+	if (expressionError[0] == 0) snprintf(expressionError, sizeof(expressionError), "Invalid expression");
 	return expressionError;
 }

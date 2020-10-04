@@ -389,19 +389,37 @@
     <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
     <ClInclude Include="..\..\Common\Data\Collections\TinySet.h" />
     <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h" />
+    <ClInclude Include="..\..\Common\Data\Convert\SmallDataConvert.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Base64.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Compression.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Shiftjis.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Utf16.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Utf8.h" />
+    <ClInclude Include="..\..\Common\Data\Format\IniFile.h" />
+    <ClInclude Include="..\..\Common\Data\Format\JSONReader.h" />
+    <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h" />
+    <ClInclude Include="..\..\Common\Data\Format\RIFF.h" />
     <ClInclude Include="..\..\Common\Data\Hash\Hash.h" />
     <ClInclude Include="..\..\Common\Data\Random\Rng.h" />
     <ClInclude Include="..\..\Common\Data\Text\I18n.h" />
     <ClInclude Include="..\..\Common\Data\Text\Parsers.h" />
     <ClInclude Include="..\..\Common\Data\Text\WrapText.h" />
+    <ClInclude Include="..\..\Common\File\DiskFree.h" />
+    <ClInclude Include="..\..\Common\File\PathBrowser.h" />
+    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
     <ClInclude Include="..\..\Common\Input\GestureDetector.h" />
     <ClInclude Include="..\..\Common\Input\InputState.h" />
     <ClInclude Include="..\..\Common\Input\KeyCodes.h" />
+    <ClInclude Include="..\..\Common\Math\curves.h" />
+    <ClInclude Include="..\..\Common\Math\expression_parser.h" />
+    <ClInclude Include="..\..\Common\Math\fast\fast_math.h" />
+    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h" />
+    <ClInclude Include="..\..\Common\Math\geom2d.h" />
+    <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h" />
+    <ClInclude Include="..\..\Common\Math\lin\vec3.h" />
+    <ClInclude Include="..\..\Common\Math\math_util.h" />
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
@@ -425,7 +443,6 @@
     <ClInclude Include="..\..\Common\FileUtil.h" />
     <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
-    <ClInclude Include="..\..\Common\KeyMap.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
     <ClInclude Include="..\..\Common\MathUtil.h" />
@@ -436,6 +453,9 @@
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
     <ClInclude Include="..\..\Common\SysError.h" />
+    <ClInclude Include="..\..\Common\System\Display.h" />
+    <ClInclude Include="..\..\Common\System\NativeApp.h" />
+    <ClInclude Include="..\..\Common\System\System.h" />
     <ClInclude Include="..\..\Common\ThreadPools.h" />
     <ClInclude Include="..\..\Common\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Thread\Executor.h" />
@@ -463,15 +483,33 @@
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Buffer.cpp" />
     <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp" />
+    <ClCompile Include="..\..\Common\Data\Convert\SmallDataConvert.cpp" />
     <ClCompile Include="..\..\Common\Data\Encoding\Base64.cpp" />
     <ClCompile Include="..\..\Common\Data\Encoding\Compression.cpp" />
     <ClCompile Include="..\..\Common\Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp" />
     <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\I18n.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\Parsers.cpp" />
     <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp" />
+    <ClCompile Include="..\..\Common\File\DiskFree.cpp" />
+    <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
     <ClCompile Include="..\..\Common\Input\GestureDetector.cpp" />
     <ClCompile Include="..\..\Common\Input\InputState.cpp" />
+    <ClCompile Include="..\..\Common\Math\curves.cpp" />
+    <ClCompile Include="..\..\Common\Math\expression_parser.cpp" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_math.c" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c" />
+    <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
+    <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
+    <ClCompile Include="..\..\Common\Math\math_util.cpp" />
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\ColorConv.cpp" />
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
@@ -482,7 +520,6 @@
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\FileUtil.cpp" />
-    <ClCompile Include="..\..\Common\KeyMap.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
@@ -495,6 +532,7 @@
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
+    <ClCompile Include="..\..\Common\System\Display.cpp" />
     <ClCompile Include="..\..\Common\ThreadPools.cpp" />
     <ClCompile Include="..\..\Common\Thread\Executor.cpp" />
     <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp" />
@@ -524,6 +562,10 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\ext\libpng17\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
+    <None Include="..\..\Common\Math\lin\matrix_neon.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

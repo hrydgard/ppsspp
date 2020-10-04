@@ -362,20 +362,38 @@
     <ClInclude Include="Data\Collections\ConstMap.h" />
     <ClInclude Include="Data\Collections\TinySet.h" />
     <ClInclude Include="Data\Color\RGBAUtil.h" />
+    <ClInclude Include="Data\Convert\SmallDataConvert.h" />
     <ClInclude Include="Data\Encoding\Base64.h" />
     <ClInclude Include="Data\Encoding\Compression.h" />
     <ClInclude Include="Data\Encoding\Shiftjis.h" />
     <ClInclude Include="Data\Encoding\Utf16.h" />
     <ClInclude Include="Data\Encoding\Utf8.h" />
+    <ClInclude Include="Data\Format\IniFile.h" />
+    <ClInclude Include="Data\Format\JSONReader.h" />
+    <ClInclude Include="Data\Format\JSONWriter.h" />
+    <ClInclude Include="Data\Format\RIFF.h" />
     <ClInclude Include="Data\Hash\Hash.h" />
     <ClInclude Include="Data\Random\Rng.h" />
     <ClInclude Include="Data\Text\I18n.h" />
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\WrapText.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="File\DiskFree.h" />
+    <ClInclude Include="File\PathBrowser.h" />
+    <ClInclude Include="File\VFS\VFS.h" />
+    <ClInclude Include="File\VFS\AssetReader.h" />
     <ClInclude Include="Input\GestureDetector.h" />
     <ClInclude Include="Input\InputState.h" />
     <ClInclude Include="Input\KeyCodes.h" />
+    <ClInclude Include="Math\curves.h" />
+    <ClInclude Include="Math\expression_parser.h" />
+    <ClInclude Include="Math\fast\fast_math.h" />
+    <ClInclude Include="Math\fast\fast_matrix.h" />
+    <ClInclude Include="Math\geom2d.h" />
+    <ClInclude Include="Math\lin\matrix4x4.h" />
+    <ClInclude Include="Math\lin\vec3.h" />
+    <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Profiler\Profiler.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -420,7 +438,6 @@
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Hashmaps.h" />
-    <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MakeUnique.h" />
@@ -434,6 +451,9 @@
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
+    <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\NativeApp.h" />
+    <ClInclude Include="System\System.h" />
     <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="ThreadSafeList.h" />
     <ClInclude Include="Thread\Executor.h" />
@@ -628,16 +648,34 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Data\Color\RGBAUtil.cpp" />
+    <ClCompile Include="Data\Convert\SmallDataConvert.cpp" />
     <ClCompile Include="Data\Encoding\Base64.cpp" />
     <ClCompile Include="Data\Encoding\Compression.cpp" />
     <ClCompile Include="Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="Data\Format\IniFile.cpp" />
+    <ClCompile Include="Data\Format\JSONReader.cpp" />
+    <ClCompile Include="Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="Data\Format\RIFF.cpp" />
     <ClCompile Include="Data\Hash\Hash.cpp" />
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
+    <ClCompile Include="File\DiskFree.cpp" />
+    <ClCompile Include="File\PathBrowser.cpp" />
+    <ClCompile Include="File\VFS\VFS.cpp" />
+    <ClCompile Include="File\VFS\AssetReader.cpp" />
     <ClCompile Include="Input\GestureDetector.cpp" />
     <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="Log.cpp" />
+    <ClCompile Include="Math\curves.cpp" />
+    <ClCompile Include="Math\expression_parser.cpp" />
+    <ClCompile Include="Math\fast\fast_math.c" />
+    <ClCompile Include="Math\fast\fast_matrix.c" />
+    <ClCompile Include="Math\fast\fast_matrix_sse.c" />
+    <ClCompile Include="Math\lin\matrix4x4.cpp" />
+    <ClCompile Include="Math\lin\vec3.cpp" />
+    <ClCompile Include="Math\math_util.cpp" />
+    <ClCompile Include="Profiler\Profiler.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
@@ -677,7 +715,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
@@ -688,6 +725,7 @@
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
+    <ClCompile Include="System\Display.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Thread\Executor.cpp" />
     <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
@@ -711,6 +749,10 @@
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Math\fast\fast_matrix_neon.S" />
+    <None Include="Math\lin\matrix_neon.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

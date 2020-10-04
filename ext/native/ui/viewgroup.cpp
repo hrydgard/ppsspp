@@ -4,7 +4,7 @@
 #include <mutex>
 
 #include "Common/Input/KeyCodes.h"
-#include "math/curves.h"
+#include "Common/Math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"
 #include "ui/root.h"

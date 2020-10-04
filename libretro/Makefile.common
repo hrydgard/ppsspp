@@ -144,20 +144,33 @@ SOURCES_CXX += \
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Data/Color/RGBAUtil.cpp \
+	$(COMMONDIR)/Data/Convert/SmallDataConvert.cpp \
 	$(COMMONDIR)/Data/Encoding/Base64.cpp \
 	$(COMMONDIR)/Data/Encoding/Compression.cpp \
 	$(COMMONDIR)/Data/Encoding/Utf8.cpp \
+	$(COMMONDIR)/Data/Format/RIFF.cpp \
+	$(COMMONDIR)/Data/Format/IniFile.cpp \
+	$(COMMONDIR)/Data/Format/JSONReader.cpp \
+	$(COMMONDIR)/Data/Format/JSONWriter.cpp \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
-
-SOURCES_CXX += \
+	$(COMMONDIR)/File/VFS/VFS.cpp \
+	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/DiskFree.cpp \
+	$(COMMONDIR)/File/PathBrowser.cpp \
+	$(COMMONDIR)/Math/curves.cpp \
+	$(COMMONDIR)/Math/expression_parser.cpp \
+	$(COMMONDIR)/Math/math_util.cpp \
+	$(COMMONDIR)/Math/lin/vec3.cpp \
+	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/Executor.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
 	$(COMMONDIR)/Thread/ThreadPool.cpp \
 	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Buffer.cpp \
@@ -174,7 +187,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Timer.cpp \
 	$(COMMONDIR)/TimeUtil.cpp \
 	$(COMMONDIR)/ThreadPools.cpp
-
 
 
 SOURCES_CXX += \
@@ -231,8 +243,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/display.cpp \
-	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \
@@ -292,12 +302,8 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
-SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
-	       $(NATIVEDIR)/file/fd_util.cpp \
+SOURCES_CXX += $(NATIVEDIR)/file/fd_util.cpp \
 	       $(NATIVEDIR)/file/file_util.cpp \
-	       $(NATIVEDIR)/file/ini_file.cpp \
-	       $(NATIVEDIR)/file/free.cpp \
-	       $(NATIVEDIR)/file/zip_read.cpp \
 	       $(NATIVEDIR)/gfx/gl_debug_log.cpp \
 	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
           $(NATIVEDIR)/gfx/d3d9_shader.cpp \
@@ -308,10 +314,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
 	       $(NATIVEDIR)/image/zim_load.cpp \
 	       $(NATIVEDIR)/image/png_load.cpp \
-	       $(NATIVEDIR)/math/curves.cpp \
-	       $(NATIVEDIR)/math/expression_parser.cpp \
-	       $(NATIVEDIR)/math/lin/matrix4x4.cpp \
-          $(NATIVEDIR)/math/lin/vec3.cpp \
 	       $(NATIVEDIR)/net/http_client.cpp \
 	       $(NATIVEDIR)/net/resolve.cpp \
 	       $(NATIVEDIR)/net/url.cpp \

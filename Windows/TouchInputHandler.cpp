@@ -4,10 +4,12 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+
 #include "Common/CommonWindows.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Input/InputState.h"
 #include "Common/Log.h"
 #include "Common/SysError.h"
 #include "Windows/MainWindow.h"

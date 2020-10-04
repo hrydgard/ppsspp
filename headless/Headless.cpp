@@ -9,10 +9,12 @@
 #include <jni.h>
 #endif
 
-#include "base/NativeApp.h"
-#include "file/zip_read.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"

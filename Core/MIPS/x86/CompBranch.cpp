@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Core/Config.h"
 #include "Core/Core.h"

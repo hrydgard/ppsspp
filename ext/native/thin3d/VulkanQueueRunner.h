@@ -4,7 +4,7 @@
 
 #include "Common/Hashmaps.h"
 #include "Common/Vulkan/VulkanContext.h"
-#include "math/dataconv.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "thin3d/DataFormat.h"
 #include "Common/Data/Collections/TinySet.h"
 

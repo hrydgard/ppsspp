@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "ppsspp_config.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "Common/Common.h"
 #include "Common/BitScan.h"
 

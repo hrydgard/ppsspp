@@ -3,7 +3,7 @@
 #include <math.h>
 #include <tchar.h>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"

@@ -19,10 +19,10 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
-#include "file/vfs.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
-#include "math/math_util.h"
-#include "profiler/profiler.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/VulkanRenderManager.h"
 

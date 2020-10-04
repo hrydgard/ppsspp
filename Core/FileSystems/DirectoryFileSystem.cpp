@@ -20,14 +20,14 @@
 #include <algorithm>
 #include <limits>
 
-#include "file/free.h"
-#include "file/zip_read.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Common/FileUtil.h"
+#include "Common/File/DiskFree.h"
+#include "Common/File/VFS/VFS.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"

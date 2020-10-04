@@ -19,8 +19,8 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
-#include "base/NativeApp.h"
-#include "profiler/profiler.h"
+#include "Common/System/System.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"

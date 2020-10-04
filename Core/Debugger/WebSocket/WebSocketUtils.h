@@ -17,15 +17,15 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <string>
 
-#include "json/json_reader.h"
-#include "json/json_writer.h"
 #include "net/websocket_server.h"
 
 #include "Common/Log.h"
-
-#include "ppsspp_config.h"
+#include "Common/Data/Format/JSONReader.h"
+#include "Common/Data/Format/JSONWriter.h"
 
 #if PPSSPP_PLATFORM(UWP)
 // Enum name overlapped with UWP macro, quick hack to disable it
@@ -33,12 +33,6 @@
 #endif
 
 using namespace json;
-
-static inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {
-	const JsonNode *value = data.get("ticket");
-	if (value)
-		writer.writeRaw("ticket", json_stringify(value));
-}
 
 struct DebuggerErrorEvent {
 	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))

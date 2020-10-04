@@ -32,8 +32,8 @@
 #pragma warning(pop)
 
 // native stuff
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
 #include "file/file_util.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"

@@ -37,6 +37,33 @@
     <Filter Include="Data\Collections">
       <UniqueIdentifier>{7277c320-2c19-40d0-81a4-2f6cbb20790c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Data\Convert">
+      <UniqueIdentifier>{f924399b-932d-4aeb-b4e1-1da72f1fd2e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{211cb745-2675-4667-b0aa-964f33fc67dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\fast">
+      <UniqueIdentifier>{6f1f3b4e-8efd-4f39-b5a9-50d7c75b4616}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\lin">
+      <UniqueIdentifier>{56599f1d-b05b-4b55-b664-e6738d5edafc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File">
+      <UniqueIdentifier>{4841c76f-fc06-41b0-9fbf-4d73bd591ce5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Format">
+      <UniqueIdentifier>{98e1f400-451f-497f-bbbc-e88c74c9aab0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File\VFS">
+      <UniqueIdentifier>{b23bdba1-6007-4edb-ac75-a04cf8c5e172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiler">
+      <UniqueIdentifier>{6673c122-d7ed-4ccc-969a-12d317ee1f93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="System">
+      <UniqueIdentifier>{661f7d9d-5922-48d6-88ea-2f24bb57419f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -50,7 +77,6 @@
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\FileUtil.cpp" />
-    <ClCompile Include="..\..\Common\KeyMap.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
@@ -169,6 +195,63 @@
     <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp">
       <Filter>Data\Text</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Convert\SmallDataConvert.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\curves.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\expression_parser.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\math_util.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_math.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\lin\vec3.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\DiskFree.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\PathBrowser.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\VFS.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp">
+      <Filter>Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\Display.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -193,7 +276,6 @@
     <ClInclude Include="..\..\Common\FileUtil.h" />
     <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
-    <ClInclude Include="..\..\Common\KeyMap.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
     <ClInclude Include="..\..\Common\MathUtil.h" />
@@ -307,10 +389,81 @@
     <ClInclude Include="..\..\Common\Data\Text\WrapText.h">
       <Filter>Data\Text</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Convert\SmallDataConvert.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\curves.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\expression_parser.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\geom2d.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\math_util.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\fast\fast_math.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\lin\vec3.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\DiskFree.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\PathBrowser.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\RIFF.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\VFS.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\IniFile.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONReader.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h">
+      <Filter>Profiler</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\Display.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\NativeApp.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\System.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\ext\libpng17\CMakeLists.txt">
       <Filter>ext\libpng17</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
+      <Filter>Math\fast</Filter>
+    </None>
+    <None Include="..\..\Common\Math\lin\matrix_neon.s">
+      <Filter>Math\lin</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -2,12 +2,13 @@
 #include <cstring>
 #include <set>
 
-#include "Common/StringUtils.h"
-#include "Common/TimeUtil.h"
-
-#include "file/path.h"
 #include "net/http_client.h"
 #include "net/url.h"
+
+#include "Common/File/PathBrowser.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
+#include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
 bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileInfo> &files) {

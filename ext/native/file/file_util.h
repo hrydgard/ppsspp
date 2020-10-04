@@ -9,9 +9,11 @@
 
 // Whole-file reading/writing
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename);
-bool readFileToString(bool text_file, const char *filename, std::string &str);
-
 bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename);
+
+bool readFileToString(bool text_file, const char *filename, std::string &str);
+// Return value must be delete[]-d.
+uint8_t *ReadLocalFile(const char *filename, size_t *size);
 
 // Beginnings of a directory utility system. TODO: Improve.
 
