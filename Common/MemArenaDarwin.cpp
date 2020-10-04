@@ -20,11 +20,12 @@
 #if defined(__APPLE__)
 
 #include <string>
-#include <inttypes.h>
+#include <cstdint>
 
-#include "FileUtil.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
+#include "Common/Log.h"
+#include "Common/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
 
 #include <sys/stat.h>
 #include <fcntl.h>
