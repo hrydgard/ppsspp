@@ -153,11 +153,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Format/JSONReader.cpp \
 	$(COMMONDIR)/Data/Format/JSONWriter.cpp \
 	$(COMMONDIR)/Data/Format/PNGLoad.cpp \
-	$(COMMONDIR)/Data/Format/PNGLoad.h \
 	$(COMMONDIR)/Data/Format/ZIMLoad.cpp \
-	$(COMMONDIR)/Data/Format/ZIMLoad.h \
 	$(COMMONDIR)/Data/Format/ZIMSave.cpp \
-	$(COMMONDIR)/Data/Format/ZIMSave.h \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
@@ -200,7 +197,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
-	$(COMMONDIR)/KeyMap.cpp \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
@@ -333,9 +329,6 @@ SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
           $(NATIVEDIR)/gfx_es2/draw_text.cpp \
 	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
 	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
-	       $(NATIVEDIR)/net/http_client.cpp \
-	       $(NATIVEDIR)/net/resolve.cpp \
-	       $(NATIVEDIR)/net/url.cpp \
 	       $(NATIVEDIR)/thin3d/thin3d.cpp \
 			 $(NATIVEDIR)/thin3d/thin3d_gl.cpp \
           $(NATIVEDIR)/thin3d/GLRenderManager.cpp \
@@ -348,6 +341,7 @@ SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
+	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \
@@ -538,7 +532,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
+			ASMFILES   += $(COMMONDIR)/Math/fast/fast_matrix_neon.S \
 				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
@@ -606,7 +600,7 @@ endif
 						$(COREDIR)/MIPS/x86/RegCache.cpp \
 						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
 						$(GPUDIR)/Common/VertexDecoderX86.cpp
-		SOURCES_C   += $(NATIVEDIR)/math/fast/fast_matrix_sse.c
+		SOURCES_C   += $(COMMONDIR)/Math/fast/fast_matrix_sse.c
    endif
 endif
 #UDIS86

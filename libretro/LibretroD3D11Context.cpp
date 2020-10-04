@@ -1,4 +1,4 @@
-
+#include "Common/Log.h"
 #include "Core/ConfigValues.h"
 #include "libretro/LibretroD3D11Context.h"
 #include "thin3d/d3d11_loader.h"
