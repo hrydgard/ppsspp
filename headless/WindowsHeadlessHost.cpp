@@ -19,8 +19,8 @@
 
 #include "headless/WindowsHeadlessHost.h"
 
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 

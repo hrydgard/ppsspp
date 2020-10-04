@@ -90,9 +90,8 @@ ifeq ($(PLATFORM_EXT), android)
 		$(EXTDIR)/libzip/zip_unchange_data.c
 
 	SOURCES_C +=\
-		$(NATIVEDIR)/gfx_es2/gl3stub.c \
-		$(NATIVEDIR)/math/fast/fast_math.c \
-		$(NATIVEDIR)/math/fast/fast_matrix.c
+		$(COMMONDIR)/Math/fast/fast_math.c \
+		$(COMMONDIR)/Math/fast/fast_matrix.c
 endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
@@ -166,6 +165,23 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/FileUtil.cpp \
 	$(COMMONDIR)/File/FileDescriptor.cpp \
 	$(COMMONDIR)/File/DirListing.cpp \
+	$(COMMONDIR)/GPU/thin3d.cpp \
+	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
+	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
+	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
+	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanLoader.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanContext.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanDebug.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanImage.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanMemory.cpp \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Math/curves.cpp \
@@ -180,6 +196,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/Sinks.cpp \
 	$(COMMONDIR)/Net/URL.cpp \
 	$(COMMONDIR)/Net/WebsocketServer.cpp \
+	$(COMMONDIR)/Render/DrawBuffer.cpp \
+	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/Executor.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
@@ -321,19 +339,8 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
-SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
-	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
-          $(NATIVEDIR)/gfx/d3d9_shader.cpp \
-          $(NATIVEDIR)/gfx/d3d9_state.cpp \
-			 $(NATIVEDIR)/gfx_es2/draw_buffer.cpp \
-          $(NATIVEDIR)/gfx_es2/draw_text.cpp \
-	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
-	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
-	       $(NATIVEDIR)/thin3d/thin3d.cpp \
-			 $(NATIVEDIR)/thin3d/thin3d_gl.cpp \
-          $(NATIVEDIR)/thin3d/GLRenderManager.cpp \
-          $(NATIVEDIR)/thin3d/GLQueueRunner.cpp \
-          $(NATIVEDIR)/thin3d/DataFormatGL.cpp \
+SOURCES_CXX += \
+           $(NATIVEDIR)/gfx_es2/draw_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \
@@ -631,14 +638,6 @@ SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/upnpreplyparse.c
 
 SOURCES_CXX += \
-	$(COMMONDIR)/Vulkan/VulkanContext.cpp \
-	$(COMMONDIR)/Vulkan/VulkanDebug.cpp \
-	$(COMMONDIR)/Vulkan/VulkanImage.cpp \
-	$(COMMONDIR)/Vulkan/VulkanLoader.cpp \
-	$(COMMONDIR)/Vulkan/VulkanMemory.cpp \
-	$(NATIVEDIR)/thin3d/thin3d_vulkan.cpp \
-	$(NATIVEDIR)/thin3d/VulkanRenderManager.cpp \
-	$(NATIVEDIR)/thin3d/VulkanQueueRunner.cpp \
 	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
@@ -691,11 +690,10 @@ SOURCES_CXX += \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
-   $(NATIVEDIR)/thin3d/thin3d_d3d9.cpp \
-   $(NATIVEDIR)/thin3d/thin3d_d3d11.cpp \
-   $(NATIVEDIR)/thin3d/d3dx9_loader.cpp \
-   $(NATIVEDIR)/thin3d/d3d11_loader.cpp \
-   $(NATIVEDIR)/thin3d/d3d9_d3dcompiler_loader.cpp
+   $(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
+   $(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp \
+   $(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
+   $(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp
 
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 

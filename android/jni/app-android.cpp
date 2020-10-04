@@ -51,8 +51,8 @@ struct JNIEnv {};
 
 #include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"

@@ -33,7 +33,7 @@
 
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Math/math_util.h"
 
 #include "QtMain.h"

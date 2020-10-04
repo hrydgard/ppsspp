@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include "Common/Math/math_util.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"

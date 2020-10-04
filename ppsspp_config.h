@@ -123,10 +123,7 @@
 #if PPSSPP_PLATFORM(WINDOWS)
 #if !PPSSPP_PLATFORM(UWP)
 #define PPSSPP_API_D3D9 1
-
-// Comment this and uncomment PPSSPP_API_D3DX9 if D3DX9 is prefered.
-#define PPSSPP_API_D3D9_D3DCOMPILER 1
-// #define PPSSPP_API_D3DX9 1
 #endif
 #define PPSSPP_API_D3D11 1
 #endif
+

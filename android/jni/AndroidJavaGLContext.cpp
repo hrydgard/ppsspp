@@ -1,6 +1,6 @@
 #include "AndroidJavaGLContext.h"
 #include "Common/System/Display.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Log.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"

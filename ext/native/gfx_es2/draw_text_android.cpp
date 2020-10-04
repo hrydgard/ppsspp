@@ -1,5 +1,5 @@
 #include "Common/System/Display.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"

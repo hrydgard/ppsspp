@@ -16,15 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Profiler/Profiler.h"
-#include "GPU/Math3D.h"
-#include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
+#include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "gfx/d3d9_shader.h"
-#include "gfx/d3d9_state.h"
+#include "GPU/Math3D.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
 
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"

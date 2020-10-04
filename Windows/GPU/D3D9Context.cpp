@@ -3,7 +3,7 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -17,8 +17,8 @@
 #include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
 
 #if PPSSPP_API(D3DX9)
 #include "thin3d/d3dx9_loader.h"

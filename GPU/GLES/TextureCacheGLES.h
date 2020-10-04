@@ -19,9 +19,9 @@
 
 #include <map>
 
-#include "gfx_es2/gpu_features.h"
-#include "gfx/gl_common.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScalerGLES.h"

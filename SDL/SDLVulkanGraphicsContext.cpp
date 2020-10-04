@@ -3,9 +3,9 @@
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Core/System.h"

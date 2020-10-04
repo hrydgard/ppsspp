@@ -20,8 +20,8 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShaderVulkan {

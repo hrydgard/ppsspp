@@ -6,7 +6,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
-#include "thin3d/thin3d_create.h"
+#include "Common/GPU/thin3d_create.h"
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"

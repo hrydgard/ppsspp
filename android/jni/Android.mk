@@ -102,22 +102,18 @@ ARCH_FILES := \
 endif
 
 NATIVE_FILES :=\
-  $(SRC)/ext/native/gfx_es2/glsl_program.cpp \
-  $(SRC)/ext/native/gfx_es2/gpu_features.cpp \
-  $(SRC)/ext/native/gfx_es2/gl3stub.c \
-  $(SRC)/ext/native/gfx_es2/draw_buffer.cpp.arm \
+  $(SRC)/Common/Render/DrawBuffer.cpp \
+  $(SRC)/Common/Render/TextureAtlas.cpp \
+  $(SRC)/Common/GPU/OpenGL/thin3d_gl.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
+  $(SRC)/Common/GPU/OpenGL/gl3stub.c \
+  $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
+  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp \
   $(SRC)/ext/native/gfx_es2/draw_text.cpp.arm \
-  $(SRC)/ext/native/gfx_es2/draw_text_android.cpp.arm \
-  $(SRC)/ext/native/gfx/gl_debug_log.cpp \
-  $(SRC)/ext/native/gfx/texture_atlas.cpp \
-  $(SRC)/ext/native/thin3d/thin3d.cpp \
-  $(SRC)/ext/native/thin3d/thin3d_gl.cpp \
-  $(SRC)/ext/native/thin3d/thin3d_vulkan.cpp \
-  $(SRC)/ext/native/thin3d/GLRenderManager.cpp \
-  $(SRC)/ext/native/thin3d/GLQueueRunner.cpp \
-  $(SRC)/ext/native/thin3d/VulkanRenderManager.cpp \
-  $(SRC)/ext/native/thin3d/VulkanQueueRunner.cpp \
-  $(SRC)/ext/native/thin3d/DataFormatGL.cpp
+  $(SRC)/ext/native/gfx_es2/draw_text_android.cpp.arm
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \
@@ -125,11 +121,14 @@ EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
 VULKAN_FILES := \
-  $(SRC)/Common/Vulkan/VulkanLoader.cpp \
-  $(SRC)/Common/Vulkan/VulkanContext.cpp \
-  $(SRC)/Common/Vulkan/VulkanDebug.cpp \
-  $(SRC)/Common/Vulkan/VulkanImage.cpp \
-  $(SRC)/Common/Vulkan/VulkanMemory.cpp \
+  $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanRenderManager.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanLoader.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanContext.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \

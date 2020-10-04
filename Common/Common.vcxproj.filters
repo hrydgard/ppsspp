@@ -50,25 +50,10 @@
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
-    <ClInclude Include="Vulkan\VulkanLoader.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\VulkanContext.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\VulkanImage.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\VulkanMemory.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Hashmaps.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="MakeUnique.h" />
-    <ClInclude Include="Vulkan\VulkanDebug.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="MachineContext.h" />
     <ClInclude Include="Serialize\Serializer.h">
@@ -300,6 +285,78 @@
     <ClInclude Include="UI\ViewGroup.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h">
+      <Filter>GPU\D3D9</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h">
+      <Filter>GPU\D3D9</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D9\D3D9StateCache.h">
+      <Filter>GPU\D3D9</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D11\D3D11Loader.h">
+      <Filter>GPU\D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\DataFormatGL.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\gl3stub.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLQueueRunner.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLRenderManager.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\DataFormat.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\thin3d.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\thin3d_create.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLCommon.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLDebugLog.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLSLProgram.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\DrawBuffer.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\TextureAtlas.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLFeatures.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanContext.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanDebug.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanImage.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanLoader.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanMemory.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -337,26 +394,11 @@
     <ClCompile Include="GL\GLInterface\GLInterface.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\VulkanLoader.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\VulkanContext.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\VulkanImage.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\VulkanMemory.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="MemArenaPosix.cpp" />
     <ClCompile Include="MemArenaWin32.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="OSVersion.cpp" />
-    <ClCompile Include="Vulkan\VulkanDebug.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="ExceptionHandlerSetup.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp">
       <Filter>Serialize</Filter>
@@ -575,6 +617,81 @@
     <ClCompile Include="UI\ViewGroup.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp">
+      <Filter>GPU\D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp">
+      <Filter>GPU\D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp">
+      <Filter>GPU\D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp">
+      <Filter>GPU\D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp">
+      <Filter>GPU\D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D11\D3D11Loader.cpp">
+      <Filter>GPU\D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\DataFormatGL.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\gl3stub.c">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\thin3d.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\thin3d_vulkan.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanQueueRunner.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanRenderManager.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\DrawBuffer.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\TextureAtlas.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLFeatures.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanContext.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanDebug.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanImage.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -585,9 +702,6 @@
     </Filter>
     <Filter Include="GL\GLInterface">
       <UniqueIdentifier>{2c723cf4-75b6-406a-90c0-ebb7a13ba476}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Vulkan">
-      <UniqueIdentifier>{c14d66ef-5f7c-4565-975a-72774e7ccfb9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Serialize">
       <UniqueIdentifier>{7be79ad5-3520-46a1-a370-dce2a943978c}</UniqueIdentifier>
@@ -657,6 +771,24 @@
     </Filter>
     <Filter Include="UI">
       <UniqueIdentifier>{6a61d762-e71c-4428-8cef-c7ddda405ba5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{3b448d70-d5c6-4732-96f0-29f3e101bfe8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\D3D9">
+      <UniqueIdentifier>{a1745de8-f61a-4f11-b715-705a8812862e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\D3D11">
+      <UniqueIdentifier>{8241d0c2-78c8-4fc6-9543-69042ec5eb54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\Vulkan">
+      <UniqueIdentifier>{e9d7bdf2-c412-4030-a423-671066c4ea51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\OpenGL">
+      <UniqueIdentifier>{19ad2070-4f85-48d3-abab-add446ea3a77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render">
+      <UniqueIdentifier>{c9aba118-5c31-4607-9a69-18eca9f92b44}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

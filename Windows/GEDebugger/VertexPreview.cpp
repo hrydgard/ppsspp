@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Math/lin/matrix4x4.h"
-#include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Core/System.h"

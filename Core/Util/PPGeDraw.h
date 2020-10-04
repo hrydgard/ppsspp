@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
 #include "Common/CommonTypes.h"
 

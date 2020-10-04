@@ -6,44 +6,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="gfx\gl_debug_log.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\draw_buffer.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\glsl_program.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\texture_atlas.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\gpu_features.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\gl3stub.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\thin3d.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\d3dx9_loader.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\gl_common.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\d3d9_shader.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\d3d9_state.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\d3d11_loader.h">
-      <Filter>thin3d</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_text_win.h">
       <Filter>gfx</Filter>
@@ -54,82 +18,13 @@
     <ClInclude Include="gfx_es2\draw_text_android.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="thin3d\VulkanQueueRunner.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\VulkanRenderManager.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\DataFormat.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\GLRenderManager.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\GLQueueRunner.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\DataFormatGL.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\thin3d_create.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\draw_text_uwp.h">
       <Filter>gfx</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="gfx\gl_debug_log.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\draw_buffer.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\glsl_program.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\texture_atlas.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\gpu_features.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\gl3stub.c">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\thin3d_gl.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\thin3d_d3d9.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\thin3d.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\d3dx9_loader.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\thin3d_vulkan.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\thin3d_d3d11.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\d3d9_shader.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\d3d9_state.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\d3d11_loader.cpp">
-      <Filter>thin3d</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_win.cpp">
       <Filter>gfx</Filter>
@@ -139,24 +34,6 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_android.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\VulkanQueueRunner.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\VulkanRenderManager.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\GLQueueRunner.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\GLRenderManager.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\DataFormatGL.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
-      <Filter>thin3d</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp">
       <Filter>gfx</Filter>
@@ -168,9 +45,6 @@
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thin3d">
-      <UniqueIdentifier>{06c6305a-a646-485b-85b9-645a24dd6553}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

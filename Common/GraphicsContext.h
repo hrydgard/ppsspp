@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 // Init is done differently on each platform, and done close to the creation, so it's
 // expected to be implemented by subclasses.

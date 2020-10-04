@@ -17,7 +17,7 @@
 
 #include <cstdio>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"

@@ -28,7 +28,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/Net/Resolve.h"
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "SDL_syswm.h"
 

@@ -19,7 +19,7 @@
 #include <deque>
 #include <mutex>
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Context.h"

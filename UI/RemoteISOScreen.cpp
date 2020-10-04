@@ -26,7 +26,7 @@
 #endif
 
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"

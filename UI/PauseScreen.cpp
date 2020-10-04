@@ -18,12 +18,12 @@
 #include <algorithm>
 #include <memory>
 
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UIScreen.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"

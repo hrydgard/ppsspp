@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <sstream>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"

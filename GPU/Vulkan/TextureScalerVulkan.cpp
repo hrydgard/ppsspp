@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/Common.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/ThreadPools.h"

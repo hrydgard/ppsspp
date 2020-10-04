@@ -1,7 +1,7 @@
 
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanDebug.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

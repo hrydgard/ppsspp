@@ -6,7 +6,7 @@
 
 #include "Common/Math/geom2d.h"
 #include "Common/Math/lin/vec3.h"
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.

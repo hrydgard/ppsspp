@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/System/Display.h"
-#include "gfx_es2/draw_buffer.h"
-#include "gfx/texture_atlas.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"

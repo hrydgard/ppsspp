@@ -1,7 +1,7 @@
 #include <string>
 #include <sstream>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 

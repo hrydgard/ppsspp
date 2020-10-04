@@ -10,7 +10,7 @@
 #if PPSSPP_PLATFORM(UWP)
 #define ptr_D3DCompile D3DCompile
 #else
-#include "thin3d/d3d11_loader.h"
+#include "Common/GPU/D3D11/D3D11Loader.h"
 #endif
 
 #include "Common/CommonFuncs.h"

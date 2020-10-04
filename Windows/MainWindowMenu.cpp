@@ -7,7 +7,7 @@
 
 #include "resource.h"
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -18,7 +18,7 @@
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Common/OSVersion.h"
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/StringUtils.h"
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureScalerGLES.h"

@@ -27,8 +27,8 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
-#include "gfx/gl_common.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 class LinkedShader;
 class ShaderManagerGLES;

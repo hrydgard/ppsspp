@@ -25,7 +25,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class TextureCacheD3D11;
 class DrawEngineD3D11;

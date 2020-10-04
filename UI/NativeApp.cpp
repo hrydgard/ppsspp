@@ -45,10 +45,10 @@
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/gpu_features.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/Context.h"

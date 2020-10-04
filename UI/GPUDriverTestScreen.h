@@ -8,7 +8,7 @@
 
 #include "Common/LogManager.h"
 #include "UI/MiscScreens.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class GPUDriverTestScreen : public UIDialogScreenWithBackground {
 public:

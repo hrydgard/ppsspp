@@ -20,8 +20,8 @@
 #include <algorithm>
 
 #include "Common/Net/Resolve.h"
-#include "gfx_es2/gpu_features.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"

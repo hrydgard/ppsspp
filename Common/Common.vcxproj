@@ -136,7 +136,7 @@
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -158,7 +158,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -181,7 +181,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -205,7 +205,7 @@
       </ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -234,7 +234,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -260,7 +260,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -291,7 +291,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -322,7 +322,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/native;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -388,6 +388,28 @@
     <ClInclude Include="File\PathBrowser.h" />
     <ClInclude Include="File\VFS\VFS.h" />
     <ClInclude Include="File\VFS\AssetReader.h" />
+    <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
+    <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h" />
+    <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
+    <ClInclude Include="GPU\D3D9\D3D9StateCache.h" />
+    <ClInclude Include="GPU\DataFormat.h" />
+    <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
+    <ClInclude Include="GPU\OpenGL\gl3stub.h" />
+    <ClInclude Include="GPU\OpenGL\GLFeatures.h" />
+    <ClInclude Include="GPU\OpenGL\GLQueueRunner.h" />
+    <ClInclude Include="GPU\OpenGL\GLRenderManager.h" />
+    <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
+    <ClInclude Include="GPU\OpenGL\GLCommon.h" />
+    <ClInclude Include="GPU\OpenGL\GLDebugLog.h" />
+    <ClInclude Include="GPU\thin3d.h" />
+    <ClInclude Include="GPU\thin3d_create.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h" />
     <ClInclude Include="Input\GestureDetector.h" />
     <ClInclude Include="Input\InputState.h" />
     <ClInclude Include="Input\KeyCodes.h" />
@@ -407,6 +429,8 @@
     <ClInclude Include="Net\URL.h" />
     <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />
+    <ClInclude Include="Render\DrawBuffer.h" />
+    <ClInclude Include="Render\TextureAtlas.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
@@ -483,11 +507,6 @@
     <ClInclude Include="UI\UIScreen.h" />
     <ClInclude Include="UI\View.h" />
     <ClInclude Include="UI\ViewGroup.h" />
-    <ClInclude Include="Vulkan\VulkanContext.h" />
-    <ClInclude Include="Vulkan\VulkanDebug.h" />
-    <ClInclude Include="Vulkan\VulkanImage.h" />
-    <ClInclude Include="Vulkan\VulkanLoader.h" />
-    <ClInclude Include="Vulkan\VulkanMemory.h" />
     <ClInclude Include="x64Analyzer.h" />
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
@@ -690,6 +709,29 @@
     <ClCompile Include="File\PathBrowser.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
     <ClCompile Include="File\VFS\AssetReader.cpp" />
+    <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
+    <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp" />
+    <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp" />
+    <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp" />
+    <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp" />
+    <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp" />
+    <ClCompile Include="GPU\OpenGL\DataFormatGL.cpp" />
+    <ClCompile Include="GPU\OpenGL\gl3stub.c" />
+    <ClCompile Include="GPU\OpenGL\GLFeatures.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp" />
+    <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp" />
+    <ClCompile Include="GPU\thin3d.cpp" />
+    <ClCompile Include="GPU\Vulkan\thin3d_vulkan.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanContext.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanDebug.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanQueueRunner.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanRenderManager.cpp" />
     <ClCompile Include="Input\GestureDetector.cpp" />
     <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="Log.cpp" />
@@ -709,6 +751,8 @@
     <ClCompile Include="Net\URL.cpp" />
     <ClCompile Include="Net\WebsocketServer.cpp" />
     <ClCompile Include="Profiler\Profiler.cpp" />
+    <ClCompile Include="Render\DrawBuffer.cpp" />
+    <ClCompile Include="Render\TextureAtlas.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
@@ -774,11 +818,6 @@
     <ClCompile Include="UI\UIScreen.cpp" />
     <ClCompile Include="UI\View.cpp" />
     <ClCompile Include="UI\ViewGroup.cpp" />
-    <ClCompile Include="Vulkan\VulkanContext.cpp" />
-    <ClCompile Include="Vulkan\VulkanDebug.cpp" />
-    <ClCompile Include="Vulkan\VulkanImage.cpp" />
-    <ClCompile Include="Vulkan\VulkanLoader.cpp" />
-    <ClCompile Include="Vulkan\VulkanMemory.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
   </ItemGroup>

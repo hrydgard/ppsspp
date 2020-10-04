@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "gfx_es2/draw_buffer.h"
-#include "thin3d/thin3d.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 
 #include "DebugVisVulkan.h"
-#include "Common/Vulkan/VulkanMemory.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"

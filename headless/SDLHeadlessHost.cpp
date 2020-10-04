@@ -21,10 +21,10 @@
 #include <SDL.h>
 
 #include "headless/SDLHeadlessHost.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"

@@ -21,7 +21,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"

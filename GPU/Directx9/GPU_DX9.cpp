@@ -31,7 +31,7 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

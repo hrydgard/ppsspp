@@ -400,18 +400,19 @@ if(NOT (X86 OR ARM OR MIPS))
 	source_group(Fake FILES ${CommonFake})
 endif()
 
-set(CommonVulkan ${CommonExtra}
-	Common/Vulkan/VulkanDebug.cpp
-	Common/Vulkan/VulkanDebug.h
-	Common/Vulkan/VulkanContext.cpp
-	Common/Vulkan/VulkanContext.h
-	Common/Vulkan/VulkanImage.cpp
-	Common/Vulkan/VulkanImage.h
-	Common/Vulkan/VulkanLoader.cpp
-	Common/Vulkan/VulkanLoader.h
-	Common/Vulkan/VulkanMemory.cpp
-	Common/Vulkan/VulkanMemory.h
-)
+if(WIN32)
+	set(CommonD3D
+		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
+		Common/GPU/D3D9/D3D9ShaderCompiler.h
+		Common/GPU/D3D9/D3D9StateCache.cpp
+		Common/GPU/D3D9/D3D9StateCache.h
+		Common/GPU/D3D9/thin3d_d3d9.cpp
+		Common/GPU/D3D9/D3DCompilerLoader.cpp
+		Common/GPU/D3D11/thin3d_d3d11.cpp
+		Common/GPU/D3D11/D3D11Loader.cpp
+		Common/GPU/D3D11/D3D11Loader.h
+	)
+endif()
 
 add_library(Common STATIC
 	${CommonX86}
@@ -420,6 +421,7 @@ add_library(Common STATIC
 	${CommonMIPS}
 	${CommonFake}
 	${CommonVulkan}
+	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -484,6 +486,41 @@ add_library(Common STATIC
 	Common/File/DirListing.h
 	Common/File/FileDescriptor.cpp
 	Common/File/FileDescriptor.h
+	Common/GPU/DataFormat.h
+	Common/GPU/thin3d.cpp
+	Common/GPU/thin3d.h
+	Common/GPU/thin3d_create.h
+	Common/GPU/OpenGL/GLCommon.h
+	Common/GPU/OpenGL/GLDebugLog.cpp
+	Common/GPU/OpenGL/GLDebugLog.h
+	Common/GPU/OpenGL/GLSLProgram.cpp
+	Common/GPU/OpenGL/GLSLProgram.h
+	Common/GPU/OpenGL/gl3stub.c
+	Common/GPU/OpenGL/gl3stub.h
+	Common/GPU/OpenGL/GLFeatures.cpp
+	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLRenderManager.cpp
+	Common/GPU/OpenGL/GLRenderManager.h
+	Common/GPU/OpenGL/GLQueueRunner.cpp
+	Common/GPU/OpenGL/GLQueueRunner.h
+	Common/GPU/OpenGL/DataFormatGL.cpp
+	Common/GPU/OpenGL/DataFormatGL.h
+	Common/GPU/Vulkan/VulkanDebug.cpp
+	Common/GPU/Vulkan/VulkanDebug.h
+	Common/GPU/Vulkan/VulkanContext.cpp
+	Common/GPU/Vulkan/VulkanContext.h
+	Common/GPU/Vulkan/VulkanImage.cpp
+	Common/GPU/Vulkan/VulkanImage.h
+	Common/GPU/Vulkan/VulkanLoader.cpp
+	Common/GPU/Vulkan/VulkanLoader.h
+	Common/GPU/Vulkan/VulkanMemory.cpp
+	Common/GPU/Vulkan/VulkanMemory.h
+	Common/GPU/Vulkan/thin3d_vulkan.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.h
+	Common/GPU/Vulkan/VulkanQueueRunner.cpp
+	Common/GPU/Vulkan/VulkanQueueRunner.h
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h
@@ -519,6 +556,10 @@ add_library(Common STATIC
 	Common/Net/WebsocketServer.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
+	Common/Render/TextureAtlas.cpp
+	Common/Render/TextureAtlas.h
+	Common/Render/DrawBuffer.cpp
+	Common/Render/DrawBuffer.h
 	Common/System/Display.cpp
 	Common/System/Display.h
 	Common/Thread/Executor.cpp
@@ -1019,49 +1060,8 @@ if(ANDROID)
 	endif()
 endif()
 
-set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
-	ext/native/thin3d/GLRenderManager.cpp
-	ext/native/thin3d/GLRenderManager.h
-	ext/native/thin3d/GLQueueRunner.cpp
-	ext/native/thin3d/GLQueueRunner.h
-	ext/native/thin3d/DataFormatGL.cpp
-	ext/native/thin3d/DataFormatGL.h
-)
-
-set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-	ext/native/thin3d/thin3d_vulkan.cpp
-	ext/native/thin3d/VulkanRenderManager.cpp
-	ext/native/thin3d/VulkanRenderManager.h
-	ext/native/thin3d/VulkanQueueRunner.cpp
-	ext/native/thin3d/VulkanQueueRunner.h
-	ext/native/thin3d/DataFormat.h
-)
-
-if(WIN32)
-	set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-		ext/native/thin3d/thin3d_d3d9.cpp
-		ext/native/thin3d/thin3d_d3d11.cpp
-		ext/native/thin3d/d3d9_d3dcompiler_loader.cpp
-		ext/native/thin3d/d3dx9_loader.cpp
-		ext/native/thin3d/d3dx9_loader.h
-		ext/native/thin3d/d3d11_loader.cpp
-		ext/native/thin3d/d3d11_loader.h
-	)
-endif()
-
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/gfx/gl_common.h
-	ext/native/gfx/gl_debug_log.cpp
-	ext/native/gfx/gl_debug_log.h
-	ext/native/gfx/texture_atlas.cpp
-	ext/native/gfx/texture_atlas.h
-	ext/native/gfx/d3d9_shader.cpp
-	ext/native/gfx/d3d9_shader.h
-	ext/native/gfx/d3d9_state.cpp
-	ext/native/gfx/d3d9_state.h
-	ext/native/gfx_es2/draw_buffer.cpp
-	ext/native/gfx_es2/draw_buffer.h
 	ext/native/gfx_es2/draw_text.cpp
 	ext/native/gfx_es2/draw_text.h
 	ext/native/gfx_es2/draw_text_win.cpp
@@ -1070,16 +1070,6 @@ add_library(native STATIC
 	ext/native/gfx_es2/draw_text_qt.h
 	ext/native/gfx_es2/draw_text_android.cpp
 	ext/native/gfx_es2/draw_text_android.h
-	ext/native/gfx_es2/gpu_features.cpp
-	ext/native/gfx_es2/gpu_features.h
-	ext/native/gfx_es2/glsl_program.cpp
-	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/gl3stub.c
-	ext/native/gfx_es2/gl3stub.h
-	ext/native/thin3d/thin3d.cpp
-	ext/native/thin3d/thin3d.h
-	ext/native/thin3d/thin3d_create.h
-	${THIN3D_PLATFORMS}
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp

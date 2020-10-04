@@ -19,7 +19,7 @@
 #include <set>
 #include <cstdint>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"

@@ -363,68 +363,18 @@
     <None Include="tools\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="gfx\d3d9_shader.h" />
-    <ClInclude Include="gfx\d3d9_state.h" />
-    <ClInclude Include="gfx\gl_common.h" />
-    <ClInclude Include="gfx\gl_debug_log.h" />
-    <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_text_android.h" />
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
-    <ClInclude Include="thin3d\d3d11_loader.h" />
-    <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h" />
-    <ClInclude Include="thin3d\DataFormat.h" />
-    <ClInclude Include="thin3d\DataFormatGL.h" />
-    <ClInclude Include="thin3d\GLQueueRunner.h" />
-    <ClInclude Include="thin3d\GLRenderManager.h" />
-    <ClInclude Include="thin3d\thin3d_create.h" />
-    <ClInclude Include="thin3d\VulkanQueueRunner.h" />
-    <ClInclude Include="thin3d\VulkanRenderManager.h" />
-    <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
-    <ClInclude Include="gfx_es2\gl3stub.h" />
-    <ClInclude Include="gfx_es2\glsl_program.h" />
-    <ClInclude Include="gfx_es2\gpu_features.h" />
-    <ClInclude Include="thin3d\d3dx9_loader.h" />
-    <ClInclude Include="thin3d\thin3d.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="gfx\d3d9_shader.cpp" />
-    <ClCompile Include="gfx\d3d9_state.cpp" />
-    <ClCompile Include="gfx\gl_debug_log.cpp" />
-    <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
-    <ClCompile Include="thin3d\d3d11_loader.cpp" />
-    <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp" />
-    <ClCompile Include="thin3d\DataFormatGL.cpp" />
-    <ClCompile Include="thin3d\GLQueueRunner.cpp" />
-    <ClCompile Include="thin3d\GLRenderManager.cpp" />
-    <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
-    <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
-    <ClCompile Include="thin3d\VulkanRenderManager.cpp" />
-    <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
-    <ClCompile Include="gfx_es2\gl3stub.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\glsl_program.cpp" />
-    <ClCompile Include="gfx_es2\gpu_features.cpp" />
-    <ClCompile Include="thin3d\d3dx9_loader.cpp" />
-    <ClCompile Include="thin3d\thin3d.cpp" />
-    <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
-    <ClCompile Include="thin3d\thin3d_gl.cpp" />
-    <ClCompile Include="thin3d\thin3d_vulkan.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -11,7 +11,7 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/Root.h"
 #include "Common/Data/Text/I18n.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

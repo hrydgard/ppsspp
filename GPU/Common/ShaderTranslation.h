@@ -19,7 +19,7 @@
 
 #include <string>
 #include "GPU/Common/ShaderCommon.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 struct TranslatedShaderMetadata {
 

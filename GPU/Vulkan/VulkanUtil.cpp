@@ -17,7 +17,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {

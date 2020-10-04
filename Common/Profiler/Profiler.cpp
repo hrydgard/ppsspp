@@ -9,7 +9,7 @@
 
 #include "ppsspp_config.h"
 
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 
 #include "Common/TimeUtil.h"
 #include "Common/Profiler/Profiler.h"

@@ -19,8 +19,8 @@
 
 #include <algorithm>
 
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "gfx_es2/draw_text.h"
 
 #include "Common/UI/Root.h"
