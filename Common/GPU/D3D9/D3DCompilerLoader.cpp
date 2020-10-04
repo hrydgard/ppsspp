@@ -11,16 +11,13 @@ extern pD3DCompile ptr_D3DCompile;
 
 static int d3dcompiler_version = 47;
 
-#define GB_MAKE_STR(s)  # s
-#define GB_MAKE_STR2(x) GB_MAKE_STR(x)
-#define GB_D3D9_D3DCOMPILER_LOADER_CHECK_ENTRY_NULL_PTR(funcname)  assert(false && GB_MAKE_STR2(funcname) ); 
-
 bool LoadD3DCompilerDynamic() {
 	g_D3DCompileModule = LoadLibrary(D3DCOMPILER_DLL);
 #if PPSSPP_ARCH(X86)
 	// Workaround for distributing both 32-bit and 64-bit versions of the DLL.
-	if (!g_D3DCompileModule)
+	if (!g_D3DCompileModule) {
 		g_D3DCompileModule = LoadLibrary(L"D3dcompiler_47.x86.dll");
+	}
 #endif
 	if (!g_D3DCompileModule) {
 		g_D3DCompileModule = LoadLibrary(L"D3dcompiler_42.dll");

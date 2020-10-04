@@ -1252,19 +1252,11 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 }
 
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
-#if PPSSPP_API(D3DX9)
-	int d3dx_ver = LoadD3DX9Dynamic();
-	if (!d3dx_ver) {
-		ERROR_LOG(G3D,  "Failed to load D3DX9!");
-		return NULL;
-	}
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 	bool result = LoadD3DCompilerDynamic();
 	if (!result) {
 		ERROR_LOG(G3D,  "Failed to load D3DCompiler!");
-		return NULL;
+		return nullptr;
 	}
-#endif
 	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 
