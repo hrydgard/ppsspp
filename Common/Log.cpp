@@ -22,7 +22,7 @@
 #include "Common.h"
 #include "Common/Log.h"
 #include "StringUtils.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>

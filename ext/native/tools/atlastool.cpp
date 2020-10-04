@@ -46,7 +46,7 @@
 // add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 using namespace std;
 static int global_id;

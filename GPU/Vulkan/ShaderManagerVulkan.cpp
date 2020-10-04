@@ -24,7 +24,7 @@
 #include "math/dataconv.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanContext.h"

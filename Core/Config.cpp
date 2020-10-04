@@ -26,11 +26,11 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "json/json_reader.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 #include "net/url.h"
 
 #include "Common/CPUDetect.h"

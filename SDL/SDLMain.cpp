@@ -21,19 +21,13 @@ SDLJoystick *joystick = NULL;
 #include <locale>
 
 #include "base/display.h"
-#include "Common/TimeUtil.h"
+#include "base/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "image/png_load.h"
-#include "Common/Input/InputState.h"
-#include "Common/Input/KeyCodes.h"
 #include "net/resolve.h"
 #include "NKCodeFromSDL.h"
-#include "util/const_map.h"
-#include "util/text/utf8.h"
 #include "math/math_util.h"
 #include "thin3d/GLRenderManager.h"
-#include "Common/Thread/ThreadUtil.h"
-#include "math.h"
 
 #include "SDL_syswm.h"
 
@@ -46,11 +40,17 @@ SDLJoystick *joystick = NULL;
 #include <X11/Xlib-xcb.h>
 #endif
 
+#include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/Data/Collections/ConstMap.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Common/GraphicsContext.h"
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 

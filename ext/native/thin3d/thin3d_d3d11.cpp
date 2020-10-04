@@ -8,7 +8,7 @@
 #endif
 #include "base/display.h"
 #include "math/dataconv.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/ColorConv.h"
 

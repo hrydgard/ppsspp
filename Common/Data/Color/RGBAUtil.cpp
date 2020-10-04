@@ -1,4 +1,4 @@
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 
 template <typename T>
 static T clamp(T f, T low, T high) {

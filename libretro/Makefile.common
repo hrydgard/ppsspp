@@ -143,6 +143,16 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/sha256.cpp
 
 SOURCES_CXX += \
+	$(COMMONDIR)/Data/Color/RGBAUtil.cpp \
+	$(COMMONDIR)/Data/Encoding/Base64.cpp \
+	$(COMMONDIR)/Data/Encoding/Compression.cpp \
+	$(COMMONDIR)/Data/Encoding/Utf8.cpp \
+	$(COMMONDIR)/Data/Hash/Hash.cpp \
+	$(COMMONDIR)/Data/Text/I18n.cpp \
+	$(COMMONDIR)/Data/Text/Parsers.cpp \
+	$(COMMONDIR)/Data/Text/WrapText.cpp \
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/Executor.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
@@ -221,9 +231,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
-	$(EXTDIR)/native/data/compression.cpp \
 	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
@@ -298,7 +306,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
           $(NATIVEDIR)/gfx_es2/draw_text.cpp \
 	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
 	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
-	       $(NATIVEDIR)/i18n/i18n.cpp \
 	       $(NATIVEDIR)/image/zim_load.cpp \
 	       $(NATIVEDIR)/image/png_load.cpp \
 	       $(NATIVEDIR)/math/curves.cpp \
@@ -321,10 +328,6 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(NATIVEDIR)/ui/ui_tween.cpp \
 	       $(NATIVEDIR)/ui/view.cpp \
 	       $(NATIVEDIR)/ui/viewgroup.cpp \
-	       $(NATIVEDIR)/util/hash/hash.cpp \
-	       $(NATIVEDIR)/util/text/utf8.cpp \
-	       $(NATIVEDIR)/util/text/parsers.cpp \
-	       $(NATIVEDIR)/util/text/wrap_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \

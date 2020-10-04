@@ -6,7 +6,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "thin3d/DataFormat.h"
-#include "util/tiny_set.h"
+#include "Common/Data/Collections/TinySet.h"
 
 class VKRFramebuffer;
 struct VKRImage;

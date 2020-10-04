@@ -56,7 +56,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also

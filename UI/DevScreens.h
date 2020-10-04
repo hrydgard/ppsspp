@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "file/file_util.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "ui/ui_screen.h"
 
 #include "UI/MiscScreens.h"

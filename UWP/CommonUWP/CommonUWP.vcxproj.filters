@@ -16,6 +16,27 @@
     <Filter Include="Input">
       <UniqueIdentifier>{7368a8e7-cf29-49e9-87be-f1e69771555e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{93937cf8-9cc6-4ea5-a9c8-bdc186aa0317}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Text">
+      <UniqueIdentifier>{ad268930-1885-451c-969d-39871232244a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Encoding">
+      <UniqueIdentifier>{553115bf-c2fa-4c7d-a1db-587b2337c73f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Random">
+      <UniqueIdentifier>{4451d43c-69ec-42d2-8f0f-09032a1c46f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Color">
+      <UniqueIdentifier>{c6e1a659-b5d9-4015-93b4-9e383959b19c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Hash">
+      <UniqueIdentifier>{99f1fb79-2a8c-4ac0-8cba-57d9b2f87d32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Collections">
+      <UniqueIdentifier>{7277c320-2c19-40d0-81a4-2f6cbb20790c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -124,6 +145,30 @@
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Base64.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Compression.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Utf8.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp">
+      <Filter>Data\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp">
+      <Filter>Data\Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\I18n.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\Parsers.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -222,6 +267,45 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Thread\ThreadUtil.h">
       <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\TinySet.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Random\Rng.h">
+      <Filter>Data\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Base64.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Compression.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Shiftjis.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf8.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf16.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h">
+      <Filter>Data\Color</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Hash\Hash.h">
+      <Filter>Data\Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\I18n.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\Parsers.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\WrapText.h">
+      <Filter>Data\Text</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

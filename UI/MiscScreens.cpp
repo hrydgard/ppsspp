@@ -20,18 +20,19 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/colorutil.h"
+#include "base/NativeApp.h"
 #include "base/display.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
-#include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "util/random/rng.h"
 #include "file/vfs.h"
 
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"

@@ -27,8 +27,8 @@
 #include <algorithm>
 #include <string>
 
-#include "utf8.h"
-#include "utf16.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Encoding/Utf16.h"
 
 // is start of UTF sequence
 inline bool isutf(char c) {

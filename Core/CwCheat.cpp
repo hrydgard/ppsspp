@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -19,7 +19,7 @@
 #include "GPU/Common/PostShader.h"
 
 #ifdef _WIN32
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #endif
 
 static int CheatEvent = -1;

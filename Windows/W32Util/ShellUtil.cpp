@@ -7,7 +7,7 @@
 #include <functional>
 #include <thread>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ShellUtil.h"
 
 #include <shlobj.h>

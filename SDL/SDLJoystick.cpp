@@ -1,10 +1,12 @@
-#include "SDL/SDLJoystick.h"
-#include "Core/Config.h"
-#include "Common/FileUtil.h"
-#include "file/vfs.h"
-
 #include <iostream>
 #include <string>
+
+#include "base/NativeApp.h"
+#include "file/vfs.h"
+
+#include "Common/FileUtil.h"
+#include "Core/Config.h"
+#include "SDL/SDLJoystick.h"
 
 using namespace std;
 

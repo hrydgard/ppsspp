@@ -6,7 +6,7 @@
 #include <commctrl.h>
 
 #include "Misc.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)

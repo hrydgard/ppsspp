@@ -29,7 +29,7 @@
 #else
 #include "ext/libzip/zip.h"
 #endif
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "file/ini_file.h"
 
 #include "Common/Log.h"
@@ -42,7 +42,7 @@
 #include "Core/System.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/GameManager.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 GameManager g_GameManager;
 

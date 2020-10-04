@@ -1,12 +1,15 @@
 #include <ctype.h>
 #include "ppsspp_config.h"
-#include "i18n/i18n.h"
+
+#include "base/NativeApp.h"
 #include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "util/text/utf8.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/proAdhoc.h"
@@ -21,7 +24,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
-	//freeze  the ui when using ctrl + C hotkey need workaround
+	// freeze the ui when using ctrl + C hotkey need workaround
 	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
 		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
 			if (result) {

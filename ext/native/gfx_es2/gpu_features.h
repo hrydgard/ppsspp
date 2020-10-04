@@ -5,7 +5,6 @@
 #pragma once
 
 #include <string>
-#include "base/NativeApp.h"
 
 enum {
 	GPU_VENDOR_NVIDIA = 1,

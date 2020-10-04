@@ -137,6 +137,45 @@
     <ClInclude Include="Input\KeyCodes.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Random\Rng.h">
+      <Filter>Data\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Text\I18n.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Text\Parsers.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Text\WrapText.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Encoding\Base64.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Encoding\Compression.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Encoding\Shiftjis.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Encoding\Utf8.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Encoding\Utf16.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Hash\Hash.h">
+      <Filter>Data\Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Collections\ConstMap.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Collections\TinySet.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Color\RGBAUtil.h">
+      <Filter>Data\Color</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -270,6 +309,30 @@
     <ClCompile Include="Input\InputState.cpp">
       <Filter>Input</Filter>
     </ClCompile>
+    <ClCompile Include="Data\Text\I18n.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Text\Parsers.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Text\WrapText.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Encoding\Base64.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Encoding\Compression.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Encoding\Utf8.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Hash\Hash.cpp">
+      <Filter>Data\Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Color\RGBAUtil.cpp">
+      <Filter>Data\Color</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -298,6 +361,27 @@
     </Filter>
     <Filter Include="Input">
       <UniqueIdentifier>{fd0bac4f-e3e2-4201-8902-2d19b50d5bf7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{072c36eb-a283-40b2-b8b1-02ec57d3bbae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Collections">
+      <UniqueIdentifier>{a162915f-e53a-4f42-a222-e863235a2d37}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Hash">
+      <UniqueIdentifier>{891eae07-622d-46d5-9fc6-a4c320649eb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Encoding">
+      <UniqueIdentifier>{0bd9bfae-7d4e-4f54-9aae-8fb11ab8c999}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Random">
+      <UniqueIdentifier>{16fc7858-b6db-4eb2-bd4c-1354ffacda5f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Text">
+      <UniqueIdentifier>{c2d25b54-23fc-4e80-8d9b-5d7e94fe557e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Color">
+      <UniqueIdentifier>{1ada1f0f-6f1c-4bf2-8450-1fc63d77da17}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

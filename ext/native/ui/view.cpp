@@ -5,7 +5,7 @@
 #include "Common/Input/KeyCodes.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"

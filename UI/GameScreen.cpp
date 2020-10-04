@@ -18,12 +18,15 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
+
+#include "base/NativeApp.h"
 #include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/FileUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"

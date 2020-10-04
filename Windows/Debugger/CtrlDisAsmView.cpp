@@ -20,7 +20,7 @@
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ext/xxhash.h"
 #include "base/display.h"
 

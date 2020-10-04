@@ -17,9 +17,9 @@
 
 #include <algorithm>
 #include "base/NativeApp.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "math/math_util.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Dialog/PSPOskDialog.h"

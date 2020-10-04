@@ -22,10 +22,10 @@
 #include <mutex>
 #include <vector>
 
-#include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "UI/MiscScreens.h"
 
 class ControlMapper;

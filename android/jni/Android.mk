@@ -101,25 +101,60 @@ ARCH_FILES := \
   Arm64EmitterTest.cpp
 endif
 
-ifeq ($(TARGET_ARCH_ABI),armeabi)
-ARCH_FILES := \
-  $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
-  ArmEmitterTest.cpp
-endif
+NATIVE_FILES :=\
+  $(SRC)/ext/native/base/display.cpp \
+  $(SRC)/ext/native/file/fd_util.cpp \
+  $(SRC)/ext/native/file/chunk_file.cpp \
+  $(SRC)/ext/native/file/file_util.cpp \
+  $(SRC)/ext/native/file/free.cpp \
+  $(SRC)/ext/native/file/path.cpp \
+  $(SRC)/ext/native/file/ini_file.cpp \
+  $(SRC)/ext/native/file/zip_read.cpp \
+  $(SRC)/ext/native/json/json_reader.cpp \
+  $(SRC)/ext/native/json/json_writer.cpp \
+  $(SRC)/ext/native/math/fast/fast_math.c \
+  $(SRC)/ext/native/math/fast/fast_matrix.c \
+  $(SRC)/ext/native/math/dataconv.cpp \
+  $(SRC)/ext/native/math/math_util.cpp \
+  $(SRC)/ext/native/math/curves.cpp \
+  $(SRC)/ext/native/math/expression_parser.cpp \
+  $(SRC)/ext/native/math/lin/vec3.cpp.arm \
+  $(SRC)/ext/native/math/lin/matrix4x4.cpp.arm \
+  $(SRC)/ext/native/net/http_client.cpp \
+  $(SRC)/ext/native/net/http_server.cpp \
+  $(SRC)/ext/native/net/http_headers.cpp \
+  $(SRC)/ext/native/net/resolve.cpp \
+  $(SRC)/ext/native/net/sinks.cpp \
+  $(SRC)/ext/native/net/url.cpp \
+  $(SRC)/ext/native/net/websocket_server.cpp \
+  $(SRC)/ext/native/profiler/profiler.cpp \
+  $(SRC)/ext/native/gfx_es2/glsl_program.cpp \
+  $(SRC)/ext/native/gfx_es2/gpu_features.cpp \
+  $(SRC)/ext/native/gfx_es2/gl3stub.c \
+  $(SRC)/ext/native/gfx_es2/draw_buffer.cpp.arm \
+  $(SRC)/ext/native/gfx_es2/draw_text.cpp.arm \
+  $(SRC)/ext/native/gfx_es2/draw_text_android.cpp.arm \
+  $(SRC)/ext/native/gfx/gl_debug_log.cpp \
+  $(SRC)/ext/native/gfx/texture_atlas.cpp \
+  $(SRC)/ext/native/image/zim_load.cpp \
+  $(SRC)/ext/native/image/zim_save.cpp \
+  $(SRC)/ext/native/image/png_load.cpp \
+  $(SRC)/ext/native/thin3d/thin3d.cpp \
+  $(SRC)/ext/native/thin3d/thin3d_gl.cpp \
+  $(SRC)/ext/native/thin3d/thin3d_vulkan.cpp \
+  $(SRC)/ext/native/thin3d/GLRenderManager.cpp \
+  $(SRC)/ext/native/thin3d/GLQueueRunner.cpp \
+  $(SRC)/ext/native/thin3d/VulkanRenderManager.cpp \
+  $(SRC)/ext/native/thin3d/VulkanQueueRunner.cpp \
+  $(SRC)/ext/native/thin3d/DataFormatGL.cpp \
+  $(SRC)/ext/native/ui/root.cpp \
+  $(SRC)/ext/native/ui/view.cpp \
+  $(SRC)/ext/native/ui/viewgroup.cpp \
+  $(SRC)/ext/native/ui/ui.cpp \
+  $(SRC)/ext/native/ui/ui_screen.cpp \
+  $(SRC)/ext/native/ui/ui_tween.cpp \
+  $(SRC)/ext/native/ui/ui_context.cpp \
+  $(SRC)/ext/native/ui/screen.cpp
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \
@@ -205,6 +240,7 @@ EXEC_AND_LIB_FILES := \
   $(VULKAN_FILES) \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \
+  $(NATIVE_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -233,6 +269,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
+  $(SRC)/Common/Data/Color/RGBAUtil.cpp \
+  $(SRC)/Common/Data/Encoding/Base64.cpp \
+  $(SRC)/Common/Data/Encoding/Compression.cpp \
+  $(SRC)/Common/Data/Encoding/Utf8.cpp \
+  $(SRC)/Common/Data/Hash/Hash.cpp \
+  $(SRC)/Common/Data/Text/I18n.cpp \
+  $(SRC)/Common/Data/Text/Parsers.cpp \
+  $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/Thread/Executor.cpp \
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
   $(SRC)/Common/Thread/ThreadPool.cpp \
@@ -571,6 +615,34 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
 
+#NATIVE
+#LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
+#LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
+#LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../ext $(LOCAL_PATH)/../../ext/libpng17 $(LOCAL_PATH)/../../ext/libzip $(LOCAL_PATH)/../../ext/glslang ..
+
+#Portable native and separate code on android in future is easy you needs add files 
+#by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
+# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/ext/native/math/fast/fast_matrix_neon.S.neon \
+    ../../ext/libpng17/arm/arm_init.c \
+    ../../ext/libpng17/arm/filter_neon_intrinsics.c \
+    ../../ext/libpng17/arm/filter_neon.S.neon
+
+else ifeq ($(TARGET_ARCH_ABI),armeabi)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
+else ifeq ($(TARGET_ARCH_ABI),x86)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/ext/native/math/fast/fast_matrix_sse.c
+else ifeq ($(TARGET_ARCH_ABI),x86_64)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/ext/native/math/fast/fast_matrix_sse.c
+endif
+
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)
 endif
@@ -630,7 +702,6 @@ ifeq ($(UNITTEST),1)
 endif
 
 $(call import-module,libzip)
-$(call import-module,native)
 $(call import-module,glslang-build)
 $(call import-module,miniupnp-build)
 

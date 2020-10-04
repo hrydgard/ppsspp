@@ -1,5 +1,5 @@
 #include "GPUDriverTestScreen.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "ui/view.h"
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {

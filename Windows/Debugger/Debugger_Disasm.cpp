@@ -24,7 +24,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/CommonWindows.h"
 #include "Common/StringUtils.h"

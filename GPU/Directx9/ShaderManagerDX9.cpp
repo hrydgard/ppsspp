@@ -23,12 +23,12 @@
 #include <map>
 
 #include "gfx/d3d9_shader.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Common.h"
 #include "Common/Log.h"

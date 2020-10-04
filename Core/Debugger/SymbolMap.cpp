@@ -31,7 +31,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "zlib.h"
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"

@@ -116,3 +116,6 @@ debian/ppsspp/
 
 # RenderDoc
 *.rdc
+
+# bad output from libretro. don't want to accidentally add it
+nul

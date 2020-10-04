@@ -6,7 +6,7 @@
 
 #include "gfx/gl_common.h"
 #include "thin3d/DataFormat.h"
-#include "util/tiny_set.h"
+#include "Common/Data/Collections/TinySet.h"
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;

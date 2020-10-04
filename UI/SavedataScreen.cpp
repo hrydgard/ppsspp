@@ -18,12 +18,12 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "math/curves.h"
 #include "Common/Thread/PrioritizedWorkQueue.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"

@@ -9,8 +9,8 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "util/text/utf8.h"
-#include "util/text/wrap_text.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/WrapText.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

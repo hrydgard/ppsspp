@@ -26,7 +26,7 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) 
 #if PPSSPP_PLATFORM(UWP)

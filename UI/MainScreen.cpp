@@ -19,8 +19,8 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
-#include "base/colorutil.h"
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "file/path.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
@@ -29,8 +29,9 @@
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
-#include "util/text/utf8.h"
 
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -56,7 +57,7 @@
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "GPU/GPUInterface.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"

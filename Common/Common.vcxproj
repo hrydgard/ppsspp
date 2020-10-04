@@ -359,6 +359,19 @@
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
+    <ClInclude Include="Data\Collections\ConstMap.h" />
+    <ClInclude Include="Data\Collections\TinySet.h" />
+    <ClInclude Include="Data\Color\RGBAUtil.h" />
+    <ClInclude Include="Data\Encoding\Base64.h" />
+    <ClInclude Include="Data\Encoding\Compression.h" />
+    <ClInclude Include="Data\Encoding\Shiftjis.h" />
+    <ClInclude Include="Data\Encoding\Utf16.h" />
+    <ClInclude Include="Data\Encoding\Utf8.h" />
+    <ClInclude Include="Data\Hash\Hash.h" />
+    <ClInclude Include="Data\Random\Rng.h" />
+    <ClInclude Include="Data\Text\I18n.h" />
+    <ClInclude Include="Data\Text\Parsers.h" />
+    <ClInclude Include="Data\Text\WrapText.h" />
     <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="Input\GestureDetector.h" />
     <ClInclude Include="Input\InputState.h" />
@@ -614,6 +627,14 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Data\Color\RGBAUtil.cpp" />
+    <ClCompile Include="Data\Encoding\Base64.cpp" />
+    <ClCompile Include="Data\Encoding\Compression.cpp" />
+    <ClCompile Include="Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="Data\Hash\Hash.cpp" />
+    <ClCompile Include="Data\Text\I18n.cpp" />
+    <ClCompile Include="Data\Text\Parsers.cpp" />
+    <ClCompile Include="Data\Text\WrapText.cpp" />
     <ClCompile Include="Input\GestureDetector.cpp" />
     <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="Log.cpp" />

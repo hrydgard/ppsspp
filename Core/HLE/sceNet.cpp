@@ -23,7 +23,7 @@
 #endif
 
 #include "net/resolve.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

@@ -20,14 +20,15 @@
 #include <algorithm>
 
 #include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+#include "base/NativeApp.h"
 
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "math/curves.h"
 #include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ui/root.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"

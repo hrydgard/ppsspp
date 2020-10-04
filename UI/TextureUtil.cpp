@@ -1,6 +1,6 @@
 #include <algorithm>
 
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "thin3d/thin3d.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"

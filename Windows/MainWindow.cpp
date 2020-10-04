@@ -36,11 +36,11 @@
 #include "base/NativeApp.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"

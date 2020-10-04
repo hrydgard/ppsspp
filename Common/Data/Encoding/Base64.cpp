@@ -1,4 +1,4 @@
-#include "data/base64.h"
+#include "Common/Data/Encoding/Base64.h"
 
 // TODO: This is a simple but not very efficient implementation.
 std::string Base64Encode(const uint8_t *p, size_t sz) {

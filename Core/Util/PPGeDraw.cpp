@@ -17,13 +17,13 @@
 
 #include <algorithm>
 
-#include "base/colorutil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "file/vfs.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_text.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

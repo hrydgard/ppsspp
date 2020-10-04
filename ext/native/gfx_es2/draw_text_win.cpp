@@ -1,8 +1,8 @@
 #include "base/display.h"
 #include "thin3d/thin3d.h"
-#include "util/hash/hash.h"
-#include "util/text/wrap_text.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Hash/Hash.h"
+#include "Common/Data/Text/WrapText.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
 

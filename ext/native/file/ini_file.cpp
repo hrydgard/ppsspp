@@ -18,10 +18,10 @@
 
 #include "file/ini_file.h"
 #include "file/vfs.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 
 #ifdef _WIN32
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #endif
 
 #include "Common/StringUtils.h"

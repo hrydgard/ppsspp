@@ -18,7 +18,7 @@
 #include <cstring>
 #include <string>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "SysError.h"
 
 #ifdef _WIN32

@@ -1,7 +1,7 @@
 #include <cstring>
 #include "gfx_es2/draw_buffer.h"
-#include "util/text/utf8.h"
-#include "util/text/wrap_text.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/WrapText.h"
 
 bool WordWrapper::IsCJK(uint32_t c) {
 	if (c < 0x1000) {

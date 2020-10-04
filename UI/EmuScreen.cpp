@@ -20,21 +20,22 @@
 #include <algorithm>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "profiler/profiler.h"
 
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
-#include "Common/Input/InputState.h"
 #include "math/curves.h"
 #include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"
 #include "ui/view.h"
-#include "i18n/i18n.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/Input/InputState.h"
 #include "Common/KeyMap.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"

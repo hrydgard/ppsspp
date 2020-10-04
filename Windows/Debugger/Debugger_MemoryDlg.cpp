@@ -5,7 +5,7 @@
 #include "..\resource.h"
 
 #include "base/display.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h" //	BAD

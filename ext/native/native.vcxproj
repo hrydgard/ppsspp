@@ -371,20 +371,13 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </None>
     <None Include="Android.mk" />
-    <None Include="base\CMakeLists.txt" />
-    <None Include="file\CMakeLists.txt" />
-    <None Include="README.md" />
     <None Include="tools\CMakeLists.txt" />
-    <None Include="ui\CMakeLists.txt" />
     <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Qt\QtMain.h" />
-    <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\NativeApp.h" />
-    <ClInclude Include="data\base64.h" />
-    <ClInclude Include="data\compression.h" />
     <ClInclude Include="file\chunk_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
@@ -414,13 +407,11 @@
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="ui\root.h" />
-    <ClInclude Include="util\text\wrap_text.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
     <ClInclude Include="gfx_es2\gl3stub.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gpu_features.h" />
-    <ClInclude Include="i18n\i18n.h" />
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
@@ -450,15 +441,8 @@
     <ClInclude Include="ui\ui_tween.h" />
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
-    <ClInclude Include="util\random\rng.h" />
-    <ClInclude Include="util\text\parsers.h" />
-    <ClInclude Include="util\text\shiftjis.h" />
-    <ClInclude Include="util\text\utf16.h" />
-    <ClInclude Include="util\text\utf8.h" />
-    <ClInclude Include="util\tiny_set.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="..\..\SDL\SDLMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -480,8 +464,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="data\base64.cpp" />
-    <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="file\chunk_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
@@ -509,7 +491,6 @@
     <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
     <ClCompile Include="thin3d\VulkanRenderManager.cpp" />
     <ClCompile Include="ui\root.cpp" />
-    <ClCompile Include="util\text\wrap_text.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
     <ClCompile Include="gfx_es2\gl3stub.c">
@@ -524,7 +505,6 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gpu_features.cpp" />
-    <ClCompile Include="i18n\i18n.cpp" />
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
@@ -560,9 +540,6 @@
     <ClCompile Include="ui\ui_tween.cpp" />
     <ClCompile Include="ui\view.cpp" />
     <ClCompile Include="ui\viewgroup.cpp" />
-    <ClCompile Include="util\hash\hash.cpp" />
-    <ClCompile Include="util\text\parsers.cpp" />
-    <ClCompile Include="util\text\utf8.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
