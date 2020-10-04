@@ -31,8 +31,8 @@
 
 #include "gfx/texture_atlas.h"
 
-#include "image/png_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "kanjifilter.h"
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)

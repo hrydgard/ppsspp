@@ -2,9 +2,9 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "image/png_load.h"
-#include "image/zim_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "Common/Common.h"
 

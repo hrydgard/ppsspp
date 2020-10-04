@@ -110,9 +110,6 @@ NATIVE_FILES :=\
   $(SRC)/ext/native/gfx_es2/draw_text_android.cpp.arm \
   $(SRC)/ext/native/gfx/gl_debug_log.cpp \
   $(SRC)/ext/native/gfx/texture_atlas.cpp \
-  $(SRC)/ext/native/image/zim_load.cpp \
-  $(SRC)/ext/native/image/zim_save.cpp \
-  $(SRC)/ext/native/image/png_load.cpp \
   $(SRC)/ext/native/thin3d/thin3d.cpp \
   $(SRC)/ext/native/thin3d/thin3d_gl.cpp \
   $(SRC)/ext/native/thin3d/thin3d_vulkan.cpp \

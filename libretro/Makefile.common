@@ -333,8 +333,6 @@ SOURCES_CXX += $(NATIVEDIR)/gfx/gl_debug_log.cpp \
           $(NATIVEDIR)/gfx_es2/draw_text.cpp \
 	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
 	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
-	       $(NATIVEDIR)/image/zim_load.cpp \
-	       $(NATIVEDIR)/image/png_load.cpp \
 	       $(NATIVEDIR)/net/http_client.cpp \
 	       $(NATIVEDIR)/net/resolve.cpp \
 	       $(NATIVEDIR)/net/url.cpp \
