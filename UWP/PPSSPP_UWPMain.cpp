@@ -3,9 +3,9 @@
 
 #include <mutex>
 
-#include "file/file_util.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
 #include "thin3d/thin3d_create.h"
 
 #include "Common/Common.h"
@@ -15,7 +15,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/TimeUtil.h"

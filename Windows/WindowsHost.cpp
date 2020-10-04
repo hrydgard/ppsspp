@@ -34,12 +34,12 @@
 // native stuff
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
-#include "file/file_util.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Data/Encoding/Utf8.h"
-
+#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

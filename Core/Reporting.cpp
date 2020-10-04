@@ -26,7 +26,7 @@
 #include "Core/Reporting.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/CPUDetect.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
@@ -44,10 +44,9 @@
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "net/url.h"
-#include "file/file_util.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
 #include "Common/Thread/ThreadUtil.h"
 
 namespace Reporting

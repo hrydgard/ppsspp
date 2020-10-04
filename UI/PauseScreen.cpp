@@ -19,10 +19,10 @@
 #include <memory>
 
 #include "gfx_es2/draw_buffer.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui_context.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/UIScreen.h"
 #include "thin3d/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"

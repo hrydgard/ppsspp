@@ -16,11 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ext/xxhash.h"
-#include "ui/ui.h"
+#include "Common/UI/UI.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Core/Core.h"

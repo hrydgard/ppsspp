@@ -2,7 +2,7 @@
 #include <mutex>
 
 #include "Common/File/VFS/VFS.h"
-#include "ui/root.h"
+#include "Common/UI/Root.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/RIFF.h"

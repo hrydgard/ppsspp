@@ -17,8 +17,6 @@
 
 #include <vector>
 
-#include "file/file_util.h"
-
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"

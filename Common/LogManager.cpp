@@ -25,7 +25,7 @@
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Common/Timer.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
 // Don't need to savestate this.

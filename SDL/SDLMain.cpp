@@ -24,8 +24,8 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
-#include "image/png_load.h"
-#include "net/resolve.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Net/Resolve.h"
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
 #include "thin3d/GLRenderManager.h"
@@ -693,7 +693,7 @@ int main(int argc, char *argv[]) {
 	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
 	int width = 0, height = 0;
 	unsigned char *imageData;
-	if (pngLoad(iconPath, &width, &height, &imageData, false) == 1) {
+	if (pngLoad(iconPath, &width, &height, &imageData) == 1) {
 		SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32,
 							0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 		memcpy(surface->pixels, imageData, width*height*4);

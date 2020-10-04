@@ -2,15 +2,13 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "image/png_load.h"
-#include "image/zim_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "Common/Common.h"
 
 char magic[5] = "ZIMG";
-
-bool FLAGS_flip = false;
 
 const char *format_strings[4] = { "8888", "4444", "565", "ETC1" };
 int formats[3] = { ZIM_RGBA8888, ZIM_RGBA4444, ZIM_RGB565 };
@@ -82,7 +80,7 @@ int main(int argc, char **argv) {
 
 	uint8_t *image_data;
 	int width, height;
-	if (1 != pngLoad(FLAGS_infile, &width, &height, &image_data, FLAGS_flip)) {
+	if (1 != pngLoad(FLAGS_infile, &width, &height, &image_data)) {
 		fprintf(stderr, "Input not a PNG file\n");
 		printusage();
 		return 1;

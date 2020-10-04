@@ -5,7 +5,7 @@
 #include <mutex>
 
 #include "Common/Math/geom2d.h"
-#include "ui/view.h"
+#include "Common/UI/View.h"
 
 class DrawBuffer;
 

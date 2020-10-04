@@ -17,8 +17,8 @@
 
 #include "gfx_es2/draw_buffer.h"
 #include "thin3d/thin3d.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
 
 #include "DebugVisVulkan.h"
 #include "Common/Vulkan/VulkanMemory.h"

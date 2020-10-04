@@ -25,7 +25,7 @@
 #include "Core/HLE/scePauth.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 
 static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {

@@ -22,7 +22,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
-#include "ui/ui_context.h"
+#include "Common/UI/Context.h"
 
 #include "Common/Common.h"
 #include "Common/Log.h"

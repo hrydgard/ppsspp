@@ -19,18 +19,17 @@
 
 #if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
 
-#include <string>
-
-#include "Common/FileUtil.h"
-#include "Common/MemoryUtil.h"
-#include "Common/MemArena.h"
-#include "Common/Log.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <string>
+
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
 
 static const std::string tmpfs_location = "/dev/shm";
 static const std::string tmpfs_ram_temp_file = "/dev/shm/gc_mem.tmp";

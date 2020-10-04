@@ -22,8 +22,8 @@
 #include <mutex>
 #include <vector>
 
-#include "ui/view.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "UI/MiscScreens.h"

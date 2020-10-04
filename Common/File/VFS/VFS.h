@@ -1,7 +1,8 @@
 #pragma once
 
 #include <vector>
-#include "file/file_util.h"
+
+#include "Common/File/DirListing.h"
 
 // Basic virtual file system. Used to manage assets on Android, where we have to
 // read them manually out of the APK zipfile, while being able to run on other

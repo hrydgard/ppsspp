@@ -21,7 +21,6 @@
 #include <map>
 
 #include "Common/System/Display.h"
-#include "image/zim_load.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "thin3d/thin3d.h"

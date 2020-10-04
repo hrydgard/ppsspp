@@ -23,7 +23,6 @@
 #include <sstream>
 #include <thread>
 
-#include "file/file_util.h"
 #ifdef SHARED_LIBZIP
 #include <zip.h>
 #else
@@ -31,9 +30,8 @@
 #endif
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Format/IniFile.h"
-
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"

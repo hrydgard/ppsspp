@@ -17,9 +17,9 @@
 
 #include <functional>
 
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/ViewGroup.h"
 #include "gfx_es2/draw_buffer.h"
 
 #include "Common/Common.h"

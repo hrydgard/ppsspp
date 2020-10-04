@@ -13,7 +13,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"

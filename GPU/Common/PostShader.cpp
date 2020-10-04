@@ -23,7 +23,8 @@
 #include <algorithm>
 
 #include "Common/Data/Format/IniFile.h"
-#include "file/file_util.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "gfx_es2/gpu_features.h"
 

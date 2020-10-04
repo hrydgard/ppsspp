@@ -20,7 +20,7 @@
 #include <algorithm>
 
 #include "Common/Data/Text/I18n.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Loaders.h"

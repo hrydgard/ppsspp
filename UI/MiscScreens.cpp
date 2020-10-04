@@ -21,10 +21,10 @@
 #include <functional>
 
 #include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -36,7 +36,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"

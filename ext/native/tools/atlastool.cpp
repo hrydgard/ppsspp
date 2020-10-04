@@ -31,8 +31,8 @@
 
 #include "gfx/texture_atlas.h"
 
-#include "image/png_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "kanjifilter.h"
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
@@ -152,7 +152,7 @@ struct Image {
 	bool LoadPNG(const char *png_name) {
 		unsigned char *img_data;
 		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data, false)) {
+		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
 			printf("Failed to load %s\n", png_name);
 			exit(1);
 			return false;

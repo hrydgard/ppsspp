@@ -1,6 +1,6 @@
 #include "GPUDriverTestScreen.h"
 #include "Common/Data/Text/I18n.h"
-#include "ui/view.h"
+#include "Common/UI/View.h"
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {
 	{Draw::ShaderLanguage::GLSL_ES_200,

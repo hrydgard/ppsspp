@@ -41,7 +41,7 @@
 #include <thread>
 #include <mutex>
 
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
 
 #include "Core/Config.h"

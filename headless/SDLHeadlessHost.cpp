@@ -29,7 +29,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/AssetReader.h"
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 

@@ -20,8 +20,8 @@
 #include <functional>
 #include <memory>
 
-#include "ui/ui_screen.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
 #include "UI/TextureUtil.h"
 

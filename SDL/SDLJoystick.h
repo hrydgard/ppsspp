@@ -9,7 +9,7 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 
 class SDLJoystick{
 public:

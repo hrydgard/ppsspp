@@ -20,11 +20,11 @@
 #include <mutex>
 
 #include "gfx/texture_atlas.h"
-#include "ui/root.h"
-#include "ui/ui.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "Common/Log.h"
 #include "Common/Data/Color/RGBAUtil.h"

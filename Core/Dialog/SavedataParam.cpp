@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -33,8 +34,6 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/PPGeDraw.h"
-
-#include "image/png_load.h"
 
 #include <algorithm>
 

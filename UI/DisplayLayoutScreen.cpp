@@ -22,8 +22,8 @@
 #include "Common/System/System.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"

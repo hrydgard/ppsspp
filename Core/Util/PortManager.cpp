@@ -31,7 +31,7 @@
 #include <thread>
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/System.h"

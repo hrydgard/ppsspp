@@ -19,13 +19,13 @@
 
 #include <algorithm>
 
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
-#include "ui/root.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui_context.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/Context.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/System.h"
@@ -51,7 +51,7 @@
 #include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"

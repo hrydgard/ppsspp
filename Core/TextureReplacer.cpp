@@ -28,7 +28,7 @@
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/ColorConv.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

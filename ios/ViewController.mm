@@ -12,8 +12,8 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "net/resolve.h"
-#include "ui/screen.h"
+#include "Common/Net/Resolve.h"
+#include "Common/UI/Screen.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"

@@ -23,7 +23,7 @@
 #include <snappy-c.h>
 
 #include "Common/Common.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 

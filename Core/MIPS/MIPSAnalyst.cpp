@@ -24,7 +24,7 @@
 #include "ext/cityhash/city.h"
 #include "ext/xxhash.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"

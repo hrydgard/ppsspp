@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <None Include="Android.mk" />
     <None Include="tools\CMakeLists.txt">
       <Filter>tools</Filter>
     </None>
@@ -9,15 +8,6 @@
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="image\png_load.h">
-      <Filter>image</Filter>
-    </ClInclude>
-    <ClInclude Include="image\zim_load.h">
-      <Filter>image</Filter>
-    </ClInclude>
-    <ClInclude Include="image\zim_save.h">
-      <Filter>image</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
@@ -28,41 +18,8 @@
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="file\file_util.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\ui.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="net\http_client.h">
-      <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="file\fd_util.h">
-      <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="net\resolve.h">
-      <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\screen.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\ui_context.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\view.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\viewgroup.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="net\url.h">
-      <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\ui_screen.h">
-      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
@@ -76,17 +33,8 @@
     <ClInclude Include="thin3d\d3dx9_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
-    <ClInclude Include="net\http_headers.h">
-      <Filter>net</Filter>
-    </ClInclude>
-    <ClInclude Include="net\http_server.h">
-      <Filter>net</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="net\sinks.h">
-      <Filter>net</Filter>
     </ClInclude>
     <ClInclude Include="gfx\d3d9_shader.h">
       <Filter>gfx</Filter>
@@ -115,9 +63,6 @@
     <ClInclude Include="thin3d\DataFormat.h">
       <Filter>thin3d</Filter>
     </ClInclude>
-    <ClInclude Include="ui\ui_tween.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="thin3d\GLRenderManager.h">
       <Filter>thin3d</Filter>
     </ClInclude>
@@ -130,14 +75,8 @@
     <ClInclude Include="thin3d\thin3d_create.h">
       <Filter>thin3d</Filter>
     </ClInclude>
-    <ClInclude Include="net\websocket_server.h">
-      <Filter>net</Filter>
-    </ClInclude>
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
       <Filter>thin3d</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\root.h">
-      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\draw_text_uwp.h">
       <Filter>gfx</Filter>
@@ -146,15 +85,6 @@
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="image\png_load.cpp">
-      <Filter>image</Filter>
-    </ClCompile>
-    <ClCompile Include="image\zim_load.cpp">
-      <Filter>image</Filter>
-    </ClCompile>
-    <ClCompile Include="image\zim_save.cpp">
-      <Filter>image</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_buffer.cpp">
       <Filter>gfx</Filter>
@@ -165,41 +95,8 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="file\file_util.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\ui.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="net\http_client.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="file\fd_util.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="net\resolve.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\screen.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\ui_context.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\view.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\viewgroup.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="net\url.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\ui_screen.cpp">
-      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text.cpp">
       <Filter>gfx</Filter>
@@ -219,17 +116,8 @@
     <ClCompile Include="thin3d\d3dx9_loader.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="net\http_headers.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="net\http_server.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
     <ClCompile Include="thin3d\thin3d_vulkan.cpp">
       <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="net\sinks.cpp">
-      <Filter>net</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_d3d11.cpp">
       <Filter>thin3d</Filter>
@@ -258,9 +146,6 @@
     <ClCompile Include="thin3d\VulkanRenderManager.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="ui\ui_tween.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="thin3d\GLQueueRunner.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
@@ -270,14 +155,8 @@
     <ClCompile Include="thin3d\DataFormatGL.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="net\websocket_server.cpp">
-      <Filter>net</Filter>
-    </ClCompile>
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
       <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\root.cpp">
-      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_uwp.cpp">
       <Filter>gfx</Filter>
@@ -286,18 +165,6 @@
   <ItemGroup>
     <Filter Include="gfx">
       <UniqueIdentifier>{9da89505-72a1-40e6-86e5-705372db1608}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="image">
-      <UniqueIdentifier>{828bddaf-63e5-4311-985b-bf377f86ff00}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="file">
-      <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ui">
-      <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="net">
-      <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>

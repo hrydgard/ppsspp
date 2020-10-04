@@ -20,8 +20,8 @@
 #include "Common/Input/InputState.h"
 #include "gfx_es2/draw_buffer.h"
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "Core/CoreParameter.h"
 
 class GamepadView : public UI::View {

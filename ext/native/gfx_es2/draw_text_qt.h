@@ -7,6 +7,8 @@
 
 #if defined(USING_QT_UI)
 
+#include <QtGui/QFont>
+
 class TextDrawerQt : public TextDrawer {
 public:
 	TextDrawerQt(Draw::DrawContext *draw);

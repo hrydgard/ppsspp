@@ -4,7 +4,7 @@
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 
-#include "ui/ui_context.h"
+#include "Common/UI/Context.h"
 
 #include "Common/TimeUtil.h"
 

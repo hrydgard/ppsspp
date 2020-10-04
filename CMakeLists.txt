@@ -455,6 +455,12 @@ add_library(Common STATIC
 	Common/Data/Format/JSONReader.cpp
 	Common/Data/Format/JSONWriter.h
 	Common/Data/Format/JSONWriter.cpp
+	Common/Data/Format/PNGLoad.cpp
+	Common/Data/Format/PNGLoad.h
+	Common/Data/Format/ZIMLoad.cpp
+	Common/Data/Format/ZIMLoad.h
+	Common/Data/Format/ZIMSave.cpp
+	Common/Data/Format/ZIMSave.h
 	Common/Data/Hash/Hash.cpp
 	Common/Data/Hash/Hash.h
 	Common/Data/Text/I18n.cpp
@@ -472,6 +478,12 @@ add_library(Common STATIC
 	Common/File/DiskFree.cpp
 	Common/File/PathBrowser.h
 	Common/File/PathBrowser.cpp
+	Common/File/FileUtil.cpp
+	Common/File/FileUtil.h
+	Common/File/DirListing.cpp
+	Common/File/DirListing.h
+	Common/File/FileDescriptor.cpp
+	Common/File/FileDescriptor.h
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h
@@ -491,6 +503,20 @@ add_library(Common STATIC
 	Common/Math/lin/vec3.h
 	Common/Math/math_util.cpp
 	Common/Math/math_util.h
+	Common/Net/HTTPClient.cpp
+	Common/Net/HTTPClient.h
+	Common/Net/HTTPHeaders.cpp
+	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPServer.cpp
+	Common/Net/HTTPServer.h
+	Common/Net/Resolve.cpp
+	Common/Net/Resolve.h
+	Common/Net/Sinks.cpp
+	Common/Net/Sinks.h
+	Common/Net/URL.cpp
+	Common/Net/URL.h
+	Common/Net/WebsocketServer.cpp
+	Common/Net/WebsocketServer.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
 	Common/System/Display.cpp
@@ -503,6 +529,22 @@ add_library(Common STATIC
 	Common/Thread/ThreadUtil.h
 	Common/Thread/ThreadPool.cpp
 	Common/Thread/ThreadPool.h
+	Common/UI/Root.cpp
+	Common/UI/Root.h
+	Common/UI/Screen.cpp
+	Common/UI/Screen.h
+	Common/UI/UI.cpp
+	Common/UI/UI.h
+	Common/UI/Context.cpp
+	Common/UI/Context.h
+	Common/UI/UIScreen.cpp
+	Common/UI/UIScreen.h
+	Common/UI/Tween.cpp
+	Common/UI/Tween.h
+	Common/UI/View.cpp
+	Common/UI/View.h
+	Common/UI/ViewGroup.cpp
+	Common/UI/ViewGroup.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h
@@ -520,8 +562,6 @@ add_library(Common STATIC
 	Common/FixedSizeQueue.h
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
-	Common/FileUtil.cpp
-	Common/FileUtil.h
 	Common/Hashmaps.h
 	Common/Log.h
 	Common/Log.cpp
@@ -1011,10 +1051,6 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/file/fd_util.cpp
-	ext/native/file/fd_util.h
-	ext/native/file/file_util.cpp
-	ext/native/file/file_util.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
@@ -1040,46 +1076,10 @@ add_library(native STATIC
 	ext/native/gfx_es2/glsl_program.h
 	ext/native/gfx_es2/gl3stub.c
 	ext/native/gfx_es2/gl3stub.h
-	ext/native/image/png_load.cpp
-	ext/native/image/png_load.h
-	ext/native/image/zim_load.cpp
-	ext/native/image/zim_load.h
-	ext/native/image/zim_save.cpp
-	ext/native/image/zim_save.h
-	ext/native/net/http_client.cpp
-	ext/native/net/http_client.h
-	ext/native/net/http_headers.cpp
-	ext/native/net/http_headers.h
-	ext/native/net/http_server.cpp
-	ext/native/net/http_server.h
-	ext/native/net/resolve.cpp
-	ext/native/net/resolve.h
-	ext/native/net/sinks.cpp
-	ext/native/net/sinks.h
-	ext/native/net/url.cpp
-	ext/native/net/url.h
-	ext/native/net/websocket_server.cpp
-	ext/native/net/websocket_server.h
 	ext/native/thin3d/thin3d.cpp
 	ext/native/thin3d/thin3d.h
 	ext/native/thin3d/thin3d_create.h
 	${THIN3D_PLATFORMS}
-	ext/native/ui/root.cpp
-	ext/native/ui/root.h
-	ext/native/ui/screen.cpp
-	ext/native/ui/screen.h
-	ext/native/ui/ui.cpp
-	ext/native/ui/ui.h
-	ext/native/ui/ui_context.cpp
-	ext/native/ui/ui_context.h
-	ext/native/ui/ui_screen.cpp
-	ext/native/ui/ui_screen.h
-	ext/native/ui/ui_tween.cpp
-	ext/native/ui/ui_tween.h
-	ext/native/ui/view.cpp
-	ext/native/ui/view.h
-	ext/native/ui/viewgroup.cpp
-	ext/native/ui/viewgroup.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp
