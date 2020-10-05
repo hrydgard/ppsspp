@@ -600,34 +600,6 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	const ReplacedTextureLevel &info = levels_[level];
 
-#ifdef USING_QT_UI
-	QImage image(info.file.c_str(), "PNG");
-	if (image.isNull()) {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s", info.file.c_str());
-		return;
-	}
-
-	image = image.convertToFormat(QImage::Format_ARGB32);
-	bool alphaFull = true;
-	for (int y = 0; y < image.height(); ++y) {
-		const QRgb *src = (const QRgb *)image.constScanLine(y);
-		uint8_t *outLine = (uint8_t *)out + y * rowPitch;
-		for (int x = 0; x < image.width(); ++x) {
-			outLine[x * 4 + 0] = qRed(src[x]);
-			outLine[x * 4 + 1] = qGreen(src[x]);
-			outLine[x * 4 + 2] = qBlue(src[x]);
-			outLine[x * 4 + 3] = qAlpha(src[x]);
-			// We're already scanning each pixel...
-			if (qAlpha(src[x]) != 255) {
-				alphaFull = false;
-			}
-		}
-	}
-
-	if (level == 0 || !alphaFull) {
-		alphaStatus_ = alphaFull ? ReplacedTextureAlpha::FULL : ReplacedTextureAlpha::UNKNOWN;
-	}
-#else
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
 
@@ -662,7 +634,6 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	fclose(fp);
 	png_image_free(&png);
-#endif
 }
 
 bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *generatedFilename) {
