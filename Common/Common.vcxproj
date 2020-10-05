@@ -384,6 +384,9 @@
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Data\Collections\ConstMap.h" />
+    <ClInclude Include="Data\Collections\FixedSizeQueue.h" />
+    <ClInclude Include="Data\Collections\Hashmaps.h" />
+    <ClInclude Include="Data\Collections\ThreadSafeList.h" />
     <ClInclude Include="Data\Collections\TinySet.h" />
     <ClInclude Include="Data\Color\RGBAUtil.h" />
     <ClInclude Include="Data\Convert\SmallDataConvert.h" />
@@ -479,7 +482,6 @@
     <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
-    <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="GL\GLInterfaceBase.h" />
     <ClInclude Include="GL\GLInterface\EGL.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -502,12 +504,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
-    <ClInclude Include="Hashmaps.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MakeUnique.h" />
     <ClInclude Include="MachineContext.h" />
-    <ClInclude Include="MathUtil.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MipsEmitter.h" />
@@ -519,14 +519,11 @@
     <ClInclude Include="System\Display.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
-    <ClInclude Include="ThreadPools.h" />
-    <ClInclude Include="ThreadSafeList.h" />
     <ClInclude Include="Thread\Executor.h" />
     <ClInclude Include="Thread\PrioritizedWorkQueue.h" />
     <ClInclude Include="Thread\ThreadPool.h" />
     <ClInclude Include="Thread\ThreadUtil.h" />
     <ClInclude Include="Thunk.h" />
-    <ClInclude Include="Timer.h" />
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="UI\Context.h" />
     <ClInclude Include="UI\Root.h" />
@@ -836,13 +833,11 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
-    <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Thread\Executor.cpp" />
     <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
     <ClCompile Include="Thread\ThreadPool.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />
-    <ClCompile Include="Timer.cpp" />
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="UI\Context.cpp" />
     <ClCompile Include="UI\Root.cpp" />

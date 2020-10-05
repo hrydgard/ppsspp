@@ -23,7 +23,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
 #include "Common/Serialize/SerializeMap.h"
-#include "Common/ThreadSafeList.h"
+#include "Common/Data/Collections/ThreadSafeList.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"

@@ -962,6 +962,9 @@
     <ClCompile Include="KeyMap.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="ThreadPools.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1641,6 +1644,9 @@
       <Filter>Ext\libzip</Filter>
     </ClInclude>
     <ClInclude Include="KeyMap.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPools.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

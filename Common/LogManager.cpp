@@ -24,7 +24,7 @@
 
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
-#include "Common/Timer.h"
+#include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
@@ -220,7 +220,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	}
 
 	std::lock_guard<std::mutex> lk(log_lock_);
-	Common::Timer::GetTimeFormatted(message.timestamp);
+	GetTimeFormatted(message.timestamp);
 
 	if (hleCurrentThreadName) {
 		snprintf(message.header, sizeof(message.header), "%-12.12s %c[%s]: %s:%d",

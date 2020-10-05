@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"

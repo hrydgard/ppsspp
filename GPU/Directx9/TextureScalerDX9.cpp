@@ -19,7 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/ColorConv.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"

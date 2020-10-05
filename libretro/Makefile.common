@@ -221,9 +221,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
-	$(COMMONDIR)/Timer.cpp \
-	$(COMMONDIR)/TimeUtil.cpp \
-	$(COMMONDIR)/ThreadPools.cpp
+	$(COMMONDIR)/TimeUtil.cpp
 
 
 SOURCES_CXX += \
@@ -501,6 +499,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
+		   $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"

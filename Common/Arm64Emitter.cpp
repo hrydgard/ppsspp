@@ -13,7 +13,7 @@
 #include <cstring>
 
 #include "Common/Arm64Emitter.h"
-#include "Common/MathUtil.h"
+#include "Common/Math/math_util.h"
 #include "Common/CommonTypes.h"
 #include "Common/CommonWindows.h"
 #include "Common/CPUDetect.h"
