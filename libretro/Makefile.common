@@ -169,7 +169,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
-	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
 	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
@@ -223,6 +222,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
 
+SOURCES_C +=\
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
 
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
@@ -345,7 +346,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
-		   $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
@@ -689,11 +689,13 @@ SOURCES_CXX += \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
-   $(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
-   $(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp \
-   $(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
-   $(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp
-
+	$(COMMONDIR)/GPU/D3D9/D3D9ShaderCompiler.cpp \
+	$(COMMONDIR)/GPU/D3D9/D3D9StateCache.cpp \
+	$(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp \
+	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
+	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
+	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
+	
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 
 endif
