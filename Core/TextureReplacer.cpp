@@ -15,16 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef USING_QT_UI
-#include <QtGui/QImage>
-#else
 #include <png.h>
-#endif
 
 #include <algorithm>
 
-#include "Common/Data/Text/I18n.h"
 #include "ext/xxhash.h"
+
+#include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/ColorConv.h"
@@ -333,16 +330,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		level.fmt = ReplacedTextureFormat::F_8888;
 		level.file = filename;
 
-#ifdef USING_QT_UI
-		QImage image(filename.c_str(), "PNG");
-		if (image.isNull()) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s", filename.c_str());
-		} else {
-			level.w = (image.width() * w) / newW;
-			level.h = (image.height() * h) / newH;
-			good = true;
-		}
-#else
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 		FILE *fp = File::OpenCFile(filename, "rb");
@@ -357,7 +344,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		fclose(fp);
 
 		png_image_free(&png);
-#endif
 
 		if (good && i != 0) {
 			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
@@ -377,7 +363,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
-#ifndef USING_QT_UI
 static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
@@ -395,7 +380,6 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 		return false;
 	}
 }
-#endif
 
 void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
 	_assert_msg_(enabled_, "Replacement not enabled");
@@ -459,9 +443,6 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		h = lookupH * replacedInfo.scaleFactor;
 	}
 
-#ifdef USING_QT_UI
-	ERROR_LOG(G3D, "Replacement texture saving not implemented for Qt");
-#else
 	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
@@ -512,7 +493,6 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	} else if (success) {
 		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfo.hash, w, h);
 	}
-#endif
 
 	// Remember that we've saved this for next time.
 	ReplacedTextureLevel saved;
