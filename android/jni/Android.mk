@@ -102,8 +102,6 @@ ARCH_FILES := \
 endif
 
 NATIVE_FILES :=\
-  $(SRC)/Common/Render/DrawBuffer.cpp \
-  $(SRC)/Common/Render/TextureAtlas.cpp \
   $(SRC)/Common/GPU/OpenGL/gl3stub.c \
   $(SRC)/Common/GPU/OpenGL/thin3d_gl.cpp \
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
@@ -111,9 +109,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
-  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp \
-  $(SRC)/Common/Render/Text/draw_text.cpp.arm \
-  $(SRC)/Common/Render/Text/draw_text_android.cpp.arm
+  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \
@@ -257,6 +253,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/FileUtil.cpp \
   $(SRC)/Common/File/DirListing.cpp \
   $(SRC)/Common/File/FileDescriptor.cpp \
+  $(SRC)/Common/GPU/thin3d.cpp \
+  $(SRC)/Common/Render/DrawBuffer.cpp \
+  $(SRC)/Common/Render/TextureAtlas.cpp \
+  $(SRC)/Common/Render/Text/draw_text.cpp \
+  $(SRC)/Common/Render/Text/draw_text_android.cpp \
   $(SRC)/Common/Input/GestureDetector.cpp \
   $(SRC)/Common/Input/InputState.cpp \
   $(SRC)/Common/Math/fast/fast_math.c \
