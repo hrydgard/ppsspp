@@ -1,20 +1,23 @@
 #include <cstdio>
 #include <cstdint>
+#include <ctime>
+
+#include "ppsspp_config.h"
 
 #include "Common/TimeUtil.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/time.h>
-#include <unistd.h>
-#endif
 
 #ifdef HAVE_LIBNX
 #include <switch.h>
 #endif // HAVE_LIBNX
 
-#include "Common/Log.h"
+#ifdef _WIN32
+#include "CommonWindows.h"
+#include <mmsystem.h>
+#include <sys/timeb.h>
+#else
+#include <sys/time.h>
+#include <unistd.h>
+#endif
 
 static double curtime = 0;
 
@@ -62,5 +65,29 @@ void sleep_ms(int ms) {
 	svcSleepThread(ms * 1000000);
 #else
 	usleep(ms * 1000);
+#endif
+}
+
+// Return the current time formatted as Minutes:Seconds:Milliseconds
+// in the form 00:00:000.
+void GetTimeFormatted(char formattedTime[13]) {
+	time_t sysTime;
+	struct tm * gmTime;
+	char tmp[13];
+
+	time(&sysTime);
+	gmTime = localtime(&sysTime);
+
+	strftime(tmp, 6, "%M:%S", gmTime);
+
+	// Now tack on the milliseconds
+#ifdef _WIN32
+	struct timeb tp;
+	(void)::ftime(&tp);
+	snprintf(formattedTime, 13, "%s:%03i", tmp, tp.millitm);
+#else
+	struct timeval t;
+	(void)gettimeofday(&t, NULL);
+	snprintf(formattedTime, 13, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
 #endif
 }

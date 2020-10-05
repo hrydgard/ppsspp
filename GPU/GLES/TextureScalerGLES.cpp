@@ -22,7 +22,7 @@
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "Common/GPU/DataFormat.h"
 
 int TextureScalerGLES::BytesPerPixel(u32 format) {

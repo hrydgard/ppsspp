@@ -19,13 +19,13 @@
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
+#include "Common/Common.h"
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
-
-#include "Common/Common.h"
 #include "Common/ColorConv.h"
-#include "Common/MathUtil.h"
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -34,7 +34,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Stepping.h"
-
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"

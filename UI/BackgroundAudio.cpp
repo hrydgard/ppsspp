@@ -9,7 +9,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
-#include "Common/FixedSizeQueue.h"
+#include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HLE/__sceAudio.h"
 #include "GameInfoCache.h"

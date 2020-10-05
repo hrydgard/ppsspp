@@ -26,7 +26,7 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/CommonFuncs.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
 

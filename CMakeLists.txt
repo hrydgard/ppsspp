@@ -439,7 +439,10 @@ add_library(Common STATIC
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
 	Common/Data/Collections/ConstMap.h
+	Common/Data/Collections/FixedSizeQueue.h
+	Common/Data/Collections/Hashmaps.h
 	Common/Data/Collections/TinySet.h
+	Common/Data/Collections/ThreadSafeList.h
 	Common/Data/Color/RGBAUtil.cpp
 	Common/Data/Color/RGBAUtil.h
 	Common/Data/Convert/SmallDataConvert.cpp
@@ -611,10 +614,8 @@ add_library(Common STATIC
 	Common/ConsoleListener.h
 	Common/DbgNew.h
 	Common/FakeEmitter.h
-	Common/FixedSizeQueue.h
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
-	Common/Hashmaps.h
 	Common/Log.h
 	Common/Log.cpp
 	Common/LogManager.cpp
@@ -633,11 +634,6 @@ add_library(Common STATIC
 	Common/StringUtils.h
 	Common/SysError.h
 	Common/SysError.cpp
-	Common/ThreadPools.cpp
-	Common/ThreadPools.h
-	Common/ThreadSafeList.h
-	Common/Timer.cpp
-	Common/Timer.h
 	Common/TimeUtil.cpp
 	Common/TimeUtil.h
 )
@@ -1775,6 +1771,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/System.h
 	Core/TextureReplacer.cpp
 	Core/TextureReplacer.h
+	Core/ThreadPools.cpp
+	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/AudioFormatNEON.cpp

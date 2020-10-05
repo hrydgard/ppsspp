@@ -17,7 +17,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/FixedSizeQueue.h"
+#include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/CoreTiming.h"

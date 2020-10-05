@@ -396,7 +396,9 @@ std::string CreateRandMAC() {
 }
 
 static int DefaultNumWorkers() {
-	return cpu_info.num_cores;
+	// Let's cap the global thread pool at 16 threads. Nothing we do really should have much
+	// use for more...
+	return std::min(16, cpu_info.num_cores);
 }
 
 static int DefaultCpuCore() {

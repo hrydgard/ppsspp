@@ -22,7 +22,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/Common.h"
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"

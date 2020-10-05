@@ -911,6 +911,7 @@
       <Filter>Ext\libzip</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
+    <ClCompile Include="..\..\Core\ThreadPools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1542,6 +1543,7 @@
       <Filter>Ext\libzip</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\KeyMap.h" />
+    <ClInclude Include="..\..\Core\ThreadPools.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">
