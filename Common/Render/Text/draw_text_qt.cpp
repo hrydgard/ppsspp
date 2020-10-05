@@ -10,6 +10,7 @@
 
 #if defined(USING_QT_UI)
 
+#include <QtGui/QFont>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QFontMetrics>

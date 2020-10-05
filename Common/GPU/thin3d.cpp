@@ -6,7 +6,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"
-#include "Core/Reporting.h"
 
 namespace Draw {
 
@@ -450,7 +449,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG_REPORT_ONCE(convFromRGBA, G3D, "Unable to convert from format: %d", (int)format);
+			WARN_LOG(G3D, "Unable to convert from format: %d", (int)format);
 			break;
 		}
 	}
@@ -492,7 +491,7 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 			dst += dstStride * 3;
 		}
 	} else {
-		WARN_LOG_REPORT_ONCE(convFromBGRA, G3D, "Unable to convert from format to BGRA: %d", (int)format);
+		WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
 	}
 }
 

@@ -164,8 +164,6 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-include_directories(ext/native)
-
 # Work around for some misfeature of the current glslang build system 
 include_directories(ext/glslang)
 
@@ -302,12 +300,7 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# We want C++11, so target 10.7+
-		if(USING_QT_UI)
-			set(MACOSX_VERSION_MIN "10.8")
-		else()
-			set(MACOSX_VERSION_MIN "10.7")
-		endif()
+		set(MACOSX_VERSION_MIN "10.8")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
@@ -356,6 +349,14 @@ macro(setup_target_project TargetName ProjectDir)
 		source_group("${RelativePath}" FILES ${Source})
 	endforeach()
 endmacro()
+
+add_subdirectory(ext)
+
+if(WIN32)
+	include_directories(dx9sdk/Include)
+	include_directories(dx9sdk/Include/DX11)
+endif()
+
 
 set(CommonX86
 	Common/ABI.cpp
@@ -423,7 +424,6 @@ add_library(Common STATIC
 	${CommonARM64}
 	${CommonMIPS}
 	${CommonFake}
-	${CommonVulkan}
 	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
@@ -567,8 +567,6 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text.h
 	Common/Render/Text/draw_text_android.cpp
 	Common/Render/Text/draw_text_android.h
-	Common/Render/Text/draw_text_qt.cpp
-	Common/Render/Text/draw_text_qt.h
 	Common/Render/Text/draw_text_win.cpp
 	Common/Render/Text/draw_text_win.h
 	Common/Render/Text/draw_text_uwp.cpp
@@ -644,38 +642,20 @@ add_library(Common STATIC
 	Common/TimeUtil.h
 )
 
-add_subdirectory(ext)
-
 include_directories(Common)
 setup_target_project(Common Common)
 
 target_link_libraries(Common Ext::Snappy)
-
-if(WIN32)
-	include_directories(dx9sdk/Include)
-	include_directories(dx9sdk/Include/DX11)
-	if(MINGW)
-		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
-		# required when using the dx9sdk include paths
-		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
-	else()
-		target_link_libraries(Common dxguid)
-	endif()
-	target_link_libraries(Common winmm d3d9 dsound)
-endif()
-
-if(TARGET SDL2::SDL2)
-	target_link_libraries(Common SDL2::SDL2)
-endif()
 
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
 add_library(gason STATIC
-	ext/gason/gason.cpp
-	ext/gason/gason.h
+    ext/gason/gason.cpp
+    ext/gason/gason.h
 )
+
 
 if(USE_FFMPEG)
 	if(NOT FFMPEG_DIR)
@@ -981,11 +961,13 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-	include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
+
+	include_directories(Qt)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
 	set(TargetBin PPSSPPQt)
 
-	# Enable SDL if found
+	# Enable SDL joystick if SDL is found
 	if(SDL2_FOUND)
 		add_definitions(-DSDL)
 		set(nativeExtra ${nativeExtra}
@@ -1025,6 +1007,22 @@ elseif(TARGET SDL2::SDL2)
 elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
+
+if(WIN32)
+	if(MINGW)
+		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
+		# required when using the dx9sdk include paths
+		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
+	else()
+		target_link_libraries(Common dxguid)
+	endif()
+	target_link_libraries(Common winmm d3d9 dsound)
+endif()
+
+if(TARGET SDL2::SDL2)
+	target_link_libraries(Common SDL2::SDL2)
+endif()
+
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
@@ -1075,12 +1073,13 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
+	Common/Render/Text/draw_text_qt.cpp
+	Common/Render/Text/draw_text_qt.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp
 	ext/jpge/jpge.h
 )
-include_directories(ext/native)
 
 if(LINUX AND NOT ANDROID)
 	set(RT_LIB rt)
@@ -1103,7 +1102,6 @@ elseif(WIN32)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
 	target_link_libraries(native execinfo)
 endif()
-setup_target_project(native native)
 
 add_library(kirk STATIC
 	ext/libkirk/AES.c
@@ -1808,7 +1806,6 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 #if(VULKAN AND NOT WIN32)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
-
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
