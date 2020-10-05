@@ -169,6 +169,9 @@ include_directories(ext/native)
 # Work around for some misfeature of the current glslang build system 
 include_directories(ext/glslang)
 
+# Not sure if this is the best way - what about system glew?
+# Anyway, glew will be going away anyway.
+include_directories(ext/glew)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
