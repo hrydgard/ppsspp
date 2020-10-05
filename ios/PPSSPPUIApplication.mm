@@ -21,9 +21,9 @@
 #include "Common/Input/InputState.h"
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Screen.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Input/KeyCodes.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #import "ios/AppDelegate.h"
 #include "ios/SmartKeyboardMap.hpp"

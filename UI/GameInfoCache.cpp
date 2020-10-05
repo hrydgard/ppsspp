@@ -22,7 +22,7 @@
 #include <memory>
 #include <algorithm>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Thread/PrioritizedWorkQueue.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"

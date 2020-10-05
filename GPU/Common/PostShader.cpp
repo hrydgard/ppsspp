@@ -26,7 +26,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

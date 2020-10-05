@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <locale.h>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #if defined(_WIN32) && defined(_DEBUG)
 #include "Common/CommonWindows.h"

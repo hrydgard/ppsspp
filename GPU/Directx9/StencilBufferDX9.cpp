@@ -17,8 +17,8 @@
 
 #include <d3d9.h>
 
-#include "gfx/d3d9_state.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"

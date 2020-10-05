@@ -19,9 +19,8 @@
 #include <sstream>
 #include <cmath>
 
-#include "ext/native/thin3d/thin3d.h"
-#include "gfx_es2/gpu_features.h"
-
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/ColorConv.h"
 #include "Common/Common.h"

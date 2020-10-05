@@ -1,8 +1,8 @@
 #include "SDL_syswm.h"
 #include "SDL.h"
 
-#include "thin3d/GLRenderManager.h"
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GraphicsContext.h"
 
 class SDLGLGraphicsContext : public GraphicsContext {

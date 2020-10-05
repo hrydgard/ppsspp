@@ -1,5 +1,5 @@
 #include <cstring>
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/WrapText.h"
 

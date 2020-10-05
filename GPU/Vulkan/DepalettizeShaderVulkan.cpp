@@ -16,15 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ColorConv.h"
-#include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanMemory.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 
 static const char depal_vs[] = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable

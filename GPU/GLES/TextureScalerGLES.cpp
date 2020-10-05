@@ -16,14 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
 #include <algorithm>
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/ThreadPools.h"
-#include "thin3d/DataFormat.h"
+#include "Common/GPU/DataFormat.h"
 
 int TextureScalerGLES::BytesPerPixel(u32 format) {
 	return ((Draw::DataFormat)format == Draw::DataFormat::R8G8B8A8_UNORM) ? 4 : 2;

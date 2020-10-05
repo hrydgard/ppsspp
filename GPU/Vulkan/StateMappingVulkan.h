@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 
 #include <cstring>
 

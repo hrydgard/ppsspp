@@ -25,7 +25,6 @@
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "thin3d/d3dx9_loader.h"
 #include "Common/Math/lin/matrix4x4.h"
 
 namespace DX9 {

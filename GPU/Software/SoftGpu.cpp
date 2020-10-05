@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/System/Display.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -33,7 +33,7 @@
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Common/Profiler/Profiler.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"

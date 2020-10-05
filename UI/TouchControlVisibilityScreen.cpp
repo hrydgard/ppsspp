@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
 #include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"

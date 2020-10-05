@@ -18,10 +18,10 @@
 #include <algorithm>
 
 #include "Common/Profiler/Profiler.h"
-#include "gfx/gl_common.h"
-#include "gfx/gl_debug_log.h"
-#include "gfx_es2/glsl_program.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/ColorConv.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"

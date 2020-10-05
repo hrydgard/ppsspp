@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ext/native/thin3d/thin3d.h"
-#include "ext/native/thin3d/VulkanRenderManager.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Log.h"
 #include "Core/Reporting.h"

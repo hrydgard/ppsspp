@@ -26,8 +26,6 @@
 #include <sys/time.h>
 #endif
 
-#include "gfx_es2/gpu_features.h"
-
 #include "Common/Data/Text/I18n.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/System.h"
@@ -315,7 +313,8 @@ void __DisplayDoState(PointerWrap &p) {
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
 		// It's unlikely to overlap with the first value in gpuStats.
-		p.ExpectVoid(&gl_extensions.gpuVendor, sizeof(gl_extensions.gpuVendor));
+		int gpuVendorTemp = 0;
+		p.ExpectVoid(&gpuVendorTemp, sizeof(gpuVendorTemp));
 	}
 	if (s < 6) {
 		GPUStatistics_v0 oldStats;

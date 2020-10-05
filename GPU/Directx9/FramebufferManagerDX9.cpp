@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Math/lin/matrix4x4.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include "Common/ColorConv.h"
 #include "Core/MemMap.h"
@@ -28,7 +28,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Stepping.h"
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
@@ -38,7 +38,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include <algorithm>
 

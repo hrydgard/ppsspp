@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
-#include "Common/Vulkan/VulkanLoader.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "GPU/Math3D.h"

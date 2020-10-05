@@ -18,8 +18,8 @@
 #include <string>
 
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
-#include "gfx_es2/draw_buffer.h"
-#include "thin3d/thin3d.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/UI/Context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"

@@ -21,9 +21,9 @@
 #include <map>
 
 #include "Common/Hashmaps.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 
 // Vulkan doesn't really have the concept of an FBO that owns the images,
 // but it does have the concept of a framebuffer as a set of attachments.

@@ -14,10 +14,10 @@
 
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Screen.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"

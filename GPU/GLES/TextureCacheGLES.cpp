@@ -19,11 +19,10 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
-#include "gfx/gl_debug_log.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "Common/ColorConv.h"
 #include "Core/Config.h"

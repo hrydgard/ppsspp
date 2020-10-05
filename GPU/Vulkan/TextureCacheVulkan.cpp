@@ -23,8 +23,8 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/ColorConv.h"
 #include "Common/StringUtils.h"
@@ -34,9 +34,9 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

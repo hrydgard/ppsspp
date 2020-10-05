@@ -2,8 +2,8 @@
 
 #include "SDLGLGraphicsContext.h"
 
-#include "gfx_es2/gpu_features.h"
-#include "thin3d/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d_create.h"
 
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"

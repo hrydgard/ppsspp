@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "Common/Data/Color/RGBAUtil.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/UI/Context.h"

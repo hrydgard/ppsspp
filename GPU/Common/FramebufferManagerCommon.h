@@ -27,7 +27,7 @@
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,

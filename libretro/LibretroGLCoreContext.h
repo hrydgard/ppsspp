@@ -1,8 +1,8 @@
 #pragma once
 
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include "libretro/LibretroGraphicsContext.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 class LibretroGLCoreContext : public LibretroHWRenderContext {
 public:

@@ -20,7 +20,7 @@
 #include <functional>
 #include "CommonWindows.h"
 
-#include "gfx_es2/glsl_program.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Common/CommonWindows.h"
 
 struct SimpleGLWindow {

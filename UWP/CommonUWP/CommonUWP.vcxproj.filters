@@ -70,6 +70,21 @@
     <Filter Include="UI">
       <UniqueIdentifier>{8e12d2c0-157a-4625-a970-665e1ec9a425}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{03e7b6a3-ac95-4145-b045-9c644186a0a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\D3D11">
+      <UniqueIdentifier>{4a53cf3f-fb5d-471f-8570-7dcdf479cce6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render">
+      <UniqueIdentifier>{84fe421c-de5d-4732-9518-dd5ef6c46a72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\GL">
+      <UniqueIdentifier>{2eb259f7-2735-493a-88be-96eb38f1b34e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render\Text">
+      <UniqueIdentifier>{28139b08-f8d5-41a2-a5ee-bf86cf1469c3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -319,6 +334,36 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\UI\ViewGroup.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\thin3d.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp">
+      <Filter>GPU\D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\DrawBuffer.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp">
+      <Filter>GPU\GL</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp">
+      <Filter>Render\Text</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -581,6 +626,39 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\ViewGroup.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\DataFormat.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\thin3d.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\thin3d_create.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\DrawBuffer.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\TextureAtlas.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h">
+      <Filter>GPU\GL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h">
+      <Filter>Render\Text</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

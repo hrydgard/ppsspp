@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/UI/View.h"
 
 enum ImageFileType {

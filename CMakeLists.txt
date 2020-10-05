@@ -164,11 +164,12 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-include_directories(ext/native)
-
 # Work around for some misfeature of the current glslang build system 
 include_directories(ext/glslang)
 
+# Not sure if this is the best way - what about system glew?
+# Anyway, glew will be going away anyway.
+include_directories(ext/glew)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
@@ -299,12 +300,7 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# We want C++11, so target 10.7+
-		if(USING_QT_UI)
-			set(MACOSX_VERSION_MIN "10.8")
-		else()
-			set(MACOSX_VERSION_MIN "10.7")
-		endif()
+		set(MACOSX_VERSION_MIN "10.8")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
@@ -354,6 +350,14 @@ macro(setup_target_project TargetName ProjectDir)
 	endforeach()
 endmacro()
 
+add_subdirectory(ext)
+
+if(WIN32)
+	include_directories(dx9sdk/Include)
+	include_directories(dx9sdk/Include/DX11)
+endif()
+
+
 set(CommonX86
 	Common/ABI.cpp
 	Common/ABI.h
@@ -400,18 +404,19 @@ if(NOT (X86 OR ARM OR MIPS))
 	source_group(Fake FILES ${CommonFake})
 endif()
 
-set(CommonVulkan ${CommonExtra}
-	Common/Vulkan/VulkanDebug.cpp
-	Common/Vulkan/VulkanDebug.h
-	Common/Vulkan/VulkanContext.cpp
-	Common/Vulkan/VulkanContext.h
-	Common/Vulkan/VulkanImage.cpp
-	Common/Vulkan/VulkanImage.h
-	Common/Vulkan/VulkanLoader.cpp
-	Common/Vulkan/VulkanLoader.h
-	Common/Vulkan/VulkanMemory.cpp
-	Common/Vulkan/VulkanMemory.h
-)
+if(WIN32)
+	set(CommonD3D
+		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
+		Common/GPU/D3D9/D3D9ShaderCompiler.h
+		Common/GPU/D3D9/D3D9StateCache.cpp
+		Common/GPU/D3D9/D3D9StateCache.h
+		Common/GPU/D3D9/thin3d_d3d9.cpp
+		Common/GPU/D3D9/D3DCompilerLoader.cpp
+		Common/GPU/D3D11/thin3d_d3d11.cpp
+		Common/GPU/D3D11/D3D11Loader.cpp
+		Common/GPU/D3D11/D3D11Loader.h
+	)
+endif()
 
 add_library(Common STATIC
 	${CommonX86}
@@ -419,7 +424,7 @@ add_library(Common STATIC
 	${CommonARM64}
 	${CommonMIPS}
 	${CommonFake}
-	${CommonVulkan}
+	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -484,6 +489,41 @@ add_library(Common STATIC
 	Common/File/DirListing.h
 	Common/File/FileDescriptor.cpp
 	Common/File/FileDescriptor.h
+	Common/GPU/DataFormat.h
+	Common/GPU/thin3d.cpp
+	Common/GPU/thin3d.h
+	Common/GPU/thin3d_create.h
+	Common/GPU/OpenGL/GLCommon.h
+	Common/GPU/OpenGL/GLDebugLog.cpp
+	Common/GPU/OpenGL/GLDebugLog.h
+	Common/GPU/OpenGL/GLSLProgram.cpp
+	Common/GPU/OpenGL/GLSLProgram.h
+	Common/GPU/OpenGL/gl3stub.c
+	Common/GPU/OpenGL/gl3stub.h
+	Common/GPU/OpenGL/GLFeatures.cpp
+	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLRenderManager.cpp
+	Common/GPU/OpenGL/GLRenderManager.h
+	Common/GPU/OpenGL/GLQueueRunner.cpp
+	Common/GPU/OpenGL/GLQueueRunner.h
+	Common/GPU/OpenGL/DataFormatGL.cpp
+	Common/GPU/OpenGL/DataFormatGL.h
+	Common/GPU/Vulkan/VulkanDebug.cpp
+	Common/GPU/Vulkan/VulkanDebug.h
+	Common/GPU/Vulkan/VulkanContext.cpp
+	Common/GPU/Vulkan/VulkanContext.h
+	Common/GPU/Vulkan/VulkanImage.cpp
+	Common/GPU/Vulkan/VulkanImage.h
+	Common/GPU/Vulkan/VulkanLoader.cpp
+	Common/GPU/Vulkan/VulkanLoader.h
+	Common/GPU/Vulkan/VulkanMemory.cpp
+	Common/GPU/Vulkan/VulkanMemory.h
+	Common/GPU/Vulkan/thin3d_vulkan.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.h
+	Common/GPU/Vulkan/VulkanQueueRunner.cpp
+	Common/GPU/Vulkan/VulkanQueueRunner.h
 	Common/Input/GestureDetector.cpp
 	Common/Input/GestureDetector.h
 	Common/Input/KeyCodes.h
@@ -519,6 +559,18 @@ add_library(Common STATIC
 	Common/Net/WebsocketServer.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
+	Common/Render/TextureAtlas.cpp
+	Common/Render/TextureAtlas.h
+	Common/Render/DrawBuffer.cpp
+	Common/Render/DrawBuffer.h
+	Common/Render/Text/draw_text.cpp
+	Common/Render/Text/draw_text.h
+	Common/Render/Text/draw_text_android.cpp
+	Common/Render/Text/draw_text_android.h
+	Common/Render/Text/draw_text_win.cpp
+	Common/Render/Text/draw_text_win.h
+	Common/Render/Text/draw_text_uwp.cpp
+	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
 	Common/Thread/Executor.cpp
@@ -590,38 +642,20 @@ add_library(Common STATIC
 	Common/TimeUtil.h
 )
 
-add_subdirectory(ext)
-
 include_directories(Common)
 setup_target_project(Common Common)
 
 target_link_libraries(Common Ext::Snappy)
-
-if(WIN32)
-	include_directories(dx9sdk/Include)
-	include_directories(dx9sdk/Include/DX11)
-	if(MINGW)
-		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
-		# required when using the dx9sdk include paths
-		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
-	else()
-		target_link_libraries(Common dxguid)
-	endif()
-	target_link_libraries(Common winmm d3d9 dsound)
-endif()
-
-if(TARGET SDL2::SDL2)
-	target_link_libraries(Common SDL2::SDL2)
-endif()
 
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
 add_library(gason STATIC
-	ext/gason/gason.cpp
-	ext/gason/gason.h
+    ext/gason/gason.cpp
+    ext/gason/gason.h
 )
+
 
 if(USE_FFMPEG)
 	if(NOT FFMPEG_DIR)
@@ -927,11 +961,13 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-	include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
+
+	include_directories(Qt)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
 	set(TargetBin PPSSPPQt)
 
-	# Enable SDL if found
+	# Enable SDL joystick if SDL is found
 	if(SDL2_FOUND)
 		add_definitions(-DSDL)
 		set(nativeExtra ${nativeExtra}
@@ -971,6 +1007,22 @@ elseif(TARGET SDL2::SDL2)
 elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
+
+if(WIN32)
+	if(MINGW)
+		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
+		# required when using the dx9sdk include paths
+		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
+	else()
+		target_link_libraries(Common dxguid)
+	endif()
+	target_link_libraries(Common winmm d3d9 dsound)
+endif()
+
+if(TARGET SDL2::SDL2)
+	target_link_libraries(Common SDL2::SDL2)
+endif()
+
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
@@ -1019,73 +1071,15 @@ if(ANDROID)
 	endif()
 endif()
 
-set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
-	ext/native/thin3d/GLRenderManager.cpp
-	ext/native/thin3d/GLRenderManager.h
-	ext/native/thin3d/GLQueueRunner.cpp
-	ext/native/thin3d/GLQueueRunner.h
-	ext/native/thin3d/DataFormatGL.cpp
-	ext/native/thin3d/DataFormatGL.h
-)
-
-set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-	ext/native/thin3d/thin3d_vulkan.cpp
-	ext/native/thin3d/VulkanRenderManager.cpp
-	ext/native/thin3d/VulkanRenderManager.h
-	ext/native/thin3d/VulkanQueueRunner.cpp
-	ext/native/thin3d/VulkanQueueRunner.h
-	ext/native/thin3d/DataFormat.h
-)
-
-if(WIN32)
-	set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-		ext/native/thin3d/thin3d_d3d9.cpp
-		ext/native/thin3d/thin3d_d3d11.cpp
-		ext/native/thin3d/d3d9_d3dcompiler_loader.cpp
-		ext/native/thin3d/d3dx9_loader.cpp
-		ext/native/thin3d/d3dx9_loader.h
-		ext/native/thin3d/d3d11_loader.cpp
-		ext/native/thin3d/d3d11_loader.h
-	)
-endif()
-
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/gfx/gl_common.h
-	ext/native/gfx/gl_debug_log.cpp
-	ext/native/gfx/gl_debug_log.h
-	ext/native/gfx/texture_atlas.cpp
-	ext/native/gfx/texture_atlas.h
-	ext/native/gfx/d3d9_shader.cpp
-	ext/native/gfx/d3d9_shader.h
-	ext/native/gfx/d3d9_state.cpp
-	ext/native/gfx/d3d9_state.h
-	ext/native/gfx_es2/draw_buffer.cpp
-	ext/native/gfx_es2/draw_buffer.h
-	ext/native/gfx_es2/draw_text.cpp
-	ext/native/gfx_es2/draw_text.h
-	ext/native/gfx_es2/draw_text_win.cpp
-	ext/native/gfx_es2/draw_text_win.h
-	ext/native/gfx_es2/draw_text_qt.cpp
-	ext/native/gfx_es2/draw_text_qt.h
-	ext/native/gfx_es2/draw_text_android.cpp
-	ext/native/gfx_es2/draw_text_android.h
-	ext/native/gfx_es2/gpu_features.cpp
-	ext/native/gfx_es2/gpu_features.h
-	ext/native/gfx_es2/glsl_program.cpp
-	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/gl3stub.c
-	ext/native/gfx_es2/gl3stub.h
-	ext/native/thin3d/thin3d.cpp
-	ext/native/thin3d/thin3d.h
-	ext/native/thin3d/thin3d_create.h
-	${THIN3D_PLATFORMS}
+	Common/Render/Text/draw_text_qt.cpp
+	Common/Render/Text/draw_text_qt.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp
 	ext/jpge/jpge.h
 )
-include_directories(ext/native)
 
 if(LINUX AND NOT ANDROID)
 	set(RT_LIB rt)
@@ -1108,7 +1102,6 @@ elseif(WIN32)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
 	target_link_libraries(native execinfo)
 endif()
-setup_target_project(native native)
 
 add_library(kirk STATIC
 	ext/libkirk/AES.c
@@ -1813,7 +1806,6 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 #if(VULKAN AND NOT WIN32)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
-
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 

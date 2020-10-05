@@ -23,7 +23,7 @@
 #include "Common/CommonWindows.h"
 #include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"
 
 #include <Wbemidl.h>
