@@ -58,15 +58,19 @@ void SDLJoystick::setUpController(int deviceIndex) {
 		int cbGUID = 33;
 		char pszGUID[cbGUID];
 		SDL_Joystick* joystick = SDL_JoystickOpen(deviceIndex);
-		SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
-		// create default mapping - this is the PS3 dual shock mapping
-		std::string mapping = string(pszGUID) + "," + string(SDL_JoystickName(joystick)) + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
-		if (SDL_GameControllerAddMapping(mapping.c_str()) == 1){
-			cout << "Added default mapping ok" << endl;
+		if (joystick) {
+			SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
+			// create default mapping - this is the PS3 dual shock mapping
+			std::string mapping = string(pszGUID) + "," + string(SDL_JoystickName(joystick)) + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
+			if (SDL_GameControllerAddMapping(mapping.c_str()) == 1){
+				cout << "Added default mapping ok" << endl;
+			} else {
+				cout << "Failed to add default mapping" << endl;
+			}
+			SDL_JoystickClose(joystick);
 		} else {
-			cout << "Failed to add default mapping" << endl;
+			cout << "Failed to get joystick identifier. Read-only device? Control pad device " + std::to_string(deviceIndex) << endl;
 		}
-		SDL_JoystickClose(joystick);
 	}
 	SDL_GameController *controller = SDL_GameControllerOpen(deviceIndex);
 	if (controller) {
