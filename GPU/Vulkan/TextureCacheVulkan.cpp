@@ -710,7 +710,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+
+	// maxLevel here is the max level to upload. Not the count.
 	int maxLevel = entry->maxLevel;
+
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
@@ -739,6 +742,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (badMipSizes) {
 		maxLevel = 0;
 	}
+
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels.
+	int maxLevelToGenerate = maxLevel;
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
@@ -824,8 +831,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		// If we want to use the GE debugger, we should add VK_IMAGE_USAGE_TRANSFER_SRC_BIT too...
+		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 		// Compute experiment
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
@@ -845,7 +851,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		snprintf(texName, sizeof(texName), "texture_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format));
 		image->SetTag(texName);
 
-		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, imageLayout, usage, mapping);
+		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
 			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 			lowMemoryMode_ = true;
@@ -864,7 +870,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			scaleFactor = 1;
 			actualFmt = dstFmt;
 
-			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		}
 
 		if (!allocSuccess) {
@@ -985,6 +991,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, w, h);
 				}
 			}
+		}
+
+		// Generate any additional mipmap levels.
+		for (int level = maxLevel + 1; level <= maxLevelToGenerate; level++) {
+			entry->vkTex->GenerateMip(cmdInit, level);
 		}
 
 		if (maxLevel == 0) {
