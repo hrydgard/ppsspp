@@ -479,6 +479,10 @@ int main(int argc, char *argv[]) {
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
+#ifdef SDL_HINT_TOUCH_MOUSE_EVENTS
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+#endif
+
 	if (VulkanMayBeAvailable()) {
 		printf("DEBUG: Vulkan might be available.\n");
 	} else {
@@ -863,68 +867,56 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 					break;
 				}
-#if !SDL_VERSION_ATLEAST(2, 0, 10)
 // This behavior doesn't feel right on a macbook with a touchpad.
 #if !PPSSPP_PLATFORM(MAC)
 			case SDL_FINGERMOTION:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEMOTION;
-					touchEvent.motion.type = SDL_MOUSEMOTION;
-					touchEvent.motion.timestamp = event.tfinger.timestamp;
-					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.state = SDL_GetMouseState(NULL, NULL);
-					touchEvent.motion.x = event.tfinger.x * w;
-					touchEvent.motion.y = event.tfinger.y * h;
-
-					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
-
-					SDL_PushEvent(&touchEvent);
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_MOVE;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
 					break;
 				}
 			case SDL_FINGERDOWN:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEBUTTONDOWN;
-					touchEvent.button.type = SDL_MOUSEBUTTONDOWN;
-					touchEvent.button.timestamp = SDL_GetTicks();
-					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.button = SDL_BUTTON_LEFT;
-					touchEvent.button.state = SDL_PRESSED;
-					touchEvent.button.clicks = 1;
-					touchEvent.button.x = event.tfinger.x * w;
-					touchEvent.button.y = event.tfinger.y * h;
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_DOWN;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
 
-					touchEvent.motion.type = SDL_MOUSEMOTION;
-					touchEvent.motion.timestamp = SDL_GetTicks();
-					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.x = event.tfinger.x * w;
-					touchEvent.motion.y = event.tfinger.y * h;
-					// Any real mouse cursor should also move
-					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
-					// First finger down event also has to be a motion to that position
-					SDL_PushEvent(&touchEvent);
-					touchEvent.motion.type = SDL_MOUSEBUTTONDOWN;
-					// Now we push the mouse button event
-					SDL_PushEvent(&touchEvent);
+					KeyInput key;
+					key.deviceId = DEVICE_ID_MOUSE;
+					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+					key.flags = KEY_DOWN;
+					NativeKey(key);
 					break;
 				}
 			case SDL_FINGERUP:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEBUTTONUP;
-					touchEvent.button.type = SDL_MOUSEBUTTONUP;
-					touchEvent.button.timestamp = SDL_GetTicks();
-					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.button = SDL_BUTTON_LEFT;
-					touchEvent.button.state = SDL_RELEASED;
-					touchEvent.button.clicks = 1;
-					touchEvent.button.x = event.tfinger.x * w;
-					touchEvent.button.y = event.tfinger.y * h;
-					SDL_PushEvent(&touchEvent);
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_UP;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
+
+					KeyInput key;
+					key.deviceId = DEVICE_ID_MOUSE;
+					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+					key.flags = KEY_UP;
+					NativeKey(key);
 					break;
 				}
-#endif
 #endif
 			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
