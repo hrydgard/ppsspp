@@ -4720,83 +4720,71 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	if (!netAdhocMatchingInited) 
-		return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
-	
+	if (!netAdhocMatchingInited)
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+
 	// Multithreading Lock
 	peerlock.lock();
 
-	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
-	
+	SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
+
 	// Multithreading Unlock
 	peerlock.unlock();
 
-	// Found Context
-	if (context != NULL)
+	// Context not found
+	if (context == NULL)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+
+	// Invalid Matching Mode (Child)
+	if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD)
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_MODE, "adhocmatching invalid mode");
+
+	// Context not running
+	if (!context->running)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+
+	// Invalid Optional Data Length
+	if ((optLenAddr != 0) && (optDataAddr == 0))
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN, "adhocmatching invalid optlen"); //ERROR_NET_ADHOC_MATCHING_INVALID_ARG
+
+	// Grab Existing Hello Data
+	void* hello = context->hello;
+
+	// Free Previous Hello Data, or Reuse it
+	//free(hello);
+
+	// Allocation Required
+	if (optLenAddr > 0)
 	{
-		// Valid Matching Modes
-		if (context->mode != PSP_ADHOC_MATCHING_MODE_CHILD)
-		{
-			// Running Context
-			if (context->running)
-			{
-				// Valid Optional Data Length
-				if ((optLenAddr == 0) || (optLenAddr > 0 && optDataAddr != 0))
-				{
-					// Grab Existing Hello Data
-					void * hello = context->hello;
-
-					// Free Previous Hello Data, or Reuse it
-					//free(hello);
-
-					// Allocation Required
-					if (optLenAddr > 0)
-					{
-						// Allocate Memory
-						if (optLenAddr > context->hellolen) {
-							hello = realloc(hello, optLenAddr);
-						}
-
-						// Out of Memory
-						if (hello == NULL) {
-							context->hellolen = 0;
-							return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
-						}
-
-						// Clone Hello Data
-						//memcpy(hello, opt, optLenAddr);
-						Memory::Memcpy(hello, optDataAddr, optLenAddr);
-
-						// Set Hello Data
-						context->hello = (uint8_t*)hello;
-						context->hellolen = optLenAddr;
-						context->helloAddr = optDataAddr;
-					}
-					else
-					{
-						// Delete Hello Data
-						context->hellolen = 0;
-						context->helloAddr = 0;
-						//free(context->hello); // Doesn't need to free it since it will be reused later
-						//context->hello = NULL;
-					}
-
-					// Return Success
-					return 0;
-				}
-
-				// Invalid Optional Data Length
-				return ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN;
-			}
-
-			// Context not running
-			return ERROR_NET_ADHOC_MATCHING_NOT_RUNNING;
+		// Allocate Memory
+		if (optLenAddr > context->hellolen) {
+			hello = realloc(hello, optLenAddr);
 		}
 
-		// Invalid Matching Mode (Child)
-		return ERROR_NET_ADHOC_MATCHING_INVALID_MODE;
+		// Out of Memory
+		if (hello == NULL) {
+			context->hellolen = 0;
+			return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
+		}
+
+		// Clone Hello Data
+		Memory::Memcpy(hello, optDataAddr, optLenAddr);
+
+		// Set Hello Data
+		context->hello = (uint8_t*)hello;
+		context->hellolen = optLenAddr;
+		context->helloAddr = optDataAddr;
+	}
+	else
+	{
+		// Delete Hello Data
+		context->hellolen = 0;
+		context->helloAddr = 0;
+		//free(context->hello); // Doesn't need to free it since it will be reused later
+		//context->hello = NULL;
 	}
 
+	// Return Success
 	return 0;
 }
 
@@ -4806,209 +4794,200 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		return -1;
 
 	if (!netAdhocMatchingInited)
-		return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
 
 	// Minimum Argument
-	if (!Memory::IsValidAddress(sizeAddr)) 
+	if (!Memory::IsValidAddress(sizeAddr))
 		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 
 	// Multithreading Lock
 	peerlock.lock();
 	// Find Matching Context
-	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+	SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
 	// Multithreading Unlock
 	peerlock.unlock();
 
-	// Found Context
-	if (context != NULL)
-	{
-		// Running Context
-		if (context->running)
-		{
-			// Length Buffer available
-			if (sizeAddr != 0)
-			{
-				int * buflen = (int *)Memory::GetPointer(sizeAddr);
-				SceNetAdhocMatchingMemberInfoEmu * buf2 = NULL;
-				if (Memory::IsValidAddress(buf)) {
-					buf2 = (SceNetAdhocMatchingMemberInfoEmu *)Memory::GetPointer(buf);
-				}
+	// Context not found
+	if (context == NULL)
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
 
-				// Number of Connected Peers, should we exclude timeout members?
-				bool excludeTimedout = false; // false;
-				uint32_t peercount = countConnectedPeers(context, excludeTimedout);
-
-				// Calculate Connected Peer Bytesize
-				int available = sizeof(SceNetAdhocMatchingMemberInfoEmu) * peercount;
-
-				// Length Returner Mode
-				if (buf == 0)
-				{
-					// Get Connected Peer Count
-					*buflen = available;
-					DEBUG_LOG(SCENET, "MemberList [Connected: %i]", peercount);
-				}
-
-				// Normal Mode
-				else
-				{
-					// Fix Negative Length
-					if ((*buflen) < 0) *buflen = 0;
-
-					// Fix Oversize Request
-					if ((*buflen) > available) *buflen = available;
-
-					// Clear Memory
-					memset(buf2, 0, *buflen);
-
-					// Calculate Requested Peer Count
-					int requestedpeers = (*buflen) / sizeof(SceNetAdhocMatchingMemberInfoEmu);
-
-					// Filled Request Counter
-					int filledpeers = 0;
-
-					if (requestedpeers > 0)
-					{
-						// Add Self-Peer first, unless if there is existing Parent/P2P peer
-						if (peercount == 1 || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
-							// Add Local MAC
-							buf2[filledpeers++].mac_addr = context->mac;
-
-							DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac).c_str());
-						}
-
-						// Room for more than local peer
-						if (requestedpeers > 1)
-						{
-							// P2P Mode
-							if (context->mode == PSP_ADHOC_MATCHING_MODE_P2P)
-							{
-								// Find P2P Brother
-								SceNetAdhocMatchingMemberInternal * p2p = findP2P(context, excludeTimedout);
-
-								// P2P Brother found
-								if (p2p != NULL)
-								{
-									// Faking lastping
-									auto friendpeer = findFriend(&p2p->mac);
-									if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										p2p->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
-									else
-										p2p->lastping = 0;
-
-									// Add P2P Brother MAC
-									buf2[filledpeers++].mac_addr = p2p->mac;
-
-									DEBUG_LOG(SCENET, "MemberP2P [%s]", mac2str(&p2p->mac).c_str());
-								}
-							}
-
-							// Parent or Child Mode
-							else
-							{
-								// Add Parent first
-								SceNetAdhocMatchingMemberInternal* parentpeer = findParent(context);
-								if (parentpeer != NULL) {
-									// Faking lastping
-									auto friendpeer = findFriend(&parentpeer->mac);
-									if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-										parentpeer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
-									else
-										parentpeer->lastping = 0;
-
-									// Add Parent MAC
-									buf2[filledpeers++].mac_addr = parentpeer->mac;
-
-									DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&parentpeer->mac).c_str());
-								}
-
-								// We may need to rearrange children where last joined player placed last
-								std::deque<SceNetAdhocMatchingMemberInternal*> sortedPeers;
-
-								// Iterate Peer List
-								SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
-								for (; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
-								{
-									// Should we exclude timedout members?
-									if (!excludeTimedout || peer->lastping != 0) {
-										// Faking lastping
-										auto friendpeer = findFriend(&peer->mac);
-										if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
-											peer->lastping = CoreTiming::GetGlobalTimeUsScaled() - 1;
-										else
-											peer->lastping = 0;
-
-										// Add Peer MAC
-										sortedPeers.push_front(peer);
-									}
-								}
-
-								// Iterate rearranged peers
-								for (const auto& peer : sortedPeers) {
-									// Parent Mode
-									if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-										// Interested in Children
-										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-											// Add Child MAC
-											buf2[filledpeers++].mac_addr = peer->mac;
-
-											DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
-										}
-									}
-
-									// Child Mode
-									else {
-										// Interested in Siblings
-										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-											// Add Peer MAC
-											buf2[filledpeers++].mac_addr = peer->mac;
-
-											DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
-										}
-										// Self Peer
-										else if (peer->state == 0) {
-											// Add Local MAC
-											buf2[filledpeers++].mac_addr = peer->mac;
-
-											DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
-										}
-
-									}
-								}
-								sortedPeers.clear();
-							}
-						}
-
-						// Link Result List
-						for (int i = 0; i < filledpeers - 1; i++)
-						{
-							// Link Next Element
-							//buf2[i].next = &buf2[i + 1];
-							buf2[i].next = buf + (sizeof(SceNetAdhocMatchingMemberInfoEmu)*(i+1LL));
-						}
-						// Fix Last Element
-						if (filledpeers > 0) buf2[filledpeers - 1].next = 0;
-					}
-
-					// Fix Buffer Size
-					*buflen = sizeof(SceNetAdhocMatchingMemberInfoEmu) * filledpeers;
-					DEBUG_LOG(SCENET, "MemberList [Requested: %i][Discovered: %i]", requestedpeers, filledpeers);
-				}
-
-				// Return Success
-				return 0;
-			}
-
-			// Invalid Arguments
-			return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
-		}
-
-		// Context not running
+	// Context not running
+	if (!context->running)
 		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+
+	// Buffer Length not available
+	if (!Memory::IsValidAddress(sizeAddr))
+		return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+
+	int* buflen = (int*)Memory::GetPointer(sizeAddr);
+	SceNetAdhocMatchingMemberInfoEmu* buf2 = NULL;
+	if (Memory::IsValidAddress(buf)) {
+		buf2 = (SceNetAdhocMatchingMemberInfoEmu*)Memory::GetPointer(buf);
 	}
 
-	// Invalid Matching ID
-	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+	// Number of Connected Peers, should we exclude timeout members?
+	bool excludeTimedout = false; // false;
+	uint32_t peercount = countConnectedPeers(context, excludeTimedout);
+
+	// Calculate Connected Peer Bytesize
+	int available = sizeof(SceNetAdhocMatchingMemberInfoEmu) * peercount;
+
+	// Length Returner Mode
+	if (buf == 0)
+	{
+		// Get Connected Peer Count
+		*buflen = available;
+		DEBUG_LOG(SCENET, "MemberList [Connected: %i]", peercount);
+	}
+
+	// Normal Mode
+	else
+	{
+		// Fix Negative Length
+		if ((*buflen) < 0) *buflen = 0;
+
+		// Fix Oversize Request
+		if ((*buflen) > available) *buflen = available;
+
+		// Clear Memory
+		memset(buf2, 0, *buflen);
+
+		// Calculate Requested Peer Count
+		int requestedpeers = (*buflen) / sizeof(SceNetAdhocMatchingMemberInfoEmu);
+
+		// Filled Request Counter
+		int filledpeers = 0;
+
+		if (requestedpeers > 0)
+		{
+			// Add Self-Peer first, unless if there is existing Parent/P2P peer
+			if (peercount == 1 || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
+				// Add Local MAC
+				buf2[filledpeers++].mac_addr = context->mac;
+
+				DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&context->mac).c_str());
+			}
+
+			// Room for more than local peer
+			if (requestedpeers > 1)
+			{
+				// P2P Mode
+				if (context->mode == PSP_ADHOC_MATCHING_MODE_P2P)
+				{
+					// Find P2P Brother
+					SceNetAdhocMatchingMemberInternal* p2p = findP2P(context, excludeTimedout);
+
+					// P2P Brother found
+					if (p2p != NULL)
+					{
+						// Faking lastping
+						auto friendpeer = findFriend(&p2p->mac);
+						if (p2p->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
+							p2p->lastping = std::max(p2p->lastping, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+						else
+							p2p->lastping = 0;
+
+						// Add P2P Brother MAC
+						buf2[filledpeers++].mac_addr = p2p->mac;
+
+						DEBUG_LOG(SCENET, "MemberP2P [%s]", mac2str(&p2p->mac).c_str());
+					}
+				}
+
+				// Parent or Child Mode
+				else
+				{
+					// Add Parent first
+					SceNetAdhocMatchingMemberInternal* parentpeer = findParent(context);
+					if (parentpeer != NULL) {
+						// Faking lastping
+						auto friendpeer = findFriend(&parentpeer->mac);
+						if (parentpeer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
+							parentpeer->lastping = std::max(parentpeer->lastping, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+						else
+							parentpeer->lastping = 0;
+
+						// Add Parent MAC
+						buf2[filledpeers++].mac_addr = parentpeer->mac;
+
+						DEBUG_LOG(SCENET, "MemberParent [%s]", mac2str(&parentpeer->mac).c_str());
+					}
+
+					// We may need to rearrange children where last joined player placed last
+					std::deque<SceNetAdhocMatchingMemberInternal*> sortedPeers;
+
+					// Iterate Peer List
+					SceNetAdhocMatchingMemberInternal* peer = context->peerlist;
+					for (; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
+					{
+						// Should we exclude timedout members?
+						if (!excludeTimedout || peer->lastping != 0) {
+							// Faking lastping
+							auto friendpeer = findFriend(&peer->mac);
+							if (peer->lastping != 0 && friendpeer != NULL && friendpeer->last_recv != 0)
+								peer->lastping = std::max(peer->lastping, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+							else
+								peer->lastping = 0;
+
+							// Add Peer MAC
+							sortedPeers.push_front(peer);
+						}
+					}
+
+					// Iterate rearranged peers
+					for (const auto& peer : sortedPeers) {
+						// Parent Mode
+						if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+							// Interested in Children
+							if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+								// Add Child MAC
+								buf2[filledpeers++].mac_addr = peer->mac;
+
+								DEBUG_LOG(SCENET, "MemberChild [%s]", mac2str(&peer->mac).c_str());
+							}
+						}
+
+						// Child Mode
+						else {
+							// Interested in Siblings
+							if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+								// Add Peer MAC
+								buf2[filledpeers++].mac_addr = peer->mac;
+
+								DEBUG_LOG(SCENET, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
+							}
+							// Self Peer
+							else if (peer->state == 0) {
+								// Add Local MAC
+								buf2[filledpeers++].mac_addr = peer->mac;
+
+								DEBUG_LOG(SCENET, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
+							}
+
+						}
+					}
+					sortedPeers.clear();
+				}
+			}
+
+			// Link Result List
+			for (int i = 0; i < filledpeers - 1; i++)
+			{
+				// Link Next Element
+				//buf2[i].next = &buf2[i + 1];
+				buf2[i].next = buf + (sizeof(SceNetAdhocMatchingMemberInfoEmu) * (i + 1LL));
+			}
+			// Fix Last Element
+			if (filledpeers > 0) buf2[filledpeers - 1].next = 0;
+		}
+
+		// Fix Buffer Size
+		*buflen = sizeof(SceNetAdhocMatchingMemberInfoEmu) * filledpeers;
+		DEBUG_LOG(SCENET, "MemberList [Requested: %i][Discovered: %i]", requestedpeers, filledpeers);
+	}
+
+	// Return Success
+	return hleDelayResult(0, "delay 1 ~ 10ms", 1000); // seems to have different thread running within the delay duration
 }
 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
