@@ -585,8 +585,9 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
-		else
-			result = ERROR_NET_ADHOC_TIMEOUT;
+		else {
+				result = ERROR_NET_ADHOC_TIMEOUT;
+		}
 	}
 	else
 		result = ERROR_NET_ADHOC_INVALID_ARG; //ERROR_NET_ADHOC_TIMEOUT
@@ -632,8 +633,13 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
-		else
-			result = ERROR_NET_ADHOC_TIMEOUT;
+		else {
+			// Handle Workaround that force the first Connect to be blocking for issue related to lobby or high latency networks
+			if (sock->nonblocking)
+				result = ERROR_NET_ADHOC_WOULD_BLOCK;
+			else
+				result = ERROR_NET_ADHOC_TIMEOUT;
+		}
 	}
 	else
 		result = ERROR_NET_ADHOC_CONNECTION_REFUSED; // ERROR_NET_ADHOC_TIMEOUT;
@@ -2760,7 +2766,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		if (buflen != NULL && buf == NULL) {
 			// Return Required Size
 			*buflen = sizeof(SceNetAdhocPtpStat) * socketcount;
-			VERBOSE_LOG(SCENET, "PTP Socket Count: %d", socketcount);
+			VERBOSE_LOG(SCENET, "Stat PTP Socket Count: %d", socketcount);
 			
 			// Success
 			return 0;
@@ -2780,15 +2786,24 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if ( sock != NULL && sock->type == SOCK_PTP) {
+					// Update connection state. 
+					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
+					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt > 35000/*sock->retry_interval*/)) {
+						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
+						if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
+							sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+						}
+					}
+
+					// Set available bytes to be received
+					sock->data.ptp.rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
+
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
 					
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
 
-					// Set available bytes to be received
-					buf[i].rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
-					
 					// Write End of List Reference
 					buf[i].next = 0;
 					
@@ -2796,7 +2811,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					if (i > 0)
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPtpStat));
 
-					VERBOSE_LOG(SCENET, "PTP Socket Id: %d, LPort: %d, RecvSbCC: %d", buf[i].id, buf[i].lport, buf[i].rcv_sb_cc);
+					VERBOSE_LOG(SCENET, "Stat PTP Socket Id: %d (%d), LPort: %d, RecvSbCC: %d, State: %d", buf[i].id, sock->data.ptp.id, buf[i].lport, buf[i].rcv_sb_cc, buf[i].state);
 					
 					// Increment Counter
 					i++;
@@ -2806,6 +2821,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPtpStat);
 			
+			hleEatMicro(1000); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
 			// Success
 			return 0;
 		}
@@ -3219,24 +3235,24 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
 					sin.sin_port = htons(ptpsocket.pport + ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset));
 
-					// Grab Nonblocking Flag
-					//uint32_t nbio = getNonBlockingFlag(socket->id);
-
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
-					// TODO: Keep track number of Connect attempts so we can simulate blocking on first attempt (getNonBlockingFlag can't be used to get non-blocking flag on Windows thus can't be used to keep track)
 					int connectresult = connect(ptpsocket.id, (sockaddr *)&sin, sizeof(sin));
 					
 					// Grab Error Code
 					int errorcode = errno;
 
 					if (connectresult == SOCKET_ERROR) {
-						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+						if (errorcode == EAGAIN || errorcode == EWOULDBLOCK || errorcode == EALREADY || errorcode == EISCONN)
+							DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+						else
+							ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), ptpsocket.pport);
 					}
 
 					// Instant Connection (Lucky!)
 					if (connectresult != SOCKET_ERROR || errorcode == EISCONN) {
 						socket->attemptCount++;
+						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 						
@@ -3247,17 +3263,19 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					
 					// Connection in Progress
 					else if (connectresult == SOCKET_ERROR && connectInProgress(errorcode)) {
+						socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
 						socket->attemptCount++;
-						// Nonblocking Mode. First attempt need to be blocking for GvG Next Plus to work, even though it used non-blocking flag but only try to connect once per socket, which mean treating it just like blocking socket instead of non-blocking :(
-						if (flag && socket->attemptCount > 1) {
-							//if (errorcode == EALREADY) return ERROR_NET_ADHOC_BUSY;
-							return ERROR_NET_ADHOC_WOULD_BLOCK;
-						}
+						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 						// Blocking Mode
-						else {
+						// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
+						if (!flag || (g_Config.bForcedFirstConnect && socket->attemptCount == 1)) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag)? socket->send_timeout: timeout, nullptr, nullptr, "ptp connect");
+							return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag) ? std::max((int)socket->retry_interval, timeout) : timeout, nullptr, nullptr, "ptp connect");
+						}
+						// NonBlocking Mode
+						else {
+							return ERROR_NET_ADHOC_WOULD_BLOCK;
 						}
 					}
 				}

@@ -162,7 +162,7 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 // PTP Connection States
 #define ADHOC_PTP_STATE_CLOSED		0
 #define ADHOC_PTP_STATE_LISTEN		1
-#define ADHOC_PTP_STATE_SYN_SENT	2
+#define ADHOC_PTP_STATE_SYN_SENT	2 // 3-way handshake normally: [client]send SYN -> [server]recv SYN and reply with ACK+SYN -> [client]recv SYN and reply with ACK -> Established
 #define ADHOC_PTP_STATE_SYN_RCVD	3
 #define ADHOC_PTP_STATE_ESTABLISHED 4
 
