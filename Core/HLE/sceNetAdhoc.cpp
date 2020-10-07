@@ -381,7 +381,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
-	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET || sockerr == ETIMEDOUT) {
+	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		auto sock = adhocSockets[req.id - 1];
 		if (sock->flags & ADHOC_F_ALERTRECV) {
@@ -428,7 +428,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 			peer = targetPeers.peers.erase(peer);
 		}
 		else {
-			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
+			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 				u64 now = (u64)(time_now_d() * 1000000.0);
 				if (sock->flags & ADHOC_F_ALERTSEND) {
 					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -475,7 +475,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		// Return Success
 		result = 0;
 	}
-	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
+	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTSEND) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -523,7 +523,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 		result = 0;
 	}
-	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT)) {
+	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTRECV) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -573,7 +573,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 		if (newid > 0)
 			result = newid;
 	}
-	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT))) {
+	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTACCEPT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -654,7 +654,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		result = 0;
 		return 0;
 	}
-	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ETIMEDOUT) {
+	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTFLUSH) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -1311,7 +1311,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 									if (sent == SOCKET_ERROR) {
 										// Simulate blocking behaviour with non-blocking socket
-										if (!flag && (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT)) {
+										if (!flag && (error == EAGAIN || error == EWOULDBLOCK)) {
 											u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
 											if (sendTargetPeers.find(threadSocketId) != sendTargetPeers.end()) {
 												DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Socket(%d) is Busy!", id, getLocalPort(pdpsocket.id), pdpsocket.id);
@@ -3547,7 +3547,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					}
 					
 					// Non-Critical Error
-					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT)) {
+					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
 						// Non-Blocking
 						if (flag) 
 							return ERROR_NET_ADHOC_WOULD_BLOCK;
