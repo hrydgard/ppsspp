@@ -2215,12 +2215,13 @@ int NetAdhocctl_Term() {
 		shutdown(metasocket, SD_BOTH);
 		closesocket(metasocket);
 		metasocket = (int)INVALID_SOCKET;
-		// Delete fake PSP Thread
-		if (threadAdhocID != 0) {
+		// Delete fake PSP Thread. 
+		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
+		if (threadAdhocID > 0 && strcmp(__KernelGetThreadName(threadAdhocID), "ERROR") != 0) {
 			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
 			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
-			threadAdhocID = 0;
 		}
+		threadAdhocID = 0;
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		netAdhocctlInited = false;
 	}
@@ -4016,15 +4017,11 @@ int NetAdhocMatching_Stop(int matchingId) {
 			item->eventThread.join();
 		}
 
-		// Stop fake PSP Thread
-		if (matchingThreads[item->matching_thid] > 0) {
+		// Stop fake PSP Thread.
+		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
+		if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
 			__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
 			__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
-			/*item->matchingThread->Terminate();
-			if (item->matchingThread && item->matchingThread->Stopped()) {
-				delete item->matchingThread;
-				item->matchingThread = nullptr;
-			}*/
 		}
 		matchingThreads[item->matching_thid] = 0;
 
