@@ -641,14 +641,15 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	}
 
 	WARN_LOG(SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
-	netInited = true;
-	netMallocStat.pool = poolSize; // This should be the poolSize isn't?
-	netMallocStat.maximum = poolSize/2; // According to JPCSP's sceNetGetMallocStat this is Currently Used size = (poolSize - free), faked to half the pool
-	netMallocStat.free = poolSize - netMallocStat.maximum;
+	
+	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
+	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
+	netMallocStat.free = netMallocStat.pool; // Dummy free size, we should set this high enough to prevent any issue (ie. Vantage Master Portable), this is probably the only field being checked by games?
 
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
-	
+
+	netInited = true;
 	return hleLogSuccessI(SCENET, 0);
 }
 
@@ -770,7 +771,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
 static int sceNetGetMallocStat(u32 statPtr) {
-	VERBOSE_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
+	VERBOSE_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
 	else

@@ -75,6 +75,7 @@ int adhocExtraDelay = 20000; //20000
 int adhocEventPollDelay = 100000; //100000; // Same timings with PSP_ADHOCCTL_RECV_TIMEOUT ?
 int adhocMatchingEventDelay = 30000; //30000
 int adhocEventDelay = 1000000; //1000000
+u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
 
 SceUID threadAdhocID;
 
@@ -2270,7 +2271,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 			for (; peer != NULL; peer = peer->next)
 			{
 				// Match found
-				if (isMacMatch(&peer->mac_addr, (const SceNetEtherAddr*)mac))
+				if (peer->last_recv != 0 && isMacMatch(&peer->mac_addr, (const SceNetEtherAddr*)mac))
 				{
 					// Write Data
 					*nickname = peer->nickname;
@@ -2316,7 +2317,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	if (netAdhocctlInited) {
 		if ((size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
 		
-		int retval = ERROR_NET_ADHOCCTL_INVALID_ARG; // -1;
+		int retval = ERROR_NET_ADHOC_NO_ENTRY; // -1;
 
 		// Local MAC
 		if (isLocalMAC(maddr)) {
@@ -2329,7 +2330,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			buf->mac_addr = *maddr;
 			buf->flags = 0x0400;
 			buf->padding = 0;
-			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
+			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta;
 
 			// Success
 			retval = 0;
@@ -2341,12 +2342,11 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			peerlock.lock();
 
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
-			if (peer != NULL) {
+			if (peer != NULL && peer->last_recv != 0) {
 				// Fake Receive Time
-				if (peer->last_recv != 0) 
-					peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
+				peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
-				//buf->next = 0;
+				buf->next = 0;
 				buf->nickname = peer->nickname;
 				buf->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
 				buf->mac_addr = *maddr;
@@ -5386,7 +5386,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 						if (!excludeTimedout || peer->last_recv != 0) {
 							// Faking Last Receive Time
 							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
+								peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
@@ -5418,7 +5418,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 			peerlock.unlock();
 
 			// Return Success
-			return 0;
+			return hleDelayResult(0, "delay 1 ~ 10ms", 1000); // seems to have different thread running within the delay duration
 		}
 
 		// Invalid Arguments
@@ -5437,7 +5437,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	memcpy(nckName, nickName, ADHOCCTL_NICKNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	nckName[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x)", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlGetAddrByName, SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x) at %08x", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr, currentMIPS->pc);
 	
 	// Library initialized
 	if (netAdhocctlInited)
@@ -5452,8 +5452,11 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 			peerlock.lock();
 
 			// Length Calculation Mode
-			if (buf == NULL) *buflen = getNicknameCount(nickName) * sizeof(SceNetAdhocctlPeerInfoEmu);
-
+			if (buf == NULL) {
+				int foundName = getNicknameCount(nickName);
+				*buflen = foundName * sizeof(SceNetAdhocctlPeerInfoEmu);
+				DEBUG_LOG(SCENET, "PeerNameList [%s: %i]", nickName, foundName);
+			}
 			// Normal Information Mode
 			else
 			{
@@ -5474,13 +5477,18 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 					{
 						// Get Local IP Address
 						sockaddr_in addr;
+						SceNetEtherAddr mac;
 
 						getLocalIp(&addr);
 						buf[discovered].nickname = parameter.nickname;
 						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
-						getLocalMac(&buf[discovered].mac_addr);
+						getLocalMac(&mac);
+						buf[discovered].mac_addr = mac;
 						buf[discovered].flags = 0x0400;
-						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1; 
+						u64 lastrecv = CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta;
+						buf[discovered++].last_recv = lastrecv;
+
+						DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&mac).c_str(), inet_ntoa(addr.sin_addr), nickName, lastrecv);
 					}
 
 					// Peer Reference
@@ -5490,11 +5498,10 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 					for (; peer != NULL && discovered < requestcount; peer = peer->next)
 					{
 						// Match found
-						if (strncmp((char *)&peer->nickname.data, nickName, ADHOCCTL_NICKNAME_LEN) == 0)
+						if (peer->last_recv != 0 && strncmp((char *)&peer->nickname.data, nickName, ADHOCCTL_NICKNAME_LEN) == 0)
 						{
 							// Fake Receive Time
-							if (peer->last_recv != 0) 
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled() - 1;
+							peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
@@ -5502,6 +5509,9 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 							buf[discovered].mac_addr = peer->mac_addr;
 							buf[discovered].flags = 0x0400;
 							buf[discovered++].last_recv = peer->last_recv;
+
+							u32_le ipaddr = peer->ip_addr;
+							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
 						}
 					}
 
@@ -5518,13 +5528,14 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 
 				// Fix Buffer Size
 				*buflen = discovered * sizeof(SceNetAdhocctlPeerInfoEmu);
+				DEBUG_LOG(SCENET, "PeerNameList [%s][Requested: %i][Discovered: %i]", nickName, requestcount, discovered);
 			}
 
 			// Multithreading Unlock
 			peerlock.unlock();
 
 			// Return Success
-			return 0;
+			return hleLogDebug(SCENET, hleDelayResult(0, "delay 1 ~ 10ms", 1000), "success"); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
 		}
 
 		// Invalid Arguments
@@ -6867,7 +6878,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 						now = CoreTiming::GetGlobalTimeUsScaled();
 						u64_le delta = now - peer->last_recv;
 						DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
-						if (/*context->rxbuf[0] > 0 &&*/ peer->last_recv != 0) peer->last_recv = now - 1; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
+						if (peer->last_recv != 0) peer->last_recv = now - defaultLastRecvDelta;
 					}
 					else {
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);

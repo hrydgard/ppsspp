@@ -1985,7 +1985,7 @@ int getNicknameCount(const char * nickname)
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Match found
-		if (strncmp((char *)&peer->nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
+		if (peer->last_recv != 0 && strncmp((char *)&peer->nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
 	}
 
 	// Return Result

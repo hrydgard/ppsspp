@@ -207,9 +207,9 @@ extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
 
 // Malloc Pool Information
 typedef struct SceNetMallocStat {
-	s32_le pool; // Pointer to the pool? // This should be the poolSize isn't?
-	s32_le maximum; // Maximum size of the pool? Maximum usage (ie. pool- free) ?
-	s32_le free; // How much memory is free
+	s32_le pool; // On Vantage Master Portable this is 0x1ffe0 on sceNetGetMallocStat, while the poolSize arg on sceNetInit was 0x20000
+	s32_le maximum; // On Vantage Master Portable this is 0x4050, Footprint of Highest amount allocated so far?
+	s32_le free; // On Vantage Master Portable this is 0x1f300, VMP compares this value with required size before sending data
 } PACK SceNetMallocStat;
 
 // Adhoc Virtual Network Name
@@ -352,10 +352,14 @@ typedef struct AdhocSocket {
 	s32_le type; // SOCK_PDP/SOCK_PTP
 	s32_le flags; // Socket Alert Flags
 	s32_le alerted_flags; // Socket Alerted Flags
+	s32_le nonblocking; // last non-blocking flag
+	u32 buffer_size;
 	u32 send_timeout; // default connect timeout
 	u32 recv_timeout; // default accept timeout
-	s32 retry_count; // combined with timeout to be used on keepalive
+	s32 retry_interval; // related to keepalive
+	s32 retry_count; // multiply with retry interval to be used as keepalive timeout
 	s32 attemptCount; // connect/accept attempts
+	u64 lastAttempt; // timestamp to retry again
 	union {
 		SceNetAdhocPdpStat pdp;
 		SceNetAdhocPtpStat ptp;
