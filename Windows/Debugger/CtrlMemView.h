@@ -24,7 +24,7 @@ enum OffsetSpacing {
 	offsetLine  = 1, // the line on which the offsets should be written
 };
 
-enum OffsetToggles {
+enum CommonToggles {
 	On,
 	Off,
 };
@@ -54,8 +54,11 @@ class CtrlMemView
 	int visibleRows;
 	
 	std::string searchQuery;
+	
+
 	int matchAddress;
 	bool searching;
+	bool searchStringValue;
 
 	bool hasFocus;
 	static wchar_t szClassName[];
@@ -78,7 +81,7 @@ public:
 	{
 		return debugger;
 	}
-
+	std::vector<u32> searchString(std::string searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -94,5 +97,6 @@ public:
 	void scrollCursor(int bytes);
 
 	void drawOffsetScale(HDC hdc);
-	void toggleOffsetScale(OffsetToggles toggle);
+	void toggleOffsetScale(CommonToggles toggle);
+	void toggleStringSearch(CommonToggles toggle);
 };

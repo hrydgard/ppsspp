@@ -20,17 +20,17 @@
 #include <vector>
 #include <string>
 
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
+#include "Common/Log.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-
-#include "Core/Core.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -112,7 +112,7 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 		__KernelReSchedule("woke from hle delay");
 	}
 	else
-		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
+		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread %d?", threadID);
 }
 
 void HLEInit() {
@@ -128,19 +128,19 @@ void HLEDoState(PointerWrap &p) {
 
 	// Can't be inside a syscall, reset this so errors aren't misleading.
 	latestSyscall = nullptr;
-	p.Do(delayedResultEvent);
+	Do(p, delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 
 	if (s >= 2) {
 		int actions = (int)mipsCallActions.size();
-		p.Do(actions);
+		Do(p, actions);
 		if (actions != (int)mipsCallActions.size()) {
 			mipsCallActions.resize(actions);
 		}
 
 		for (auto &action : mipsCallActions) {
 			int actionTypeID = action != nullptr ? action->actionTypeID : -1;
-			p.Do(actionTypeID);
+			Do(p, actionTypeID);
 			if (actionTypeID != -1) {
 				if (p.mode == p.MODE_READ)
 					action = __KernelCreateAction(actionTypeID);
@@ -215,7 +215,7 @@ const HLEFunction *GetFunc(const char *moduleName, u32 nib)
 
 const char *GetFuncName(const char *moduleName, u32 nib)
 {
-	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+	_dbg_assert_msg_(moduleName != nullptr, "Invalid module name.");
 
 	const HLEFunction *func = GetFunc(moduleName,nib);
 	if (func)
@@ -314,7 +314,7 @@ void hleCheckCurrentCallbacks()
 void hleReSchedule(const char *reason)
 {
 #ifdef _DEBUG
-	_dbg_assert_msg_(HLE, reason != nullptr && strlen(reason) < 256, "hleReSchedule: Invalid or too long reason.");
+	_dbg_assert_msg_(reason != nullptr && strlen(reason) < 256, "hleReSchedule: Invalid or too long reason.");
 #endif
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
@@ -469,7 +469,7 @@ void HLEReturnFromMipsCall() {
 
 	if ((stackData->nextOff & 0x0000000F) != 0 || !Memory::IsValidAddress(sp + stackData->nextOff)) {
 		ERROR_LOG(HLE, "Corrupt stack on HLE mips call return: %08x", stackData->nextOff);
-		Core_UpdateState(CORE_ERROR);
+		Core_UpdateState(CORE_RUNTIME_ERROR);
 		return;
 	}
 
@@ -482,9 +482,10 @@ void HLEReturnFromMipsCall() {
 		while ((finalMarker->nextOff & 0x0000000F) == 0 && Memory::IsValidAddress(finalMarker.ptr + finalMarker->nextOff)) {
 			finalMarker.ptr += finalMarker->nextOff;
 		}
+
 		if (finalMarker->nextOff != 0xFFFFFFFF) {
 			ERROR_LOG(HLE, "Corrupt stack on HLE mips call return action: %08x", finalMarker->nextOff);
-			Core_UpdateState(CORE_ERROR);
+			Core_UpdateState(CORE_RUNTIME_ERROR);
 			return;
 		}
 
@@ -704,7 +705,6 @@ void CallSyscall(MIPSOpcode op)
 	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
 	if (coreCollectDebugStats) {
-		time_update();
 		start = time_now_d();
 	}
 
@@ -728,7 +728,6 @@ void CallSyscall(MIPSOpcode op)
 	}
 
 	if (coreCollectDebugStats) {
-		time_update();
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
@@ -819,7 +818,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 		// TODO: Double?  Does it ever happen?
 
 		default:
-			_dbg_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
+			_dbg_assert_msg_(false, "Invalid argmask character: %c", argmask[i]);
 			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], regval);
 			break;
 		}
@@ -843,7 +842,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 	const char *funcName = "?";
 	u32 funcFlags = 0;
 	if (latestSyscall) {
-		_dbg_assert_(HLE, latestSyscall->argmask != nullptr);
+		_dbg_assert_(latestSyscall->argmask != nullptr);
 		hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
 
 		// This acts as an override (for error returns which are usually hex.)
@@ -865,7 +864,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 		// TODO: For now, floats are just shown as bits.
 		fmt = "%s%08x=%s(%s)%s";
 	} else {
-		_dbg_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
+		_dbg_assert_msg_(false, "Invalid return format: %c", retmask);
 		fmt = "%s%08llx=%s(%s)%s";
 	}
 
@@ -874,7 +873,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 
 	if (reportTag != nullptr) {
 		// A blank string means always log, not just once.
-		if (reportTag[0] == '\0' || Reporting::ShouldLogOnce(reportTag)) {
+		if (reportTag[0] == '\0' || Reporting::ShouldLogNTimes(reportTag, 1)) {
 			// Here we want the original key, so that different args, etc. group together.
 			std::string key = std::string(kernelFlag) + std::string("%08x=") + funcName + "(%s)";
 			if (reason != nullptr)

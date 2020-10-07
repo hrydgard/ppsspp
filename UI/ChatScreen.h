@@ -1,8 +1,7 @@
 #pragma once
 
 #include "ppsspp_config.h"
-#include "file/file_util.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
 
 class ChatMenu : public PopupScreen {
 public:

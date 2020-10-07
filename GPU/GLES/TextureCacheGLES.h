@@ -19,9 +19,9 @@
 
 #include <map>
 
-#include "gfx_es2/gpu_features.h"
-#include "gfx/gl_common.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScalerGLES.h"
@@ -55,15 +55,11 @@ public:
 
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
-		if (!entry || entry->textureName == lastBoundTexture) {
-			lastBoundTexture = nullptr;
-		}
+	void InvalidateLastTexture() override {
+		lastBoundTexture = nullptr;
 	}
 
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint);
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
 	void DeviceLost();
@@ -75,13 +71,13 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
 private:
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+	void ApplySamplingParams(const SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt);
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
@@ -89,7 +85,7 @@ private:
 
 	TextureScalerGLES scaler;
 
-	GLRTexture *lastBoundTexture;
+	GLRTexture *lastBoundTexture = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DepalShaderCacheGLES *depalShaderCache_;

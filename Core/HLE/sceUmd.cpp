@@ -17,9 +17,9 @@
 
 #include <vector>
 
-#include "file/file_util.h"
-
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -87,26 +87,26 @@ void __UmdDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(umdActivated);
-	p.Do(umdStatus);
-	p.Do(umdErrorStat);
-	p.Do(driveCBId);
-	p.Do(umdStatTimeoutEvent);
+	Do(p, umdActivated);
+	Do(p, umdStatus);
+	Do(p, umdErrorStat);
+	Do(p, driveCBId);
+	Do(p, umdStatTimeoutEvent);
 	CoreTiming::RestoreRegisterEvent(umdStatTimeoutEvent, "UmdTimeout", __UmdStatTimeout);
-	p.Do(umdStatChangeEvent);
+	Do(p, umdStatChangeEvent);
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
-	p.Do(umdWaitingThreads);
-	p.Do(umdPausedWaits);
+	Do(p, umdWaitingThreads);
+	Do(p, umdPausedWaits);
 
 	if (s > 1) {
-		p.Do(UMDReplacePermit);
+		Do(p, UMDReplacePermit);
 		if (UMDReplacePermit)
 			host->UpdateUI();
 	}
 	if (s > 2) {
-		p.Do(umdInsertChangeEvent);
+		Do(p, umdInsertChangeEvent);
 		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
-		p.Do(UMDInserted);
+		Do(p, UMDInserted);
 	}
 	else
 		UMDInserted = true;
@@ -189,7 +189,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		if (umdPausedWaits.find(pauseKey) != umdPausedWaits.end())
 			return;
 
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
 		if (cyclesLeft != 0)
 			umdPausedWaits[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
@@ -234,7 +234,7 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	else
 	{
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		CoreTiming::ScheduleEvent(cyclesLeft, umdStatTimeoutEvent, __KernelGetCurThread());
 
 		umdWaitingThreads.push_back(threadID);

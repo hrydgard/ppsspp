@@ -21,14 +21,17 @@
 
 #include <thread>
 
-#include "i18n/i18n.h"
-#include "thread/threadutil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
 
-#include "Common/ChunkFile.h"
-
+#include "Common/File/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -126,13 +129,21 @@ int PSPSaveDialog::Init(int paramAddr)
 		break;
 	}
 
+	if(!param.wouldHasMultiSaveName(param.GetPspParam()))
+		currentSelectedSave = 0;
+
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 			DEBUG_LOG(SCEUTILITY, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
-			if (param.GetFileInfo(0).size != 0)
-				display = DS_LOAD_CONFIRM;
-			else
+			if (param.GetFileInfo(0).size != 0) {
+				if (param.GetFileInfo(0).broken) {
+					param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
+					display = DS_LOAD_FAILED;
+				} else {
+					display = DS_LOAD_CONFIRM;
+				}
+			} else
 				display = DS_LOAD_NODATA;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
@@ -168,7 +179,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			DEBUG_LOG(SCEUTILITY, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_SAVE_LIST_CHOICE;
 			break;
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
+		case SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE:
 			DEBUG_LOG(SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
@@ -179,7 +190,6 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 		case SCE_UTILITY_SAVEDATA_TYPE_FILES:
 		case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
-		case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
@@ -190,8 +200,26 @@ int PSPSaveDialog::Init(int paramAddr)
 			display = DS_NONE;
 			break;
 
-		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // When run on a PSP, displays a list of all saves on the PSP. Weird. (Not really, it's to let you free up space)
-			display = DS_DELETE_LIST_CHOICE;
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
+			DEBUG_LOG(SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			if (param.GetFileInfo(0).size != 0) {
+				yesnoChoice = 0;
+				display = DS_DELETE_CONFIRM;
+			} else
+				display = DS_DELETE_NODATA;
+			break;
+
+		case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+			DEBUG_LOG(SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			display = DS_NONE;
+			break;
+
+		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE: 
+			DEBUG_LOG(SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			if (param.GetFilenameCount() == 0)
+				display = DS_DELETE_NODATA;
+			else
+				display = DS_DELETE_LIST_CHOICE;
 			break;
 		default:
 		{
@@ -255,6 +283,8 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
 		return param.GetSaveDirName(param.GetPspParam());
 
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
@@ -268,8 +298,6 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 		return param.GetSaveDirName(param.GetPspParam());
 
-	// TODO: Maybe also SINGLEDELETE/etc?
-
 	// SIZES ignores saveName it seems.
 
 	default:
@@ -282,6 +310,10 @@ void PSPSaveDialog::DisplayBanner(int which)
 {
 	auto di = GetI18NCategory("Dialog");
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
+
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
+	textStyle.hasShadow = false;
+
 	const char *title;
 	switch (which)
 	{
@@ -299,8 +331,8 @@ void PSPSaveDialog::DisplayBanner(int which)
 		break;
 	}
 	// TODO: Draw a hexagon icon
-	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(title, 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, textStyle.color);
+	PPGeDrawText(title, 30, 11, textStyle);
 }
 
 void PSPSaveDialog::DisplaySaveList(bool canMove) {
@@ -390,76 +422,81 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 	PPGeSetDefaultTexture();
 }
 
-void PSPSaveDialog::DisplaySaveDataInfo1()
-{
+static void FormatSaveHourMin(char *hour_time, size_t sz, const tm &t) {
+	const char *am_pm = "AM";
+	int hour = t.tm_hour;
+	switch (g_Config.iTimeFormat) {
+	case 1:
+		if (hour == 12) {
+			am_pm = "PM";
+		} else if (hour > 12) {
+			am_pm = "PM";
+			hour -= 12;
+		} else if (hour == 0) {
+			hour = 12;
+		}
+		snprintf(hour_time, sz, "%02d:%02d %s", hour, t.tm_min, am_pm);
+		break;
+	case 0:
+	default:
+		snprintf(hour_time, sz, "%02d:%02d", hour, t.tm_min);
+		break;
+	}
+}
+
+static void FormatSaveDate(char *date, size_t sz, const tm &t) {
+	int year = t.tm_year + 1900;
+	int month = t.tm_mon + 1;
+	switch (g_Config.iDateFormat) {
+	case 1:
+		snprintf(date, sz, "%02d/%02d/%04d", month, t.tm_mday, year);
+		break;
+	case 2:
+		snprintf(date, sz, "%02d/%02d/%04d", t.tm_mday, month, year);
+		break;
+	case 0:
+	default:
+		snprintf(date, sz, "%04d/%02d/%02d", year, month, t.tm_mday);
+		break;
+	}
+}
+
+void PSPSaveDialog::DisplaySaveDataInfo1() {
 	std::lock_guard<std::mutex> guard(paramLock);
-	if (param.GetFileInfo(currentSelectedSave).size == 0) {
+	const SaveFileInfo &saveInfo = param.GetFileInfo(currentSelectedSave);
+
+	if (saveInfo.broken) {
 		auto di = GetI18NCategory("Dialog");
-		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
+		PPGeDrawText(di->T("Corrupted Data"), 180, 136, textStyle);
+	} else if (saveInfo.size == 0) {
+		auto di = GetI18NCategory("Dialog");
+		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
+		PPGeDrawText(di->T("NEW DATA"), 180, 136, textStyle);
 	} else {
-		char title[512];
-		char time[512];
-		char saveTitle[1024];
-		char saveDetail[1024];
-
-		char am_pm[] = "AM";
 		char hour_time[32];
-		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
-		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		switch (g_Config.iTimeFormat) {
-		case 1:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-			break;
-		case 2:
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
-			break;
-		default:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-		}
+		FormatSaveHourMin(hour_time, sizeof(hour_time), saveInfo.modif_time);
 
-		snprintf(title, sizeof(title), "%s", param.GetFileInfo(currentSelectedSave).title);
-		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
-		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
-		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
-		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
-		switch (g_Config.iDateFormat) {
-		case 1:
-			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
-			break;
-		case 2:
-			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
-			break;
-		case 3:
-			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
-			break;
-		default:
-			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
-		}
-		snprintf(saveTitle, sizeof(saveTitle), "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
-		snprintf(saveDetail, sizeof(saveDetail), "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+		char date_year[32];
+		FormatSaveDate(date_year, sizeof(date_year), saveInfo.modif_time);
+
+		s64 sizeK = saveInfo.size / 1024;
 
 		PPGeDrawRect(180, 136, 480, 137, CalcFadedColor(0xFFFFFFFF));
-		std::string titleTxt = title;
-		std::string timeTxt = time;
-		std::string saveTitleTxt = saveTitle;
-		std::string saveDetailTxt = saveDetail;
+		std::string titleTxt = saveInfo.title;
+		std::string timeTxt = StringFromFormat("%s   %s  %lld KB", date_year, hour_time, sizeK);
+		std::string saveTitleTxt = saveInfo.saveTitle;
+		std::string saveDetailTxt = saveInfo.saveDetail;
 
-		PPGeDrawText(titleTxt.c_str(), 181, 138, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
-		PPGeDrawText(titleTxt.c_str(), 180, 136, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
-		PPGeDrawText(timeTxt.c_str(), 181, 139, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(timeTxt.c_str(), 180, 137, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(saveTitleTxt.c_str(), 176, 162, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 176, 183, 480 - 175, 250 - 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 175, 181, 480 - 175, 250 - 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeStyle titleStyle = FadedStyle(PPGeAlign::BOX_BOTTOM, 0.6f);
+		PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
+		titleStyle.color = CalcFadedColor(0xFFC0C0C0);
+		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
+
+		PPGeDrawText(titleTxt.c_str(), 180, 136, titleStyle);
+		PPGeDrawText(timeTxt.c_str(), 180, 137, textStyle);
+		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, saveTitleStyle);
+		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 175, 181, 480 - 175, 250 - 181, textStyle);
 	}
 }
 
@@ -483,55 +520,23 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 		data_size = param.GetFileInfo(currentSelectedSave).size;
 	}
 
-	char date[256];
-	char am_pm[] = "AM";
 	char hour_time[32];
-	int hour = modif_time.tm_hour;
-	int min  = modif_time.tm_min;
-	switch (g_Config.iTimeFormat) {
-	case 1:
-		if (hour > 12) {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-		break;
-	case 2:
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
-		break;
-	default:
-		if (hour > 12) {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-	}
+	FormatSaveHourMin(hour_time, sizeof(hour_time), modif_time);
 
-	int day   = modif_time.tm_mday;
-	int month = modif_time.tm_mon + 1;
-	int year  = modif_time.tm_year + 1900;
+	char date_year[32];
+	FormatSaveDate(date_year, sizeof(date_year), modif_time);
+
 	s64 sizeK = data_size / 1024;
-	switch (g_Config.iDateFormat) {
-	case 1:
-		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-		break;
-	case 2:
-		snprintf(date, 256, "%02d/%02d/%d", month, day, year);
-		break;
-	case 3:
-		snprintf(date, 256, "%02d/%02d/%d", day, month, year);
-		break;
-	default:
-		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-	}
 
-	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date, hour_time, sizeK);
-	PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
+	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date_year, hour_time, sizeK);
+	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, textStyle);
 }
 
 void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
+
 	const float WRAP_WIDTH = 254.0f;
 	float y = 136.0f, h;
 	PPGeMeasureText(nullptr, &h, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
@@ -540,19 +545,14 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 	{
 		auto di = GetI18NCategory("Dialog");
 		const char *choiceText;
-		u32 yesColor, noColor;
 		float x, w;
 		if (yesnoChoice == 1) {
 			choiceText = di->T("Yes");
 			x = 302.0f;
-			yesColor = 0xFFFFFFFF;
-			noColor  = 0xFFFFFFFF;
 		}
 		else {
 			choiceText = di->T("No");
 			x = 366.0f;
-			yesColor = 0xFFFFFFFF;
-			noColor  = 0xFFFFFFFF;
 		}
 		PPGeMeasureText(&w, &h, choiceText, FONT_SCALE);
 		w = w / 2.0f + 5.5f;
@@ -561,10 +561,8 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x40C0C0C0));
-		PPGeDrawText(di->T("Yes"), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(di->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(di->T("No"), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(di->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(di->T("Yes"), 302.0f, y2, textStyle);
+		PPGeDrawText(di->T("No"), 366.0f, y2, textStyle);
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -572,8 +570,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 			yesnoChoice = 0;
 		}
 	}
-	PPGeDrawTextWrapped(text.c_str(), 335.0f, y+2, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, textStyle);
 	float sy = 122.0f - h2, ey = 150.0f + h2;
 	PPGeDrawRect(202.0f, sy, 466.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
@@ -822,7 +819,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(di->T("LoadingFailed", "Unable to load data."));
+			DisplayMessage(di->T("LoadingFailed", "Load failed\nThe data is corrupted."));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -832,7 +829,6 @@ int PSPSaveDialog::Update(int animSpeed)
 				if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_LOAD) {
 					display = DS_LOAD_LIST_CHOICE;
 				} else {
-					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
 					StartFade(false);
 				}
 			}
@@ -911,15 +907,16 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);
 
-			if (IsButtonPressed(cancelButtonFlag))
-				display = DS_DELETE_LIST_CHOICE;
-			else if (IsButtonPressed(okButtonFlag)) {
-				if (yesnoChoice == 0)
+			if (IsButtonPressed(cancelButtonFlag) || (IsButtonPressed(okButtonFlag) && yesnoChoice == 0)) {
+				if(param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE)
 					display = DS_DELETE_LIST_CHOICE;
 				else {
+					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+					StartFade(false);
+				}
+			} else if (IsButtonPressed(okButtonFlag)) {
 					display = DS_DELETE_DELETING;
 					StartIOThread();
-				}
 			}
 
 			EndDraw();
@@ -947,7 +944,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayBanner(DB_DELETE);
 
 			if (IsButtonPressed(cancelButtonFlag)) {
-				display = DS_DELETE_LIST_CHOICE;
+				if (param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE)
+					display = DS_DELETE_LIST_CHOICE;
+				else
+					StartFade(false);
 			}
 
 			EndDraw();
@@ -967,8 +967,14 @@ int PSPSaveDialog::Update(int animSpeed)
 			if (IsButtonPressed(cancelButtonFlag)) {
 				if (param.GetFilenameCount() == 0)
 					display = DS_DELETE_NODATA;
-				else
+				else if (param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
+					if (currentSelectedSave > param.GetFilenameCount() - 1)
+						currentSelectedSave = param.GetFilenameCount() - 1;
 					display = DS_DELETE_LIST_CHOICE;
+				} else {
+					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
+					StartFade(false);
+				}
 			}
 
 			EndDraw();
@@ -1015,10 +1021,12 @@ int PSPSaveDialog::Update(int animSpeed)
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
+	auto &result = param.GetPspParam()->common.result;
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
 	case DS_LOAD_LOADING:
-		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave) == 0) {
+		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);
+		if (result == 0) {
 			display = DS_LOAD_DONE;
 		} else {
 			display = DS_LOAD_FAILED;
@@ -1032,9 +1040,11 @@ void PSPSaveDialog::ExecuteIOAction() {
 		}
 		break;
 	case DS_DELETE_DELETING:
-		if (param.Delete(param.GetPspParam(),currentSelectedSave)) {
+		if (param.Delete(param.GetPspParam(), currentSelectedSave)) {
+			result = 0;
 			display = DS_DELETE_DONE;
 		} else {
+			//result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;// What the result should be?
 			display = DS_DELETE_FAILED;
 		}
 		break;
@@ -1087,10 +1097,14 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 		DEBUG_LOG(SCEUTILITY, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
-		result = param.DeleteData(param.GetPspParam());
+		if (param.Delete(param.GetPspParam(), param.GetSelectedSave())) {
+			result = 0;
+		} else {
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+		}
 		break;
-	//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
-	case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
 		if (param.Delete(param.GetPspParam(), param.GetSelectedSave())) {
 			result = 0;
 		} else {
@@ -1111,15 +1125,13 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
-		if (!param.IsSaveDirectoryExist(param.GetPspParam())){
+		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE);
+		if(result == SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA)
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-		} else if (!param.IsSfoFileExist(param.GetPspParam())) {
-			result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
-		} else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE) == 0) {
-			result = 0;
-		} else {
-			result = SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
-		}
+		break;
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+		result = param.DeleteData(param.GetPspParam());
 		break;
 	default:
 		break;
@@ -1174,20 +1186,20 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(display);
+	Do(p, display);
 	param.DoState(p);
-	p.Do(request);
+	Do(p, request);
 	// Just reset it.
 	bool hasParam = param.GetPspParam() != NULL;
-	p.Do(hasParam);
+	Do(p, hasParam);
 	if (hasParam) {
 		param.SetPspParam(&request);
 	}
-	p.Do(requestAddr);
-	p.Do(currentSelectedSave);
-	p.Do(yesnoChoice);
+	Do(p, requestAddr);
+	Do(p, currentSelectedSave);
+	Do(p, yesnoChoice);
 	if (s > 2) {
-		p.Do(ioThreadStatus);
+		Do(p, ioThreadStatus);
 	} else {
 		ioThreadStatus = SAVEIO_NONE;
 	}

@@ -23,9 +23,9 @@
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
 #include "Core/Config.h"
-#include "input/input_state.h"
-#include "base/NativeApp.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Input/KeyCodes.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")

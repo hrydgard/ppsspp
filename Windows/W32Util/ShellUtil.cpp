@@ -2,12 +2,12 @@
 
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 
 #include <functional>
 #include <thread>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ShellUtil.h"
 
 #include <shlobj.h>

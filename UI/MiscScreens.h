@@ -22,10 +22,11 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/File/DirListing.h"
 
 struct ShaderInfo;
+struct TextureShaderInfo;
 
 extern std::string boot_filename;
 void UIBackgroundInit(UIContext &dc);
@@ -104,12 +105,23 @@ private:
 
 class PostProcScreen : public ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title);
+	PostProcScreen(const std::string &title, int id);
 
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
+	int id_;
+};
+
+class TextureShaderScreen : public ListPopupScreen {
+public:
+	TextureShaderScreen(const std::string &title);
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<TextureShaderInfo> shaders_;
 };
 
 class LogoScreen : public UIScreen {

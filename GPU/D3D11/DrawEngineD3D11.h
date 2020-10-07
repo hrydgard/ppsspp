@@ -21,7 +21,7 @@
 #include <d3d11.h>
 #include <d3d11_1.h>
 
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -79,7 +79,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	ID3D11Buffer *vbo;
@@ -216,4 +216,6 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferD3D11 *tessDataTransferD3D11;
+
+	int lastRenderStepId_ = -1;
 };

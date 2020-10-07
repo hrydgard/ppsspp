@@ -18,6 +18,7 @@
 // line height
 // dist-per-pixel
 
+#include <assert.h>
 #include <libpng17/png.h>
 #include <ft2build.h>
 #include <freetype/ftbitmap.h>
@@ -28,11 +29,10 @@
 #include <string>
 #include <cmath>
 
-#include "base/logging.h"
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
-#include "image/png_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "kanjifilter.h"
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
@@ -46,7 +46,7 @@
 // add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 using namespace std;
 static int global_id;
@@ -109,8 +109,8 @@ struct Image {
 		return (int)dat.size();
 	}
 	void copyfrom(const Image &img, int ox, int oy, Effect effect) {
-		CHECK(img.dat[0].size() + ox <= dat[0].size());
-		CHECK(img.dat.size() + oy <= dat.size());
+		assert(img.dat[0].size() + ox <= dat[0].size());
+		assert(img.dat.size() + oy <= dat.size());
 		for (int y = 0; y < (int)img.dat.size(); y++) {
 			for (int x = 0; x < (int)img.dat[y].size(); x++) {
 				switch (effect) {
@@ -152,7 +152,7 @@ struct Image {
 	bool LoadPNG(const char *png_name) {
 		unsigned char *img_data;
 		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data, false)) {
+		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
 			printf("Failed to load %s\n", png_name);
 			exit(1);
 			return false;
@@ -171,9 +171,9 @@ struct Image {
 		png_structp  png_ptr;
 		png_infop  info_ptr;
 		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-		CHECK(png_ptr);
+		assert(png_ptr);
 		info_ptr = png_create_info_struct(png_ptr);
-		CHECK(info_ptr);
+		assert(info_ptr);
 		png_init_io(png_ptr, fil);
 		//png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
 		png_set_IHDR(png_ptr, info_ptr, (uint32_t)dat[0].size(), (uint32_t)dat.size(), 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
@@ -248,7 +248,7 @@ struct Bucket {
 			int idx = (int)items[i].first.dat[0].size();
 			int idy = (int)items[i].first.dat.size();
 			if (idx > 1 && idy > 1) {
-				CHECK(idx <= image_width);
+				assert(idx <= image_width);
 				for (int ty = 0; ty < 2047; ty++) {
 					if (ty + idy + 1 > (int)dest.dat.size()) {
 						masq.resize(image_width, ty + idy + 16);
@@ -354,8 +354,8 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 }
 
 void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
-	FT_Library freetype;
-	CHECK(FT_Init_FreeType(&freetype) == 0);
+	FT_Library freetype = 0;
+	assert(FT_Init_FreeType(&freetype) == 0);
 
 	vector<FT_Face> fonts;
 	fonts.resize(fontRefs.size());
@@ -374,7 +374,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 		}
 		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
-		CHECK(FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) == 0);
+		assert(FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) == 0);
 
 		ranges = merge(ranges, fontRefs[i].ranges_);
 		for (size_t r = 0, rn = fontRefs[i].ranges_.size(); r < rn; ++r) {
@@ -858,10 +858,10 @@ int main(int argc, char **argv) {
 	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
 	// /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
 	if (argc < 3) {
-		FLOG("Not enough arguments");
+		printf("Not enough arguments");
 		return 1;
 	}
-	CHECK(argc >= 3);
+	assert(argc >= 3);
 	if (argc > 3) {
 		if (!strcmp(argv[3], "8888")) {
 			highcolor = true;

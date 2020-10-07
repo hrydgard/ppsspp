@@ -17,4 +17,4 @@
 
 #pragma once
 
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"

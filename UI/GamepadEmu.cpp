@@ -16,25 +16,27 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Math/math_util.h"
+#include "Common/UI/Context.h"
+
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "UI/GamepadEmu.h"
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
-#include "gfx/texture_atlas.h"
-#include "math/math_util.h"
-#include "ui/ui_context.h"
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), secondsWithoutTouch_(0) {
+GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
 	lastFrameTime_ = time_now_d();
 }
 
@@ -43,7 +45,7 @@ void GamepadView::Touch(const TouchInput &input) {
 }
 
 void GamepadView::Update() {
-	const float now = time_now();
+	const double now = time_now_d();
 	float delta = now - lastFrameTime_;
 	if (delta > 0) {
 		secondsWithoutTouch_ += delta;
@@ -193,7 +195,7 @@ void AnalogRotationButton::Touch(const TouchInput &input) {
 }
 
 void AnalogRotationButton::Update() {
-	const float now = time_now();
+	const float now = time_now_d();
 	float delta = now - lastFrameTime_;
 	if (delta > 0) {
 		secondsWithoutTouch_ += delta;

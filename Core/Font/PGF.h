@@ -22,7 +22,6 @@
 #include <string>
 #include <vector>
 
-#include "Common/Log.h"
 #include "Common/CommonTypes.h"
 
 class PointerWrap;

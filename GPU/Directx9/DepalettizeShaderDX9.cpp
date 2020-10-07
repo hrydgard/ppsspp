@@ -18,15 +18,14 @@
 #include <map>
 #include <d3d9.h>
 
-#include "base/logging.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-#include "gfx/d3d9_shader.h"
 
 namespace DX9 {
 

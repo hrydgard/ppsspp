@@ -19,7 +19,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {
 	FormatBuffer() { data = nullptr; }
@@ -121,3 +121,10 @@ private:
 extern u32 clut[4096];
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
+
+// Type for the DarkStalkers stretch replacement.
+enum class DSStretch {
+	Off = 0,
+	Normal,
+	Wide,
+};

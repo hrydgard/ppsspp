@@ -17,9 +17,12 @@
 
 #include "ppsspp_config.h"
 
-#include "file/file_util.h"
-#include "base/NativeApp.h"
-#include "input/input_state.h"
+#include <algorithm>
+
+#include "Common/File/DirListing.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Input/InputState.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
@@ -156,6 +159,10 @@ bool UWPHost::AttemptLoadSymbolMap() {
 
 void UWPHost::SaveSymbolMap() {
 	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap").c_str());
+}
+
+void UWPHost::NotifySymbolMapUpdated() {
+	g_symbolMap->SortSymbols();
 }
 
 bool UWPHost::IsDebuggingEnabled() {

@@ -15,14 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-#include "i18n/i18n.h"
-#include "ui/ui.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "file/file_util.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Util/GameManager.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"
@@ -81,6 +79,9 @@ void InstallZipScreen::CreateViews() {
 		returnToHomebrew_ = false;
 	} else {
 		leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		doneView_ = nullptr;
+		progressBar_ = nullptr;
+		installChoice_ = nullptr;
 		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
 	}
 
@@ -99,7 +100,9 @@ bool InstallZipScreen::key(const KeyInput &key) {
 UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	if (g_GameManager.InstallGameOnThread(zipPath_, zipPath_, deleteZipFile_)) {
 		installStarted_ = true;
-		installChoice_->SetEnabled(false);
+		if (installChoice_) {
+			installChoice_->SetEnabled(false);
+		}
 	}
 	return UI::EVENT_DONE;
 }

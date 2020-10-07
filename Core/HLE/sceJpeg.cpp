@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "ext/jpge/jpgd.h"
 
 #include "Common/Common.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
@@ -27,13 +29,19 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-//Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
-//#define JPEG_DEBUG
+// Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
+// #define JPEG_DEBUG
 #ifdef JPEG_DEBUG
 #include "ext/xxhash.h"
 #endif
 
-#include <algorithm>
+struct u24_be {
+	unsigned char value[3];
+
+	operator unsigned int() {
+		return 0x00000000 | (value[0] << 16) | (value[1] << 8) | (value[2] << 0);
+	}
+};
 
 static int mjpegWidth, mjpegHeight;
 
@@ -47,8 +55,8 @@ void __JpegDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(mjpegWidth);
-	p.Do(mjpegHeight);
+	Do(p, mjpegWidth);
+	Do(p, mjpegHeight);
 }
 
 static int getWidthHeight(int width, int height) {

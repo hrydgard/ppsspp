@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstring>
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"

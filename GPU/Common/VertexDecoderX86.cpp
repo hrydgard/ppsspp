@@ -167,7 +167,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	BeginWrite();
 	const u8 *start = this->AlignCode16();
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	// Store register values
 	PUSH(ESI);
 	PUSH(EDI);
@@ -179,12 +179,20 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOV(32, R(srcReg), MDisp(ESP, 16 + offset + 0));
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
+
+	const uint8_t STACK_FIXED_ALLOC = 64;
+#else
+	// Parameters automatically fall into place.
+
+	// This will align the stack properly to 16 bytes (the call of this function pushed RIP, which is 8 bytes).
+	const uint8_t STACK_FIXED_ALLOC = 64 + 8;
 #endif
 
+	// Allocate temporary storage on the stack.
+	SUB(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 	// Save XMM4/XMM5 which apparently can be problematic?
 	// Actually, if they are, it must be a compiler bug because they SHOULD be ok.
 	// So I won't bother.
-	SUB(PTRBITS, R(ESP), Imm8(64));
 	MOVUPS(MDisp(ESP, 0), XMM4);
 	MOVUPS(MDisp(ESP, 16), XMM5);
 	MOVUPS(MDisp(ESP, 32), XMM6);
@@ -265,7 +273,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(XMM5, MDisp(ESP, 16));
 	MOVUPS(XMM6, MDisp(ESP, 32));
 	MOVUPS(XMM7, MDisp(ESP, 48));
-	ADD(PTRBITS, R(ESP), Imm8(64));
+	ADD(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 
 #ifdef _M_IX86
 	// Restore register values
@@ -1452,8 +1460,8 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
-	_dbg_assert_msg_(JIT, bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
+	_dbg_assert_msg_((bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
+	_dbg_assert_msg_(bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));
@@ -1484,8 +1492,8 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
-	_dbg_assert_msg_(JIT, bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
+	_dbg_assert_msg_((bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
+	_dbg_assert_msg_(bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));

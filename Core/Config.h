@@ -62,7 +62,8 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
-	bool bGameSpecific;
+	bool bGameSpecific = false;
+	bool bUpdatedInstanceCounter = false;
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -100,6 +101,7 @@ public:
 
 	// Core
 	bool bIgnoreBadMemAccess;
+
 	bool bFastMemory;
 	int iCpuCore;
 	bool bSimpleUI;
@@ -114,6 +116,7 @@ public:
 
 	bool bVulkanMultithreading;
 	bool bSeparateSASThread;
+	bool bSeparateIOThread;
 	int iIOTimingMethod;
 	int iIOManualDelay;
 	int iLockedCPUSpeed;
@@ -127,6 +130,7 @@ public:
 	std::string sRemoteISOSubdir;
 	bool bRemoteDebuggerOnStartup;
 	bool bMemStickInserted;
+	bool bLoadPlugins;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
@@ -147,6 +151,7 @@ public:
 	std::string sVulkanDevice;
 	std::string sD3D11Device;  // Windows only
 	std::string sCameraDevice;
+	std::string sMicDevice;
 
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
@@ -162,11 +167,13 @@ public:
 	float fSmallDisplayZoomLevel; //This is used for zoom values, both in and out.
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
+	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;
+	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
 	bool bAutoFrameSkip;
-	bool bFrameSkipUnthrottle;
+	bool bClearFramebuffersOnFirstUseHack;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
 	int iCardboardScreenSize; // Screen Size (in %)
@@ -201,6 +208,7 @@ public:
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
+	bool bUISound;
 	bool bEnableStateUndo;
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
@@ -213,8 +221,11 @@ public:
 	bool bFragmentTestCache;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
-	std::string sPostShaderName;  // Off for off.
+
+	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+	bool bShaderChainRequires60FPS;
+	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
@@ -404,10 +415,7 @@ public:
 
 	// SystemParam
 	std::string sNickName;
-	std::string proAdhocServer;
 	std::string sMACAddress;
-	bool bMOHH2hack;
-	int iPortOffset;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -419,8 +427,14 @@ public:
 	bool bSavedataUpgrade;
 
 	// Networking
+	std::string proAdhocServer;
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
+	bool bTCPNoDelay;
+	bool bEnableUPnP;
+	bool bUPnPUseOriginalPort;
+	int iPortOffset;
+	int iMinTimeout;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;

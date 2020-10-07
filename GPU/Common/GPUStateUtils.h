@@ -72,7 +72,18 @@ struct ViewportAndScissor {
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 float ToScaledDepthFromIntegerScale(float z);
-float FromScaledDepth(float z);
+
+// Use like this: (z - offset) * scale
+struct DepthScaleFactors {
+	float offset;
+	float scale;
+
+	float Apply(float z) const {
+		return (z - offset) * scale;
+	}
+};
+DepthScaleFactors GetDepthScaleFactors();
+
 float DepthSliceFactor();
 
 // These are common to all modern APIs and can be easily converted with a lookup table.

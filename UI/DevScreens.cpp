@@ -17,17 +17,21 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
-#include "profiler/profiler.h"
+#include "ppsspp_config.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -48,11 +52,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
-#if PPSSPP_API(D3DX9)
-int GetD3DXVersion();
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 int GetD3DCompilerVersion();
-#endif
 #endif
 
 static const char *logLevelList[] = {
@@ -457,7 +457,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
-#if defined(ARM) || defined(ARM64) || defined(MIPS)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 	deviceSpecs->Add(new InfoItem(si->T("Cores"), StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
@@ -481,11 +481,7 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-#if PPSSPP_API(D3DX9)
-		deviceSpecs->Add(new InfoItem(si->T("D3DX Version"), StringFromFormat("%d", GetD3DXVersion())));
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-#endif
 	}
 #endif
 #endif

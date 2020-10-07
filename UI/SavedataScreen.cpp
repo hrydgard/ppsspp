@@ -18,22 +18,23 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/colorutil.h"
-#include "base/timeutil.h"
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "math/curves.h"
-#include "thread/prioritizedworkqueue.h"
-#include "util/text/utf8.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/curves.h"
+#include "Common/Thread/PrioritizedWorkQueue.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "UI/SavedataScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/PauseScreen.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
@@ -247,7 +248,7 @@ void SavedataButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
 			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {

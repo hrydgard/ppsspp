@@ -19,7 +19,6 @@
 
 #include <cmath>
 
-#include "base/basictypes.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HLE/sceAudio.h"
 

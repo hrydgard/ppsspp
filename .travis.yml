@@ -24,6 +24,9 @@ addons:
       - sourceline: 'ppa:ubuntu-sdk-team/ppa'
   homebrew:
     update: true
+    packages:
+      - ccache
+      - sdl2
 
 cache:
   apt: true
@@ -86,16 +89,20 @@ jobs:
       env: PPSSPP_BUILD_TYPE=Linux
            LIBRETRO=TRUE
     - os: osx
-      osx_image: xcode9
+      osx_image: xcode9.4
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=macOS
     - os: osx
-      osx_image: xcode9
+      osx_image: xcode9.4
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=iOS
     - os: windows
       compiler: "msvc2017"
       env: PPSSPP_BUILD_TYPE=Windows
+    - os: windows
+      compiler: "msvc2017"
+      env: PPSSPP_BUILD_TYPE=Windows
+           UWP=TRUE
 
 before_install:
   - travis_retry bash .travis.sh travis_before_install

@@ -142,7 +142,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #endif
 	}
 
-	_dbg_assert_msg_(JIT, (suboffset & alignMask_) == suboffset, "suboffset must be aligned");
+	_dbg_assert_msg_((suboffset & alignMask_) == suboffset, "suboffset must be aligned");
 
 #if PPSSPP_ARCH(32BIT)
 	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);
@@ -303,7 +303,7 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 
 void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 {
-	_dbg_assert_msg_(JIT, !fast_, "NextSlowRead() called in fast memory mode?");
+	_dbg_assert_msg_(!fast_, "NextSlowRead() called in fast memory mode?");
 
 	// For simplicity, do nothing for 0.  We already read in PrepareSlowRead().
 	if (suboffset == 0)
@@ -311,7 +311,7 @@ void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 
 	if (jit_->gpr.IsImm(raddr_))
 	{
-		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(iaddr_ + suboffset), "NextSlowRead() for an invalid immediate address?");
+		_dbg_assert_msg_(!Memory::IsValidAddress(iaddr_ + suboffset), "NextSlowRead() for an invalid immediate address?");
 
 		jit_->MOV(32, R(EAX), Imm32((iaddr_ + suboffset) & alignMask_));
 	}

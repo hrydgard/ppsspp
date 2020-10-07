@@ -19,13 +19,13 @@
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
-#include "base/display.h"
-#include "math/lin/matrix4x4.h"
-#include "ext/native/thin3d/thin3d.h"
-#include "base/basictypes.h"
-
+#include "Common/Common.h"
+#include "Common/System/Display.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/ColorConv.h"
-#include "Common/MathUtil.h"
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -34,8 +34,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Stepping.h"
-
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -267,7 +266,7 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
 	// to exactly reproduce in 4444 and 8888 formats.
 	if (old == GE_FORMAT_565) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer");
 
 		context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
 		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[D3D11_COLOR_WRITE_ENABLE_ALPHA], nullptr, 0xFFFFFFFF);
@@ -315,18 +314,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	}
 }
 
-void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
-	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
-	if (matchingDepthBuffer && matchingSize && matchingRenderSize) {
-		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
-		RebindFramebuffer();
-		dst->last_frame_depth_updated = gpuStats.numFlips;
-	}
-}
-
 void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		ID3D11ShaderResourceView *view = nullptr;
@@ -349,7 +336,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
 			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
@@ -380,7 +367,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 
 	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
 		// Optimize to a copy
-		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT);
+		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT, "SimpleBlit");
 		return;
 	}
 
@@ -405,7 +392,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
-	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "SimpleBlit");
 	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 
 	Bind2DShader();
@@ -428,7 +415,7 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		if (useBufferedRendering_) {
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer_Fail");
 		}
 		return;
 	}

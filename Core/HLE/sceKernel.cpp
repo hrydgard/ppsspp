@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/LogManager.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -26,7 +28,6 @@
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
-#include "Common/LogManager.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/PSPLoaders.h"
@@ -77,12 +78,13 @@
 #include "sceImpose.h"
 #include "sceUsb.h"
 #include "sceUsbGps.h"
+#include "sceUsbCam.h"
+#include "sceUsbMic.h"
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
-#include "sceUsbCam.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -105,6 +107,7 @@ void __KernelInit()
 		ERROR_LOG(SCEKERNEL, "Can't init kernel when kernel is running");
 		return;
 	}
+	INFO_LOG(SCEKERNEL, "Initializing kernel...");
 
 	__KernelTimeInit();
 	__InterruptsInit();
@@ -146,6 +149,7 @@ void __KernelInit()
 	__VideoPmpInit();
 	__UsbGpsInit();
 	__UsbCamInit();
+	__UsbMicInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -170,6 +174,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__UsbCamShutdown();
+	__UsbMicShutdown();
 	__UsbGpsShutdown();
 
 	__AudioCodecShutdown();
@@ -214,11 +219,11 @@ void __KernelDoState(PointerWrap &p)
 		if (!s)
 			return;
 
-		p.Do(kernelRunning);
+		Do(p, kernelRunning);
 		kernelObjects.DoState(p);
 
 		if (s >= 2)
-			p.Do(registeredExitCbId);
+			Do(p, registeredExitCbId);
 	}
 
 	{
@@ -278,6 +283,7 @@ void __KernelDoState(PointerWrap &p)
 		__VideoPmpDoState(p);
 		__AACDoState(p);
 		__UsbGpsDoState(p);
+		__UsbMicDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
@@ -296,6 +302,12 @@ void __KernelDoState(PointerWrap &p)
 bool __KernelIsRunning() {
 	return kernelRunning;
 }
+
+std::string __KernelStateSummary() {
+	std::string threadSummary = __KernelThreadingSummary();
+	return StringFromFormat("%s", threadSummary.c_str());
+}
+
 
 void sceKernelExitGame()
 {
@@ -532,7 +544,7 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		return;
 
 	int _maxCount = maxCount;
-	p.Do(_maxCount);
+	Do(p, _maxCount);
 
 	if (_maxCount != maxCount) {
 		p.SetError(p.ERROR_FAILURE);
@@ -545,15 +557,15 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		kernelObjects.Clear();
 	}
 
-	p.Do(nextID);
-	p.DoArray(occupied, maxCount);
+	Do(p, nextID);
+	DoArray(p, occupied, maxCount);
 	for (int i = 0; i < maxCount; ++i) {
 		if (!occupied[i])
 			continue;
 
 		int type;
 		if (p.mode == p.MODE_READ) {
-			p.Do(type);
+			Do(p, type);
 			pool[i] = CreateByIDType(type);
 
 			// Already logged an error.
@@ -563,7 +575,7 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 			pool[i]->uid = i + handleOffset;
 		} else {
 			type = pool[i]->GetIDType();
-			p.Do(type);
+			Do(p, type);
 		}
 		pool[i]->DoState(p);
 		if (p.error >= p.ERROR_FAILURE)
@@ -733,8 +745,8 @@ const HLEFunction ThreadManForUser[] =
 	{0X1181E963, &WrapI_U<sceKernelDelaySysClockThreadCB>,           "sceKernelDelaySysClockThreadCB",            'i', "P",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0XCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X68DA9E36, &WrapI_U<sceKernelDelayThreadCB>,                   "sceKernelDelayThreadCB",                    'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
-	{0XAA73C935, &WrapV_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'v', "i"       },
-	{0X809CE29B, &WrapV_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'v', "i"       },
+	{0XAA73C935, &WrapI_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'i', "i"       },
+	{0X809CE29B, &WrapI_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'i', "i"       },
 	{0x94aa61ee, &WrapI_V<sceKernelGetThreadCurrentPriority>,        "sceKernelGetThreadCurrentPriority",         'i', ""        },
 	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,                     "sceKernelGetThreadId",                      'i', "",       HLE_NOT_IN_INTERRUPT },
 	{0X3B183E26, &WrapI_I<sceKernelGetThreadExitStatus>,             "sceKernelGetThreadExitStatus",              'i', "i"       },
@@ -863,6 +875,11 @@ const HLEFunction ThreadManForUser[] =
 
 	// Shouldn't hook this up. No games should import this function manually and call it.
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},
+	{0X71EC4271, &WrapU_UU<sceKernelLibcGettimeofday>,               "sceKernelLibcGettimeofday",               'x', "xx" },
+	{0X79D1C3FA, &WrapI_V<sceKernelDcacheWritebackAll>,              "sceKernelDcacheWritebackAll",             'i', "" },
+	{0X91E4F6A7, &WrapU_V<sceKernelLibcClock>,                       "sceKernelLibcClock",                      'x', "" },
+	{0XB435DEC5, &WrapI_V<sceKernelDcacheWritebackInvalidateAll>,    "sceKernelDcacheWritebackInvalidateAll",   'i', "" },
+
 };
 
 const HLEFunction ThreadManForKernel[] =
@@ -870,6 +887,14 @@ const HLEFunction ThreadManForKernel[] =
 	{0xCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x446D8DE6, &WrapI_CUUIUU<sceKernelCreateThread>,               "sceKernelCreateThread",                     'i', "sxxixx", HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
 	{0xF475845D, &WrapI_IIU<sceKernelStartThread>,                   "sceKernelStartThread",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+	{0X9FA03CD3, &WrapI_I<sceKernelDeleteThread>,                    "sceKernelDeleteThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XAA73C935, &WrapI_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X809CE29B, &WrapI_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X9944F31F, &WrapI_I<sceKernelSuspendThread>,                   "sceKernelSuspendThread",                    'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X75156E8F, &WrapI_I<sceKernelResumeThread>,                    "sceKernelResumeThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
+	{0X28B6489C, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XEF9E4C70, &WrapU_I<sceKernelDeleteEventFlag>,                 "sceKernelDeleteEventFlag",                  'x', "i",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()
@@ -898,6 +923,7 @@ const HLEFunction LoadExecForKernel[] =
 	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XA3D5E142, nullptr,                                            "LoadExecForKernel_a3d5e142",                '?', ""        },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExec_28D0D249",                'i', "sx"      },
+	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                    'v', "x", HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame 	
 };
  
 void Register_LoadExecForKernel()

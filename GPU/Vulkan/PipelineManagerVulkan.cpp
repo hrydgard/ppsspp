@@ -1,19 +1,20 @@
 #include <cstring>
 #include <memory>
 #include <set>
+#include <sstream>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "ext/native/thin3d/thin3d.h"
-#include "ext/native/thin3d/VulkanRenderManager.h"
-#include "ext/native/thin3d/VulkanQueueRunner.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
 	// The pipeline cache is created on demand (or explicitly through Load).
@@ -76,8 +77,8 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
-	assert(fmt != DEC_NONE);
-	assert(fmt < ARRAY_SIZE(VComp));
+	_assert_(fmt != DEC_NONE);
+	_assert_(fmt < ARRAY_SIZE(VComp));
 	attr->location = (uint32_t)location;
 	attr->binding = 0;
 	attr->format = VComp[fmt].type;
@@ -307,7 +308,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 			// Bad return value seen on Adreno in Burnout :(  Try to ignore?
 			// TODO: Log all the information we can here!
 		} else {
-			_dbg_assert_msg_(G3D, false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+			_dbg_assert_msg_(false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		}
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
@@ -331,11 +332,11 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 
 	VulkanPipelineKey key{};
-	_assert_msg_(G3D, renderPass, "Can't create a pipeline with a null renderpass");
+	_assert_msg_(renderPass, "Can't create a pipeline with a null renderpass");
 
 	key.raster = rasterKey;
 	key.renderPass = renderPass;
@@ -582,6 +583,8 @@ struct StoredVulkanPipelineKey {
 	}
 };
 
+// If you're looking for how to invalidate the cache, it's done in ShaderManagerVulkan, look for CACHE_VERSION and increment it.
+// (Header of the same file this is stored in).
 void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();

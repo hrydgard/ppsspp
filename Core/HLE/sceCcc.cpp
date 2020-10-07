@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "util/text/utf8.h"
-#include "util/text/utf16.h"
-#include "util/text/shiftjis.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Encoding/Utf16.h"
+#include "Common/Data/Encoding/Shiftjis.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
@@ -55,11 +56,11 @@ void __CccDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(errorUTF8);
-	p.Do(errorUTF16);
-	p.Do(errorSJIS);
-	p.Do(ucs2jisTable);
-	p.Do(jis2ucsTable);
+	Do(p, errorUTF8);
+	Do(p, errorUTF16);
+	Do(p, errorSJIS);
+	Do(p, ucs2jisTable);
+	Do(p, jis2ucsTable);
 }
 
 static u32 __CccUCStoJIS(u32 c, u32 alt)

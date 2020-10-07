@@ -19,14 +19,14 @@
 #include <cstdlib>
 #include <locale.h>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #if defined(_WIN32) && defined(_DEBUG)
 #include "Common/CommonWindows.h"
 #endif
 
-#include "base/stringutil.h"
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/StringUtils.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

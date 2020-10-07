@@ -21,10 +21,11 @@
 #include <algorithm>
 #include <iterator>
 
-#include "math/math_util.h"
-#include "profiler/profiler.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -129,9 +130,9 @@ void Jit::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;
@@ -442,6 +443,8 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "enterDispatcher";
 	else if (ptr == restoreRoundingMode)
 		name = "restoreRoundingMode";
+	else if (ptr == crashHandler)
+		name = "crashHandler";
 	else {
 		u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
 
@@ -631,7 +634,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 void Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
-	_dbg_assert_msg_(JIT, (MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
+	_dbg_assert_msg_((MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
 
 	if (func)
 	{
@@ -656,11 +659,18 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 	}
 }
 
+static void HitInvalidBranch(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc, ExecExceptionType::JUMP);
+}
+
 void Jit::WriteExit(u32 destination, int exit_num) {
-	_dbg_assert_msg_(JIT, exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
+	_dbg_assert_msg_(exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
 
 	if (!Memory::IsValidAddress(destination)) {
 		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
+		ABI_CallFunctionC(&HitInvalidBranch, destination);
+		js.afterOp |= JitState::AFTER_CORE_STATE;
 	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
@@ -705,6 +715,11 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	}
 }
 
+static void HitInvalidJumpReg(uint32_t source) {
+	Core_ExecException(currentMIPS->pc, source, ExecExceptionType::JUMP);
+	currentMIPS->pc = source + 8;
+}
+
 void Jit::WriteExitDestInReg(X64Reg reg) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
@@ -741,15 +756,13 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		ABI_CallFunctionA((const void *)&Memory::GetPointer, R(reg));
+		ABI_CallFunctionA((const void *)&Memory::IsValidAddress, R(reg));
 
 		// If we're ignoring, coreState didn't trip - so trip it now.
-		if (g_Config.bIgnoreBadMemAccess) {
-			CMP(32, R(EAX), Imm32(0));
-			FixupBranch skip = J_CC(CC_NE);
-			ABI_CallFunctionA((const void *)&Core_UpdateState, Imm32(CORE_ERROR));
-			SetJumpTarget(skip);
-		}
+		CMP(32, R(EAX), Imm32(0));
+		FixupBranch skip = J_CC(CC_NE);
+		ABI_CallFunctionC(&HitInvalidJumpReg, GetCompilerPC());
+		SetJumpTarget(skip);
 
 		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		JMP(dispatcherCheckCoreState, true);

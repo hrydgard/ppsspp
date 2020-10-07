@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Vulkan/VulkanLoader.h"
-#include "thin3d/VulkanRenderManager.h"
+#include <algorithm>
 
-#include "math/dataconv.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -28,8 +30,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
-#include "GPU/Vulkan/TextureCacheVulkan.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 
@@ -239,7 +240,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 			// Workaround proposed in #10421, for bug where the color write mask is not applied correctly on Adreno.
-			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_QUALCOMM) {
+			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {
 				key.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 				if (!key.blendEnable) {
 					key.blendEnable = true;
@@ -255,14 +256,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+
 		if (gstate.isModeClear() || gstate.isModeThrough()) {
-			key.cullMode = VK_CULL_MODE_NONE;
 			// TODO: Might happen in clear mode if not through...
 			key.depthClampEnable = false;
 		} else {
 			// Set cull
-			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...

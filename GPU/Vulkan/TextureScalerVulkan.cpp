@@ -15,17 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-#if _MSC_VER == 1700
-// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012.. 
-#include "../native/base/basictypes.h"
-#endif
-
 #include <algorithm>
 
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Common.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
 

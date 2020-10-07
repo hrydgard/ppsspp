@@ -25,10 +25,10 @@
 #include <limits>
 #include <emmintrin.h>
 
-#include "base/logging.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -603,7 +603,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 		MOVSS(fpr.VX(dregs[3]), R((vd&3)==3 ? XMM1 : XMM0));
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 		break;
 	}
 	ApplyPrefixD(dregs, sz);
@@ -2479,7 +2479,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 				}
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
-				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+				_dbg_assert_msg_(false,"mfv - invalid register");
 			}
 		}
 		break;
@@ -2520,7 +2520,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 			}
 		} else {
 			//ERROR
-			_dbg_assert_msg_(CPU,0,"mtv - invalid register");
+			_dbg_assert_msg_(false,"mtv - invalid register");
 		}
 		break;
 

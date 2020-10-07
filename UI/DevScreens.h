@@ -23,9 +23,8 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "i18n/i18n.h"
-#include "ui/ui_screen.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -182,3 +181,4 @@ private:
 };
 
 void DrawProfile(UIContext &ui);
+const char *GetCompilerABI();

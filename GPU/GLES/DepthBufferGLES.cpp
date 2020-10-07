@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include "gfx_es2/gpu_features.h"
+
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -126,9 +127,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 		shaderManagerGL_->DirtyLastShader();
 		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PackDepthbuffer");
 		render_->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
-		textureCacheGL_->ForgetLastTexture();
 
 		// We must bind the program after starting the render pass, and set the color mask after clearing.
 		render_->SetScissor({ 0, 0, vfb->renderWidth, vfb->renderHeight });
@@ -154,11 +154,13 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		float v1 = 1.0f;
 		DrawActiveTexture(x, y, w, h, vfb->renderWidth, vfb->renderHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
 
-		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, vfb->z_stride);
+		draw_->CopyFramebufferToMemorySync(blitFBO, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, convBuf_, vfb->z_stride, "PackDepthbuffer");
+
+		textureCacheGL_->ForgetLastTexture();
 		// TODO: Use 4444 so we can copy lines directly?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packWidth, h, Draw::DataFormat::D32F, convBuf_, vfb->z_stride);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packWidth, h, Draw::DataFormat::D32F, convBuf_, vfb->z_stride, "PackDepthbuffer");
 		format16Bit = false;
 	}
 
@@ -169,6 +171,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
 	if (format16Bit) {
+		// TODO: We have to apply GetDepthScaleFactors here too, right?
 		for (int yp = 0; yp < h; ++yp) {
 			int row_offset = vfb->z_stride * yp;
 			for (int xp = 0; xp < packWidth; ++xp) {
@@ -177,11 +180,13 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			}
 		}
 	} else {
+		// TODO: Apply this in the shader.
+		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		for (int yp = 0; yp < h; ++yp) {
 			int row_offset = vfb->z_stride * yp;
 			for (int xp = 0; xp < packWidth; ++xp) {
 				const int i = row_offset + xp;
-				float scaled = FromScaledDepth(packedf[i]);
+				float scaled = depthScale.Apply(packedf[i]);
 				if (scaled <= 0.0f) {
 					depth[i] = 0;
 				} else if (scaled >= 65535.0f) {
@@ -193,5 +198,5 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		}
 	}
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 }

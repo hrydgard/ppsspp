@@ -19,7 +19,7 @@
 #if PPSSPP_ARCH(ARM)
 
 #include <cmath>
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
@@ -543,7 +543,7 @@ namespace MIPSComp
 			VMOV(fpr.V(dregs[3]), (vd&3)==3 ? S1 : S0);
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		
@@ -1320,7 +1320,7 @@ namespace MIPSComp
 				}
 			} else {
 				//ERROR
-				_dbg_assert_msg_(CPU,0,"mtv - invalid register");
+				_dbg_assert_msg_(false,"mtv - invalid register");
 			}
 			break;
 

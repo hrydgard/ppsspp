@@ -1,7 +1,7 @@
 #include <string>
 #include <sstream>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
@@ -147,7 +147,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
 
 	// These two bits cannot be combined, otherwise havoc occurs. We get reports that indicate this happened somehow... "ERROR: 0:14: 'u_proj' : undeclared identifier"
-	_dbg_assert_msg_(G3D, !id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
+	_dbg_assert_msg_(!id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
 
 	*id_out = id;
 }

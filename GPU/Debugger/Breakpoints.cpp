@@ -19,14 +19,13 @@
 #include <set>
 #include <mutex>
 
-#include "base/basictypes.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
 namespace GPUBreakpoints {
 
 static std::mutex breaksLock;
-static std::vector<bool> breakCmds;
+static bool breakCmds[256];
 static std::set<u32> breakPCs;
 static std::set<u32> breakTextures;
 static std::set<u32> breakRenderTargets;
@@ -36,7 +35,7 @@ static size_t breakTexturesCount = 0;
 static size_t breakRenderTargetsCount = 0;
 
 // If these are set, the above are also, but they should be temporary.
-static std::vector<bool> breakCmdsTemp;
+static bool breakCmdsTemp[256];
 static std::set<u32> breakPCsTemp;
 static std::set<u32> breakTexturesTemp;
 static std::set<u32> breakRenderTargetsTemp;
@@ -373,14 +372,14 @@ void UpdateLastTexture(u32 addr) {
 void ClearAllBreakpoints() {
 	std::lock_guard<std::mutex> guard(breaksLock);
 
-	breakCmds.clear();
-	breakCmds.resize(256, false);
+	for (int i = 0; i < 256; ++i) {
+		breakCmds[i] = false;
+		breakCmdsTemp[i] = false;
+	}
 	breakPCs.clear();
 	breakTextures.clear();
 	breakRenderTargets.clear();
 
-	breakCmdsTemp.clear();
-	breakCmdsTemp.resize(256, false);
 	breakPCsTemp.clear();
 	breakTexturesTemp.clear();
 	breakRenderTargetsTemp.clear();

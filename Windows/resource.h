@@ -22,6 +22,7 @@
 #define WHEEL_DELTA                     120
 #define ID_DEBUG_LOG                    121
 #define ID_DEBUG_BREAKPOINTS            122
+#define ID_FILE_OPEN_NEW_INSTANCE       123
 #define ID_FILE_LOADSTATEFILE           126
 #define ID_FILE_SAVESTATEFILE           127
 #define ID_EMULATION_RESET              130
@@ -86,6 +87,7 @@
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
 #define IDC_DEBUG_COUNT                 1003
+#define IDC_SEARCH_BOX                  1004
 #define IDC_MEMORY                      1006
 #define IDC_SH4REGISTERS                1007
 #define IDC_REGISTERS                   1007
@@ -115,6 +117,7 @@
 #define IDC_MODENORMAL                  1099
 #define IDC_MODESYMBOLS                 1100
 #define IDC_LOG_SHOW                    1101
+#define IDC_SEARCH_RESULTS              1102
 #define IDC_UPDATELOG                   1108
 #define IDC_SETPC                       1118
 #define IDC_UPDATEMISC                  1134
@@ -167,6 +170,7 @@
 #define IDC_BREAKPOINT_LOG_FORMAT       1199
 #define IDC_SHOWOFFSETS                 1200
 #define IDC_GEDBG_PRIMCOUNTER           1201
+#define IDC_BUTTON_SEARCH               1204
 
 #define ID_SHADERS_BASE  5000
 
@@ -238,7 +242,6 @@
 #define ID_OPTIONS_TEXTUREFILTERING_AUTO 40067
 #define ID_OPTIONS_NEARESTFILTERING      40068
 #define ID_DISASM_DISASSEMBLETOFILE      40069
-#define ID_OPTIONS_LINEARFILTERING_CG    40070
 #define ID_DISASM_DISABLEBREAKPOINT      40071
 #define ID_DISASM_THREAD_FORCERUN        40072
 #define ID_DISASM_THREAD_KILL            40073

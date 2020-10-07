@@ -17,10 +17,11 @@
 
 #include <cmath>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
-#include "Common/Common.h"
+#include "Common/BitSet.h"
 #include "Common/BitScan.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
@@ -54,6 +55,10 @@
 
 static inline void DelayBranchTo(u32 where)
 {
+	if (!Memory::IsValidAddress(where)) {
+		// TODO: What about misaligned?
+		Core_ExecException(where, PC, ExecExceptionType::JUMP);
+	}
 	PC += 4;
 	mipsr4k.nextPC = where;
 	mipsr4k.inDelaySlot = true;
@@ -152,11 +157,7 @@ namespace MIPSInt
 	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
-		ERROR_LOG(CPU, "BREAK!");
-		if (!g_Config.bIgnoreBadMemAccess) {
-			Core_EnableStepping(true);
-			host->SetDebugMode(true);
-		}
+		Core_Break();
 		PC += 4;
 	}
 
@@ -180,7 +181,7 @@ namespace MIPSInt
 		case 23: if ((s32)R(rs) >  0) DelayBranchTo(addr); else SkipLikely(); break; //bgtzl
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -202,7 +203,7 @@ namespace MIPSInt
 		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
 		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -237,7 +238,7 @@ namespace MIPSInt
 		case 2: if (!currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1fl
 		case 3: if ( currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1tl
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -245,7 +246,7 @@ namespace MIPSInt
 	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
-			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
+			_dbg_assert_msg_(false,"Jump in delay slot :(");
 
 		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
@@ -258,7 +259,7 @@ namespace MIPSInt
 			DelayBranchTo(addr);
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -271,7 +272,7 @@ namespace MIPSInt
 			if (op == 0x03e00008)
 				return;
 			ERROR_LOG(CPU, "Jump in delay slot :(");
-			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
+			_dbg_assert_msg_(false,"Jump in delay slot :(");
 		}
 
 		int rs = _RS;
@@ -316,7 +317,7 @@ namespace MIPSInt
 		case 14: R(rt) = R(rs) ^ uimm; break; //xori
 		case 15: R(rt) = uimm << 16;	 break; //lui
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -348,7 +349,7 @@ namespace MIPSInt
 			}
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -386,7 +387,7 @@ namespace MIPSInt
 		case 44: R(rd) = ((s32)R(rs) > (s32)R(rt)) ? R(rs) : R(rt); break; //max
 		case 45: R(rd) = ((s32)R(rs) < (s32)R(rt)) ? R(rs) : R(rt); break;//min
 		default:
-			_dbg_assert_msg_(CPU, 0, "Unknown MIPS instruction %08x", op.encoding);
+			_dbg_assert_msg_( 0, "Unknown MIPS instruction %08x", op.encoding);
 			break;
 		}
 		PC += 4;
@@ -457,7 +458,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret Mem instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret Mem instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -475,7 +476,7 @@ namespace MIPSInt
 		case 49: FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		case 57: Memory::Write_U32(FI(ft), addr); break; //swc1
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPULS instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -528,7 +529,7 @@ namespace MIPSInt
 			}
 		
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -555,7 +556,7 @@ namespace MIPSInt
 			R(rd) = clz32(~R(rs));
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -659,7 +660,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -714,7 +715,7 @@ namespace MIPSInt
 		case 7: R(rd) = (u32)(((s32)R(rt)) >> (R(rs)&0x1F)); break; //srav
 		default:
 			wrong:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -757,7 +758,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret ALLEGREX instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -784,7 +785,7 @@ namespace MIPSInt
 			R(rd) = swap32(R(rt));
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret ALLEGREX instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -902,7 +903,7 @@ namespace MIPSInt
 			}
 			break; //cvt.w.s
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU2Op instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPU2Op instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -956,7 +957,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPUComp instruction that can't be interpreted");
 			cond = false;
 			break;
 		}
@@ -984,7 +985,7 @@ namespace MIPSInt
 			break;
 		case 3: F(fd) = F(fs) / F(ft); break; // div.s
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU3Op instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPU3Op instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -1009,7 +1010,7 @@ namespace MIPSInt
 	void Int_Emuhack(MIPSOpcode op)
 	{
 		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
-			_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret emuhack instruction that can't be interpreted");
 		}
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;

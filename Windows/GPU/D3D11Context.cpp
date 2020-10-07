@@ -3,12 +3,11 @@
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <WinError.h>
-#include <cassert>
 
-#include "base/logging.h"
-#include "Base/display.h"
-#include "util/text/utf8.h"
-#include "i18n/i18n.h"
+#include "Common/Log.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -16,9 +15,9 @@
 #include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/d3d11_loader.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/D3D11/D3D11Loader.h"
 
 #ifdef __MINGW32__
 #undef __uuidof
@@ -55,7 +54,7 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	// D3D11 has no need for display rotation.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-#if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
+#if defined(_DEBUG) && !PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 	UINT createDeviceFlags = 0;
@@ -187,7 +186,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
-	_assert_msg_(G3D, success, "Failed to compile preset shaders");
+	_assert_msg_(success, "Failed to compile preset shaders");
 
 	int width;
 	int height;

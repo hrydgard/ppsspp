@@ -15,21 +15,22 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "profiler/profiler.h"
-#include "GPU/Math3D.h"
-#include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "gfx/d3d9_shader.h"
-#include "gfx/d3d9_state.h"
+#include "GPU/Math3D.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
 
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 namespace DX9 {
@@ -202,15 +203,12 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			dxstate.dither.disable();
 		}
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		dxstate.cullMode.set(wantCull, gstate.getCullMode());
 		if (gstate.isModeClear()) {
-			// Set Cull 
-			dxstate.cullMode.set(false, false);
 			// Well, probably doesn't matter...
 			dxstate.shadeMode.set(D3DSHADE_GOURAUD);
 		} else {
-			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			dxstate.cullMode.set(wantCull, gstate.getCullMode());
 			dxstate.shadeMode.set(gstate.getShadeMode() == GE_SHADE_GOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
 		}
 	}

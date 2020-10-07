@@ -17,13 +17,11 @@
 
 #include <d3d9.h>
 
-#include "base/logging.h"
-
-#include "gfx/d3d9_state.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
@@ -66,7 +64,7 @@ VS_OUT main(VS_IN In) {
 }
 )";
 
-bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -113,7 +111,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	}
 
 	if (usedBits == 0) {
-		if (skipZero) {
+		if (flags == StencilUpload::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.  We're done.
 			return false;
 		}
@@ -187,17 +185,17 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	dxstate.colorMask.set(false, false, false, true);
 	dxstate.stencilTest.enable();
 	dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
 
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		// Typically, STENCIL_IS_ZERO means it's already bound.
+		Draw::RPAction stencilAction = flags == StencilUpload::STENCIL_IS_ZERO ? Draw::RPAction::KEEP : Draw::RPAction::CLEAR;
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, stencilAction }, "StencilUpload");
 	}
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
@@ -205,7 +203,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	if (!tex)
 		return false;
 
-	device_->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
+	// TODO: Ideally, we should clear alpha to zero here (but not RGB.)
 
 	dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0xFF, 0xFF);
 
@@ -254,7 +252,8 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	tex->Release();
 	dxstate.stencilMask.set(0xFF);
 	dxstate.viewport.restore();
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }
 

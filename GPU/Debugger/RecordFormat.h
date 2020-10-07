@@ -21,11 +21,19 @@
 
 namespace GPURecord {
 
-static const char *HEADER = "PPSSPPGE";
+struct Header {
+	char magic[8];
+	uint32_t version;
+	char gameID[9];
+	uint8_t pad[3];
+};
+
+static const char *HEADER_MAGIC = "PPSSPPGE";
 // Version 1: Uncompressed
 // Version 2: Uses snappy
 // Version 3: Adds FRAMEBUF0-FRAMEBUF9
-static const int VERSION = 3;
+// Version 4: Expanded header with game ID
+static const int VERSION = 4;
 static const int MIN_VERSION = 2;
 
 enum class CommandType : u8 {

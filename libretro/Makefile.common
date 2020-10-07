@@ -7,6 +7,10 @@ GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
 
+SOURCES_CXX   :=
+SOURCES_C     :=
+SOURCES_ASM   :=
+
 INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
@@ -19,79 +23,78 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
-	-I$(NATIVEDIR)/ext \
+	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \
-	-I$(NATIVEDIR)/ext/libpng17 \
+	-I$(EXTDIR)/libpng17 \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
 	-I$(EXTDIR)/xxhash \
 	-I$(EXTDIR)/glew
 
 ifeq ($(PLATFORM_EXT), android)
-	INCFLAGS += -I$(NATIVEDIR)/ext/libzip
+	INCFLAGS += -I$(EXTDIR)/libzip
 	SOURCES_C += \
-		$(NATIVEDIR)/ext/libzip/mkstemp.c \
-		$(NATIVEDIR)/ext/libzip/zip_add.c \
-		$(NATIVEDIR)/ext/libzip/zip_add_dir.c \
-		$(NATIVEDIR)/ext/libzip/zip_close.c \
-		$(NATIVEDIR)/ext/libzip/zip_delete.c \
-		$(NATIVEDIR)/ext/libzip/zip_dirent.c \
-		$(NATIVEDIR)/ext/libzip/zip_entry_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_entry_new.c \
-		$(NATIVEDIR)/ext/libzip/zip_err_str.c \
-		$(NATIVEDIR)/ext/libzip/zip_error.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_clear.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_get.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_get_sys_type.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_error_to_str.c \
-		$(NATIVEDIR)/ext/libzip/zip_fclose.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_error_clear.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_error_get.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_get_offset.c \
-		$(NATIVEDIR)/ext/libzip/zip_file_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_filerange_crc.c \
-		$(NATIVEDIR)/ext/libzip/zip_fopen.c \
-		$(NATIVEDIR)/ext/libzip/zip_fopen_index.c \
-		$(NATIVEDIR)/ext/libzip/zip_fread.c \
-		$(NATIVEDIR)/ext/libzip/zip_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_archive_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_archive_flag.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_file_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_name.c \
-		$(NATIVEDIR)/ext/libzip/zip_get_num_files.c \
-		$(NATIVEDIR)/ext/libzip/zip_memdup.c \
-		$(NATIVEDIR)/ext/libzip/zip_name_locate.c \
-		$(NATIVEDIR)/ext/libzip/zip_new.c \
-		$(NATIVEDIR)/ext/libzip/zip_open.c \
-		$(NATIVEDIR)/ext/libzip/zip_rename.c \
-		$(NATIVEDIR)/ext/libzip/zip_replace.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_archive_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_archive_flag.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_file_comment.c \
-		$(NATIVEDIR)/ext/libzip/zip_set_name.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_buffer.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_file.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_filep.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_free.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_function.c \
-		$(NATIVEDIR)/ext/libzip/zip_source_zip.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat_index.c \
-		$(NATIVEDIR)/ext/libzip/zip_stat_init.c \
-		$(NATIVEDIR)/ext/libzip/zip_strerror.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_all.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_archive.c \
-		$(NATIVEDIR)/ext/libzip/zip_unchange_data.c
+		$(EXTDIR)/libzip/mkstemp.c \
+		$(EXTDIR)/libzip/zip_add.c \
+		$(EXTDIR)/libzip/zip_add_dir.c \
+		$(EXTDIR)/libzip/zip_close.c \
+		$(EXTDIR)/libzip/zip_delete.c \
+		$(EXTDIR)/libzip/zip_dirent.c \
+		$(EXTDIR)/libzip/zip_entry_free.c \
+		$(EXTDIR)/libzip/zip_entry_new.c \
+		$(EXTDIR)/libzip/zip_err_str.c \
+		$(EXTDIR)/libzip/zip_error.c \
+		$(EXTDIR)/libzip/zip_error_clear.c \
+		$(EXTDIR)/libzip/zip_error_get.c \
+		$(EXTDIR)/libzip/zip_error_get_sys_type.c \
+		$(EXTDIR)/libzip/zip_error_strerror.c \
+		$(EXTDIR)/libzip/zip_error_to_str.c \
+		$(EXTDIR)/libzip/zip_fclose.c \
+		$(EXTDIR)/libzip/zip_file_error_clear.c \
+		$(EXTDIR)/libzip/zip_file_error_get.c \
+		$(EXTDIR)/libzip/zip_file_get_offset.c \
+		$(EXTDIR)/libzip/zip_file_strerror.c \
+		$(EXTDIR)/libzip/zip_filerange_crc.c \
+		$(EXTDIR)/libzip/zip_fopen.c \
+		$(EXTDIR)/libzip/zip_fopen_index.c \
+		$(EXTDIR)/libzip/zip_fread.c \
+		$(EXTDIR)/libzip/zip_free.c \
+		$(EXTDIR)/libzip/zip_get_archive_comment.c \
+		$(EXTDIR)/libzip/zip_get_archive_flag.c \
+		$(EXTDIR)/libzip/zip_get_file_comment.c \
+		$(EXTDIR)/libzip/zip_get_name.c \
+		$(EXTDIR)/libzip/zip_get_num_files.c \
+		$(EXTDIR)/libzip/zip_memdup.c \
+		$(EXTDIR)/libzip/zip_name_locate.c \
+		$(EXTDIR)/libzip/zip_new.c \
+		$(EXTDIR)/libzip/zip_open.c \
+		$(EXTDIR)/libzip/zip_rename.c \
+		$(EXTDIR)/libzip/zip_replace.c \
+		$(EXTDIR)/libzip/zip_set_archive_comment.c \
+		$(EXTDIR)/libzip/zip_set_archive_flag.c \
+		$(EXTDIR)/libzip/zip_set_file_comment.c \
+		$(EXTDIR)/libzip/zip_set_name.c \
+		$(EXTDIR)/libzip/zip_source_buffer.c \
+		$(EXTDIR)/libzip/zip_source_file.c \
+		$(EXTDIR)/libzip/zip_source_filep.c \
+		$(EXTDIR)/libzip/zip_source_free.c \
+		$(EXTDIR)/libzip/zip_source_function.c \
+		$(EXTDIR)/libzip/zip_source_zip.c \
+		$(EXTDIR)/libzip/zip_stat.c \
+		$(EXTDIR)/libzip/zip_stat_index.c \
+		$(EXTDIR)/libzip/zip_stat_init.c \
+		$(EXTDIR)/libzip/zip_strerror.c \
+		$(EXTDIR)/libzip/zip_unchange.c \
+		$(EXTDIR)/libzip/zip_unchange_all.c \
+		$(EXTDIR)/libzip/zip_unchange_archive.c \
+		$(EXTDIR)/libzip/zip_unchange_data.c
 
 	SOURCES_C +=\
-		$(NATIVEDIR)/gfx_es2/gl3stub.c \
-		$(NATIVEDIR)/math/fast/fast_math.c \
-		$(NATIVEDIR)/math/fast/fast_matrix.c
+		$(COMMONDIR)/Math/fast/fast_math.c \
+		$(COMMONDIR)/Math/fast/fast_matrix.c
 endif
 
-SOURCES_C += $(EXTDIR)/glew/glew.c
+SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
 SOURCES_C += \
 	$(EXTDIR)/libkirk/AES.c \
@@ -102,34 +105,36 @@ SOURCES_C += \
 	$(EXTDIR)/libkirk/kirk_engine.c
 
 SOURCES_C += \
-	$(NATIVEDIR)/ext/libpng17/png.c \
-	$(NATIVEDIR)/ext/libpng17/pngerror.c \
-	$(NATIVEDIR)/ext/libpng17/pngget.c \
-	$(NATIVEDIR)/ext/libpng17/pngmem.c \
-	$(NATIVEDIR)/ext/libpng17/pngread.c \
-	$(NATIVEDIR)/ext/libpng17/pngrio.c \
-	$(NATIVEDIR)/ext/libpng17/pngrtran.c \
-	$(NATIVEDIR)/ext/libpng17/pngrutil.c \
-	$(NATIVEDIR)/ext/libpng17/pngset.c \
-	$(NATIVEDIR)/ext/libpng17/pngtrans.c \
-	$(NATIVEDIR)/ext/libpng17/pngwio.c \
-	$(NATIVEDIR)/ext/libpng17/pngwrite.c \
-	$(NATIVEDIR)/ext/libpng17/pngwtran.c \
-	$(NATIVEDIR)/ext/libpng17/pngwutil.c
+	$(EXTDIR)/libpng17/png.c \
+	$(EXTDIR)/libpng17/pngerror.c \
+	$(EXTDIR)/libpng17/pngget.c \
+	$(EXTDIR)/libpng17/pngmem.c \
+	$(EXTDIR)/libpng17/pngread.c \
+	$(EXTDIR)/libpng17/pngrio.c \
+	$(EXTDIR)/libpng17/pngrtran.c \
+	$(EXTDIR)/libpng17/pngrutil.c \
+	$(EXTDIR)/libpng17/pngset.c \
+	$(EXTDIR)/libpng17/pngtrans.c \
+	$(EXTDIR)/libpng17/pngwio.c \
+	$(EXTDIR)/libpng17/pngwrite.c \
+	$(EXTDIR)/libpng17/pngwtran.c \
+	$(EXTDIR)/libpng17/pngwutil.c
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
 
 SOURCES_CXX += \
 	$(EXTDIR)/snappy/snappy-c.cpp \
+	$(EXTDIR)/snappy/snappy-sinksource.cpp \
+	$(EXTDIR)/snappy/snappy-stubs-internal.cpp \
 	$(EXTDIR)/snappy/snappy.cpp
 
 SOURCES_CXX += $(EXTDIR)/xbrz/xbrz.cpp
 
 SOURCES_CXX += \
-	$(NATIVEDIR)/ext/gason/gason.cpp
+	$(EXTDIR)/gason/gason.cpp
 
-SOURCES_CXX += $(NATIVEDIR)/ext/cityhash/city.cpp
+SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \
@@ -137,27 +142,95 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/sha256.cpp
 
 SOURCES_CXX += \
-	$(COMMONDIR)/ChunkFile.cpp \
+	$(COMMONDIR)/Data/Color/RGBAUtil.cpp \
+	$(COMMONDIR)/Data/Convert/SmallDataConvert.cpp \
+	$(COMMONDIR)/Data/Encoding/Base64.cpp \
+	$(COMMONDIR)/Data/Encoding/Compression.cpp \
+	$(COMMONDIR)/Data/Encoding/Utf8.cpp \
+	$(COMMONDIR)/Data/Format/RIFF.cpp \
+	$(COMMONDIR)/Data/Format/IniFile.cpp \
+	$(COMMONDIR)/Data/Format/JSONReader.cpp \
+	$(COMMONDIR)/Data/Format/JSONWriter.cpp \
+	$(COMMONDIR)/Data/Format/PNGLoad.cpp \
+	$(COMMONDIR)/Data/Format/ZIMLoad.cpp \
+	$(COMMONDIR)/Data/Format/ZIMSave.cpp \
+	$(COMMONDIR)/Data/Hash/Hash.cpp \
+	$(COMMONDIR)/Data/Text/I18n.cpp \
+	$(COMMONDIR)/Data/Text/Parsers.cpp \
+	$(COMMONDIR)/Data/Text/WrapText.cpp \
+	$(COMMONDIR)/File/VFS/VFS.cpp \
+	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/DiskFree.cpp \
+	$(COMMONDIR)/File/PathBrowser.cpp \
+	$(COMMONDIR)/File/FileUtil.cpp \
+	$(COMMONDIR)/File/FileDescriptor.cpp \
+	$(COMMONDIR)/File/DirListing.cpp \
+	$(COMMONDIR)/GPU/thin3d.cpp \
+	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
+	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
+	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanLoader.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanContext.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanDebug.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanImage.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanMemory.cpp \
+	$(COMMONDIR)/Input/GestureDetector.cpp \
+	$(COMMONDIR)/Input/InputState.cpp \
+	$(COMMONDIR)/Math/curves.cpp \
+	$(COMMONDIR)/Math/expression_parser.cpp \
+	$(COMMONDIR)/Math/math_util.cpp \
+	$(COMMONDIR)/Math/lin/vec3.cpp \
+	$(COMMONDIR)/Math/lin/matrix4x4.cpp \
+	$(COMMONDIR)/Net/HTTPClient.cpp \
+	$(COMMONDIR)/Net/HTTPHeaders.cpp \
+	$(COMMONDIR)/Net/HTTPServer.cpp \
+	$(COMMONDIR)/Net/Resolve.cpp \
+	$(COMMONDIR)/Net/Sinks.cpp \
+	$(COMMONDIR)/Net/URL.cpp \
+	$(COMMONDIR)/Net/WebsocketServer.cpp \
+	$(COMMONDIR)/Render/DrawBuffer.cpp \
+	$(COMMONDIR)/Render/TextureAtlas.cpp \
+	$(COMMONDIR)/Serialize/Serializer.cpp \
+	$(COMMONDIR)/Thread/Executor.cpp \
+	$(COMMONDIR)/Thread/ThreadUtil.cpp \
+	$(COMMONDIR)/Thread/ThreadPool.cpp \
+	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
+	$(COMMONDIR)/UI/Root.cpp \
+	$(COMMONDIR)/UI/Screen.cpp \
+	$(COMMONDIR)/UI/UI.cpp \
+	$(COMMONDIR)/UI/Context.cpp \
+	$(COMMONDIR)/UI/UIScreen.cpp \
+	$(COMMONDIR)/UI/Tween.cpp \
+	$(COMMONDIR)/UI/View.cpp \
+	$(COMMONDIR)/UI/ViewGroup.cpp \
+	$(COMMONDIR)/System/Display.cpp \
+	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
-	$(COMMONDIR)/FileUtil.cpp \
-	$(COMMONDIR)/KeyMap.cpp \
+	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
+	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
-	$(COMMONDIR)/Misc.cpp \
-	$(COMMONDIR)/MsgHandler.cpp \
+	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
-	$(COMMONDIR)/Timer.cpp \
-	$(COMMONDIR)/ThreadPools.cpp
+	$(COMMONDIR)/TimeUtil.cpp
 
-
+SOURCES_C +=\
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
 
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
 	$(GPUCOMMONDIR)/GPUStateUtils.cpp \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
-	$(GPUCOMMONDIR)/FramebufferCommon.cpp \
+	$(GPUCOMMONDIR)/FramebufferManagerCommon.cpp \
 	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
@@ -182,6 +255,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
 	$(GPUDIR)/Software/Sampler.cpp \
+	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \
 	$(GPUDIR)/GPUCommon.cpp \
 	$(GPUDIR)/GPU.cpp \
@@ -205,15 +279,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
-	$(EXTDIR)/native/base/backtrace.cpp \
-	$(EXTDIR)/native/base/buffer.cpp \
-	$(EXTDIR)/native/base/colorutil.cpp \
-	$(EXTDIR)/native/base/display.cpp \
-	$(EXTDIR)/native/base/logging.cpp \
-	$(EXTDIR)/native/base/stringutil.cpp \
-	$(EXTDIR)/native/base/timeutil.cpp \
-	$(EXTDIR)/native/data/compression.cpp \
-	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \
@@ -260,73 +325,29 @@ SOURCES_CXX += \
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
-	       $(NATIVEDIR)/gfx_es2/draw_text_win.cpp
+	       $(COMMONDIR)/Render/Text/draw_text_win.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
 SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
-			 $(NATIVEDIR)/gfx_es2/draw_text_android.cpp
+		   $(COMMONDIR)/Render/Text/draw_text_android.cpp
 else
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
-SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
-	       $(NATIVEDIR)/file/fd_util.cpp \
-	       $(NATIVEDIR)/file/file_util.cpp \
-	       $(NATIVEDIR)/file/ini_file.cpp \
-	       $(NATIVEDIR)/file/free.cpp \
-	       $(NATIVEDIR)/file/zip_read.cpp \
-	       $(NATIVEDIR)/gfx/gl_debug_log.cpp \
-	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
-          $(NATIVEDIR)/gfx/d3d9_shader.cpp \
-          $(NATIVEDIR)/gfx/d3d9_state.cpp \
-			 $(NATIVEDIR)/gfx_es2/draw_buffer.cpp \
-          $(NATIVEDIR)/gfx_es2/draw_text.cpp \
-	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
-	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
-	       $(NATIVEDIR)/i18n/i18n.cpp \
-	       $(NATIVEDIR)/image/zim_load.cpp \
-	       $(NATIVEDIR)/image/png_load.cpp \
-	       $(NATIVEDIR)/input/gesture_detector.cpp \
-	       $(NATIVEDIR)/input/input_state.cpp \
-	       $(NATIVEDIR)/math/curves.cpp \
-	       $(NATIVEDIR)/math/expression_parser.cpp \
-	       $(NATIVEDIR)/math/lin/matrix4x4.cpp \
-          $(NATIVEDIR)/math/lin/plane.cpp \
-          $(NATIVEDIR)/math/lin/quat.cpp \
-          $(NATIVEDIR)/math/lin/vec3.cpp \
-	       $(NATIVEDIR)/net/http_client.cpp \
-	       $(NATIVEDIR)/net/resolve.cpp \
-	       $(NATIVEDIR)/net/url.cpp \
-	       $(NATIVEDIR)/thin3d/thin3d.cpp \
-			 $(NATIVEDIR)/thin3d/thin3d_gl.cpp \
-          $(NATIVEDIR)/thin3d/GLRenderManager.cpp \
-          $(NATIVEDIR)/thin3d/GLQueueRunner.cpp \
-          $(NATIVEDIR)/thin3d/DataFormatGL.cpp \
-	       $(NATIVEDIR)/thread/threadutil.cpp \
-	       $(NATIVEDIR)/thread/threadpool.cpp \
-	       $(NATIVEDIR)/ui/root.cpp \
-	       $(NATIVEDIR)/ui/screen.cpp \
-	       $(NATIVEDIR)/ui/ui.cpp \
-          $(NATIVEDIR)/ui/ui_context.cpp \
-	       $(NATIVEDIR)/ui/ui_screen.cpp \
-	       $(NATIVEDIR)/ui/ui_tween.cpp \
-	       $(NATIVEDIR)/ui/view.cpp \
-	       $(NATIVEDIR)/ui/viewgroup.cpp \
-	       $(NATIVEDIR)/util/hash/hash.cpp \
-	       $(NATIVEDIR)/util/text/utf8.cpp \
-	       $(NATIVEDIR)/util/text/parsers.cpp \
-	       $(NATIVEDIR)/util/text/wrap_text.cpp \
-	       $(NATIVEDIR)/ext/jpge/jpgd.cpp \
-	       $(NATIVEDIR)/ext/jpge/jpge.cpp \
+SOURCES_CXX += \
+           $(COMMONDIR)/Render/Text/draw_text.cpp \
+	       $(EXTDIR)/jpge/jpgd.cpp \
+	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
+	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \
@@ -336,6 +357,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
 	       $(COREDIR)/HDRemaster.cpp \
+	       $(COREDIR)/Instance.cpp \
 	       $(COREDIR)/Debugger/Breakpoints.cpp \
 	       $(COREDIR)/Debugger/SymbolMap.cpp \
 	       $(COREDIR)/Dialog/PSPDialog.cpp \
@@ -361,6 +383,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
+	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \
@@ -430,6 +453,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
+	       $(COREDIR)/HW/BufferQueue.cpp \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \
@@ -466,6 +490,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/MIPS/MIPSIntVFPU.cpp \
 	       $(COREDIR)/MIPS/MIPSTables.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
+	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \
@@ -474,11 +499,13 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
+		   $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
-          $(EXTDIR)/disarm.cpp \
-          $(CORE_DIR)/UI/TextureUtil.cpp
+	       $(COREDIR)/Util/PortManager.cpp \
+          $(CORE_DIR)/UI/TextureUtil.cpp \
+          $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
 
@@ -499,6 +526,7 @@ ifeq ($(WITH_DYNAREC),1)
 			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
+                               $(EXTDIR)/disarm.cpp \
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 
 		ifeq ($(HAVE_NEON),1)
@@ -509,10 +537,10 @@ ifeq ($(WITH_DYNAREC),1)
 					 $(COMMONDIR)/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
-			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
-				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
-				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
+				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
+			ASMFILES   += $(COMMONDIR)/Math/fast/fast_matrix_neon.S \
+				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
@@ -535,13 +563,14 @@ ifeq ($(WITH_DYNAREC),1)
 			SOURCES_CXX   += \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
+					 $(COREDIR)/Util/AudioFormatNEON.cpp \
 					 $(COMMONDIR)/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
-			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
-				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
+			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
+				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
 			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
-				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))
@@ -562,6 +591,7 @@ endif
       endif
 	   SOURCES_CXX += $(GPUDIR)/Software/SamplerX86.cpp
 	   SOURCES_CXX += $(COMMONDIR)/x64Emitter.cpp \
+						$(COMMONDIR)/x64Analyzer.cpp \
 						$(COMMONDIR)/ABI.cpp \
 						$(COMMONDIR)/Thunk.cpp \
 						$(COMMONDIR)/CPUDetect.cpp \
@@ -577,14 +607,9 @@ endif
 						$(COREDIR)/MIPS/x86/RegCache.cpp \
 						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
 						$(GPUDIR)/Common/VertexDecoderX86.cpp
-		SOURCES_C   += $(NATIVEDIR)/math/fast/fast_matrix_sse.c
+		SOURCES_C   += $(COMMONDIR)/Math/fast/fast_matrix_sse.c
    endif
 endif
-SOURCES_CXX += \
-   $(COMMONDIR)/ArmEmitter.cpp \
-   $(COMMONDIR)/Arm64Emitter.cpp \
-   $(COREDIR)/Util/DisArm64.cpp
-
 #UDIS86
 # Compiled and linked even on ARM for now
 
@@ -594,20 +619,28 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
+INCFLAGS += -I$(EXTDIR)/miniupnp-build
+SOURCES_C += \
+    $(EXTDIR)/miniupnp/miniupnpc/connecthostport.c \
+    $(EXTDIR)/miniupnp/miniupnpc/igd_desc_parse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minisoap.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minissdpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/miniupnpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/miniwget.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minixml.c \
+    $(EXTDIR)/miniupnp/miniupnpc/minixmlvalid.c \
+    $(EXTDIR)/miniupnp/miniupnpc/portlistingparse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/receivedata.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpcommands.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpdev.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnperrors.c \
+    $(EXTDIR)/miniupnp/miniupnpc/upnpreplyparse.c
 
 SOURCES_CXX += \
-	$(COMMONDIR)/Vulkan/VulkanContext.cpp \
-	$(COMMONDIR)/Vulkan/VulkanDebug.cpp \
-	$(COMMONDIR)/Vulkan/VulkanImage.cpp \
-	$(COMMONDIR)/Vulkan/VulkanLoader.cpp \
-	$(COMMONDIR)/Vulkan/VulkanMemory.cpp \
-	$(NATIVEDIR)/thin3d/thin3d_vulkan.cpp \
-	$(NATIVEDIR)/thin3d/VulkanRenderManager.cpp \
-	$(NATIVEDIR)/thin3d/VulkanQueueRunner.cpp \
 	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
-	$(GPUDIR)/Vulkan/FramebufferVulkan.cpp \
+	$(GPUDIR)/Vulkan/FramebufferManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
 	$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
 	$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \
@@ -631,7 +664,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/DepalettizeShaderDX9.cpp \
 	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
 	$(GPUDIR)/Directx9/PixelShaderGeneratorDX9.cpp \
-	$(GPUDIR)/Directx9/FramebufferDX9.cpp \
+	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
 	$(GPUDIR)/Directx9/GPU_DX9.cpp \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
 	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
@@ -656,12 +689,13 @@ SOURCES_CXX += \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
-   $(NATIVEDIR)/thin3d/thin3d_d3d9.cpp \
-   $(NATIVEDIR)/thin3d/thin3d_d3d11.cpp \
-   $(NATIVEDIR)/thin3d/d3dx9_loader.cpp \
-   $(NATIVEDIR)/thin3d/d3d11_loader.cpp \
-   $(NATIVEDIR)/thin3d/d3d9_d3dcompiler_loader.cpp
-
+	$(COMMONDIR)/GPU/D3D9/D3D9ShaderCompiler.cpp \
+	$(COMMONDIR)/GPU/D3D9/D3D9StateCache.cpp \
+	$(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp \
+	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
+	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
+	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
+	
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 
 endif
@@ -669,7 +703,8 @@ endif
 SOURCES_CXX += \
 		$(LIBRETRODIR)/libretro.cpp \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
-		$(LIBRETRODIR)/LibretroGLContext.cpp
+		$(LIBRETRODIR)/LibretroGLContext.cpp \
+		$(LIBRETRODIR)/LibretroGLCoreContext.cpp
 
 ifneq ($(STATIC_LINKING), 1)
 SOURCES_C += \
@@ -697,11 +732,7 @@ ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
 endif
 
 ifneq ($(GIT_VERSION_NO_UPDATE),1)
-   $(shell echo '// This is a generated file.' > $(GIT_VERSION_SRC))
-   $(shell echo >> $(GIT_VERSION_SRC))
    $(shell echo 'const char *PPSSPP_GIT_VERSION = "${GIT_VERSION}";' >> $(GIT_VERSION_SRC))
-   $(shell echo >> $(GIT_VERSION_SRC))
-   $(shell echo "// If you don't want this file to update/recompile, change to 1." >> $(GIT_VERSION_SRC))
    $(shell echo '#define PPSSPP_GIT_VERSION_NO_UPDATE 0' >> $(GIT_VERSION_SRC))
 endif
 

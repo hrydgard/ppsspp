@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/CoreTiming.h"
@@ -23,6 +25,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/Reporting.h"
 
@@ -33,24 +36,29 @@ const int AUDIO_ROUTING_SPEAKER_ON = 1;
 int defaultRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
 int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
 
+extern FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+
+// The extra channel is for SRC/Output2/Vaudio.
+AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
+
 void AudioChannel::DoState(PointerWrap &p)
 {
 	auto s = p.Section("AudioChannel", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(reserved);
-	p.Do(sampleAddress);
-	p.Do(sampleCount);
-	p.Do(leftVolume);
-	p.Do(rightVolume);
-	p.Do(format);
-	p.Do(waitingThreads);
+	Do(p, reserved);
+	Do(p, sampleAddress);
+	Do(p, sampleCount);
+	Do(p, leftVolume);
+	Do(p, rightVolume);
+	Do(p, format);
+	Do(p, waitingThreads);
 	if (s >= 2) {
-		p.Do(defaultRoutingMode);
-		p.Do(defaultRoutingVolMode);
+		Do(p, defaultRoutingMode);
+		Do(p, defaultRoutingVolMode);
 	}
-	sampleQueue.DoState(p);
+	chanSampleQueues[index].DoState(p);
 }
 
 void AudioChannel::reset()
@@ -67,22 +75,15 @@ void AudioChannel::clear()
 	format = 0;
 	sampleAddress = 0;
 	sampleCount = 0;
-	sampleQueue.clear();
+	chanSampleQueues[index].clear();
 	waitingThreads.clear();
 }
 
-// There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
-// We simply map it to an extra channel after the 8 channels, since they can be used concurrently.
-
-// The extra channel is for SRC/Output2/Vaudio.
-AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
-
-// Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
-// For solid audio output we'll need a queue length of 2 buffers at least, we'll try that first.
+// Enqueues the buffer pointed to on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
+// For solid audio output we'll need a queue length of 2 buffers at least.
 
 // Not sure about the range of volume, I often see 0x800 so that might be either
 // max or 50%?
-
 static u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 	if (vol > 0xFFFF) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutputBlocking() - invalid volume");
@@ -181,7 +182,7 @@ static int sceAudioGetChannelRestLen(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLen(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
 	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
@@ -191,7 +192,7 @@ static int sceAudioGetChannelRestLength(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioGetChannelRestLength(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
-	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
+	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
 	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
@@ -369,7 +370,7 @@ static u32 sceAudioOutput2GetRestSample() {
 	if (!chan.reserved) {
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
-	u32 size = (u32)chan.sampleQueue.size() / 2;
+	u32 size = (u32)chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].size() / 2;
 	if (size > chan.sampleCount) {
 		// If ChangeLength reduces the size, it still gets output but this return is clamped.
 		size = chan.sampleCount;
@@ -381,7 +382,7 @@ static u32 sceAudioOutput2Release() {
 	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
 	if (!chan.reserved)
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chan.sampleQueue.empty())
+	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].empty())
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
@@ -442,7 +443,7 @@ static u32 sceAudioSRCChRelease() {
 	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
 	if (!chan.reserved)
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chan.sampleQueue.empty())
+	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_SRC].empty())
 		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
@@ -469,6 +470,11 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	if (result < 0)
 		return hleLogError(SCEAUDIO, result);
 	return hleLogSuccessI(SCEAUDIO, result);
+}
+
+static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	return __MicInputBlocking(maxSamples, sampleRate, bufAddr);
 }
 
 static u32 sceAudioRoutingSetMode(u32 mode) {
@@ -535,7 +541,7 @@ const HLEFunction sceAudio[] =
 	{0X7DE61688, nullptr,                                   "sceAudioInputInit",             '?', ""    },
 	{0XE926D3FB, nullptr,                                   "sceAudioInputInitEx",           '?', ""    },
 	{0X6D4BEC68, nullptr,                                   "sceAudioInput",                 '?', ""    },
-	{0X086E5895, nullptr,                                   "sceAudioInputBlocking",         '?', ""    },
+	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx"    },
 	{0XA708C6A6, nullptr,                                   "sceAudioGetInputLength",        '?', ""    },
 	{0XA633048E, nullptr,                                   "sceAudioPollInputEnd",          '?', ""    },
 	{0X87B2E651, nullptr,                                   "sceAudioWaitInputEnd",          '?', ""    },

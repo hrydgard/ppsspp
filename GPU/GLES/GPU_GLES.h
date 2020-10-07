@@ -17,17 +17,17 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DepalettizeShaderGLES.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 
 class ShaderManagerGLES;
+class TextureCacheGLES;
 class LinkedShader;
 
 class GPU_GLES : public GPUCommon {

@@ -110,3 +110,9 @@ enum class AutoLoadSaveState {
 	OLDEST = 1,
 	NEWEST = 2,
 };
+
+enum class UnthrottleMode {
+	CONTINUOUS = 0,
+	SKIP_DRAW = 1,
+	SKIP_FLIP = 2,
+};

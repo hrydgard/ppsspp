@@ -304,6 +304,8 @@ protected:
 		}
 	}
 
+	size_t FormatGPUStatsCommon(char *buf, size_t size);
+
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
@@ -341,7 +343,7 @@ protected:
 	bool dumpThisFrame_;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_;
+	bool resized_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
@@ -364,10 +366,7 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
-
-#ifdef _WIN32
 	int lastVsync_ = -1;
-#endif
 };
 
 struct CommonCommandTableEntry {

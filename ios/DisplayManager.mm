@@ -8,8 +8,9 @@
 #import "DisplayManager.h"
 #import "ViewController.h"
 #import "AppDelegate.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "Core/System.h"
 #import <AVFoundation/AVFoundation.h>
 

@@ -3,13 +3,13 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 
-#include "base/logging.h"
-#include "base/display.h"
-#include "util/text/utf8.h"
-#include "i18n/i18n.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
@@ -17,14 +17,9 @@
 #include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-
-#if PPSSPP_API(D3DX9)
-#include "thin3d/d3dx9_loader.h"
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
-#include "thin3d/d3d9_d3dcompiler_loader.h"
-#endif
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
 void D3D9Context::SwapBuffers() {
 	if (has9Ex_) {
@@ -71,24 +66,16 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	hD3D9_ = LoadLibrary(TEXT("d3d9.dll"));
 	if (!hD3D9_) {
-		ELOG("Missing d3d9.dll");
+		ERROR_LOG(G3D, "Missing d3d9.dll");
 		*error_message = "D3D9.dll missing - try reinstalling DirectX.";
 		return false;
 	}
 
-#if PPSSPP_API(D3DX9)
-	int d3dx_version = LoadD3DX9Dynamic();
-	if (!d3dx_version) {
-		*error_message = "D3DX DLL not found! Try reinstalling DirectX.";
-		return false;
-	}
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 	bool result = LoadD3DCompilerDynamic();
 	if (!result) {
 		*error_message = "D3DCompiler not found! Try reinstalling DirectX.";
 		return false;
 	}
-#endif
 
 	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9_, "Direct3DCreate9Ex");
 	has9Ex_ = (g_pfnCreate9ex != NULL) && IsVistaOrHigher();
@@ -218,7 +205,7 @@ void D3D9Context::Resize() {
 		HRESULT hr = device_->Reset(&presentParams_);
 		if (FAILED(hr)) {
 			// Had to remove DXGetErrorStringA calls here because dxerr.lib is deprecated and will not link with VS 2015.
-			PanicAlert("Unable to reset D3D9 device");
+			_assert_msg_(false, "Unable to reset D3D9 device");
 		}
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	}
@@ -231,11 +218,7 @@ void D3D9Context::Shutdown() {
 	device_->EndScene();
 	device_->Release();
 	d3d_->Release();
-#if PPSSPP_API(D3DX9)
-	UnloadD3DXDynamic();
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 	UnloadD3DCompiler();
-#endif
 	DX9::pD3Ddevice = nullptr;
 	DX9::pD3DdeviceEx = nullptr;
 	device_ = nullptr;

@@ -28,23 +28,21 @@
 
 static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
-	WARN_LOG(HLE, "sceMt19937Init(%08x, %08x)", mt19937Addr, seed);
 	if (!Memory::IsValidAddress(mt19937Addr))
-		return -1;
+		return hleLogError(HLE, -1);
 	void *ptr = Memory::GetPointer(mt19937Addr);
 	// This is made to match the memory layout of a PSP MT structure exactly.
 	// Let's just construct it in place with placement new. Elite C++ hackery FTW.
 	new (ptr) MersenneTwister(seed);
-	return 0;
+	return hleLogSuccessInfoI(HLE, 0);
 }
 
 static u32 sceMt19937UInt(u32 mt19937Addr)
 {
-	WARN_LOG(HLE, "sceMt19937UInt(%08x)", mt19937Addr);
 	if (!Memory::IsValidAddress(mt19937Addr))
-		return -1;
+		return hleLogError(HLE, -1);
 	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointer(mt19937Addr);
-	return mt->R32();
+	return hleLogSuccessVerboseX(HLE, mt->R32());
 }
 
 const HLEFunction sceMt19937[] =

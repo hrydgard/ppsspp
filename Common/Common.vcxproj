@@ -132,12 +132,11 @@
   <PropertyGroup />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -149,22 +148,20 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -177,22 +174,20 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -205,22 +200,21 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -233,27 +227,26 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -266,24 +259,23 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -301,24 +293,23 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -336,24 +327,23 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../ext/native;../ext/snappy;../ext/glslang;..</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -371,23 +361,114 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib />
     <Lib>
-      <AdditionalLibraryDirectories>Winmm.lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Lib>
-    <PreBuildEvent>
-      <Message>Updating git-version.cpp</Message>
-      <Command>../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\libpng17\png.h" />
+    <ClInclude Include="..\ext\libpng17\pngconf.h" />
+    <ClInclude Include="..\ext\libpng17\pngdebug.h" />
+    <ClInclude Include="..\ext\libpng17\pnginfo.h" />
+    <ClInclude Include="..\ext\libpng17\pnglibconf.h" />
+    <ClInclude Include="..\ext\libpng17\pngpriv.h" />
+    <ClInclude Include="..\ext\libpng17\pngstruct.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Arm64Emitter.h" />
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
+    <ClInclude Include="Buffer.h" />
+    <ClInclude Include="Data\Collections\ConstMap.h" />
+    <ClInclude Include="Data\Collections\FixedSizeQueue.h" />
+    <ClInclude Include="Data\Collections\Hashmaps.h" />
+    <ClInclude Include="Data\Collections\ThreadSafeList.h" />
+    <ClInclude Include="Data\Collections\TinySet.h" />
+    <ClInclude Include="Data\Color\RGBAUtil.h" />
+    <ClInclude Include="Data\Convert\SmallDataConvert.h" />
+    <ClInclude Include="Data\Encoding\Base64.h" />
+    <ClInclude Include="Data\Encoding\Compression.h" />
+    <ClInclude Include="Data\Encoding\Shiftjis.h" />
+    <ClInclude Include="Data\Encoding\Utf16.h" />
+    <ClInclude Include="Data\Encoding\Utf8.h" />
+    <ClInclude Include="Data\Format\IniFile.h" />
+    <ClInclude Include="Data\Format\JSONReader.h" />
+    <ClInclude Include="Data\Format\JSONWriter.h" />
+    <ClInclude Include="Data\Format\PNGLoad.h" />
+    <ClInclude Include="Data\Format\RIFF.h" />
+    <ClInclude Include="Data\Format\ZIMLoad.h" />
+    <ClInclude Include="Data\Format\ZIMSave.h" />
+    <ClInclude Include="Data\Hash\Hash.h" />
+    <ClInclude Include="Data\Random\Rng.h" />
+    <ClInclude Include="Data\Text\I18n.h" />
+    <ClInclude Include="Data\Text\Parsers.h" />
+    <ClInclude Include="Data\Text\WrapText.h" />
+    <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="File\DirListing.h" />
+    <ClInclude Include="File\DiskFree.h" />
+    <ClInclude Include="File\FileDescriptor.h" />
+    <ClInclude Include="File\FileUtil.h" />
+    <ClInclude Include="File\PathBrowser.h" />
+    <ClInclude Include="File\VFS\VFS.h" />
+    <ClInclude Include="File\VFS\AssetReader.h" />
+    <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
+    <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h" />
+    <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
+    <ClInclude Include="GPU\D3D9\D3D9StateCache.h" />
+    <ClInclude Include="GPU\DataFormat.h" />
+    <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
+    <ClInclude Include="GPU\OpenGL\gl3stub.h" />
+    <ClInclude Include="GPU\OpenGL\GLFeatures.h" />
+    <ClInclude Include="GPU\OpenGL\GLQueueRunner.h" />
+    <ClInclude Include="GPU\OpenGL\GLRenderManager.h" />
+    <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
+    <ClInclude Include="GPU\OpenGL\GLCommon.h" />
+    <ClInclude Include="GPU\OpenGL\GLDebugLog.h" />
+    <ClInclude Include="GPU\thin3d.h" />
+    <ClInclude Include="GPU\thin3d_create.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h" />
+    <ClInclude Include="Input\GestureDetector.h" />
+    <ClInclude Include="Input\InputState.h" />
+    <ClInclude Include="Input\KeyCodes.h" />
+    <ClInclude Include="Math\curves.h" />
+    <ClInclude Include="Math\expression_parser.h" />
+    <ClInclude Include="Math\fast\fast_math.h" />
+    <ClInclude Include="Math\fast\fast_matrix.h" />
+    <ClInclude Include="Math\geom2d.h" />
+    <ClInclude Include="Math\lin\matrix4x4.h" />
+    <ClInclude Include="Math\lin\vec3.h" />
+    <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Net\HTTPClient.h" />
+    <ClInclude Include="Net\HTTPHeaders.h" />
+    <ClInclude Include="Net\HTTPServer.h" />
+    <ClInclude Include="Net\Resolve.h" />
+    <ClInclude Include="Net\Sinks.h" />
+    <ClInclude Include="Net\URL.h" />
+    <ClInclude Include="Net\WebsocketServer.h" />
+    <ClInclude Include="Profiler\Profiler.h" />
+    <ClInclude Include="Render\DrawBuffer.h" />
+    <ClInclude Include="Render\TextureAtlas.h" />
+    <ClInclude Include="Render\Text\draw_text.h" />
+    <ClInclude Include="Render\Text\draw_text_android.h" />
+    <ClInclude Include="Render\Text\draw_text_qt.h" />
+    <ClInclude Include="Render\Text\draw_text_uwp.h" />
+    <ClInclude Include="Render\Text\draw_text_win.h" />
+    <ClInclude Include="Serialize\SerializeDeque.h" />
+    <ClInclude Include="Serialize\SerializeFuncs.h" />
     <ClInclude Include="ColorConvNEON.h" />
-    <ClInclude Include="ChunkFile.h" />
+    <ClInclude Include="Serialize\SerializeList.h" />
+    <ClInclude Include="Serialize\SerializeMap.h" />
+    <ClInclude Include="Serialize\Serializer.h" />
     <ClInclude Include="CodeBlock.h" />
     <ClInclude Include="ColorConv.h" />
     <ClInclude Include="Common.h" />
@@ -400,8 +481,7 @@
     <ClInclude Include="Crypto\sha1.h" />
     <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="DbgNew.h" />
-    <ClInclude Include="FileUtil.h" />
-    <ClInclude Include="FixedSizeQueue.h" />
+    <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="GL\GLInterfaceBase.h" />
     <ClInclude Include="GL\GLInterface\EGL.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -424,33 +504,190 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
-    <ClInclude Include="Hashmaps.h" />
-    <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MakeUnique.h" />
-    <ClInclude Include="MathUtil.h" />
+    <ClInclude Include="MachineContext.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MipsEmitter.h" />
-    <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="OSVersion.h" />
-    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Serialize\SerializeSet.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
-    <ClInclude Include="ThreadPools.h" />
-    <ClInclude Include="ThreadSafeList.h" />
+    <ClInclude Include="SysError.h" />
+    <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\NativeApp.h" />
+    <ClInclude Include="System\System.h" />
+    <ClInclude Include="Thread\Executor.h" />
+    <ClInclude Include="Thread\PrioritizedWorkQueue.h" />
+    <ClInclude Include="Thread\ThreadPool.h" />
+    <ClInclude Include="Thread\ThreadUtil.h" />
     <ClInclude Include="Thunk.h" />
-    <ClInclude Include="Timer.h" />
-    <ClInclude Include="Vulkan\VulkanContext.h" />
-    <ClInclude Include="Vulkan\VulkanDebug.h" />
-    <ClInclude Include="Vulkan\VulkanImage.h" />
-    <ClInclude Include="Vulkan\VulkanLoader.h" />
-    <ClInclude Include="Vulkan\VulkanMemory.h" />
+    <ClInclude Include="TimeUtil.h" />
+    <ClInclude Include="UI\Context.h" />
+    <ClInclude Include="UI\Root.h" />
+    <ClInclude Include="UI\Screen.h" />
+    <ClInclude Include="UI\Tween.h" />
+    <ClInclude Include="UI\UI.h" />
+    <ClInclude Include="UI\UIScreen.h" />
+    <ClInclude Include="UI\View.h" />
+    <ClInclude Include="UI\ViewGroup.h" />
     <ClInclude Include="x64Analyzer.h" />
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\libpng17\png.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngerror.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngget.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngmem.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngpread.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngread.c" />
+    <ClCompile Include="..\ext\libpng17\pngrio.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngrtran.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngrutil.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngset.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngtest.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngtrans.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwio.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwrite.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwtran.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\ext\libpng17\pngwutil.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ArmCPUDetect.cpp">
@@ -464,6 +701,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
+    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="ColorConvNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -474,14 +712,86 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="ChunkFile.cpp" />
+    <ClCompile Include="Data\Color\RGBAUtil.cpp" />
+    <ClCompile Include="Data\Convert\SmallDataConvert.cpp" />
+    <ClCompile Include="Data\Encoding\Base64.cpp" />
+    <ClCompile Include="Data\Encoding\Compression.cpp" />
+    <ClCompile Include="Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="Data\Format\IniFile.cpp" />
+    <ClCompile Include="Data\Format\JSONReader.cpp" />
+    <ClCompile Include="Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="Data\Format\PNGLoad.cpp" />
+    <ClCompile Include="Data\Format\RIFF.cpp" />
+    <ClCompile Include="Data\Format\ZIMLoad.cpp" />
+    <ClCompile Include="Data\Format\ZIMSave.cpp" />
+    <ClCompile Include="Data\Hash\Hash.cpp" />
+    <ClCompile Include="Data\Text\I18n.cpp" />
+    <ClCompile Include="Data\Text\Parsers.cpp" />
+    <ClCompile Include="Data\Text\WrapText.cpp" />
+    <ClCompile Include="File\DirListing.cpp" />
+    <ClCompile Include="File\DiskFree.cpp" />
+    <ClCompile Include="File\FileDescriptor.cpp" />
+    <ClCompile Include="File\FileUtil.cpp" />
+    <ClCompile Include="File\PathBrowser.cpp" />
+    <ClCompile Include="File\VFS\VFS.cpp" />
+    <ClCompile Include="File\VFS\AssetReader.cpp" />
+    <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
+    <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp" />
+    <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp" />
+    <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp" />
+    <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp" />
+    <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp" />
+    <ClCompile Include="GPU\OpenGL\DataFormatGL.cpp" />
+    <ClCompile Include="GPU\OpenGL\gl3stub.c" />
+    <ClCompile Include="GPU\OpenGL\GLFeatures.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp" />
+    <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp" />
+    <ClCompile Include="GPU\thin3d.cpp" />
+    <ClCompile Include="GPU\Vulkan\thin3d_vulkan.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanContext.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanDebug.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanQueueRunner.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanRenderManager.cpp" />
+    <ClCompile Include="Input\GestureDetector.cpp" />
+    <ClCompile Include="Input\InputState.cpp" />
+    <ClCompile Include="Log.cpp" />
+    <ClCompile Include="Math\curves.cpp" />
+    <ClCompile Include="Math\expression_parser.cpp" />
+    <ClCompile Include="Math\fast\fast_math.c" />
+    <ClCompile Include="Math\fast\fast_matrix.c" />
+    <ClCompile Include="Math\fast\fast_matrix_sse.c" />
+    <ClCompile Include="Math\lin\matrix4x4.cpp" />
+    <ClCompile Include="Math\lin\vec3.cpp" />
+    <ClCompile Include="Math\math_util.cpp" />
+    <ClCompile Include="Net\HTTPClient.cpp" />
+    <ClCompile Include="Net\HTTPHeaders.cpp" />
+    <ClCompile Include="Net\HTTPServer.cpp" />
+    <ClCompile Include="Net\Resolve.cpp" />
+    <ClCompile Include="Net\Sinks.cpp" />
+    <ClCompile Include="Net\URL.cpp" />
+    <ClCompile Include="Net\WebsocketServer.cpp" />
+    <ClCompile Include="Profiler\Profiler.cpp" />
+    <ClCompile Include="Render\DrawBuffer.cpp" />
+    <ClCompile Include="Render\TextureAtlas.cpp" />
+    <ClCompile Include="Render\Text\draw_text.cpp" />
+    <ClCompile Include="Render\Text\draw_text_android.cpp" />
+    <ClCompile Include="Render\Text\draw_text_qt.cpp" />
+    <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
+    <ClCompile Include="Render\Text\draw_text_win.cpp" />
+    <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="Crypto\md5.cpp" />
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
-    <ClCompile Include="FileUtil.cpp" />
+    <ClCompile Include="ExceptionHandlerSetup.cpp" />
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -512,7 +822,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
@@ -520,35 +829,38 @@
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
-    <ClCompile Include="Misc.cpp" />
-    <ClCompile Include="MsgHandler.cpp" />
+    <ClCompile Include="SysError.cpp" />
     <ClCompile Include="OSVersion.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="StringUtils.cpp" />
-    <ClCompile Include="ThreadPools.cpp" />
+    <ClCompile Include="System\Display.cpp" />
+    <ClCompile Include="Thread\Executor.cpp" />
+    <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
+    <ClCompile Include="Thread\ThreadPool.cpp" />
+    <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />
-    <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="Vulkan\VulkanContext.cpp" />
-    <ClCompile Include="Vulkan\VulkanDebug.cpp" />
-    <ClCompile Include="Vulkan\VulkanImage.cpp" />
-    <ClCompile Include="Vulkan\VulkanLoader.cpp" />
-    <ClCompile Include="Vulkan\VulkanMemory.cpp" />
+    <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="UI\Context.cpp" />
+    <ClCompile Include="UI\Root.cpp" />
+    <ClCompile Include="UI\Screen.cpp" />
+    <ClCompile Include="UI\Tween.cpp" />
+    <ClCompile Include="UI\UI.cpp" />
+    <ClCompile Include="UI\UIScreen.cpp" />
+    <ClCompile Include="UI\View.cpp" />
+    <ClCompile Include="UI\ViewGroup.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ext\native\native.vcxproj">
-      <Project>{c4df647e-80ea-4111-a0a8-218b1b711e18}</Project>
+    <Text Include="..\ext\libpng17\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
+      <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Math\fast\fast_matrix_neon.S" />
+    <None Include="Math\lin\matrix_neon.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

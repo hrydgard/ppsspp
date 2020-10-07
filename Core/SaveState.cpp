@@ -20,13 +20,15 @@
 #include <thread>
 #include <mutex>
 
-#include "base/timeutil.h"
-#include "i18n/i18n.h"
-#include "thread/threadutil.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Text/Parsers.h"
 
-#include "Common/FileUtil.h"
-#include "Common/ChunkFile.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/SaveState.h"
 #include "Core/Config.h"
@@ -41,6 +43,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -92,9 +95,9 @@ namespace SaveState
 		return CChunkFileReader::SavePtr(&data[0], state);
 	}
 
-	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data) {
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
 		SaveStart state;
-		return CChunkFileReader::LoadPtr(&data[0], state);
+		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
 	}
 
 	struct StateRingbuffer
@@ -136,7 +139,7 @@ namespace SaveState
 			return err;
 		}
 
-		CChunkFileReader::Error Restore()
+		CChunkFileReader::Error Restore(std::string *errorString)
 		{
 			std::lock_guard<std::mutex> guard(lock_);
 
@@ -150,7 +153,7 @@ namespace SaveState
 
 			static std::vector<u8> buffer;
 			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
-			return LoadFromRam(buffer);
+			return LoadFromRam(buffer, errorString);
 		}
 
 		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
@@ -262,7 +265,7 @@ namespace SaveState
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
-	static float rewindLastTime = 0.0f;
+	static double rewindLastTime = 0.0f;
 	const int StateRingbuffer::BLOCK_SIZE = 8192;
 	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
 
@@ -275,11 +278,11 @@ namespace SaveState
 		if (s >= 2) {
 			// This only increments on save, of course.
 			++saveStateGeneration;
-			p.Do(saveStateGeneration);
+			Do(p, saveStateGeneration);
 			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())
 				saveStateInitialGitVersion = PPSSPP_GIT_VERSION;
-			p.Do(saveStateInitialGitVersion);
+			Do(p, saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
 		}
@@ -617,7 +620,19 @@ namespace SaveState
 			if (File::GetModifTime(fn, time)) {
 				char buf[256];
 				// TODO: Use local time format? Americans and some others might not like ISO standard :)
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				switch (g_Config.iDateFormat) {
+				case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+					strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+					strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+					break;
+				default: // Should never happen
+					return "";
+				}
 				return std::string(buf);
 			}
 		}
@@ -633,13 +648,14 @@ namespace SaveState
 		return copy;
 	}
 
-	bool HandleFailure()
+	bool HandleLoadFailure()
 	{
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
 		CChunkFileReader::Error result;
 		do {
-			result = rewindStates.Restore();
+			std::string errorString;
+			result = rewindStates.Restore(&errorString);
 		} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
 		if (result == CChunkFileReader::ERROR_NONE) {
@@ -668,12 +684,12 @@ namespace SaveState
 			return;
 
 		// For fast-forwarding, otherwise they may be useless and too close.
-		time_update();
-		float diff = time_now() - rewindLastTime;
+		double now = time_now_d();
+		float diff = now - rewindLastTime;
 		if (diff < rewindMaxWallFrequency)
 			return;
 
-		rewindLastTime = time_now();
+		rewindLastTime = now;
 		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}
@@ -729,7 +745,6 @@ namespace SaveState
 			Status callbackResult;
 			bool tempResult;
 			std::string callbackMessage;
-			std::string reason;
 			std::string title;
 
 			auto sc = GetI18NCategory("Screen");
@@ -741,13 +756,14 @@ namespace SaveState
 				i18nSaveFailure = sc->T("Failed to save state");
 
 			std::string slot_prefix = op.slot >= 0 ? StringFromFormat("(%d) ", op.slot + 1) : "";
+			std::string errorString;
 
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Loading state from '%s'", op.filename.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
-				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
+				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = slot_prefix + sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
@@ -778,12 +794,12 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
-					callbackMessage = i18nLoadFailure;
-					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
+					HandleLoadFailure();
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
+					ERROR_LOG(SAVESTATE, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
+					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
 				break;
@@ -813,9 +829,9 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
+					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Save state failure");
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -835,24 +851,24 @@ namespace SaveState
 
 			case SAVESTATE_REWIND:
 				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
-				result = rewindStates.Restore();
+				result = rewindStates.Restore(&errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					if (HandleFailure()) {
+					if (HandleLoadFailure()) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
 					} else {
-						callbackMessage = i18nLoadFailure;
+						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 						callbackResult = Status::FAILURE;
 					}
 				} else {
-					callbackMessage = i18nLoadFailure;
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 					callbackResult = Status::FAILURE;
 				}
 				break;

@@ -17,7 +17,9 @@
 
 #include <map>
 #include <vector>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMbx.h"
@@ -61,7 +63,8 @@ struct NativeMbx
 struct Mbx : public KernelObject
 {
 	const char *GetName() override { return nmb.name; }
-	const char *GetTypeName() override { return "Mbx"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mbx"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MBXID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mbox; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mbox; }
@@ -165,10 +168,10 @@ struct Mbx : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nmb);
+		Do(p, nmb);
 		MbxWaitingThread mwt = {0};
-		p.Do(waitingThreads, mwt);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, mwt);
+		Do(p, pausedWaits);
 	}
 
 	NativeMbx nmb;
@@ -193,7 +196,7 @@ void __KernelMbxDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(mbxWaitTimer);
+	Do(p, mbxWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
 }
 
@@ -273,7 +276,7 @@ static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 
 static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
 {
-	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
+	_dbg_assert_msg_(!waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
 
 	std::vector<MbxWaitingThread>::iterator iter, end, best = waiting.end();
 	u32 best_prio = 0xFFFFFFFF;
@@ -287,7 +290,7 @@ static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vect
 		}
 	}
 
-	_dbg_assert_msg_(SCEKERNEL, best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
+	_dbg_assert_msg_(best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
 	return best;
 }
 

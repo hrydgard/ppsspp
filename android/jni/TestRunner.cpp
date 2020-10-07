@@ -26,11 +26,10 @@
 #include <iostream>
 
 #include "ppsspp_config.h"
-#include "base/basictypes.h"
-#include "base/display.h"
-#include "base/logging.h"
+#include "Common/System/Display.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -112,11 +111,11 @@ bool RunTests() {
 		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
 		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
 
-		ILOG("Preparing to execute '%s'", testName);
+		INFO_LOG(SYSTEM, "Preparing to execute '%s'", testName);
 		std::string error_string;
 		output = "";
 		if (!PSP_Init(coreParam, &error_string)) {
-			ELOG("Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
+			ERROR_LOG(SYSTEM, "Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
 			return false;
@@ -125,7 +124,7 @@ bool RunTests() {
 		PSP_BeginHostFrame();
 
 		// Run the emu until the test exits
-		ILOG("Test: Entering runloop.");
+		INFO_LOG(SYSTEM, "Test: Entering runloop.");
 		while (true) {
 			int blockTicks = usToCycles(1000000 / 10);
 			while (coreState == CORE_RUNNING) {
@@ -136,7 +135,7 @@ bool RunTests() {
 				// set back to running for the next frame
 				coreState = CORE_RUNNING;
 			} else if (coreState == CORE_POWERDOWN)	{
-				ILOG("Finished running test %s", testName);
+				INFO_LOG(SYSTEM, "Finished running test %s", testName);
 				break;
 			}
 		}
@@ -144,7 +143,7 @@ bool RunTests() {
 	
 		std::ifstream expected(expectedFile.c_str(), std::ios_base::in);
 		if (!expected) {
-			ELOG("Error opening expectedFile %s", expectedFile.c_str());
+			ERROR_LOG(SYSTEM, "Error opening expectedFile %s", expectedFile.c_str());
 			break;
 		}
 
@@ -160,9 +159,9 @@ bool RunTests() {
 			e = TrimNewlines(e);
 			o = TrimNewlines(o);
 			if (e != o) {
-				ELOG("DIFF on line %i!", line);
-				ELOG("O: %s", o.c_str());
-				ELOG("E: %s", e.c_str());
+				ERROR_LOG(SYSTEM, "DIFF on line %i!", line);
+				ERROR_LOG(SYSTEM, "O: %s", o.c_str());
+				ERROR_LOG(SYSTEM, "E: %s", e.c_str());
 			}
 			if (expected.eof()) {
 				break;

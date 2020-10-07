@@ -32,20 +32,22 @@
 #pragma warning(pop)
 
 // native stuff
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "file/file_util.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
-#include "util/text/utf8.h"
-
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/Instance.h"
+
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "Windows/WindowsHost.h"
@@ -69,8 +71,6 @@
 
 #include "Windows/main.h"
 #include "UI/OnScreenDisplay.h"
-
-static const int numCPUs = 1;
 
 float g_mouseDeltaX = 0;
 float g_mouseDeltaY = 0;
@@ -101,8 +101,9 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 
 void WindowsHost::SetConsolePosition() {
 	HWND console = GetConsoleWindow();
-	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
 		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 }
 
 void WindowsHost::UpdateConsolePosition() {
@@ -167,6 +168,7 @@ void WindowsHost::SetWindowTitle(const char *message) {
 #ifdef _DEBUG
 	winTitle.append(L" (debug)");
 #endif
+	lastTitle_ = winTitle;
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
@@ -188,24 +190,27 @@ void WindowsHost::ShutdownSound() {
 
 void WindowsHost::UpdateUI() {
 	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+	int peers = GetInstancePeerCount();
+	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
+		lastNumInstances_ = peers;
+		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	}
 }
 
 void WindowsHost::UpdateMemView() {
-	for (int i = 0; i < numCPUs; i++)
-		if (memoryWindow[i])
-			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
+	if (memoryWindow)
+		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
 }
 
 void WindowsHost::UpdateDisassembly() {
-	for (int i = 0; i < numCPUs; i++)
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
 }
 
 void WindowsHost::SetDebugMode(bool mode) {
-	for (int i = 0; i < numCPUs; i++)
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
 void WindowsHost::PollControllers() {
@@ -280,7 +285,7 @@ static std::string SymbolMapFilename(const char *currentFilename, const char* ex
 
 		return result + ".ppsspp-symbols" + ext;
 	} else {
-		size_t dot = result.rfind('.');
+		const size_t dot = result.rfind('.');
 		if (dot == result.npos)
 			return result + ext;
 
@@ -300,6 +305,11 @@ bool WindowsHost::AttemptLoadSymbolMap() {
 
 void WindowsHost::SaveSymbolMap() {
 	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+}
+
+void WindowsHost::NotifySymbolMapUpdated() {
+	g_symbolMap->SortSymbols();
+	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 }
 
 bool WindowsHost::IsDebuggingEnabled() {
@@ -360,8 +370,8 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
-		for (size_t c = 0; c < strlen(bannedChars); c++) {
-			if (gameTitle[i] == bannedChars[c]) {
+		for (char c : bannedChars) {
+			if (gameTitle[i] == c) {
 				gameTitle[i] = '_';
 				break;
 			}

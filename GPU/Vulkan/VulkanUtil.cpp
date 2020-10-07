@@ -15,10 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "Common/Log.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/StringUtils.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
@@ -65,7 +64,7 @@ void Vulkan2D::DestroyDeviceObjects() {
 void Vulkan2D::InitDeviceObjects() {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	// Texture.
@@ -85,7 +84,7 @@ void Vulkan2D::InitDeviceObjects() {
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
 	dpTypes[0].descriptorCount = 3000;
@@ -98,7 +97,7 @@ void Vulkan2D::InitDeviceObjects() {
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 
 	VkPushConstantRange push = {};
@@ -113,7 +112,7 @@ void Vulkan2D::InitDeviceObjects() {
 	pl.pSetLayouts = &descriptorSetLayout_;
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 }
 
 void Vulkan2D::DeviceLost() {
@@ -188,7 +187,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
-	assert(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
 	VkWriteDescriptorSet writes[2]{};
@@ -406,7 +405,7 @@ VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
 void VulkanComputeShaderManager::InitDeviceObjects() {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorSetLayoutBinding bindings[3] = {};
 	bindings[0].descriptorCount = 1;
@@ -428,7 +427,7 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 8192;
@@ -443,7 +442,7 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 
 	VkPushConstantRange push = {};
@@ -458,12 +457,14 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	pl.pSetLayouts = &descriptorSetLayout_;
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 }
 
 void VulkanComputeShaderManager::DestroyDeviceObjects() {
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		if (frameData_[i].descPool) {
+			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		}
 	}
 	if (descriptorSetLayout_) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
@@ -491,7 +492,7 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 	descAlloc.descriptorPool = frameData.descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
-	assert(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 
 	VkWriteDescriptorSet writes[2]{};
 	int n = 0;
@@ -549,7 +550,8 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	pci.layout = pipelineLayout_;
 	pci.flags = 0;
 
-	vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+	_assert_(res == VK_SUCCESS);
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;

@@ -17,25 +17,28 @@
 
 #include <algorithm>
 #include <memory>
-#include "i18n/i18n.h"
-#include "gfx_es2/draw_buffer.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui_context.h"
-#include "ui/ui_screen.h"
-#include "thin3d/thin3d.h"
+
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/GPU/thin3d.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
+#include "Common/System/System.h"
 
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceUmd.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-
-#include "Core/HLE/sceDisplay.h"
-#include "Core/HLE/sceUmd.h"
 
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"

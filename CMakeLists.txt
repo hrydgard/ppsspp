@@ -45,7 +45,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		endif()
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
 		set(ARM64 ON)
-		add_definitions(-DARM64)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^AMD64")
 		set(X86_DEVICE ON)
 		set(X86_64_DEVICE ON)
@@ -119,6 +118,7 @@ option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
+option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -164,11 +164,12 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-include_directories(ext/native)
-
 # Work around for some misfeature of the current glslang build system 
 include_directories(ext/glslang)
 
+# Not sure if this is the best way - what about system glew?
+# Anyway, glew will be going away anyway.
+include_directories(ext/glew)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
@@ -239,6 +240,18 @@ endif()
 if(ARM64)
 	message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
 endif()
+
+# It looks like the flags for the selected build type are written to the cache after each run, which causes some of the operations
+# below to keep expanding them with the same flags over and over on every run, leading to a rebuild of the majority of the files.
+# To work around this, remember the initial state of the variables from the first run and reset the variables to that.
+# TODO: Setting the attributes per target would probably be a better solution.
+foreach (LANGUAGE C CXX)
+	foreach (BUILD_TYPE DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+		set(_CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}_INITIAL ${CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}} CACHE STRING "")
+		set(CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE} ${_CMAKE_${LANGUAGE}_FLAGS_${BUILD_TYPE}_INITIAL})
+	endforeach()
+endforeach()
+
 if(NOT MSVC)
 	if(ANDROID)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
@@ -287,12 +300,7 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# We want C++11, so target 10.7+
-		if(USING_QT_UI)
-			set(MACOSX_VERSION_MIN "10.8")
-		else()
-			set(MACOSX_VERSION_MIN "10.7")
-		endif()
+		set(MACOSX_VERSION_MIN "10.8")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
@@ -310,7 +318,9 @@ if(NOT MSVC)
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-	add_definitions(-MP)
+	if (NOT CLANG)
+		add_compile_options(-MP)
+	endif()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
@@ -340,8 +350,13 @@ macro(setup_target_project TargetName ProjectDir)
 	endforeach()
 endmacro()
 
-# Commented-out files are files that don't compile
-# and were disabled in the original MSVC project anyway
+add_subdirectory(ext)
+
+if(WIN32)
+	include_directories(dx9sdk/Include)
+	include_directories(dx9sdk/Include/DX11)
+endif()
+
 
 set(CommonX86
 	Common/ABI.cpp
@@ -389,24 +404,19 @@ if(NOT (X86 OR ARM OR MIPS))
 	source_group(Fake FILES ${CommonFake})
 endif()
 
-set(CommonWindows
-	Common/stdafx.cpp
-	Common/stdafx.h
-)
-source_group(Windows FILES ${CommonWindows})
-
-set(CommonVulkan ${CommonExtra}
-	Common/Vulkan/VulkanContext.cpp
-	Common/Vulkan/VulkanContext.h
-	Common/Vulkan/VulkanDebug.cpp
-	Common/Vulkan/VulkanDebug.h
-	Common/Vulkan/VulkanImage.cpp
-	Common/Vulkan/VulkanImage.h
-	Common/Vulkan/VulkanLoader.cpp
-	Common/Vulkan/VulkanLoader.h
-	Common/Vulkan/VulkanMemory.cpp
-	Common/Vulkan/VulkanMemory.h
-)
+if(WIN32)
+	set(CommonD3D
+		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
+		Common/GPU/D3D9/D3D9ShaderCompiler.h
+		Common/GPU/D3D9/D3D9StateCache.cpp
+		Common/GPU/D3D9/D3D9StateCache.h
+		Common/GPU/D3D9/thin3d_d3d9.cpp
+		Common/GPU/D3D9/D3DCompilerLoader.cpp
+		Common/GPU/D3D11/thin3d_d3d11.cpp
+		Common/GPU/D3D11/D3D11Loader.cpp
+		Common/GPU/D3D11/D3D11Loader.h
+	)
+endif()
 
 add_library(Common STATIC
 	${CommonX86}
@@ -414,25 +424,200 @@ add_library(Common STATIC
 	${CommonARM64}
 	${CommonMIPS}
 	${CommonFake}
-	${CommonWindows}
-	${CommonVulkan}
-	Common/ColorConv.cpp
-	Common/ColorConv.h
-	Common/ChunkFile.cpp
-	Common/ChunkFile.h
-	Common/ConsoleListener.cpp
-	Common/ConsoleListener.h
+	${CommonD3D}
+	Common/Serialize/Serializer.cpp
+	Common/Serialize/Serializer.h
+	Common/Serialize/SerializeDeque.h
+	Common/Serialize/SerializeFuncs.h
+	Common/Serialize/SerializeList.h
+	Common/Serialize/SerializeMap.h
+	Common/Serialize/SerializeSet.h
 	Common/Crypto/md5.cpp
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
 	Common/Crypto/sha256.cpp
 	Common/Crypto/sha256.h
-	Common/FileUtil.cpp
-	Common/FileUtil.h
-	Common/KeyMap.cpp
-	Common/KeyMap.h
-	Common/Hashmaps.h
+	Common/Data/Collections/ConstMap.h
+	Common/Data/Collections/FixedSizeQueue.h
+	Common/Data/Collections/Hashmaps.h
+	Common/Data/Collections/TinySet.h
+	Common/Data/Collections/ThreadSafeList.h
+	Common/Data/Color/RGBAUtil.cpp
+	Common/Data/Color/RGBAUtil.h
+	Common/Data/Convert/SmallDataConvert.cpp
+	Common/Data/Convert/SmallDataConvert.h
+	Common/Data/Encoding/Base64.cpp
+	Common/Data/Encoding/Base64.h
+	Common/Data/Encoding/Compression.cpp
+	Common/Data/Encoding/Compression.h
+	Common/Data/Encoding/Shiftjis.h
+	Common/Data/Encoding/Utf8.cpp
+	Common/Data/Encoding/Utf8.h
+	Common/Data/Encoding/Utf16.h
+	Common/Data/Format/RIFF.cpp
+	Common/Data/Format/RIFF.h
+	Common/Data/Format/IniFile.cpp
+	Common/Data/Format/IniFile.h
+	Common/Data/Format/JSONReader.h
+	Common/Data/Format/JSONReader.cpp
+	Common/Data/Format/JSONWriter.h
+	Common/Data/Format/JSONWriter.cpp
+	Common/Data/Format/PNGLoad.cpp
+	Common/Data/Format/PNGLoad.h
+	Common/Data/Format/ZIMLoad.cpp
+	Common/Data/Format/ZIMLoad.h
+	Common/Data/Format/ZIMSave.cpp
+	Common/Data/Format/ZIMSave.h
+	Common/Data/Hash/Hash.cpp
+	Common/Data/Hash/Hash.h
+	Common/Data/Text/I18n.cpp
+	Common/Data/Text/I18n.h
+	Common/Data/Text/Parsers.cpp
+	Common/Data/Text/Parsers.h
+	Common/Data/Text/WrapText.cpp
+	Common/Data/Text/WrapText.h
+	Common/Data/Random/Rng.h
+	Common/File/VFS/VFS.h
+	Common/File/VFS/VFS.cpp
+	Common/File/VFS/AssetReader.cpp
+	Common/File/VFS/AssetReader.h
+	Common/File/DiskFree.h
+	Common/File/DiskFree.cpp
+	Common/File/PathBrowser.h
+	Common/File/PathBrowser.cpp
+	Common/File/FileUtil.cpp
+	Common/File/FileUtil.h
+	Common/File/DirListing.cpp
+	Common/File/DirListing.h
+	Common/File/FileDescriptor.cpp
+	Common/File/FileDescriptor.h
+	Common/GPU/DataFormat.h
+	Common/GPU/thin3d.cpp
+	Common/GPU/thin3d.h
+	Common/GPU/thin3d_create.h
+	Common/GPU/OpenGL/GLCommon.h
+	Common/GPU/OpenGL/GLDebugLog.cpp
+	Common/GPU/OpenGL/GLDebugLog.h
+	Common/GPU/OpenGL/GLSLProgram.cpp
+	Common/GPU/OpenGL/GLSLProgram.h
+	Common/GPU/OpenGL/gl3stub.c
+	Common/GPU/OpenGL/gl3stub.h
+	Common/GPU/OpenGL/GLFeatures.cpp
+	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLRenderManager.cpp
+	Common/GPU/OpenGL/GLRenderManager.h
+	Common/GPU/OpenGL/GLQueueRunner.cpp
+	Common/GPU/OpenGL/GLQueueRunner.h
+	Common/GPU/OpenGL/DataFormatGL.cpp
+	Common/GPU/OpenGL/DataFormatGL.h
+	Common/GPU/Vulkan/VulkanDebug.cpp
+	Common/GPU/Vulkan/VulkanDebug.h
+	Common/GPU/Vulkan/VulkanContext.cpp
+	Common/GPU/Vulkan/VulkanContext.h
+	Common/GPU/Vulkan/VulkanImage.cpp
+	Common/GPU/Vulkan/VulkanImage.h
+	Common/GPU/Vulkan/VulkanLoader.cpp
+	Common/GPU/Vulkan/VulkanLoader.h
+	Common/GPU/Vulkan/VulkanMemory.cpp
+	Common/GPU/Vulkan/VulkanMemory.h
+	Common/GPU/Vulkan/thin3d_vulkan.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.cpp
+	Common/GPU/Vulkan/VulkanRenderManager.h
+	Common/GPU/Vulkan/VulkanQueueRunner.cpp
+	Common/GPU/Vulkan/VulkanQueueRunner.h
+	Common/Input/GestureDetector.cpp
+	Common/Input/GestureDetector.h
+	Common/Input/KeyCodes.h
+	Common/Input/InputState.cpp
+	Common/Input/InputState.h
+	Common/Math/fast/fast_math.c
+	Common/Math/fast/fast_matrix.c
+	Common/Math/fast/fast_matrix_neon.S
+	Common/Math/fast/fast_matrix_sse.c
+	Common/Math/curves.cpp
+	Common/Math/curves.h
+	Common/Math/expression_parser.cpp
+	Common/Math/expression_parser.h
+	Common/Math/lin/matrix4x4.cpp
+	Common/Math/lin/matrix4x4.h
+	Common/Math/lin/vec3.cpp
+	Common/Math/lin/vec3.h
+	Common/Math/math_util.cpp
+	Common/Math/math_util.h
+	Common/Net/HTTPClient.cpp
+	Common/Net/HTTPClient.h
+	Common/Net/HTTPHeaders.cpp
+	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPServer.cpp
+	Common/Net/HTTPServer.h
+	Common/Net/Resolve.cpp
+	Common/Net/Resolve.h
+	Common/Net/Sinks.cpp
+	Common/Net/Sinks.h
+	Common/Net/URL.cpp
+	Common/Net/URL.h
+	Common/Net/WebsocketServer.cpp
+	Common/Net/WebsocketServer.h
+	Common/Profiler/Profiler.cpp
+	Common/Profiler/Profiler.h
+	Common/Render/TextureAtlas.cpp
+	Common/Render/TextureAtlas.h
+	Common/Render/DrawBuffer.cpp
+	Common/Render/DrawBuffer.h
+	Common/Render/Text/draw_text.cpp
+	Common/Render/Text/draw_text.h
+	Common/Render/Text/draw_text_android.cpp
+	Common/Render/Text/draw_text_android.h
+	Common/Render/Text/draw_text_win.cpp
+	Common/Render/Text/draw_text_win.h
+	Common/Render/Text/draw_text_uwp.cpp
+	Common/Render/Text/draw_text_uwp.h
+	Common/System/Display.cpp
+	Common/System/Display.h
+	Common/Thread/Executor.cpp
+	Common/Thread/Executor.h
+	Common/Thread/PrioritizedWorkQueue.cpp
+	Common/Thread/PrioritizedWorkQueue.h
+	Common/Thread/ThreadUtil.cpp
+	Common/Thread/ThreadUtil.h
+	Common/Thread/ThreadPool.cpp
+	Common/Thread/ThreadPool.h
+	Common/UI/Root.cpp
+	Common/UI/Root.h
+	Common/UI/Screen.cpp
+	Common/UI/Screen.h
+	Common/UI/UI.cpp
+	Common/UI/UI.h
+	Common/UI/Context.cpp
+	Common/UI/Context.h
+	Common/UI/UIScreen.cpp
+	Common/UI/UIScreen.h
+	Common/UI/Tween.cpp
+	Common/UI/Tween.h
+	Common/UI/View.cpp
+	Common/UI/View.h
+	Common/UI/ViewGroup.cpp
+	Common/UI/ViewGroup.h
+	Common/BitScan.h
+	Common/BitSet.h
+	Common/Buffer.h
+	Common/Buffer.cpp
+	Common/CodeBlock.h
+	Common/ColorConv.cpp
+	Common/ColorConv.h
+	Common/Common.h
+	Common/CommonFuncs.h
+	Common/CommonTypes.h
+	Common/ConsoleListener.cpp
+	Common/ConsoleListener.h
+	Common/DbgNew.h
+	Common/FakeEmitter.h
+	Common/ExceptionHandlerSetup.cpp
+	Common/ExceptionHandlerSetup.h
+	Common/Log.h
+	Common/Log.cpp
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MakeUnique.h
@@ -443,52 +628,30 @@ add_library(Common STATIC
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h
-	Common/Misc.cpp
-	Common/MsgHandler.cpp
-	Common/MsgHandler.h
 	Common/OSVersion.cpp
 	Common/OSVersion.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
-	Common/ThreadPools.cpp
-	Common/ThreadPools.h
-	Common/ThreadSafeList.h
-	Common/Timer.cpp
-	Common/Timer.h
+	Common/SysError.h
+	Common/SysError.cpp
+	Common/TimeUtil.cpp
+	Common/TimeUtil.h
 )
-
-add_subdirectory(ext)
 
 include_directories(Common)
 setup_target_project(Common Common)
 
 target_link_libraries(Common Ext::Snappy)
 
-if(WIN32)
-	include_directories(dx9sdk/Include)
-	include_directories(dx9sdk/Include/DX11)
-	if(MINGW)
-		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
-		# required when using the dx9sdk include paths
-		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
-	else()
-		target_link_libraries(Common dxguid)
-	endif()
-	target_link_libraries(Common winmm d3d9 dsound)
-endif()
-
-if(TARGET SDL2::SDL2)
-	target_link_libraries(Common SDL2::SDL2)
-endif()
-
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
 add_library(gason STATIC
-	ext/native/ext/gason/gason.cpp
-	ext/native/ext/gason/gason.h
+    ext/gason/gason.cpp
+    ext/gason/gason.h
 )
+
 
 if(USE_FFMPEG)
 	if(NOT FFMPEG_DIR)
@@ -578,9 +741,9 @@ else()
 endif()
 
 add_library(cityhash STATIC
-	ext/native/ext/cityhash/city.cpp
-	ext/native/ext/cityhash/city.h
-	ext/native/ext/cityhash/citycrc.h
+	ext/cityhash/city.cpp
+	ext/cityhash/city.h
+	ext/cityhash/citycrc.h
 )
 include_directories(ext/cityhash)
 
@@ -599,64 +762,64 @@ if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
-		ext/native/ext/libzip/zip.h
-		ext/native/ext/libzip/mkstemp.c
-		ext/native/ext/libzip/zip_add.c
-		ext/native/ext/libzip/zip_add_dir.c
-		ext/native/ext/libzip/zip_close.c
-		ext/native/ext/libzip/zip_delete.c
-		ext/native/ext/libzip/zip_dirent.c
-		ext/native/ext/libzip/zip_entry_free.c
-		ext/native/ext/libzip/zip_entry_new.c
-		ext/native/ext/libzip/zip_err_str.c
-		ext/native/ext/libzip/zip_error.c
-		ext/native/ext/libzip/zip_error_clear.c
-		ext/native/ext/libzip/zip_error_get.c
-		ext/native/ext/libzip/zip_error_get_sys_type.c
-		ext/native/ext/libzip/zip_error_strerror.c
-		ext/native/ext/libzip/zip_error_to_str.c
-		ext/native/ext/libzip/zip_fclose.c
-		ext/native/ext/libzip/zip_file_error_clear.c
-		ext/native/ext/libzip/zip_file_error_get.c
-		ext/native/ext/libzip/zip_file_get_offset.c
-		ext/native/ext/libzip/zip_file_strerror.c
-		ext/native/ext/libzip/zip_filerange_crc.c
-		ext/native/ext/libzip/zip_fopen.c
-		ext/native/ext/libzip/zip_fopen_index.c
-		ext/native/ext/libzip/zip_fread.c
-		ext/native/ext/libzip/zip_free.c
-		ext/native/ext/libzip/zip_get_archive_comment.c
-		ext/native/ext/libzip/zip_get_archive_flag.c
-		ext/native/ext/libzip/zip_get_file_comment.c
-		ext/native/ext/libzip/zip_get_name.c
-		ext/native/ext/libzip/zip_get_num_files.c
-		ext/native/ext/libzip/zip_memdup.c
-		ext/native/ext/libzip/zip_name_locate.c
-		ext/native/ext/libzip/zip_new.c
-		ext/native/ext/libzip/zip_open.c
-		ext/native/ext/libzip/zip_rename.c
-		ext/native/ext/libzip/zip_replace.c
-		ext/native/ext/libzip/zip_set_archive_comment.c
-		ext/native/ext/libzip/zip_set_archive_flag.c
-		ext/native/ext/libzip/zip_set_file_comment.c
-		ext/native/ext/libzip/zip_set_name.c
-		ext/native/ext/libzip/zip_source_buffer.c
-		ext/native/ext/libzip/zip_source_file.c
-		ext/native/ext/libzip/zip_source_filep.c
-		ext/native/ext/libzip/zip_source_free.c
-		ext/native/ext/libzip/zip_source_function.c
-		ext/native/ext/libzip/zip_source_zip.c
-		ext/native/ext/libzip/zip_stat.c
-		ext/native/ext/libzip/zip_stat_index.c
-		ext/native/ext/libzip/zip_stat_init.c
-		ext/native/ext/libzip/zip_strerror.c
-		ext/native/ext/libzip/zip_unchange.c
-		ext/native/ext/libzip/zip_unchange_all.c
-		ext/native/ext/libzip/zip_unchange_archive.c
-		ext/native/ext/libzip/zip_unchange_data.c
+		ext/libzip/zip.h
+		ext/libzip/mkstemp.c
+		ext/libzip/zip_add.c
+		ext/libzip/zip_add_dir.c
+		ext/libzip/zip_close.c
+		ext/libzip/zip_delete.c
+		ext/libzip/zip_dirent.c
+		ext/libzip/zip_entry_free.c
+		ext/libzip/zip_entry_new.c
+		ext/libzip/zip_err_str.c
+		ext/libzip/zip_error.c
+		ext/libzip/zip_error_clear.c
+		ext/libzip/zip_error_get.c
+		ext/libzip/zip_error_get_sys_type.c
+		ext/libzip/zip_error_strerror.c
+		ext/libzip/zip_error_to_str.c
+		ext/libzip/zip_fclose.c
+		ext/libzip/zip_file_error_clear.c
+		ext/libzip/zip_file_error_get.c
+		ext/libzip/zip_file_get_offset.c
+		ext/libzip/zip_file_strerror.c
+		ext/libzip/zip_filerange_crc.c
+		ext/libzip/zip_fopen.c
+		ext/libzip/zip_fopen_index.c
+		ext/libzip/zip_fread.c
+		ext/libzip/zip_free.c
+		ext/libzip/zip_get_archive_comment.c
+		ext/libzip/zip_get_archive_flag.c
+		ext/libzip/zip_get_file_comment.c
+		ext/libzip/zip_get_name.c
+		ext/libzip/zip_get_num_files.c
+		ext/libzip/zip_memdup.c
+		ext/libzip/zip_name_locate.c
+		ext/libzip/zip_new.c
+		ext/libzip/zip_open.c
+		ext/libzip/zip_rename.c
+		ext/libzip/zip_replace.c
+		ext/libzip/zip_set_archive_comment.c
+		ext/libzip/zip_set_archive_flag.c
+		ext/libzip/zip_set_file_comment.c
+		ext/libzip/zip_set_name.c
+		ext/libzip/zip_source_buffer.c
+		ext/libzip/zip_source_file.c
+		ext/libzip/zip_source_filep.c
+		ext/libzip/zip_source_free.c
+		ext/libzip/zip_source_function.c
+		ext/libzip/zip_source_zip.c
+		ext/libzip/zip_stat.c
+		ext/libzip/zip_stat_index.c
+		ext/libzip/zip_stat_init.c
+		ext/libzip/zip_strerror.c
+		ext/libzip/zip_unchange.c
+		ext/libzip/zip_unchange_all.c
+		ext/libzip/zip_unchange_archive.c
+		ext/libzip/zip_unchange_data.c
 	)
 	target_link_libraries(libzip)
-	include_directories(ext/native/ext/libzip)
+	include_directories(ext/libzip)
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
@@ -673,38 +836,38 @@ if(PNG_FOUND)
 else()
 	if(ARM)
 		set(PNG_ARM_INCLUDES
-			ext/native/ext/libpng17/arm/arm_init.c
-			ext/native/ext/libpng17/arm/filter_neon.S
-			ext/native/ext/libpng17/arm/filter_neon_intrinsics.c
+			ext/libpng17/arm/arm_init.c
+			ext/libpng17/arm/filter_neon.S
+			ext/libpng17/arm/filter_neon_intrinsics.c
 		)
 	endif()
 	add_library(png17 STATIC
-		ext/native/ext/libpng17/pngconf.h
-		ext/native/ext/libpng17/pngdebug.h
-		ext/native/ext/libpng17/png.c
-		ext/native/ext/libpng17/png.h
-		ext/native/ext/libpng17/pngerror.c
-		ext/native/ext/libpng17/pngget.c
-		ext/native/ext/libpng17/pnginfo.h
-		ext/native/ext/libpng17/pnglibconf.h
-		ext/native/ext/libpng17/pngmem.c
-		ext/native/ext/libpng17/pngpread.c
-		ext/native/ext/libpng17/pngpriv.h
-		ext/native/ext/libpng17/pngread.c
-		ext/native/ext/libpng17/pngrio.c
-		ext/native/ext/libpng17/pngrtran.c
-		ext/native/ext/libpng17/pngrutil.c
-		ext/native/ext/libpng17/pngset.c
-		ext/native/ext/libpng17/pngstruct.h
-		ext/native/ext/libpng17/pngtrans.c
-		ext/native/ext/libpng17/pngwio.c
-		ext/native/ext/libpng17/pngwrite.c
-		ext/native/ext/libpng17/pngwtran.c
-		ext/native/ext/libpng17/pngwutil.c
+		ext/libpng17/pngconf.h
+		ext/libpng17/pngdebug.h
+		ext/libpng17/png.c
+		ext/libpng17/png.h
+		ext/libpng17/pngerror.c
+		ext/libpng17/pngget.c
+		ext/libpng17/pnginfo.h
+		ext/libpng17/pnglibconf.h
+		ext/libpng17/pngmem.c
+		ext/libpng17/pngpread.c
+		ext/libpng17/pngpriv.h
+		ext/libpng17/pngread.c
+		ext/libpng17/pngrio.c
+		ext/libpng17/pngrtran.c
+		ext/libpng17/pngrutil.c
+		ext/libpng17/pngset.c
+		ext/libpng17/pngstruct.h
+		ext/libpng17/pngtrans.c
+		ext/libpng17/pngwio.c
+		ext/libpng17/pngwrite.c
+		ext/libpng17/pngwtran.c
+		ext/libpng17/pngwutil.c
 		${PNG_ARM_INCLUDES}
 	)
 	set(PNG_LIBRARIES png17)
-	include_directories(ext/native/ext/libpng17)
+	include_directories(ext/libpng17)
 endif()
 
 set(nativeExtra)
@@ -721,7 +884,6 @@ if(ANDROID)
 	)
 
 	set(NativeAppSource ${NativeAppSource}
-		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
 		android/jni/AndroidEGLContext.cpp
 		android/jni/AndroidEGLContext.h
@@ -730,10 +892,10 @@ if(ANDROID)
 		android/jni/AndroidVulkanContext.cpp
 		android/jni/AndroidVulkanContext.h
 		android/jni/AndroidGraphicsContext.h
-		android/jni/native_audio.cpp
-		android/jni/native_audio.h
-		android/jni/native-audio-so.cpp
-		android/jni/native-audio-so.h
+		android/jni/AndroidAudio.cpp
+		android/jni/AndroidAudio.h
+		android/jni/OpenSLContext.cpp
+		android/jni/OpenSLContext.h
 	)
 	# No target
 elseif(IOS)
@@ -795,11 +957,13 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-	include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
+
+	include_directories(Qt)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
 	set(TargetBin PPSSPPQt)
 
-	# Enable SDL if found
+	# Enable SDL joystick if SDL is found
 	if(SDL2_FOUND)
 		add_definitions(-DSDL)
 		set(nativeExtra ${nativeExtra}
@@ -817,7 +981,6 @@ elseif(WIN32)
 	else()
 		link_directories(dx9sdk/Lib/x86)
 	endif()
-	set(nativeExtra ${nativeExtra} ext/native/base/logging.cpp)
 elseif(TARGET SDL2::SDL2)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
@@ -840,6 +1003,22 @@ elseif(TARGET SDL2::SDL2)
 elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
+
+if(WIN32)
+	if(MINGW)
+		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
+		# required when using the dx9sdk include paths
+		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
+	else()
+		target_link_libraries(Common dxguid)
+	endif()
+	target_link_libraries(Common winmm d3d9 dsound)
+endif()
+
+if(TARGET SDL2::SDL2)
+	target_link_libraries(Common SDL2::SDL2)
+endif()
+
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
@@ -888,195 +1067,15 @@ if(ANDROID)
 	endif()
 endif()
 
-set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
-	ext/native/thin3d/GLRenderManager.cpp
-	ext/native/thin3d/GLRenderManager.h
-	ext/native/thin3d/GLQueueRunner.cpp
-	ext/native/thin3d/GLQueueRunner.h
-	ext/native/thin3d/DataFormatGL.cpp
-	ext/native/thin3d/DataFormatGL.h
-)
-
-set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-	ext/native/thin3d/thin3d_vulkan.cpp
-	ext/native/thin3d/VulkanRenderManager.cpp
-	ext/native/thin3d/VulkanRenderManager.h
-	ext/native/thin3d/VulkanQueueRunner.cpp
-	ext/native/thin3d/VulkanQueueRunner.h
-	ext/native/thin3d/DataFormat.h
-)
-
-if(WIN32)
-	set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-		ext/native/thin3d/thin3d_d3d9.cpp
-		ext/native/thin3d/thin3d_d3d11.cpp
-		ext/native/thin3d/d3dx9_loader.cpp
-		ext/native/thin3d/d3dx9_loader.h
-		ext/native/thin3d/d3d11_loader.cpp
-		ext/native/thin3d/d3d11_loader.h
-	)
-endif()
-
 add_library(native STATIC
 	${nativeExtra}
-	ext/native/base/backtrace.cpp
-	ext/native/base/backtrace.h
-	ext/native/base/basictypes.h
-	ext/native/base/buffer.cpp
-	ext/native/base/buffer.h
-	ext/native/base/colorutil.cpp
-	ext/native/base/colorutil.h
-	ext/native/base/display.cpp
-	ext/native/base/display.h
-	ext/native/base/linked_ptr.h
-	ext/native/base/logging.h
-	ext/native/base/stringutil.cpp
-	ext/native/base/stringutil.h
-	ext/native/base/timeutil.cpp
-	ext/native/base/timeutil.h
-	ext/native/data/base64.cpp
-	ext/native/data/base64.h
-	ext/native/data/compression.cpp
-	ext/native/data/compression.h
-	ext/native/file/chunk_file.cpp
-	ext/native/file/chunk_file.h
-	ext/native/file/fd_util.cpp
-	ext/native/file/fd_util.h
-	ext/native/file/file_util.cpp
-	ext/native/file/file_util.h
-	ext/native/file/free.cpp
-	ext/native/file/free.h
-	ext/native/file/ini_file.cpp
-	ext/native/file/ini_file.h
-	ext/native/file/path.cpp
-	ext/native/file/path.h
-	ext/native/file/vfs.h
-	ext/native/file/zip_read.cpp
-	ext/native/file/zip_read.h
-	ext/native/gfx/gl_common.h
-	ext/native/gfx/gl_debug_log.cpp
-	ext/native/gfx/gl_debug_log.h
-	ext/native/gfx/texture_atlas.cpp
-	ext/native/gfx/texture_atlas.h
-	ext/native/gfx/d3d9_shader.cpp
-	ext/native/gfx/d3d9_shader.h
-	ext/native/gfx/d3d9_state.cpp
-	ext/native/gfx/d3d9_state.h
-	ext/native/gfx_es2/draw_buffer.cpp
-	ext/native/gfx_es2/draw_buffer.h
-	ext/native/gfx_es2/draw_text.cpp
-	ext/native/gfx_es2/draw_text.h
-	ext/native/gfx_es2/draw_text_win.cpp
-	ext/native/gfx_es2/draw_text_win.h
-	ext/native/gfx_es2/draw_text_qt.cpp
-	ext/native/gfx_es2/draw_text_qt.h
-	ext/native/gfx_es2/draw_text_android.cpp
-	ext/native/gfx_es2/draw_text_android.h
-	ext/native/gfx_es2/gpu_features.cpp
-	ext/native/gfx_es2/gpu_features.h
-	ext/native/gfx_es2/glsl_program.cpp
-	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/gl3stub.c
-	ext/native/gfx_es2/gl3stub.h
-	ext/native/i18n/i18n.cpp
-	ext/native/i18n/i18n.h
-	ext/native/image/png_load.cpp
-	ext/native/image/png_load.h
-	ext/native/image/zim_load.cpp
-	ext/native/image/zim_load.h
-	ext/native/image/zim_save.cpp
-	ext/native/image/zim_save.h
-	ext/native/input/gesture_detector.cpp
-	ext/native/input/gesture_detector.h
-	ext/native/input/keycodes.h
-	ext/native/input/input_state.h
-	ext/native/input/input_state.cpp
-	ext/native/json/json_reader.h
-	ext/native/json/json_reader.cpp
-	ext/native/json/json_writer.h
-	ext/native/json/json_writer.cpp
-	ext/native/math/fast/fast_math.c
-	ext/native/math/fast/fast_matrix.c
-	ext/native/math/fast/fast_matrix_neon.S
-	ext/native/math/fast/fast_matrix_sse.c
-	ext/native/math/dataconv.cpp
-	ext/native/math/dataconv.h
-	ext/native/math/curves.cpp
-	ext/native/math/curves.h
-	ext/native/math/expression_parser.cpp
-	ext/native/math/expression_parser.h
-	ext/native/math/lin/matrix4x4.cpp
-	ext/native/math/lin/matrix4x4.h
-	ext/native/math/lin/plane.cpp
-	ext/native/math/lin/plane.h
-	ext/native/math/lin/quat.cpp
-	ext/native/math/lin/quat.h
-	ext/native/math/lin/ray.h
-	ext/native/math/lin/vec3.cpp
-	ext/native/math/lin/vec3.h
-	ext/native/math/math_util.cpp
-	ext/native/math/math_util.h
-	ext/native/net/http_client.cpp
-	ext/native/net/http_client.h
-	ext/native/net/http_headers.cpp
-	ext/native/net/http_headers.h
-	ext/native/net/http_server.cpp
-	ext/native/net/http_server.h
-	ext/native/net/resolve.cpp
-	ext/native/net/resolve.h
-	ext/native/net/sinks.cpp
-	ext/native/net/sinks.h
-	ext/native/net/url.cpp
-	ext/native/net/url.h
-	ext/native/net/websocket_server.cpp
-	ext/native/net/websocket_server.h
-	ext/native/profiler/profiler.cpp
-	ext/native/profiler/profiler.h
-	ext/native/thin3d/thin3d.cpp
-	ext/native/thin3d/thin3d.h
-	ext/native/thin3d/thin3d_create.h
-	${THIN3D_PLATFORMS}
-	ext/native/thread/executor.cpp
-	ext/native/thread/executor.h
-	ext/native/thread/prioritizedworkqueue.cpp
-	ext/native/thread/prioritizedworkqueue.h
-	ext/native/thread/threadutil.cpp
-	ext/native/thread/threadutil.h
-	ext/native/thread/threadpool.cpp
-	ext/native/thread/threadpool.h
-	ext/native/ui/root.cpp
-	ext/native/ui/root.h
-	ext/native/ui/screen.cpp
-	ext/native/ui/screen.h
-	ext/native/ui/ui.cpp
-	ext/native/ui/ui.h
-	ext/native/ui/ui_context.cpp
-	ext/native/ui/ui_context.h
-	ext/native/ui/ui_screen.cpp
-	ext/native/ui/ui_screen.h
-	ext/native/ui/ui_tween.cpp
-	ext/native/ui/ui_tween.h
-	ext/native/ui/view.cpp
-	ext/native/ui/view.h
-	ext/native/ui/viewgroup.cpp
-	ext/native/ui/viewgroup.h
-	ext/native/util/hash/hash.cpp
-	ext/native/util/hash/hash.h
-	ext/native/util/random/rng.h
-	ext/native/util/text/utf8.h
-	ext/native/util/text/utf8.cpp
-	ext/native/util/text/parsers.h
-	ext/native/util/text/parsers.cpp
-	ext/native/util/text/wrap_text.h
-	ext/native/util/text/wrap_text.cpp
-	ext/native/util/const_map.h
-	ext/native/util/tiny_set.h
-	ext/native/ext/jpge/jpgd.cpp
-	ext/native/ext/jpge/jpgd.h
-	ext/native/ext/jpge/jpge.cpp
-	ext/native/ext/jpge/jpge.h
+	Common/Render/Text/draw_text_qt.cpp
+	Common/Render/Text/draw_text_qt.h
+	ext/jpge/jpgd.cpp
+	ext/jpge/jpgd.h
+	ext/jpge/jpge.cpp
+	ext/jpge/jpge.h
 )
-include_directories(ext/native)
 
 if(LINUX AND NOT ANDROID)
 	set(RT_LIB rt)
@@ -1087,7 +1086,7 @@ if(ANDROID)
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
@@ -1099,7 +1098,6 @@ elseif(WIN32)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
 	target_link_libraries(native execinfo)
 endif()
-setup_target_project(native native)
 
 add_library(kirk STATIC
 	ext/libkirk/AES.c
@@ -1267,8 +1265,8 @@ set(GPU_VULKAN
 	GPU/Vulkan/DrawEngineVulkan.h
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
 	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
-	GPU/Vulkan/FramebufferVulkan.cpp
-	GPU/Vulkan/FramebufferVulkan.h
+	GPU/Vulkan/FramebufferManagerVulkan.cpp
+	GPU/Vulkan/FramebufferManagerVulkan.h
 	GPU/Vulkan/GPU_Vulkan.cpp
 	GPU/Vulkan/GPU_Vulkan.h
 	GPU/Vulkan/PipelineManagerVulkan.cpp
@@ -1295,8 +1293,8 @@ set(GPU_D3D9
 	GPU/Directx9/DrawEngineDX9.h
 	GPU/Directx9/PixelShaderGeneratorDX9.cpp
 	GPU/Directx9/PixelShaderGeneratorDX9.h
-	GPU/Directx9/FramebufferDX9.cpp
-	GPU/Directx9/FramebufferDX9.h
+	GPU/Directx9/FramebufferManagerDX9.cpp
+	GPU/Directx9/FramebufferManagerDX9.h
 	GPU/Directx9/GPU_DX9.cpp
 	GPU/Directx9/GPU_DX9.h
 	GPU/Directx9/ShaderManagerDX9.cpp
@@ -1352,8 +1350,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
-	GPU/Common/FramebufferCommon.cpp
-	GPU/Common/FramebufferCommon.h
+	GPU/Common/FramebufferManagerCommon.cpp
+	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/GPUStateUtils.cpp
@@ -1402,6 +1400,8 @@ set(GPU_SOURCES
 	GPU/Debugger/RecordFormat.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
+	GPU/ge_constants.h
+	GPU/GeConstants.cpp
 	GPU/GPUInterface.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h
@@ -1450,6 +1450,10 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CwCheat.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
+	Core/Instance.cpp
+	Core/Instance.h
+	Core/KeyMap.cpp
+	Core/KeyMap.h
 	Core/ThreadEventQueue.h
 	Core/WebServer.cpp
 	Core/WebServer.h
@@ -1480,6 +1484,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/HLESubscriber.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
 	Core/Debugger/WebSocket/LogBroadcaster.h
+	Core/Debugger/WebSocket/MemorySubscriber.cpp
+	Core/Debugger/WebSocket/MemorySubscriber.h
 	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
 	Core/Debugger/WebSocket/SteppingBroadcaster.h
 	Core/Debugger/WebSocket/SteppingSubscriber.cpp
@@ -1542,6 +1548,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/KernelWaitHelpers.h
 	Core/HLE/KUBridge.h
 	Core/HLE/KUBridge.cpp
+	Core/HLE/Plugins.h
+	Core/HLE/Plugins.cpp
 	Core/HLE/ThreadQueueList.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
@@ -1681,6 +1689,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
+	Core/HW/BufferQueue.cpp
+	Core/HW/BufferQueue.h
 	Core/HW/Camera.cpp
 	Core/HW/Camera.h
 	Core/HW/MediaEngine.cpp
@@ -1741,6 +1751,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSVFPUUtils.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
+	Core/MemFault.cpp
+	Core/MemFault.h
 	Core/MemMap.cpp
 	Core/MemMap.h
 	Core/MemMapFunctions.cpp
@@ -1759,12 +1771,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/System.h
 	Core/TextureReplacer.cpp
 	Core/TextureReplacer.h
+	Core/ThreadPools.cpp
+	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/AudioFormatNEON.cpp
 	Core/Util/AudioFormatNEON.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
+	Core/Util/PortManager.cpp
+	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
@@ -1788,7 +1804,6 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 #if(VULKAN AND NOT WIN32)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
-
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
@@ -1817,14 +1832,92 @@ if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
 
+# miniUPnPc integration (MiniUPnPc supposed to works on any POSIX system, not sure if some of these are redundant/not needed tho)
+if(USE_MINIUPNPC)
+	set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
+	set (MINIUPNPC_API_VERSION 17)
+	option(UPNPC_BUILD_STATIC "Build static library" TRUE)
+	option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
+	mark_as_advanced(NO_GETADDRINFO)
+	if (NO_GETADDRINFO)
+	  add_definitions(-DNO_GETADDRINFO)
+	endif()
+	
+	if (NOT WIN32)
+	  add_definitions (-DMINIUPNPC_SET_SOCKET_TIMEOUT)
+	  add_definitions (-D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L)
+	endif()
+	if (MACOSX)
+	  add_definitions (-D_DARWIN_C_SOURCE)
+	endif()
+	if(WIN32)
+		add_definitions(-DWIN32 -DMINIUPNP_EXPORTS )
+	else()
+		add_definitions(-fPIC)
+	endif()
+	
+	add_definitions(-DMINIUPNP_STATICLIB)
+	set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
+	configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
+	set(MINIUPNPC_SOURCES
+        # the needed bits of miniupnpc (no python module, no tests, no cli)
+		${MINIUPNP_DIR}/connecthostport.c
+        ${MINIUPNP_DIR}/igd_desc_parse.c
+        ${MINIUPNP_DIR}/minisoap.c
+        ${MINIUPNP_DIR}/minissdpc.c
+        ${MINIUPNP_DIR}/miniupnpc.c
+        ${MINIUPNP_DIR}/miniwget.c
+        ${MINIUPNP_DIR}/minixml.c
+        ${MINIUPNP_DIR}/minixmlvalid.c
+		${MINIUPNP_DIR}/portlistingparse.c
+		${MINIUPNP_DIR}/receivedata.c
+		#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
+        ${MINIUPNP_DIR}/upnpcommands.c
+		${MINIUPNP_DIR}/upnpdev.c
+        ${MINIUPNP_DIR}/upnperrors.c
+        ${MINIUPNP_DIR}/upnpreplyparse.c
+		${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
+	)
+	if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	  #set(MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c) # causing an error due to duplication in MINIUPNPC_SOURCES?
+	endif()
+	if (WIN32)
+	  set_source_files_properties(${MINIUPNPC_SOURCES} PROPERTIES  COMPILE_DEFINITIONS "MINIUPNP_STATICLIB;MINIUPNP_EXPORTS")
+	  find_library(WINSOCK2_LIBRARY NAMES ws2_32 WS2_32 Ws2_32)
+	  find_library(IPHLPAPI_LIBRARY NAMES iphlpapi)
+	  set(LDLIBS ${WINSOCK2_LIBRARY} ${IPHLPAPI_LIBRARY} ${LDLIBS})
+	#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
+	#  find_library (SOCKET_LIBRARY NAMES socket)
+	#  find_library (NSL_LIBRARY NAMES nsl)
+	#  find_library (RESOLV_LIBRARY NAMES resolv)
+	#  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
+	endif()
+	if (UPNPC_BUILD_STATIC)
+		add_library(miniupnpc STATIC ${MINIUPNPC_SOURCES})
+		target_link_libraries(${CoreLibName} miniupnpc ${LDLIBS})
+		set(UPNPC_LIBRARY miniupnpc)
+		if (MSVC)
+			# Suppress noise warnings
+			target_compile_definitions(miniupnpc PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+		endif()
+	endif()
+endif()
+
 setup_target_project(${CoreLibName} Core)
 
-# Generate git-version.cpp at build time.
-add_custom_target(GitVersion ALL
-	DEPENDS something_that_never_exists)
+# Generate git-version at build time.
+add_custom_target(GitVersion DEPENDS something_that_never_exists)
+
+set(WIN_VERSION_CMD "")
+if (WIN32)
+	set(WIN_VERSION_CMD COMMAND ${CMAKE_SOURCE_DIR}/Windows/git-version-gen.cmd PPSSPPWindows)
+endif()
+
 add_custom_command(OUTPUT something_that_never_exists
 	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
-		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake
+	${WIN_VERSION_CMD})
 
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE
@@ -1953,6 +2046,11 @@ set(NativeAssets
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png
+	assets/sfx_back.wav
+	assets/sfx_confirm.wav
+	assets/sfx_select.wav
+	assets/sfx_toggle_off.wav
+	assets/sfx_toggle_on.wav
 	source_assets/image/logo.png
 	source_assets/image/icon_regular_72.png
 )

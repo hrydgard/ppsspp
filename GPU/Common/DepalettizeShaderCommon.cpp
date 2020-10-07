@@ -17,10 +17,11 @@
 
 #include <cstdio>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -45,6 +46,14 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
 		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
 		WRITE(p, "layout(location = 0) out vec4 fragColor0;\n");
+
+		// Support for depth.
+		if (pixelFormat == GE_FORMAT_DEPTH16) {
+			WRITE(p, "layout (push_constant) uniform params {\n");
+			WRITE(p, "  float z_scale; float z_offset;\n");
+			WRITE(p, "};\n");
+		}
+
 	} else {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
@@ -63,7 +72,6 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
 		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
-		// TODO: Add support for integer textures. Though it hardly matters.
 		WRITE(p, "void main() {\n");
 		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
 	}
@@ -72,10 +80,20 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	int shift = gstate.getClutIndexShift();
 	int offset = gstate.getClutIndexStartPos();
 	GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
+
+	// Sampling turns our texture into floating point. To avoid this, might be able
 	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
-	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
+	// Anyhow, we simply work around this by converting back to integer, which is fine.
 	// Use the mask to skip reading some components.
+
+	// TODO: Since we actually have higher precision color data here, we might want to apply a dithering pattern here
+	// in the 5551, 565 and 4444 modes. This would benefit Test Drive which renders at 16-bit on the real hardware
+	// and dithers immediately, while we render at higher color depth and thus don't dither resulting in banding
+	// when we sample it at low color depth like this.
+
+	// An alternative would be to have a special mode where we keep some extra precision here and sample the CLUT linearly - works for ramps such
+	// as those that Test Drive uses for its color remapping. But would need game specific flagging.
+
 	int shiftedMask = mask << shift;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
@@ -104,6 +122,11 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(color.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(color.a);\n"); else WRITE(p, "  int a = 0;\n");
 		WRITE(p, "  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
+		break;
+	case GE_FORMAT_DEPTH16:
+		// Remap depth buffer.
+		WRITE(p, "  float depth = (color.x - z_offset) * z_scale;\n");
+		WRITE(p, "  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
 		break;
@@ -225,6 +248,17 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 			formatOK = false;
 		}
 		break;
+	case GE_FORMAT_DEPTH16:
+	{
+		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
+		if ((mask & (mask + 1)) == 0 && shift < 16) {
+			index_multiplier = 1.0f / (float)(1 << shift);
+			truncate_cpy(lookupMethod, "index.r");
+		} else {
+			formatOK = false;
+		}
+		break;
+	}
 	default:
 		break;
 	}
@@ -292,7 +326,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 		break;
 	case HLSL_D3D11_LEVEL9:
 	default:
-		_assert_msg_(G3D, false, "Depal shader language not supported: %d", (int)language);
+		_assert_msg_(false, "Depal shader language not supported: %d", (int)language);
 	}
 }
 

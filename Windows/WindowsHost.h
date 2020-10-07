@@ -52,6 +52,7 @@ public:
 	void BootDone() override;
 	bool AttemptLoadSymbolMap() override;
 	void SaveSymbolMap() override;
+	void NotifySymbolMapUpdated() override;
 	void SetWindowTitle(const char *message) override;
 
 	void ToggleDebugConsoleVisibility() override;
@@ -73,6 +74,8 @@ private:
 	HWND mainWindow_;
 	GraphicsContext *gfx_ = nullptr;
 	size_t numDinputDevices_ = 0;
+	std::wstring lastTitle_;
+	int lastNumInstances_ = 0;
 
 	std::list<std::unique_ptr<InputDevice>> input;
 };

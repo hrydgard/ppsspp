@@ -9,10 +9,15 @@
 #include <jni.h>
 #endif
 
-#include "file/zip_read.h"
-#include "profiler/profiler.h"
-#include "Common/FileUtil.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -21,11 +26,9 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -169,12 +172,11 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
-	time_update();
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
 	static double deadline;
-	deadline = time_now() + timeout;
+	deadline = time_now_d() + timeout;
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
@@ -193,7 +195,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
-		time_update();
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
@@ -327,15 +328,7 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
-
-	std::string error_string;
-	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
-
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
 	PrintfLogger *printfLogger = new PrintfLogger();
@@ -346,6 +339,14 @@ int main(int argc, const char* argv[])
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
+
+	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
+	host = headlessHost;
+
+	std::string error_string;
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -382,7 +383,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
@@ -407,9 +408,10 @@ int main(int argc, const char* argv[])
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 3; ++i)
-	{
-		if (!File::Exists(g_Config.flash0Directory))
+	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
+		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
+			g_Config.flash0Directory += "../assets/flash0/";
+		else
 			g_Config.flash0Directory += "../../flash0/";
 	}
 	// Or else, maybe in the executable's dir.

@@ -24,6 +24,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -65,7 +66,7 @@ BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc) {
 	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
 	if (cond & mask) {
 		Log(addr, write, size, pc);
-		if (result & BREAK_ACTION_PAUSE) {
+		if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
@@ -364,7 +365,7 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 				NOTICE_LOG(JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
 			}
 		}
-		if (info.result & BREAK_ACTION_PAUSE) {
+		if ((info.result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
@@ -689,17 +690,55 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 		if (expression.empty()) {
 			result += "{}";
 		} else {
+			int type = 'x';
+			if (expression.length() > 2 && expression[expression.length() - 2] == ':') {
+				switch (expression[expression.length() - 1]) {
+				case 'd':
+				case 'f':
+				case 'p':
+				case 's':
+				case 'x':
+					type = expression[expression.length() - 1];
+					expression.resize(expression.length() - 2);
+					break;
+
+				default:
+					// Assume a ternary.
+					break;
+				}
+			}
+
 			if (!cpu->initExpression(expression.c_str(), exp)) {
 				return false;
 			}
 
-			u32 expResult;
-			char resultString[32];
-			if (!cpu->parseExpression(exp, expResult)) {
+			union {
+				int i;
+				u32 u;
+				float f;
+			} expResult;
+			char resultString[256];
+			if (!cpu->parseExpression(exp, expResult.u)) {
 				return false;
 			}
 
-			snprintf(resultString, 32, "%08x", expResult);
+			switch (type) {
+			case 'd':
+				snprintf(resultString, sizeof(resultString), "%d", expResult.i);
+				break;
+			case 'f':
+				snprintf(resultString, sizeof(resultString), "%f", expResult.f);
+				break;
+			case 'p':
+				snprintf(resultString, sizeof(resultString), "%08x[%08x]", expResult.u, Memory::IsValidAddress(expResult.u) ? Memory::Read_U32(expResult.u) : 0);
+				break;
+			case 's':
+				snprintf(resultString, sizeof(resultString) - 1, "%s", Memory::IsValidAddress(expResult.u) ? Memory::GetCharPointer(expResult.u) : "(invalid)");
+				break;
+			case 'x':
+				snprintf(resultString, sizeof(resultString), "%08x", expResult.u);
+				break;
+			}
 			result += resultString;
 		}
 

@@ -20,7 +20,9 @@
 #include <vector>
 #include <map>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
@@ -93,7 +95,8 @@ struct FPL : public KernelObject
 		}
 	}
 	const char *GetName() override { return nf.name; }
-	const char *GetTypeName() override { return "FPL"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "FPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }
@@ -129,16 +132,16 @@ struct FPL : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nf);
+		Do(p, nf);
 		if (p.mode == p.MODE_READ)
 			blocks = new bool[nf.numBlocks];
-		p.DoArray(blocks, nf.numBlocks);
-		p.Do(address);
-		p.Do(alignedSize);
-		p.Do(nextBlock);
+		DoArray(p, blocks, nf.numBlocks);
+		Do(p, address);
+		Do(p, alignedSize);
+		Do(p, nextBlock);
 		FplWaitingThread dv = {0};
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeFPL nf;
@@ -302,11 +305,11 @@ struct SceKernelVplHeader {
 
 	inline void Validate() {
 		auto lastBlock = LastBlock();
-		_dbg_assert_msg_(SCEKERNEL, nextFreeBlock_->next.ptr != SentinelPtr(), "Next free block should not be allocated.");
-		_dbg_assert_msg_(SCEKERNEL, nextFreeBlock_->next.ptr != sentinel_, "Next free block should not point to sentinel.");
-		_dbg_assert_msg_(SCEKERNEL, lastBlock->sizeInBlocks == 0, "Last block should have size of 0.");
-		_dbg_assert_msg_(SCEKERNEL, lastBlock->next.ptr != SentinelPtr(), "Last block should not be allocated.");
-		_dbg_assert_msg_(SCEKERNEL, lastBlock->next.ptr != sentinel_, "Last block should not point to sentinel.");
+		_dbg_assert_msg_(nextFreeBlock_->next.ptr != SentinelPtr(), "Next free block should not be allocated.");
+		_dbg_assert_msg_(nextFreeBlock_->next.ptr != sentinel_, "Next free block should not point to sentinel.");
+		_dbg_assert_msg_(lastBlock->sizeInBlocks == 0, "Last block should have size of 0.");
+		_dbg_assert_msg_(lastBlock->next.ptr != SentinelPtr(), "Last block should not be allocated.");
+		_dbg_assert_msg_(lastBlock->next.ptr != sentinel_, "Last block should not point to sentinel.");
 
 		auto b = PSPPointer<SceKernelVplBlock>::Create(FirstBlockPtr());
 		bool sawFirstFree = false;
@@ -314,22 +317,22 @@ struct SceKernelVplHeader {
 			bool isFree = b->next.ptr != SentinelPtr();
 			if (isFree) {
 				if (!sawFirstFree) {
-					_dbg_assert_msg_(SCEKERNEL, lastBlock->next.ptr == b.ptr, "Last block should point to first free block.");
+					_dbg_assert_msg_(lastBlock->next.ptr == b.ptr, "Last block should point to first free block.");
 					sawFirstFree = true;
 				}
-				_dbg_assert_msg_(SCEKERNEL, b->next.ptr != SentinelPtr(), "Free blocks should only point to other free blocks.");
-				_dbg_assert_msg_(SCEKERNEL, b->next.ptr > b.ptr, "Free blocks should be in order.");
-				_dbg_assert_msg_(SCEKERNEL, b + b->sizeInBlocks < b->next || b->next.ptr == lastBlock.ptr, "Two free blocks should not be next to each other.");
+				_dbg_assert_msg_(b->next.ptr != SentinelPtr(), "Free blocks should only point to other free blocks.");
+				_dbg_assert_msg_(b->next.ptr > b.ptr, "Free blocks should be in order.");
+				_dbg_assert_msg_(b + b->sizeInBlocks < b->next || b->next.ptr == lastBlock.ptr, "Two free blocks should not be next to each other.");
 			} else {
-				_dbg_assert_msg_(SCEKERNEL, b->next.ptr == SentinelPtr(), "Allocated blocks should point to the sentinel.");
+				_dbg_assert_msg_(b->next.ptr == SentinelPtr(), "Allocated blocks should point to the sentinel.");
 			}
-			_dbg_assert_msg_(SCEKERNEL, b->sizeInBlocks != 0, "Only the last block should have a size of 0.");
+			_dbg_assert_msg_(b->sizeInBlocks != 0, "Only the last block should have a size of 0.");
 			b += b->sizeInBlocks;
 		}
 		if (!sawFirstFree) {
-			_dbg_assert_msg_(SCEKERNEL, lastBlock->next.ptr == lastBlock.ptr, "Last block should point to itself when full.");
+			_dbg_assert_msg_(lastBlock->next.ptr == lastBlock.ptr, "Last block should point to itself when full.");
 		}
-		_dbg_assert_msg_(SCEKERNEL, b.ptr == lastBlock.ptr, "Blocks should not extend outside vpl.");
+		_dbg_assert_msg_(b.ptr == lastBlock.ptr, "Blocks should not extend outside vpl.");
 	}
 
 	void ListBlocks() {
@@ -375,7 +378,8 @@ struct SceKernelVplHeader {
 struct VPL : public KernelObject
 {
 	const char *GetName() override { return nv.name; }
-	const char *GetTypeName() override { return "VPL"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "VPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Vpl; }
@@ -390,15 +394,15 @@ struct VPL : public KernelObject
 			return;
 		}
 
-		p.Do(nv);
-		p.Do(address);
+		Do(p, nv);
+		Do(p, address);
 		VplWaitingThread dv = {0};
-		p.Do(waitingThreads, dv);
+		Do(p, waitingThreads, dv);
 		alloc.DoState(p);
-		p.Do(pausedWaits);
+		Do(p, pausedWaits);
 
 		if (s >= 2) {
-			p.Do(header);
+			Do(p, header);
 		}
 	}
 
@@ -422,8 +426,10 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMemoryInit()
 {
-	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd()-PSP_GetKernelMemoryBase());
-	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd()-PSP_GetUserMemoryBase());
+	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
+	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
+	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
+	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
@@ -454,16 +460,16 @@ void __KernelMemoryDoState(PointerWrap &p)
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
 
-	p.Do(vplWaitTimer);
+	Do(p, vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
-	p.Do(fplWaitTimer);
+	Do(p, fplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(fplWaitTimer, "FplTimeout", __KernelFplTimeout);
-	p.Do(flags_);
-	p.Do(sdkVersion_);
-	p.Do(compilerVersion_);
-	p.DoArray(tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
+	Do(p, flags_);
+	Do(p, sdkVersion_);
+	Do(p, compilerVersion_);
+	DoArray(p, tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
 	if (s >= 2) {
-		p.Do(tlsplThreadEndChecks);
+		Do(p, tlsplThreadEndChecks);
 	}
 }
 
@@ -899,7 +905,8 @@ class PartitionMemoryBlock : public KernelObject
 {
 public:
 	const char *GetName() override { return name; }
-	const char *GetTypeName() override { return "MemoryPart"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "MemoryPart"; }
 	void GetQuickInfo(char *ptr, int size) override
 	{
 		int sz = alloc->GetBlockSizeFromAddress(address);
@@ -946,8 +953,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(address);
-		p.DoArray(name, sizeof(name));
+		Do(p, address);
+		DoArray(p, name, sizeof(name));
 	}
 
 	u32 address;
@@ -969,7 +976,7 @@ static u32 sceKernelTotalFreeMemSize()
 	return retVal;
 }
 
-static int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
 {
 	if (name == NULL)
 	{
@@ -1019,14 +1026,14 @@ static int sceKernelAllocPartitionMemory(int partition, const char *name, int ty
 	return uid;
 }
 
-static int sceKernelFreePartitionMemory(SceUID id)
+int sceKernelFreePartitionMemory(SceUID id)
 {
 	DEBUG_LOG(SCEKERNEL,"sceKernelFreePartitionMemory(%d)",id);
 
 	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
-static u32 sceKernelGetBlockHeadAddr(SceUID id)
+u32 sceKernelGetBlockHeadAddr(SceUID id)
 {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
@@ -1869,7 +1876,8 @@ struct NativeTlspl
 struct TLSPL : public KernelObject
 {
 	const char *GetName() override { return ntls.name; }
-	const char *GetTypeName() override { return "TLS"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "TLS"; }
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLSPL_ID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Tlspl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Tlspl; }
@@ -1882,15 +1890,15 @@ struct TLSPL : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(ntls);
-		p.Do(address);
+		Do(p, ntls);
+		Do(p, address);
 		if (s >= 2)
-			p.Do(alignment);
+			Do(p, alignment);
 		else
 			alignment = 4;
-		p.Do(waitingThreads);
-		p.Do(next);
-		p.Do(usage);
+		Do(p, waitingThreads);
+		Do(p, next);
+		Do(p, usage);
 	}
 
 	NativeTlspl ntls;

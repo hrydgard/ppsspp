@@ -37,7 +37,16 @@ struct PostShaderUniforms {
 	float gl_HalfPixel[4];
 };
 
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);
+// Could use UI::Bounds but don't want to depend on that here.
+struct FRect {
+	float x;
+	float y;
+	float w;
+	float h;
+};
+
+FRect GetScreenFrame(float pixelWidth, float pixelHeight);
+void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
 class Buffer;
@@ -58,18 +67,9 @@ enum class OutputFlags {
 	RB_SWIZZLE = 0x0002,
 	BACKBUFFER_FLIPPED = 0x0004,
 	POSITION_FLIPPED = 0x0008,
+	PILLARBOX = 0x0010,
 };
-
-inline OutputFlags operator | (const OutputFlags &lhs, const OutputFlags &rhs) {
-	return OutputFlags((int)lhs | (int)rhs);
-}
-inline OutputFlags operator |= (OutputFlags &lhs, const OutputFlags &rhs) {
-	lhs = lhs | rhs;
-	return lhs;
-}
-inline bool operator & (const OutputFlags &lhs, const OutputFlags &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(OutputFlags);
 
 class PresentationCommon {
 public:

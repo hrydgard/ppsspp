@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Log.h"
 #include "GPU/GPU.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"

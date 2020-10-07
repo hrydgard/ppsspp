@@ -20,10 +20,10 @@
 
 #include "Core/Config.h"
 #include "Core/HLE/sceDisplay.h"
-#include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "profiler/profiler.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/Profiler/Profiler.h"
 #include "StringUtils.h"
 
 static const uint32_t nice_colors[] = {

@@ -23,7 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "Common.h"
+#include "Common/Common.h"
+#include "Common/Log.h"
 
 /*************************************************************/
 
@@ -63,7 +64,7 @@ typedef struct{
 static u8 rc_getbyte(LZRC_DECODE *rc)
 {
 	if(rc->in_ptr == rc->in_len){
-		_dbg_assert_msg_(LOADER, false, "LZRC: End of input!");
+		_dbg_assert_msg_(false, "LZRC: End of input!");
 	}
 
 	return rc->input[rc->in_ptr++];
@@ -72,7 +73,7 @@ static u8 rc_getbyte(LZRC_DECODE *rc)
 static void rc_putbyte(LZRC_DECODE *rc, u8 byte)
 {
 	if(rc->out_ptr == rc->out_len){
-		_dbg_assert_msg_(LOADER, false, "LZRC: Output overflow!");
+		_dbg_assert_msg_(false, "LZRC: Output overflow!");
 	}
 
 	rc->output[rc->out_ptr++] = byte;

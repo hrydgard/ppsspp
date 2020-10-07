@@ -1,19 +1,16 @@
 // Copyright 2008 Dolphin Emulator Project
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
-#ifndef MOBILE_DEVICE
+
 #include <string>
 
 #include "Core/WaveFile.h"
-#include "Common/CommonTypes.h"
-#include "Common/MsgHandler.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 
 constexpr size_t WaveFileWriter::BUFFER_SIZE;
 
-WaveFileWriter::WaveFileWriter()
-{
-}
+WaveFileWriter::WaveFileWriter() {}
 
 WaveFileWriter::~WaveFileWriter()
 {
@@ -23,19 +20,14 @@ WaveFileWriter::~WaveFileWriter()
 bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRate)
 {
 	// Check if the file is already open
-	if (file)
-	{
-		PanicAlert("The file %s was already open, the file header will not be written.",
-			filename.c_str());
+	if (file) {
+		ERROR_LOG(SYSTEM, "The file %s was already open, the file header will not be written.", filename.c_str());
 		return false;
 	}
 
 	file.Open(filename, "wb");
-	if (!file)
-	{
-		PanicAlert("The file %s could not be opened for writing. Please check if it's already opened "
-			"by another program.",
-			filename.c_str());
+	if (!file) {
+		ERROR_LOG(IO, "The file %s could not be opened for writing. Please check if it's already opened by another program.", filename.c_str());
 		return false;
 	}
 
@@ -52,7 +44,7 @@ bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRa
 	Write(16);          // size of fmt block
 	Write(0x00020001);  // two channels, uncompressed
 
-	const u32 sample_rate = HLESampleRate;
+	const uint32_t sample_rate = HLESampleRate;
 	Write(sample_rate);
 	Write(sample_rate * 2 * 2);  // two channels, 16bit
 
@@ -61,9 +53,8 @@ bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRa
 	Write(100 * 1000 * 1000 - 32);
 
 	// We are now at offset 44
-	if (file.Tell() != 44)
-		PanicAlert("Wrong offset: %lld", (long long)file.Tell());
-
+	uint64_t offset = file.Tell();
+	_assert_msg_(offset == 44, "Wrong offset: %lld", (long long)offset);
 	return true;
 }
 
@@ -79,7 +70,7 @@ void WaveFileWriter::Stop()
 	file.Close();
 }
 
-void WaveFileWriter::Write(u32 value)
+void WaveFileWriter::Write(uint32_t value)
 {
 	file.WriteArray(&value, 1);
 }
@@ -89,19 +80,16 @@ void WaveFileWriter::Write4(const char* ptr)
 	file.WriteBytes(ptr, 4);
 }
 
-void WaveFileWriter::AddStereoSamples(const short* sample_data, u32 count)
+void WaveFileWriter::AddStereoSamples(const short* sample_data, uint32_t count)
 {
-	if (!file)
-		PanicAlert("WaveFileWriter - file not open.");
-
-	if (count > BUFFER_SIZE * 2)
-		PanicAlert("WaveFileWriter - buffer too small (count = %u).", count);
+	_assert_msg_(file, "WaveFileWriter - file not open.");
+	_assert_msg_(count <= BUFFER_SIZE * 2, "WaveFileWriter - buffer too small (count = %u).", count);
 
 	if (skip_silence)
 	{
 		bool all_zero = true;
 
-		for (u32 i = 0; i < count * 2; i++)
+		for (uint32_t i = 0; i < count * 2; i++)
 		{
 			if (sample_data[i])
 				all_zero = false;
@@ -114,4 +102,3 @@ void WaveFileWriter::AddStereoSamples(const short* sample_data, u32 count)
 	file.WriteBytes(sample_data, count * 4);
 	audio_size += count * 4;
 }
-#endif

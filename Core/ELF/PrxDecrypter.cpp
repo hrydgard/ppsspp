@@ -8,6 +8,7 @@ extern "C"
 #include "ext/libkirk/SHA1.h"
 }
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/ELF/PrxDecrypter.h"
 
@@ -741,7 +742,7 @@ static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
 
-	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -796,7 +797,7 @@ static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
 
-	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -860,7 +861,7 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -924,7 +925,7 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -991,7 +992,7 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 	header->mode = 1;
 	header->ecdsa_hash = 1;
 
-	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}

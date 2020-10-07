@@ -40,8 +40,8 @@ int sceKernelDelaySysClockThreadCB(u32 sysclockAddr);
 void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason);
 u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason);
 int sceKernelDeleteThread(int threadHandle);
-void sceKernelExitDeleteThread(int exitStatus);
-void sceKernelExitThread(int exitStatus);
+int sceKernelExitDeleteThread(int exitStatus);
+int sceKernelExitThread(int exitStatus);
 void _sceKernelExitThread(int exitStatus);
 SceUID sceKernelGetThreadId();
 int sceKernelGetThreadCurrentPriority();
@@ -57,6 +57,7 @@ u32 sceKernelReferThreadRunStatus(u32 uid, u32 statusPtr);
 int sceKernelReleaseWaitThread(SceUID threadID);
 int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr);
 int sceKernelRotateThreadReadyQueue(int priority);
+int KernelRotateThreadReadyQueue(int priority);
 int sceKernelCheckThreadStack();
 int sceKernelSuspendThread(SceUID threadID);
 int sceKernelResumeThread(SceUID threadID);
@@ -106,6 +107,8 @@ enum WaitType : int
 	WAITTYPE_TLSPL        = 21,
 	WAITTYPE_VMEM         = 22,
 	WAITTYPE_ASYNCIO      = 23,
+	WAITTYPE_MICINPUT     = 24, // fake
+	WAITTYPE_NET          = 25, // fake
 
 	NUM_WAITTYPES
 };
@@ -155,6 +158,9 @@ void __KernelThreadingInit();
 void __KernelThreadingDoState(PointerWrap &p);
 void __KernelThreadingDoStateLate(PointerWrap &p);
 void __KernelThreadingShutdown();
+
+std::string __KernelThreadingSummary();
+
 KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
 
@@ -219,6 +225,7 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr);
 class PSPAction;
 
 // Not an official Callback object, just calls a mips function on the current thread.
+// Takes ownership of afterAction.
 void __KernelDirectMipsCall(u32 entryPoint, PSPAction *afterAction, u32 args[], int numargs, bool reschedAfter);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function

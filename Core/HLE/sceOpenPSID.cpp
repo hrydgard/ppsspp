@@ -19,17 +19,35 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceOpenPSID.h"
 #include "Core/MemMap.h"
+#include <Core/HLE/proAdhoc.h>
+
+u8 dummyOpenPSID[16] = { 0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D };
 
 static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 {
-	ERROR_LOG(HLE, "UNTESTED sceOpenPSIDGetOpenPSID(%d)", OpenPSIDPtr);
-	u8 dummyOpenPSID[16] = {0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D};
+	WARN_LOG(HLE, "UNTESTED sceOpenPSIDGetOpenPSID(%d)", OpenPSIDPtr);
+	getLocalMac((SceNetEtherAddr*)&dummyOpenPSID);
 
 	if (Memory::IsValidAddress(OpenPSIDPtr))
 	{
 		for (int i = 0; i < 16; i++) 
 		{
 			Memory::Write_U8(dummyOpenPSID[i], OpenPSIDPtr+i);
+		}
+	}
+	return 0;
+}
+
+static int sceOpenPSID_driver_0x19D579F0(u32 OpenPSIDPtr,u32 unknown)
+{
+	WARN_LOG(HLE, "UNTESTED sceOpenPSID_driver_0x19D579F0(%d,%d)", OpenPSIDPtr,unknown);
+	getLocalMac((SceNetEtherAddr*)&dummyOpenPSID);
+
+	if (Memory::IsValidAddress(OpenPSIDPtr))
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			Memory::Write_U8(dummyOpenPSID[i], OpenPSIDPtr + i);
 		}
 	}
 	return 0;
@@ -43,4 +61,14 @@ const HLEFunction sceOpenPSID[] =
 void Register_sceOpenPSID()
 {
 	RegisterModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
+}
+
+const HLEFunction sceOpenPSID_driver[] =
+{
+	{0x19D579F0, &WrapI_UU<sceOpenPSID_driver_0x19D579F0>,   "sceOpenPSID_driver_0x19D579F0", 'i', "xx" },
+};
+
+void Register_sceOpenPSID_driver()
+{
+	RegisterModule("sceOpenPSID_driver", ARRAY_SIZE(sceOpenPSID_driver), sceOpenPSID_driver);
 }

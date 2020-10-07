@@ -18,9 +18,9 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
-#include "gfx/gl_common.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"

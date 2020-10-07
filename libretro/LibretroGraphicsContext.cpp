@@ -1,6 +1,7 @@
 
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/LibretroGLContext.h"
+#include "libretro/LibretroGLCoreContext.h"
 #include "libretro/libretro.h"
 #include "libretro/LibretroVulkanContext.h"
 #ifdef _WIN32
@@ -14,13 +15,20 @@
 
 retro_video_refresh_t LibretroGraphicsContext::video_cb;
 
+extern "C" {
+   retro_hw_get_proc_address_t libretro_get_proc_address;
+};
+
 void retro_set_video_refresh(retro_video_refresh_t cb) { LibretroGraphicsContext::video_cb = cb; }
 static void context_reset() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset(); }
 static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextDestroy(); }
 
 bool LibretroHWRenderContext::Init(bool cache_context) {
 	hw_render_.cache_context = cache_context;
-	return Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_);
+	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_))
+      return false;
+   libretro_get_proc_address = hw_render_.get_proc_address;
+   return true;
 }
 
 LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor) {
@@ -44,7 +52,7 @@ void LibretroHWRenderContext::ContextReset() {
 	if (!draw_) {
 		CreateDrawContext();
 		bool success = draw_->CreatePresets();
-		assert(success);
+		_assert_(success);
 	}
 
 	GotBackbuffer();
@@ -81,34 +89,55 @@ void LibretroGraphicsContext::LostBackbuffer() { draw_->HandleEvent(Draw::Event:
 LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	LibretroGraphicsContext *ctx;
 
-	ctx = new LibretroGLContext();
+	retro_hw_context_type preferred;
+	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred))
+		preferred = RETRO_HW_CONTEXT_DUMMY;
 
-	if (ctx->Init()) {
-		return ctx;
+#ifndef USING_GLES2
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
+		ctx = new LibretroGLCoreContext();
+
+		if (ctx->Init()) {
+			return ctx;
+		}
+		delete ctx;
 	}
-	delete ctx;
+#endif
 
-	ctx = new LibretroVulkanContext();
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL) {
+		ctx = new LibretroGLContext();
 
-	if (ctx->Init()) {
-		return ctx;
+		if (ctx->Init()) {
+			return ctx;
+		}
+		delete ctx;
 	}
-	delete ctx;
+
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_VULKAN) {
+		ctx = new LibretroVulkanContext();
+
+		if (ctx->Init()) {
+			return ctx;
+		}
+		delete ctx;
+	}
 
 #ifdef _WIN32
-	ctx = new LibretroD3D11Context();
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_DIRECT3D) {
+		ctx = new LibretroD3D11Context();
 
-	if (ctx->Init()) {
-		return ctx;
+		if (ctx->Init()) {
+			return ctx;
+		}
+		delete ctx;
+
+		ctx = new LibretroD3D9Context();
+
+		if (ctx->Init()) {
+			return ctx;
+		}
+		delete ctx;
 	}
-	delete ctx;
-
-	ctx = new LibretroD3D9Context();
-
-	if (ctx->Init()) {
-		return ctx;
-	}
-	delete ctx;
 #endif
 
 #if 1

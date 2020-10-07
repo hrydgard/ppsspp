@@ -20,8 +20,8 @@
 
 #include <cstring>
 
-#include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
@@ -400,7 +400,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 		if (ar[a].isDirty) {
 			if (m == -1) {
-				ILOG("ARM reg %i is dirty but has no mipsreg", a);
+				INFO_LOG(JIT, "ARM reg %d is dirty but has no mipsreg", a);
 				continue;
 			}
 
@@ -423,7 +423,7 @@ void Arm64RegCacheFPU::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG(JIT, "Flush fail: ar[%d].mipsReg=%d", i, ar[i].mipsReg);
 		}
 	}
 	pendingFlush = false;
@@ -479,7 +479,7 @@ int Arm64RegCacheFPU::GetTempR() {
 	}
 
 	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
-	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	_assert_msg_(false, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
 }
 

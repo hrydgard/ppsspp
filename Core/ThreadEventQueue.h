@@ -139,7 +139,7 @@ struct ThreadEventQueue : public B {
 
 		// Don't run if it's not running, but wait for startup.
 		if (!eventsRunning_) {
-			if (eventsHaveRun_ || coreState == CORE_ERROR || coreState == CORE_POWERDOWN) {
+			if (eventsHaveRun_ || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN) {
 				return false;
 			}
 		}

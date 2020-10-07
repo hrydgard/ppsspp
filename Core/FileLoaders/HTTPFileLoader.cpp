@@ -17,8 +17,9 @@
 
 #include <algorithm>
 
-#include "base/stringutil.h"
 #include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)

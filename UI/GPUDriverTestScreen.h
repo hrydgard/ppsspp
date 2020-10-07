@@ -1,16 +1,14 @@
 #pragma once
 
-#include <algorithm>
-
-#include "base/display.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
+#include "Common/System/Display.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
 
 #include "Common/LogManager.h"
 #include "UI/MiscScreens.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class GPUDriverTestScreen : public UIDialogScreenWithBackground {
 public:

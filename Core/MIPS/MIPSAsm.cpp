@@ -1,17 +1,12 @@
-#ifdef _WIN32
-#include "stdafx.h"
-#endif
 #include <cstdarg>
 #include <cstring>
 #include <memory>
 #include <vector>
 
 #include "Common/CommonTypes.h"
-
-// This has to be before basictypes to avoid a define conflict.
 #include "ext/armips/Core/Assembler.h"
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"

@@ -164,7 +164,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -178,15 +178,11 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -202,15 +198,11 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -225,15 +217,11 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -249,10 +237,6 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -260,7 +244,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -276,10 +260,6 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -287,7 +267,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -305,10 +285,6 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
@@ -316,7 +292,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -334,10 +310,6 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
@@ -345,7 +317,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -363,16 +335,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="Common\DrawEngineCommon.h" />
-    <ClInclude Include="Common\FramebufferCommon.h" />
+    <ClInclude Include="Common\FramebufferManagerCommon.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\GPUStateUtils.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
@@ -417,9 +385,9 @@
     <ClInclude Include="Debugger\RecordFormat.h" />
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
+    <ClInclude Include="Directx9\FramebufferManagerDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
     <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
-    <ClInclude Include="Directx9\FramebufferDX9.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
@@ -511,7 +479,7 @@
     <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
     <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
     <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
-    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
+    <ClInclude Include="Vulkan\FramebufferManagerVulkan.h" />
     <ClInclude Include="Vulkan\GPU_Vulkan.h" />
     <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
@@ -525,7 +493,7 @@
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="Common\DrawEngineCommon.cpp" />
-    <ClCompile Include="Common\FramebufferCommon.cpp" />
+    <ClCompile Include="Common\FramebufferManagerCommon.cpp" />
     <ClCompile Include="Common\GPUDebugInterface.cpp" />
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
@@ -596,9 +564,9 @@
     <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />
+    <ClCompile Include="Directx9\FramebufferManagerDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
-    <ClCompile Include="Directx9\FramebufferDX9.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
     <ClCompile Include="Directx9\StateMappingDX9.cpp" />
     <ClCompile Include="Directx9\StencilBufferDX9.cpp" />
@@ -607,6 +575,7 @@
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GeConstants.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -703,7 +672,7 @@
     <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
-    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
+    <ClCompile Include="Vulkan\FramebufferManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />

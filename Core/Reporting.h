@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "Common/CommonTypes.h"
-#include "Common/Log.h"
 #include <string>
 #include <vector>
+
+#include "Common/CommonTypes.h"
+#include "Common/Log.h"
 
 #define DEBUG_LOG_REPORT(t,...)   do { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
 #define ERROR_LOG_REPORT(t,...)   do { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
@@ -28,16 +29,21 @@
 #define NOTICE_LOG_REPORT(t,...)  do { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); } while (false)
 #define INFO_LOG_REPORT(t,...)    do { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } while (false)
 
-#define DEBUG_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { DEBUG_LOG_REPORT(t, __VA_ARGS__); } } while (false)
-#define ERROR_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG_REPORT(t, __VA_ARGS__); } } while (false)
-#define WARN_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG_REPORT(t, __VA_ARGS__); } } while (false)
-#define NOTICE_LOG_REPORT_ONCE(n,t,...)  do { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG_REPORT(t, __VA_ARGS__); } } while (false)
-#define INFO_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define DEBUG_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogNTimes(#n, 1)) { DEBUG_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define ERROR_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogNTimes(#n, 1)) { ERROR_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define WARN_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogNTimes(#n, 1)) { WARN_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define NOTICE_LOG_REPORT_ONCE(n,t,...)  do { if (Reporting::ShouldLogNTimes(#n, 1)) { NOTICE_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define INFO_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogNTimes(#n, 1)) { INFO_LOG_REPORT(t, __VA_ARGS__); } } while (false)
 
-#define ERROR_LOG_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG(t, __VA_ARGS__); } } while (false)
-#define WARN_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG(t, __VA_ARGS__); } } while (false)
-#define NOTICE_LOG_ONCE(n,t,...)  do { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } } while (false)
-#define INFO_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } } while (false)
+#define ERROR_LOG_ONCE(n,t,...)   do { if (Reporting::ShouldLogNTimes(#n, 1)) { ERROR_LOG(t, __VA_ARGS__); } } while (false)
+#define WARN_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogNTimes(#n, 1)) { WARN_LOG(t, __VA_ARGS__); } } while (false)
+#define NOTICE_LOG_ONCE(n,t,...)  do { if (Reporting::ShouldLogNTimes(#n, 1)) { NOTICE_LOG(t, __VA_ARGS__); } } while (false)
+#define INFO_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogNTimes(#n, 1)) { INFO_LOG(t, __VA_ARGS__); } } while (false)
+
+#define ERROR_LOG_N_TIMES(s,n,t,...)   do { if (Reporting::ShouldLogNTimes(#s, n)) { ERROR_LOG(t, __VA_ARGS__); } } while (false)
+#define WARN_LOG_N_TIMES(s,n,t,...)    do { if (Reporting::ShouldLogNTimes(#s, n)) { WARN_LOG(t, __VA_ARGS__); } } while (false)
+#define NOTICE_LOG_N_TIMES(s,n,t,...)  do { if (Reporting::ShouldLogNTimes(#s, n)) { NOTICE_LOG(t, __VA_ARGS__); } } while (false)
+#define INFO_LOG_N_TIMES(s,n,t,...)    do { if (Reporting::ShouldLogNTimes(#s, n)) { INFO_LOG(t, __VA_ARGS__); } } while (false)
 
 class PointerWrap;
 
@@ -79,7 +85,7 @@ namespace Reporting
 	std::vector<std::string> CompatibilitySuggestions();
 
 	// Returns true if that identifier has not been logged yet.
-	bool ShouldLogOnce(const char *identifier);
+	bool ShouldLogNTimes(const char *identifier, int n);
 
 	enum class ReportStatus {
 		WORKING,

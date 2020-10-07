@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "ppsspp_config.h"
 #include "CommonWindows.h"
 
@@ -7,7 +6,7 @@
 #include <commctrl.h>
 
 #include "Misc.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -154,6 +153,12 @@ namespace W32Util
 	}
 
 	void ExitAndRestart(bool overrideArgs, const std::string &args) {
+		SpawnNewInstance(overrideArgs, args);
+
+		ExitProcess(0);
+	}
+
+	void SpawnNewInstance(bool overrideArgs, const std::string &args) {
 		// This preserves arguments (for example, config file) and working directory.
 		std::wstring workingDirectory;
 		std::wstring moduleFilename;
@@ -168,12 +173,8 @@ namespace W32Util
 			cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
 		}
 		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
-
-		ExitProcess(0);
 	}
 }
-
-
 
 GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
@@ -199,7 +200,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 
 	int totalListSize = rect.right-rect.left;
 	for (int i = 0; i < columnCount; i++) {
-		lvc.cx = columns[i].size * totalListSize;
+		lvc.cx = (int)(columns[i].size * totalListSize);
 		lvc.pszText = (LPTSTR)columns[i].name;
 
 		if (columns[i].flags & GLVC_CENTERED)

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class GPUInterface;
 class UIContext;

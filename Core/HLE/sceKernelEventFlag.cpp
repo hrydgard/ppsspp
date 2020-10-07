@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -53,7 +55,8 @@ struct EventFlagTh {
 class EventFlag : public KernelObject {
 public:
 	const char *GetName() override { return nef.name; }
-	const char *GetTypeName() override { return "EventFlag"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "EventFlag"; }
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "init=%08x cur=%08x numwait=%i",
 			nef.initPattern,
@@ -72,10 +75,10 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nef);
+		Do(p, nef);
 		EventFlagTh eft = { 0 };
-		p.Do(waitingThreads, eft);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, eft);
+		Do(p, pausedWaits);
 	}
 
 	NativeEventFlag nef;
@@ -120,7 +123,7 @@ void __KernelEventFlagDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(eventFlagWaitTimer);
+	Do(p, eventFlagWaitTimer);
 	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
 }
 

@@ -22,7 +22,7 @@
 #include <cstdint>
 #include <atomic>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/CommonTypes.h"
 
 struct AudioDebugStats;

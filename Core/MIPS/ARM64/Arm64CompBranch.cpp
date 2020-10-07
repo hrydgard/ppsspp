@@ -18,10 +18,11 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
@@ -85,7 +86,7 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		{
 		case CC_EQ: immBranchNotTaken = rsImm == rtImm; break;
 		case CC_NEQ: immBranchNotTaken = rsImm != rtImm; break;
-		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		default: immBranchNotTaken = false; _dbg_assert_msg_(false, "Bad cc flag in BranchRSRTComp().");
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
@@ -216,7 +217,7 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 		case CC_GE: immBranchNotTaken = imm >= 0; break;
 		case CC_LT: immBranchNotTaken = imm < 0; break;
 		case CC_LE: immBranchNotTaken = imm <= 0; break;
-		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		default: immBranchNotTaken = false; _dbg_assert_msg_(false, "Bad cc flag in BranchRSZeroComp().");
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
@@ -315,7 +316,7 @@ void Arm64Jit::Comp_RelBranch(MIPSOpcode op)
 	case 23: BranchRSZeroComp(op, CC_LE, false, true); break;//bgtzl
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -333,7 +334,7 @@ void Arm64Jit::Comp_RelBranchRI(MIPSOpcode op)
 	case 18: BranchRSZeroComp(op, CC_GE, true, true);  break;  //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
 	case 19: BranchRSZeroComp(op, CC_LT, true, true);   break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -390,7 +391,7 @@ void Arm64Jit::Comp_FPUBranch(MIPSOpcode op) {
 	case 2: BranchFPFlag(op, CC_NEQ, true);  break;  // bc1fl
 	case 3: BranchFPFlag(op, CC_EQ, true);  break;  // bc1tl
 	default:
-		_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+		_dbg_assert_msg_( 0, "Trying to interpret instruction that can't be interpreted");
 		break;
 	}
 }
@@ -461,6 +462,10 @@ void Arm64Jit::Comp_VBranch(MIPSOpcode op)
 	}
 }
 
+static void HitInvalidJump(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc - 8, ExecExceptionType::JUMP);
+}
+
 void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
@@ -477,6 +482,13 @@ void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		gpr.SetRegImm(SCRATCH1, GetCompilerPC() + 8);
+		MovToPC(SCRATCH1);
+		MOVI2R(W0, targetAddr);
+		QuickCallFunction(SCRATCH1, (const void *)&HitInvalidJump);
+		WriteSyscallExit();
 		return;
 	}
 
@@ -514,7 +526,7 @@ void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 	js.compiling = false;
@@ -592,7 +604,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	case 9: //jalr
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 

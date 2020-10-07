@@ -17,13 +17,12 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
-#include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
@@ -31,6 +30,7 @@ namespace DX9 {
 
 class ShaderManagerDX9;
 class LinkedShaderDX9;
+class TextureCacheDX9;
 
 class GPU_DX9 : public GPUCommon {
 public:

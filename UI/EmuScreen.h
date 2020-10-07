@@ -21,11 +21,11 @@
 #include <vector>
 #include <list>
 
-#include "input/keycodes.h"
-#include "ui/screen.h"
-#include "ui/ui_screen.h"
-#include "ui/ui_tween.h"
-#include "Common/KeyMap.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/Tween.h"
+#include "Core/KeyMap.h"
 
 struct AxisInput;
 

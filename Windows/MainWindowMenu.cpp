@@ -1,21 +1,25 @@
 #include <map>
 #include <string>
+#include <sstream>
 
 #include "CommonWindows.h"
 #include <shellapi.h>
 
 #include "resource.h"
 
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
-#include "base/NativeApp.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Common/OSVersion.h"
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/StringUtils.h"
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -23,13 +27,14 @@
 #endif
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/KeyMap.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"
@@ -44,10 +49,10 @@
 #include "Core/Core.h"
 
 extern bool g_TakeScreenshot;
+extern bool g_ShaderNameListChanged;
 
 namespace MainWindow {
 	extern HINSTANCE hInst;
-	static const int numCPUs = 1;  // what?
 	extern bool noFocusPause;
 	static W32Util::AsyncBrowseDialog *browseDialog;
 	static W32Util::AsyncBrowseDialog *browseImageDialog;
@@ -164,7 +169,7 @@ namespace MainWindow {
 		int item = ID_SHADERS_BASE + 1;
 
 		for (size_t i = 0; i < availableShaders.size(); i++)
-			CheckMenuItem(menu, item++, ((g_Config.sPostShaderName == availableShaders[i]) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, item++, ((g_Config.vPostShaderNames[0] == availableShaders[i] && (g_Config.vPostShaderNames[0] == "Off" || g_Config.vPostShaderNames[1] == "Off")) ? MF_CHECKED : MF_UNCHECKED));
 	}
 
 	bool CreateShadersSubmenu(HMENU menu) {
@@ -198,7 +203,7 @@ namespace MainWindow {
 				continue;
 			int checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
-			if (g_Config.sPostShaderName == i->section) {
+			if (g_Config.vPostShaderNames[0] == i->section && (g_Config.vPostShaderNames[0] == "Off" || g_Config.vPostShaderNames[1] == "Off")) {
 				checkedStatus = MF_CHECKED;
 			}
 
@@ -241,6 +246,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_FILE_LOAD);
 		TranslateMenuItem(menu, ID_FILE_LOAD_DIR);
 		TranslateMenuItem(menu, ID_FILE_LOAD_MEMSTICK);
+		TranslateMenuItem(menu, ID_FILE_OPEN_NEW_INSTANCE);
 		TranslateMenuItem(menu, ID_FILE_MEMSTICK);
 		TranslateMenuItem(menu, ID_FILE_SAVESTATE_SLOT_MENU, useDefHotkey(VIRTKEY_NEXT_SLOT) ? L"\tF3" : L"");
 		TranslateMenuItem(menu, ID_FILE_QUICKLOADSTATE, useDefHotkey(VIRTKEY_LOAD_STATE) ? L"\tF4" : L"");
@@ -323,7 +329,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING);
-		TranslateMenuItem(menu, ID_OPTIONS_LINEARFILTERING_CG);
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENFILTER_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFLINEARFILTER);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFNEARESTFILTER);
@@ -410,14 +415,14 @@ namespace MainWindow {
 	}
 
 	void BrowseBackground() {
-		static std::wstring filter = L"All supported images (*.jpg *.png)|*.jpg;*.png|All files (*.*)|*.*||";
+		static std::wstring filter = L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||";
 		for (size_t i = 0; i < filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
 		W32Util::MakeTopMost(GetHWND(), false);
-		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.png;");
+		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.jpeg;*.png;");
 	}
 
 	void BrowseBackgroundDone() {
@@ -425,7 +430,7 @@ namespace MainWindow {
 		if (browseImageDialog->GetResult(filename)) {
 			std::wstring src = ConvertUTF8ToWString(filename);
 			std::wstring dest;
-			if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".jpg") {
+			if (filename.size() >= 5 && (filename.substr(filename.size() - 4) == ".jpg" || filename.substr(filename.size() - 5) == ".jpeg")) {
 				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg");
 			} else {
 				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.png");
@@ -584,6 +589,10 @@ namespace MainWindow {
 			BrowseAndBoot(GetSysDirectory(DIRECTORY_GAME));
 			break;
 
+		case ID_FILE_OPEN_NEW_INSTANCE:
+			W32Util::SpawnNewInstance(false);
+			break;
+
 		case ID_FILE_MEMSTICK:
 			ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memStickDirectory).c_str(), 0, 0, SW_SHOW);
 			break;
@@ -593,16 +602,16 @@ namespace MainWindow {
 				// Causes hang
 				//NativeMessageReceived("run", "");
 
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
+				if (disasmWindow)
+					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 			} else if (Core_IsStepping()) { // It is paused, then continue to run.
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
+				if (disasmWindow)
+					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
 					Core_EnableStepping(false);
 			} else {
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
+				if (disasmWindow)
+					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
 					Core_EnableStepping(true);
 			}
@@ -862,11 +871,11 @@ namespace MainWindow {
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
 				g_symbolMap->LoadSymbolMap(fn.c_str());
 
-				if (disasmWindow[0])
-					disasmWindow[0]->NotifyMapLoaded();
+				if (disasmWindow)
+					disasmWindow->NotifyMapLoaded();
 
-				if (memoryWindow[0])
-					memoryWindow[0]->NotifyMapLoaded();
+				if (memoryWindow)
+					memoryWindow->NotifyMapLoaded();
 			}
 			break;
 
@@ -879,11 +888,11 @@ namespace MainWindow {
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
 				g_symbolMap->LoadNocashSym(fn.c_str());
 
-				if (disasmWindow[0])
-					disasmWindow[0]->NotifyMapLoaded();
+				if (disasmWindow)
+					disasmWindow->NotifyMapLoaded();
 
-				if (memoryWindow[0])
-					memoryWindow[0]->NotifyMapLoaded();
+				if (memoryWindow)
+					memoryWindow->NotifyMapLoaded();
 			}
 			break;
 
@@ -895,18 +904,16 @@ namespace MainWindow {
 		case ID_DEBUG_RESETSYMBOLTABLE:
 			g_symbolMap->Clear();
 
-			for (int i = 0; i < numCPUs; i++)
-				if (disasmWindow[i])
-					disasmWindow[i]->NotifyMapLoaded();
+			if (disasmWindow)
+				disasmWindow->NotifyMapLoaded();
 
-			for (int i = 0; i < numCPUs; i++)
-				if (memoryWindow[i])
-					memoryWindow[i]->NotifyMapLoaded();
+			if (memoryWindow)
+				memoryWindow->NotifyMapLoaded();
 			break;
 
 		case ID_DEBUG_DISASSEMBLY:
-			if (disasmWindow[0])
-				disasmWindow[0]->Show(true);
+			if (disasmWindow)
+				disasmWindow->Show(true);
 			break;
 
 		case ID_DEBUG_GEDEBUGGER:
@@ -917,8 +924,8 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_MEMORYVIEW:
-			if (memoryWindow[0])
-				memoryWindow[0]->Show(true);
+			if (memoryWindow)
+				memoryWindow->Show(true);
 			break;
 
 		case ID_DEBUG_EXTRACTFILE:
@@ -944,7 +951,7 @@ namespace MainWindow {
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				// Note: len may be in blocks.
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
-				bool isBlockMode = pspFileSystem.DevType(handle) == PSP_DEV_TYPE_BLOCK;
+				bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
 
 				FILE *fp = File::OpenCFile(fn, "wb");
 				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
@@ -987,9 +994,8 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(TEX_FILTER_AUTO); break;
-		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_NEAREST); break;
-		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_LINEAR); break;
-		case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(TEX_FILTER_LINEAR_VIDEO); break;
+		case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_FORCE_NEAREST); break;
+		case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_FORCE_LINEAR); break;
 
 		case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
 		case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
@@ -1073,8 +1079,12 @@ namespace MainWindow {
 			// ID_SHADERS_BASE and an additional 1 off it.
 			u32 index = (wParam - ID_SHADERS_BASE - 1);
 			if (index < availableShaders.size()) {
-				g_Config.sPostShaderName = availableShaders[index];
-
+				g_Config.vPostShaderNames.clear();
+				if (availableShaders[index] != "Off")
+					g_Config.vPostShaderNames.push_back(availableShaders[index]);
+				g_Config.vPostShaderNames.push_back("Off");
+				g_ShaderNameListChanged = true;
+				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 				NativeMessageReceived("gpu_resized", "");
 				break;
 			}
@@ -1233,12 +1243,11 @@ namespace MainWindow {
 			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
-			ID_OPTIONS_LINEARFILTERING_CG,
 		};
 		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
 			g_Config.iTexFiltering = TEX_FILTER_AUTO;
-		else if (g_Config.iTexFiltering > TEX_FILTER_LINEAR_VIDEO)
-			g_Config.iTexFiltering = TEX_FILTER_LINEAR_VIDEO;
+		else if (g_Config.iTexFiltering > TEX_FILTER_FORCE_LINEAR)
+			g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
@@ -1374,7 +1383,7 @@ namespace MainWindow {
 
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
-		static CoreState lastCoreState = CORE_ERROR;
+		static CoreState lastCoreState = CORE_BOOT_ERROR;
 
 		HMENU menu = GetMenu(GetHWND());
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);

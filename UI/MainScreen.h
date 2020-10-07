@@ -19,10 +19,10 @@
 
 #include <functional>
 
-#include "file/path.h"
-#include "ui/ui_screen.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
+#include "Common/File/PathBrowser.h"
 
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
@@ -36,14 +36,7 @@ enum class BrowseFlags {
 	HOMEBREW_STORE = 8,
 	STANDARD = 1 | 2 | 4,
 };
-
-static inline BrowseFlags operator |(const BrowseFlags &lhs, const BrowseFlags &rhs) {
-	return BrowseFlags((int)lhs | (int)rhs);
-}
-
-static inline bool operator &(const BrowseFlags &lhs, const BrowseFlags &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(BrowseFlags);
 
 class GameBrowser : public UI::LinearLayout {
 public:

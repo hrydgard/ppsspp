@@ -56,6 +56,10 @@ public:
 
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
+	FileSystemFlags FlagsFromFilename(const std::string &filename) {
+		IFileSystem *sys = GetSystemFromFilename(filename);
+		return sys ? sys->Flags() : FileSystemFlags::NONE;
+	}
 
 	void ThreadEnded(int threadID);
 
@@ -114,8 +118,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 	int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int  DevType(u32 handle) override;
-	int  Flags() override { return 0; }
+	PSPDevType DevType(u32 handle) override;
+	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	u64  FreeSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.

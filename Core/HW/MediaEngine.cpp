@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
@@ -185,25 +186,25 @@ void MediaEngine::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(m_videoStream);
-	p.Do(m_audioStream);
+	Do(p, m_videoStream);
+	Do(p, m_audioStream);
 
-	p.DoArray(m_mpegheader, sizeof(m_mpegheader));
+	DoArray(p, m_mpegheader, sizeof(m_mpegheader));
 	if (s >= 4) {
-		p.Do(m_mpegheaderSize);
+		Do(p, m_mpegheaderSize);
 	} else {
 		m_mpegheaderSize = sizeof(m_mpegheader);
 	}
 	if (s >= 5) {
-		p.Do(m_mpegheaderReadPos);
+		Do(p, m_mpegheaderReadPos);
 	} else {
 		m_mpegheaderReadPos = m_mpegheaderSize;
 	}
 
-	p.Do(m_ringbuffersize);
+	Do(p, m_ringbuffersize);
 
 	u32 hasloadStream = m_pdata != NULL;
-	p.Do(hasloadStream);
+	Do(p, hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
 		reloadStream();
 #ifdef USE_FFMPEG
@@ -211,29 +212,29 @@ void MediaEngine::DoState(PointerWrap &p) {
 #else
 	u32 hasopencontext = false;
 #endif
-	p.Do(hasopencontext);
+	Do(p, hasopencontext);
 	if (m_pdata)
 		m_pdata->DoState(p);
 	if (m_demux)
 		m_demux->DoState(p);
 
-	p.Do(m_videopts);
-	p.Do(m_audiopts);
+	Do(p, m_videopts);
+	Do(p, m_audiopts);
 
 	if (s >= 2) {
-		p.Do(m_firstTimeStamp);
-		p.Do(m_lastTimeStamp);
+		Do(p, m_firstTimeStamp);
+		Do(p, m_lastTimeStamp);
 	}
 
 	if (hasopencontext && p.mode == p.MODE_READ) {
 		openContext(true);
 	}
 
-	p.Do(m_isVideoEnd);
+	Do(p, m_isVideoEnd);
 	bool noAudioDataRemoved;
-	p.Do(noAudioDataRemoved);
+	Do(p, noAudioDataRemoved);
 	if (s >= 3) {
-		p.Do(m_audioType);
+		Do(p, m_audioType);
 	} else {
 		m_audioType = PSP_CODEC_AT3PLUS;
 	}

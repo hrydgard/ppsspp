@@ -18,16 +18,16 @@
 #include <algorithm>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
-#include "base/stringutil.h"
-#include "base/timeutil.h"
-#include "file/fd_util.h"
-#include "net/http_client.h"
-#include "net/http_server.h"
-#include "net/sinks.h"
-#include "thread/threadutil.h"
-#include "Common/FileUtil.h"
+
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPServer.h"
+#include "Common/Net/Sinks.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/FileDescriptor.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
@@ -257,11 +257,11 @@ static void ExecuteWebServer() {
 
 	g_Config.iRemoteISOPort = http->Port();
 	RegisterServer(http->Port());
-	double lastRegister = real_time_now();
+	double lastRegister = time_now_d();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		http->RunSlice(1.0);
 
-		double now = real_time_now();
+		double now = time_now_d();
 		if (now > lastRegister + 540.0) {
 			RegisterServer(http->Port());
 			lastRegister = now;

@@ -18,9 +18,11 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM)
 
-#include "base/logging.h"
-#include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Profiler/Profiler.h"
+
+#include "Common/Log.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -60,13 +62,13 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
 				sprintf(temp, "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				ILOG("A:   %s", temp);
+				INFO_LOG(JIT, "A:   %s", temp);
 				i += 4;
 				continue;
 			}
 		}
 		ArmDis((u32)codePtr, inst, temp, sizeof(temp), true);
-		ILOG("A:   %s", temp);
+		INFO_LOG(JIT, "A:   %s", temp);
 	}
 }
 
@@ -129,9 +131,9 @@ void ArmJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;
@@ -703,6 +705,7 @@ void ArmJit::UpdateRoundingMode(u32 fcr31) {
 // I don't think this gives us that much benefit.
 void ArmJit::WriteExit(u32 destination, int exit_num)
 {
+	// TODO: Check destination is valid and trigger exception.
 	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -723,6 +726,7 @@ void ArmJit::WriteExit(u32 destination, int exit_num)
 
 void ArmJit::WriteExitDestInR(ARMReg Reg) 
 {
+	// TODO: If not fast memory, check for invalid address in reg and trigger exception.
 	MovToPC(Reg);
 	WriteDownCount();
 	// TODO: shouldn't need an indirect branch here...

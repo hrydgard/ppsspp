@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <memory>
 
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"
@@ -176,35 +178,35 @@ struct MpegContext {
 		if (!s)
 			return;
 
-		p.DoArray(mpegheader, 2048);
-		p.Do(defaultFrameWidth);
-		p.Do(videoFrameCount);
-		p.Do(audioFrameCount);
-		p.Do(endOfAudioReached);
-		p.Do(endOfVideoReached);
-		p.Do(videoPixelMode);
-		p.Do(mpegMagic);
-		p.Do(mpegVersion);
-		p.Do(mpegRawVersion);
-		p.Do(mpegOffset);
-		p.Do(mpegStreamSize);
-		p.Do(mpegFirstTimestamp);
-		p.Do(mpegLastTimestamp);
-		p.Do(mpegFirstDate);
-		p.Do(mpegLastDate);
-		p.Do(mpegRingbufferAddr);
-		p.DoArray(esBuffers, MPEG_DATA_ES_BUFFERS);
-		p.Do(avc);
-		p.Do(avcRegistered);
-		p.Do(atracRegistered);
-		p.Do(pcmRegistered);
-		p.Do(dataRegistered);
-		p.Do(ignoreAtrac);
-		p.Do(ignorePcm);
-		p.Do(ignoreAvc);
-		p.Do(isAnalyzed);
-		p.Do<u32, StreamInfo>(streamMap);
-		p.DoClass(mediaengine);
+		DoArray(p, mpegheader, 2048);
+		Do(p, defaultFrameWidth);
+		Do(p, videoFrameCount);
+		Do(p, audioFrameCount);
+		Do(p, endOfAudioReached);
+		Do(p, endOfVideoReached);
+		Do(p, videoPixelMode);
+		Do(p, mpegMagic);
+		Do(p, mpegVersion);
+		Do(p, mpegRawVersion);
+		Do(p, mpegOffset);
+		Do(p, mpegStreamSize);
+		Do(p, mpegFirstTimestamp);
+		Do(p, mpegLastTimestamp);
+		Do(p, mpegFirstDate);
+		Do(p, mpegLastDate);
+		Do(p, mpegRingbufferAddr);
+		DoArray(p, esBuffers, MPEG_DATA_ES_BUFFERS);
+		Do(p, avc);
+		Do(p, avcRegistered);
+		Do(p, atracRegistered);
+		Do(p, pcmRegistered);
+		Do(p, dataRegistered);
+		Do(p, ignoreAtrac);
+		Do(p, ignorePcm);
+		Do(p, ignoreAvc);
+		Do(p, isAnalyzed);
+		Do<u32, StreamInfo>(p, streamMap);
+		DoClass(p, mediaengine);
 		ringbufferNeedsReverse = s < 2;
 	}
 
@@ -365,7 +367,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(ringAddr_);
+		Do(p, ringAddr_);
 	}
 	void run(MipsCall &call) override;
 private:
@@ -392,20 +394,20 @@ void __MpegDoState(PointerWrap &p) {
 	if (s < 2) {
 		int oldLastMpeg = -1;
 		bool oldIsMpegAnalyzed = false;
-		p.Do(oldLastMpeg);
-		p.Do(streamIdGen);
-		p.Do(oldIsMpegAnalyzed);
+		Do(p, oldLastMpeg);
+		Do(p, streamIdGen);
+		Do(p, oldIsMpegAnalyzed);
 		// Let's assume the oldest version.
 		mpegLibVersion = 0x0101;
 	} else {
-		p.Do(streamIdGen);
-		p.Do(mpegLibVersion);
+		Do(p, streamIdGen);
+		Do(p, mpegLibVersion);
 	}
-	p.Do(isMpegInit);
-	p.Do(actionPostPut);
+	Do(p, isMpegInit);
+	Do(p, actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
-	p.Do(mpegMap);
+	Do(p, mpegMap);
 }
 
 void __MpegShutdown() {
@@ -1054,8 +1056,8 @@ void __VideoPmpDoState(PointerWrap &p){
 		return;
 	}
 
-	p.Do(pmp_videoSource);
-	p.Do(pmp_nBlocks);
+	Do(p, pmp_videoSource);
+	Do(p, pmp_nBlocks);
 	if (p.mode == PointerWrap::MODE_READ){
 		// for loadstate, we will reinitialize the pmp codec
 		__VideoPmpShutdown();
@@ -1882,11 +1884,11 @@ static u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		WARN_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x): bad mpeg handle", mpeg, sourceAddr, YCbCrAddr);
+		ERROR_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x): bad mpeg handle", mpeg, sourceAddr, YCbCrAddr);
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x)", mpeg, sourceAddr, YCbCrAddr);
+	WARN_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x)", mpeg, sourceAddr, YCbCrAddr);
 	return 0;
 }
 
@@ -1951,8 +1953,16 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width = Memory::Read_U32(rangeAddr + 8);
 	int height = Memory::Read_U32(rangeAddr + 12);
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
+	if (((x | y | width | height) & 0xF) != 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_MPEG_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return ERROR_MPEG_INVALID_VALUE;
+	}
+	if (x < 0 || y < 0 || width < 0 || height < 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
 
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 	gpu->NotifyVideoUpload(destAddr, destSize, frameWidth, ctx->videoPixelMode);
 
 	// Do not use avcDecodeDelayMs 's value

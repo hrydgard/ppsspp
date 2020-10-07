@@ -29,13 +29,18 @@
 #undef realloc
 #endif
 
-#include "base/logging.h"
-#include "base/basictypes.h"
-#include "base/stringutil.h"
-#include "ShaderTranslation.h"
+// Weird issue
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM)
+#undef free
+#endif
+
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+
+#include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
-#include "thin3d/thin3d.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "ext/SPIRV-Cross/spirv.hpp"
 #include "ext/SPIRV-Cross/spirv_common.hpp"
@@ -206,7 +211,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	}
 
 	// DUMPLOG(src.c_str());
-	// ILOG("---->");
+	// INFO_LOG(SYSTEM, "---->");
 	// DUMPLOG(LineNumberString(out.str()).c_str());
 
 	*dest = out.str();
@@ -247,8 +252,8 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	shaderStrings[0] = src.c_str();
 	shader.setStrings(shaderStrings, 1);
 	if (!shader.parse(&Resources, 100, EProfile::ECompatibilityProfile, false, false, messages)) {
-		ELOG("%s", shader.getInfoLog());
-		ELOG("%s", shader.getInfoDebugLog());
+		ERROR_LOG(G3D, "%s", shader.getInfoLog());
+		ERROR_LOG(G3D, "%s", shader.getInfoDebugLog());
 		if (errorMessage) {
 			*errorMessage = shader.getInfoLog();
 			(*errorMessage) += shader.getInfoDebugLog();
@@ -260,8 +265,8 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	program.addShader(&shader);
 
 	if (!program.link(messages)) {
-		ELOG("%s", shader.getInfoLog());
-		ELOG("%s", shader.getInfoDebugLog());
+		ERROR_LOG(G3D, "%s", shader.getInfoLog());
+		ERROR_LOG(G3D, "%s", shader.getInfoDebugLog());
 		if (errorMessage) {
 			*errorMessage = shader.getInfoLog();
 			(*errorMessage) += shader.getInfoDebugLog();

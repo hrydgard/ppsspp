@@ -19,7 +19,7 @@
 #if PPSSPP_ARCH(ARM64)
 
 #include <cmath>
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
@@ -171,7 +171,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
-		_assert_msg_(JIT, js.prefixDFlag & JitState::PREFIX_KNOWN, "Unexpected unknown prefix!");
+		_assert_msg_(js.prefixDFlag & JitState::PREFIX_KNOWN, "Unexpected unknown prefix!");
 		if (!js.prefixD)
 			return;
 
@@ -435,7 +435,7 @@ namespace MIPSComp {
 			fp.FMOV(fpr.V(dregs[3]), (vd & 3) == 3 ? S1 : S0);
 			break;
 		default:
-			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_( 0, "Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 
@@ -1069,7 +1069,7 @@ namespace MIPSComp {
 				}
 			} else {
 				//ERROR
-				_dbg_assert_msg_(CPU, 0, "mtv - invalid register");
+				_dbg_assert_msg_( 0, "mtv - invalid register");
 			}
 			break;
 

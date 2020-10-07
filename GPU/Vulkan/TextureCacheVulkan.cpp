@@ -19,29 +19,32 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
@@ -61,291 +64,6 @@ static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, 
 static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
 static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-
-// 4xBRZ shader - Copyright (C) 2014-2016 DeSmuME team (GPL2+)
-// Hyllian's xBR-vertex code and texel mapping
-// Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com
-// TODO: Handles alpha badly for PSP.
-const char *shader4xbrz = R"(
-vec4 premultiply_alpha(vec4 c) { float a = clamp(c.a, 0.0, 1.0); return vec4(c.rgb * a, a); }
-vec4 postdivide_alpha(vec4 c) { return c.a < 0.001? vec4(0.0,0.0,0.0,0.0) : vec4(c.rgb / c.a, c.a); }
-
-#define BLEND_ALPHA 1
-#define BLEND_NONE 0
-#define BLEND_NORMAL 1
-#define BLEND_DOMINANT 2
-#define LUMINANCE_WEIGHT 1.0
-#define EQUAL_COLOR_TOLERANCE 30.0/255.0
-#define STEEP_DIRECTION_THRESHOLD 2.2
-#define DOMINANT_DIRECTION_THRESHOLD 3.6
-
-float reduce(vec4 color) {
-	return dot(color.rgb, vec3(65536.0, 256.0, 1.0));
-}
-
-float DistYCbCr(vec4 pixA, vec4 pixB) {
-	const vec3 w = vec3(0.2627, 0.6780, 0.0593);
-	const float scaleB = 0.5 / (1.0 - w.b);
-	const float scaleR = 0.5 / (1.0 - w.r);
-	vec4 diff = pixA - pixB;
-	float Y = dot(diff.rgb, w);
-	float Cb = scaleB * (diff.b - Y);
-	float Cr = scaleR * (diff.r - Y);
-
-	return sqrt( ((LUMINANCE_WEIGHT * Y) * (LUMINANCE_WEIGHT * Y)) + (Cb * Cb) + (Cr * Cr) + (diff.a * diff.a));
-}
-
-bool IsPixEqual(const vec4 pixA, const vec4 pixB) {
-	return (DistYCbCr(pixA, pixB) < EQUAL_COLOR_TOLERANCE);
-}
-
-bool IsBlendingNeeded(const ivec4 blend) {
-	ivec4 diff = blend - ivec4(BLEND_NONE);
-	return diff.x != 0 || diff.y != 0 || diff.z != 0 || diff.w != 0;
-}
-
-vec4 applyScalingf(uvec2 origxy, uvec2 xy) {
-	float dx = 1.0 / params.width;
-	float dy = 1.0 / params.height;
-
-	//    A1 B1 C1
-	// A0 A  B  C C4
-	// D0 D  E  F F4
-	// G0 G  H  I I4
-	//    G5 H5 I5
-
-	uvec4 t1 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y - 2); // A1 B1 C1
-	uvec4 t2 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y - 1); // A B C
-	uvec4 t3 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y + 0); // D E F
-	uvec4 t4 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y + 1); // G H I
-	uvec4 t5 = uvec4(origxy.x - 1, origxy.x, origxy.x + 1, origxy.y + 2); // G5 H5 I5
-	uvec4 t6 = uvec4(origxy.x - 2, origxy.y - 1, origxy.y, origxy.y + 1); // A0 D0 G0
-	uvec4 t7 = uvec4(origxy.x + 2, origxy.y - 1, origxy.y, origxy.y + 1); // C4 F4 I4
-
-	vec2 f = fract(vec2(float(xy.x) / float(params.scale), float(xy.y) / float(params.scale)));
-
-	//---------------------------------------
-	// Input Pixel Mapping:    |21|22|23|
-	//                       19|06|07|08|09
-	//                       18|05|00|01|10
-	//                       17|04|03|02|11
-	//                         |15|14|13|
-
-	vec4 src[25];
-
-	src[21] = premultiply_alpha(readColorf(t1.xw));
-	src[22] = premultiply_alpha(readColorf(t1.yw));
-	src[23] = premultiply_alpha(readColorf(t1.zw));
-	src[ 6] = premultiply_alpha(readColorf(t2.xw));
-	src[ 7] = premultiply_alpha(readColorf(t2.yw));
-	src[ 8] = premultiply_alpha(readColorf(t2.zw));
-	src[ 5] = premultiply_alpha(readColorf(t3.xw));
-	src[ 0] = premultiply_alpha(readColorf(t3.yw));
-	src[ 1] = premultiply_alpha(readColorf(t3.zw));
-	src[ 4] = premultiply_alpha(readColorf(t4.xw));
-	src[ 3] = premultiply_alpha(readColorf(t4.yw));
-	src[ 2] = premultiply_alpha(readColorf(t4.zw));
-	src[15] = premultiply_alpha(readColorf(t5.xw));
-	src[14] = premultiply_alpha(readColorf(t5.yw));
-	src[13] = premultiply_alpha(readColorf(t5.zw));
-	src[19] = premultiply_alpha(readColorf(t6.xy));
-	src[18] = premultiply_alpha(readColorf(t6.xz));
-	src[17] = premultiply_alpha(readColorf(t6.xw));
-	src[ 9] = premultiply_alpha(readColorf(t7.xy));
-	src[10] = premultiply_alpha(readColorf(t7.xz));
-	src[11] = premultiply_alpha(readColorf(t7.xw));
-
-	float v[9];
-	v[0] = reduce(src[0]);
-	v[1] = reduce(src[1]);
-	v[2] = reduce(src[2]);
-	v[3] = reduce(src[3]);
-	v[4] = reduce(src[4]);
-	v[5] = reduce(src[5]);
-	v[6] = reduce(src[6]);
-	v[7] = reduce(src[7]);
-	v[8] = reduce(src[8]);
-
-	ivec4 blendResult = ivec4(BLEND_NONE);
-
-	// Preprocess corners
-	// Pixel Tap Mapping: --|--|--|--|--
-	//                    --|--|07|08|--
-	//                    --|05|00|01|10
-	//                    --|04|03|02|11
-	//                    --|--|14|13|--
-	// Corner (1, 1)
-	if ( ((v[0] == v[1] && v[3] == v[2]) || (v[0] == v[3] && v[1] == v[2])) == false) {
-		float dist_03_01 = DistYCbCr(src[ 4], src[ 0]) + DistYCbCr(src[ 0], src[ 8]) + DistYCbCr(src[14], src[ 2]) + DistYCbCr(src[ 2], src[10]) + (4.0 * DistYCbCr(src[ 3], src[ 1]));
-		float dist_00_02 = DistYCbCr(src[ 5], src[ 3]) + DistYCbCr(src[ 3], src[13]) + DistYCbCr(src[ 7], src[ 1]) + DistYCbCr(src[ 1], src[11]) + (4.0 * DistYCbCr(src[ 0], src[ 2]));
-		bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_03_01) < dist_00_02;
-		blendResult[2] = ((dist_03_01 < dist_00_02) && (v[0] != v[1]) && (v[0] != v[3])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
-	}
-
-	// Pixel Tap Mapping: --|--|--|--|--
-	//                    --|06|07|--|--
-	//                    18|05|00|01|--
-	//                    17|04|03|02|--
-	//                    --|15|14|--|--
-	// Corner (0, 1)
-	if ( ((v[5] == v[0] && v[4] == v[3]) || (v[5] == v[4] && v[0] == v[3])) == false) {
-		float dist_04_00 = DistYCbCr(src[17], src[ 5]) + DistYCbCr(src[ 5], src[ 7]) + DistYCbCr(src[15], src[ 3]) + DistYCbCr(src[ 3], src[ 1]) + (4.0 * DistYCbCr(src[ 4], src[ 0]));
-		float dist_05_03 = DistYCbCr(src[18], src[ 4]) + DistYCbCr(src[ 4], src[14]) + DistYCbCr(src[ 6], src[ 0]) + DistYCbCr(src[ 0], src[ 2]) + (4.0 * DistYCbCr(src[ 5], src[ 3]));
-		bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_05_03) < dist_04_00;
-		blendResult[3] = ((dist_04_00 > dist_05_03) && (v[0] != v[5]) && (v[0] != v[3])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
-	}
-
-	// Pixel Tap Mapping: --|--|22|23|--
-	//                    --|06|07|08|09
-	//                    --|05|00|01|10
-	//                    --|--|03|02|--
-	//                    --|--|--|--|--
-	// Corner (1, 0)
-	if ( ((v[7] == v[8] && v[0] == v[1]) || (v[7] == v[0] && v[8] == v[1])) == false) {
-		float dist_00_08 = DistYCbCr(src[ 5], src[ 7]) + DistYCbCr(src[ 7], src[23]) + DistYCbCr(src[ 3], src[ 1]) + DistYCbCr(src[ 1], src[ 9]) + (4.0 * DistYCbCr(src[ 0], src[ 8]));
-		float dist_07_01 = DistYCbCr(src[ 6], src[ 0]) + DistYCbCr(src[ 0], src[ 2]) + DistYCbCr(src[22], src[ 8]) + DistYCbCr(src[ 8], src[10]) + (4.0 * DistYCbCr(src[ 7], src[ 1]));
-		bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_07_01) < dist_00_08;
-		blendResult[1] = ((dist_00_08 > dist_07_01) && (v[0] != v[7]) && (v[0] != v[1])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
-	}
-
-	// Pixel Tap Mapping: --|21|22|--|--
-	//                    19|06|07|08|--
-	//                    18|05|00|01|--
-	//                    --|04|03|--|--
-	//                    --|--|--|--|--
-	// Corner (0, 0)
-	if ( ((v[6] == v[7] && v[5] == v[0]) || (v[6] == v[5] && v[7] == v[0])) == false) {
-		float dist_05_07 = DistYCbCr(src[18], src[ 6]) + DistYCbCr(src[ 6], src[22]) + DistYCbCr(src[ 4], src[ 0]) + DistYCbCr(src[ 0], src[ 8]) + (4.0 * DistYCbCr(src[ 5], src[ 7]));
-		float dist_06_00 = DistYCbCr(src[19], src[ 5]) + DistYCbCr(src[ 5], src[ 3]) + DistYCbCr(src[21], src[ 7]) + DistYCbCr(src[ 7], src[ 1]) + (4.0 * DistYCbCr(src[ 6], src[ 0]));
-		bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_05_07) < dist_06_00;
-		blendResult[0] = ((dist_05_07 < dist_06_00) && (v[0] != v[5]) && (v[0] != v[7])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
-	}
-
-	vec4 dst[16];
-	dst[ 0] = src[0];
-	dst[ 1] = src[0];
-	dst[ 2] = src[0];
-	dst[ 3] = src[0];
-	dst[ 4] = src[0];
-	dst[ 5] = src[0];
-	dst[ 6] = src[0];
-	dst[ 7] = src[0];
-	dst[ 8] = src[0];
-	dst[ 9] = src[0];
-	dst[10] = src[0];
-	dst[11] = src[0];
-	dst[12] = src[0];
-	dst[13] = src[0];
-	dst[14] = src[0];
-	dst[15] = src[0];
-
-	// Scale pixel
-	if (IsBlendingNeeded(blendResult) == true) {
-		float dist_01_04 = DistYCbCr(src[1], src[4]);
-		float dist_03_08 = DistYCbCr(src[3], src[8]);
-		bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[4]) && (v[5] != v[4]);
-		bool haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[8]) && (v[7] != v[8]);
-		bool needBlend = (blendResult[2] != BLEND_NONE);
-		bool doLineBlend = (  blendResult[2] >= BLEND_DOMINANT ||
-			((blendResult[1] != BLEND_NONE && !IsPixEqual(src[0], src[4])) ||
-			(blendResult[3] != BLEND_NONE && !IsPixEqual(src[0], src[8])) ||
-			(IsPixEqual(src[4], src[3]) && IsPixEqual(src[3], src[2]) && IsPixEqual(src[2], src[1]) && IsPixEqual(src[1], src[8]) && IsPixEqual(src[0], src[2]) == false) ) == false );
-
-		vec4 blendPix = ( DistYCbCr(src[0], src[1]) <= DistYCbCr(src[0], src[3]) ) ? src[1] : src[3];
-		dst[ 2] = mix(dst[ 2], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-		dst[ 9] = mix(dst[ 9], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-		dst[10] = mix(dst[10], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-		dst[11] = mix(dst[11], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[12] = mix(dst[12], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-		dst[13] = mix(dst[13], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[14] = mix(dst[14], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-		dst[15] = mix(dst[15], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-
-		dist_01_04 = DistYCbCr(src[7], src[2]);
-		dist_03_08 = DistYCbCr(src[1], src[6]);
-		haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[2]) && (v[3] != v[2]);
-		haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[6]) && (v[5] != v[6]);
-		needBlend = (blendResult[1] != BLEND_NONE);
-		doLineBlend = (  blendResult[1] >= BLEND_DOMINANT ||
-			!((blendResult[0] != BLEND_NONE && !IsPixEqual(src[0], src[2])) ||
-			(blendResult[2] != BLEND_NONE && !IsPixEqual(src[0], src[6])) ||
-			(IsPixEqual(src[2], src[1]) && IsPixEqual(src[1], src[8]) && IsPixEqual(src[8], src[7]) && IsPixEqual(src[7], src[6]) && !IsPixEqual(src[0], src[8])) ) );
-
-		blendPix = ( DistYCbCr(src[0], src[7]) <= DistYCbCr(src[0], src[1]) ) ? src[7] : src[1];
-		dst[ 1] = mix(dst[ 1], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-		dst[ 7] = mix(dst[ 7], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-		dst[ 8] = mix(dst[ 8], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[ 9] = mix(dst[ 9], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-		dst[10] = mix(dst[10], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[11] = mix(dst[11], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-		dst[12] = mix(dst[12], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-
-		dist_01_04 = DistYCbCr(src[5], src[8]);
-		dist_03_08 = DistYCbCr(src[7], src[4]);
-		haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[8]) && (v[1] != v[8]);
-		haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[4]) && (v[3] != v[4]);
-		needBlend = (blendResult[0] != BLEND_NONE);
-		doLineBlend = (  blendResult[0] >= BLEND_DOMINANT ||
-			!((blendResult[3] != BLEND_NONE && !IsPixEqual(src[0], src[8])) ||
-			(blendResult[1] != BLEND_NONE && !IsPixEqual(src[0], src[4])) ||
-			(IsPixEqual(src[8], src[7]) && IsPixEqual(src[7], src[6]) && IsPixEqual(src[6], src[5]) && IsPixEqual(src[5], src[4]) && !IsPixEqual(src[0], src[6])) ) );
-
-		blendPix = ( DistYCbCr(src[0], src[5]) <= DistYCbCr(src[0], src[7]) ) ? src[5] : src[7];
-		dst[ 0] = mix(dst[ 0], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-		dst[15] = mix(dst[15], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-		dst[ 4] = mix(dst[ 4], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-		dst[ 5] = mix(dst[ 5], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[ 6] = mix(dst[ 6], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-		dst[ 7] = mix(dst[ 7], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[ 8] = mix(dst[ 8], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-		dst[ 9] = mix(dst[ 9], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-
-		dist_01_04 = DistYCbCr(src[3], src[6]);
-		dist_03_08 = DistYCbCr(src[5], src[2]);
-		haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[6]) && (v[7] != v[6]);
-		haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[2]) && (v[1] != v[2]);
-		needBlend = (blendResult[3] != BLEND_NONE);
-		doLineBlend = (  blendResult[3] >= BLEND_DOMINANT ||
-			!((blendResult[2] != BLEND_NONE && !IsPixEqual(src[0], src[6])) ||
-			(blendResult[0] != BLEND_NONE && !IsPixEqual(src[0], src[2])) ||
-			(IsPixEqual(src[6], src[5]) && IsPixEqual(src[5], src[4]) && IsPixEqual(src[4], src[3]) && IsPixEqual(src[3], src[2]) && !IsPixEqual(src[0], src[4])) ) );
-
-		blendPix = ( DistYCbCr(src[0], src[3]) <= DistYCbCr(src[0], src[5]) ) ? src[3] : src[5];
-		dst[ 3] = mix(dst[ 3], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-		dst[12] = mix(dst[12], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-		dst[13] = mix(dst[13], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-		dst[14] = mix(dst[14], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[15] = mix(dst[15], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-		dst[ 4] = mix(dst[ 4], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-		dst[ 5] = mix(dst[ 5], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-		dst[ 6] = mix(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-	}
-
-	// select output pixel
-	vec4 res = mix(mix(mix(mix(dst[ 6], dst[ 7], step(0.25, f.x)),
-					mix(dst[ 8], dst[ 9], step(0.75, f.x)),
-					step(0.50, f.x)),
-				mix(mix(dst[ 5], dst[ 0], step(0.25, f.x)),
-					mix(dst[ 1], dst[10], step(0.75, f.x)),
-					step(0.50, f.x)),
-				step(0.25, f.y)),
-		mix(mix(mix(dst[ 4], dst[ 3], step(0.25, f.x)),
-					mix(dst[ 2], dst[11], step(0.75, f.x)),
-					step(0.50, f.x)),
-				mix(mix(dst[15], dst[14], step(0.25, f.x)),
-					mix(dst[13], dst[12], step(0.75, f.x)),
-					step(0.50, f.x)),
-				step(0.75, f.y)),
-		step(0.50, f.y));
-
-	return postdivide_alpha(res);
-}
-
-uint applyScalingu(uvec2 origxy, uvec2 xy) {
-	return packUnorm4x8(applyScalingf(origxy, xy));
-}
-)";
 
 const char *copyShader = R"(
 #version 450
@@ -394,7 +112,7 @@ uint readColoru(uvec2 p) {
 			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
 			return (a << 24) | (b << 16) | (g << 8) | r;
 		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0x0F);
+			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
 			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
 			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
 			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
@@ -471,7 +189,7 @@ uint readColoru(uvec2 p) {
 			uint a = ((data >> 15) & 0x01) == 0 ? 0x00 : 0xFF;
 			return (a << 24) | (b << 16) | (g << 8) | r;
 		} else if (params.fmt == 4) {
-			uint r = (data & 0x0F) | ((data << 4) & 0x0F);
+			uint r = (data & 0x0F) | ((data << 4) & 0xF0);
 			uint g = (data & 0xF0) | ((data >> 4) & 0x0F);
 			uint b = ((data >> 8) & 0x0F) | ((data >> 4) & 0xF0);
 			uint a = ((data >> 12) & 0x0F) | ((data >> 8) & 0xF0);
@@ -537,7 +255,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.mipLodBias = (float)(int32_t)key.lodBias * (1.0f / 256.0f);
 
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 	cache_.Insert(key, sampler);
 	return sampler;
 }
@@ -634,7 +352,7 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	vulkan_ = vulkan;
 	draw_ = draw;
 
-	assert(!allocator_);
+	_assert_(!allocator_);
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
@@ -646,24 +364,60 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	_assert_(res == VK_SUCCESS);
 
-	std::string error;
-	std::string fullUploadShader = StringFromFormat(uploadShader, shader4xbrz);
-	std::string fullCopyShader = StringFromFormat(copyShader, shader4xbrz);
-
-	if (g_Config.bTexHardwareScaling) {
-		uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
-		_dbg_assert_msg_(G3D, uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
-		copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
-		_dbg_assert_msg_(G3D, copyCS_!= VK_NULL_HANDLE, "failed to compile copy shader");
-	}
+	CompileScalingShader();
 
 	computeShaderManager_.DeviceRestore(vulkan);
 }
 
+void TextureCacheVulkan::NotifyConfigChanged() {
+	TextureCacheCommon::NotifyConfigChanged();
+	CompileScalingShader();
+}
+
+static std::string ReadShaderSrc(const std::string &filename) {
+	size_t sz = 0;
+	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
+	if (!data)
+		return "";
+
+	std::string src(data, sz);
+	free(data);
+	return src;
+}
+
+void TextureCacheVulkan::CompileScalingShader() {
+	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
+		if (uploadCS_ != VK_NULL_HANDLE)
+			vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
+		if (copyCS_ != VK_NULL_HANDLE)
+			vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
+		textureShader_.clear();
+	}
+	if (!g_Config.bTexHardwareScaling)
+		return;
+
+	ReloadAllPostShaderInfo();
+	const TextureShaderInfo *shaderInfo = GetTextureShaderInfo(g_Config.sTextureShaderName);
+	if (!shaderInfo || shaderInfo->computeShaderFile.empty())
+		return;
+
+	std::string shaderSource = ReadShaderSrc(shaderInfo->computeShaderFile);
+	std::string fullUploadShader = StringFromFormat(uploadShader, shaderSource.c_str());
+	std::string fullCopyShader = StringFromFormat(copyShader, shaderSource.c_str());
+
+	std::string error;
+	uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
+	_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
+	copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
+	_dbg_assert_msg_(copyCS_ != VK_NULL_HANDLE, "failed to compile copy shader");
+
+	textureShader_ = g_Config.sTextureShaderName;
+}
+
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %p", entry->vkTex);
 	delete entry->vkTex;
 	entry->vkTex = nullptr;
 }
@@ -686,31 +440,6 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_NEAREST,
 	VK_FILTER_LINEAR
 };
-
-void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	key.minFilt = minFilt & 1;
-	key.mipFilt = 0;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-}
 
 void TextureCacheVulkan::StartFrame() {
 	InvalidateLastTexture();
@@ -740,7 +469,7 @@ void TextureCacheVulkan::EndFrame() {
 	computeShaderManager_.EndFrame();
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 }
 
@@ -755,7 +484,10 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -778,17 +510,14 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
-		return;
-	}
+	_assert_(entry);
+	_assert_(entry->vkTex);
 
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
-	SamplerCacheKey key{};
-	UpdateSamplingParams(*entry, key);
-	curSampler_ = samplerCache_.GetOrCreateSampler(key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);
 }
@@ -799,17 +528,19 @@ void TextureCacheVulkan::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer;
 	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+	bool depth = channel == NOTIFY_FB_DEPTH;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
 
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+	bool need_depalettize = IsClutFormat(texFormat);
+
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -828,11 +559,10 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 			curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-			InvalidateLastTexture(entry);
 			imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			return;
 		} else {
-			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 			gstate_c.SetUseShaderDepal(false);
 		}
@@ -843,7 +573,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
 		Vulkan2D::Vertex verts[4] = {
 			{ -1, -1, 0.0f, 0, 0 },
@@ -900,12 +630,24 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		VkBuffer pushed;
 		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
 
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindPipeline(depalShader->pipeline);
+
+		if (depth) {
+			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
+			struct DepthPushConstants {
+				float z_scale;
+				float z_offset;
+			};
+			DepthPushConstants push;
+			push.z_scale = scaleFactors.scale;
+			push.z_offset = scaleFactors.offset;
+			renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DepthPushConstants), &push);
+		}
 		renderManager->SetScissor(VkRect2D{ {0, 0}, { framebuffer->renderWidth, framebuffer->renderHeight} });
 		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
@@ -917,7 +659,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 
-		framebufferManager_->RebindFramebuffer();
+		framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
@@ -926,17 +668,14 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
-		framebufferManager_->RebindFramebuffer();  // TODO: This line should usually not be needed.
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 		gstate_c.SetUseShaderDepal(false);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
+
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-	InvalidateLastTexture(entry);
 }
 
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
@@ -960,14 +699,8 @@ VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
-	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if (entry->framebuffer) {
-		// Nothing else to do here.
-		return;
-	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
@@ -977,7 +710,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+
+	// maxLevel here is the max level to upload. Not the count.
 	int maxLevel = entry->maxLevel;
+
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
@@ -1010,6 +746,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels.
+	int maxLevelToGenerate = maxLevel;
+
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
@@ -1035,17 +775,19 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
+	bool hardwareScaling = g_Config.bTexHardwareScaling && (uploadCS_ != VK_NULL_HANDLE || copyCS_ != VK_NULL_HANDLE);
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
 		scaleFactor = 1;
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && !g_Config.bTexHardwareScaling) {
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && !hardwareScaling) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 		scaleFactor = 1;
 	}
 
 	if (scaleFactor != 1) {
-		if (!g_Config.bUnlockCachedScaling && texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && !g_Config.bTexHardwareScaling) {
+		if (!g_Config.bUnlockCachedScaling && texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && !hardwareScaling) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
 		} else {
@@ -1067,6 +809,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	bool computeUpload = false;
 	bool computeCopy = false;
+	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
 	{
 		delete entry->vkTex;
@@ -1093,11 +836,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		// If we want to use the GE debugger, we should add VK_IMAGE_USAGE_TRANSFER_SRC_BIT too...
+		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 		// Compute experiment
-		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && g_Config.bTexHardwareScaling) {
+		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
 			// Enable the experiment you want.
 			if (uploadCS_ != VK_NULL_HANDLE)
 				computeUpload = true;
@@ -1111,10 +853,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		char texName[128]{};
-		snprintf(texName, sizeof(texName), "Texture%08x", entry->addr);
+		snprintf(texName, sizeof(texName), "texture_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format));
 		image->SetTag(texName);
 
-		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, imageLayout, usage, mapping);
+		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
 			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 			lowMemoryMode_ = true;
@@ -1133,7 +875,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			scaleFactor = 1;
 			actualFmt = dstFmt;
 
-			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		}
 
 		if (!allocSuccess) {
@@ -1142,7 +884,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			entry->vkTex = nullptr;
 		}
 	}
-	lastBoundTexture = entry->vkTex;
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	if (replacer_.Enabled() && !replaced.Valid()) {
@@ -1257,6 +998,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 		}
 
+		// Generate any additional mipmap levels.
+		for (int level = maxLevel + 1; level <= maxLevelToGenerate; level++) {
+			entry->vkTex->GenerateMip(cmdInit, level);
+		}
+
 		if (maxLevel == 0) {
 			entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
 		} else {
@@ -1267,8 +1013,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
-
-	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -1363,7 +1107,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			dstFmt = (VkFormat)fmt;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == VULKAN_8888_FORMAT);
+			_assert_(dstFmt == VULKAN_8888_FORMAT);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 
@@ -1381,26 +1125,26 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(false);
-	if (!nextTexture_)
-		return false;
+	SetTexture();
+	if (!nextTexture_) {
+		if (nextFramebufferTexture_) {
+			VirtualFramebuffer *vfb = nextFramebufferTexture_;
+			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			// We may have blitted to a temp FBO.
+			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			return retval;
+		} else {
+			return false;
+		}
+	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
 	ApplyTexture();
-
-	// TODO: Centralize?
-	if (entry->framebuffer) {
-		VirtualFramebuffer *vfb = entry->framebuffer;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
-		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer();
-		return retval;
-	}
 
 	if (!entry->vkTex)
 		return false;
@@ -1433,12 +1177,12 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	int h = texture->GetHeight();
 	buffer.Allocate(w, h, bufferFormat);
 
-	renderManager->CopyImageToMemorySync(texture->GetImage(), level, 0, 0, w, h, drawFormat, (uint8_t *)buffer.GetData(), w);
+	renderManager->CopyImageToMemorySync(texture->GetImage(), level, 0, 0, w, h, drawFormat, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
 
 	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-	framebufferManager_->RebindFramebuffer();
+	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 	return true;
 }
 

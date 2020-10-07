@@ -23,19 +23,19 @@
 #include <cstdio>
 #include <map>
 
-#include "math/dataconv.h"
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "gfx/gl_debug_log.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
-#include "Common/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -736,10 +736,10 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	shaderSwitchDirtyUniforms_ = 0;
 
 	if (ls == nullptr) {
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+		_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
+		_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
+		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 		// Check if we can link these.
 		ls = new LinkedShader(render_, VSID, vs, FSID, fs, vs->UseHWTransform());
@@ -850,7 +850,6 @@ void ShaderManagerGLES::Load(const std::string &filename) {
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
 		return;
 	}
-	time_update();
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
@@ -908,12 +907,12 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 
 	PSP_SetLoading("Compiling shaders...");
 
-	double start = real_time_now();
+	double start = time_now_d();
 	// Let's try to keep it under sliceTime if possible.
 	double end = start + sliceTime;
 
 	for (size_t &i = pending.vertPos; i < pending.vert.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -943,7 +942,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.fragPos; i < pending.frag.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -957,7 +956,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.linkPos; i < pending.link.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -974,7 +973,6 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	// Okay, finally done.  Time to report status.
-	time_update();
 	double finish = time_now_d();
 
 	NOTICE_LOG(G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));

@@ -275,7 +275,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	PlatformSuffix = $(subst windows_msvc2017_,,$(platform))
 	ifneq (,$(findstring desktop,$(PlatformSuffix)))
 		WinPartition = desktop
-		MSVC2017CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0501 -D_WIN32_WINNT=0x0501
+		MSVC2017CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
 		LDFLAGS += -MANIFEST -NXCOMPAT -DYNAMICBASE -DEBUG -OPT:REF -INCREMENTAL:NO -SUBSYSTEM:WINDOWS -MANIFESTUAC:"level='asInvoker' uiAccess='false'" -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1
 		LIBS += kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib
 	else ifneq (,$(findstring uwp,$(PlatformSuffix)))
@@ -374,7 +374,114 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
+
+# Windows MSVC 2019 all architectures
+else ifneq (,$(findstring windows_msvc2019,$(platform)))
+
+	PlatformSuffix = $(subst windows_msvc2019_,,$(platform))
+	ifneq (,$(findstring desktop,$(PlatformSuffix)))
+		WinPartition = desktop
+		MSVC2019CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_DESKTOP_APP -D_UNICODE -DUNICODE -DWINVER=0x0600 -D_WIN32_WINNT=0x0600
+		LDFLAGS += -MANIFEST -NXCOMPAT -DYNAMICBASE -DEBUG -OPT:REF -INCREMENTAL:NO -SUBSYSTEM:WINDOWS -MANIFESTUAC:"level='asInvoker' uiAccess='false'" -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1
+		LIBS += kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib
+	else ifneq (,$(findstring uwp,$(PlatformSuffix)))
+		WinPartition = uwp
+		MSVC2019CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_APP -DWINDLL -D_UNICODE -DUNICODE -DWRL_NO_DEFAULT_LIB
+		LDFLAGS += -APPCONTAINER -NXCOMPAT -DYNAMICBASE -MANIFEST:NO -OPT:REF -SUBSYSTEM:CONSOLE -MANIFESTUAC:NO -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1 -DEBUG:FULL -WINMD:NO
+		LIBS += WindowsApp.lib
+	endif
+
+	CFLAGS += $(MSVC2019CompileFlags) -nologo
+	CXXFLAGS += $(MSVC2019CompileFlags) -nologo -EHsc
+
+	TargetArchMoniker = $(subst $(WinPartition)_,,$(PlatformSuffix))
+
+	CC  = cl.exe
+	CXX = cl.exe
+
+	SPACE :=
+	SPACE := $(SPACE) $(SPACE)
+	BACKSLASH :=
+	BACKSLASH := \$(BACKSLASH)
+	filter_out1 = $(filter-out $(firstword $1),$1)
+	filter_out2 = $(call filter_out1,$(call filter_out1,$1))
+
+	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
+	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
+
+	b1 := (
+	b2 := )
+	ProgramFiles86w := $(ProgramFiles$(b1)x86$(b2))
+	ProgramFiles86 := $(shell cygpath "$(ProgramFiles86w)")
+
+	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0)
+	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_CURRENT_USER\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0)
+	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SDKs\Windows\v10.0)
+	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_CURRENT_USER\SOFTWARE\Microsoft\Microsoft SDKs\Windows\v10.0)
+	WindowsSdkDir := $(WindowsSdkDir)
+
+	WindowsSDKVersion ?= $(firstword $(foreach folder,$(subst $(subst \,/,$(WindowsSdkDir)Include/),,$(wildcard $(call fix_path,$(WindowsSdkDir)Include\*))),$(if $(wildcard $(call fix_path,$(WindowsSdkDir)Include/$(folder)/um/Windows.h)),$(folder),)))$(BACKSLASH)
+	WindowsSDKVersion := $(WindowsSDKVersion)
+
+	VsInstallBuildTools = $(ProgramFiles86)/Microsoft Visual Studio/2019/BuildTools
+	VsInstallEnterprise = $(ProgramFiles86)/Microsoft Visual Studio/2019/Enterprise
+	VsInstallProfessional = $(ProgramFiles86)/Microsoft Visual Studio/2019/Professional
+	VsInstallCommunity = $(ProgramFiles86)/Microsoft Visual Studio/2019/Community
+
+	VsInstallRoot ?= $(shell if [ -d "$(VsInstallBuildTools)" ]; then echo "$(VsInstallBuildTools)"; fi)
+	ifeq ($(VsInstallRoot), )
+		VsInstallRoot = $(shell if [ -d "$(VsInstallEnterprise)" ]; then echo "$(VsInstallEnterprise)"; fi)
+	endif
+	ifeq ($(VsInstallRoot), )
+		VsInstallRoot = $(shell if [ -d "$(VsInstallProfessional)" ]; then echo "$(VsInstallProfessional)"; fi)
+	endif
+	ifeq ($(VsInstallRoot), )
+		VsInstallRoot = $(shell if [ -d "$(VsInstallCommunity)" ]; then echo "$(VsInstallCommunity)"; fi)
+	endif
+	VsInstallRoot := $(VsInstallRoot)
+
+	VcCompilerToolsVer := $(shell cat "$(VsInstallRoot)/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt" | grep -o '[0-9\.]*')
+	VcCompilerToolsDir := $(VsInstallRoot)/VC/Tools/MSVC/$(VcCompilerToolsVer)
+	VcCompilerLibDir := $(VcCompilerToolsDir)/lib/$(TargetArchMoniker)
+
+	WindowsSDKSharedIncludeDir := $(shell cygpath -w "$(WindowsSdkDir)\Include\$(WindowsSDKVersion)\shared")
+	WindowsSDKUCRTIncludeDir := $(shell cygpath -w "$(WindowsSdkDir)\Include\$(WindowsSDKVersion)\ucrt")
+	WindowsSDKUMIncludeDir := $(shell cygpath -w "$(WindowsSdkDir)\Include\$(WindowsSDKVersion)\um")
+	WindowsSDKUCRTLibDir := $(shell cygpath -w "$(WindowsSdkDir)\Lib\$(WindowsSDKVersion)\ucrt\$(TargetArchMoniker)")
+	WindowsSDKUMLibDir := $(shell cygpath -w "$(WindowsSdkDir)\Lib\$(WindowsSDKVersion)\um\$(TargetArchMoniker)")
+
+	LIB := $(shell IFS=$$'\n'; cygpath -w "$(VcCompilerLibDir)")
+	INCLUDE := $(shell IFS=$$'\n'; cygpath -w "$(VcCompilerToolsDir)/include")
+
+	# For some reason the HostX86 compiler doesn't like compiling for x64
+	# ("no such file" opening a shared library), and vice-versa.
+	# Work around it for now by using the strictly x86 compiler for x86, and x64 for x64.
+	# NOTE: What about ARM?
+	ifneq (,$(findstring x64,$(TargetArchMoniker)))
+		override TARGET_ARCH = x86_64
+		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX64/$(TargetArchMoniker)
+      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x64
+	else
+		override TARGET_ARCH = x86
+		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX86/$(TargetArchMoniker)
+      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x86
+	endif
+
+	PATH := $(shell IFS=$$'\n'; cygpath "$(VCCompilerToolsBinDir)"):$(PATH)
+	PATH := $(PATH):$(shell IFS=$$'\n'; cygpath "$(VsInstallRoot)/Common7/IDE")
+
+	export INCLUDE := $(INCLUDE);$(WindowsSDKSharedIncludeDir);$(WindowsSDKUCRTIncludeDir);$(WindowsSDKUMIncludeDir)
+	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir);$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
+	TARGET := $(TARGET_NAME)_libretro.dll
+	PSS_STYLE :=2
+	LDFLAGS += -DLL
+	PLATFORM_EXT := win32
+	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
+	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
+	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
+	GL_LIB := opengl32.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
 
 # Windows
 else ifneq (,$(findstring win,$(platform)))   
@@ -405,7 +512,7 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DGLEW_STATIC -DGLEW_NO_GLU
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
 
 ifeq ($(DEBUG), 1)
 	ifneq (,$(findstring msvc,$(platform)))

@@ -4,7 +4,7 @@ plugins {
 apply plugin: 'com.android.application'
 
 androidGitVersion {
-	codeFormat = "MNPPBBBB"
+	codeFormat = "MNNPPBBBB"
 	format = "%tag%%-count%%-branch%%-dirty%"
 	prefix = "v"  // Only tags beginning with v are considered.
 	untrackedIsDirty = false

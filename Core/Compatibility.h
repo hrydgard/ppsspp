@@ -80,6 +80,7 @@ struct CompatFlags {
 	bool MoreAccurateVMMUL;
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
+	bool ReportSmallMemstick;
 };
 
 class IniFile;

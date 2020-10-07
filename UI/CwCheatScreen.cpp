@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ext/cityhash/city.h"
-#include "i18n/i18n.h"
-#include "ui/ui.h"
-#include "util/text/utf8.h"
+#include "ext/xxhash.h"
+#include "Common/UI/UI.h"
 
-#include "Common/FileUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/System/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -61,7 +63,7 @@ void CwCheatScreen::LoadCheatInfo() {
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
 	if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
-		fileCheckHash_ = CityHash64(str.c_str(), str.size());
+		fileCheckHash_ = XXH3_64bits(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
 
@@ -118,7 +120,7 @@ void CwCheatScreen::update() {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
 		if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
-			uint64_t newHash = CityHash64(str.c_str(), str.size());
+			uint64_t newHash = XXH3_64bits(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.
 				RecreateViews();

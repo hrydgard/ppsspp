@@ -1,10 +1,9 @@
-// See comment in header for the purpose of this.
+// See comment in header for the purpose of the code in this file.
 
 #include <algorithm>
 #include <cmath>
 
-#include "base/basictypes.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Core/System.h"
 
@@ -24,25 +23,24 @@
 #include <emmintrin.h>
 #endif
 
-extern bool g_DarkStalkerStretch;
+extern DSStretch g_DarkStalkerStretch;
 // For Darkstalkers hack. Ugh.
 extern bool currentDialogActive;
 
 namespace Rasterizer {
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(u16 *pixel, const Vec4<int> &color_in) {
+inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
-	if (color_in.a() == 255) {
-		new_color = color_in.ToRGBA() & 0xFFFFFF;
+	if ((color_in >> 24) == 255) {
+		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(color_in, dst);
+		Vec3<int> blended = AlphaBlendingResult(Vec4<int>::FromRGBA(color_in), dst);
 		// ToRGB() always automatically clamps.
 		new_color = blended.ToRGB();
 	}
-
 	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
 	*pixel = RGBA8888ToRGBA5551(new_color);
 }
@@ -148,7 +146,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
 						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, Vec4<int>::FromRGBA(tex_color));
+							DrawSinglePixel5551(pixel, tex_color);
 						}
 						s += ds;
 						pixel++;
@@ -159,7 +157,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = ModulateRGBA(prim_color, tex_color);
 						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color);
+							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
 						}
 						s += ds;
 						pixel++;
@@ -208,7 +206,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				for (int x = pos0.x; x < pos1.x; x++) {
 					Vec4<int> prim_color = v0.color0;
-					DrawSinglePixel5551(pixel, prim_color);
+					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
 					pixel++;
 				}
 			}
@@ -224,11 +222,11 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	}
 }
 
-bool needsClear = false;
+bool g_needsClearAfterDialog = false;
 
 // Returns true if the normal path should be skipped.
 bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
-	g_DarkStalkerStretch = false;
+	g_DarkStalkerStretch = DSStretch::Off;
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
 	int ydiff = v1.screenpos.y - v0.screenpos.y;
@@ -237,8 +235,10 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	bool coord_check =
 		(xdiff == udiff || xdiff == -udiff) &&
 		(ydiff == vdiff || ydiff == -vdiff);
+	// Currently only works for TL/BR, which is the most common but not required.
+	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	bool state_check = !gstate.isModeClear();  // TODO: Add support for clear modes in Rasterizer::DrawSprite.
-	if ((coord_check || !gstate.isTextureMapEnabled()) && state_check) {
+	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1);
 		return true;
 	}
@@ -246,24 +246,28 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	// Eliminate the stretch blit in DarkStalkers.
 	// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
-		if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
-			// Also check for save/load dialog.
-			if (!currentDialogActive) {
-				g_DarkStalkerStretch = true;
-				if (needsClear) {
-					needsClear = false;
-					// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
-					gstate.textureMapEnable &= ~1;
-					VertexData newV0 = v0;
-					newV0.color0 = Vec4<int>(0, 0, 0, 255);
-					Rasterizer::DrawSprite(newV0, v1);
-					gstate.textureMapEnable |= 1;
-				}
-				return true;
+		// check for save/load dialog.
+		if (!currentDialogActive) {
+			if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
+				g_DarkStalkerStretch = DSStretch::Wide;
+			} else if (v0.screenpos.x == 0x7400 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8C00 && v1.screenpos.y == 0x8880) {
+				g_DarkStalkerStretch = DSStretch::Normal;
 			} else {
-				needsClear = true;
+				return false;
 			}
-		} // else, handle the Capcom screen stretch, or the non-wide stretch? Or let's just not bother.
+			if (g_needsClearAfterDialog) {
+				g_needsClearAfterDialog = false;
+				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
+				gstate.textureMapEnable &= ~1;
+				VertexData newV0 = v0;
+				newV0.color0 = Vec4<int>(0, 0, 0, 255);
+				Rasterizer::DrawSprite(newV0, v1);
+				gstate.textureMapEnable |= 1;
+			}
+			return true;
+		} else {
+			g_needsClearAfterDialog = true;
+		}
 	}
 	return false;
 }

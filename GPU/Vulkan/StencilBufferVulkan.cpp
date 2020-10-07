@@ -15,13 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
-#include "ext/native/thin3d/thin3d.h"
-#include "ext/native/thin3d/VulkanRenderManager.h"
+#include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
@@ -29,6 +29,8 @@
 
 // This shader references gl_FragDepth to prevent early fragment tests.
 // They shouldn't happen since it uses discard, but Adreno detects that incorrectly - see #10634.
+// This only affected the 5xx generation and was fixed sometime before driver version 512.384.0.0 (whatever that means).
+// Strangely, this same code appears to fix a different issue on Exynos instead so now it's enabled on Mali as well.
 static const char *stencil_fs_adreno = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -96,7 +98,7 @@ void main() {
 // In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
 // messing about with bitplane textures and the like. Or actually, maybe not... Let's start with
 // the traditional approach.
-bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -138,7 +140,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 		values = 256;
 		break;
 	case GE_FORMAT_INVALID:
-		// Impossible.
+	case GE_FORMAT_DEPTH16:
+		// Inconceivable.
+		_assert_(false);
 		break;
 	}
 
@@ -146,7 +150,8 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	if (!stencilVs_) {
 		const char *stencil_fs_source = stencil_fs;
 		// See comment above the stencil_fs_adreno definition.
-		if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_QUALCOMM)
+		u32 vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+		if (g_Config.bVendorBugChecksEnabled && (draw_->GetBugs().Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL) || vendorID == VULKAN_VENDOR_ARM))
 			stencil_fs_source = stencil_fs_adreno;
 
 		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);
@@ -168,7 +173,8 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 		return false;
 
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		// Typically, STENCIL_IS_ZERO means it's already bound, so this bind will be optimized away.
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE }, "Stencil");
 	} else {
 		// something is wrong...
 	}
@@ -177,7 +183,6 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	renderManager->BindPipeline(pipeline);
 	renderManager->SetViewport({ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f });
 	renderManager->SetScissor({ { 0, 0, },{ (uint32_t)w, (uint32_t)h } });
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	draw_->BindTextures(0, 1, &tex);
 	VkImageView drawPixelsImageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
@@ -218,6 +223,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	}
 
 	tex->Release();
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - NotifyStencilUpload");
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

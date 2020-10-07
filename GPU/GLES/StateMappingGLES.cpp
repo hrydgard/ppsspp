@@ -21,9 +21,9 @@
 
 
 #include "StateMappingGLES.h"
-#include "profiler/profiler.h"
-#include "gfx/gl_debug_log.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -184,7 +184,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 						fboTexBound_ = true;
 						fboTexNeedBind_ = false;
 
-						framebufferManager_->RebindFramebuffer();
+						framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
 					}
@@ -259,13 +259,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		bool cullEnable;
 		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
-		if (gstate.isModeClear()) {
-			// Culling
-			cullEnable = false;
-		} else {
-			// Set cull
-			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		}
+		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
 	}
 
@@ -320,8 +314,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 }
 
-void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
-	if (setStencil) {
+void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
+	if (setStencilValue) {
 		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
 	}
 

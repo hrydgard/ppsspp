@@ -17,21 +17,21 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <set>
-#include <cstring>
+#include <sstream>
 #include <thread>
 
-#include "file/file_util.h"
 #ifdef SHARED_LIBZIP
 #include <zip.h>
 #else
 #include "ext/libzip/zip.h"
 #endif
-#include "util/text/utf8.h"
-
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
@@ -40,7 +40,7 @@
 #include "Core/System.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/GameManager.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 GameManager g_GameManager;
 
@@ -599,7 +599,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, std::string 
 	std::string outputISOFilename = g_Config.currentDirectory + "/" + fn.substr(nameOffset);
 	size_t bytesCopied = 0;
 	if (ExtractFile(z, isoFileIndex, outputISOFilename, &bytesCopied, allBytes)) {
-		ILOG("Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
+		INFO_LOG(IO, "Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
 	}
 	zip_close(z);
 	if (deleteAfter) {

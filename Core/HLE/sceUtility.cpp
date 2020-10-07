@@ -18,9 +18,12 @@
 #include <algorithm>
 #include <set>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/Serialize/SerializeSet.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -153,8 +156,8 @@ void __UtilityDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(currentDialogType);
-	p.Do(currentDialogActive);
+	Do(p, currentDialogType);
+	Do(p, currentDialogActive);
 	saveDialog.DoState(p);
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
@@ -163,10 +166,10 @@ void __UtilityDoState(PointerWrap &p) {
 	gamedataInstallDialog.DoState(p);
 
 	if (s >= 2) {
-		p.Do(currentlyLoadedModules);
+		Do(p, currentlyLoadedModules);
 	} else {
 		std::set<int> oldModules;
-		p.Do(oldModules);
+		Do(p, oldModules);
 		for (auto it = oldModules.begin(), end = oldModules.end(); it != end; ++it) {
 			currentlyLoadedModules[*it] = 0;
 		}
@@ -714,6 +717,15 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
+		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either, 
+			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
+			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED), 
+			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING), 
+			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
+			Memory::Write_U32(param, destaddr);
+			return 0x800ADF4;
+		}
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
 		param = g_Config.bWlanPowerSave?PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON:PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
@@ -722,7 +734,10 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.iDateFormat;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		if (g_Config.iTimeFormat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR)
+			param = PSP_SYSTEMPARAM_TIME_FORMAT_12HR;
+		else
+			param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;

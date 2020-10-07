@@ -16,12 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ColorConv.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 
 static const char depal_vs[] = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
@@ -84,7 +87,7 @@ void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw, VulkanContex
 	vulkan_ = vulkan;
 	std::string errors;
 	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
-	assert(vshader_ != VK_NULL_HANDLE);
+	_assert_(vshader_ != VK_NULL_HANDLE);
 }
 
 DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
@@ -103,6 +106,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	std::string error;
 	VkShaderModule fshader = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, buffer, &error);
 	if (fshader == VK_NULL_HANDLE) {
+		INFO_LOG(G3D, "Source:\n%s\n\n", buffer);
 		Crash();
 		delete[] buffer;
 		return nullptr;
@@ -111,6 +115,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	VkPipeline pipeline = vulkan2D_->GetPipeline(rp, vshader_, fshader);
 	// Can delete the shader module now that the pipeline has been created.
 	// Maybe don't even need to queue it..
+	// "true" keeps the pipeline itself alive, forgetting the fshader.
 	vulkan2D_->PurgeFragmentShader(fshader, true);
 	vulkan_->Delete().QueueDeleteShaderModule(fshader);
 

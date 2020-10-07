@@ -18,9 +18,9 @@
 #include <cstdint>
 #include <functional>
 
-#include "ui/view.h"
-#include "ui/ui_screen.h"
-#include "ui/ui_context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/Context.h"
 #include "UI/MiscScreens.h"
 
 struct CheatFileInfo;

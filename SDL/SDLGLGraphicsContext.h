@@ -1,11 +1,11 @@
 #include "SDL_syswm.h"
 #include "SDL.h"
 
-#include "thin3d/GLRenderManager.h"
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GraphicsContext.h"
 
-class SDLGLGraphicsContext : public DummyGraphicsContext {
+class SDLGLGraphicsContext : public GraphicsContext {
 public:
 	SDLGLGraphicsContext() {
 	}
@@ -19,6 +19,11 @@ public:
 	void SwapBuffers() override {
 		// Do nothing, the render thread takes care of this.
 	}
+
+	// Gets forwarded to the render thread.
+	void SwapInterval(int interval) override;
+
+	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;

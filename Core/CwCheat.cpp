@@ -1,11 +1,11 @@
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cstdint>
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
-#include "Common/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/File/FileUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
@@ -16,9 +16,10 @@
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "GPU/Common/PostShader.h"
 
 #ifdef _WIN32
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #endif
 
 static int CheatEvent = -1;
@@ -303,7 +304,7 @@ void __CheatDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(CheatEvent);
+	Do(p, CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
 	if (s < 2) {
@@ -421,6 +422,8 @@ enum class CheatOp {
 	CopyBytesFrom,
 	Vibration,
 	VibrationFromMemory,
+	PostShader,
+	PostShaderFromMemory,
 	Delay,
 
 	Assert,
@@ -475,6 +478,15 @@ struct CheatOperation {
 			uint8_t vibrLTime;
 			uint8_t vibrRTime;
 		} vibrationValues;
+		struct {
+			union {
+				float f;
+				uint32_t u;
+			} value;
+			uint8_t shader;
+			uint8_t uniform;
+			uint8_t format;
+		} PostShaderUniform;
 	};
 };
 
@@ -620,6 +632,23 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		case 0x1: // 0x1 reads value for gamepad vibration from memory
 			addr = line1.part2;
 			return { CheatOp::VibrationFromMemory, addr };
+		case 0x2: // 0x2 sets postprocessing shader uniform
+			{
+				CheatOperation op = { CheatOp::PostShader };
+				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
+				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
+				op.PostShaderUniform.value.u = line1.part2;
+				return op;
+			}
+		case 0x3: // 0x3 sets postprocessing shader uniform from memory
+			{
+				addr = line1.part2;
+				CheatOperation op = { CheatOp::PostShaderFromMemory, addr };
+				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
+				op.PostShaderUniform.format = (line1.part1 >> 8) & 0x000000FF;
+				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
+				return op;
+			}
 		// Place for other PPSSPP specific cheats
 		default:
 			return { CheatOp::Invalid };
@@ -747,7 +776,7 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 
 CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
 	// TODO
-	assert(false);
+	_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -757,7 +786,7 @@ CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i)
 	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
 		return InterpretNextTempAR(cheat, i);
 	else
-		assert(false);
+		_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -915,6 +944,47 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			if (checkRightVibration > 0) {
 				SetRightVibration(checkRightVibration);
 				SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
+			}
+		}
+		break;
+
+	case CheatOp::PostShader:
+		{
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
+			if (op.PostShaderUniform.shader < shaderChain.size()) {
+				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
+				if (shaderName != "Off")
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
+			}
+		}
+		break;
+
+	case CheatOp::PostShaderFromMemory:
+		{
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
+			if (Memory::IsValidAddress(op.addr) && op.PostShaderUniform.shader < shaderChain.size()) {
+				union {
+					float f;
+					uint32_t u;
+				} value;
+				value.u = Memory::Read_U32(op.addr);
+				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
+				if (shaderName != "Off") {
+					switch (op.PostShaderUniform.format) {
+					case 0:
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
+						break;
+					case 1:
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
+						break;
+					case 2:
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
+						break;
+					case 3:
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
+						break;
+					}
+				}
 			}
 		}
 		break;
@@ -1107,7 +1177,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	default:
-		assert(false);
+		_assert_(false);
 	}
 }
 

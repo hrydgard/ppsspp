@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include <Common/Hashmaps.h>
-#include <unordered_map>
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -27,8 +28,6 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
-#include "gfx/gl_common.h"
-#include "thin3d/GLRenderManager.h"
 
 class LinkedShader;
 class ShaderManagerGLES;
@@ -90,7 +89,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	GLRBuffer *vbo;
@@ -150,7 +149,6 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void ClearTrackedVertexArrays() override;
-	void DecimateTrackedVertexArrays();
 
 	void BeginFrame();
 	void EndFrame();
@@ -186,6 +184,7 @@ public:
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
+	void DecimateTrackedVertexArrays();
 
 private:
 	void InitDeviceObjects();
@@ -198,7 +197,7 @@ private:
 
 	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
 
-	void DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
+	void *DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
 
 	void FreeVertexArray(VertexArrayInfo *vai);
 
@@ -228,6 +227,8 @@ private:
 	ViewportAndScissor vpAndScissor;
 
 	int bufferDecimationCounter_ = 0;
+
+	int lastRenderStepId_ = -1;
 
 	// Hardware tessellation
 	TessellationDataTransferGLES *tessDataTransferGLES;

@@ -282,8 +282,11 @@ enum GEBufferFormat
 	GE_FORMAT_5551 = 1,
 	GE_FORMAT_4444 = 2,
 	GE_FORMAT_8888 = 3,
+	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
 	GE_FORMAT_INVALID = 0xFF,
 };
+
+const char *GeBufferFormatToString(GEBufferFormat fmt);
 
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
@@ -412,6 +415,14 @@ enum GETextureFormat
 	GE_TFMT_DXT3 = 9,
 	GE_TFMT_DXT5 = 10,
 };
+
+const char *GeTextureFormatToString(GETextureFormat fmt);
+inline bool IsClutFormat(GETextureFormat fmt) {
+	return fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8 || fmt == GE_TFMT_CLUT16 || fmt == GE_TFMT_CLUT32;
+}
+inline bool IsDXTFormat(GETextureFormat fmt) {
+	return fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5;
+}
 
 enum GETexLevelMode {
 	GE_TEXLEVEL_MODE_AUTO = 0,

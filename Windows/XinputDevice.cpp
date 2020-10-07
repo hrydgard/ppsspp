@@ -3,17 +3,19 @@
 #include <climits>
 #include <algorithm>
 
-#include "base/NativeApp.h"
+#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/CommonWindows.h"
-#include "Common/KeyMap.h"
 #include "Common/Log.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
 #include "XinputDevice.h"
 #include "Core/Core.h"
+#include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
-#include "Common/Timer.h"
+
+static double newVibrationTime = 0.0;
 
 // Utilities to dynamically load XInput. Adapted from SDL.
 
@@ -22,12 +24,11 @@
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 
-static XInputGetState_t PPSSPP_XInputGetState = NULL;
-static XInputSetState_t PPSSPP_XInputSetState = NULL;
+static XInputGetState_t PPSSPP_XInputGetState = nullptr;
+static XInputSetState_t PPSSPP_XInputSetState = nullptr;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
-static int newVibrationTime = 0;
 
 static void UnloadXInputDLL();
 
@@ -363,11 +364,11 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		newVibrationTime = Common::Timer::GetTimeMs() >> 6;
+		newVibrationTime = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high unthrottle speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (abs(newVibrationTime - prevVibrationTime) >= 1) {
+		if (newVibrationTime - prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -376,7 +377,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				vibration.wRightMotorSpeed = 0;
 			}
 
-			if ((prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed)) {
+			if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
 				PPSSPP_XInputSetState(pad, &vibration);
 				prevVibration[pad] = vibration;
 			}

@@ -1,16 +1,14 @@
 #pragma once
 
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include "libretro/LibretroGraphicsContext.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 class LibretroGLContext : public LibretroHWRenderContext {
 public:
 	LibretroGLContext()
 #ifdef USING_GLES2
 		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGLES2)
-#elif defined(HAVE_OPENGL_CORE)
-		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 1)
 #else
 		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL)
 #endif

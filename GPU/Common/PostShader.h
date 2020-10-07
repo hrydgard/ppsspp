@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
 	std::string iniFile;  // which ini file was this definition in? So we can write settings back later
@@ -54,7 +54,7 @@ struct ShaderInfo {
 	Setting settings[4];
 
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
-	// SRGB texture reads, etc.
+	// SRGB texture reads, etc.  prev shader?
 
 	bool operator == (const std::string &other) {
 		return name == other;
@@ -64,8 +64,28 @@ struct ShaderInfo {
 	}
 };
 
+struct TextureShaderInfo {
+	std::string iniFile;
+	std::string section;
+	std::string name;
+
+	std::string computeShaderFile;
+
+	bool operator == (const std::string &other) {
+		return name == other;
+	}
+	bool operator == (const TextureShaderInfo &other) {
+		return name == other.name;
+	}
+};
+
 void ReloadAllPostShaderInfo();
 
 const ShaderInfo *GetPostShaderInfo(const std::string &name);
 std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);
+std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names);
+bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();
+
+const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
+const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();

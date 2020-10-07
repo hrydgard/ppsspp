@@ -27,9 +27,11 @@
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/MemMap.h"
+#include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/HLE.h"
@@ -41,11 +43,13 @@
 #include "Core/ConfigValues.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "UI/OnScreenDisplay.h"
 
 namespace Memory {
 
 // The base pointer to the auto-mirrored arena.
-u8* base = NULL;
+u8* base = nullptr;
 
 // The MemArena class
 MemArena g_arena;
@@ -221,16 +225,22 @@ bool MemoryMap_Setup(u32 flags) {
 #if !PPSSPP_PLATFORM(ANDROID)
 	if (g_arena.NeedsProbing()) {
 		int base_attempts = 0;
-#if defined(_WIN32) && PPSSPP_ARCH(32BIT)
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(32BIT)
 		// Try a whole range of possible bases. Return once we got a valid one.
 		uintptr_t max_base_addr = 0x7FFF0000 - 0x10000000;
 		uintptr_t min_base_addr = 0x01000000;
 		uintptr_t stride = 0x400000;
-#else
+#elif PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
 		// iOS
 		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
 		uintptr_t min_base_addr = 0x100000000ULL;
 		uintptr_t stride = 0x800000;
+#else
+		uintptr_t max_base_addr = 0;
+		uintptr_t min_base_addr = 0;
+		uintptr_t stride = 0;
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
+		return false;
 #endif
 		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
 			base_attempts++;
@@ -241,7 +251,6 @@ bool MemoryMap_Setup(u32 flags) {
 			}
 		}
 		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
-		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return false;
 	}
 	else
@@ -272,11 +281,10 @@ void MemoryMap_Shutdown(u32 flags) {
 #endif
 }
 
-void Init() {
-	// On some 32 bit platforms, you can only map < 32 megs at a time.
-	// TODO: Wait, wtf? What platforms are those? This seems bad.
+bool Init() {
+	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
-	_dbg_assert_msg_(MEMMAP, g_MemorySize < MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
+	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
 			views[i].size = std::min((int)g_MemorySize, MAX_MMAP_SIZE);
@@ -285,15 +293,21 @@ void Init() {
 		if (views[i].flags & MV_IS_EXTRA2_RAM)
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
+
 	int flags = 0;
-	MemoryMap_Setup(flags);
+	if (!MemoryMap_Setup(flags)) {
+		return false;
+	}
 
 	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
+
+	MemFault_Init();
+	return true;
 }
 
 void Reinit() {
-	_assert_msg_(SYSTEM, PSP_IsInited(), "Cannot reinit during startup/shutdown");
+	_assert_msg_(PSP_IsInited(), "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
 	Shutdown();
 	Init();
@@ -312,7 +326,7 @@ void DoState(PointerWrap &p) {
 	} else if (s == 2) {
 		// In version 2, we determine memory size based on PSP model.
 		u32 oldMemorySize = g_MemorySize;
-		p.Do(g_PSPModel);
+		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
@@ -324,20 +338,20 @@ void DoState(PointerWrap &p) {
 		// In version 3, we started just saving the memory size directly.
 		// It's no longer based strictly on the PSP model.
 		u32 oldMemorySize = g_MemorySize;
-		p.Do(g_PSPModel);
+		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
-		p.Do(g_MemorySize);
+		Do(p, g_MemorySize);
 		if (oldMemorySize != g_MemorySize) {
 			Reinit();
 		}
 	}
 
-	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
+	DoArray(p, GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
 
-	p.DoArray(m_pPhysicalVRAM1, VRAM_SIZE);
+	DoArray(p, m_pPhysicalVRAM1, VRAM_SIZE);
 	p.DoMarker("VRAM");
-	p.DoArray(m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
+	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
 }
 

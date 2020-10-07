@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 
 namespace SaveState
 {
@@ -69,7 +69,7 @@ namespace SaveState
 	void Save(const std::string &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
-	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state);
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.

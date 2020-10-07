@@ -17,14 +17,14 @@
 
 #pragma once
 
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "thin3d/GLRenderManager.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 struct GLSLProgram;
 class TextureCacheGLES;
@@ -49,12 +49,10 @@ public:
 	void DeviceLost();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
-
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
+	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 

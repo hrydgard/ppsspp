@@ -1,6 +1,6 @@
 #include "GPUDriverTestScreen.h"
-#include "i18n/i18n.h"
-#include "ui/view.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/View.h"
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {
 	{Draw::ShaderLanguage::GLSL_ES_200,
@@ -24,7 +24,7 @@ static const std::vector<Draw::ShaderSource> fsDiscard = {
 	})"
 	},
 	{Draw::ShaderLanguage::GLSL_VULKAN,
-	R"(#version 140
+	R"(#version 450
 	#extension GL_ARB_separate_shader_objects : enable
 	#extension GL_ARB_shading_language_420pack : enable
 	layout(location = 0) in vec4 oColor0;

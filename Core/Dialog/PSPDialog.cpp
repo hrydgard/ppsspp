@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceCtrl.h"
@@ -137,26 +138,26 @@ void PSPDialog::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(status);
-	p.Do(lastButtons);
-	p.Do(buttons);
-	p.Do(fadeTimer);
-	p.Do(isFading);
-	p.Do(fadeIn);
-	p.Do(fadeValue);
+	Do(p, status);
+	Do(p, lastButtons);
+	Do(p, buttons);
+	Do(p, fadeTimer);
+	Do(p, isFading);
+	Do(p, fadeIn);
+	Do(p, fadeValue);
 
 	// I don't think we should save these two... Let's just ignore them for now for compat.
 	int okButtonImg = 0;
-	p.Do(okButtonImg);
+	Do(p, okButtonImg);
 	int cancelButtonImg = 0;
-	p.Do(cancelButtonImg);
+	Do(p, cancelButtonImg);
 
-	p.Do(okButtonFlag);
-	p.Do(cancelButtonFlag);
+	Do(p, okButtonFlag);
+	Do(p, cancelButtonFlag);
 
 	if (s >= 2) {
-		p.Do(pendingStatus);
-		p.Do(pendingStatusTicks);
+		Do(p, pendingStatus);
+		Do(p, pendingStatusTicks);
 	} else {
 		pendingStatusTicks = 0;
 	}
@@ -198,6 +199,16 @@ bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThr
 	return false;
 }
 
+PPGeStyle PSPDialog::FadedStyle(PPGeAlign align, float scale) {
+	PPGeStyle textStyle;
+	textStyle.align = align;
+	textStyle.scale = scale;
+	textStyle.color = CalcFadedColor(textStyle.color);
+	textStyle.hasShadow = true;
+	textStyle.shadowColor = CalcFadedColor(textStyle.shadowColor);
+	return textStyle;
+}
+
 void PSPDialog::DisplayButtons(int flags, const char *caption)
 {
 	bool useCaption = false;
@@ -207,6 +218,8 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		truncate_cpy(safeCaption, caption);
 	}
 
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, FONT_SCALE);
+
 	auto di = GetI18NCategory("Dialog");
 	float x1 = 183.5f, x2 = 261.5f;
 	if (GetCommonParam()->buttonSwap == 1) {
@@ -215,16 +228,12 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 	}
 	if (flags & DS_BUTTON_OK) {
 		const char *text = useCaption ? safeCaption : di->T("Enter");
-		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
-		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(text, x2 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(text, x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawText(text, x2 + 14.5f, 252, textStyle);
 	}
 	if (flags & DS_BUTTON_CANCEL) {
 		const char *text = useCaption ? safeCaption : di->T("Back");
-		PPGeDrawText(text, x1 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(text, x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
-		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}
 }

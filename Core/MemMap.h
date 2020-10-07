@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <cstdint>
 #ifndef offsetof
 #include <stddef.h>
 #endif
@@ -52,8 +53,7 @@ typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
 
-namespace Memory
-{
+namespace Memory {
 // Base is a pointer to the base of the memory map. Yes, some MMU tricks
 // are used to set up a full GC or Wii memory map in process memory.	on
 // 32-bit, you have to mask your offsets with 0x3FFFFFFF. This means that
@@ -126,7 +126,7 @@ bool MemoryMap_Setup(u32 flags);
 void MemoryMap_Shutdown(u32 flags);
 
 // Init and Shutdown
-void Init();
+bool Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
@@ -164,16 +164,6 @@ inline u8* GetPointerUnchecked(const u32 address) {
 	return (u8 *)(base + address);
 #endif
 }
-
-#ifdef SAFE_MEMORY
-u32 ReadUnchecked_U32(const u32 _Address);
-// ONLY for use by GUI and fast interpreter
-u8 ReadUnchecked_U8(const u32 _Address);
-u16 ReadUnchecked_U16(const u32 _Address);
-void WriteUnchecked_U8(const u8 _Data, const u32 _Address);
-void WriteUnchecked_U16(const u16 _Data, const u32 _Address);
-void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
-#else
 
 inline u32 ReadUnchecked_U32(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
@@ -239,8 +229,6 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
-#endif
-
 inline float Read_Float(u32 address) 
 {
 	u32 ifloat = Read_U32(address);
@@ -267,25 +255,37 @@ inline void Write_Float(float f, u32 address)
 
 u8* GetPointer(const u32 address);
 bool IsRAMAddress(const u32 address);
-bool IsVRAMAddress(const u32 address);
-bool IsScratchpadAddress(const u32 address);
-
-inline const char* GetCharPointer(const u32 address) {
-	return (const char *)GetPointer(address);
+inline bool IsVRAMAddress(const u32 address) {
+	return ((address & 0x3F800000) == 0x04000000);
+}
+inline bool IsDepthTexVRAMAddress(const u32 address) {
+	return ((address & 0x3FE00000) == 0x04200000) || ((address & 0x3FE00000) == 0x04600000);
+}
+inline bool IsKernelAddress(const u32 address) {
+	return ((address & 0x3F800000) == 0x08000000);
 }
 
-inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)
-{
+bool IsScratchpadAddress(const u32 address);
+
+// Used for auto-converted char * parameters, which can sometimes legitimately be null -
+// so we don't want to get caught in GetPointer's crash reporting.
+inline const char* GetCharPointer(const u32 address) {
+	if (address) {
+		return (const char *)GetPointer(address);
+	} else {
+		return nullptr;
+	}
+}
+
+inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
 
-inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len)
-{
+inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len) {
 	memcpy(GetPointerUnchecked(to_address), from_data, len);
 }
 
-inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len)
-{
+inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
 	MemcpyUnchecked(GetPointer(to_address), from_address, len);
 }
 
@@ -327,7 +327,7 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 	return IsValidAddress(address) && ValidSize(address, size) == size;
 }
 
-};
+}  // namespace Memory
 
 template <typename T>
 struct PSPPointer
@@ -462,44 +462,36 @@ inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // game through sceKernelVolatileMemTryLock.
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-
 inline u32 PSP_GetDefaultLoadAddress() { return 0;}
-//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
 inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
 
 template <typename T>
-inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr == rhs.ptr;
 }
 
 template <typename T>
-inline bool operator!=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator!=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr != rhs.ptr;
 }
 
 template <typename T>
-inline bool operator<(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator<(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr < rhs.ptr;
 }
 
 template <typename T>
-inline bool operator>(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator>(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr > rhs.ptr;
 }
 
 template <typename T>
-inline bool operator<=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator<=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr <= rhs.ptr;
 }
 
 template <typename T>
-inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr >= rhs.ptr;
 }

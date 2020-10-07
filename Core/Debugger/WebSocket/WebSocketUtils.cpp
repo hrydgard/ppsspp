@@ -17,8 +17,16 @@
 
 #include <cmath>
 #include <limits>
+
+#include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+
+inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {
+	const JsonNode *value = data.get("ticket");
+	if (value)
+		writer.writeRaw("ticket", json_stringify(value));
+}
 
 JsonWriter &DebuggerRequest::Respond() {
 	writer_.begin();

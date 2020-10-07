@@ -228,7 +228,7 @@ namespace MIPSComp {
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 
 		// Flip ECX around from 3 bytes / 24 bits.
@@ -279,7 +279,7 @@ namespace MIPSComp {
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 	}
 

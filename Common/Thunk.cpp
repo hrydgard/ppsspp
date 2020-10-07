@@ -147,8 +147,8 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params) 
 	iter = thunks.find(function);
 	if (iter != thunks.end())
 		return (const void *)iter->second;
-	if (!region)
-		PanicAlert("Trying to protect functions before the emu is started. Bad bad bad.");
+
+	_assert_msg_(region != nullptr, "Can't protect functions before the emu is started.");
 
 	BeginWrite();
 	const u8 *call_point = GetCodePtr();

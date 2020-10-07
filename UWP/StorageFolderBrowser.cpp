@@ -1,8 +1,7 @@
 #include "pch.h"
 #include "ppltasks.h"
 
-#include "base/logging.h"
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "StorageFolderBrowser.h"
 #include "UWPUtil.h"

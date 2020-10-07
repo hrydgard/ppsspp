@@ -15,13 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-#if _MSC_VER == 1700
-// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012.. 
-#include "../native/base/basictypes.h"
-#endif
-
 #include <algorithm>
-#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -31,9 +25,8 @@
 #include "Core/Config.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
-#include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
 
@@ -47,7 +40,7 @@
 //#define DEBUG_SCALER_OUTPUT
 
 #ifdef SCALING_MEASURE_TIME
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 #endif
 
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
@@ -551,7 +544,7 @@ void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &widt
 
 bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &width, int &height, int factor) {
 #ifdef SCALING_MEASURE_TIME
-	double t_start = real_time_now();
+	double t_start = time_now_d();
 #endif
 
 	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
@@ -592,7 +585,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 
 #ifdef SCALING_MEASURE_TIME
 	if (width*height > 64 * 64 * factor*factor) {
-		double t = real_time_now() - t_start;
+		double t = time_now_d() - t_start;
 		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
 			width*height, t, (width*height) / (t * 1000 * 1000));
 	}

@@ -12,7 +12,7 @@
 	url = https://github.com/hrydgard/minidx9.git
 [submodule "ext/armips"]
 	path = ext/armips
-	url = https://github.com/Kingcom/armips
+	url = https://github.com/Kingcom/armips.git
 [submodule "ext/glslang"]
 	path = ext/glslang
 	url = https://github.com/hrydgard/glslang.git
@@ -31,3 +31,6 @@
 [submodule "ext/native/tools/prebuilt"]
 	path = ext/native/tools/prebuilt
 	url = https://github.com/hrydgard/ppsspp-freetype.git
+[submodule "ext/miniupnp"]
+	path = ext/miniupnp
+	url = https://github.com/hrydgard/miniupnp.git

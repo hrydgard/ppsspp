@@ -15,14 +15,15 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _DOLPHIN_INTEL_CODEGEN_
-#define _DOLPHIN_INTEL_CODEGEN_
+#pragma once
 
 #include "ppsspp_config.h"
 
 #include <cstddef>
-#include "Common.h"
-#include "CodeBlock.h"
+
+#include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/CodeBlock.h"
 
 #if PPSSPP_ARCH(64BIT)
 #define PTRBITS 64
@@ -292,7 +293,7 @@ template<> inline u32 PtrOffsetTpl<8>(const void *ptr, const void* base) {
 	if (distance >= 0x80000000LL ||
 	    distance < -0x80000000LL)
 	{
-		_assert_msg_(DYNA_REC, 0, "pointer offset out of range");
+		_assert_msg_(false, "pointer offset out of range");
 		return 0;
 	}
 
@@ -1083,5 +1084,3 @@ public:
 };
 
 }  // namespace
-
-#endif

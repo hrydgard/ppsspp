@@ -1,13 +1,13 @@
 
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanDebug.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"
 #include "libretro/libretro_vulkan.h"
@@ -69,7 +69,7 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
 #endif
 
-	if (!vk->InitQueue()) {
+	if (!vk->InitSwapchain()) {
 		return false;
 	}
 
@@ -116,7 +116,8 @@ void LibretroVulkanContext::Shutdown() {
 
 	vk->WaitUntilQueueIdle();
 
-	vk->DestroyObjects();
+	vk->DestroySwapchain();
+	vk->DestroySurface();
 	vk->DestroyDevice();
 	vk->DestroyInstance();
 	delete vk;

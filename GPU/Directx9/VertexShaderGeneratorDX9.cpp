@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
+#include <cstdio>
 #include <locale.h>
 
 #if defined(_WIN32) && defined(_DEBUG)
 #include "Common/CommonWindows.h"
 #endif
 
-#include "base/stringutil.h"
+#include "Common/StringUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"

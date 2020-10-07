@@ -21,16 +21,19 @@
 
 #include <cmath>
 #include <map>
-#include "gfx/d3d9_shader.h"
-#include "base/logging.h"
-#include "i18n/i18n.h"
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/dataconv.h"
-#include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -40,7 +43,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 
 using namespace Lin;
 
@@ -251,9 +254,9 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 
 	float yoff = -1.0f / gstate_c.curRTRenderHeight;
 	if (invertedY) {
-		yoff = gstate_c.vpYOffset - yoff;
-	} else {
 		yoff = -gstate_c.vpYOffset - yoff;
+	} else {
+		yoff = gstate_c.vpYOffset - yoff;
 	}
 
 	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);

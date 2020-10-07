@@ -18,7 +18,6 @@
 #pragma once
 
 #include "ppsspp_config.h"
-#include "Core/Config.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Log.h"
 
@@ -58,7 +57,12 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
+
+	typedef struct {
+		void         *start;
+		int           length;
+	} v4l_buf_t;
 
 	static int        v4l_fd = -1;
 	static uint32_t   v4l_format;
@@ -69,8 +73,8 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 	static int        v4l_ideal_height;
 
 	static pthread_t  v4l_thread;
-	static void      *v4l_buffer;
-	static int        v4l_length;
+	static int        v4l_buffer_count;
+	static v4l_buf_t *v4l_buffers;
 
 	std::vector<std::string> __v4l_getDeviceList();
 	int __v4l_startCapture(int width, int height);

@@ -155,7 +155,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, std::string dataName) {
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
-		if(std::string(key) == dataName)
+		if (!strcmp(key, dataName.c_str()))
 		{
 			return data_start + indexTables[i].data_table_offset;
 		}

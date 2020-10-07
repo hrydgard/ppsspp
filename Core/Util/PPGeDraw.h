@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
 #include "Common/CommonTypes.h"
 
@@ -45,21 +45,22 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
-enum {
-	PPGE_ALIGN_LEFT        = 0,
-	PPGE_ALIGN_RIGHT       = 16,
-	PPGE_ALIGN_TOP         = 0,
-	PPGE_ALIGN_BOTTOM      = 1,
-	PPGE_ALIGN_HCENTER     = 4,
-	PPGE_ALIGN_VCENTER     = 8,
-	PPGE_ALIGN_VBASELINE   = 32,  // text only, possibly not yet working
+enum class PPGeAlign {
+	BOX_LEFT = 0x00,
+	BOX_RIGHT = 0x01,
+	BOX_HCENTER = 0x02,
 
-	PPGE_ALIGN_CENTER      = PPGE_ALIGN_HCENTER | PPGE_ALIGN_VCENTER,
-	PPGE_ALIGN_TOPLEFT     = PPGE_ALIGN_TOP | PPGE_ALIGN_LEFT,
-	PPGE_ALIGN_TOPRIGHT    = PPGE_ALIGN_TOP | PPGE_ALIGN_RIGHT,
-	PPGE_ALIGN_BOTTOMLEFT  = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_LEFT,
-	PPGE_ALIGN_BOTTOMRIGHT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_RIGHT,
+	BOX_TOP = 0x00,
+	BOX_BOTTOM = 0x10,
+	BOX_VCENTER = 0x20,
+
+	BOX_CENTER = 0x22,
+
+	ANY = 0xFF,
 };
+inline bool operator &(const PPGeAlign &lhs, const PPGeAlign &rhs) {
+	return ((int)lhs & (int)rhs) != 0;
+}
 
 enum {
 	PPGE_LINE_NONE         = 0,
@@ -68,21 +69,33 @@ enum {
 	PPGE_LINE_WRAP_CHAR    = 4,
 };
 
+struct PPGeStyle {
+	PPGeAlign align = PPGeAlign::BOX_LEFT;
+	float scale = 1.0f;
+	uint32_t color = 0xFFFFFFFF;
+	bool hasShadow = false;
+	uint32_t shadowColor = 0x80000000;
+};
+
 // Get the metrics of the bounding box of the text without changing the buffer or state.
 void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style);
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style);
 
 // Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
-void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const PPGeStyle &style);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+
+// Note: x2/y2 are exclusive.
+void PPGeScissor(int x1, int y1, int x2, int y2);
+void PPGeScissorReset();
 
 void PPGeNotifyFrame();
 

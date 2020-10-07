@@ -2,17 +2,19 @@
 #include <type_traits>
 #include <mutex>
 
-#include "base/timeutil.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
+#include "Common/TimeUtil.h"
 #include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "ChunkFile.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
@@ -26,7 +28,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Debugger.h"
@@ -467,7 +469,7 @@ void GPUCommon::Reinitialize() {
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {
-#ifdef _WIN32
+#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if (PSP_CoreParameter().unthrottle) {
 		desiredVSyncInterval = 0;
@@ -678,15 +680,15 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	
-	if (args.IsValid() && args->numStacks >= 256) {
-		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid size %d", args->numStacks);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
+	// If args->size is below 16, it's the old struct without stack info.
+	if (args.IsValid() && args->size >= 16 && args->numStacks >= 256) {
+		return hleLogError(G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
 	}
-	
+
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
-	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;
+	u32_le stackAddr = args.IsValid() && args->size >= 16 ? args->stackAddr : 0;
 	// Check compatibility
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
@@ -929,7 +931,6 @@ u32 GPUCommon::Break(int mode) {
 
 void GPUCommon::NotifySteppingEnter() {
 	if (coreCollectDebugStats) {
-		time_update();
 		timeSteppingStarted_ = time_now_d();
 	}
 }
@@ -938,7 +939,6 @@ void GPUCommon::NotifySteppingExit() {
 		if (timeSteppingStarted_ <= 0.0) {
 			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
 		}
-		time_update();
 		timeSpentStepping_ += time_now_d() - timeSteppingStarted_;
 		timeSteppingStarted_ = 0.0;
 	}
@@ -948,7 +948,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
 	if (coreCollectDebugStats) {
-		time_update();
 		start = time_now_d();
 	}
 
@@ -1016,7 +1015,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	list.offsetAddr = gstate_c.offsetAddr;
 
 	if (coreCollectDebugStats) {
-		time_update();
 		double total = time_now_d() - start - timeSpentStepping_;
 		hleSetSteppingTime(timeSpentStepping_);
 		timeSpentStepping_ = 0.0;
@@ -1132,6 +1130,9 @@ void GPUCommon::ReapplyGfxState() {
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
+	// TODO: Consider whether any of this should really be done. We might be able to get all the way
+	// by simplying dirtying the appropriate gstate_c dirty flags.
+
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++) {
 		if (i != GE_CMD_ORIGIN && i != GE_CMD_OFFSETADDR) {
 			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
@@ -1146,8 +1147,17 @@ void GPUCommon::ReapplyGfxState() {
 
 	// There are a few here in the middle that we shouldn't execute...
 
+	// 0x42 to 0xEA
 	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
-		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+		switch (i) {
+		case GE_CMD_LOADCLUT:
+		case GE_CMD_TEXSYNC:
+		case GE_CMD_TEXFLUSH:
+			break;
+		default:
+			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+			break;
+		}
 	}
 
 	// Let's just skip the transfer size stuff, it's just values.
@@ -1223,7 +1233,7 @@ void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -1245,7 +1255,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 			UpdatePC(currentList->pc, target - 4);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		} else {
-			ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+			ERROR_LOG(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 			UpdateState(GPUSTATE_ERROR);
 		}
 	}
@@ -1256,7 +1266,7 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -1289,7 +1299,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	}
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-		ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
+		ERROR_LOG(G3D, "CALL: Stack full!");
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;
@@ -1302,7 +1312,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 	if (currentList->stackptr == 0) {
-		DEBUG_LOG_REPORT(G3D, "RET: Stack empty!");
+		DEBUG_LOG(G3D, "RET: Stack empty!");
 	} else {
 		auto &stackEntry = currentList->stack[--currentList->stackptr];
 		gstate_c.offsetAddr = stackEntry.offsetAddr;
@@ -1576,7 +1586,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -1586,17 +1596,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
 		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
+			ERROR_LOG(G3D, "Bad index address %08x!", indexAddr);
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
 	}
-
-#ifndef MOBILE_DEVICE
-	if (prim > GE_PRIM_RECTANGLES) {
-		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
-	}
-#endif
 
 	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
 		vertexCost_ = EstimatePerVertexCost();
@@ -1623,9 +1627,8 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 
 	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
 	// above for each one. This can be expanded to support additional games that intersperse
-	// PRIM commands with other commands. A special case that might be interesting is that game
-	// that changes culling mode between each prim, we could just change the triangle winding
-	// right here to still be able to join draw calls.
+	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
+	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
 	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
 	if (!g_Config.bSoftwareSkinning)
@@ -1672,11 +1675,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VADDR:
-			gstate.cmdmem[data >> 24] = data;
+			gstate.cmdmem[GE_CMD_VADDR] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_IADDR:
-			gstate.cmdmem[data >> 24] = data;
+			gstate.cmdmem[GE_CMD_IADDR] = data;
 			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_OFFSETADDR:
@@ -2340,10 +2343,10 @@ void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 }
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
-	const int num = gstate.boneMatrixNumber & 0x7F;
-	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if ((num - 12 * mtxNum) != 0) {
+	const u32 num = gstate.boneMatrixNumber & 0x7F;
+	const u32 mtxNum = num / 12;
+	u32 uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+	if (num != 12 * mtxNum) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
@@ -2403,9 +2406,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do<int>(dlQueue);
+	Do<int>(p, dlQueue);
 	if (s >= 4) {
-		p.DoArray(dls, ARRAY_SIZE(dls));
+		DoArray(p, dls, ARRAY_SIZE(dls));
 	} else if (s >= 3) {
 		// This may have been saved with or without padding, depending on platform.
 		// We need to upconvert it to our consistently-padded struct.
@@ -2423,7 +2426,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 		const bool hasPadding = savedPtr32[1] == 1;
 		if (hasPadding) {
 			u32 padding;
-			p.Do(padding);
+			Do(p, padding);
 		}
 
 		for (size_t i = 1; i < ARRAY_SIZE(dls); ++i) {
@@ -2431,13 +2434,13 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].padding = 0;
 			if (hasPadding) {
 				u32 padding;
-				p.Do(padding);
+				Do(p, padding);
 			}
 		}
 	} else if (s >= 2) {
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v2 oldDL;
-			p.Do(oldDL);
+			Do(p, oldDL);
 			// Copy over everything except the last, new member (stackAddr.)
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v2));
 			dls[i].stackAddr = 0;
@@ -2446,7 +2449,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 		// Can only be in read mode here.
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v1 oldDL;
-			p.Do(oldDL);
+			Do(p, oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v1));
 			// Fix the other fields.  Let's hope context wasn't important, it was a pointer.
@@ -2460,17 +2463,17 @@ void GPUCommon::DoState(PointerWrap &p) {
 	if (currentList != nullptr) {
 		currentID = (int)(currentList - &dls[0]);
 	}
-	p.Do(currentID);
+	Do(p, currentID);
 	if (currentID == 0) {
 		currentList = nullptr;
 	} else {
 		currentList = &dls[currentID];
 	}
-	p.Do(interruptRunning);
-	p.Do(gpuState);
-	p.Do(isbreak);
-	p.Do(drawCompleteTicks);
-	p.Do(busyTicks);
+	Do(p, interruptRunning);
+	Do(p, gpuState);
+	Do(p, isbreak);
+	Do(p, drawCompleteTicks);
+	Do(p, busyTicks);
 }
 
 void GPUCommon::InterruptStart(int listid) {
@@ -2535,7 +2538,7 @@ std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 
 void GPUCommon::ResetListPC(int listID, u32 pc) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 
@@ -2544,7 +2547,7 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 
 void GPUCommon::ResetListStall(int listID, u32 stall) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 
@@ -2553,7 +2556,7 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 
 void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	if (listID < 0 || listID >= DisplayListMaxCount) {
-		_dbg_assert_msg_(G3D, false, "listID out of range: %d", listID);
+		_dbg_assert_msg_(false, "listID out of range: %d", listID);
 		return;
 	}
 
@@ -2871,4 +2874,39 @@ bool GPUCommon::FramebufferReallyDirty() {
 		return dirty;
 	}
 	return true;
+}
+
+size_t GPUCommon::FormatGPUStatsCommon(char *buffer, size_t size) {
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+	return snprintf(buffer, size,
+		"DL processing time: %0.2f ms\n"
+		"Draw calls: %d, flushes %d, clears %d (cached: %d)\n"
+		"Num Tracked Vertex Arrays: %d\n"
+		"Commands per call level: %i %i %i %i\n"
+		"Vertices: %d cached: %d uncached: %d\n"
+		"FBOs active: %d (evaluations: %d)\n"
+		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
+		"Readbacks: %d, uploads: %d\n"
+		"GPU cycles executed: %d (%f per vertex)\n",
+		gpuStats.msProcessingDisplayLists * 1000.0f,
+		gpuStats.numDrawCalls,
+		gpuStats.numFlushes,
+		gpuStats.numClears,
+		gpuStats.numCachedDrawCalls,
+		gpuStats.numTrackedVertexArrays,
+		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
+		gpuStats.numVertsSubmitted,
+		gpuStats.numCachedVertsDrawn,
+		gpuStats.numUncachedVertsDrawn,
+		(int)framebufferManager_->NumVFBs(),
+		gpuStats.numFramebufferEvaluations,
+		(int)textureCache_->NumLoadedTextures(),
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numTextureDataBytesHashed / 1024,
+		gpuStats.numReadbacks,
+		gpuStats.numUploads,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles
+	);
 }

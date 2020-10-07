@@ -24,7 +24,6 @@
 #include <stdint.h>
 
 #include "Common.h"
-#include "MsgHandler.h"
 
 // VCVT flags
 #define TO_FLOAT      0

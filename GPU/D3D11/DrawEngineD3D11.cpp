@@ -17,10 +17,9 @@
 
 #include <algorithm>
 
-#include "base/logging.h"
-#include "base/timeutil.h"
-
+#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -307,6 +306,8 @@ void DrawEngineD3D11::BeginFrame() {
 		NOTICE_LOG(G3D, buffer);
 	}
 #endif
+
+	lastRenderStepId_ = -1;
 }
 
 VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
@@ -324,6 +325,14 @@ static uint32_t SwapRB(uint32_t c) {
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
+
+	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
+	int curRenderStepId = draw_->GetCurrentStepId();
+	if (lastRenderStepId_ != curRenderStepId) {
+		// Dirty everything that has dynamic state that will need re-recording.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		lastRenderStepId_ = curRenderStepId;
+	}
 
 	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
@@ -362,7 +371,7 @@ void DrawEngineD3D11::DoFlush() {
 			case VertexArrayInfoD3D11::VAI_NEW:
 				{
 					// Haven't seen this one before.
-					ReliableHashType dataHash = ComputeHash();
+					uint64_t dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
@@ -386,7 +395,7 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						// Let's try to skip a full hash if mini would fail.
 						const u32 newMiniHash = ComputeMiniHash();
-						ReliableHashType newHash = vai->hash;
+						uint64_t newHash = vai->hash;
 						if (newMiniHash == vai->minihash) {
 							newHash = ComputeHash();
 						}
@@ -427,7 +436,7 @@ void DrawEngineD3D11::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
-						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						// TODO: Combine these two into one buffer?
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
@@ -590,6 +599,9 @@ rotateVBO:
 			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
 		}
 
+		if (result.setSafeSize)
+			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
+
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
 
@@ -653,12 +665,11 @@ rotateVBO:
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
 
-			int scissorX2 = gstate.getScissorX2() + 1;
-			int scissorY2 = gstate.getScissorY2() + 1;
-			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
+				int scissorX2 = gstate.getScissorX2() + 1;
+				int scissorY2 = gstate.getScissorY2() + 1;
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}

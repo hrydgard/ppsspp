@@ -18,7 +18,7 @@
 #include "TiltAnalogSettingsScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;

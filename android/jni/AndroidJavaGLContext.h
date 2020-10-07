@@ -5,8 +5,8 @@
 #include <functional>
 
 #include "AndroidGraphicsContext.h"
-#include "thin3d/GLRenderManager.h"
-#include "thin3d/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/thin3d_create.h"
 
 // Doesn't do much. Just to fit in.
 class AndroidJavaEGLGraphicsContext : public AndroidGraphicsContext {
@@ -29,6 +29,7 @@ public:
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
+
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}

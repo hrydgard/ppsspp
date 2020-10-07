@@ -18,7 +18,6 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
-import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -51,11 +50,12 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@SuppressWarnings("ConstantConditions")
 public abstract class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
-	private static String TAG = "PPSSPPNativeActivity";
+	private static final String TAG = "PPSSPPNativeActivity";
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
@@ -98,7 +98,7 @@ public abstract class NativeActivity extends Activity {
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
-	private static int RESULT_LOAD_IMAGE = 1;
+	private static final int RESULT_LOAD_IMAGE = 1;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -131,10 +131,6 @@ public abstract class NativeActivity extends Activity {
 
 	public native void registerCallbacks();
 	public native void unregisterCallbacks();
-
-	public boolean useLowProfileButtons() {
-		return true;
-	}
 
 	NativeRenderer getRenderer() {
 		return nativeRenderer;
@@ -209,7 +205,7 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, String [] permissions, int[] grantResults) {
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {
@@ -248,7 +244,7 @@ public abstract class NativeActivity extends Activity {
 		}
 		powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-			if (powerManager.isSustainedPerformanceModeSupported()) {
+			if (powerManager != null && powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
 				NativeApp.sendMessage("sustained_perf_supported", "1");
 			}
@@ -259,10 +255,10 @@ public abstract class NativeActivity extends Activity {
 		Log.d(TAG, "Landscape: " + landscape);
 
 		// Get system information
-		ApplicationInfo appInfo = null;
-
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
+
+		ApplicationInfo appInfo;
 		try {
 			appInfo = packMgmr.getApplicationInfo(packageName, 0);
 		} catch (NameNotFoundException e) {
@@ -345,22 +341,20 @@ public abstract class NativeActivity extends Activity {
 	private void updateSustainedPerformanceMode() {
 		if (sustainedPerfSupported) {
 			// Query the native application on the desired rotation.
-			int enable = 0;
 			String str = NativeApp.queryConfig("sustainedPerformanceMode");
 			try {
-				enable = Integer.parseInt(str);
+				int enable = Integer.parseInt(str);
+				getWindow().setSustainedPerformanceMode(enable != 0);
 			} catch (NumberFormatException e) {
 				Log.e(TAG, "Invalid perf mode: " + str);
-				return;
 			}
-			getWindow().setSustainedPerformanceMode(enable != 0);
 		}
 	}
 
 	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
-		int rot = 0;
+		int rot;
 		String rotString = NativeApp.queryConfig("screenRotation");
 		try {
 			rot = Integer.parseInt(rotString);
@@ -407,12 +401,11 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		// Compute our _desired_ systemUiVisibility
-		int flags = 0;
-		if (useLowProfileButtons()) {
-			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
-		}
+		int flags = View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+			flags |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
+			flags |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 		}
 
 		View decorView = getWindow().peekDecorView();
@@ -434,7 +427,7 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	private Runnable mEmulationRunner = new Runnable() {
+	private final Runnable mEmulationRunner = new Runnable() {
 		@Override
 		public void run() {
 			Log.i(TAG, "Starting the render loop: " + mSurface);
@@ -536,6 +529,9 @@ public abstract class NativeActivity extends Activity {
 	public void onWindowFocusChanged(boolean hasFocus) {
 		super.onWindowFocusChanged(hasFocus);
 		updateSustainedPerformanceMode();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+		}
 	}
 
 	public void notifySurface(Surface surface) {
@@ -611,6 +607,7 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		Log.i(TAG, "onDestroy");
 		if (javaGL) {
 			if (nativeRenderer.isRenderingFrame()) {
 				Log.i(TAG, "Waiting for renderer to finish.");
@@ -623,21 +620,23 @@ public abstract class NativeActivity extends Activity {
 					tries--;
 				} while (nativeRenderer.isRenderingFrame() && tries > 0);
 			}
-			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
-			audioFocusChangeListener = null;
-			audioManager = null;
 		} else {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+
+		// Probably vain attempt to help the garbage collector...
+		audioFocusChangeListener = null;
+		audioManager = null;
+
 		sizeManager.setSurfaceView(null);
 		if (mPowerSaveModeReceiver != null) {
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
 		}
+
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
@@ -692,6 +691,7 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
+
 		// OK, config should be initialized, we can query for screen rotation.
 		if (javaGL || Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 			updateScreenRotation("onResume");
@@ -986,30 +986,29 @@ public abstract class NativeActivity extends Activity {
 		super.onActivityResult(requestCode, resultCode, data);
 		if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
 			Uri selectedImage = data.getData();
-			String[] filePathColumn = {MediaStore.Images.Media.DATA};
-			Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-			cursor.moveToFirst();
-			int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-			String picturePath = cursor.getString(columnIndex);
-			cursor.close();
-			NativeApp.sendMessage("bgImage_updated", picturePath);
+			if (selectedImage != null) {
+				String[] filePathColumn = {MediaStore.Images.Media.DATA};
+				Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+				cursor.moveToFirst();
+				int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+				String picturePath = cursor.getString(columnIndex);
+				cursor.close();
+				NativeApp.sendMessage("bgImage_updated", picturePath);
+			}
 		}
 	}
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
 	}
 
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1060,7 +1059,7 @@ public abstract class NativeActivity extends Activity {
 		else
 			bld = createDialogBuilderNew();
 
-		AlertDialog dlg = bld
+		AlertDialog.Builder builder = bld
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
@@ -1076,15 +1075,17 @@ public abstract class NativeActivity extends Activity {
 					NativeApp.sendInputBox(seqID, false, "");
 					d.cancel();
 				}
-			})
-			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			});
+		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
 					NativeApp.sendInputBox(seqID, false, "");
 					updateSystemUiVisibility();
 				}
-			})
-			.create();
+			});
+		}
+		AlertDialog dlg = builder.create();
 
 		dlg.setCancelable(true);
 		dlg.show();
@@ -1183,11 +1184,10 @@ public abstract class NativeActivity extends Activity {
 			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
-			String seqID = "";
 			String title = "Input";
 			String defString = "";
 			String[] param = params.split(":@:", 3);
-			seqID = param[0];
+			String seqID = param[0];
 			if (param.length > 1 && param[1].length() > 0)
 				title = param[1];
 			if (param.length > 2)
@@ -1197,7 +1197,7 @@ public abstract class NativeActivity extends Activity {
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;
-			if (params != "") {
+			if (!params.equals("")) {
 				try {
 					milliseconds = Integer.parseInt(params);
 				} catch (NumberFormatException e) {

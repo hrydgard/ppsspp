@@ -15,10 +15,13 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "x64Analyzer.h"
+#include "Common/Log.h"
+#include "Common/x64Analyzer.h"
 
-bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int accessType)
+bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 {
+	int accessType = 0;
+
 	unsigned const char *startCodePtr = codePtr;
 	u8 rex = 0;
 	u8 codeByte = 0;
@@ -80,6 +83,12 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 			modRMbyte = *codePtr++;
 			hasModRM = true;
 		}
+
+		// TODO: Add more cases.
+		if ((codeByte & 0xF0) == 0x80)
+			accessType = 1;
+		if ((codeByte & 0xF0) == 0xC0)
+			accessType = 1;
 	}
 	else
 	{
@@ -135,7 +144,6 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 	else
 		info.displacement = *((s32 *)codePtr);
 	codePtr += displacementSize;
-
 	
 	if (accessType == 1)
 	{
@@ -176,8 +184,11 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 		case MOVE_REG_TO_MEM: //move reg to memory
 			break;
 
+		case MOVE_MEM_TO_REG:
+			break;
+
 		default:
-			PanicAlert("Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
+			ERROR_LOG(CPU, "Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
 			return false;
 		}
 	}

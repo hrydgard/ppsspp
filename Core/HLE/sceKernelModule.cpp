@@ -21,15 +21,17 @@
 
 #include "zlib.h"
 
-#include "base/stringutil.h"
-#include "Common/ChunkFile.h"
-#include "Common/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeSet.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
@@ -66,10 +68,11 @@
 #include "GPU/GPUState.h"
 
 enum {
-	PSP_THREAD_ATTR_USER = 0x80000000
+	PSP_THREAD_ATTR_KERNEL = 0x00001000,
+	PSP_THREAD_ATTR_USER = 0x80000000,
 };
 
-enum {
+enum : u32 {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,
 	NID_MODULE_STOP = 0xCEE8593C,
@@ -151,7 +154,7 @@ void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
-void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting);
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule);
 void ExportFuncSymbol(const FuncSymbolExport &func);
 void UnexportFuncSymbol(const FuncSymbolExport &func);
 
@@ -243,7 +246,8 @@ public:
 		}
 	}
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "Module"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Module"; }
 	void GetQuickInfo(char *ptr, int size) override
 	{
 		// ignore size
@@ -263,14 +267,14 @@ public:
 		if (!s)
 			return;
 
-		p.Do(nm);
-		p.Do(memoryBlockAddr);
-		p.Do(memoryBlockSize);
-		p.Do(isFake);
+		Do(p, nm);
+		Do(p, memoryBlockAddr);
+		Do(p, memoryBlockSize);
+		Do(p, isFake);
 
 		if (s < 2) {
 			bool isStarted = false;
-			p.Do(isStarted);
+			Do(p, isStarted);
 			if (isStarted)
 				nm.status = MODULE_STATUS_STARTED;
 			else
@@ -278,24 +282,24 @@ public:
 		}
 
 		if (s >= 3) {
-			p.Do(textStart);
-			p.Do(textEnd);
+			Do(p, textStart);
+			Do(p, textEnd);
 		}
 		if (s >= 4) {
-			p.Do(libstub);
-			p.Do(libstubend);
+			Do(p, libstub);
+			Do(p, libstubend);
 		}
 
 		ModuleWaitingThread mwt = {0};
-		p.Do(waitingThreads, mwt);
+		Do(p, waitingThreads, mwt);
 		FuncSymbolExport fsx = {{0}};
-		p.Do(exportedFuncs, fsx);
+		Do(p, exportedFuncs, fsx);
 		FuncSymbolImport fsi = {{0}};
-		p.Do(importedFuncs, fsi);
+		Do(p, importedFuncs, fsi);
 		VarSymbolExport vsx = {{0}};
-		p.Do(exportedVars, vsx);
+		Do(p, exportedVars, vsx);
 		VarSymbolImport vsi = {{0}};
-		p.Do(importedVars, vsi);
+		Do(p, importedVars, vsi);
 
 		if (p.mode == p.MODE_READ) {
 			// On load state, we re-examine in case our syscall ids changed.
@@ -327,6 +331,8 @@ public:
 			}
 		}
 
+		HLEPlugins::DoState(p);
+
 		RebuildImpExpModuleNames();
 	}
 
@@ -349,7 +355,7 @@ public:
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		ImportFuncSymbol(func, reimporting);
+		ImportFuncSymbol(func, reimporting, GetName());
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
@@ -435,8 +441,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(moduleID_);
-		p.Do(retValAddr);
+		Do(p, moduleID_);
+		Do(p, retValAddr);
 	}
 	static PSPAction *Create() {
 		return new AfterModuleEntryCall;
@@ -496,11 +502,11 @@ void __KernelModuleDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(actionAfterModule);
+	Do(p, actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
 
 	if (s >= 2) {
-		p.Do(loadedModules);
+		Do(p, loadedModules);
 	}
 
 	if (p.mode == p.MODE_READ) {
@@ -525,6 +531,7 @@ void __KernelModuleShutdown()
 {
 	loadedModules.clear();
 	MIPSAnalyst::Reset();
+	HLEPlugins::Unload();
 }
 
 // Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
@@ -709,7 +716,7 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
-void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule) {
 	// Prioritize HLE implementations.
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
@@ -746,9 +753,10 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	// It hasn't been exported yet, but hopefully it will later.
 	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
 	if (isKnownModule) {
-		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module '%s': 0x%08x", func.moduleName, func.nid);
+		// We used to report this, but I don't think it's very interesting anymore.
+		WARN_LOG(LOADER, "Unknown syscall from known module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
-		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
+		INFO_LOG(LOADER, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
 	if (isKnownModule || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
@@ -758,8 +766,8 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
-		// Oops, HLE covers this.
-		WARN_LOG_REPORT(LOADER, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
+		// HLE covers this already - let's ignore the function.
+		WARN_LOG(LOADER, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
 	}
 
@@ -1536,6 +1544,27 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	return module;
 }
 
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string) {
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (!info.exists)
+		return SCE_KERNEL_ERROR_NOFILE;
+
+	std::vector<uint8_t> buffer;
+	buffer.resize((size_t)info.size);
+
+	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+	pspFileSystem.ReadFile(handle, &buffer[0], info.size);
+	pspFileSystem.CloseFile(handle);
+
+	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	u32 magic;
+	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, error);
+
+	if (module == nullptr)
+		return error;
+	return module->GetUID();
+}
+
 static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string *error_string) {
 	PSPModule *module = nullptr;
 	// Check for PBP
@@ -1595,6 +1624,11 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+	if (HLEPlugins::Load()) {
+		KernelRotateThreadReadyQueue(0);
+		__KernelReSchedule("Started plugins");
+	}
 }
 
 
@@ -1605,6 +1639,16 @@ u32 __KernelGetModuleGP(SceUID uid) {
 		return module->nm.gp_value;
 	} else {
 		return 0;
+	}
+}
+
+bool KernelModuleIsKernelMode(SceUID uid) {
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
+	if (module) {
+		return (module->nm.attribute & 0x1000) != 0;
+	} else {
+		return false;
 	}
 }
 
@@ -1639,7 +1683,7 @@ void __KernelLoadReset() {
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param;
 
-	PSP_SetLoading("Loading game...");
+	PSP_SetLoading("Loading exec...");
 
 	if (paramPtr)
 		Memory::ReadStruct(paramPtr, &param);
@@ -1697,6 +1741,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		}
 		return false;
 	}
+
+	host->NotifySymbolMapUpdated();
 
 	mipsr4k.pc = module->nm.entry_addr;
 
@@ -1784,7 +1830,7 @@ void __KernelGPUReplay() {
 	// Special ABI: s0 and s1 are the "args".  Not null terminated.
 	const char *filenamep = Memory::GetCharPointer(currentMIPS->r[MIPS_REG_S1]);
 	if (!filenamep) {
-		ERROR_LOG(SYSTEM, "Failed to load dump filename");
+		ERROR_LOG(G3D, "Failed to load dump filename");
 		Core_Stop();
 		return;
 	}
@@ -1826,7 +1872,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	std::string error_string;
 	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
 		ERROR_LOG(SCEMODULE, "sceKernelLoadExec failed: %s", error_string.c_str());
-		Core_UpdateState(CORE_ERROR);
+		Core_UpdateState(CORE_RUNTIME_ERROR);
 		return -1;
 	}
 	if (gpu) {
@@ -1945,12 +1991,71 @@ static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
+int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
+	if (needsWait) {
+		*needsWait = false;
+	}
+
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+	if (!module) {
+		return error;
+	}
+
+	u32 priority = 0x20;
+	u32 stacksize = 0x40000;
+	int attribute = module->nm.attribute;
+	u32 entryAddr = module->nm.entry_addr;
+
+	if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
+		entryAddr = module->nm.module_start_func;
+		if (module->nm.module_start_thread_attr != 0)
+			attribute = module->nm.module_start_thread_attr;
+	} else if (entryAddr == (u32)-1 || entryAddr == module->memoryBlockAddr - 1) {
+		if (smoption) {
+			// TODO: Does sceKernelStartModule() really give an error when no entry only if you pass options?
+			attribute = smoption->attribute;
+		} else {
+			// TODO: Why are we just returning the module ID in this case?
+			WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
+			module->nm.status = MODULE_STATUS_STARTED;
+			return moduleId;
+		}
+	}
+
+	if (Memory::IsValidAddress(entryAddr)) {
+		if (smoption && smoption->priority > 0) {
+			priority = smoption->priority;
+		} else if (module->nm.module_start_thread_priority > 0) {
+			priority = module->nm.module_start_thread_priority;
+		}
+
+		if (smoption && smoption->stacksize > 0) {
+			stacksize = smoption->stacksize;
+		} else if (module->nm.module_start_thread_stacksize > 0) {
+			stacksize = module->nm.module_start_thread_stacksize;
+		}
+
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
+		__KernelStartThreadValidate(threadID, argsize, argAddr);
+		__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+		if (needsWait) {
+			*needsWait = true;
+		}
+	} else if (entryAddr == 0) {
+		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): no entry address", moduleId, argsize, argAddr, returnValueAddr);
+		module->nm.status = MODULE_STATUS_STARTED;
+	} else {
+		ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): invalid entry address", moduleId, argsize, argAddr, returnValueAddr);
+		return -1;
+	}
+
+	return moduleId;
+}
+
 static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	u32 priority = 0x20;
-	u32 stacksize = 0x40000; 
-	u32 attr = 0;
-	int stackPartition = 0;
 	SceKernelSMOption smoption = {0};
 	if (optionAddr) {
 		Memory::ReadStruct(optionAddr, &smoption);
@@ -1979,71 +2084,19 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
-		int attribute = module->nm.attribute;
-		u32 entryAddr = module->nm.entry_addr;
+		bool needsWait;
+		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr ? &smoption : nullptr, &needsWait);
 
-		if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
-		{
-			entryAddr = module->nm.module_start_func;
-			if (module->nm.module_start_thread_attr != 0)
-				attribute = module->nm.module_start_thread_attr;
-		}
-		else if ((entryAddr == (u32)-1) || entryAddr == module->memoryBlockAddr - 1)
-		{
-			if (optionAddr)
-			{
-				// TODO: Does sceKernelStartModule() really give an error when no entry only if you pass options?
-				attribute = smoption.attribute;
-			}
-			else
-			{
-				// TODO: Why are we just returning the module ID in this case?
-				WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
-				module->nm.status = MODULE_STATUS_STARTED;
-				RETURN(moduleId);
-				return;
-			}
-		}
-
-		if (Memory::IsValidAddress(entryAddr))
-		{
-			if ((optionAddr) && smoption.priority > 0) {
-				priority = smoption.priority;
-			} else if (module->nm.module_start_thread_priority > 0) {
-				priority = module->nm.module_start_thread_priority;
-			}
-
-			if ((optionAddr) && (smoption.stacksize > 0)) {
-				stacksize = smoption.stacksize;
-			} else if (module->nm.module_start_thread_stacksize > 0) {
-				stacksize = module->nm.module_start_thread_stacksize;
-			}
-
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
-			__KernelStartThreadValidate(threadID, argsize, argAddr);
-			__KernelSetThreadRA(threadID, NID_MODULERETURN);
+		if (needsWait) {
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
 
 			const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
 			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
-		else if (entryAddr == 0)
-		{
-			INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
-			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			module->nm.status = MODULE_STATUS_STARTED;
-		}
-		else
-		{
-			ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): invalid entry address",
-			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			RETURN(-1);
-			return;
-		}
-	}
 
-	RETURN(moduleId);
+		RETURN(ret);
+	}
 }
 
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
@@ -2312,16 +2365,18 @@ static u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
+u32 sceKernelFindModuleByUID(u32 uid)
+{
+	ERROR_LOG(SCEMODULE, "UNIMPL sceKernelFindModuleByUID(%d)", uid);
+	return 0;
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelFindModuleByName(%s)", name);
-	
 	int index = GetModuleIndex(name);
-
-	if (index == -1)
-		return 0;
-	
-	return 1;
+	u32 temp = index + 1;
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", temp, name);
+	return temp;
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
@@ -2533,8 +2588,11 @@ const HLEFunction ModuleMgrForKernel[] =
 	{0x50F0C1EC, &WrapV_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
+	{0xCC1D3699, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL }, // used  in Dissidia final fantasy chinese patch	
+	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used  in Dissidia final fantasy chinese patch	
 	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser()

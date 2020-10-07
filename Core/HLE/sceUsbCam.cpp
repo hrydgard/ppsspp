@@ -18,15 +18,22 @@
 #include <algorithm>
 #include <mutex>
 
-#include "base/NativeApp.h"
 #include "ppsspp_config.h"
-#include "Common/ChunkFile.h"
+
+#include "Common/System/System.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#define HAVE_WIN32_CAMERA
+#endif
+
+#ifdef HAVE_WIN32_CAMERA
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -45,7 +52,7 @@ enum {
 };
 
 void __UsbCamInit() {
-	config       = new Camera::Config;
+	config       = new Camera::Config();
 	config->mode = Camera::Mode::Unused;
 	config->type = Camera::ConfigType::CfNone;
 	videoBuffer  = new uint8_t[VIDEO_BUFFER_SIZE];
@@ -57,7 +64,7 @@ void __UsbCamDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(*config);
+	Do(p, *config);
 	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
 		Camera::stopCapture();
 		Camera::startCapture();
@@ -70,7 +77,7 @@ void __UsbCamShutdown() {
 	}
 	delete[] videoBuffer;
 	videoBuffer = nullptr;
-	delete[] config;
+	delete config;
 	config = nullptr;
 }
 
@@ -108,7 +115,7 @@ static int getCameraResolution(Camera::ConfigType type, int *width, int *height)
 
 
 static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupMic");
+	INFO_LOG(HLE, "sceUsbCamSetupMic");
 	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupMicParam))) {
 		Memory::ReadStruct(paramAddr, &config->micParam);
 	}
@@ -127,13 +134,7 @@ static int sceUsbCamStopMic() {
 
 static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMicBlocking: size: %d", size);
-	for (unsigned int i = 0; i < size; i++) {
-		if (Memory::IsValidAddress(bufAddr + i)) {
-			Memory::Write_U8(i & 0xFF, bufAddr + i);
-		}
-	}
-	hleEatMicro(1000000 / config->micParam.frequency * (size / 2));
-	return size;
+	return __MicInputBlocking(size >> 1, config->micParam.frequency, bufAddr);
 }
 
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
@@ -300,7 +301,7 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			return winCamera->getDeviceList();
 		}
@@ -320,7 +321,7 @@ int Camera::startCapture() {
 	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			if (winCamera->isShutDown()) {
 				delete winCamera;
@@ -344,7 +345,7 @@ int Camera::startCapture() {
 
 int Camera::stopCapture() {
 	INFO_LOG(HLE, "%s", __FUNCTION__);
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}

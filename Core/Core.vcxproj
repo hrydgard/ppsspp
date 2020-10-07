@@ -129,12 +129,17 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <Target Name="CreateTlogDir" BeforeTargets="CustomBuildStep">
+    <MakeDir Directories="$(TLogLocation)" />
+  </Target>
+  <PropertyGroup>
+    <CustomBuildBeforeTargets>ResolveProjectReferences</CustomBuildBeforeTargets>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -147,16 +152,17 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -170,15 +176,16 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -193,15 +200,16 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -217,10 +225,11 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -228,11 +237,11 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -244,14 +253,14 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <CustomBuildStep />
-    <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
+    <CustomBuildStep>
+      <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
+      <Message>Updating git-version.cpp</Message>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -259,7 +268,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -267,7 +276,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
@@ -278,10 +287,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
@@ -289,7 +299,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -308,10 +318,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
@@ -319,7 +330,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/native/ext/libpng17;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\arm\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -338,15 +349,77 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
-    <PreBuildEvent>
+    <CustomBuildStep>
       <Command>../Windows/git-version-gen.cmd</Command>
+      <Outputs>../git-version.cpp;%(Outputs)</Outputs>
       <Message>Updating git-version.cpp</Message>
-    </PreBuildEvent>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\cityhash\city.cpp" />
     <ClCompile Include="..\ext\disarm.cpp" />
+    <ClCompile Include="..\ext\gason\gason.cpp" />
+    <ClCompile Include="..\ext\jpge\jpgd.cpp" />
+    <ClCompile Include="..\ext\jpge\jpge.cpp" />
+    <ClCompile Include="..\ext\libzip\mkstemp.c" />
+    <ClCompile Include="..\ext\libzip\zip_add.c" />
+    <ClCompile Include="..\ext\libzip\zip_add_dir.c" />
+    <ClCompile Include="..\ext\libzip\zip_close.c" />
+    <ClCompile Include="..\ext\libzip\zip_delete.c" />
+    <ClCompile Include="..\ext\libzip\zip_dirent.c" />
+    <ClCompile Include="..\ext\libzip\zip_entry_free.c" />
+    <ClCompile Include="..\ext\libzip\zip_entry_new.c" />
+    <ClCompile Include="..\ext\libzip\zip_error.c" />
+    <ClCompile Include="..\ext\libzip\zip_error_clear.c" />
+    <ClCompile Include="..\ext\libzip\zip_error_get.c" />
+    <ClCompile Include="..\ext\libzip\zip_error_get_sys_type.c" />
+    <ClCompile Include="..\ext\libzip\zip_error_strerror.c" />
+    <ClCompile Include="..\ext\libzip\zip_error_to_str.c" />
+    <ClCompile Include="..\ext\libzip\zip_err_str.c" />
+    <ClCompile Include="..\ext\libzip\zip_fclose.c" />
+    <ClCompile Include="..\ext\libzip\zip_filerange_crc.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_error_clear.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_error_get.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_get_offset.c" />
+    <ClCompile Include="..\ext\libzip\zip_file_strerror.c" />
+    <ClCompile Include="..\ext\libzip\zip_fopen.c" />
+    <ClCompile Include="..\ext\libzip\zip_fopen_index.c" />
+    <ClCompile Include="..\ext\libzip\zip_fread.c" />
+    <ClCompile Include="..\ext\libzip\zip_free.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_archive_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_archive_flag.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_file_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_name.c" />
+    <ClCompile Include="..\ext\libzip\zip_get_num_files.c" />
+    <ClCompile Include="..\ext\libzip\zip_memdup.c" />
+    <ClCompile Include="..\ext\libzip\zip_name_locate.c" />
+    <ClCompile Include="..\ext\libzip\zip_new.c" />
+    <ClCompile Include="..\ext\libzip\zip_open.c" />
+    <ClCompile Include="..\ext\libzip\zip_rename.c" />
+    <ClCompile Include="..\ext\libzip\zip_replace.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_archive_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_archive_flag.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_file_comment.c" />
+    <ClCompile Include="..\ext\libzip\zip_set_name.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_buffer.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_file.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_filep.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_free.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_function.c" />
+    <ClCompile Include="..\ext\libzip\zip_source_zip.c" />
+    <ClCompile Include="..\ext\libzip\zip_stat.c" />
+    <ClCompile Include="..\ext\libzip\zip_stat_index.c" />
+    <ClCompile Include="..\ext\libzip\zip_stat_init.c" />
+    <ClCompile Include="..\ext\libzip\zip_strerror.c" />
+    <ClCompile Include="..\ext\libzip\zip_unchange.c" />
+    <ClCompile Include="..\ext\libzip\zip_unchange_all.c" />
+    <ClCompile Include="..\ext\libzip\zip_unchange_archive.c" />
+    <ClCompile Include="..\ext\libzip\zip_unchange_data.c" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
+    <ClCompile Include="..\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy-sinksource.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy-stubs-internal.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="..\git-version.cpp" />
     <ClCompile Include="..\ext\udis86\decode.c" />
@@ -366,16 +439,22 @@
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\MemorySubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
+    <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
     <ClCompile Include="HLE\sceUsbMic.cpp" />
+    <ClCompile Include="HW\BufferQueue.cpp" />
     <ClCompile Include="HW\Camera.cpp" />
+    <ClCompile Include="Instance.cpp" />
+    <ClCompile Include="KeyMap.cpp" />
+    <ClCompile Include="MemFault.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
@@ -819,6 +898,7 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
+    <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Util\AudioFormat.cpp" />
     <ClCompile Include="Util\AudioFormatNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -833,6 +913,7 @@
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\DisArm64.cpp" />
     <ClCompile Include="Util\GameManager.cpp" />
+    <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">MaxSpeed</Optimization>
@@ -865,11 +946,20 @@
     <ClCompile Include="WebServer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\cityhash\city.h" />
+    <ClInclude Include="..\ext\cityhash\citycrc.h" />
     <ClInclude Include="..\ext\disarm.h" />
+    <ClInclude Include="..\ext\gason\gason.h" />
+    <ClInclude Include="..\ext\jpge\jpgd.h" />
+    <ClInclude Include="..\ext\jpge\jpge.h" />
+    <ClInclude Include="..\ext\libzip\config.h" />
+    <ClInclude Include="..\ext\libzip\zip.h" />
+    <ClInclude Include="..\ext\libzip\zipint.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT.h" />
+    <ClInclude Include="..\ext\sha1\sha1.h" />
     <ClInclude Include="..\ext\snappy\snappy-internal.h" />
     <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />
     <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
@@ -894,17 +984,22 @@
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\MemorySubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
+    <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
     <ClInclude Include="HLE\sceUsbAcc.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
     <ClInclude Include="HLE\sceUsbMic.h" />
     <ClInclude Include="HW\Camera.h" />
+    <ClInclude Include="Instance.h" />
+    <ClInclude Include="KeyMap.h" />
+    <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRInterpreter.h" />
@@ -1151,6 +1246,7 @@
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
+    <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="Util\AudioFormat.h" />
     <ClInclude Include="Util\AudioFormatNEON.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1165,6 +1261,7 @@
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\DisArm64.h" />
     <ClInclude Include="Util\GameManager.h" />
+    <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="WaveFile.h" />
@@ -1172,6 +1269,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />
+    <None Include="..\ext\cityhash\COPYING" />
+    <None Include="..\ext\cityhash\README" />
+    <None Include="..\ext\gason\LICENSE" />
+    <None Include="..\ext\libzip\Android.mk" />
     <None Include="..\LICENSE.TXT" />
     <None Include="CMakeLists.txt" />
   </ItemGroup>
@@ -1182,15 +1283,19 @@
     <ProjectReference Include="..\ext\libarmips.vcxproj">
       <Project>{129e5e2b-39c1-4d84-96fe-dfd22dbb4a25}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\miniupnpc.vcxproj">
+      <Project>{d8a71225-178b-424e-96c1-cc3be2c1b047}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\GPU\GPU.vcxproj">
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\ext\native\native.vcxproj">
-      <Project>{C4DF647E-80EA-4111-A0A8-218B1B711E18}</Project>
     </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\ext\libzip\CMakeLists.txt" />
+    <Text Include="..\ext\sha1\CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -5,9 +5,8 @@
 #include <array>
 #include <cstdlib>
 
-#include "Common/GL/GLInterface/EGL.h"
-
 #include "Common/Log.h"
+#include "Common/GL/GLInterface/EGL.h"
 
 // Show the current FPS
 void cInterfaceEGL::Swap() {

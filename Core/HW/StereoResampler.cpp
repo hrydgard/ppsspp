@@ -35,11 +35,11 @@
 #include <cstring>
 #include <atomic>
 
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "base/NativeApp.h"
-#include "Common/ChunkFile.h"
-#include "Common/MathUtil.h"
+#include "Common/System/System.h"
+#include "Common/Math/math_util.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
@@ -71,7 +71,7 @@ StereoResampler::StereoResampler()
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
 		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
-		ILOG("StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
+		INFO_LOG(AUDIO, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
 		m_input_sample_rate = input_sample_rate;
 	}
 
@@ -179,7 +179,9 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	u32 indexW = m_indexW.load();
 
 	const int INDEX_MASK = (m_maxBufsize * 2 - 1);
-	lastBufSize_ = (indexR - m_indexW) & INDEX_MASK;
+
+	// This is only for debug visualization, not used for anything.
+	lastBufSize_ = ((indexW - indexR) & INDEX_MASK) / 2;
 
 	// Drift prevention mechanism.
 	float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
@@ -289,7 +291,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 }
 
 void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
-	double elapsed = real_time_now() - startTime_;
+	double elapsed = time_now_d() - startTime_;
 
 	double effective_input_sample_rate = (double)inputSampleCount_ / elapsed;
 	double effective_output_sample_rate = (double)outputSampleCount_ / elapsed;
@@ -333,7 +335,7 @@ void StereoResampler::ResetStatCounters() {
 	overrunCountTotal_ = 0;
 	inputSampleCount_ = 0;
 	outputSampleCount_ = 0;
-	startTime_ = real_time_now();
+	startTime_ = time_now_d();
 }
 
 void StereoResampler::DoState(PointerWrap &p) {

@@ -21,7 +21,7 @@
 
 #include <d3d11.h>
 
-#include "base/basictypes.h"
+#include "Common/Common.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"

@@ -15,10 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
+#include <set>
+
 #include "ext/xxhash.h"
-#include "profiler/profiler.h"
-#include "Common/ChunkFile.h"
+#include "Common/Profiler/Profiler.h"
+
+#include "Common/Log.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
@@ -60,7 +63,7 @@ void IRJit::UpdateFCR31() {
 }
 
 void IRJit::ClearCache() {
-	ILOG("IRJit: Clearing the cache!");
+	INFO_LOG(JIT, "IRJit: Clearing the cache!");
 	blocks_.Clear();
 }
 
@@ -104,7 +107,7 @@ void IRJit::Compile(u32 em_address) {
 bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
 	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
 	if (instructions.empty()) {
-		_dbg_assert_(JIT, preload);
+		_dbg_assert_(preload);
 		// We return true when preloading so it doesn't abort.
 		return preload;
 	}
@@ -224,6 +227,10 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
+				if (!Memory::IsValidAddress(mips_->pc)) {
+					Core_ExecException(mips_->pc, mips_->pc, ExecExceptionType::JUMP);
+					break;
+				}
 			} else {
 				// RestoreRoundingMode(true);
 				Compile(mips_->pc);
@@ -474,7 +481,7 @@ u64 IRBlock::CalculateHash() const {
 			buffer[pos++] = instr.encoding;
 		}
 
-		return XXH64(&buffer[0], origSize_, 0x9A5C33B8);
+		return XXH3_64bits(&buffer[0], origSize_);
 	}
 
 	return 0;

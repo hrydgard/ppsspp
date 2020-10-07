@@ -19,10 +19,16 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <set>
+#include <cstdlib>
+#include <cstdarg>
 
 #include "Core/Reporting.h"
-
+#include "Common/File/VFS/VFS.h"
 #include "Common/CPUDetect.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -32,23 +38,16 @@
 #include "Core/System.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "net/url.h"
-
-#include "base/stringutil.h"
-#include "base/buffer.h"
-#include "thread/threadutil.h"
-#include "file/zip_read.h"
-
-#include <set>
-#include <stdlib.h>
-#include <cstdarg>
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 
 namespace Reporting
 {
@@ -61,7 +60,7 @@ namespace Reporting
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
 	// Keeps track of report-only-once identifiers.  Since they're always constants, a pointer is okay.
-	static std::set<const char *> logOnceUsed;
+	static std::map<const char *, int> logOnceUsed;
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
 	// Support is cached here to avoid checking it on every single request.
@@ -335,7 +334,7 @@ namespace Reporting
 			return;
 		}
 
-		p.Do(everUnsupported);
+		Do(p, everUnsupported);
 	}
 
 	void UpdateConfig()
@@ -345,10 +344,21 @@ namespace Reporting
 			everUnsupported = true;
 	}
 
-	bool ShouldLogOnce(const char *identifier)
+	bool ShouldLogNTimes(const char *identifier, int count)
 	{
 		// True if it wasn't there already -> so yes, log.
-		return logOnceUsed.insert(identifier).second;
+		auto iter = logOnceUsed.find(identifier);
+		if (iter == logOnceUsed.end()) {
+			logOnceUsed.insert(std::pair<const char*, int>(identifier, 1));
+			return true;
+		} else {
+			if (iter->second >= count) {
+				return false;
+			} else {
+				iter->second++;
+				return true;
+			}
+		}
 	}
 
 	std::string CurrentGameID()
@@ -484,7 +494,7 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		if (CheatsInEffect())
+		if (CheatsInEffect() || HLEPlugins::HasEnabled())
 			return false;
 		if (g_Config.iLockedCPUSpeed != 0)
 			return false;

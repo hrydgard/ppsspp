@@ -22,7 +22,8 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
@@ -323,7 +324,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 				return entry;
 		} else {
 			if (catchError)
-				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
+				ERROR_LOG(FILESYS, "File '%s' not found", path.c_str());
 
 			return 0;
 		}
@@ -336,7 +337,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	entry.isBlockSectorMode = false;
 
 	if (access & FILEACCESS_WRITE) {
-		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
+		ERROR_LOG(FILESYS, "Can't open file '%s' with write access on an ISO partition", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
 	}
 
@@ -345,7 +346,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
-			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
+			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: '%s', sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
 			return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 		else if (sectorStart == blockDevice->GetNumBlocks())
@@ -353,7 +354,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 			ERROR_LOG(FILESYS, "Should not be able to open the block after the last on disc! %08x", sectorStart);
 		}
 
-		DEBUG_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
+		DEBUG_LOG(FILESYS, "Got a raw sector open: '%s', sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;
@@ -362,16 +363,16 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		entry.openSize = readSize;
 		// when open as "umd1:/sce_lbn0x0_size0x6B49D200", that mean open umd1 as a block device.
 		// the param in sceIoLseek and sceIoRead is lba mode. we must mark it.
-		if (strncmp(devicename, "umd0:", 5)==0 || strncmp(devicename, "umd1:", 5)==0)
+		if (strncmp(devicename, "umd0:", 5) == 0 || strncmp(devicename, "umd1:", 5) == 0)
 			entry.isBlockSectorMode = true;
 
 		entries[newHandle] = entry;
 		return newHandle;
 	}
 
-	// May return entireISO for "umd0:"
-	entry.file = GetFromPath(filename);
-	if (!entry.file){
+	// May return entireISO for "umd0:".
+	entry.file = GetFromPath(filename, false);
+	if (!entry.file) {
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
@@ -461,10 +462,18 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int ISOFileSystem::DevType(u32 handle)
-{
+PSPDevType ISOFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	return iter->second.isBlockSectorMode ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+	PSPDevType type = iter->second.isBlockSectorMode ? PSPDevType::BLOCK : PSPDevType::FILE;
+	if (iter->second.isRawSector)
+		type |= PSPDevType::EMU_LBN;
+	return type;
+}
+
+FileSystemFlags ISOFileSystem::Flags() {
+	// TODO: Here may be a good place to force things, in case users recompress games
+	// as PBP or CSO when they were originally the other type.
+	return blockDevice->IsDisc() ? FileSystemFlags::UMD : FileSystemFlags::CARD;
 }
 
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
@@ -515,7 +524,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		if ((s64)e.seekPos + size > fileSize) {
 			// Clamp to the remaining size, but read what we can.
 			const s64 newSize = fileSize - (s64)e.seekPos;
-			WARN_LOG(FILESYS, "Reading beyond end of file, clamping size %lld to %lld", size, newSize);
+			// Reading beyond the file is really quite normal behavior (if return value handled correctly), so
+			// not doing WARN here. Still, can potentially be useful to see so leaving at INFO.
+			if (newSize == 0) {
+				INFO_LOG(FILESYS, "Attempted read at end of file, 0-size read simulated");
+			} else {
+				INFO_LOG(FILESYS, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+			}
 			size = newSize;
 		}
 
@@ -527,7 +542,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		u32 secNum = (u32)(positionOnIso / 2048);
 		u8 theSector[2048];
 
-		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
+		if ((middleSize & 2047) != 0) {
+			ERROR_LOG(FILESYS, "Remaining size should be aligned");
+		}
 
 		const u8 *const start = pointer;
 		if (firstBlockSize > 0) {
@@ -607,7 +624,9 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		PSPFileInfo fileInfo;
 		fileInfo.name = filename;
 		fileInfo.exists = true;
+		fileInfo.type = FILETYPE_NORMAL;
 		fileInfo.size = readSize;
+		fileInfo.access = 0444;
 		fileInfo.startSector = sectorStart;
 		fileInfo.isOnSectorSystem = true;
 		fileInfo.numSectors = (readSize + sectorSize - 1) / sectorSize;
@@ -616,12 +635,10 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 
 	TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
-	if (!entry) {
-		x.size = 0;
-		x.exists = false;
-	} else {
+	if (entry) {
 		x.name = entry->name;
-		x.access = FILEACCESS_READ;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
 		x.size = entry->size;
 		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
@@ -649,16 +666,14 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 
 		PSPFileInfo x;
 		x.name = e->name;
-		x.access = FILEACCESS_READ;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
 		x.size = e->size;
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
 		x.sectorSize = sectorSize;
 		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
-		memset(&x.atime, 0, sizeof(x.atime));
-		memset(&x.mtime, 0, sizeof(x.mtime));
-		memset(&x.ctime, 0, sizeof(x.ctime));
 		myVector.push_back(x);
 	}
 	return myVector;
@@ -702,7 +717,7 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 		return;
 
 	int n = (int) entries.size();
-	p.Do(n);
+	Do(p, n);
 
 	if (p.mode == p.MODE_READ) {
 		entries.clear();
@@ -710,18 +725,18 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 			u32 fd = 0;
 			OpenFileEntry of;
 
-			p.Do(fd);
-			p.Do(of.seekPos);
-			p.Do(of.isRawSector);
-			p.Do(of.isBlockSectorMode);
-			p.Do(of.sectorStart);
-			p.Do(of.openSize);
+			Do(p, fd);
+			Do(p, of.seekPos);
+			Do(p, of.isRawSector);
+			Do(p, of.isBlockSectorMode);
+			Do(p, of.sectorStart);
+			Do(p, of.openSize);
 
 			bool hasFile = false;
-			p.Do(hasFile);
+			Do(p, hasFile);
 			if (hasFile) {
 				std::string path;
-				p.Do(path);
+				Do(p, path);
 				of.file = GetFromPath(path);
 			} else {
 				of.file = NULL;
@@ -732,24 +747,24 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 	} else {
 		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it) {
 			OpenFileEntry &of = it->second;
-			p.Do(it->first);
-			p.Do(of.seekPos);
-			p.Do(of.isRawSector);
-			p.Do(of.isBlockSectorMode);
-			p.Do(of.sectorStart);
-			p.Do(of.openSize);
+			Do(p, it->first);
+			Do(p, of.seekPos);
+			Do(p, of.isRawSector);
+			Do(p, of.isBlockSectorMode);
+			Do(p, of.sectorStart);
+			Do(p, of.openSize);
 
 			bool hasFile = of.file != NULL;
-			p.Do(hasFile);
+			Do(p, hasFile);
 			if (hasFile) {
 				std::string path = EntryFullPath(of.file);
-				p.Do(path);
+				Do(p, path);
 			}
 		}
 	}
 
 	if (s >= 2) {
-		p.Do(lastReadBlock_);
+		Do(p, lastReadBlock_);
 	} else {
 		lastReadBlock_ = 0;
 	}

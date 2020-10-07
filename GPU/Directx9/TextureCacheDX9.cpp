@@ -15,9 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <map>
 #include <algorithm>
-#include <cassert>
 #include <cstring>
 
 #include "Core/MemMap.h"
@@ -26,17 +24,17 @@
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
-#include "gfx/d3d9_state.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 
 #include "ext/xxhash.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 
 namespace DX9 {
@@ -87,7 +85,6 @@ void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 }
 
 void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %p", entry->texturePtr);
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (texture) {
 		texture->Release();
@@ -95,15 +92,8 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	}
 }
 
-void TextureCacheDX9::ForgetLastTexture() {
-	InvalidateLastTexture();
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-}
-
-void TextureCacheDX9::InvalidateLastTexture(TexCacheEntry *entry) {
-	if (!entry || entry->texturePtr == lastBoundTexture) {
-		lastBoundTexture = INVALID_TEX;
-	}
+void TextureCacheDX9::InvalidateLastTexture() {
+	lastBoundTexture = INVALID_TEX;
 }
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
@@ -121,101 +111,24 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	return D3DFMT_A8R8G8B8;
 }
 
-static const u8 MinFilt[8] = {
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR,
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_NEAREST,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_NEAREST,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_LINEAR,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
-};
+void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
+	dxstate.texMinFilter.set(key.minFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	dxstate.texMipFilter.set(key.mipFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	dxstate.texMagFilter.set(key.magFilt ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
-static const u8 MipFilt[8] = {
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_NONE,
-	D3DTEXF_POINT,	// GL_NEAREST_MIPMAP_NEAREST,
-	D3DTEXF_POINT,	// GL_LINEAR_MIPMAP_NEAREST,
-	D3DTEXF_LINEAR,	// GL_NEAREST_MIPMAP_LINEAR,
-	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
-};
+	// DX9 mip levels are .. odd. The "max level" sets the LARGEST mip to use.
+	// We can enforce only the top mip level by setting a massive negative lod bias.
 
-static const u8 MagFilt[2] = {
-	D3DTEXF_POINT,
-	D3DTEXF_LINEAR
-};
-
-void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
-
-	if (maxLevel != 0) {
-		if (mode == GE_TEXLEVEL_MODE_AUTO) {
-			dxstate.texMaxMipLevel.set(0);
-			dxstate.texMipLodBias.set(lodBias);
-		} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
-			// Unfortunately, this doesn't support a const 1.5 or etc.
-			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)maxLevel, (int)lodBias)));
-			dxstate.texMipLodBias.set(-1000.0f);
-		} else {  // if (mode == GE_TEXLEVEL_MODE_SLOPE{
-			dxstate.texMaxMipLevel.set(0);
-			dxstate.texMipLodBias.set(0.0f);
-		}
-	} else {
+	if (!key.mipEnable) {
 		dxstate.texMaxMipLevel.set(0);
-		dxstate.texMipLodBias.set(0.0f);
+		dxstate.texMipLodBias.set(-100.0f);
+	} else {
+		dxstate.texMipLodBias.set((float)key.lodBias / 256.0f);
+		dxstate.texMaxMipLevel.set(key.minLevel / 256);
 	}
 
-	D3DTEXTUREFILTERTYPE minf = (D3DTEXTUREFILTERTYPE)MinFilt[minFilt];
-	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
-	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
-		minf = D3DTEXF_ANISOTROPIC;
-	}
-
-	dxstate.texMinFilter.set(minf);
-	dxstate.texMipFilter.set(mipf);
-	dxstate.texMagFilter.set(magf);
-	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-}
-
-void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	dxstate.texMinFilter.set(MinFilt[minFilt]);
-	dxstate.texMipFilter.set(MipFilt[minFilt]);
-	dxstate.texMagFilter.set(MagFilt[magFilt]);
-	dxstate.texMipLodBias.set(0.0f);
-	dxstate.texMaxMipLevel.set(0.0f);
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		return;
-	}
-
-	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
+	dxstate.texAddressU.set(key.sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
+	dxstate.texAddressV.set(key.tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 }
 
 void TextureCacheDX9::StartFrame() {
@@ -223,7 +136,7 @@ void TextureCacheDX9::StartFrame() {
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 	texelsScaledThisFrame_ = 0;
 	if (clearCacheNextFrame_) {
@@ -238,7 +151,6 @@ void TextureCacheDX9::StartFrame() {
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
 	}
-
 }
 
 void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -252,7 +164,10 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -280,7 +195,9 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
-	UpdateSamplingParams(*entry, false);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheDX9::Unbind() {
@@ -415,10 +332,11 @@ protected:
 	int renderH_;
 };
 
-void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+void TextureCacheDX9::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	LPDIRECT3DPIXELSHADER9 pshader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+	bool need_depalettize = IsClutFormat(texFormat);
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, framebuffer->drawnFormat);
 	}
 
@@ -427,7 +345,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
 		Draw::Framebuffer *depalFBO = framebufferManagerDX9_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 		shaderManager_->DirtyLastShader();
 
 		float xoff = -0.5f / framebuffer->renderWidth;
@@ -459,17 +377,15 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
 		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	framebufferManagerDX9_->RebindFramebuffer();
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
 
-	InvalidateLastTexture();
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
@@ -477,14 +393,6 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	// TODO: If a framebuffer is attached here, might end up with a bad entry.texture.
-	// Should just always create one here or something (like GLES.)
-
-	if (entry->framebuffer) {
-		// Nothing else to do here.
-		return;
-	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
@@ -747,7 +655,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			pixelData = (u32 *)rect.pBits;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == D3DFMT_A8R8G8B8);
+			_assert_(dstFmt == D3DFMT_A8R8G8B8);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 
@@ -782,7 +690,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 }
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(true);
+	SetTexture();
 	ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);

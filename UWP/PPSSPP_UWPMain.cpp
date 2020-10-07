@@ -1,28 +1,33 @@
 #include "pch.h"
 #include "PPSSPP_UWPMain.h"
 
-#include <cassert>
 #include <mutex>
 
-#include "base/basictypes.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/GPU/thin3d_create.h"
+
+#include "Common/Common.h"
+#include "Common/Input/InputState.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/DirectXHelper.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
 #include "Core/System.h"
 #include "Core/Loaders.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
-#include "input/input_state.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "file/file_util.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "base/display.h"
-#include "thread/threadutil.h"
-#include "thin3d/thin3d_create.h"
-#include "util/text/utf8.h"
-#include "Common/DirectXHelper.h"
+#include "Core/Config.h"
+
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"
@@ -100,7 +105,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
@@ -167,9 +172,7 @@ bool PPSSPP_UWPMain::Render() {
 		hasSetThreadName = true;
 	}
 
-	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
-
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
 	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
@@ -320,7 +323,7 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	draw_ = Draw::T3DCreateD3D11Context(
 		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 }
 
 void UWPGraphicsContext::Shutdown() {
@@ -377,6 +380,11 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60.f;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 0.0f;
 	default:
 		return -1;
 	}
@@ -473,12 +481,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;
 }
 
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength) {
-	return false;
-}
-
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) {
-	return false;
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	// TODO
+	cb(false, "");
 }
 
 std::string GetCPUBrandString() {
@@ -503,7 +508,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		ILOG("%s", what);
+		INFO_LOG(SYSTEM, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -525,7 +530,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			ILOG("%s", what);
+			INFO_LOG(SYSTEM, "%s", what);
 		}
 	}
 

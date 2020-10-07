@@ -46,6 +46,7 @@ enum PSPDirectories {
 	DIRECTORY_SAVESTATE,
 	DIRECTORY_CACHE,
 	DIRECTORY_TEXTURES,
+	DIRECTORY_PLUGINS,
 	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
 	DIRECTORY_VIDEO,
 	DIRECTORY_AUDIO
@@ -101,12 +102,20 @@ void InitSysDirectories();
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
 enum CoreState {
+	// Emulation is running normally.
 	CORE_RUNNING = 0,
+	// Emulation was running normally, just reached the end of a frame.
 	CORE_NEXTFRAME = 1,
-	CORE_STEPPING,
+	// Emulation is paused, CPU thread is sleeping.
+	CORE_STEPPING,  // Can be used for recoverable runtime errors (ignored memory exceptions)
+	// Core is being powered up.
 	CORE_POWERUP,
+	// Core is being powered down.
 	CORE_POWERDOWN,
-	CORE_ERROR,
+	// An error happened at boot.
+	CORE_BOOT_ERROR,
+	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
+	CORE_RUNTIME_ERROR,
 };
 
 extern bool coreCollectDebugStats;

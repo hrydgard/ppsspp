@@ -17,7 +17,6 @@
 
 #include <map>
 
-#include "base/logging.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
