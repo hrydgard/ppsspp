@@ -2375,9 +2375,6 @@ int NetAdhocctl_Create(const char* groupName) {
 					if (groupNameStruct != NULL) req.group = *groupNameStruct;
 					return WaitAdhocctlState(req, ADHOCCTL_STATE_CONNECTED, us, "adhocctl connect");
 				}
-				// Giving time for Naruto Shippuden Ninja Heroes 3 to close down the "Connecting..." dialog, otherwise the dialog will stuck there.
-				else if (adhocctlState == ADHOCCTL_STATE_CONNECTED || iResult != SOCKET_ERROR)
-					hleDelayResult(0, "give time to init/cleanup", us);
 
 				// Return Success
 				return 0;
