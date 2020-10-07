@@ -1099,6 +1099,11 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 	if (netAdhocInited) {
 		// Valid Arguments are supplied
 		if (mac != NULL && bufferSize > 0) {
+			// Port is in use by another PDP Socket. 
+			// TODO: Need to test whether using the same PDP port is allowed or not, since PDP/UDP is connectionless it might be allowed.
+			if (isPDPPortInUse(port))
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+
 			//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 			if (port == 0) port = -(int)portOffset;
 			// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
@@ -1107,12 +1112,6 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 			}
 			// Valid MAC supplied
 			if (isLocalMAC(saddr)) {
-				//// Unused Port supplied
-				//if (!_IsPDPPortInUse(port)) {} 
-				//
-				//// Port is in use by another PDP Socket
-				//return ERROR_NET_ADHOC_PORT_IN_USE;
-
 				// Create Internet UDP Socket
 				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
@@ -1672,11 +1671,11 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	return 0;
 }
 
-// Flags seems to be bitmasks of ADHOC_F_ALERT...
+// Flags seems to be bitmasks of ADHOC_F_ALERT... (need more games to test this)
 int sceNetAdhocSetSocketAlert(int id, int flag) {
- 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
+ 	WARN_LOG_REPORT_ONCE(sceNetAdhocSetSocketAlert, SCENET, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
-	return NetAdhoc_SetSocketAlert(id, flag);
+	return hleLogDebug(SCENET, NetAdhoc_SetSocketAlert(id, flag), "");
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
@@ -2727,7 +2726,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 		{
 			// Return Required Size
 			*buflen = sizeof(SceNetAdhocPdpStat) * socketcount;
-			VERBOSE_LOG(SCENET, "PDP Socket Count: %d", socketcount);
+			VERBOSE_LOG(SCENET, "Stat PDP Socket Count: %d", socketcount);
 
 			// Success
 			return 0;
@@ -2749,18 +2748,14 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if (sock != NULL && sock->type == SOCK_PDP) {
+					// Set available bytes to be received. With FIOREAD There might be lingering 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2)
+					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id);
+
 					// Copy Socket Data from Internal Memory
 					memcpy(&buf[i], &sock->data.pdp, sizeof(SceNetAdhocPdpStat));
 
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
-
-					// Set available bytes to be received. With FIOREAD There might be lingering 1 byte in recv buffer when remote peer's socket got closed
-					u32 avail = 0;
-					if (IsSocketReady(sock->data.pdp.id, true, false) > 0) {
-						avail = getAvailToRecv(sock->data.pdp.id);
-					}
-					buf[i].rcv_sb_cc = avail;
 
 					// Write End of List Reference
 					buf[i].next = 0;
@@ -2769,7 +2764,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					if (i > 0) 
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPdpStat));
 
-					VERBOSE_LOG(SCENET, "PDP Socket Id: %d, LPort: %d, RecvSbCC: %d", buf[i].id, buf[i].lport, buf[i].rcv_sb_cc);
+					VERBOSE_LOG(SCENET, "Stat PDP Socket Id: %d (%d), LPort: %d, RecvSbCC: %d", buf[i].id, sock->data.pdp.id, buf[i].lport, buf[i].rcv_sb_cc);
 
 					// Increment Counter
 					i++;
@@ -4039,17 +4034,17 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 }
 
 int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGetSocketAlert(%i, %08x) at %08x", id, flagPtr, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocGetSocketAlert, SCENET, "UNTESTED sceNetAdhocGetSocketAlert(%i, %08x) at %08x", id, flagPtr, currentMIPS->pc);
 	if (!Memory::IsValidAddress(flagPtr))
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 
 	if (id < 1 || id > MAX_SOCKET || adhocSockets[id - 1] == NULL)
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 
 	s32_le flg = adhocSockets[id - 1]->flags;	
 	Memory::Write_U32(flg, flagPtr);
 
-	return 0;
+	return hleLogDebug(SCENET, 0, "flags = %08x", flg);
 }
 
 int NetAdhocMatching_Stop(int matchingId) {

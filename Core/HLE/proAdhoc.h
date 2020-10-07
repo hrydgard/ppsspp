@@ -56,6 +56,7 @@
 
 #ifdef _WIN32
 #undef errno
+#undef ESHUTDOWN
 #undef ECONNABORTED
 #undef ECONNRESET
 #undef ENOTCONN
@@ -65,6 +66,7 @@
 #undef EALREADY
 #undef ETIMEDOUT
 #define errno WSAGetLastError()
+#define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
 #define ECONNRESET WSAECONNRESET
 #define ENOTCONN WSAENOTCONN
@@ -74,11 +76,13 @@
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
+inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
+inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
 
 #ifndef POLL_ERR
