@@ -154,10 +154,10 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 #define ADHOC_EV_CONNECT	0x0004
 #define ADHOC_EV_ACCEPT		0x0008
 #define ADHOC_EV_FLUSH		0x0010
-#define ADHOC_EV_INVALID	0x0100
-#define ADHOC_EV_DELETE		0x0200
+#define ADHOC_EV_INVALID	0x0100 // ignored on events but can be raised on revents? similar to POLLNVAL on posix poll?
+#define ADHOC_EV_DELETE		0x0200 // ignored on events but can be raised on revents? similar to POLLERR on posix poll?
 #define ADHOC_EV_ALERT		0x0400
-#define ADHOC_EV_DISCONNECT	0x0800
+#define ADHOC_EV_DISCONNECT	0x0800 // ignored on events but can be raised on revents? similar to POLLHUP on posix poll?
 
 // PTP Connection States
 #define ADHOC_PTP_STATE_CLOSED		0

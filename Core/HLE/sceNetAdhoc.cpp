@@ -103,7 +103,7 @@ u32_le matchingThreadCode[3];
 int matchingEventThread(int matchingId); 
 int matchingInputThread(int matchingId); 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
-int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout);
+int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 int FlushPtpSocket(int socketId);
 int NetAdhocctl_ExitGameMode();
 static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
@@ -687,20 +687,31 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
-	int ret = PollAdhocSocket(sds, req.id, 0);
+	int ret = PollAdhocSocket(sds, req.id, 0, 0);
 	if (ret <= 0) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
-		else if (ret == 0)
-			ret = ERROR_NET_ADHOC_TIMEOUT;
-		else
+		else if (ret < 0)
 			ret = ERROR_NET_ADHOC_EXCEPTION_EVENT;
-		if (ret == ERROR_NET_ADHOC_WOULD_BLOCK)
-			ret = ERROR_NET_ADHOC_TIMEOUT;
+		// FIXME: Does AdhocPollSocket can return any error code other than ERROR_NET_ADHOC_EXCEPTION_EVENT?
+		//else
+		//	ret = ERROR_NET_ADHOC_TIMEOUT;
 	}
 	result = ret;
+
+	if (ret > 0) {
+		for (int i = 0; i < req.id; i++) {
+			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
+				auto sock = adhocSockets[sds[i].id - 1];
+				if (sock->type == SOCK_PTP)
+					VERBOSE_LOG(SCENET, "Poll PTP Socket Id: %d (%d), events: %08x, revents: %08x - state: %d", sds[i].id, sock->data.ptp.id, sds[i].events, sds[i].revents, sock->data.ptp.state);
+				else
+					VERBOSE_LOG(SCENET, "Poll PDP Socket Id: %d (%d), events: %08x, revents: %08x", sds[i].id, sock->data.pdp.id, sds[i].events, sds[i].revents);
+			}
+		}
+	}
 
 	return 0;
 }
@@ -1668,7 +1679,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 	return NetAdhoc_SetSocketAlert(id, flag);
 }
 
-int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
+int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
 	//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
 	fd_set readfds, writefds, exceptfds;
 	int fd;
@@ -1682,26 +1693,21 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 			auto sock = adhocSockets[sds[i].id - 1];
 			if (sock->type == SOCK_PTP) {
 				fd = sock->data.ptp.id;
-				if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN)
-					sds[i].revents |= ADHOC_EV_ACCEPT;
-				else if (sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED)
-					sds[i].revents |= ADHOC_EV_CONNECT;
 			}
 			else {
 				fd = sock->data.pdp.id;
 			}
 			if (fd > maxfd) maxfd = fd;
-			if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
-			if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds);
-			//if (sds[i].events & ADHOC_EV_ALERT) 
-			FD_SET(fd, &exceptfds); // Does Alert can be raised on revents regardless of events bitmask?
+			FD_SET(fd, &readfds); 
+			FD_SET(fd, &writefds);
+			FD_SET(fd, &exceptfds);
 		}
 	}
 	timeval tmout;
 	tmout.tv_sec = timeout / 1000000; // seconds
 	tmout.tv_usec = (timeout % 1000000); // microseconds
 	int affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
-	if (affectedsockets > 0) {
+	if (affectedsockets >= 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
@@ -1712,32 +1718,63 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout) {
 				else {
 					fd = sock->data.pdp.id;
 				}
-				if (FD_ISSET(fd, &readfds))
+				if ((sds[i].events & ADHOC_EV_RECV) && FD_ISSET(fd, &readfds))
 					sds[i].revents |= ADHOC_EV_RECV;
-				if (FD_ISSET(fd, &writefds))
+				if ((sds[i].events & ADHOC_EV_SEND) && FD_ISSET(fd, &writefds))
 					sds[i].revents |= ADHOC_EV_SEND;				
-				if (FD_ISSET(fd, &exceptfds) || sock->alerted_flags)
+				if (sock->alerted_flags)
 					sds[i].revents |= ADHOC_EV_ALERT;
+				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
-				if (sds[i].revents) affectedsockets++;
+				
+				if (sock->type == SOCK_PTP) {
+					// FIXME: Should we also make use "retry_interval" for ADHOC_EV_ACCEPT, similar to ADHOC_EV_CONNECT ?
+					if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN && (sds[i].events & ADHOC_EV_ACCEPT) && FD_ISSET(fd, &readfds)) {
+						sds[i].revents |= ADHOC_EV_ACCEPT;
+					}
+					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
+					else if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
+						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
+
+						sds[i].revents |= ADHOC_EV_CONNECT;
+					}
+					// Check for socket state (already disconnected/closed by remote peer, already closed/deleted, not a socket or not opened/connected yet?)
+					// Raise ADHOC_EV_DISCONNECT, ADHOC_EV_DELETE, ADHOC_EV_INVALID on revents regardless of events as needed (similar to POLLHUP, POLLERR, and POLLNVAL on posix poll)
+					if (sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED) {
+						if (sock->attemptCount > 0) {
+							sds[i].revents |= ADHOC_EV_DISCONNECT; // remote peer has closed the socket
+						}
+					}
+				}
 
 				if (sock->flags & ADHOC_F_ALERTPOLL) {
-					affectedsockets = ERROR_NET_ADHOC_SOCKET_ALERTED;
 					// FIXME: Should we clear the flag after alert signaled?
                     sock->flags &= ~ADHOC_F_ALERTPOLL;
 					sock->alerted_flags |= ADHOC_F_ALERTPOLL;
-					break;
+
+					return ERROR_NET_ADHOC_SOCKET_ALERTED;
 				}
 			}
+			else {
+				sds[i].revents |= ADHOC_EV_INVALID;
+			}
+			if (sds[i].revents) affectedsockets++;
 		}
 	}
-	else if (affectedsockets < 0) {
-		affectedsockets = ERROR_NET_ADHOC_WOULD_BLOCK;
+	else {
+		// FIXME: Does AdhocPollSocket can return any error code other than ERROR_NET_ADHOC_EXCEPTION_EVENT on blocking/non-blocking mode?
+		/*if (nonblock)
+			affectedsockets = ERROR_NET_ADHOC_WOULD_BLOCK;
+		else
+			affectedsockets = ERROR_NET_ADHOC_TIMEOUT;
+		*/
+		affectedsockets = ERROR_NET_ADHOC_EXCEPTION_EVENT;
 	}
 	return affectedsockets;
 }
 
 int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonblock) { // timeout in microseconds
+	DEBUG_LOG_REPORT_ONCE(sceNetAdhocPollSocket, SCENET, "UNTESTED sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", socketStructAddr, count, timeout, nonblock, currentMIPS->pc);
 	// Library is initialized
 	if (netAdhocInited)
 	{
@@ -1774,7 +1811,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			//int affectedsockets = sceNetInetPoll(isds, count, timeout);
 			int affectedsockets = 0;
 			if (nonblock)
-				affectedsockets = PollAdhocSocket(sds, count, timeout);
+				affectedsockets = PollAdhocSocket(sds, count, timeout, nonblock);
 			else {
 				// Simulate blocking behaviour with non-blocking socket
 				// Borrowing some arguments to pass some parameters. The dummy WaitID(count+1) might not be unique thus have duplicate possibilities if there are multiple thread trying to poll the same numbers of socket at the same time
@@ -1789,11 +1826,23 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			// Non-blocking mode
 			// Bleach 7 seems to use nonblocking and check the return value > 0, or 0x80410709 (ERROR_NET_ADHOC_WOULD_BLOCK), also 0x80410717 (ERROR_NET_ADHOC_EXCEPTION_EVENT), when using prx files on JPCSP it can return 0
 			if (affectedsockets >= 0) {
-				DEBUG_LOG(SCENET, "%08x=sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", affectedsockets, socketStructAddr, count, timeout, nonblock, currentMIPS->pc);
-				return affectedsockets;
+				if (affectedsockets > 0) {
+					for (int i = 0; i < count; i++) {
+						if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
+							auto sock = adhocSockets[sds[i].id - 1];
+							if (sock->type == SOCK_PTP)
+								VERBOSE_LOG(SCENET, "Poll PTP Socket Id: %d (%d), events: %08x, revents: %08x - state: %d", sds[i].id, sock->data.ptp.id, sds[i].events, sds[i].revents, sock->data.ptp.state);
+							else
+								VERBOSE_LOG(SCENET, "Poll PDP Socket Id: %d (%d), events: %08x, revents: %08x", sds[i].id, sock->data.pdp.id, sds[i].events, sds[i].revents);
+						}
+					}
+				}
+				// Workaround to get 30 FPS instead of the too fast 60 FPS on Fate Unlimited Codes, it's abit absurd for a non-blocking call to have this much delay tho, and hleDelayResult doesn't works as good as hleEatMicro for this workaround.
+				hleEatMicro(1000); // hleEatMicro(7500); // normally 1ms, but using 7.5ms here seems to show better result for Bleach Heat the Soul 7 and other games with too high FPS, but may have a risk of slowing down games that already runs at normal FPS? (need more games to test this)
+				return hleLogDebug(SCENET, affectedsockets, "success");
 			}
-			else if (nonblock && affectedsockets < 0)
-				return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+			//else if (nonblock && affectedsockets < 0)
+			//	return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block"); // Is this error code valid for PollSocket? as it always returns 0 even when nonblock flag is set
 
 			return hleLogDebug(SCENET, ERROR_NET_ADHOC_EXCEPTION_EVENT, "exception event");
 		}
@@ -3572,6 +3621,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					
 					// Success
 					if (sent > 0) {
+						hleEatMicro(1000); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
 						// Save Length
 						*len = sent;
 
@@ -3673,6 +3723,8 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 					// Free Network Lock
 					// _freeNetworkLock();
+
+					hleEatMicro(1000); 
 
 					// Received Data
 					if (received > 0) {
