@@ -1417,7 +1417,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		saveDataListCount = (int)allSaves.size();
 		saveDataList = new SaveFileInfo[saveDataListCount];
 		for (auto save : allSaves) {
-			if (save.name == "." || save.name == "..")
+			if (save.type != FILETYPE_DIRECTORY || save.name == "." || save.name == "..")
 				continue;
 			std::string fileDataDir = savePath + save.name;
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
