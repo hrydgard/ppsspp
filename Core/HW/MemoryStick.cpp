@@ -71,15 +71,18 @@ u64 MemoryStick_SectorSize() {
 }
 
 u64 MemoryStick_FreeSpace() {
-	u64 freeSpace = pspFileSystem.FreeSpace("ms0:/");
-
 	// Cap the memory stick size to avoid math errors when old games get sizes that were
 	// hard to imagine back then.
 	// We have a compat setting to make it even smaller for Harry Potter : Goblet of Fire, see #13266.
-	const u64 memStickSize = PSP_CoreParameter().compat.flags().ReportSmallMemstick ? smallMemstickSize : normalMemstickSize;
-	if (freeSpace < memStickSize)
-		return freeSpace;
-	return memStickSize;
+	const u64 memStickSize = PSP_CoreParameter().compat.flags().ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
+	u64 usedSpace = pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");// Assume the memory stick is only used to store savedata.
+	u64 freeSpace;
+	if (usedSpace >= memStickSize)
+		freeSpace = 0;
+	else
+		freeSpace = memStickSize - usedSpace;
+
+	return freeSpace;
 }
 
 void MemoryStick_SetFatState(MemStickFatState state) {

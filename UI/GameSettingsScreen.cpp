@@ -897,6 +897,7 @@ void GameSettingsScreen::CreateViews() {
 	rewindFreq->SetZeroLabel(sy->T("Off"));
 
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
+	PopupSliderChoice *memStickSize = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 128, sy->T("Change Memory Stick Size", "Change Memory Stick Size(GB)"), screenManager(), "GB"));
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
