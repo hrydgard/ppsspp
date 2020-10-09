@@ -422,6 +422,7 @@ public:
 	bool bTCPNoDelay;
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
+	bool bForcedFirstConnect;
 	int iPortOffset;
 	int iMinTimeout;
 	int iWlanAdhocChannel;

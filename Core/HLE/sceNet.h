@@ -219,6 +219,7 @@ private:
 
 extern bool netInetInited;
 extern bool netApctlInited;
+extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
 
 template <typename I> std::string num2hex(I w, size_t hex_len = sizeof(I) << 1);
