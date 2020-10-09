@@ -123,12 +123,15 @@ bool isPDPPortInUse(uint16_t port) {
 	return false;
 }
 
-bool isPTPPortInUse(uint16_t port) {
+bool isPTPPortInUse(uint16_t port, bool forListen) {
 	// Iterate Sockets
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		auto sock = adhocSockets[i];
 		if (sock != NULL && sock->type == SOCK_PTP)
-			if (sock->data.ptp.lport == port)
+			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
+			if (sock->data.ptp.lport == port && 
+				((forListen && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) || 
+				(!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN)))
 				return true;
 	}
 	// Unused Port

@@ -2863,6 +2863,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 		}
 		// Valid Addresses
 		if (saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr)) {
+			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
+			if (isPTPPortInUse(sport, false))
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+
 			// Random Port required
 			if (sport == 0) {
 				isClient = true;
@@ -2957,7 +2961,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								changeBlockingMode(tcpsocket, 1);
 
 								// Return PTP Socket Pointer
-								return i + 1;
+								return hleLogDebug(SCENET, i + 1, "success");
 							}
 
 							// Free Memory
@@ -3368,7 +3372,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int flag) {
 	INFO_LOG(SCENET, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport,bufsize,rexmt_int,rexmt_cnt,backlog,flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return 0;
+		return -1;
 	}
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
@@ -3379,6 +3383,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 		}
 		// Valid Address
 		if (saddr != NULL && isLocalMAC(saddr)) {
+			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
+			if (isPTPPortInUse(sport, true))
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+
 			// Random Port required
 			if (sport == 0) {
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
@@ -3474,7 +3482,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									changeBlockingMode(tcpsocket, 1);
 
 									// Return PTP Socket Pointer
-									return i + 1;
+									return hleLogDebug(SCENET, i + 1, "success");
 								}
 
 								// Free Memory
@@ -3496,23 +3504,23 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					closesocket(tcpsocket);
 
 					// Port not available (exclusively in use?)
-					return ERROR_NET_ADHOC_INVALID_PORT; //ERROR_NET_ADHOC_PORT_IN_USE; // ERROR_NET_ADHOC_PORT_NOT_AVAIL;
+					return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_NOT_AVAIL, "port not available"); //ERROR_NET_ADHOC_PORT_IN_USE; // ERROR_NET_ADHOC_INVALID_PORT;
 				}
 
 				// Socket not available
-				return ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL;
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL, "socket id not available");
 			}
 
 			// Invalid Arguments
-			return ERROR_NET_ADHOC_INVALID_ARG;
+			return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 		}
 		
 		// Invalid Addresses
-		return ERROR_NET_ADHOC_INVALID_ADDR;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address");
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "adhoc not initialized");
 }
 
 /**

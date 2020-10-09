@@ -942,12 +942,14 @@ bool isLocalMAC(const SceNetEtherAddr * addr);
 bool isPDPPortInUse(uint16_t port);
 
 /**
- * Check whether PTP Port is in use or not
+ * Check whether PTP Port is in use or not (only sockets with non-Listening state will be considered as in use)
  * @param port To-be-checked Port Number
+ * @param forListen to check for listening or non-listening port
  * @return 1 if in use or... 0
  */
-bool isPTPPortInUse(uint16_t port);
+bool isPTPPortInUse(uint16_t port, bool forListen);
 
+// Convert MAC address to string
 std::string mac2str(SceNetEtherAddr* mac);
 
 /*
