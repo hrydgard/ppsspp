@@ -2078,9 +2078,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	errorcode = errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
-		u64 startTime = (u64)(time_now_d() * 1000.0);
+		u64 startTime = (u64)(time_now_d() * 1000000.0);
 		while (IsSocketReady(metasocket, false, true) <= 0) {
-			u64 now = (u64)(time_now_d() * 1000.0);
+			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (coreState == CORE_POWERDOWN) return iResult;
 			if (now - startTime > adhocDefaultTimeout) break;
 			sleep_ms(10);
@@ -2102,7 +2102,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
-	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout * 1000);
+	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);

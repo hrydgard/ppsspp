@@ -68,6 +68,7 @@ u32 netApctlState;
 u32 apctlThreadHackAddr = 0;
 u32_le apctlThreadCode[3];
 SceUID apctlThreadID = 0;
+int apctlStateEvent = -1;
 int actionAfterApctlMipsCall;
 std::recursive_mutex apctlEvtMtx;
 std::deque<ApctlArgs> apctlEvents;
@@ -125,10 +126,47 @@ void InitLocalhostIP() {
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
+static void __ApctlState(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+	int event = uid - 1;
+
+	s64 result = 0;
+	u32 error = 0;
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+	if (waitID == 0 || error != 0)
+		return;
+
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		netApctlState = waitVal;
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
+}
+
+// Used to change Apctl State after a delay and before executing callback mipscall (since we don't have beforeAction)
+int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
+	int uid = event + 1;
+
+	if (apctlStateEvent < 0)
+		apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
+
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
+	CoreTiming::ScheduleEvent(usToCycles(usec), apctlStateEvent, param);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
+
+	return 0;
+}
+
 void __NetApctlInit() {
 	netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
+	apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
 	apctlHandlers.clear();
+	apctlEvents.clear();
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
 }
 
@@ -182,6 +220,8 @@ void __NetApctlShutdown() {
 		kernelMemory.Free(apctlThreadHackAddr);
 		apctlThreadHackAddr = 0;
 	}
+	apctlHandlers.clear();
+	apctlEvents.clear();
 }
 
 void __NetShutdown() {
@@ -216,7 +256,7 @@ void netValidateLoopMemory() {
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1, 4);
+	auto s = p.Section("sceNet", 1, 5);
 	if (!s)
 		return;
 
@@ -259,6 +299,15 @@ void __NetDoState(PointerWrap &p) {
 		actionAfterApctlMipsCall = -1;
 		apctlThreadHackAddr = 0;
 		apctlThreadID = 0;
+	}
+	if (s >= 5) {
+		Do(p, apctlStateEvent);
+		if (apctlStateEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
+		}
+	}
+	else {
+		apctlStateEvent = -1;
 	}
 	
 	if (p.mode == p.MODE_READ) {
@@ -370,78 +419,106 @@ std::string error2str(u32 errorCode) {
 void __NetApctlCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> apctlGuard(apctlEvtMtx);
+	hleSkipDeadbeef();
 	int delayus = 10000;
+
+	// We are temporarily borrowing APctl thread for NpAuth callbacks for testing to simulate authentication
+	if (!npAuthEvents.empty())
+	{
+		auto args = npAuthEvents.front();
+		auto& id = args.data[0];
+		auto& result = args.data[1];
+		auto& argAddr = args.data[2];
+		npAuthEvents.pop_front();
+
+		delayus = (adhocEventDelay + adhocExtraDelay);
+
+		int handlerID = id - 1;
+		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
+			if (it->first == handlerID) {
+				DEBUG_LOG(SCENET, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
+				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
+				hleEnqueueCall(it->second.entryPoint, 3, args.data);
+			}
+		}
+	}
 
 	// How AP works probably like this: Game use sceNetApctl function -> sceNetApctl let the hardware know and do their's thing and have a new State -> Let the game know the resulting State through Event on their handler
 	if (!apctlEvents.empty())
 	{
 		auto args = apctlEvents.front();
-		auto oldState = &args.data[0];
-		auto newState = &args.data[1];
-		auto event = &args.data[2];
-		auto error = &args.data[3];
+		auto& oldState = args.data[0];
+		auto& newState = args.data[1];
+		auto& event = args.data[2];
+		auto& error = args.data[3];
 		apctlEvents.pop_front();
 
-		// Adjust delay according to current event. Added an extra delay to prevent I/O Timing method from causing disconnection
-		if (*event == PSP_NET_APCTL_EVENT_CONNECT_REQUEST || *event == PSP_NET_APCTL_EVENT_GET_IP || *event == PSP_NET_APCTL_EVENT_SCAN_REQUEST)
-			delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
+		// Adjust delay according to current event.
+		if (event == PSP_NET_APCTL_EVENT_CONNECT_REQUEST || event == PSP_NET_APCTL_EVENT_GET_IP || event == PSP_NET_APCTL_EVENT_SCAN_REQUEST)
+			delayus = adhocEventDelay;
 		else
-			delayus = (adhocEventPollDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
+			delayus = adhocEventPollDelay;
 
 		// Do we need to change the oldState? even if there was error?
-		//if (*error == 0)
-		*oldState = netApctlState;
+		//if (error == 0)
+		//	oldState = netApctlState;
 
 		// Need to make sure netApctlState is updated before calling the callback's mipscall so the game can GetState()/GetInfo() within their handler's subroutine and make use the new State/Info
-		// Should we update NewState & Error accordingly to Event before executing the mipscall ? sceNetApctl* functions might want to set the error value tho, so we probably should leave it untouched
-		//*error = 0;
-		switch (*event) {
+		// Should we update NewState & Error accordingly to Event before executing the mipscall ? sceNetApctl* functions might want to set the error value tho, so we probably should leave it untouched, right?
+		//error = 0;
+		switch (event) {
 		case PSP_NET_APCTL_EVENT_CONNECT_REQUEST:
-			netApctlState = PSP_NET_APCTL_STATE_JOINING; // Should we set the State to PSP_NET_APCTL_STATE_DISCONNECTED if there was error?
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 }); // Should we use PSP_NET_APCTL_EVENT_EAP_AUTH if securityType is not NONE?
+			newState = PSP_NET_APCTL_STATE_JOINING; // Should we set the State to PSP_NET_APCTL_STATE_DISCONNECTED if there was error?
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 }); // Should we use PSP_NET_APCTL_EVENT_EAP_AUTH if securityType is not NONE?
 			break;
 
 		case PSP_NET_APCTL_EVENT_ESTABLISHED:
-			netApctlState = PSP_NET_APCTL_STATE_GETTING_IP;
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_GET_IP, 0 });
+			newState = PSP_NET_APCTL_STATE_GETTING_IP;
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_GET_IP, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_GET_IP:
-			netApctlState = PSP_NET_APCTL_STATE_GOT_IP;
+			newState = PSP_NET_APCTL_STATE_GOT_IP;
 			NetApctl_InitInfo();
 			break;
 
 		case PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST:
-			netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
+			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
 			break;
 
 		case PSP_NET_APCTL_EVENT_SCAN_REQUEST:
-			netApctlState = PSP_NET_APCTL_STATE_SCANNING;
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_SCAN_COMPLETE, 0 });
+			newState = PSP_NET_APCTL_STATE_SCANNING;
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_SCAN_COMPLETE, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_SCAN_COMPLETE:
-			netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
+			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
 			break;
 
 		case PSP_NET_APCTL_EVENT_EAP_AUTH: // Is this suppose to happen between JOINING and ESTABLISHED ?
-			netApctlState = PSP_NET_APCTL_STATE_EAP_AUTH;
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_KEY_EXCHANGE, 0 }); // not sure if KEY_EXCHANGE is the next step after AUTH or not tho
+			newState = PSP_NET_APCTL_STATE_EAP_AUTH;
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_KEY_EXCHANGE, 0 }); // not sure if KEY_EXCHANGE is the next step after AUTH or not tho
 			break;
 
 		case PSP_NET_APCTL_EVENT_KEY_EXCHANGE: // Is this suppose to happen between JOINING and ESTABLISHED ?
-			netApctlState = PSP_NET_APCTL_STATE_KEY_EXCHANGE;
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 });
+			newState = PSP_NET_APCTL_STATE_KEY_EXCHANGE;
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_RECONNECT:
-			netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
-			if (*error == 0) apctlEvents.push_front({ netApctlState, netApctlState, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0 });
+			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
+			if (error == 0) 
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0 });
 			break;
 		}
 		// Do we need to change the newState? even if there were error?
-		//if (*error == 0)
-		*newState = netApctlState;
+		//if (error != 0)
+		//	newState = netApctlState;
 
 		// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 		if (actionAfterApctlMipsCall < 0) {
@@ -450,38 +527,19 @@ void __NetApctlCallbacks()
 
 		// Run mipscall. Should we skipped executing the mipscall if oldState == newState? 
 		for (std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
-			DEBUG_LOG(SCENET, "ApctlCallback [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%d][ArgsPtr=%08x]", it->first, *oldState, *newState, *event, *error, it->second.argument);
+			DEBUG_LOG(SCENET, "ApctlCallback [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%08x][ArgsPtr=%08x]", it->first, oldState, newState, event, error, it->second.argument);
 			args.data[4] = it->second.argument;
 			AfterApctlMipsCall* after = (AfterApctlMipsCall*)__KernelCreateAction(actionAfterApctlMipsCall);
-			after->SetData(it->first, *oldState, *newState, *event, *error, it->second.argument);
+			after->SetData(it->first, oldState, newState, event, error, it->second.argument);
 			hleEnqueueCall(it->second.entryPoint, 5, args.data, after);
 		}
+		// Similar to Adhocctl, new State might need to be set after delayed, right before executing the mipscall (ie. simulated beforeAction)
+		ScheduleApctlState(event, newState, delayus, "apctl callback state");
+		return;
 	}
 
-	// We are temporarily borrowing APctl thread for NpAuth callbacks for testing to simulate authentication
-	if (!npAuthEvents.empty())
-	{
-		auto args = npAuthEvents.front();
-		auto id = &args.data[0];
-		auto result = &args.data[1];
-		auto argAddr = &args.data[2];
-		npAuthEvents.pop_front();
-
-		delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
-
-		int handlerID = *id - 1;
-		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
-			if (it->first == handlerID) {
-				DEBUG_LOG(SCENET, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, *id, *result, it->second.argument);
-				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
-				hleEnqueueCall(it->second.entryPoint, 3, args.data);
-			}
-		}
-	}
-
-	// Must be delayed long enough whenever there is a pending callback.
+	// Must be delayed long enough whenever there is a pending callback to make sure previous callback & it's afterAction are fully executed
 	sceKernelDelayThread(delayus);
-	hleSkipDeadbeef();
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -535,7 +593,7 @@ static u32 sceNetTerm() {
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
-	hleDelayResult(retval, "give time to init/cleanup", adhocEventDelayMS * 1000);
+	hleEatMicro(adhocDefaultDelay);
 	return retval;
 }
 

@@ -98,11 +98,12 @@ int NetAdhoc_Term();
 extern bool netAdhocInited;
 extern bool netAdhocctlInited;
 extern bool networkInited;
-extern int adhocDefaultTimeout;
-extern int adhocExtraPollDelayMS;
-extern int adhocEventPollDelayMS;
-extern int adhocMatchingEventDelayMS;
-extern int adhocEventDelayMS; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
+extern int adhocDefaultTimeout; //3000000 usec
+extern int adhocDefaultDelay; //10000
+extern int adhocExtraDelay; //20000
+extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
+extern int adhocMatchingEventDelay; //30000
+extern int adhocEventDelay; //1000000
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
 

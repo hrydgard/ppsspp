@@ -69,11 +69,12 @@ bool netAdhocGameModeEntered;
 
 bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
-int adhocDefaultTimeout = 2000; //5000 ms
-int adhocExtraPollDelayMS = 10; //10
-int adhocEventPollDelayMS = 100; //100; Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
-int adhocMatchingEventDelayMS = 30; //30
-int adhocEventDelayMS = 300; //500; This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
+int adhocDefaultTimeout = 3000000; //3000000 usec
+int adhocDefaultDelay = 10000; //10000
+int adhocExtraDelay = 20000; //20000
+int adhocEventPollDelay = 100000; //100000; // Same timings with PSP_ADHOCCTL_RECV_TIMEOUT ?
+int adhocMatchingEventDelay = 30000; //30000
+int adhocEventDelay = 1000000; //1000000
 
 SceUID threadAdhocID;
 
@@ -85,6 +86,7 @@ std::vector<SceUID> matchingThreads;
 int IsAdhocctlInCB = 0;
 
 int adhocctlNotifyEvent = -1;
+int adhocctlStateEvent = -1;
 int adhocSocketNotifyEvent = -1;
 std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
@@ -197,10 +199,10 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	if (waitID == 0 || error != 0)
 		return;
 
-	// Socket not found?! Should never happened! but if it ever happen should we just exit here or need to wake the thread first?
+	// Socket not found?! Should never happen! But if it ever happened (ie. loaded from SaveState where adhocctlRequests got cleared) return BUSY and let the game try again.
 	if (adhocctlRequests.find(uid) == adhocctlRequests.end()) {
 		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) not found!", uid);
-		//__KernelResumeThreadFromWait(threadID, ERROR_NET_ADHOCCTL_BUSY);
+		__KernelResumeThreadFromWait(threadID, ERROR_NET_ADHOCCTL_BUSY);
 		return;
 	}
 
@@ -223,38 +225,39 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		break;
 	}
 
-	// Send Packet if it wasn't succesfully sent before
-	if (len > 0) {
-		if (IsSocketReady(metasocket, false, true) > 0) {
-			int ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
-			int sockerr = errno;
-
-			if (ret > 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
-				// Prevent from sending again
-				req.opcode = 0;
-				if (ret == SOCKET_ERROR)
-					DEBUG_LOG(SCENET, "sceNetAdhocctl[%i]: Socket Error (%i)", uid, sockerr);
+	if (g_Config.bEnableWlan) {
+		// Send Packet if it wasn't succesfully sent before
+		int ret = 0;
+		int sockerr = 0;
+		if (len > 0) {
+			ret = SOCKET_ERROR;
+			sockerr = EAGAIN;
+			if (IsSocketReady(metasocket, false, true) > 0) {
+				ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
+				sockerr = errno;
+				// Successfully Sent or Connection has been closed or Connection failure occurred
+				if (ret >= 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
+					// Prevent from sending again
+					req.opcode = 0;
+					if (ret == SOCKET_ERROR)
+						DEBUG_LOG(SCENET, "sceNetAdhocctl[%i]: Socket Error (%i)", uid, sockerr);
+				}
 			}
 		}
-	}
 
-	// Now we just need to wait for replies from adhoc server and the change of state
-	int waitVal = __KernelGetWaitValue(threadID, error);
-	if (adhocctlState != waitVal && error == 0) {
-		// Detecting Adhocctl Initialization using waitVal < 0
-		if (waitVal >= 0 || (waitVal < 0 && (g_Config.bEnableWlan && !networkInited))) {
-			u64 now = (u64)(time_now_d() * 1000.0);
-			if (now - adhocctlStartTime <= adhocDefaultTimeout) {
-				// Try again in another 0.5ms until state matched or timedout.
+		if ((req.opcode == OPCODE_LOGIN && !networkInited) || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
+			u64 now = (u64)(time_now_d() * 1000000.0);
+			if (now - adhocctlStartTime <= static_cast<u64>(adhocDefaultTimeout) + 500) {
+				// Try again in another 0.5ms until timedout.
 				CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocctlNotifyEvent, userdata);
 				return;
 			}
 			else
-				result = 0; // ERROR_NET_ADHOCCTL_BUSY
+				result = ERROR_NET_ADHOCCTL_BUSY;
 		}
-		else
-			result = 0; // Faking successfully connected to adhoc server
 	}
+	else
+		result = ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF;
 
 	__KernelResumeThreadFromWait(threadID, result);
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - State: %d", waitID, error, (int)result, adhocctlState);
@@ -263,8 +266,30 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	adhocctlRequests.erase(uid);
 }
 
-int WaitAdhocctlState(AdhocctlRequest request, int state, int usec, const char* reason) {
-	int uid = (state < 0) ? 1 : metasocket;
+static void __AdhocctlState(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+	int event = uid - 1;
+
+	s64 result = 0;
+	u32 error = 0;
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+	if (waitID == 0 || error != 0)
+		return;
+
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		adhocctlState = waitVal;
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
+}
+
+// Used to simulate blocking on metasocket when send OP code to AdhocServer
+int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
+	int uid = (metasocket <= 0) ? 1 : metasocket;
 
 	if (adhocctlRequests.find(uid) != adhocctlRequests.end()) {
 		WARN_LOG(SCENET, "sceNetAdhocctl - WaitID[%d] already existed, Socket is busy!", uid);
@@ -275,12 +300,26 @@ int WaitAdhocctlState(AdhocctlRequest request, int state, int usec, const char* 
 		adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
-	adhocctlStartTime = (u64)(time_now_d() * 1000.0);
+	adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
 	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
-	__KernelWaitCurThread(WAITTYPE_NET, uid, state, 0, false, reason);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, request.opcode, 0, false, reason);
 
-	// faked success
+	// Always returning a success when waiting for callback, since error code returned via callback?
+	return 0;
+}
+
+// Used to change Adhocctl State after a delay and before executing callback mipscall (since we don't have beforeAction)
+int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason) {
+	int uid = event + 1;
+
+	if (adhocctlStateEvent < 0)
+		adhocctlStateEvent = CoreTiming::RegisterEvent("__AdhocctlState", __AdhocctlState);
+
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
+	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlStateEvent, param);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
+
 	return 0;
 }
 
@@ -801,7 +840,7 @@ void netAdhocValidateLoopMemory() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 6);
+	auto s = p.Section("sceNetAdhoc", 1, 7);
 	if (!s)
 		return;
 
@@ -875,6 +914,15 @@ void __NetAdhocDoState(PointerWrap &p) {
 	else {
 		gameModeNotifyEvent = -1;
 	}
+	if (s >= 7) {
+		Do(p, adhocctlStateEvent);
+		if (adhocctlStateEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(adhocctlStateEvent, "__AdhocctlState", __AdhocctlState);
+		}
+	}
+	else {
+		adhocctlStateEvent = -1;
+	}
 	
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -918,6 +966,7 @@ void __AdhocNotifInit() {
 	adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
 	gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
+	adhocctlStateEvent = CoreTiming::RegisterEvent("__AdhocctlState", __AdhocctlState);
 
 	adhocctlRequests.clear();
 	adhocSocketRequests.clear();
@@ -980,14 +1029,13 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	}
 	
 	// Need to make sure to be connected to adhoc server before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
-	int us = adhocExtraPollDelayMS * 1000;
+	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !networkInited) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
-		return WaitAdhocctlState(dummyreq, -1, us, "adhocctl init");
+		return WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init");
 	}
 	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
-	else 
-		hleDelayResult(0, "give some time", us);
+	hleEatMicro(us);
 
 	return 0;
 }
@@ -1707,9 +1755,9 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 
 			// Blocking Mode
 			else
-				// Does timeout = 0 means undefinite on PSP?
-				if (timeout == 0)
-					timeout = adhocDefaultTimeout * 1000; // minSocketTimeoutUS;
+				// Does timeout = 0 means indefinite on PSP?
+				if (timeout <= 0)
+					timeout = adhocDefaultTimeout; // minSocketTimeoutUS;
 
 			if (count > (int)FD_SETSIZE) 
 				count = FD_SETSIZE; // return 0; //ERROR_NET_ADHOC_INVALID_ARG
@@ -1846,7 +1894,7 @@ int sceNetAdhocctlScan() {
 
 	// Library initialized
 	if (netAdhocctlInited) {
-		int us = adhocEventPollDelayMS * 1000;
+		int us = adhocDefaultDelay * 2;
 
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
@@ -1874,13 +1922,14 @@ int sceNetAdhocctlScan() {
 				}
 				else if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_SCAN, {0} };
-					return WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl scan");
+					return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
 				}
 			}
 			else {
 				// Return Success and let friendFinder thread to notify the handler when scan completed
 				// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
-				return hleDelayResult(0, "give a little time to be ready to receive the callback", us);
+				hleEatMicro(us);
+				return 0;
 			}
 		}
 		else if (adhocctlState == ADHOCCTL_STATE_SCANNING)
@@ -1890,7 +1939,8 @@ int sceNetAdhocctlScan() {
 		// We need to notify the handler on success, even if it was faked
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
 		// FIXME: returning ERROR_NET_ADHOCCTL_BUSY may trigger the game (ie. Ford Street Racing) to call sceNetAdhocctlDisconnect, But Not returning a Success(0) will cause Valhalla Knights 2 not working properly
-		return hleDelayResult(0, "give a little time to be ready to receive the callback", us);
+		hleEatMicro(us);
+		return 0;
 	}
 
 	// Library uninitialized
@@ -2034,7 +2084,7 @@ u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
-		int us = adhocEventPollDelayMS * 1000;
+		int us = adhocDefaultDelay * 5;
 		// Connected State (Adhoc Mode)
 		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { // (threadStatus == ADHOCCTL_STATE_CONNECTED) 
 			// Clear Network Name
@@ -2062,7 +2112,7 @@ u32 NetAdhocctl_Disconnect() {
 				} 
 				else if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
-					WaitAdhocctlState(req, ADHOCCTL_STATE_DISCONNECTED, us, "adhocctl disconnect");
+					WaitBlockingAdhocctlSocket(req, us, "adhocctl disconnect");
 				}
 				else {
 					// Set Disconnected State
@@ -2099,6 +2149,7 @@ u32 NetAdhocctl_Disconnect() {
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 		//hleCheckCurrentCallbacks();
 
+		hleEatMicro(us);
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
 		return 0;
 	}
@@ -2177,8 +2228,10 @@ int sceNetAdhocctlTerm() {
 	INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
 
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
+	int retval = NetAdhocctl_Term();
 
-	return NetAdhocctl_Term();
+	hleEatMicro(adhocDefaultDelay);
+	return retval;
 }
 
 static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
@@ -2369,13 +2422,14 @@ int NetAdhocctl_Create(const char* groupName) {
 				//setConnectionStatus(1);
 
 				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
-				int us = adhocEventDelayMS * 1000;
+				int us = adhocDefaultDelay;
 				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && iResult == SOCKET_ERROR && friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_CONNECT, {0} };
 					if (groupNameStruct != NULL) req.group = *groupNameStruct;
-					return WaitAdhocctlState(req, ADHOCCTL_STATE_CONNECTED, us, "adhocctl connect");
+					return WaitBlockingAdhocctlSocket(req, us, "adhocctl connect");
 				}
 
+				hleEatMicro(us);
 				// Return Success
 				return 0;
 			}
@@ -2602,8 +2656,10 @@ int NetAdhoc_Term() {
 
 int sceNetAdhocTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
+	int retval = NetAdhoc_Term();
 
-	return hleLogSuccessInfoI(SCENET, NetAdhoc_Term());
+	hleEatMicro(adhocDefaultDelay);
+	return hleLogSuccessInfoI(SCENET, retval);
 }
 
 static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
@@ -4152,7 +4208,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 								context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
 								context->timeout = (((u64)(keepalive_int) + (u64)rexmt_int) * (u64)init_count);
-								context->timeout += (adhocDefaultTimeout * 1000ULL); // For internet play we need higher timeout than what the game wanted
+								context->timeout += adhocDefaultTimeout; // For internet play we need higher timeout than what the game wanted
 								context->handler = handler;
 
 								// Fill in Selfpeer
@@ -4279,10 +4335,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	peerlock.unlock();
 
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
-	//sleep_ms(adhocMatchingEventDelayMS);
-	hleDelayResult(0, "give some time", adhocMatchingEventDelayMS * 1000); 
-
-	return 0;
+	return hleDelayResult(0, "give some time", adhocMatchingEventDelay);
 }
 
 #define KERNEL_PARTITION_ID  1
@@ -5089,11 +5142,13 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+	hleSkipDeadbeef();
 	int delayus = 10000;
-	
+
 	auto params = adhocctlEvents.begin();
 	if (params != adhocctlEvents.end())
 	{
+		int newState = adhocctlState;
 		u32 flags = params->first;
 		u32 error = params->second;
 		u32_le args[3] = { 0, 0, 0 };
@@ -5101,7 +5156,7 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 
 		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		u64 now = (u64)(time_now_d() * 1000.0);
+		u64 now = (u64)(time_now_d() * 1000000.0);
 		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || now - adhocctlStartTime > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
@@ -5109,30 +5164,42 @@ void __NetTriggerCallbacks()
 				actionAfterAdhocMipsCall = __KernelRegisterActionType(AfterAdhocMipsCall::Create);
 			}
 
-			delayus = (adhocEventPollDelayMS + 2 * adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
+			delayus = adhocEventPollDelay; // May need to add an extra delay if a certain I/O Timing method causing disconnection issue
 			switch (flags) {
 			case ADHOCCTL_EVENT_CONNECT:
-				adhocctlState = ADHOCCTL_STATE_CONNECTED;
-				delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000; // May affects Dissidia 012 and GTA VCS
+				newState = ADHOCCTL_STATE_CONNECTED;
+				if (adhocConnectionType != ADHOC_JOIN)
+					delayus = adhocEventDelay; // May affects Dissidia 012 and GTA VCS
 				break;
 			case ADHOCCTL_EVENT_SCAN: // notified only when scan completed?
-				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				newState = ADHOCCTL_STATE_DISCONNECTED;
 				break;
 			case ADHOCCTL_EVENT_DISCONNECT:
-				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				newState = ADHOCCTL_STATE_DISCONNECTED;
 				break;
-			case ADHOCCTL_EVENT_GAME:
-				adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-				delayus = (adhocEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000;
-				break;
+			case ADHOCCTL_EVENT_GAME: 
+			{
+				newState = ADHOCCTL_STATE_GAMEMODE;
+				if (adhocConnectionType != ADHOC_JOIN)
+					delayus = adhocEventDelay;
+				// Shows player list
+				INFO_LOG(SCENET, "GameMode - All players have joined:");
+				int i = 0;
+				for (auto& mac : gameModeMacs) {
+					INFO_LOG(SCENET, "GameMode macAddress#%d=%s", i++, mac2str(&mac).c_str());
+					if (i >= ADHOCCTL_GAMEMODE_MAX_MEMBERS)
+						break;
+				}
+			}
+			break;
 			case ADHOCCTL_EVENT_DISCOVER:
-				adhocctlState = ADHOCCTL_STATE_DISCOVER;
+				newState = ADHOCCTL_STATE_DISCOVER;
 				break;
 			case ADHOCCTL_EVENT_WOL_INTERRUPT:
-				adhocctlState = ADHOCCTL_STATE_WOL;
+				newState = ADHOCCTL_STATE_WOL;
 				break;
 			case ADHOCCTL_EVENT_ERROR:
-				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				newState = ADHOCCTL_STATE_DISCONNECTED;
 				break;
 			}
 
@@ -5144,12 +5211,14 @@ void __NetTriggerCallbacks()
 				hleEnqueueCall(it->second.entryPoint, 3, args, after);
 			}
 			adhocctlEvents.pop_front();
+			// Since we don't have beforeAction, simulate it using ScheduleEvent
+			ScheduleAdhocctlState(flags, newState, delayus, "adhocctl callback state");
+			return;
 		}
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
 	sceKernelDelayThread(delayus);
-	hleSkipDeadbeef();
 }
 
 void __NetMatchingCallbacks() //(int matchingId)
@@ -5172,7 +5241,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 		after->SetData(args[0], args[1], args[2]);
 		hleEnqueueCall(args[5], 5, args, after);
 		matchingEvents.pop_front();
-		delayus = (adhocMatchingEventDelayMS + 2 * adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
+		delayus = (adhocMatchingEventDelay + adhocExtraDelay); // Added an extra delay to prevent I/O Timing method from causing disconnection
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
