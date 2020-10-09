@@ -166,7 +166,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 		while (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, true, false) > 0) {
 			SceNetEtherAddr sendermac;
 			s32_le senderport = ADHOC_GAMEMODE_PORT;
-			s32_le bufsz = GAMEMODE_BUFFER_SIZE;
+			s32_le bufsz = uid; // GAMEMODE_BUFFER_SIZE;
 			int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
 			if (ret >= 0 && bufsz > 0) {
 				for (auto& gma : replicaGameModeAreas) {
@@ -185,7 +185,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 		CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL) - cyclesLate, gameModeNotifyEvent, userdata);
 		return;
 	}
-	INFO_LOG(SCENET, "GameMode Scheduler (%d) has finished", uid);
+	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has finished", gameModeSocket, uid);
 }
 
 static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
@@ -323,15 +323,15 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 	return 0;
 }
 
-int StartGameModeScheduler() {
+int StartGameModeScheduler(int bufSize) {
 	if (gameModeSocket < 0)
 		return -1;
 
 	if (gameModeNotifyEvent < 0)
 		gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
 
-	INFO_LOG(SCENET, "GameMode Scheduler (%d) has started", gameModeSocket);
-	u64 param = ((u64)__KernelGetCurThread()) << 32 | gameModeSocket;
+	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has started", gameModeSocket, bufSize);
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | bufSize;
 	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL), gameModeNotifyEvent, param);
 
 	return 0;
@@ -2512,17 +2512,13 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 
 int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int num_members, u32 membersAddr, u32 timeout, int flag) {
 	if (!netAdhocctlInited)
-		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
+		return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 
 	if (!Memory::IsValidAddress(membersAddr))
-		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
+		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
 	if (game_type <= 0 || game_type > 3 || num_members < 2 || num_members > 16 || (game_type == 1 && num_members > 4))
-		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
-
-	if (gameModeBuffer)
-		free(gameModeBuffer);
-	gameModeBuffer = (u8*)malloc(GAMEMODE_BUFFER_SIZE);
+		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
 	SceNetEtherAddr* addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr); // List of participating MAC addresses (started from host)
 	gameModeMacs.clear();
@@ -2562,7 +2558,7 @@ static int sceNetAdhocctlCreateEnterGameMode(const char * group_name, int game_t
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameMode, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 
-	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
+	return hleLogDebug(SCENET, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag), "");
 }
 
 /**
@@ -2587,17 +2583,13 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 	if (!hostMac)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 
-	if (gameModeBuffer)
-		free(gameModeBuffer);
-	gameModeBuffer = (u8*)malloc(GAMEMODE_BUFFER_SIZE);
-
 	// Add host mac first
 	gameModeMacs.push_back(*(SceNetEtherAddr*)hostMac);
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_GAMEMODE;
 	adhocConnectionType = ADHOC_JOIN;
 	netAdhocGameModeEntered = true;
-	return NetAdhocctl_Create(group_name);
+	return hleLogDebug(SCENET, NetAdhocctl_Create(group_name), "");
 }
 
 /**
@@ -2617,7 +2609,7 @@ int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, 
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameModeMin, SCENET, "UNTESTED sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 	// We don't really need the Minimum User Check
-	return NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag);
+	return hleLogDebug(SCENET, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag), "");
 }
 
 int NetAdhoc_Term() {
@@ -3789,12 +3781,17 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
+	u8* buf = (u8*)realloc(gameModeBuffer, size);
+	if (buf)
+		gameModeBuffer = buf;
+
 	u8* data = (u8*)malloc(size);
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
-		gameModeSocket = sceNetAdhocPdpCreate((const char*)&localMac, ADHOC_GAMEMODE_PORT, GAMEMODE_BUFFER_SIZE, 0);
 		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, localMac, data };
-		StartGameModeScheduler();
+		// Socket's buffer size should fit the largest size from master/replicas, should we waited until master & all replicas to be created first before creating the socket? (ie. the first time UpdateMaster being called?)
+		gameModeSocket = sceNetAdhocPdpCreate((const char*)&localMac, ADHOC_GAMEMODE_PORT, size, 0); 
+		StartGameModeScheduler(size);
 	}
 
 	return 0; // returned an id just like CreateReplica? always return 0?
@@ -3839,7 +3836,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 	u8* data = (u8*)malloc(size);
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
-		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, GAMEMODE_BUFFER_SIZE, 0);
+		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, size, 0);
 		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, *(SceNetEtherAddr*)mac, data };
 		replicaGameModeAreas.push_back(gma);
 		ret = gma.id;
@@ -3848,7 +3845,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 }
 
 static int sceNetAdhocGameModeUpdateMaster() {
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateMaster()");
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateMaster() at %08x", currentMIPS->pc);
 	if (!netAdhocctlInited)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
@@ -3887,7 +3884,7 @@ static int sceNetAdhocGameModeDeleteMaster() {
 }
 
 static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
-	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateReplica(%i, %08x)", id, infoAddr);
+	DEBUG_LOG(SCENET, "UNTESTED sceNetAdhocGameModeUpdateReplica(%i, %08x) at %08x", id, infoAddr, currentMIPS->pc);
 	if (!netAdhocctlInited)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
@@ -3909,15 +3906,16 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 		if (gma.id == id) {
 			if (Memory::IsValidAddress(infoAddr)) {
 				GameModeUpdateInfo* gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
+				gmuinfo->length = sizeof(GameModeUpdateInfo);
 				if (gma.data && gma.dataUpdated) {
 					memcpy(Memory::GetPointer(gma.addr), gma.data, gma.size);
 					gma.dataUpdated = 0;
 					gmuinfo->updated = 1;
+					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - 1000);
 				}
 				else {
 					gmuinfo->updated = 0;
 				}
-				gmuinfo->timeStamp = CoreTiming::GetGlobalTimeUsScaled();
 			}
 			break;
 		}
@@ -5314,7 +5312,7 @@ int NetAdhocctl_ExitGameMode() {
 }
 
 static int sceNetAdhocctlExitGameMode() {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlExitGameMode()");
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlExitGameMode() at %08x", currentMIPS->pc);
 	
 	return NetAdhocctl_ExitGameMode();
 }

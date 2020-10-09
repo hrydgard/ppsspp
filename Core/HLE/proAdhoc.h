@@ -104,11 +104,9 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 // Server Listening Port
 #define SERVER_PORT 27312
 
-// Default GameMode Port
+// Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-
-#define GAMEMODE_UPDATE_INTERVAL 12000 // usec, based on JPCSP
-#define GAMEMODE_BUFFER_SIZE     0x8000
+#define GAMEMODE_UPDATE_INTERVAL 10000 // 12000 usec on JPCSP, but 10000 works better on BattleZone (in order to get full speed 60 FPS)
 
 // psp strutcs and definitions
 #define ADHOCCTL_MODE_NONE     -1
@@ -303,6 +301,7 @@ typedef struct SceNetAdhocctlGameModeInfo {
 
 // GameModeUpdateInfo
 typedef struct GameModeUpdateInfo {
+	u32_le length; //size of GameModeUpdateInfo (16 bytes)
 	s32_le updated;
 	u64_le timeStamp;
 } PACK GameModeUpdateInfo;

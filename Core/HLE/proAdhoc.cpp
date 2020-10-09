@@ -1412,7 +1412,7 @@ int friendFinder(){
 							getLocalMac(&localMac);
 							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 								[localMac](SceNetEtherAddr const& e) {
-									return IsMatch(e, localMac);
+									return isMacMatch(&e, &localMac);
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
@@ -1501,14 +1501,14 @@ int friendFinder(){
 						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 								[packet](SceNetEtherAddr const& e) {
-									return IsMatch(e, packet->mac);
+									return isMacMatch(&e, &packet->mac);
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
 								SceNetEtherAddr localMac;
 								getLocalMac(&localMac);
 								auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 									[localMac](SceNetEtherAddr const& e) {
-										return IsMatch(e, localMac);
+										return isMacMatch(&e, &localMac);
 									});
 								// Starting from our self the rest of new players will be added to the back
 								if (it != gameModeMacs.end()) {
@@ -1572,8 +1572,8 @@ int friendFinder(){
 						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
 							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[peer](auto const& e) {
-									return IsMatch(e, peer->mac_addr);
+								[peer](SceNetEtherAddr const& e) {
+									return isMacMatch(&e, &peer->mac_addr);
 								}), gameModeMacs.end());
 						}*/
 
