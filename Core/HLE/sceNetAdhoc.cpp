@@ -5377,7 +5377,7 @@ static int sceNetAdhocctlExitGameMode() {
 }
 
 static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
+	DEBUG_LOG(SCENET, "sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
 	if (!netAdhocctlInited)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
@@ -5389,7 +5389,7 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 	gmInfo->num = static_cast<s32_le>(gameModeMacs.size());
 	int i = 0;
 	for (auto& mac : gameModeMacs) {
-		INFO_LOG(SCENET, "GameMode macAddress#%d=%s", i, mac2str(&mac).c_str());
+		VERBOSE_LOG(SCENET, "GameMode macAddress#%d=%s", i, mac2str(&mac).c_str());
 		gmInfo->members[i++] = mac;
 		if (i >= ADHOCCTL_GAMEMODE_MAX_MEMBERS) 
 			break;
