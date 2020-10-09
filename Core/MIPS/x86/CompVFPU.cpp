@@ -2191,6 +2191,18 @@ void CosOnly(SinCosArg angle, float *output) {
 	output[1] = vfpu_cos(angle);
 }
 
+void SinOnlyOld(SinCosArg angle, float *output) {
+	output[0] = vfpu_sin_old(angle);
+}
+
+void NegSinOnlyOld(SinCosArg angle, float *output) {
+	output[0] = -vfpu_sin_old(angle);
+}
+
+void CosOnlyOld(SinCosArg angle, float *output) {
+	output[1] = vfpu_cos_old(angle);
+}
+
 void ASinScaled(SinCosArg angle, float *output) {
 	output[0] = vfpu_asin(angle);
 }
@@ -2389,11 +2401,11 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			trigCallHelper(&SinOnly, sregs[i]);
+			trigCallHelper(PSP_CoreParameter().compat.flags().UseOldSinCos ? &SinOnlyOld : &SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			trigCallHelper(&CosOnly, sregs[i]);
+			trigCallHelper(PSP_CoreParameter().compat.flags().UseOldSinCos ? &CosOnlyOld : &CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
@@ -2419,7 +2431,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			trigCallHelper(&NegSinOnly, sregs[i]);
+			trigCallHelper(PSP_CoreParameter().compat.flags().UseOldSinCos ? &NegSinOnlyOld : &NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2

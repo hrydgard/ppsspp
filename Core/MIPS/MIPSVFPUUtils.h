@@ -63,6 +63,32 @@ inline float vfpu_cos(float angle) {
 	return cosf(angle);
 }
 
+inline float vfpu_sin_old(float angle) {
+	float checkAngle = angle - floorf(angle * 0.25f) * 4.f;
+	if (checkAngle == 0.0f || checkAngle == 2.0f) {
+		return 0.0f;
+	} else if (checkAngle == 1.0f) {
+		return 1.0f;
+	} else if (checkAngle == 3.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return sinf(angle);
+}
+
+inline float vfpu_cos_old(float angle) {
+	float checkAngle = angle - floorf(angle * 0.25f) * 4.f;
+	if (checkAngle == 0.0f || checkAngle == 2.0f) {
+		return 0.0f;
+	} else if (checkAngle == 1.0f) {
+		return 1.0f;
+	} else if (checkAngle == 3.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return cosf(angle);
+}
+
 inline float vfpu_asin(float angle) {
 	return asinf(angle) / M_PI_2;
 }

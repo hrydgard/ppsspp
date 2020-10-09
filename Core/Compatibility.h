@@ -69,6 +69,7 @@ struct CompatFlags {
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
 	bool ReportSmallMemstick;
+	bool UseOldSinCos;
 };
 
 class IniFile;
