@@ -595,8 +595,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen"))
+				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.bFullScreen = true;
+					System_SendMessage("toggle_fullscreen", "1");
+				}
+				if (!strcmp(argv[i], "--windowed")) {
+					g_Config.bFullScreen = false;
+					System_SendMessage("toggle_fullscreen", "0");
+				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))
