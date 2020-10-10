@@ -619,6 +619,9 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 			skipFrame = true;
 	}
 
+	// TODO: This is NOT where we should wait, really! We should mark each outgoing frame with the desired
+	// timestamp to push it to display, and sleep in the render thread to achieve that.
+
 	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody unthrottled)
 		if (nextFrameTime - curFrameTime > 2*scaledTimestep) {

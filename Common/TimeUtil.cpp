@@ -42,18 +42,14 @@ double time_now_d() {
 
 #else
 
-static uint64_t _frequency = 0;
-static uint64_t _starttime = 0;
-
 double time_now_d() {
 	static time_t start;
 	struct timeval tv;
-	gettimeofday(&tv, NULL);
+	gettimeofday(&tv, nullptr);
 	if (start == 0) {
 		start = tv.tv_sec;
 	}
-	tv.tv_sec -= start;
-	return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / 1000000.0);
 }
 
 #endif
