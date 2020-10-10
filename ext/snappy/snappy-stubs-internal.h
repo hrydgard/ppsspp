@@ -137,7 +137,7 @@ static const int64 kint64max = static_cast<int64>(0x7FFFFFFFFFFFFFFFLL);
 // and 32-bit values (not 64-bit); older versions either raise a fatal signal,
 // do an unaligned read and rotate the words around a bit, or do the reads very
 // slowly (trip through kernel mode). There's no simple #define that says just
-// “ARMv7 or higher”, so we have to filter away all ARMv5 and ARMv6
+// "ARMv7 or higher", so we have to filter away all ARMv5 and ARMv6
 // sub-architectures.
 //
 // This is a mess, but there's not much we can do about it.
