@@ -602,7 +602,7 @@ char* CompressFragment(const char* input,
         assert(candidate >= base_ip);
         assert(candidate < ip);
 
-        table[hash] = ip - base_ip;
+        table[hash] = (uint16)(ip - base_ip);
       } while (SNAPPY_PREDICT_TRUE(UNALIGNED_LOAD32(ip) !=
                                  UNALIGNED_LOAD32(candidate)));
 
@@ -610,7 +610,7 @@ char* CompressFragment(const char* input,
       // than 4 bytes match.  But, prior to the match, input
       // bytes [next_emit, ip) are unmatched.  Emit them as "literal bytes."
       assert(next_emit + 16 <= ip_end);
-      op = EmitLiteral</*allow_fast_path=*/true>(op, next_emit, ip - next_emit);
+      op = EmitLiteral</*allow_fast_path=*/true>(op, next_emit, (int)(ip - next_emit));
 
       // Step 3: Call EmitCopy, and then see if another EmitCopy could
       // be our next move.  Repeat until we find no match for the
@@ -647,11 +647,11 @@ char* CompressFragment(const char* input,
         // we also update table[Hash(ip - 1, shift)] and table[Hash(ip, shift)].
         input_bytes = GetEightBytesAt(ip - 1);
         uint32 prev_hash = HashBytes(GetUint32AtOffset(input_bytes, 0), shift);
-        table[prev_hash] = ip - base_ip - 1;
+        table[prev_hash] = (uint16)(ip - base_ip - 1);
         uint32 cur_hash = HashBytes(GetUint32AtOffset(input_bytes, 1), shift);
         candidate = base_ip + table[cur_hash];
         candidate_bytes = UNALIGNED_LOAD32(candidate);
-        table[cur_hash] = ip - base_ip;
+        table[cur_hash] = (uint16)(ip - base_ip);
       } while (GetUint32AtOffset(input_bytes, 1) == candidate_bytes);
 
       next_hash = HashBytes(GetUint32AtOffset(input_bytes, 2), shift);
@@ -663,7 +663,7 @@ char* CompressFragment(const char* input,
   // Emit the remaining bytes as a literal
   if (next_emit < ip_end) {
     op = EmitLiteral</*allow_fast_path=*/false>(op, next_emit,
-                                                ip_end - next_emit);
+                                                (int)(ip_end - next_emit));
   }
 
   return op;
@@ -929,7 +929,7 @@ bool SnappyDecompressor::RefillTag() {
   assert(needed <= sizeof(scratch_));
 
   // Read more bytes from reader if needed
-  uint32 nbuf = ip_limit_ - ip;
+  uint32 nbuf = (uint32)(ip_limit_ - ip);
   if (nbuf < needed) {
     // Stitch together bytes from ip and reader to form the word
     // contents.  We store the needed bytes in "scratch_".  They
@@ -1491,7 +1491,7 @@ class SnappyScatteredWriter {
 
   inline bool TryFastAppend(const char* ip, size_t available, size_t length) {
     char* op = op_ptr_;
-    const int space_left = op_limit_ - op;
+    const int space_left = (int)(op_limit_ - op);
     if (length <= 16 && available >= 16 + kMaximumTagLength &&
         space_left >= 16) {
       // Fast path, used for the majority (about 95%) of invocations.
