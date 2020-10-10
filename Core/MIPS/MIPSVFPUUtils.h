@@ -19,6 +19,7 @@
 #include <cmath>
 
 #include "Common/CommonTypes.h"
+#include "Core/Core.h"
 #include "Core/MIPS/MIPS.h"
 
 #define _VD (op & 0x7F)
@@ -87,6 +88,22 @@ inline float vfpu_cos_old(float angle) {
 	}
 	angle *= (float)M_PI_2;
 	return cosf(angle);
+}
+
+inline float vfpu_sin_checked(float angle) {
+	if (!PSP_CoreParameter().compat.flags().UseOldSinCos) {
+		return vfpu_sin(angle);
+	} else {
+		return vfpu_sin_old(angle);
+	}
+}
+
+inline float vfpu_cos_checked(float angle) {
+	if (!PSP_CoreParameter().compat.flags().UseOldSinCos) {
+		return vfpu_cos(angle);
+	} else {
+		return vfpu_cos_old(angle);
+	}
 }
 
 inline float vfpu_asin(float angle) {

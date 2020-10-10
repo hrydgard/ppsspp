@@ -624,14 +624,14 @@ namespace MIPSInt
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
 			case 17: d[i] = USE_VPFU_SQRT ? vfpu_rsqrt(s[i]) : 1.0f / sqrtf(s[i]); break; //vrsq
 				
-			case 18: { d[i] = vfpu_sin(s[i]); } break; //vsin
-			case 19: { d[i] = vfpu_cos(s[i]); } break; //vcos
+			case 18: { d[i] = vfpu_sin_checked(s[i]); } break; //vsin
+			case 19: { d[i] = vfpu_cos_checked(s[i]); } break; //vcos
 			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
 			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
 			case 22: d[i] = USE_VPFU_SQRT ? vfpu_sqrt(s[i])  : fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
-			case 26: { d[i] = -vfpu_sin(s[i]); } break; // vnsin
+			case 26: { d[i] = -vfpu_sin_checked(s[i]); } break; // vnsin
 			case 28: d[i] = 1.0f / powf(2.0, s[i]); break; // vrexp2
 			default:
 				_dbg_assert_msg_( false, "Invalid VV2Op op type %d", optype);
@@ -1589,8 +1589,8 @@ namespace MIPSInt
 			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Single);
 
 			// Cosine ignores all prefixes, so take the original.
-			cosine = vfpu_cos(V(vs));
-			sine = vfpu_sin(s[0]);
+			cosine = vfpu_cos_checked(V(vs));
+			sine = vfpu_sin_checked(s[0]);
 
 			if (negSin)
 				sine = -sine;
