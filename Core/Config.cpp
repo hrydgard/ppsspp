@@ -1031,6 +1031,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, true, true),
 	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, true, true),
 	ConfigSetting("SavedataUpgradeVersion", &g_Config.bSavedataUpgrade, true, true, false),
+	ConfigSetting("MemStickSize", &g_Config.iMemStickSizeGB, 16, true, false),
 
 	ConfigSetting(false),
 };
