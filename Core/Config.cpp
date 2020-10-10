@@ -988,8 +988,9 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 1, true, true),
 	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, false, true, true),
+	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, true, true),
 	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),
-	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, true, true, true),
+	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, true, true),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, true, true),
 	ConfigSetting("ChatButtonPosition",&g_Config.iChatButtonPosition,BOTTOM_LEFT,true,true),
@@ -1048,6 +1049,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, true, true),
 	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, true, true),
 	ConfigSetting("SavedataUpgradeVersion", &g_Config.bSavedataUpgrade, true, true, false),
+	ConfigSetting("MemStickSize", &g_Config.iMemStickSizeGB, 16, true, false),
 
 	ConfigSetting(false),
 };

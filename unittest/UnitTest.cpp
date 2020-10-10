@@ -23,6 +23,9 @@
 //
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
+//
+// To use, set command line parameter to one or more of the tests below, or "all".
+// Search for "availableTests".
 
 #include <cstdio>
 #include <cstdlib>
@@ -308,10 +311,19 @@ bool TestVFPUSinCos() {
 	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
 	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
 
-	for (float angle = -10.0f; angle < 10.0f; angle++) {
+	vfpu_sincos(-1.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, -1.0f);
+	EXPECT_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(-2.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, -1.0f);
+
+	for (float angle = -10.0f; angle < 10.0f; angle += 0.1f) {
 		vfpu_sincos(angle, sine, cosine);
 		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
 		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
+
+		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
 	}
 	return true;
 }

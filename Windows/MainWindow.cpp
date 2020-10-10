@@ -658,7 +658,7 @@ namespace MainWindow
 					}
 					lastMouseDown = 0.0;
 				} else {
-					lastMouseDown = time_now_d();
+					lastMouseDown = now;
 				}
 			}
 			break;

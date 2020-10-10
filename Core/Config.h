@@ -130,6 +130,7 @@ public:
 	std::string sRemoteISOSubdir;
 	bool bRemoteDebuggerOnStartup;
 	bool bMemStickInserted;
+	int iMemStickSizeGB;
 	bool bLoadPlugins;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
@@ -433,6 +434,7 @@ public:
 	bool bTCPNoDelay;
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
+	bool bForcedFirstConnect;
 	int iPortOffset;
 	int iMinTimeout;
 	int iWlanAdhocChannel;

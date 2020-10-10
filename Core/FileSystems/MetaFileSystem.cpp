@@ -669,3 +669,17 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	}
 }
 
+u64 MetaFileSystem::getDirSize(const std::string &dirPath) {
+	u64 result = 0;
+	auto allFiles = GetDirListing(dirPath);
+	for (auto file : allFiles) {
+		if (file.name == "." || file.name == "..")
+			continue;
+		if (file.type == FILETYPE_DIRECTORY) {
+			result += getDirSize(dirPath + file.name + "/");
+		} else {
+			result += file.size;
+		}
+	}
+	return result;
+}

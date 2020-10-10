@@ -22,8 +22,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	float y = 10.0f;
 	// Then draw them all. 
 	const std::list<OnScreenMessages::Message> &messages = osm.Messages();
+	double now = time_now_d();
 	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
-		float alpha = (iter->endTime - time_now_d()) * 4.0f;
+		float alpha = (iter->endTime - now) * 4.0f;
 		if (alpha > 1.0) alpha = 1.0f;
 		if (alpha < 0.0) alpha = 0.0f;
 		// Messages that are wider than the screen are left-aligned instead of centered.

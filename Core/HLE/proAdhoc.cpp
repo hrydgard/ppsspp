@@ -123,12 +123,15 @@ bool isPDPPortInUse(uint16_t port) {
 	return false;
 }
 
-bool isPTPPortInUse(uint16_t port) {
+bool isPTPPortInUse(uint16_t port, bool forListen) {
 	// Iterate Sockets
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		auto sock = adhocSockets[i];
 		if (sock != NULL && sock->type == SOCK_PTP)
-			if (sock->data.ptp.lport == port)
+			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
+			if (sock->data.ptp.lport == port && 
+				((forListen && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) || 
+				(!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN)))
 				return true;
 	}
 	// Unused Port
@@ -1412,7 +1415,7 @@ int friendFinder(){
 							getLocalMac(&localMac);
 							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 								[localMac](SceNetEtherAddr const& e) {
-									return IsMatch(e, localMac);
+									return isMacMatch(&e, &localMac);
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
@@ -1501,14 +1504,14 @@ int friendFinder(){
 						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 								[packet](SceNetEtherAddr const& e) {
-									return IsMatch(e, packet->mac);
+									return isMacMatch(&e, &packet->mac);
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
 								SceNetEtherAddr localMac;
 								getLocalMac(&localMac);
 								auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 									[localMac](SceNetEtherAddr const& e) {
-										return IsMatch(e, localMac);
+										return isMacMatch(&e, &localMac);
 									});
 								// Starting from our self the rest of new players will be added to the back
 								if (it != gameModeMacs.end()) {
@@ -1572,8 +1575,8 @@ int friendFinder(){
 						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
 							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[peer](auto const& e) {
-									return IsMatch(e, peer->mac_addr);
+								[peer](SceNetEtherAddr const& e) {
+									return isMacMatch(&e, &peer->mac_addr);
 								}), gameModeMacs.end());
 						}*/
 
@@ -1985,7 +1988,7 @@ int getNicknameCount(const char * nickname)
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Match found
-		if (strncmp((char *)&peer->nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
+		if (peer->last_recv != 0 && strncmp((char *)&peer->nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
 	}
 
 	// Return Result
@@ -2078,9 +2081,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	errorcode = errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
-		u64 startTime = (u64)(time_now_d() * 1000.0);
+		u64 startTime = (u64)(time_now_d() * 1000000.0);
 		while (IsSocketReady(metasocket, false, true) <= 0) {
-			u64 now = (u64)(time_now_d() * 1000.0);
+			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (coreState == CORE_POWERDOWN) return iResult;
 			if (now - startTime > adhocDefaultTimeout) break;
 			sleep_ms(10);
@@ -2102,7 +2105,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
-	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout * 1000);
+	IsSocketReady(metasocket, false, true, nullptr, adhocDefaultTimeout);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
