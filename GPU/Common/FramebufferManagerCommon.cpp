@@ -1180,9 +1180,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 	}
 
-	if (!dstBuffer && srcBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
-		dstBuffer = CreateRAMFramebuffer(dst, srcBuffer->width, srcBuffer->height, srcBuffer->fb_stride, srcBuffer->format);
-		dstY = 0;
+	if (!dstBuffer && srcBuffer) {
+		// Note - if we're here, we're in a memcpy, not a block transfer. Not allowing IntraVRAMBlockTransferAllowCreateFB.
+		// Technically, that makes BlockTransferAllowCreateFB a bit of a misnomer.
+		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
+			dstBuffer = CreateRAMFramebuffer(dst, srcBuffer->width, srcBuffer->height, srcBuffer->fb_stride, srcBuffer->format);
+			dstY = 0;
+		}
 	}
 	if (dstBuffer) {
 		dstBuffer->last_frame_used = gpuStats.numFlips;
@@ -1308,21 +1312,25 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 		}
 	}
 
-	if (srcBuffer && !dstBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
-		GEBufferFormat ramFormat;
-		// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
-		if (bpp == 4) {
-			// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
-			ramFormat = GE_FORMAT_8888;
-		} else if (srcBuffer->format != GE_FORMAT_8888) {
-			// We guess that the game will interpret the data the same as it was in the source of the copy.
-			// Seems like a likely good guess, and works in Test Drive Unlimited.
-			ramFormat = srcBuffer->format;
-		} else {
-			// No info left - just fall back to something. But this is definitely split pixel tricks.
-			ramFormat = GE_FORMAT_5551;
+	if (srcBuffer && !dstBuffer) {
+		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
+			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
+				Memory::IsVRAMAddress(srcBuffer->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
+			GEBufferFormat ramFormat;
+			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
+			if (bpp == 4) {
+				// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
+				ramFormat = GE_FORMAT_8888;
+			} else if (srcBuffer->format != GE_FORMAT_8888) {
+				// We guess that the game will interpret the data the same as it was in the source of the copy.
+				// Seems like a likely good guess, and works in Test Drive Unlimited.
+				ramFormat = srcBuffer->format;
+			} else {
+				// No info left - just fall back to something. But this is definitely split pixel tricks.
+				ramFormat = GE_FORMAT_5551;
+			}
+			dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
 		}
-		dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
 	}
 
 	if (dstBuffer)

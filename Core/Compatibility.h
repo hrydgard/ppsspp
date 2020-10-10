@@ -60,6 +60,7 @@ struct CompatFlags {
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;
+	bool IntraVRAMBlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
