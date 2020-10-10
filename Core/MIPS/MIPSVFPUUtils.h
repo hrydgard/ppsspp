@@ -29,67 +29,48 @@ inline int Xpose(int v) {
 	return v^0x20;
 }
 
+// Half of PI, or 90 degrees.
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
 #endif
 
-// Some games depend on exact values, but sinf() and cosf() aren't always precise.
+// The VFPU uses weird angles where 4.0 represents a full circle. This makes it possible to return
+// exact 1.0/-1.0 values at certain angles. We get close enough for #2921 and #12900 by computing
+// things in double precision, multiplying the input by pi/2.
+//
+// A better solution would be to tailor some sine approximation for the 0..90 degrees range, compute
+// modulo manually and mirror that around the circle. Also correctly special casing for inf/nan inputs
+// and just trying to match it as closely as possible to the real PSP.
+//
 // Stepping down to [0, 2pi) helps, but we also check common exact-result values.
 // TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
 
+// Messing around with the modulo functions? try https://www.desmos.com/calculator.
+
 inline float vfpu_sin(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f || angle == 2.0f) {
-		return 0.0f;
-	} else if (angle == 1.0f) {
-		return 1.0f;
-	} else if (angle == 3.0f) {
-		return -1.0f;
-	}
-	angle *= (float)M_PI_2;
-	return sinf(angle);
+	return (float)sin((double)angle * M_PI_2);
 }
 
 inline float vfpu_cos(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 1.0f || angle == 3.0f) {
-		return 0.0f;
-	} else if (angle == 0.0f) {
-		return 1.0f;
-	} else if (angle == 2.0f) {
-		return -1.0f;
-	}
-	angle *= (float)M_PI_2;
-	return cosf(angle);
+	return (float)cos((double)angle * M_PI_2);
 }
 
 inline float vfpu_asin(float angle) {
 	return asinf(angle) / M_PI_2;
 }
 
-inline void vfpu_sincos(float angle, float &sine, float &cosine) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f) {
-		sine = 0.0f;
-		cosine = 1.0f;
-	} else if (angle == 1.0f) {
-		sine = 1.0f;
-		cosine = 0.0f;
-	} else if (angle == 2.0f) {
-		sine = 0.0f;
-		cosine = -1.0f;
-	} else if (angle == 3.0f) {
-		sine = -1.0f;
-		cosine = 0.0f;
-	} else {
-		angle *= (float)M_PI_2;
+inline void vfpu_sincos(float angle_f, float &sine, float &cosine) {
+	double angle = (double)angle_f * M_PI_2;
 #if defined(__linux__)
-		sincosf(angle, &sine, &cosine);
+	double d_sine;
+	double d_cosine;
+	sincos(angle, &d_sine, &d_cosine);
+	sine = (float)d_sine;
+	cosine = (float)d_cosine;
 #else
-		sine = sinf(angle);
-		cosine = cosf(angle);
+	sine = (float)sin(angle);
+	cosine = (float)cos(angle);
 #endif
-	}
 }
 
 inline float vfpu_clamp(float v, float min, float max) {
