@@ -839,7 +839,7 @@ void DrawEngineVulkan::DoFlush() {
 				lastRenderStepId_ = curRenderStepId;
 			}
 
-			renderManager->BindPipeline(pipeline->pipeline);
+			renderManager->BindPipeline(pipeline->pipeline, (PipelineFlags)pipeline->flags);
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
@@ -964,7 +964,7 @@ void DrawEngineVulkan::DoFlush() {
 					lastRenderStepId_ = curRenderStepId;
 				}
 
-				renderManager->BindPipeline(pipeline->pipeline);
+				renderManager->BindPipeline(pipeline->pipeline, (PipelineFlags)pipeline->flags);
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);

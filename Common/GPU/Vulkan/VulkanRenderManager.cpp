@@ -524,6 +524,18 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].initCmd;
 }
 
+void VulkanRenderManager::EndCurRenderStep() {
+	// Save the accumulated pipeline flags so we can use that to configure the render pass.
+	// We'll often be able to avoid loading/saving the depth/stencil buffer.
+	if (curRenderStep_) {
+		curRenderStep_->render.pipelineFlags = curPipelineFlags_;
+
+		// We no longer have a current render step.
+		curRenderStep_ = nullptr;
+		curPipelineFlags_ = 0;
+	}
+}
+
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
 	// Eliminate dupes, instantly convert to a clear if possible.
@@ -568,15 +580,19 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	// More redundant bind elimination.
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color != VKRRenderPassAction::CLEAR && curRenderStep_->render.depth != VKRRenderPassAction::CLEAR && curRenderStep_->render.stencil != VKRRenderPassAction::CLEAR) {
-		// Can trivially kill the last empty render step.
-		_dbg_assert_(steps_.back() == curRenderStep_);
-		delete steps_.back();
-		steps_.pop_back();
-		curRenderStep_ = nullptr;
-	}
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
-		VLOG("Empty render step. Usually happens after uploading pixels..");
+	if (curRenderStep_) {
+		if (curRenderStep_->commands.empty()) {
+			if (curRenderStep_->render.color != VKRRenderPassAction::CLEAR && curRenderStep_->render.depth != VKRRenderPassAction::CLEAR && curRenderStep_->render.stencil != VKRRenderPassAction::CLEAR) {
+				// Can trivially kill the last empty render step.
+				_dbg_assert_(steps_.back() == curRenderStep_);
+				delete steps_.back();
+				steps_.pop_back();
+				curRenderStep_ = nullptr;
+			}
+			VLOG("Empty render step. Usually happens after uploading pixels..");
+		}
+
+		EndCurRenderStep();
 	}
 
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
@@ -649,6 +665,8 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 		}
 	}
 
+	EndCurRenderStep();
+
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
 	step->readback.aspectMask = aspectBits;
 	step->readback.src = src;
@@ -657,8 +675,6 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	step->dependencies.insert(src);
 	step->tag = tag;
 	steps_.push_back(step);
-
-	curRenderStep_ = nullptr;
 
 	FlushSync();
 
@@ -704,6 +720,9 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
+	EndCurRenderStep();
+
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK_IMAGE };
 	step->readback_image.image = image;
 	step->readback_image.srcRect.offset = { x, y };
@@ -711,8 +730,6 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	step->readback_image.mipLevel = mipLevel;
 	step->tag = tag;
 	steps_.push_back(step);
-
-	curRenderStep_ = nullptr;
 
 	FlushSync();
 
@@ -975,6 +992,8 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 		}
 	}
 
+	EndCurRenderStep();
+
 	VKRStep *step = new VKRStep{ VKRStepType::COPY };
 
 	step->copy.aspectMask = aspectMask;
@@ -990,7 +1009,6 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
-	curRenderStep_ = nullptr;
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
@@ -1019,6 +1037,8 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 		}
 	}
 
+	EndCurRenderStep();
+
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 
 	step->blit.aspectMask = aspectMask;
@@ -1035,7 +1055,6 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
-	curRenderStep_ = nullptr;
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int attachment) {
@@ -1078,7 +1097,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 }
 
 void VulkanRenderManager::Finish() {
-	curRenderStep_ = nullptr;
+	EndCurRenderStep();
 
 	// Let's do just a bit of cleanup on render commands now.
 	for (auto &step : steps_) {

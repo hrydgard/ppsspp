@@ -635,7 +635,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindPipeline(depalShader->pipeline);
+		renderManager->BindPipeline(depalShader->pipeline, (PipelineFlags)0);
 
 		if (depth) {
 			DepthScaleFactors scaleFactors = GetDepthScaleFactors();

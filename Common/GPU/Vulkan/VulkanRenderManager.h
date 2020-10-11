@@ -104,11 +104,12 @@ public:
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag);
 
-	void BindPipeline(VkPipeline pipeline) {
+	void BindPipeline(VkPipeline pipeline, PipelineFlags flags) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
+		curPipelineFlags_ |= flags;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -265,6 +266,8 @@ public:
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	void EndCurRenderStep();
+
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);
@@ -328,6 +331,8 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
+	u32 curPipelineFlags_ = 0;
+
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;
 
