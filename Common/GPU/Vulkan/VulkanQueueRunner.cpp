@@ -633,7 +633,9 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	{
 		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
-		snprintf(buffer, sizeof(buffer), "RENDER %s (draws: %d, %dx%d, fb: %p, )", step.tag, step.render.numDraws, w, h, step.render.framebuffer);
+		int actual_w = step.render.renderArea.extent.width;
+		int actual_h = step.render.renderArea.extent.height;
+		snprintf(buffer, sizeof(buffer), "RENDER %s (draws: %d, %dx%d/%dx%d, fb: %p, )", step.tag, step.render.numDraws, actual_w, actual_h, w, h, step.render.framebuffer);
 		break;
 	}
 	case VKRStepType::COPY:
@@ -1414,6 +1416,8 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		}
 	} else {
 		framebuf = backbuffer_;
+
+		// Raw, rotated backbuffer size.
 		w = vulkan_->GetBackbufferWidth();
 		h = vulkan_->GetBackbufferHeight();
 		renderPass = GetBackbufferRenderPass();
@@ -1426,10 +1430,20 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 	rp_begin.renderPass = renderPass;
 	rp_begin.framebuffer = framebuf;
-	rp_begin.renderArea.offset.x = 0;
-	rp_begin.renderArea.offset.y = 0;
-	rp_begin.renderArea.extent.width = w;
-	rp_begin.renderArea.extent.height = h;
+
+	VkRect2D rc = step.render.renderArea;
+	if (!step.render.framebuffer) {
+		// Rendering to backbuffer, must rotate, just like scissors.
+		DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
+		RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+
+		rc.offset.x = rotated_rc.x;
+		rc.offset.y = rotated_rc.y;
+		rc.extent.width = rotated_rc.w;
+		rc.extent.height = rotated_rc.h;
+	}
+
+	rp_begin.renderArea = rc;
 	rp_begin.clearValueCount = numClearVals;
 	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
 	vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);

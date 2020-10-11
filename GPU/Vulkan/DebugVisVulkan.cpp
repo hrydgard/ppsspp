@@ -19,8 +19,8 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
-#include "Common/System/System.h"
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 
 #include "DebugVisVulkan.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
@@ -100,7 +100,7 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 		iter->Release();
 }
 
-void DrawProfilerVis(UIContext *ui, GPUInterface *gpu) {
+void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
 	if (!gpu) {
 		return;
 	}

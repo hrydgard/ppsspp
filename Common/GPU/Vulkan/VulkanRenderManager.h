@@ -61,6 +61,53 @@ enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
 
+struct BoundingRect {
+	int x1;
+	int y1;
+	int x2;
+	int y2;
+
+	BoundingRect() {
+		Reset();
+	}
+
+	void Reset() {
+		x1 = 65535;
+		y1 = 65535;
+		x2 = -65535;
+		y2 = -65535;
+	}
+
+	bool Empty() const {
+		return x2 < 0;
+	}
+
+	void SetRect(int x, int y, int width, int height) {
+		x1 = x;
+		y1 = y;
+		x2 = width;
+		y2 = height;
+	}
+
+	void Apply(const VkRect2D &rect) {
+		if (rect.offset.x < x1) x1 = rect.offset.x;
+		if (rect.offset.y < y1) y1 = rect.offset.y;
+		int rect_x2 = rect.offset.x + rect.extent.width;
+		int rect_y2 = rect.offset.y + rect.extent.height;
+		if (rect_x2 > x2) x2 = rect_x2;
+		if (rect_y2 > y2) y2 = rect_y2;
+	}
+
+	VkRect2D ToVkRect2D() const {
+		VkRect2D rect;
+		rect.offset.x = x1;
+		rect.offset.y = y1;
+		rect.extent.width = x2 - x1;
+		rect.extent.height = y2 - y1;
+		return rect;
+	}
+};
+
 class VulkanRenderManager {
 public:
 	VulkanRenderManager(VulkanContext *vulkan);
@@ -131,10 +178,22 @@ public:
 		curStepHasViewport_ = true;
 	}
 
-	void SetScissor(const VkRect2D &rc) {
+	void SetScissor(VkRect2D rc) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_((int)rc.extent.width >= 0);
 		_dbg_assert_((int)rc.extent.height >= 0);
+
+		// Clamp to curWidth_/curHeight_. Apparently an issue.
+		if ((int)(rc.offset.x + rc.extent.width) > curWidth_) {
+			rc.extent.width = curWidth_ - rc.offset.x;
+		}
+		if ((int)(rc.offset.y + rc.extent.height) > curHeight_) {
+			rc.extent.height = curHeight_ - rc.offset.y;
+		}
+		_dbg_assert_((int)(rc.offset.x + rc.extent.width) <= curWidth_);
+		_dbg_assert_((int)(rc.offset.y + rc.extent.height) <= curHeight_);
+		curRenderArea_.Apply(rc);
+
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
 		data.scissor.scissor = rc;
 		curRenderStep_->commands.push_back(data);
@@ -323,8 +382,15 @@ private:
 	int outOfDateFrames_ = 0;
 
 	// Submission time state
+
+	// Note: These are raw backbuffer-sized. Rotated.
+	int curWidthRaw_ = -1;
+	int curHeightRaw_ = -1;
+
+	// Pre-rotation (as you'd expect).
 	int curWidth_ = -1;
 	int curHeight_ = -1;
+
 	bool insideFrame_ = false;
 	// This is the offset within this frame, in case of a mid-frame sync.
 	int renderStepOffset_ = 0;
@@ -332,6 +398,7 @@ private:
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;
 	u32 curPipelineFlags_ = 0;
+	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;

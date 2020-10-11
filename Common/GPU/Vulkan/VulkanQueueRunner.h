@@ -152,6 +152,7 @@ struct VKRStep {
 			VkImageLayout finalColorLayout;
 			VkImageLayout finalDepthStencilLayout;
 			u32 pipelineFlags;
+			VkRect2D renderArea;
 		} render;
 		struct {
 			VKRFramebuffer *src;

@@ -260,8 +260,8 @@ void VulkanRenderManager::CreateBackbuffers() {
 	if (InitDepthStencilBuffer(cmdInit)) {
 		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	}
-	curWidth_ = -1;
-	curHeight_ = -1;
+	curWidthRaw_ = -1;
+	curHeightRaw_ = -1;
 
 	if (HasBackbuffers()) {
 		VLOG("Backbuffers Created");
@@ -529,6 +529,14 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	if (curRenderStep_) {
 		curRenderStep_->render.pipelineFlags = curPipelineFlags_;
+		// We don't do this optimization for very small targets, probably not worth it.
+		if (!curRenderArea_.Empty() && (curWidth_ > 32 && curHeight_ > 32)) {
+			curRenderStep_->render.renderArea = curRenderArea_.ToVkRect2D();
+		} else {
+			curRenderStep_->render.renderArea.offset = {};
+			curRenderStep_->render.renderArea.extent = { (uint32_t)curWidth_, (uint32_t)curHeight_ };
+		}
+		curRenderArea_.Reset();
 
 		// We no longer have a current render step.
 		curRenderStep_ = nullptr;
@@ -638,11 +646,20 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	curStepHasViewport_ = false;
 	curStepHasScissor_ = false;
 	if (fb) {
+		curWidthRaw_ = fb->width;
+		curHeightRaw_ = fb->height;
 		curWidth_ = fb->width;
 		curHeight_ = fb->height;
 	} else {
-		curWidth_ = vulkan_->GetBackbufferWidth();
-		curHeight_ = vulkan_->GetBackbufferHeight();
+		curWidthRaw_ = vulkan_->GetBackbufferWidth();
+		curHeightRaw_ = vulkan_->GetBackbufferHeight();
+		if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+			curWidth_ = curHeightRaw_;
+			curHeight_ = curWidthRaw_;
+		} else {
+			curWidth_ = curWidthRaw_;
+			curHeight_ = curHeightRaw_;
+		}
 	}
 
 	// See above - we add a clear afterward if only one side for depth/stencil CLEAR/KEEP.
@@ -944,6 +961,8 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		data.clear.clearMask = clearMask;
 		curRenderStep_->commands.push_back(data);
 	}
+
+	curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag) {
