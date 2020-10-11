@@ -72,6 +72,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceSoftwareRenderer", &flags_.ForceSoftwareRenderer);
 	CheckSetting(iniFile, gameID, "DarkStalkersPresentHack", &flags_.DarkStalkersPresentHack);
 	CheckSetting(iniFile, gameID, "ReportSmallMemstick", &flags_.ReportSmallMemstick);
+	CheckSetting(iniFile, gameID, "DateLimited", &flags_.DateLimited);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

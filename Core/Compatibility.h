@@ -70,6 +70,7 @@ struct CompatFlags {
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
 	bool ReportSmallMemstick;
+	bool DateLimited;
 };
 
 class IniFile;
