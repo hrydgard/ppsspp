@@ -674,6 +674,8 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
 	}
 
+	// FIXME: Return 0x80410180 (pspnet[_core] error code?) when Adhocctl not connected to a group (ie. ADHOCCTL_STATE_DISCONNECTED)? 
+
 	u8 *addr = Memory::GetPointer(addrAddr);
 	if (PPSSPP_ID > 1) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);

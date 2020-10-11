@@ -983,8 +983,8 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
-		// Timeout!
-		if (peer->state != 0 && (now - peer->lastping) > context->timeout) 
+		// Timeout! Apparently the latest GetGlobalTimeUsScaled (ie. now) have a possibility to be smaller than previous GetGlobalTimeUsScaled (ie. lastping) thus resulting a negative number when subtracted :(
+		if (peer->state != 0 && static_cast<s64>(now - peer->lastping) > static_cast<s64>(context->timeout)) 
 		{
 			// Spawn Timeout Event
 			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) ||
@@ -993,7 +993,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 
-				INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout / 1000));
+				INFO_LOG(SCENET, "TimedOut Member Peer %s (%lld - %lld = %lld > %lld us)", mac2str(&peer->mac).c_str(), now, peer->lastping, (now - peer->lastping), context->timeout);
 
 				if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) 
 					sendDeathMessage(context, peer);
@@ -1348,7 +1348,7 @@ int friendFinder(){
 			// Ping Server
 			now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
-			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+			if (static_cast<s64>(now - lastping) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
 				// Prepare Packet
 				uint8_t opcode = OPCODE_PING;
 
@@ -2064,7 +2064,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	parameter.channel = g_Config.iWlanAdhocChannel;
 	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
 	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
-	getLocalMac(&parameter.bssid.mac_addr);
+	//getLocalMac(&parameter.bssid.mac_addr);
 	
 	// Default ProductId
 	product_code.type = adhoc_id->type;
