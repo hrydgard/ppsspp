@@ -924,8 +924,8 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 	}
 
 	if (depthStencilImage != VK_NULL_HANDLE && depthStencilLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		barrier[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier[1].pNext = nullptr;
+		barrier[barrierCount].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier[barrierCount].pNext = nullptr;
 		switch (depthStencilLayout) {
 		case VK_IMAGE_LAYOUT_UNDEFINED:
 			// No need to specify stage or access.
@@ -934,15 +934,15 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			// Already the right depth layout. Unclear that we need to do a lot here..
 			break;
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			barrier[1].srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+			barrier[barrierCount].srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
 			srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-			barrier[1].srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+			barrier[barrierCount].srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
 			srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			barrier[1].srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+			barrier[barrierCount].srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
 			srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		default:
@@ -950,16 +950,16 @@ void TransitionToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout 
 			break;
 		}
 		dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		barrier[1].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-		barrier[1].oldLayout = depthStencilLayout;
-		barrier[1].newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		barrier[1].image = depthStencilImage;
-		barrier[1].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		barrier[1].subresourceRange.baseMipLevel = 0;
-		barrier[1].subresourceRange.levelCount = 1;
-		barrier[1].subresourceRange.layerCount = 1;
-		barrier[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier[barrierCount].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		barrier[barrierCount].oldLayout = depthStencilLayout;
+		barrier[barrierCount].newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		barrier[barrierCount].image = depthStencilImage;
+		barrier[barrierCount].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		barrier[barrierCount].subresourceRange.baseMipLevel = 0;
+		barrier[barrierCount].subresourceRange.levelCount = 1;
+		barrier[barrierCount].subresourceRange.layerCount = 1;
+		barrier[barrierCount].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier[barrierCount].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
 		barrierCount++;
 	}
@@ -1018,22 +1018,22 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 	}
 
 	if (depthStencilImage && depthStencilLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		barrier[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier[1].pNext = nullptr;
+		barrier[barrierCount].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier[barrierCount].pNext = nullptr;
 
 		srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		barrier[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		barrier[barrierCount].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		switch (depthStencilLayout) {
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			barrier[1].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+			barrier[barrierCount].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
 			dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-			barrier[1].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+			barrier[barrierCount].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
 			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			barrier[1].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+			barrier[barrierCount].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
 			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_UNDEFINED:
@@ -1044,15 +1044,15 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 			_dbg_assert_msg_(false, "GetRenderPass: Unexpected final depth layout %d", (int)depthStencilLayout);
 			break;
 		}
-		barrier[1].oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		barrier[1].newLayout = depthStencilLayout;
-		barrier[1].image = depthStencilImage;
-		barrier[1].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		barrier[1].subresourceRange.baseMipLevel = 0;
-		barrier[1].subresourceRange.levelCount = 1;
-		barrier[1].subresourceRange.layerCount = 1;
-		barrier[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier[barrierCount].oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		barrier[barrierCount].newLayout = depthStencilLayout;
+		barrier[barrierCount].image = depthStencilImage;
+		barrier[barrierCount].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		barrier[barrierCount].subresourceRange.baseMipLevel = 0;
+		barrier[barrierCount].subresourceRange.levelCount = 1;
+		barrier[barrierCount].subresourceRange.layerCount = 1;
+		barrier[barrierCount].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier[barrierCount].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrierCount++;
 	}
 	if (barrierCount) {
