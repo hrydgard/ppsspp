@@ -13,6 +13,7 @@
 #include <condition_variable>
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 
 #define VK_NO_PROTOTYPES
 #include "libretro/libretro_vulkan.h"
@@ -134,8 +135,15 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance inst
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR_org(physicalDevice, surface, pSurfaceCapabilities);
 	if (res == VK_SUCCESS) {
-		pSurfaceCapabilities->currentExtent.width = -1;
-		pSurfaceCapabilities->currentExtent.height = -1;
+      int w = g_Config.iInternalResolution * 480;
+      int h = g_Config.iInternalResolution * 272;
+
+      pSurfaceCapabilities->minImageExtent.width = w;
+      pSurfaceCapabilities->minImageExtent.height = h;
+      pSurfaceCapabilities->maxImageExtent.width = w;
+      pSurfaceCapabilities->maxImageExtent.height = h;
+      pSurfaceCapabilities->currentExtent.width = w;
+		pSurfaceCapabilities->currentExtent.height = h;
 	}
 	return res;
 }
@@ -415,7 +423,7 @@ void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_int
 }
 
 void vk_libretro_shutdown() {
-	memset(&vk_init_info, 0x00, sizeof(vk_init_info));
-	vulkan = NULL;
+	memset(&vk_init_info, 0, sizeof(vk_init_info));
+	vulkan = nullptr;
 	DEDICATED_ALLOCATION = false;
 }
