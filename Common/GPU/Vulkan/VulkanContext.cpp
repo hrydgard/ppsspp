@@ -1126,24 +1126,6 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-	if (aspectMask == VK_IMAGE_ASPECT_COLOR_BIT) {
-		// Hack to disable transaction elimination on ARM Mali.
-		if (oldImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		if (newImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	}
-#endif
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_DEPTH_STENCIL
-	if (aspectMask != VK_IMAGE_ASPECT_COLOR_BIT) {
-		// Hack to disable transaction elimination on ARM Mali.
-		if (oldImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		if (newImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	}
-#endif
 	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
