@@ -1022,6 +1022,9 @@ u32 sceNetAdhocInit() {
 static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, currentMIPS->pc);
 	
+	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
+	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
+
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 
@@ -1913,7 +1916,7 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 }
 
 static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetAdhocId(%08x)", productStructAddr);
+	INFO_LOG(SCENET, "sceNetAdhocctlGetAdhocId(%08x) at %08x", productStructAddr, currentMIPS->pc);
 	
 	// Library initialized
 	if (netAdhocctlInited)
@@ -1921,21 +1924,19 @@ static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 		// Valid Arguments
 		if (Memory::IsValidAddress(productStructAddr))
 		{
-			SceNetAdhocctlAdhocId * adhoc_id = (SceNetAdhocctlAdhocId *)Memory::GetPointer(productStructAddr);
 			// Copy Product ID
-			*adhoc_id = product_code;
-			//Memory::WriteStruct(productStructAddr, &product_code);
+			Memory::WriteStruct(productStructAddr, &product_code);
 
 			// Return Success
-			return 0;
+			return hleLogDebug(SCENET, 0, "type = %d, code = %s", product_code.type, product_code.data);
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 }
 
 // FIXME: Scan probably not a blocking function since there is ADHOCCTL_STATE_SCANNING state that can be polled by the game, right? But apparently it need to be delayed for Naruto Shippuden Ultimate Ninja Heroes 3
@@ -1989,8 +1990,8 @@ int sceNetAdhocctlScan() {
 			return ERROR_NET_ADHOCCTL_BUSY;
 
 		// Already connected to a group. Should we fake a success?
-		// We need to notify the handler on success, even if it was faked
-		notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+		// We need to notify the handler on success, even if it was faked. Using flag = 0/ADHOCCTL_EVENT_ERROR for error?
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
 		// FIXME: returning ERROR_NET_ADHOCCTL_BUSY may trigger the game (ie. Ford Street Racing) to call sceNetAdhocctlDisconnect, But Not returning a Success(0) will cause Valhalla Knights 2 not working properly
 		hleEatMicro(us);
 		return 0;
@@ -5256,7 +5257,8 @@ void __NetTriggerCallbacks()
 				newState = ADHOCCTL_STATE_WOL;
 				break;
 			case ADHOCCTL_EVENT_ERROR:
-				newState = ADHOCCTL_STATE_DISCONNECTED;
+				// FIXME: Should we change the state on error or leave it alone? for example after Creating/Joining a group, doing Scan could trigger an error through handler, what about the AdhocctlState after this error?
+				//newState = ADHOCCTL_STATE_DISCONNECTED;
 				break;
 			}
 
@@ -5413,6 +5415,8 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 	if (netAdhocctlInited) {
 		// Minimum Arguments
 		if (buflen != NULL) {
+			// FIXME: Sometimes returing 0x80410682 before AdhocctlGetState became ADHOCCTL_STATE_CONNECTED or related to Auth/Library ?
+
 			// Multithreading Lock
 			peerlock.lock();
 
@@ -5481,11 +5485,11 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 	}
 
 	// Uninitialized Library
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogDebug(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 }
 
 static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr) {
