@@ -233,6 +233,10 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
+	if (vulkan_->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
+	}
+
 	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}

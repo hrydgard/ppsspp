@@ -52,6 +52,7 @@ enum WindowSystem {
 
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
+	bool canBlitToPreferredDepthStencilFormat;
 };
 
 // This is a bit repetitive...
