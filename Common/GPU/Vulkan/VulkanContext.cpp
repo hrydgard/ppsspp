@@ -537,9 +537,13 @@ void VulkanContext::ChooseDevice(int physical_device) {
 			break;
 		}
 	}
-	if (deviceInfo_.preferredDepthStencilFormat == VK_FORMAT_UNDEFINED) {
-		// WTF? This is bad.
-		ERROR_LOG(G3D, "Could not find a usable depth stencil format.");
+
+	_assert_msg_(deviceInfo_.preferredDepthStencilFormat != VK_FORMAT_UNDEFINED, "Could not find a usable depth stencil format.");
+	VkFormatProperties preferredProps;
+	vkGetPhysicalDeviceFormatProperties(physical_devices_[physical_device_], deviceInfo_.preferredDepthStencilFormat, &preferredProps);
+	if ((preferredProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) &&
+		(preferredProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		deviceInfo_.canBlitToPreferredDepthStencilFormat = true;
 	}
 
 	// This is as good a place as any to do this.

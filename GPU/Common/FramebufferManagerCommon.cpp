@@ -471,7 +471,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	int h = std::min(src->renderHeight, dst->renderHeight);
 
 	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want. See #9740.
-	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT)) {
+	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH)) {
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("BlitFramebufferDepth");
 	} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
