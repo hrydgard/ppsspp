@@ -209,17 +209,12 @@ public:
 		VKRRenderPassAction colorLoadAction;
 		VKRRenderPassAction depthLoadAction;
 		VKRRenderPassAction stencilLoadAction;
-		VkImageLayout prevColorLayout;
-		VkImageLayout prevDepthStencilLayout;
-		VkImageLayout finalColorLayout;
-		VkImageLayout finalDepthStencilLayout;
 	};
 
 	// Only call this from the render thread! Also ok during initialization (LoadCache).
 	VkRenderPass GetRenderPass(
-		VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
-		VkImageLayout prevColorLayout, VkImageLayout prevDepthStencilLayout, VkImageLayout finalColorLayout, VkImageLayout finalDepthStencilLayout) {
-		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthStencilLayout, finalColorLayout, finalDepthStencilLayout };
+		VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
+		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction };
 		return GetRenderPass(key);
 	}
 
@@ -271,6 +266,8 @@ private:
 	VkImage backbufferImage_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
+
+	// The "Compatible" render pass. Used when creating pipelines that render to "normal" framebuffers.
 	VkRenderPass framebufferRenderPass_ = VK_NULL_HANDLE;
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
