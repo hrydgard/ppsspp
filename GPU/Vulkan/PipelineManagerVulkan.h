@@ -25,6 +25,8 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 
+#include "GPU/Vulkan/VulkanQueueRunner.h"
+
 // PSP vertex format.
 enum class PspAttributeLocation {
 	POSITION = 0,
@@ -56,19 +58,14 @@ struct VulkanPipelineKey {
 	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
-enum PipelineFlags {
-	PIPELINE_FLAG_USES_LINES = (1 << 2),
-	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
-};
-
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VkPipeline pipeline;
 	int flags;  // PipelineFlags enum above.
 
-	// Convenience.
 	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
 	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
+	bool UsesDepthStencil() const { return (flags & PIPELINE_FLAG_USES_DEPTH_STENCIL) != 0; }
 };
 
 class VulkanContext;

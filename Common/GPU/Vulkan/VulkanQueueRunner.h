@@ -32,11 +32,19 @@ enum class VKRRenderCommand : uint8_t {
 	NUM_RENDER_COMMANDS,
 };
 
+enum PipelineFlags {
+	PIPELINE_FLAG_NONE = 0,
+	PIPELINE_FLAG_USES_LINES = (1 << 2),
+	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
+	PIPELINE_FLAG_USES_DEPTH_STENCIL = (1 << 4),  // Reads or writes the depth buffer.
+};
+
 struct VkRenderData {
 	VKRRenderCommand cmd;
 	union {
 		struct {
 			VkPipeline pipeline;
+			PipelineFlags flags;
 		} pipeline;
 		struct {
 			VkPipelineLayout pipelineLayout;
@@ -143,6 +151,7 @@ struct VKRStep {
 			int numReads;
 			VkImageLayout finalColorLayout;
 			VkImageLayout finalDepthStencilLayout;
+			u32 pipelineFlags;
 		} render;
 		struct {
 			VKRFramebuffer *src;

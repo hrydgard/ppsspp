@@ -225,7 +225,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
-	renderManager->BindPipeline(cur2DPipeline_);
+	renderManager->BindPipeline(cur2DPipeline_, (PipelineFlags)0);
 	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
