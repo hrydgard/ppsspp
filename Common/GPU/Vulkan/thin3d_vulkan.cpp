@@ -993,11 +993,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		if (key.imageViews_[i] && key.samplers_[i] && key.samplers_[i]->GetSampler()) {
 			imageDesc[i].imageView = key.imageViews_[i];
 			imageDesc[i].sampler = key.samplers_[i]->GetSampler();
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-#else
 			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-#endif
 			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			writes[numWrites].dstSet = descSet;
 			writes[numWrites].dstArrayElement = 0;

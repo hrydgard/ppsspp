@@ -107,12 +107,6 @@ private:
 	std::vector<Callback> callbacks_;
 };
 
-// Useful for debugging on ARM Mali. This eliminates transaction elimination
-// which can cause artifacts if you get barriers wrong (or if there are driver bugs).
-// Cost is reduced performance on some GPU architectures.
-// #define VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-// #define VULKAN_USE_GENERAL_LAYOUT_FOR_DEPTH_STENCIL
-
 // VulkanContext manages the device and swapchain, and deferred deletion of objects.
 class VulkanContext {
 public:
