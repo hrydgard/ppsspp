@@ -1108,7 +1108,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
 
 			//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-			if (port == 0) port = -(int)portOffset;
+			if (port == 0) port = -static_cast<int>(portOffset);
 			// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
 			if (saddr != NULL) {
 				getLocalMac(saddr);
@@ -1736,7 +1736,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 					}
 					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
 					else if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
-						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
+						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
 
 						sds[i].revents |= ADHOC_EV_CONNECT;
 					}
@@ -2384,7 +2384,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			buf->mac_addr = *maddr;
 			buf->flags = 0x0400;
 			buf->padding = 0;
-			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta;
+			buf->last_recv = std::max(0LL, static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
 
 			// Success
 			retval = 0;
@@ -2834,7 +2834,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 				if ( sock != NULL && sock->type == SOCK_PTP) {
 					// Update connection state. 
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
-					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt > 35000/*sock->retry_interval*/)) {
+					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 35000/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
 						if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
 							sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
@@ -2917,7 +2917,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			if (sport == 0) {
 				isClient = true;
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-				sport = -(int)portOffset;
+				sport = -static_cast<int>(portOffset);
 			}
 			
 			// Valid Arguments
@@ -3436,7 +3436,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 			// Random Port required
 			if (sport == 0) {
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-				sport = -(int)portOffset;
+				sport = -static_cast<int>(portOffset);
 			}
 			
 			// Valid Arguments
@@ -5548,7 +5548,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						getLocalMac(&mac);
 						buf[discovered].mac_addr = mac;
 						buf[discovered].flags = 0x0400;
-						u64 lastrecv = CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta;
+						u64 lastrecv = std::max(0LL, static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
 						buf[discovered++].last_recv = lastrecv;
 
 						DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&mac).c_str(), inet_ntoa(addr.sin_addr), nickName, lastrecv);
@@ -6846,7 +6846,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				{
 					// Hello Message Broadcast necessary because of Hello Interval
 					if (context->hello_int > 0)
-						if ((now - lasthello) >= context->hello_int)
+						if (static_cast<s64>(now - lasthello) >= static_cast<s64>(context->hello_int))
 						{
 							// Broadcast Hello Message
 							broadcastHelloMessage(context);
@@ -6858,7 +6858,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 
 				// Ping Required
 				if (context->keepalive_int > 0)
-					if ((now - lastping) >= context->keepalive_int)
+					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int))
 					{
 						// Broadcast Ping Message
 						broadcastPingMessage(context);
@@ -6939,9 +6939,9 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					SceNetAdhocctlPeerInfo* peer = findFriend(&sendermac);
 					if (peer != NULL) {
 						now = CoreTiming::GetGlobalTimeUsScaled();
-						u64_le delta = now - peer->last_recv;
-						DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
-						if (peer->last_recv != 0) peer->last_recv = now - defaultLastRecvDelta;
+						s64 delta = now - peer->last_recv;
+						DEBUG_LOG(SCENET, "Timestamp LastRecv Delta: %lld (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
+						if (peer->last_recv != 0) peer->last_recv = std::max(peer->last_recv, now - defaultLastRecvDelta);
 					}
 					else {
 						WARN_LOG(SCENET, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
