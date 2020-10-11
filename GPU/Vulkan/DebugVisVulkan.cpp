@@ -19,6 +19,8 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/System/System.h"
+#include "Common/System/Display.h"
 
 #include "DebugVisVulkan.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
@@ -103,12 +105,10 @@ void DrawProfilerVis(UIContext *ui, GPUInterface *gpu) {
 		return;
 	}
 	using namespace Draw;
-	const int padding = 10;
-	const int columnWidth = 256;
-	const int starty = padding * 8;
+	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	const int starty = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	int x = padding;
 	int y = starty;
-	int w = columnWidth;  // We will double this when actually drawing to make the pixels visible.
 
 	ui->Begin();
 
@@ -118,7 +118,7 @@ void DrawProfilerVis(UIContext *ui, GPUInterface *gpu) {
 
 	Draw::DrawContext *draw = ui->GetDrawContext();
 	ui->SetFontScale(0.4f, 0.4f);
-	ui->DrawTextShadow(text.c_str(), 10, 50, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(text.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }
