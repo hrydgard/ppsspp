@@ -670,11 +670,12 @@ static void DoFrameIdleTiming() {
 	// Give a little extra wiggle room in case the next vblank does more work.
 	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
 	if (numVBlanksSinceFlip >= 2 && before < goal) {
-		while (time_now_d() < goal) {
+		double cur_time;
+		while ((cur_time = time_now_d()) < goal) {
 #ifdef _WIN32
 			sleep_ms(1);
 #else
-			const double left = goal - time_now_d();
+			const double left = goal - cur_time;
 			usleep((long)(left * 1000000));
 #endif
 		}
@@ -893,9 +894,10 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	// Don't lag too long ever, if they leave it paused.
 	double now = before;
 	while (now < goal && goal < now + 0.01) {
+		// Tight loop on win32. TODO: Probably not a good idea...
 #ifndef _WIN32
-		const double left = goal - time_now_d();
-		usleep((long)(left * 1000000));
+		const double left = goal - now;
+		usleep((long)(left * 1000000.0));
 #endif
 		now = time_now_d();
 	}
