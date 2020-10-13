@@ -32,8 +32,6 @@ struct UB_VS_FS_Base {
 	float matAmbient[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	int pad2; int pad3;
-	float cullRangeMin[4];
-	float cullRangeMax[4];
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
@@ -43,6 +41,8 @@ struct UB_VS_FS_Base {
 	float blendFixB[4];
 	float texClamp[4];
 	float texClampOffset[4];
+	float cullRangeMin[4];
+	float cullRangeMax[4];
 };
 
 static const char *ub_baseStr =
@@ -60,8 +60,6 @@ R"(  mat4 proj_mtx;
   uint depal_mask_shift_off_fmt;
   int pad2;
   int pad3;
-  vec4 cullRangeMin;
-  vec4 cullRangeMax;
   vec3 fogcolor;
   vec3 texenv;
   ivec4 alphacolorref;
@@ -70,6 +68,8 @@ R"(  mat4 proj_mtx;
   vec3 blendFixB;
   vec4 texclamp;
   vec2 texclampoff;
+  vec4 cullRangeMin;
+  vec4 cullRangeMax;
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.
@@ -88,8 +88,6 @@ R"(  float4x4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   int pad2;
   int pad3;
-  float4 u_cullRangeMin;
-  float4 u_cullRangeMax;
   float3 u_fogcolor;
   float3 u_texenv;
   uint4 u_alphacolorref;
@@ -98,6 +96,8 @@ R"(  float4x4 u_proj;
   float3 u_blendFixB;
   float4 u_texclamp;
   float2 u_texclampoff;
+  float4 u_cullRangeMin;
+  float4 u_cullRangeMax;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
