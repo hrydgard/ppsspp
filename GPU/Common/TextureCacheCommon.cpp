@@ -497,15 +497,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	if (!entry) {
 		VERBOSE_LOG(G3D, "No texture in cache for %08x, decoding...", texaddr);
-		TexCacheEntry *entryNew = new TexCacheEntry{};
-		cache_[cachekey].reset(entryNew);
+		entry = new TexCacheEntry{};
+		cache_[cachekey].reset(entry);
 
 		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
 			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		}
 
-		entry = entryNew;
-		if (Memory::IsKernelAddress(texaddr)) {
+		if (Memory::IsKernelAndNotVolatileAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
 		} else if (g_Config.bTextureBackoffCache) {
