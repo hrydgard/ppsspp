@@ -139,24 +139,26 @@ static inline void ToBEndian(BEndian<T> *ptr, size_t count) {
 	return;
 }
 
+namespace std {
 template <typename T>
-inline const T &std::min(const T &a, const swap_t<T> &b) {
-	return std::min(a, (T)b);
+inline const T &min(const T &a, const swap_t<T> &b) {
+	return min(a, (T)b);
 }
 
 template <typename T>
-inline const T &std::min(const swap_t<T> &a, const T &b) {
-	return std::min((T)a, b);
+inline const T &min(const swap_t<T> &a, const T &b) {
+	return min((T)a, b);
 }
 
 template <typename T>
-inline const T &std::max(const T &a, const swap_t<T> &b) {
-	return std::max(a, (T)b);
+inline const T &max(const T &a, const swap_t<T> &b) {
+	return max(a, (T)b);
 }
 
 template <typename T>
-inline const T &std::max(const swap_t<T> &a, const T &b) {
-	return std::max((T)a, b);
+inline const T &max(const swap_t<T> &a, const T &b) {
+	return max((T)a, b);
+}
 }
 
 template <typename T, typename... Targs>
