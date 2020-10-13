@@ -439,7 +439,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
 	// We just don't write to the slots we don't care about, which is fine.
-	VkWriteDescriptorSet writes[7]{};
+	VkWriteDescriptorSet writes[9]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex[3]{};
