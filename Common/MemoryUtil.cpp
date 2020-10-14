@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <cstdlib>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
