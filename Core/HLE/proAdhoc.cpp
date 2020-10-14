@@ -1950,6 +1950,15 @@ int setSockReuseAddrPort(int sock) {
 #if !defined(TCP_KEEPIDLE)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif
+// VS 2017 compatibility
+#if _MSC_VER
+#ifndef TCP_KEEPCNT
+#define TCP_KEEPCNT 16
+#endif
+#ifndef TCP_KEEPINTVL
+#define TCP_KEEPINTVL 17
+#endif
+#endif
 int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int keepcnt, const int keepidle) {
 	int optval = keepalive ? 1 : 0;
 	int optlen = sizeof(optval);
