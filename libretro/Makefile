@@ -284,6 +284,10 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 		LDFLAGS += -APPCONTAINER -NXCOMPAT -DYNAMICBASE -MANIFEST:NO -OPT:REF -SUBSYSTEM:CONSOLE -MANIFESTUAC:NO -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1 -DEBUG:FULL -WINMD:NO
 		LIBS += WindowsApp.lib
 	endif
+	
+	ifeq ($(DEBUG), 1)
+		MSVC2017CompileFlags += -DEBUG
+	endif
 
 	CFLAGS += $(MSVC2017CompileFlags) -nologo
 	CXXFLAGS += $(MSVC2017CompileFlags) -nologo -EHsc
@@ -390,6 +394,10 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 		MSVC2019CompileFlags = -DWINAPI_FAMILY=WINAPI_FAMILY_APP -DWINDLL -D_UNICODE -DUNICODE -DWRL_NO_DEFAULT_LIB
 		LDFLAGS += -APPCONTAINER -NXCOMPAT -DYNAMICBASE -MANIFEST:NO -OPT:REF -SUBSYSTEM:CONSOLE -MANIFESTUAC:NO -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1 -DEBUG:FULL -WINMD:NO
 		LIBS += WindowsApp.lib
+	endif
+
+	ifeq ($(DEBUG), 1)
+		MSVC2019CompileFlags += -DEBUG
 	endif
 
 	CFLAGS += $(MSVC2019CompileFlags) -nologo
