@@ -1289,7 +1289,7 @@ ABI: %s
 	int x = 20;
 	int y = 50;
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 100;
+	y += 140;
 
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -1310,7 +1310,13 @@ PC: %08x)",
 			info.address,
 			info.pc);
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 120;
+		y += 180;
+	} else {
+		snprintf(statbuf, sizeof(statbuf), R"(
+BREAK
+)");
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	}
 
 	std::string kernelState = __KernelStateSummary();
