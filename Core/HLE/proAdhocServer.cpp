@@ -55,6 +55,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Util/PortManager.h"
+#include "Core/Instance.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/proAdhocServer.h"
@@ -1808,6 +1809,9 @@ int create_listen_socket(uint16_t port)
 	// Created Socket
 	if(fd != -1)
 	{
+		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+		setSockNoSIGPIPE(fd, 1);
+
 		// Enable KeepAlive
 		enable_keepalive(fd);
 
@@ -1827,12 +1831,10 @@ int create_listen_socket(uint16_t port)
 		local.sin_addr.s_addr = INADDR_ANY;
 		local.sin_port = htons(port);
 
-		//Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. Doesn't work well when PPSSPP_ID reseted everytime emulation restarted.
-		/*
+		// Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. (ie. Capcom Classics Collection Remixed)
 		if (PPSSPP_ID > 1) {
 			local.sin_addr = g_localhostIP.in.sin_addr;
 		}
-		*/
 
 		// Bind Local Address to Socket
 		int bindresult = bind(fd, (struct sockaddr *)&local, sizeof(local));
