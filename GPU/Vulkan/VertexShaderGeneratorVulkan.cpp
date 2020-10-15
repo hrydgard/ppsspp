@@ -35,6 +35,7 @@
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 
 static const char *vulkan_glsl_preamble =
 "#version 450\n"
@@ -134,11 +135,11 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	WRITE(p, "\n");
-	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s} base;\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 	if (enableLighting || doShadeMapping)
-		WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
+		WRITE(p, "layout (std140, set = 0, binding = %d) uniform lightVars {\n%s} light;\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 	if (enableBones)
-		WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
+		WRITE(p, "layout (std140, set = 0, binding = %d) uniform boneVars {\n%s} bone;\n", DRAW_BINDING_DYNUBO_BONE, ub_vs_bonesStr);
 
 	const char *shading = doFlatShading ? "flat " : "";
 
@@ -216,7 +217,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 uv;\n");
 		WRITE(p, "  vec4 color;\n");
 		WRITE(p, "};\n");
-		WRITE(p, "layout (std430, set = 0, binding = 6) readonly buffer s_tess_data {\n");
+		WRITE(p, "layout (std430, set = 0, binding = %d) readonly buffer s_tess_data {\n", DRAW_BINDING_TESS_STORAGE_BUF);
 		WRITE(p, "  TessData data[];\n");
 		WRITE(p, "} tess_data;\n");
 
@@ -224,10 +225,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 basis;\n");
 		WRITE(p, "  vec4 deriv;\n");
 		WRITE(p, "};\n");
-		WRITE(p, "layout (std430, set = 0, binding = 7) readonly buffer s_tess_weights_u {\n");
+		WRITE(p, "layout (std430, set = 0, binding = %d) readonly buffer s_tess_weights_u {\n", DRAW_BINDING_TESS_STORAGE_BUF_WU);
 		WRITE(p, "  TessWeight data[];\n");
 		WRITE(p, "} tess_weights_u;\n");
-		WRITE(p, "layout (std430, set = 0, binding = 8) readonly buffer s_tess_weights_v {\n");
+		WRITE(p, "layout (std430, set = 0, binding = %d) readonly buffer s_tess_weights_v {\n", DRAW_BINDING_TESS_STORAGE_BUF_WV);
 		WRITE(p, "  TessWeight data[];\n");
 		WRITE(p, "} tess_weights_v;\n");
 

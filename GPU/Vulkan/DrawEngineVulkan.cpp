@@ -61,18 +61,6 @@ enum {
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 enum {
-	DRAW_BINDING_TEXTURE = 0,
-	DRAW_BINDING_2ND_TEXTURE = 1,
-	DRAW_BINDING_DEPAL_TEXTURE = 2,
-	DRAW_BINDING_DYNUBO_BASE = 3,
-	DRAW_BINDING_DYNUBO_LIGHT = 4,
-	DRAW_BINDING_DYNUBO_BONE = 5,
-	DRAW_BINDING_TESS_STORAGE_BUF = 6,
-	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
-	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
-};
-
-enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
@@ -96,7 +84,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[9]{};
+	VkDescriptorSetLayoutBinding bindings[11]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -121,19 +109,26 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[5].binding = DRAW_BINDING_DYNUBO_BONE;
-	// Used only for hardware tessellation.
 	bindings[6].descriptorCount = 1;
-	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[6].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[6].binding = DRAW_BINDING_DYNUBO_VSID;
 	bindings[7].descriptorCount = 1;
-	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[7].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[7].binding = DRAW_BINDING_TESS_STORAGE_BUF_WU;
+	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	bindings[7].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[7].binding = DRAW_BINDING_DYNUBO_FSID;
 	bindings[8].descriptorCount = 1;
-	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;	
+	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[9].descriptorCount = 1;
+	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[9].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[9].binding = DRAW_BINDING_TESS_STORAGE_BUF_WU;
+	bindings[10].descriptorCount = 1;
+	bindings[10].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[10].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[10].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -369,7 +364,7 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	frame.descPoolSize = newSize;
 
 	VkDescriptorPoolSize dpTypes[3];
-	dpTypes[0].descriptorCount = frame.descPoolSize * 3;
+	dpTypes[0].descriptorCount = frame.descPoolSize * 5;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = frame.descPoolSize * 3;  // Don't use these for tess anymore, need max three per set.
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -387,10 +382,14 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	return res;
 }
 
-VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
+VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, VkBuffer vsid, VkBuffer fsid, bool tess) {
 	_dbg_assert_(base != VK_NULL_HANDLE);
 	_dbg_assert_(light != VK_NULL_HANDLE);
 	_dbg_assert_(bone != VK_NULL_HANDLE);
+#ifdef USE_UBERSHADER
+	_dbg_assert_(vsid != VK_NULL_HANDLE);
+	_dbg_assert_(fsid != VK_NULL_HANDLE);
+#endif
 
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
@@ -400,6 +399,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
+	key.vsid_ = vsid;
+	key.fsid_ = fsid;
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
@@ -439,7 +440,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
 	// We just don't write to the slots we don't care about, which is fine.
-	VkWriteDescriptorSet writes[7]{};
+	VkWriteDescriptorSet writes[11]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex[3]{};
@@ -520,7 +521,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	// Uniform buffer objects
-	VkDescriptorBufferInfo buf[3]{};
+	VkDescriptorBufferInfo buf[5]{};
 	int count = 0;
 	buf[count].buffer = base;
 	buf[count].offset = 0;
@@ -534,6 +535,16 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	buf[count].offset = 0;
 	buf[count].range = sizeof(UB_VS_Bones);
 	count++;
+#ifdef USE_UBERSHADER
+	buf[count].buffer = vsid;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VSID);
+	count++;
+	buf[count].buffer = fsid;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_FSID);
+	count++;
+#endif
 	for (int i = 0; i < count; i++) {
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
@@ -558,9 +569,13 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	baseUBOOffset = 0;
 	lightUBOOffset = 0;
 	boneUBOOffset = 0;
+	vsidUBOOffset = 0;
+	fsidUBOOffset = 0;
 	baseBuf = VK_NULL_HANDLE;
 	lightBuf = VK_NULL_HANDLE;
 	boneBuf = VK_NULL_HANDLE;
+	vsidBuf = VK_NULL_HANDLE;
+	fsidBuf = VK_NULL_HANDLE;
 	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
 	imageView = VK_NULL_HANDLE;
 	sampler = VK_NULL_HANDLE;
@@ -859,12 +874,12 @@ void DrawEngineVulkan::DoFlush() {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		UpdateUBOs(frame);
 
-		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
+		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, vsidBuf, fsidBuf, tess);
 		{
 		PROFILE_THIS_SCOPE("renderman_q");
 
-		const uint32_t dynamicUBOOffsets[3] = {
-			baseUBOOffset, lightUBOOffset, boneUBOOffset,
+		const uint32_t dynamicUBOOffsets[5] = {
+			baseUBOOffset, lightUBOOffset, boneUBOOffset, vsidUBOOffset, fsidUBOOffset
 		};
 
 		int stride = dec_->GetDecVtxFmt().stride;
@@ -986,9 +1001,9 @@ void DrawEngineVulkan::DoFlush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
 
-			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
-			const uint32_t dynamicUBOOffsets[3] = {
-				baseUBOOffset, lightUBOOffset, boneUBOOffset,
+			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, vsidBuf, fsidBuf, tess);
+			const uint32_t dynamicUBOOffsets[5] = {
+				baseUBOOffset, lightUBOOffset, boneUBOOffset, vsidUBOOffset, fsidUBOOffset
 			};
 
 			PROFILE_THIS_SCOPE("renderman_q");
@@ -1057,6 +1072,10 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
+#ifdef USE_UBERSHADER
+	vsidUBOOffset = shaderManager_->PushVSIDBuffer(frame->pushUBO, &vsidBuf);
+	fsidUBOOffset = shaderManager_->PushFSIDBuffer(frame->pushUBO, &fsidBuf);
+#endif
 }
 
 void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {

@@ -65,6 +65,20 @@ enum {
 	VAIVULKAN_FLAG_VERTEXFULLALPHA = 1,
 };
 
+enum {
+	DRAW_BINDING_TEXTURE = 0,
+	DRAW_BINDING_2ND_TEXTURE = 1,
+	DRAW_BINDING_DEPAL_TEXTURE = 2,
+	DRAW_BINDING_DYNUBO_BASE = 3,
+	DRAW_BINDING_DYNUBO_LIGHT = 4,
+	DRAW_BINDING_DYNUBO_BONE = 5,
+	DRAW_BINDING_DYNUBO_VSID = 6,
+	DRAW_BINDING_DYNUBO_FSID = 7,
+	DRAW_BINDING_TESS_STORAGE_BUF = 8,
+	DRAW_BINDING_TESS_STORAGE_BUF_WU = 9,
+	DRAW_BINDING_TESS_STORAGE_BUF_WV = 10,
+};
+
 // Try to keep this POD.
 class VertexArrayInfoVulkan {
 public:
@@ -210,7 +224,7 @@ private:
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, VkBuffer vsid, VkBuffer fsid, bool tess);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
@@ -236,7 +250,7 @@ private:
 		VkImageView secondaryImageView_;
 		VkImageView depalImageView_;
 		VkSampler sampler_;
-		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
+		VkBuffer base_, light_, bone_, vsid_, fsid_;  // All five UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
 	};
 
@@ -275,7 +289,9 @@ private:
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
 	uint32_t boneUBOOffset;
-	VkBuffer baseBuf, lightBuf, boneBuf;
+	uint32_t vsidUBOOffset;
+	uint32_t fsidUBOOffset;
+	VkBuffer baseBuf, lightBuf, boneBuf, vsidBuf, fsidBuf;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

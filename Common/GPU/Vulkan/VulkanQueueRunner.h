@@ -50,7 +50,7 @@ struct VkRenderData {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
-			uint32_t uboOffsets[3];
+			uint32_t uboOffsets[5];
 			VkBuffer vbuffer;
 			VkDeviceSize voffset;
 			uint32_t count;
@@ -60,7 +60,7 @@ struct VkRenderData {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
-			uint32_t uboOffsets[3];
+			uint32_t uboOffsets[5];
 			VkBuffer vbuffer;  // might need to increase at some point
 			VkDeviceSize voffset;
 			VkBuffer ibuffer;

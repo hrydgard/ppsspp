@@ -25,6 +25,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -45,6 +46,41 @@
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
 	PROFILE_THIS_SCOPE("shadercomp");
+#ifdef USE_UBERSHADER
+	ub_id.FS_BIT_CLEARMODE = id.Bit(FS_BIT_CLEARMODE);
+	ub_id.FS_BIT_DO_TEXTURE = id.Bit(FS_BIT_DO_TEXTURE);
+	ub_id.FS_BIT_TEXFUNC = id.Bits(FS_BIT_TEXFUNC, 3);
+	ub_id.FS_BIT_TEXALPHA = id.Bit(FS_BIT_TEXALPHA);
+	ub_id.FS_BIT_SHADER_DEPAL = id.Bit(FS_BIT_SHADER_DEPAL);
+	ub_id.FS_BIT_SHADER_TEX_CLAMP = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
+	ub_id.FS_BIT_CLAMP_S = id.Bit(FS_BIT_CLAMP_S);
+	ub_id.FS_BIT_CLAMP_T = id.Bit(FS_BIT_CLAMP_T);
+	ub_id.FS_BIT_TEXTURE_AT_OFFSET = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
+	ub_id.FS_BIT_LMODE = id.Bit(FS_BIT_LMODE);
+	ub_id.FS_BIT_ALPHA_TEST = id.Bit(FS_BIT_ALPHA_TEST);
+	ub_id.FS_BIT_ALPHA_TEST_FUNC = id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
+	ub_id.FS_BIT_ALPHA_AGAINST_ZERO = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	ub_id.FS_BIT_COLOR_TEST = id.Bit(FS_BIT_COLOR_TEST);
+	ub_id.FS_BIT_COLOR_TEST_FUNC = id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
+	ub_id.FS_BIT_COLOR_AGAINST_ZERO = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
+	ub_id.FS_BIT_ENABLE_FOG = id.Bit(FS_BIT_ENABLE_FOG);
+	ub_id.FS_BIT_DO_TEXTURE_PROJ = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
+	ub_id.FS_BIT_COLOR_DOUBLE = id.Bit(FS_BIT_COLOR_DOUBLE);
+	ub_id.FS_BIT_STENCIL_TO_ALPHA = id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2);
+	ub_id.FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
+	ub_id.FS_BIT_REPLACE_LOGIC_OP_TYPE = id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
+	ub_id.FS_BIT_REPLACE_BLEND = id.Bits(FS_BIT_REPLACE_BLEND, 3);
+	ub_id.FS_BIT_BLENDEQ = id.Bits(FS_BIT_BLENDEQ, 3);
+	ub_id.FS_BIT_BLENDFUNC_A = id.Bits(FS_BIT_BLENDFUNC_A, 4);
+	ub_id.FS_BIT_BLENDFUNC_B = id.Bits(FS_BIT_BLENDFUNC_B, 4);
+	ub_id.FS_BIT_FLATSHADE = id.Bit(FS_BIT_FLATSHADE);
+	ub_id.FS_BIT_BGRA_TEXTURE = id.Bit(FS_BIT_BGRA_TEXTURE);
+	ub_id.FS_BIT_TEST_DISCARD_TO_ZERO = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
+	ub_id.GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT);
+	ub_id.GPU_SUPPORTS_DEPTH_CLAMP = gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+	ub_id.GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	ub_id.GPU_SUPPORTS_ACCURATE_DEPTH = gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH);
+#endif
 	source_ = code;
 
 	std::string errorMessage;
@@ -103,6 +139,46 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE) {
 	PROFILE_THIS_SCOPE("shadercomp");
+#ifdef USE_UBERSHADER
+	ub_id.VS_BIT_LIGHT[0].COMP = id.Bits(VS_BIT_LIGHT0_COMP, 2);
+	ub_id.VS_BIT_LIGHT[0].TYPE = id.Bits(VS_BIT_LIGHT0_TYPE, 2);
+	ub_id.VS_BIT_LIGHT[1].COMP = id.Bits(VS_BIT_LIGHT1_COMP, 2);
+	ub_id.VS_BIT_LIGHT[1].TYPE = id.Bits(VS_BIT_LIGHT1_TYPE, 2);
+	ub_id.VS_BIT_LIGHT[2].COMP = id.Bits(VS_BIT_LIGHT2_COMP, 2);
+	ub_id.VS_BIT_LIGHT[2].TYPE = id.Bits(VS_BIT_LIGHT2_TYPE, 2);
+	ub_id.VS_BIT_LIGHT[3].COMP = id.Bits(VS_BIT_LIGHT3_COMP, 2);
+	ub_id.VS_BIT_LIGHT[3].TYPE = id.Bits(VS_BIT_LIGHT3_TYPE, 2);
+	ub_id.VS_BIT_LIGHT[0].ENABLE = id.Bit(VS_BIT_LIGHT0_ENABLE);
+	ub_id.VS_BIT_LIGHT[1].ENABLE = id.Bit(VS_BIT_LIGHT1_ENABLE);
+	ub_id.VS_BIT_LIGHT[2].ENABLE = id.Bit(VS_BIT_LIGHT2_ENABLE);
+	ub_id.VS_BIT_LIGHT[3].ENABLE = id.Bit(VS_BIT_LIGHT3_ENABLE);
+	ub_id.VS_BIT_LIGHTING_ENABLE = id.Bit(VS_BIT_LIGHTING_ENABLE);
+	ub_id.VS_BIT_MATERIAL_UPDATE = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
+	ub_id.VS_BIT_LMODE = id.Bit(VS_BIT_LMODE);
+	ub_id.VS_BIT_LS0 = id.Bits(VS_BIT_LS0, 2);
+	ub_id.VS_BIT_LS1 = id.Bits(VS_BIT_LS1, 2);
+	ub_id.VS_BIT_IS_THROUGH = id.Bit(VS_BIT_IS_THROUGH);
+	ub_id.VS_BIT_USE_HW_TRANSFORM = id.Bit(VS_BIT_USE_HW_TRANSFORM);
+	ub_id.VS_BIT_DO_TEXTURE = id.Bit(VS_BIT_DO_TEXTURE);
+	ub_id.VS_BIT_DO_TEXTURE_TRANSFORM = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
+	ub_id.VS_BIT_UVGEN_MODE = id.Bit(VS_BIT_UVGEN_MODE);
+	ub_id.VS_BIT_UVPROJ_MODE = id.Bits(VS_BIT_UVPROJ_MODE, 2);
+	ub_id.VS_BIT_HAS_TEXCOORD = id.Bit(VS_BIT_HAS_TEXCOORD);
+	ub_id.VS_BIT_HAS_TEXCOORD_TESS = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
+	ub_id.VS_BIT_HAS_COLOR = id.Bit(VS_BIT_HAS_COLOR);
+	ub_id.VS_BIT_HAS_COLOR_TESS = id.Bit(VS_BIT_HAS_COLOR_TESS);
+	ub_id.VS_BIT_HAS_NORMAL = id.Bit(VS_BIT_HAS_NORMAL);
+	ub_id.VS_BIT_HAS_NORMAL_TESS = id.Bit(VS_BIT_HAS_NORMAL_TESS);
+	ub_id.VS_BIT_NORM_REVERSE = id.Bit(VS_BIT_NORM_REVERSE);
+	ub_id.VS_BIT_NORM_REVERSE_TESS = id.Bit(VS_BIT_NORM_REVERSE_TESS);
+	ub_id.VS_BIT_ENABLE_BONES = id.Bit(VS_BIT_ENABLE_BONES);
+	ub_id.VS_BIT_BONES = id.Bits(VS_BIT_BONES, 3);
+	ub_id.VS_BIT_WEIGHT_FMTSCALE = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	ub_id.VS_BIT_SPLINE = id.Bit(VS_BIT_SPLINE);
+	ub_id.VS_BIT_BEZIER = id.Bit(VS_BIT_BEZIER);
+	ub_id.GPU_ROUND_DEPTH_TO_16BIT = gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT);
+	ub_id.GPU_SUPPORTS_VS_RANGE_CULLING = gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING);
+#endif
 	source_ = code;
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
@@ -168,11 +244,20 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
+#ifdef USE_UBERSHADER
+	size_t sz;
+	ubershader_vs_ = (char*)VFSReadFile("shaders/ubershader.vsh", &sz);
+	ubershader_fs_ = (char*)VFSReadFile("shaders/ubershader.fsh", &sz);
+#endif
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
 	ClearShaders();
 	delete[] codeBuffer_;
+#ifdef USE_UBERSHADER
+	delete ubershader_vs_;
+	delete ubershader_fs_;
+#endif
 }
 
 void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
@@ -262,18 +347,26 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanVertexShader *vs = vsCache_.Get(VSID);
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
+#ifdef USE_UBERSHADER
+		vs = new VulkanVertexShader(vulkan_, VSID, ubershader_vs_, useHWTransform);
+#else
 		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
+#endif
 		vsCache_.Insert(VSID, vs);
 	}
 	lastVSID_ = VSID;
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
 	if (!fs) {
+#ifdef USE_UBERSHADER
+		fs = new VulkanFragmentShader(vulkan_, FSID, ubershader_fs_);
+#else
 		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 		// Fragment shader not in cache. Let's compile it.
 		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_, vendorID);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
+#endif
 		fsCache_.Insert(FSID, fs);
 	}
 
@@ -388,8 +481,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			break;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
+#ifdef USE_UBERSHADER
+		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, ubershader_vs_, useHWTransform);
+#else
 		GenerateVulkanGLSLVertexShader(id, codeBuffer_);
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
+#endif
 		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
@@ -399,8 +496,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			ERROR_LOG(G3D, "Vulkan shader cache truncated");
 			break;
 		}
+#ifdef USE_UBERSHADER
+		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, ubershader_fs_);
+#else
 		GenerateVulkanGLSLFragmentShader(id, codeBuffer_, vendorID);
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
+#endif
 		fsCache_.Insert(id, fs);
 	}
 
