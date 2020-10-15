@@ -1,5 +1,3 @@
-uniform vec2 u_texelDelta;
-
 attribute vec4 a_position;
 attribute vec2 a_texcoord0;
 
