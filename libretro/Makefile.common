@@ -569,7 +569,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
+			ASMFILES   += $(COMMONDIR)/math/fast/fast_matrix_neon.S \
 				      $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
    else
