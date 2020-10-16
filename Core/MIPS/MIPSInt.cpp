@@ -102,6 +102,8 @@ namespace MIPSInt
 		// issue the cache instruction at that interval.
 
 		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
+
+		// NOTE: If you add support for more, make sure they are handled in the various Jit::Comp_Cache.
 		switch (func) {
 		// Icache
 		case 8:
