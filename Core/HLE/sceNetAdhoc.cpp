@@ -2908,7 +2908,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			getLocalMac(saddr);
 		}
 		// Valid Addresses
-		if (saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr)) {
+		if (saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr) && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
 			if (isPTPPortInUse(sport, false))
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
@@ -3185,6 +3185,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 				// Listener Socket
 				if (ptpsocket.state == ADHOC_PTP_STATE_LISTEN) {
+					hleEatMicro(500);
 					// Address Information
 					sockaddr_in peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
@@ -3199,7 +3200,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 						error = errno;
 					}
 
-					if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT))) {
+					if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK))) {
 						if (flag == 0) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
@@ -3220,26 +3221,26 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 					// Action would block
 					if (flag)
-						return ERROR_NET_ADHOC_WOULD_BLOCK;
+						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Timeout
-					return ERROR_NET_ADHOC_TIMEOUT;
+					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout");
 				}
 
 				// Client Socket
-				return ERROR_NET_ADHOC_NOT_LISTENED;				
+				return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_LISTENED, "not listened");
 			}
 
 			// Invalid Socket
-			return ERROR_NET_ADHOC_INVALID_SOCKET_ID;			
+			return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;		
+		return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 /**
@@ -3252,7 +3253,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	INFO_LOG(SCENET, "sceNetAdhocPtpConnect(%i, %i, %i) at %08x", id, timeout, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return 0;
+		return -1;
 	}
 
 	// Library is initialized
@@ -3271,6 +3272,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
+				hleEatMicro(500);
 				// Target Address
 				sockaddr_in sin;
 				memset(&sin, 0, sizeof(sin));
@@ -3325,28 +3327,25 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						}
 						// NonBlocking Mode
 						else {
-							return ERROR_NET_ADHOC_WOULD_BLOCK;
+							return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 						}
 					}
 				}
 				
 				// Peer not found
-				if (flag)
-					return ERROR_NET_ADHOC_WOULD_BLOCK;
-
-				return ERROR_NET_ADHOC_CONNECTION_REFUSED; // ERROR_NET_ADHOC_TIMEOUT;
+				return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address"); // ERROR_NET_ADHOC_WOULD_BLOCK / ERROR_NET_ADHOC_TIMEOUT
 			}
 			
 			// Not a valid Client Socket
-			return ERROR_NET_ADHOC_NOT_OPENED;
+			return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_OPENED, "not opened");
 		}
 		
 		// Invalid Socket
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 int NetAdhocPtp_Close(int id, int unknown) {
@@ -3814,13 +3813,14 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
+				hleEatMicro(1000);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 				// Apply Send Timeout Settings to Socket
 				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
 
 				int error = FlushPtpSocket(ptpsocket.id);
 
-				if (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT) {
+				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
 					if (nonblock)
 						return ERROR_NET_ADHOC_WOULD_BLOCK;
@@ -5277,7 +5277,7 @@ void __NetTriggerCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	sceKernelDelayThread(delayus);
+	sceKernelDelayThread(adhocDefaultDelay);
 }
 
 void __NetMatchingCallbacks() //(int matchingId)
