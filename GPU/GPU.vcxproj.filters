@@ -288,6 +288,12 @@
     <ClInclude Include="ge_constants.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\VertexShaderGeneratorCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FragmentShaderGeneratorCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -573,6 +579,12 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="GeConstants.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexShaderGeneratorCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FragmentShaderGeneratorCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

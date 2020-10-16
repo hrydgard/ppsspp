@@ -231,6 +231,8 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
 	$(GPUCOMMONDIR)/FramebufferManagerCommon.cpp \
+	$(GPUCOMMONDIR)/FragmentShaderGeneratorCommon.cpp \
+	$(GPUCOMMONDIR)/VertexShaderGeneratorCommon.cpp \
 	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \

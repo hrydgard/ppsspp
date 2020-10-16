@@ -1352,6 +1352,8 @@ set(GPU_SOURCES
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
+	GPU/Common/FragmentShaderGeneratorCommon.cpp
+	GPU/Common/FragmentShaderGeneratorCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/GPUStateUtils.cpp
@@ -1376,6 +1378,8 @@ set(GPU_SOURCES
 	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/VertexShaderGeneratorCommon.cpp
+	GPU/Common/VertexShaderGeneratorCommon.h
 	GPU/Common/TransformCommon.cpp
 	GPU/Common/TransformCommon.h
 	GPU/Common/IndexGenerator.cpp

@@ -32,6 +32,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/VertexShaderGeneratorCommon.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
@@ -63,11 +64,6 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
-};
 
 // Depth range and viewport
 //
@@ -396,120 +392,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
-
-		const char *ambientStr = ((matUpdate & 1) && hasColor) ? "color0" : "base.matambientalpha";
-		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "light.matdiffuse";
-		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "light.matspecular.rgb";
-		if (doBezier || doSpline) {
-			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "base.matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "light.matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "light.matspecular.rgb";
-		}
-
-		bool diffuseIsZero = true;
-		bool specularIsZero = true;
-		bool distanceNeeded = false;
-
-		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = light.u_ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
-
-			for (int i = 0; i < 4; i++) {
-				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-				if (doLight[i] != LIGHT_FULL)
-					continue;
-				diffuseIsZero = false;
-				if (comp == GE_LIGHTCOMP_BOTH)
-					specularIsZero = false;
-				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					distanceNeeded = true;
-			}
-
-			if (!specularIsZero) {
-				WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
-			}
-			if (!diffuseIsZero) {
-				WRITE(p, "  vec3 toLight;\n");
-				WRITE(p, "  vec3 diffuse;\n");
-			}
-			if (distanceNeeded) {
-				WRITE(p, "  float distance;\n");
-				WRITE(p, "  float lightScale;\n");
-			}
-		}
-
-		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
-		// at least partially calculated.
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_FULL)
-				continue;
-
-			GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-			GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-
-			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
-				// We prenormalize light positions for directional lights.
-				WRITE(p, "  toLight = light.pos[%i];\n", i);
-			} else {
-				WRITE(p, "  toLight = light.pos[%i] - worldpos;\n", i);
-				WRITE(p, "  distance = length(toLight);\n");
-				WRITE(p, "  toLight /= distance;\n");
-			}
-
-			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
-
-			WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
-			if (poweredDiffuse) {
-				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (light.matspecular.a <= 0.0) {\n");
-				WRITE(p, "    dot%i = 1.0;\n", i);
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
-				WRITE(p, "  }\n");
-			}
-
-			const char *timesLightScale = " * lightScale";
-
-			// Attenuation
-			switch (type) {
-			case GE_LIGHTTYPE_DIRECTIONAL:
-				timesLightScale = "";
-				break;
-			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
-				break;
-			case GE_LIGHTTYPE_SPOT:
-			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  float angle%i = length(light.dir[%i]) == 0.0 ? 0.0 : dot(normalize(light.dir[%i]), toLight);\n", i, i, i);
-				WRITE(p, "  if (angle%i >= light.angle_spotCoef[%i].x) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (light.angle_spotCoef[%i].y <= 0.0 ? 1.0 : pow(angle%i, light.angle_spotCoef[%i].y));\n", i, i, i, i);
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    lightScale = 0.0;\n");
-				WRITE(p, "  }\n");
-				break;
-			default:
-				// ILLEGAL
-				break;
-			}
-
-			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
-			if (doSpecular) {
-				WRITE(p, "  if (dot%i >= 0.0) {\n", i);
-				WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "    if (light.matspecular.a <= 0.0) {\n");
-				WRITE(p, "      dot%i = 1.0;\n", i);
-				WRITE(p, "    } else {\n");
-				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
-				WRITE(p, "    }\n");
-				WRITE(p, "    if (dot%i > 0.0)\n", i);
-				WRITE(p, "      lightSum1 += light.specular[%i] * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
-				WRITE(p, "  }\n");
-			}
-			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
-		}
+		bool specularIsZero;
+		p = WriteLights(p, id, doLight, &specularIsZero);
 
 		if (enableLighting) {
 			// Sum up ambient, emissive here.

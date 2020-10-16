@@ -340,6 +340,7 @@
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="Common\DrawEngineCommon.h" />
+    <ClInclude Include="Common\FragmentShaderGeneratorCommon.h" />
     <ClInclude Include="Common\FramebufferManagerCommon.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\GPUStateUtils.h" />
@@ -367,6 +368,7 @@
     <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="Common\VertexShaderGeneratorCommon.h" />
     <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DepalettizeShaderD3D11.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />
@@ -493,6 +495,7 @@
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="Common\DrawEngineCommon.cpp" />
+    <ClCompile Include="Common\FragmentShaderGeneratorCommon.cpp" />
     <ClCompile Include="Common\FramebufferManagerCommon.cpp" />
     <ClCompile Include="Common\GPUDebugInterface.cpp" />
     <ClCompile Include="Common\GPUStateUtils.cpp" />
@@ -546,6 +549,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Common\VertexShaderGeneratorCommon.cpp" />
     <ClCompile Include="D3D11\D3D11Util.cpp" />
     <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp" />
     <ClCompile Include="D3D11\DrawEngineD3D11.cpp" />
