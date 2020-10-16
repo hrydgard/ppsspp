@@ -2,6 +2,7 @@
 
 .core-defs:
   variables:
+    GIT_SUBMODULE_STRATEGY: recursive
     JNI_PATH: libretro
     CORENAME: ppsspp
 
