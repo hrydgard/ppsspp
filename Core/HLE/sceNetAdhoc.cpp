@@ -5010,65 +5010,31 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 					void* data = NULL;
 					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointer(dataAddr);
 
-					// FIXME: If the target MAC is 00:00:00:00:00:00 (invalid mac) Should we default to P2P/Parent's MAC or return an Error?
-					if (isZeroMAC((const SceNetEtherAddr*)mac)) {
-						int sent = 0;
-						peerlock.lock();
-						// Iterate Peer List for Matching Target
-						SceNetAdhocMatchingMemberInternal* peer = context->peerlist;
-						for (; peer != NULL; peer = peer->next)
+					// Find Target Peer
+					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
+
+					// Found Peer
+					if (peer != NULL)
+					{
+						// Valid Peer Connection State
+						if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
 						{
-							// Valid Peer Connection State
-							if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
-							{
-								// Skip Busy peers
-								if (peer->sending)
-									continue;
+							// Send in Progress
+							if (peer->sending)
+								return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
 
-								// Mark Peer as Sending
-								peer->sending = 1;
+							// Mark Peer as Sending
+							peer->sending = 1;
 
-								// Send Data to Peer
-								sendBulkData(context, peer, dataLen, data);
-								sent++;
-								break;
-							}
+							// Send Data to Peer
+							sendBulkData(context, peer, dataLen, data);
+
+							// Return Success
+							return 0;
 						}
-						peerlock.unlock();
 
-						if (sent == 0)
-							return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "invalid target");
-
-						// Return Success
-						return 0;
-					}
-					else {
-						// Find Target Peer
-						SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
-
-						// Found Peer
-						if (peer != NULL)
-						{
-							// Valid Peer Connection State
-							if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
-							{
-								// Send in Progress
-								if (peer->sending)
-									return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
-
-								// Mark Peer as Sending
-								peer->sending = 1;
-
-								// Send Data to Peer
-								sendBulkData(context, peer, dataLen, data);
-
-								// Return Success
-								return 0;
-							}
-
-							// Not connected / accepted
-							return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
-						}
+						// Not connected / accepted
+						return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
 					}
 
 					// Peer not found
