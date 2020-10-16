@@ -690,7 +690,8 @@ int DoBlockingAdhocPollSocket(int uid, AdhocSocketRequest& req, s64& result) {
 	int ret = PollAdhocSocket(sds, req.id, 0, 0);
 	if (ret <= 0) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		// POSIX poll using negative timeout for indefinitely blocking, not sure about PSP's AdhocPollSocket tho since most of PSP's sceNet API using 0 for indefinitely blocking.
+		if (static_cast<int>(req.timeout) <= 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else if (ret < 0)
@@ -1797,12 +1798,6 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			if (nonblock)
 				timeout = 0;
 
-			// Blocking Mode
-			else
-				// Does timeout = 0 means indefinite on PSP?
-				if (timeout <= 0)
-					timeout = adhocDefaultTimeout; // minSocketTimeoutUS;
-
 			if (count > (int)FD_SETSIZE) 
 				count = FD_SETSIZE; // return 0; //ERROR_NET_ADHOC_INVALID_ARG
 
@@ -1813,7 +1808,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			//int affectedsockets = sceNetInetPoll(isds, count, timeout);
 			int affectedsockets = 0;
 			if (nonblock)
-				affectedsockets = PollAdhocSocket(sds, count, timeout, nonblock);
+				affectedsockets = PollAdhocSocket(sds, count, 0, nonblock);
 			else {
 				// Simulate blocking behaviour with non-blocking socket
 				// Borrowing some arguments to pass some parameters. The dummy WaitID(count+1) might not be unique thus have duplicate possibilities if there are multiple thread trying to poll the same numbers of socket at the same time
