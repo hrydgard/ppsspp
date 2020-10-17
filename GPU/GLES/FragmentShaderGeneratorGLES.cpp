@@ -225,7 +225,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 
 	if (shaderDepal) {
 		WRITE(p, "uniform sampler2D pal;\n");
-		WRITE(p, "uniform int u_depal;\n");
+		WRITE(p, "uniform int u_depal_mask_shift_off_fmt;\n");
 		*uniformMask |= DIRTY_DEPAL;
 	}
 
@@ -365,88 +365,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
-				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal >> 31) != 0;\n");
-				WRITE(p, "  if (bilinear) {\n");
-				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
-				WRITE(p, "    fraction = fract(uv_round);\n");
-				WRITE(p, "    uv_round = (uv_round - fraction + vec2(0.5, 0.5)) / tsize;\n");  // We want to take our four point samples at pixel centers.
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    uv_round = uv;\n");
-				WRITE(p, "  }\n");
-				WRITE(p, "  vec4 t = %s(tex, uv_round);\n", compat.texture);
-				WRITE(p, "  vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", compat.texture);
-				WRITE(p, "  vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", compat.texture);
-				WRITE(p, "  vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", compat.texture);
-				WRITE(p, "  int depalMask = (u_depal & 0xFF);\n");
-				WRITE(p, "  int depalShift = ((u_depal >> 8) & 0xFF);\n");
-				WRITE(p, "  int depalOffset = (((u_depal >> 16) & 0xFF) << 4);\n");
-				WRITE(p, "  int depalFmt = ((u_depal >> 24) & 0x3);\n");
-				WRITE(p, "  ivec4 col; int index0; int index1; int index2; int index3;\n");
-				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
-				WRITE(p, "  case 0:\n");  // 565
-				WRITE(p, "    col = ivec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "    index0 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index1 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index2 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index3 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 1:\n");  // 5551
-				WRITE(p, "    col = ivec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "    index0 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index1 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index2 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index3 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 2:\n");  // 4444
-				WRITE(p, "    col = ivec4(t.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
-				WRITE(p, "    index0 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
-				WRITE(p, "      index1 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
-				WRITE(p, "      index2 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
-				WRITE(p, "      index3 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 3:\n");  // 8888
-				WRITE(p, "    col = ivec4(t.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
-				WRITE(p, "    index0 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
-				WRITE(p, "      index1 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
-				WRITE(p, "      index2 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
-				WRITE(p, "      index3 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  };\n");
-				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "  t = texelFetch(pal, ivec2(index0, 0), 0);\n");
-				WRITE(p, "  if (bilinear && !(index0 == index1 && index1 == index2 && index2 == index3)) {\n");
-				WRITE(p, "    index1 = ((index1 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "    index2 = ((index2 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "    index3 = ((index3 >> depalShift) & depalMask) | depalOffset;\n");
-				WRITE(p, "    t1 = texelFetch(pal, ivec2(index1, 0), 0);\n");
-				WRITE(p, "    t2 = texelFetch(pal, ivec2(index2, 0), 0);\n");
-				WRITE(p, "    t3 = texelFetch(pal, ivec2(index3, 0), 0);\n");
-				WRITE(p, "    t = mix(t, t1, fraction.x);\n");
-				WRITE(p, "    t2 = mix(t2, t3, fraction.x);\n");
-				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
-				WRITE(p, "  }\n");
+				p = WriteShaderDepal(p, id, compat);
 			}
 
 			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)

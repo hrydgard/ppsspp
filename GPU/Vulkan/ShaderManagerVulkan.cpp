@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-//#define SHADERLOG
+// #define SHADERLOG
 #endif
 
 #include "Common/Math/lin/matrix4x4.h"

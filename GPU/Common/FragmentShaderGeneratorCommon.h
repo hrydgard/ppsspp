@@ -16,3 +16,4 @@ struct ShaderCompat {
 };
 
 char *WriteReplaceBlend(char *p, const FShaderID &id, const ShaderCompat &compat);
+char *WriteShaderDepal(char *p, const FShaderID &id, const ShaderCompat &compat);
