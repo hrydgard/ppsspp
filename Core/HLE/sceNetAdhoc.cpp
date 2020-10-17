@@ -3308,21 +3308,28 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						return 0;
 					}
 					
-					// Connection in Progress
-					else if (connectresult == SOCKET_ERROR && connectInProgress(errorcode)) {
-						socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-						socket->attemptCount++;
-						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
-						// Blocking Mode
-						// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
-						if (!flag || (g_Config.bForcedFirstConnect && socket->attemptCount == 1)) {
-							// Simulate blocking behaviour with non-blocking socket
-							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag) ? std::max((int)socket->retry_interval, timeout) : timeout, nullptr, nullptr, "ptp connect");
+					// Error handling
+					else if (connectresult == SOCKET_ERROR) {
+						// Connection in Progress
+						if (connectInProgress(errorcode)) {
+							socket->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+							socket->attemptCount++;
+							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
+							// Blocking Mode
+							// Workaround: Forcing first attempt to be blocking to prevent issue related to lobby or high latency networks. (can be useful for GvG Next Plus, Dissidia 012, and Fate Unlimited Codes)
+							if (!flag || (g_Config.bForcedFirstConnect && socket->attemptCount == 1)) {
+								// Simulate blocking behaviour with non-blocking socket
+								u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+								return WaitBlockingAdhocSocket(threadSocketId, PTP_CONNECT, id, nullptr, nullptr, (flag) ? std::max((int)socket->retry_interval, timeout) : timeout, nullptr, nullptr, "ptp connect");
+							}
+							// NonBlocking Mode
+							else {
+								return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+							}
 						}
-						// NonBlocking Mode
-						else {
-							return hleLogDebug(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						// No connection could be made because the target device actively refused it.
+						else if (errorcode == ECONNREFUSED) {
+							return hleLogError(SCENET, ERROR_NET_ADHOC_CONNECTION_REFUSED, "connection refused");
 						}
 					}
 				}
