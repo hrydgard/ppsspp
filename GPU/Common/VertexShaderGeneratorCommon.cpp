@@ -67,9 +67,9 @@ char *WriteLights(char *p, const VShaderID &id, DoLightComputation doLight[4], b
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 			// We prenormalize light positions for directional lights.
-			WRITE(p, "  toLight = u_lightpos[%i];\n", i);
+			WRITE(p, "  toLight = u_lightpos%d;\n", i);
 		} else {
-			WRITE(p, "  toLight = u_lightpos[%i] - worldpos;\n", i);
+			WRITE(p, "  toLight = u_lightpos%d - worldpos;\n", i);
 			WRITE(p, "  distance = length(toLight);\n");
 			WRITE(p, "  toLight /= distance;\n");
 		}
@@ -96,13 +96,13 @@ char *WriteLights(char *p, const VShaderID &id, DoLightComputation doLight[4], b
 			timesLightScale = "";
 			break;
 		case GE_LIGHTTYPE_POINT:
-			WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+			WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 			break;
 		case GE_LIGHTTYPE_SPOT:
 		case GE_LIGHTTYPE_UNKNOWN:
-			WRITE(p, "  float angle%i = length(u_lightdir[%i]) == 0.0 ? 0.0 : dot(normalize(u_lightdir[%i]), toLight);\n", i, i, i);
-			WRITE(p, "  if (angle%i >= u_lightangle_spotCoef[%i].x) {\n", i, i);
-			WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef[%i].y <= 0.0 ? 1.0 : pow(angle%i, u_lightangle_spotCoef[%i].y));\n", i, i, i, i);
+			WRITE(p, "  float angle%i = length(u_lightdir%d) == 0.0 ? 0.0 : dot(normalize(u_lightdir%d), toLight);\n", i, i, i);
+			WRITE(p, "  if (angle%i >= u_lightangle_spotCoef%d.x) {\n", i, i);
+			WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%d.y <= 0.0 ? 1.0 : pow(angle%i, u_lightangle_spotCoef%d.y));\n", i, i, i, i);
 			WRITE(p, "  } else {\n");
 			WRITE(p, "    lightScale = 0.0;\n");
 			WRITE(p, "  }\n");
@@ -112,7 +112,7 @@ char *WriteLights(char *p, const VShaderID &id, DoLightComputation doLight[4], b
 			break;
 		}
 
-		WRITE(p, "  diffuse = (u_lightdiffuse[%i] * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+		WRITE(p, "  diffuse = (u_lightdiffuse%d * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 		if (doSpecular) {
 			WRITE(p, "  if (dot%i >= 0.0) {\n", i);
 			WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
@@ -122,10 +122,10 @@ char *WriteLights(char *p, const VShaderID &id, DoLightComputation doLight[4], b
 			WRITE(p, "      dot%i = pow(max(dot%i, 0.0), u_matspecular.a);\n", i, i);
 			WRITE(p, "    }\n");
 			WRITE(p, "    if (dot%i > 0.0)\n", i);
-			WRITE(p, "      lightSum1 += u_lightspecular[%i] * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
+			WRITE(p, "      lightSum1 += u_lightspecular%d * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
 			WRITE(p, "  }\n");
 		}
-		WRITE(p, "  lightSum0.rgb += (u_lightambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
+		WRITE(p, "  lightSum0.rgb += (u_lightambient%d * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 	}
 	return p;
 }

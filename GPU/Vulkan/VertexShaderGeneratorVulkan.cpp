@@ -489,8 +489,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
 			{
-				std::string lightFactor0 = StringFromFormat("(length(u_lightpos[%i]) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos[%i]), worldnormal))", ls0, ls0);
-				std::string lightFactor1 = StringFromFormat("(length(u_lightpos[%i]) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos[%i]), worldnormal))", ls1, ls1);
+				std::string lightFactor0 = StringFromFormat("(length(u_lightpos%d) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%d), worldnormal))", ls0, ls0);
+				std::string lightFactor1 = StringFromFormat("(length(u_lightpos%d) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%d), worldnormal))", ls1, ls1);
 				WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
 			}
 			break;
