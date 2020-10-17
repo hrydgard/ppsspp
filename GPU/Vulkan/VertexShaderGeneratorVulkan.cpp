@@ -391,8 +391,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
 		}
 
-		// TODO: Declare variables for dots for shade mapping if needed.
 		bool specularIsZero;
+		// Writes lighting result to lightSum0/1.
 		p = WriteLights(p, id, doLight, &specularIsZero);
 
 		if (enableLighting) {

@@ -30,6 +30,7 @@
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/VertexShaderGeneratorCommon.h"
 
 #undef WRITE
 
@@ -47,12 +48,6 @@ static const char * const boneWeightAttrDecl[9] = {
 	"float4 a_w1:TEXCOORD1;\n  float2 a_w2:TEXCOORD2;\n",
 	"float4 a_w1:TEXCOORD1;\n  float3 a_w2:TEXCOORD2;\n",
 	"float4 a_w1:TEXCOORD1;\n  float4 a_w2:TEXCOORD2;\n",
-};
-
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
 };
 
 void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
@@ -106,6 +101,13 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (enableBones) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 	}
+
+	// Compatibility with VertexShaderCommon.cpp:
+	WRITE(p, "#define vec3 float3\n");
+	WRITE(p, "#define vec4 float4\n");
+	WRITE(p, "#define vec2 float2\n");
+	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define lowp\n");
 
 	if (lang == HLSL_DX9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
@@ -359,46 +361,66 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	}
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
-	WRITE(p, "  VS_OUT Out;\n");  
+	WRITE(p, "  VS_OUT Out;\n");
+	if (hasColor) {
+		WRITE(p, "  float4 color0 = In.color0;\n");
+	}
+	if (lmode)
+		WRITE(p, "  float4 color1 = In.color1;\n");
+	if (doTexture && hasTexcoord) {
+		if (texCoordInVec3) {
+			WRITE(p, "  float3 texcoord = In.texcoord;\n");
+		} else {
+			WRITE(p, "  float2 texcoord = In.texcoord;\n");
+		}
+	}
+	if (useHWTransform) {
+		WRITE(p, "  float3 position = In.position;\n");
+	} else {
+		WRITE(p, "  float4 position = In.position;\n");
+	}
+	if (hasNormal) {
+		WRITE(p, "  float3 normal = In.normal;\n");
+	}
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
 			if (texCoordInVec3) {
-				WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+				WRITE(p, "  Out.v_texcoord = texcoord;\n");
 			} else {
-				WRITE(p, "  Out.v_texcoord = float3(In.texcoord, 1.0);\n");
+				WRITE(p, "  Out.v_texcoord = float3(texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
-			WRITE(p, "  Out.v_color0 = In.color0;\n");
+			WRITE(p, "  Out.v_color0 = color0;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = In.color1.rgb;\n");
+				WRITE(p, "  Out.v_color1 = color1.rgb;\n");
 		} else {
-			WRITE(p, "  Out.v_color0 = In.u_matambientalpha;\n");
+			WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			if (lmode)
 				WRITE(p, "  Out.v_color1 = float3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
+			WRITE(p, "  Out.v_fogdepth = position.w;\n");
 		}
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			if (isModeThrough) {
-				WRITE(p, "  float4 outPos = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
+				WRITE(p, "  float4 outPos = mul(u_proj_through, float4(position.xyz, 1.0));\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, float4(position.xyz, 1.0)));\n");
 				} else {
-					WRITE(p, "  float4 outPos = mul(u_proj, float4(In.position.xyz, 1.0));\n");
+					WRITE(p, "  float4 outPos = mul(u_proj, float4(position.xyz, 1.0));\n");
 				}
 			}
 		} else {
 			if (isModeThrough) {
-				WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+				WRITE(p, "  float4 outPos = mul(float4(position.xyz, 1.0), u_proj_through);\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  float4 outPos = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(float4(position.xyz, 1.0), u_proj));\n");
 				} else {
-					WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+					WRITE(p, "  float4 outPos = mul(float4(position.xyz, 1.0), u_proj);\n");
 				}
 			}
 		}
@@ -417,9 +439,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+				WRITE(p, "  float3 worldpos = mul(float4(position.xyz, 1.0), u_world);\n");
 				if (hasNormal)
-					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%snormal, 0.0), u_world));\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			}
@@ -482,11 +504,11 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  float3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix);\n");
+			WRITE(p, "  float3 skinnedpos = mul(float4(position.xyz, 1.0), skinMatrix);\n");
 			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world);\n");
 
 			if (hasNormal) {
-				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
+				WRITE(p, "  float3 skinnednormal = mul(float4(%snormal, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
 			} else {
 				WRITE(p, "  float3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
 			}
@@ -511,127 +533,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 		}
 
-		// TODO: Declare variables for dots for shade mapping if needed.
-
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
-		if (doBezier || doSpline) {
-			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
-		}
-
-		bool diffuseIsZero = true;
-		bool specularIsZero = true;
-		bool distanceNeeded = false;
-		bool anySpots = false;
-		if (enableLighting) {
-			WRITE(p, "  float4 lightSum0 = u_ambient * %s + float4(u_matemissive, 0.0);\n", ambientStr);
-
-			for (int i = 0; i < 4; i++) {
-				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-				if (doLight[i] != LIGHT_FULL)
-					continue;
-				diffuseIsZero = false;
-				if (comp == GE_LIGHTCOMP_BOTH)
-					specularIsZero = false;
-				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					distanceNeeded = true;
-				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN)
-					anySpots = true;
-			}
-
-			if (!specularIsZero) {
-				WRITE(p, "  float3 lightSum1 = 0;\n");
-			}
-			if (!diffuseIsZero) {
-				WRITE(p, "  float3 toLight;\n");
-				WRITE(p, "  float3 diffuse;\n");
-			}
-			if (distanceNeeded) {
-				WRITE(p, "  float distance;\n");
-				WRITE(p, "  float lightScale;\n");
-			}
-			WRITE(p, "  float ldot;\n");
-			if (anySpots) {
-				WRITE(p, "  float angle;\n");
-			}
-		}
-
-		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
-		// at least partially calculated.
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_FULL)
-				continue;
-
-			GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-			GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-
-			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
-				// We prenormalize light positions for directional lights.
-				WRITE(p, "  toLight = u_lightpos%i;\n", i);
-			} else {
-				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
-				WRITE(p, "  distance = length(toLight);\n");
-				WRITE(p, "  toLight /= distance;\n");
-			}
-
-			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
-
-			WRITE(p, "  ldot = dot(toLight, worldnormal);\n");
-			if (poweredDiffuse) {
-				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "    ldot = 1.0;\n");
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
-				WRITE(p, "  }\n");
-			}
-
-			const char *timesLightScale = " * lightScale";
-
-			// Attenuation
-			switch (type) {
-			case GE_LIGHTTYPE_DIRECTIONAL:
-				timesLightScale = "";
-				break;
-			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
-				break;
-			case GE_LIGHTTYPE_SPOT:
-			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    lightScale = 0.0;\n");
-				WRITE(p, "  }\n");
-				break;
-			default:
-				// ILLEGAL
-				break;
-			}
-
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
-			if (doSpecular) {
-				WRITE(p, "  if (ldot >= 0.0) {\n");
-				WRITE(p, "    ldot = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n");
-				WRITE(p, "    if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "      ldot = 1.0;\n");
-				WRITE(p, "    } else {\n");
-				WRITE(p, "      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    if (ldot > 0.0)\n");
-				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * ldot %s;\n", i, specularStr, timesLightScale);
-				WRITE(p, "  }\n");
-			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
-		}
+		bool specularIsZero;
+		// Writes lighting result to lightSum0/1.
+		p = WriteLights(p, id, doLight, &specularIsZero);
 
 		if (enableLighting) {
 			// Sum up ambient, emissive here.
@@ -656,7 +560,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (doBezier || doSpline)
 					WRITE(p, "  Out.v_color0 = tess.col;\n");
 				else
-					WRITE(p, "  Out.v_color0 = In.color0;\n");
+					WRITE(p, "  Out.v_color0 = color0;\n");
 			} else {
 				WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			}
@@ -674,13 +578,13 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						if (doBezier || doSpline)
 							WRITE(p, "  Out.v_texcoord = float3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
+							WRITE(p, "  Out.v_texcoord = float3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = float3(0.0, 0.0, 0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = float3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.zw, 0.0);\n");
 					}
@@ -692,12 +596,12 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "float4(In.position.xyz, 1.0)";
+						temp_tc = "float4(position.xyz, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							if (hasTexcoord) {
-								temp_tc = StringFromFormat("float4(In.texcoord.xy, 0.0, 1.0)");
+								temp_tc = StringFromFormat("float4(texcoord.xy, 0.0, 1.0)");
 							} else {
 								temp_tc = "float4(0.0, 0.0, 0.0, 1.0)";
 							}
@@ -705,13 +609,13 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = flipNormal ? "float4(normalize(-In.normal), 1.0)" : "float4(normalize(In.normal), 1.0)";
+							temp_tc = flipNormal ? "float4(normalize(-normal), 1.0)" : "float4(normalize(normal), 1.0)";
 						else
 							temp_tc = "float4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc =  flipNormal ? "float4(-In.normal, 1.0)" : "float4(In.normal, 1.0)";
+							temp_tc =  flipNormal ? "float4(-normal, 1.0)" : "float4(normal, 1.0)";
 						else
 							temp_tc = "float4(0.0, 0.0, 1.0, 1.0)";
 						break;
