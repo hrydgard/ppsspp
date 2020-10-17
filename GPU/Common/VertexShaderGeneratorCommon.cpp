@@ -44,7 +44,7 @@ char *WriteLights(char *p, const VShaderID &id, DoLightComputation doLight[4], b
 		}
 
 		if (!*specularIsZero) {
-			WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
+			WRITE(p, "  vec3 lightSum1 = splat3(0.0);\n");
 		}
 		if (!diffuseIsZero) {
 			WRITE(p, "  vec3 toLight;\n");

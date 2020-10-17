@@ -108,6 +108,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	WRITE(p, "#define vec2 float2\n");
 	WRITE(p, "#define mediump\n");
 	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define splat3(x) float3(x, x, x)\n");
 
 	if (lang == HLSL_DX9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
@@ -365,7 +366,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (hasColor) {
 		WRITE(p, "  float4 color0 = In.color0;\n");
 	}
-	if (lmode)
+	if (lmode && !useHWTransform)
 		WRITE(p, "  float4 color1 = In.color1;\n");
 	if (doTexture && hasTexcoord) {
 		if (texCoordInVec3) {
