@@ -163,8 +163,8 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 		}
 
-		// Recv new Replica data
-		while (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+		// Recv new Replica data. We shouldn't do too much activity on a single event and just try again later after a short delay (1ms or lower, to prevent long sync with max players)
+		if (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, true, false) > 0) {
 			SceNetEtherAddr sendermac;
 			s32_le senderport = ADHOC_GAMEMODE_PORT;
 			s32_le bufsz = uid; // GAMEMODE_BUFFER_SIZE;
@@ -333,7 +333,7 @@ int StartGameModeScheduler(int bufSize) {
 
 	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has started", gameModeSocket, bufSize);
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | bufSize;
-	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_UPDATE_INTERVAL), gameModeNotifyEvent, param);
+	CoreTiming::ScheduleEvent(usToCycles(GAMEMODE_INIT_DELAY), gameModeNotifyEvent, param);
 
 	return 0;
 }
@@ -5201,8 +5201,7 @@ void __NetTriggerCallbacks()
 			case ADHOCCTL_EVENT_GAME: 
 			{
 				newState = ADHOCCTL_STATE_GAMEMODE;
-				if (adhocConnectionType != ADHOC_JOIN)
-					delayus = adhocEventDelay;
+				delayus = adhocEventDelay;
 				// Shows player list
 				INFO_LOG(SCENET, "GameMode - All players have joined:");
 				int i = 0;
