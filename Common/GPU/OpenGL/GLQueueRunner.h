@@ -136,7 +136,7 @@ struct GLRRenderData {
 			int16_t scissorY;
 			int16_t scissorW;
 			int16_t scissorH;
-		} clear;
+		} clear;  // also used for invalidate
 		struct {
 			int slot;
 			GLRTexture *texture;

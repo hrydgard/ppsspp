@@ -617,6 +617,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 	};
 	int invalidateAllMask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
 
+	/*
 	for (int j = 0; j < (int)steps.size() - 1; ++j) {
 		GLRStep &primaryStep = *steps[j];
 		if (primaryStep.stepType == GLRStepType::RENDER) {
@@ -648,7 +649,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 				primaryStep.commands.push_back(data);
 			}
 		}
-	}
+	}*/
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
