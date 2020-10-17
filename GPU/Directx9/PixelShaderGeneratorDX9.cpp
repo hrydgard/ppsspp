@@ -36,6 +36,17 @@ namespace DX9 {
 bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
+	// Output some compatibility defines
+	switch (lang) {
+	case ShaderLanguage::HLSL_DX9:
+		WRITE(p, "#define DISCARD clip(-1)\n");
+		break;
+	case ShaderLanguage::HLSL_D3D11:
+	case ShaderLanguage::HLSL_D3D11_LEVEL9:
+		WRITE(p, "#define DISCARD discard\n");
+		break;
+	}
+
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
 	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
@@ -290,7 +301,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  clip(-1);\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -300,11 +311,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops?
-						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) DISCARD;\n", alphaTestFuncs[alphaTestFunc]);
 					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			}
 		}
@@ -319,14 +330,14 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) clip(-1);\n");
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) DISCARD;\n");
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) clip(-1);\n");
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) DISCARD;\n");
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -341,11 +352,12 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
 						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) clip(-1);\n", test, test, test);
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) DISCARD;\n", test, test, test);
 					}
 				}
 				else {
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					// Useless color test.
+					WRITE(p, "  DISCARD;\n");
 				}
 			}
 		}
@@ -433,8 +445,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			}
 		}
 
-		// Can do REPLACE_BLEND_COPY_FBO in ps_2_0, but need to apply viewport in the vertex shader
-		// so that we can have the output position here to sample the texture at.
+		// TODO: Can theoretically do REPLACE_BLEND_COPY_FBO in ps_2_0, but need to apply viewport
+		// in the vertex shader so that we can have the output position here to sample the texture at.
 
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
 			WRITE(p, "  v.a = v.a * 2.0;\n");
