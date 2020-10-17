@@ -33,6 +33,7 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/VertexShaderGeneratorCommon.h"
 
 #undef WRITE
 
@@ -61,13 +62,6 @@ static const char * const boneWeightInDecl[9] = {
 	"in mediump vec4 w1;\nin mediump vec3 w2;\n",
 	"in mediump vec4 w1, w2;\n",
 };
-
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
-};
-
 
 // Depth range and viewport
 //
