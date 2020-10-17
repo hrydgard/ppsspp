@@ -21,9 +21,10 @@
 #include "Core/Config.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/ge_constants.h"
-#include "GPU/Common/GPUStateUtils.h"
-#include "GPU/GPUState.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/FragmentShaderGeneratorCommon.h"
+#include "GPU/GPUState.h"
 
 #define WRITE p+=sprintf
 
@@ -36,6 +37,10 @@ namespace DX9 {
 bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
+	ShaderCompat compat{};
+	compat.texture = "tex";
+	compat.shaderLanguage = lang;
+
 	// Output some compatibility defines
 	switch (lang) {
 	case ShaderLanguage::HLSL_DX9:
@@ -46,6 +51,12 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		WRITE(p, "#define DISCARD discard\n");
 		break;
 	}
+	WRITE(p, "#define vec2 float2\n");
+	WRITE(p, "#define vec3 float3\n");
+	WRITE(p, "#define vec4 float4\n");
+	WRITE(p, "#define mediump\n");
+	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define splat3(x) float3(x, x, x)\n");
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -362,95 +373,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			}
 		}
 
-		if (replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		}
-
-		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-			const char *srcFactor = "ERROR";
-			switch (replaceBlendFuncA) {
-			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "float3(v.a, v.a, v.a)"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0 - v.a, 1.0 - v.a, 1.0 - v.a)"; break;
-			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "float3(v.a * 2.0, v.a * 2.0, v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0 - v.a * 2.0, 1.0 - v.a * 2.0, 1.0 - v.a * 2.0)"; break;
-			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
-			// It's close to the same, but clamping can still be an issue.
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "float3(2.0, 2.0, 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
-			default:                            srcFactor = "u_blendFixA"; break;
-			}
-
-			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
-		}
-
-		if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
-
-			const char *srcFactor = "float3(1.0)";
-			const char *dstFactor = "float3(0.0)";
-
-			switch (replaceBlendFuncA) {
-			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
-			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(float3(1.0, 1.0, 1.0) - destColor.rgb)"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
-			case GE_SRCBLEND_DSTALPHA:          srcFactor = "float3(destColor.aaa)"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "destColor.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
-			default:                            srcFactor = "u_blendFixA"; break;
-			}
-			switch (replaceBlendFuncB) {
-			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
-			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(float3(1.0, 1.0, 1.0) - v.rgb)"; break;
-			case GE_DSTBLEND_SRCALPHA:          dstFactor = "v.aaa"; break;
-			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
-			case GE_DSTBLEND_DSTALPHA:          dstFactor = "destColor.aaa"; break;
-			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
-			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "v.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
-			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
-			default:                            srcFactor = "u_blendFixB"; break;
-			}
-
-			switch (replaceBlendEq) {
-			case GE_BLENDMODE_MUL_AND_ADD:
-				WRITE(p, "  v.rgb = v.rgb * %s + destColor.rgb * %s;\n", srcFactor, dstFactor);
-				break;
-			case GE_BLENDMODE_MUL_AND_SUBTRACT:
-				WRITE(p, "  v.rgb = v.rgb * %s - destColor.rgb * %s;\n", srcFactor, dstFactor);
-				break;
-			case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-				WRITE(p, "  v.rgb = destColor.rgb * %s - v.rgb * %s;\n", dstFactor, srcFactor);
-				break;
-			case GE_BLENDMODE_MIN:
-				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n");
-				break;
-			case GE_BLENDMODE_MAX:
-				WRITE(p, "  v.rgb = max(v.rgb, destColor.rgb);\n");
-				break;
-			case GE_BLENDMODE_ABSDIFF:
-				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
-				break;
-			}
-		}
-
-		// TODO: Can theoretically do REPLACE_BLEND_COPY_FBO in ps_2_0, but need to apply viewport
-		// in the vertex shader so that we can have the output position here to sample the texture at.
-
-		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
-		}
+		p = WriteReplaceBlend(p, id, compat);
 	}
 
 	std::string replacedAlpha = "0.0";

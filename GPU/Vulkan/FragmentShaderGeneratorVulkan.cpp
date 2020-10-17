@@ -51,10 +51,12 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 	ShaderCompat compat{};
 	compat.texture = "texture";
 	compat.texelFetch = "texelFetch";
+	compat.shaderLanguage = ShaderLanguage::GLSL_VULKAN;
 
 	const char *lastFragData = nullptr;
 
 	WRITE(p, "%s", vulkan_glsl_preamble);
+	WRITE(p, "#define splat3(x) vec3(x)\n");
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);

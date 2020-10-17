@@ -48,6 +48,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	compat.texture = "texture2D";
 	compat.texelFetch = nullptr;
 	compat.lastFragData = nullptr;
+	compat.shaderLanguage = ShaderLanguage::GLSL_140;
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -67,6 +68,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 				WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
 			}
+			compat.shaderLanguage = ShaderLanguage::GLSL_300;
 		} else {
 			WRITE(p, "#version 100\n");  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
@@ -115,6 +117,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				compat.glslES30 = true;
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
+				compat.shaderLanguage = ShaderLanguage::GLSL_300;
 				WRITE(p, "#version 330\n");
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				compat.fragColor0 = "fragColor0";
@@ -139,6 +142,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
+	WRITE(p, "#define splat3(x) vec3(x)\n");
 
 	if (compat.glslES30 || gl_extensions.IsCoreContext) {
 		compat.varying = "in";
