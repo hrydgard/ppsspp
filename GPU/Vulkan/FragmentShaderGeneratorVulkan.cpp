@@ -93,7 +93,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 		WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 	}
 
-	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s};\n", ub_baseStr);
 	if (doTexture) {
 		WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
 	}
@@ -167,18 +167,18 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
 
 				if (id.Bit(FS_BIT_CLAMP_S)) {
-					ucoord = "clamp(" + ucoord + ", base.texclamp.z, base.texclamp.x - base.texclamp.z)";
+					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
-					ucoord = modulo + "(" + ucoord + ", base.texclamp.x)";
+					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
 				}
 				if (id.Bit(FS_BIT_CLAMP_T)) {
-					vcoord = "clamp(" + vcoord + ", base.texclamp.w, base.texclamp.y - base.texclamp.w)";
+					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
-					vcoord = modulo + "(" + vcoord + ", base.texclamp.y)";
+					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
 				if (textureAtOffset) {
-					ucoord = "(" + ucoord + " + base.texclampoff.x)";
-					vcoord = "(" + vcoord + " + base.texclampoff.y)";
+					ucoord = "(" + ucoord + " + u_texclampoff.x)";
+					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
@@ -203,7 +203,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 				}
 				WRITE(p, "  vec2 tsize = textureSize(tex, 0);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (base.depal_mask_shift_off_fmt >> 31) != 0;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -215,10 +215,10 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 				WRITE(p, "  vec4 t1 = textureOffset(tex, uv_round, ivec2(1, 0));\n");
 				WRITE(p, "  vec4 t2 = textureOffset(tex, uv_round, ivec2(0, 1));\n");
 				WRITE(p, "  vec4 t3 = textureOffset(tex, uv_round, ivec2(1, 1));\n");
-				WRITE(p, "  uint depalMask = (base.depal_mask_shift_off_fmt & 0xFF);\n");
-				WRITE(p, "  uint depalShift = (base.depal_mask_shift_off_fmt >> 8) & 0xFF;\n");
-				WRITE(p, "  uint depalOffset = ((base.depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
-				WRITE(p, "  uint depalFmt = (base.depal_mask_shift_off_fmt >> 24) & 0x3;\n");
+				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFF);\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFF;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
@@ -299,7 +299,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 					break;
 
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, base.texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
 					break;
 
 				case GE_TEXFUNC_REPLACE:
@@ -326,7 +326,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 					break;
 
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, base.texenv.rgb, t.rgb), p.a)%s;\n", secondary);
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary);
 					break;
 
 				case GE_TEXFUNC_REPLACE:
@@ -374,7 +374,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s base.alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 				} else {
 					// This means NEVER.  See above.
 					WRITE(p, "  %s\n", discardStatement);
@@ -384,7 +384,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
@@ -407,7 +407,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-					WRITE(p, "  if ((v_scaled & base.alphacolormask.rgb) %s (base.alphacolorref.rgb & base.alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
+					WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 				} else {
 					WRITE(p, "  %s\n", discardStatement);
 				}
@@ -431,7 +431,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "base.blendFixA"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
@@ -454,7 +454,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "base.blendFixA"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -467,7 +467,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
-			case GE_DSTBLEND_FIXB:              dstFactor = "base.blendFixB"; break;
+			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -502,7 +502,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = "base.stencilReplace";
+			replacedAlpha = "u_stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:
