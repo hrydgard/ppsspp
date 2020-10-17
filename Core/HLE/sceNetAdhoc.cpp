@@ -5187,8 +5187,10 @@ void __NetTriggerCallbacks()
 			switch (flags) {
 			case ADHOCCTL_EVENT_CONNECT:
 				newState = ADHOCCTL_STATE_CONNECTED;
-				if (adhocConnectionType != ADHOC_JOIN)
+				if (adhocConnectionType == ADHOC_CREATE)
 					delayus = adhocEventDelay; // May affects Dissidia 012 and GTA VCS
+				else if (adhocConnectionType == ADHOC_CONNECT && getActivePeerCount() == 0)
+					delayus = adhocEventDelay / 2;
 				break;
 			case ADHOCCTL_EVENT_SCAN: // notified only when scan completed?
 				newState = ADHOCCTL_STATE_DISCONNECTED;
