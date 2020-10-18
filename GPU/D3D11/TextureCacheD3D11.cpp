@@ -121,7 +121,8 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 	lastBoundTexture = INVALID_TEX;
 
 	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
-	_dbg_assert_(SUCCEEDED(device_->CreateBuffer(&desc, nullptr, &depalConstants_)));
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
+	_dbg_assert_(SUCCEEDED(hr));
 
 	HRESULT result = 0;
 

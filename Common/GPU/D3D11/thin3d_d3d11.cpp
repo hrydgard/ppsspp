@@ -1305,8 +1305,8 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		depthViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->depthSRView);
 		if (FAILED(hr)) {
-			delete fb;
-			return nullptr;
+			WARN_LOG(G3D, "Failed to create SRV for depth buffer.");
+			fb->depthSRView = nullptr;
 		}
 	}
 
@@ -1606,7 +1606,9 @@ void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, F
 		context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
 		break;
 	case FBChannel::FB_DEPTH_BIT:
-		context_->PSSetShaderResources(binding, 1, &fb->depthSRView);
+		if (fb->depthSRView) {
+			context_->PSSetShaderResources(binding, 1, &fb->depthSRView);
+		}
 		break;
 	default:
 		break;
