@@ -25,6 +25,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
@@ -39,6 +40,12 @@
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"
 
+// For depth depal
+struct DepthPushConstants {
+	float z_scale;
+	float z_offset;
+	float pad[2];
+};
 
 #define INVALID_TEX (ID3D11ShaderResourceView *)(-1LL)
 
@@ -113,6 +120,10 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 	isBgraBackend_ = true;
 	lastBoundTexture = INVALID_TEX;
 
+	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
+	_dbg_assert_(SUCCEEDED(hr));
+
 	HRESULT result = 0;
 
 	SetupTextureDecoder();
@@ -121,6 +132,8 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 }
 
 TextureCacheD3D11::~TextureCacheD3D11() {
+	depalConstants_->Release();
+
 	// pFramebufferVertexDecl->Release();
 	Clear(true);
 }
@@ -355,8 +368,9 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 	ID3D11PixelShader *pshader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	bool need_depalettize = IsClutFormat(texFormat);
+	bool depth = channel == NOTIFY_FB_DEPTH;
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
-		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, framebuffer->drawnFormat);
+		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 	}
 
 	if (pshader) {
@@ -382,8 +396,20 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer,
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ApplyTextureFramebuffer_DepalShader");
 		context_->PSSetShaderResources(3, 1, &clutTexture);
 		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
-		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
+
+		if (depth) {
+			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
+			DepthPushConstants push;
+			push.z_scale = scaleFactors.scale;
+			push.z_offset = scaleFactors.offset;
+			D3D11_MAPPED_SUBRESOURCE map;
+			context_->Map(depalConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			memcpy(map.pData, &push, sizeof(push));
+			context_->Unmap(depalConstants_, 0);
+			context_->PSSetConstantBuffers(0, 1, &depalConstants_);
+		}
 		shaderApply.Shade();
 
 		context_->PSSetShaderResources(0, 1, &nullTexture);  // Make D3D11 validation happy. Really of no consequence since we rebind anyway.

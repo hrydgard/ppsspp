@@ -1212,6 +1212,8 @@ public:
 			colorRTView->Release();
 		if (colorSRView)
 			colorSRView->Release();
+		if (depthSRView)
+			depthSRView->Release();
 		if (depthStencilTex)
 			depthStencilTex->Release();
 		if (depthStencilRTView)
@@ -1223,6 +1225,7 @@ public:
 	ID3D11Texture2D *colorTex = nullptr;
 	ID3D11RenderTargetView *colorRTView = nullptr;
 	ID3D11ShaderResourceView *colorSRView = nullptr;
+	ID3D11ShaderResourceView *depthSRView = nullptr;
 	DXGI_FORMAT colorFormat = DXGI_FORMAT_UNKNOWN;
 
 	ID3D11Texture2D *depthStencilTex = nullptr;
@@ -1273,11 +1276,11 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		descDepth.Height = desc.height;
 		descDepth.MipLevels = 1;
 		descDepth.ArraySize = 1;
-		descDepth.Format = fb->depthStencilFormat;
+		descDepth.Format = DXGI_FORMAT_R24G8_TYPELESS;  // so we can create an R24X8 view of it.
 		descDepth.SampleDesc.Count = 1;
 		descDepth.SampleDesc.Quality = 0;
 		descDepth.Usage = D3D11_USAGE_DEFAULT;
-		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 		descDepth.CPUAccessFlags = 0;
 		descDepth.MiscFlags = 0;
 		hr = device_->CreateTexture2D(&descDepth, nullptr, &fb->depthStencilTex);
@@ -1286,13 +1289,24 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 			return nullptr;
 		}
 		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
-		descDSV.Format = descDepth.Format;
+		descDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		descDSV.Texture2D.MipSlice = 0;
 		hr = device_->CreateDepthStencilView(fb->depthStencilTex, &descDSV, &fb->depthStencilRTView);
 		if (FAILED(hr)) {
 			delete fb;
 			return nullptr;
+		}
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC depthViewDesc{};
+		depthViewDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		depthViewDesc.Texture2D.MostDetailedMip = 0;
+		depthViewDesc.Texture2D.MipLevels = 1;
+		depthViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->depthSRView);
+		if (FAILED(hr)) {
+			WARN_LOG(G3D, "Failed to create SRV for depth buffer.");
+			fb->depthSRView = nullptr;
 		}
 	}
 
@@ -1587,7 +1601,18 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 // color must be 0, for now.
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
+	switch (channelBit) {
+	case FBChannel::FB_COLOR_BIT:
+		context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
+		break;
+	case FBChannel::FB_DEPTH_BIT:
+		if (fb->depthSRView) {
+			context_->PSSetShaderResources(binding, 1, &fb->depthSRView);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
