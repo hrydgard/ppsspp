@@ -38,6 +38,12 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
 		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
+		// Support for depth.
+		if (pixelFormat == GE_FORMAT_DEPTH16) {
+			WRITE(p, "cbuffer params : register(b0) {\n");
+			WRITE(p, "  float z_scale; float z_offset;\n");
+			WRITE(p, "};\n");
+		}
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 450\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
@@ -53,7 +59,6 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 			WRITE(p, "  float z_scale; float z_offset;\n");
 			WRITE(p, "};\n");
 		}
-
 	} else {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
