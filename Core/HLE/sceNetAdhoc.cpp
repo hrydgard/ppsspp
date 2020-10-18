@@ -490,12 +490,13 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
+	else {
+		// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
-	// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
-	ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-	// Disconnected
-	result = ERROR_NET_ADHOC_DISCONNECTED;
+		// Disconnected
+		result = ERROR_NET_ADHOC_DISCONNECTED;
+	}
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i]: Socket Error (%i)", req.id, sockerr);
@@ -675,12 +676,13 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
+	else {
+		// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
-	// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
-	ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-	// Disconnected
-	result = ERROR_NET_ADHOC_DISCONNECTED;
+		// Disconnected
+		result = ERROR_NET_ADHOC_DISCONNECTED;
+	}
 
 	return 0;
 }
@@ -729,10 +731,10 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 	if (waitID == 0 || error != 0)
 		return;
 
-	// Socket not found?! Should never happened! but if it ever happen should we just exit here or need to wake the thread first?
+	// Socket not found?! Should never happened! But if it ever happened (ie. loaded from SaveState where adhocSocketRequests got cleared) return TIMEOUT and let the game try again.
 	if (adhocSocketRequests.find(userdata) == adhocSocketRequests.end()) {
 		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) not found!", uid, threadID);
-		//__KernelResumeThreadFromWait(threadID, ERROR_NET_ADHOC_TIMEOUT);
+		__KernelResumeThreadFromWait(threadID, ERROR_NET_ADHOC_TIMEOUT);
 		return;
 	}
 
@@ -811,7 +813,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhoc - SocketID: %d", waitID, error, (int)result, req.id);
+	DEBUG_LOG(SCENET, "Returning (ThreadId: %d, WaitID: %d, error: %d) Result (%08x) of sceNetAdhoc[%d] - SocketID: %d", threadID, waitID, error, (int)result, req.type, req.id);
 
 	// We are done with this socket
 	adhocSocketRequests.erase(userdata);
@@ -821,8 +823,9 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void* buffer, s32_le* len, u32 timeoutUS, SceNetEtherAddr* remoteMAC, u16_le* remotePort, const char* reason) {
 	int uid = (int)(threadSocketId & 0xFFFFFFFF);
 	if (adhocSocketRequests.find(threadSocketId) != adhocSocketRequests.end()) {
-		WARN_LOG(SCENET, "sceNetAdhoc - WaitID[%d] already existed, Socket[%d] is busy!", uid, pspSocketId);
-		return ERROR_NET_ADHOC_BUSY;
+		WARN_LOG(SCENET, "sceNetAdhoc[%d] - ThreadID[%d] WaitID[%d] already existed, Socket[%d] is busy!", type, static_cast<int>(threadSocketId >> 32), uid, pspSocketId);
+		// FIXME: Not sure if Adhoc Socket can return ADHOC_BUSY or not (assuming it's similar to EINPROGRESS for Adhoc Socket), or may be we should return TIMEOUT instead?
+		return ERROR_NET_ADHOC_BUSY; // ERROR_NET_ADHOC_TIMEOUT
 	}
 
 	if (adhocSocketNotifyEvent < 0)
