@@ -15,22 +15,26 @@ char *WriteReplaceBlend(char *p, const FShaderID &id, const ShaderCompat &compat
 	}
 
 	if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-		const char *srcFactor = "ERROR";
+		const char *srcFactor = nullptr;
 		switch (replaceBlendFuncA) {
-		case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
-		case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
+		case GE_SRCBLEND_DSTCOLOR:          return nullptr;
+		case GE_SRCBLEND_INVDSTCOLOR:       return nullptr;
 		case GE_SRCBLEND_SRCALPHA:          srcFactor = "splat3(v.a)"; break;
 		case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
-		case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
-		case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
+		case GE_SRCBLEND_DSTALPHA:          return nullptr;
+		case GE_SRCBLEND_INVDSTALPHA:       return nullptr;
 		case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "splat3(v.a * 2.0)"; break;
 		case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0 - v.a * 2.0)"; break;
 		// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
 		// It's close to the same, but clamping can still be an issue.
 		case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "splat3(2.0)"; break;
-		case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
+		case GE_SRCBLEND_DOUBLEINVDSTALPHA: return nullptr;
 		case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 		default:                            srcFactor = "u_blendFixA"; break;
+		}
+		if (!srcFactor) {
+			// Invalid case
+			return nullptr;
 		}
 
 		WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);

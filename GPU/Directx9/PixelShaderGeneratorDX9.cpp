@@ -374,6 +374,9 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		}
 
 		p = WriteReplaceBlend(p, id, compat);
+		if (!p) {
+			return false;
+		}
 	}
 
 	std::string replacedAlpha = "0.0";

@@ -337,6 +337,9 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 
 		// Modifies v.
 		p = WriteReplaceBlend(p, id, compat);
+		if (!p) {
+			return false;
+		}
 	}
 
 	std::string replacedAlpha = "0.0";
@@ -392,7 +395,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad stencil-to-alpha type, corrupt ID?");
+		// ERROR_LOG(G3D, "Bad stencil-to-alpha type, corrupt ID?");
 		return false;
 	}
 
@@ -408,7 +411,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad logic op type, corrupt ID?");
+		// ERROR_LOG(G3D, "Bad logic op type, corrupt ID?");
 		return false;
 	}
 

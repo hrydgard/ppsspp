@@ -539,6 +539,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		}
 
 		p = WriteReplaceBlend(p, id, compat);
+		if (!p) {
+			return false;
+		}
 	}
 
 	std::string replacedAlpha = "0.0";

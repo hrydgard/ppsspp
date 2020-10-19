@@ -19,4 +19,4 @@
 
 #include "GPU/Common/ShaderId.h"
 
-void GenerateFragmentShaderD3D11(const FShaderID &id, char *buffer, ShaderLanguage lang);
+bool GenerateFragmentShaderD3D11(const FShaderID &id, char *buffer, ShaderLanguage lang);

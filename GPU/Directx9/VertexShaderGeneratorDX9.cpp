@@ -50,7 +50,7 @@ static const char * const boneWeightAttrDecl[9] = {
 	"float4 a_w1:TEXCOORD1;\n  float4 a_w2:TEXCOORD2;\n",
 };
 
-void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
+bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -200,6 +200,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  uint instanceId : SV_InstanceID;\n");
 		}
 		if (enableBones) {
+			if (numBoneWeights == 0) {
+				return false;
+			}
 			WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
 		}
 		if (doTexture && hasTexcoord) {
@@ -661,6 +664,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
+	return true;
 }
 
 };
