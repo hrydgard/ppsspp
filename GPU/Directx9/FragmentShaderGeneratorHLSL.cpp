@@ -72,7 +72,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		WRITE(p, "#define DISCARD clip(-1)\n");
 		break;
 	case ShaderLanguage::HLSL_D3D11:
-	case ShaderLanguage::HLSL_D3D11_LEVEL9:
 		WRITE(p, "#define DISCARD discard\n");
 		break;
 	}
@@ -156,7 +155,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
-	if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
+	if (lang == HLSL_D3D11 && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
 		WRITE(p, "  float4 pixelPos : SV_POSITION;\n");
 	}
 	WRITE(p, "};\n");
@@ -228,7 +227,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				doTextureProjection = false;
 			}
 
-			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+			if (lang == HLSL_D3D11) {
 				if (doTextureProjection) {
 					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
@@ -393,7 +392,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
 
 			const char *srcFactor = nullptr;
@@ -539,7 +538,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		WRITE(p, "  outfragment.depth = z;\n");
 	}
 
-	if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+	if (lang == HLSL_D3D11) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
 			WRITE(p, "  outfragment.target1 = float4(0.0, 0.0, 0.0, v.a);\n");

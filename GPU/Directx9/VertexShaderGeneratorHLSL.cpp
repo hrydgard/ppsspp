@@ -266,7 +266,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	// Hardware tessellation
 	if (doSpline || doBezier) {
-		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+		if (lang == HLSL_D3D11) {
 			WRITE(p, "struct TessData {\n");
 			WRITE(p, "  float3 pos; float pad1;\n");
 			WRITE(p, "  float2 tex; float2 pad2;\n");
@@ -380,7 +380,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
-		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+		if (lang == HLSL_D3D11) {
 			if (isModeThrough) {
 				WRITE(p, "  float4 outPos = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
@@ -428,7 +428,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
 			};
 
-			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+			if (lang == HLSL_D3D11) {
 				if (numBoneWeights == 1)
 					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone[0])");
 				else
@@ -470,7 +470,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
 
-		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+		if (lang == HLSL_D3D11) {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
