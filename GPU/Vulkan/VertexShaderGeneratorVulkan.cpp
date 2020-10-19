@@ -40,7 +40,8 @@
 static const char *vulkan_glsl_preamble =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n\n";
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"#define splat3(x) vec3(x)\n\n";
 
 // "Varying" layout - must match fragment shader
 // color0 = 0

@@ -152,6 +152,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
+	WRITE(p, "#define splat3(x) vec3(x)\n");
 
 	if (glslES30 || gl_extensions.IsCoreContext) {
 		attribute = "in";
