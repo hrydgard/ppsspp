@@ -587,7 +587,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	VSShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderHLSL(VSID, codeBuffer_);
+		GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9);
 		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
@@ -605,7 +605,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderHLSL(VSID, codeBuffer_);
+			GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 

@@ -21,7 +21,7 @@
 
 namespace DX9 {
 
-	void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
+	bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang);
 
 	enum {
 		CONST_VS_PROJ = 0,

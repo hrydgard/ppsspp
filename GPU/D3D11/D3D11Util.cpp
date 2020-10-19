@@ -19,7 +19,7 @@
 
 #include "D3D11Util.h"
 
-static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t codeSize, const char *target, UINT flags) {
+std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeSize, const char *target, UINT flags) {
 	ID3DBlob *compiledCode = nullptr;
 	ID3DBlob *errorMsgs = nullptr;
 	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
@@ -31,8 +31,10 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 		errorMsgs->Release();
 	}
 	if (compiledCode) {
+		// Success!
 		const uint8_t *buf = (const uint8_t *)compiledCode->GetBufferPointer();
 		std::vector<uint8_t> compiled = std::vector<uint8_t>(buf, buf +  compiledCode->GetBufferSize());
+		_assert_(compiled.size() != 0);
 		compiledCode->Release();
 		return compiled;
 	}
@@ -41,7 +43,7 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 
 ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
 	const char *profile = featureLevel <= D3D_FEATURE_LEVEL_9_3 ? "vs_4_0_level_9_1" : "vs_4_0";
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, profile, flags);
+	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, profile, flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -54,7 +56,7 @@ ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *co
 
 ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
 	const char *profile = featureLevel <= D3D_FEATURE_LEVEL_9_3 ? "ps_4_0_level_9_1" : "ps_4_0";
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, profile, flags);
+	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, profile, flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -66,7 +68,7 @@ ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code
 ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
 	if (featureLevel <= D3D_FEATURE_LEVEL_9_3)
 		return nullptr;
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "cs_4_0", flags);
+	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, "cs_4_0", flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -78,7 +80,7 @@ ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *
 ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
 	if (featureLevel <= D3D_FEATURE_LEVEL_9_3)
 		return nullptr;
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "gs_5_0", flags);
+	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, "gs_5_0", flags);
 	if (byteCode.empty())
 		return nullptr;
 

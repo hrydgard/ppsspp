@@ -19,4 +19,4 @@
 
 #include "GPU/Common/ShaderId.h"
 
-void GenerateVertexShaderD3D11(const VShaderID &id, char *buffer, ShaderLanguage lang);
+bool GenerateVertexShaderD3D11(const VShaderID &id, char *buffer, ShaderLanguage lang);
