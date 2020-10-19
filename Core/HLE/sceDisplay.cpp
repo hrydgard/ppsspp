@@ -894,7 +894,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	// Don't lag too long ever, if they leave it paused.
 	double now = before;
 	while (now < goal && goal < now + 0.01) {
-		// Tight loop on win32. TODO: Probably not a good idea...
+		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
 #ifndef _WIN32
 		const double left = goal - now;
 		usleep((long)(left * 1000000.0));

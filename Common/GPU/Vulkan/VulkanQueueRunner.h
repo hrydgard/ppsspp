@@ -44,7 +44,6 @@ struct VkRenderData {
 	union {
 		struct {
 			VkPipeline pipeline;
-			PipelineFlags flags;
 		} pipeline;
 		struct {
 			VkPipelineLayout pipelineLayout;
