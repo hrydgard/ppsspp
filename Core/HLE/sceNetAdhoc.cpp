@@ -197,8 +197,10 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	u32 error = 0;
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
-	if (waitID == 0 || error != 0)
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
 		return;
+	}
 
 	// Socket not found?! Should never happen! But if it ever happened (ie. loaded from SaveState where adhocctlRequests got cleared) return BUSY and let the game try again.
 	if (adhocctlRequests.find(uid) == adhocctlRequests.end()) {
@@ -276,8 +278,10 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	u32 error = 0;
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
-	if (waitID == 0 || error != 0)
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetAdhocctl State WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
 		return;
+	}
 
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
@@ -728,8 +732,10 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 	int delayUS = 500;
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
-	if (waitID == 0 || error != 0)
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
 		return;
+	}
 
 	// Socket not found?! Should never happened! But if it ever happened (ie. loaded from SaveState where adhocSocketRequests got cleared) return TIMEOUT and let the game try again.
 	if (adhocSocketRequests.find(userdata) == adhocSocketRequests.end()) {
