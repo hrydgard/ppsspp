@@ -29,6 +29,7 @@
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/CoreTiming.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -58,6 +59,8 @@ static const int audioSamplesBytes = audioSamples * 4;
 static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 static int psmfPlayerLibVersion = 0;
+
+int eventPsmfPlayerStatusChange = -1;
 
 enum PsmfPlayerError {
 	ERROR_PSMF_NOT_INITIALIZED       = 0x80615001,
@@ -666,10 +669,20 @@ static PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 		return 0;
 }
 
+static void __PsmfPlayerStatusChange(u64 userdata, int cyclesLate) {
+	PsmfPlayerStatus status = PsmfPlayerStatus(userdata & 0xFFFFFFFF);
+	u32 psmfPlayer = userdata >> 32;
+	PsmfPlayer *player = getPsmfPlayer(psmfPlayer);
+	if (player) {
+		player->status = status;
+	}
+}
+
 void __PsmfInit() {
 	videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 	psmfPlayerLibVersion = 0;
+	eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
 }
 
 void __PsmfPlayerLoadModule(int devkitVersion) {
@@ -1129,8 +1142,9 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 	videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
-	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
-	return hleDelayResult(0, "player create", 20000);
+	int delayUs = 20000;
+	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_INIT);
+	return hleDelayResult(0, "player create", delayUs);
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1146,8 +1160,9 @@ static int scePsmfPlayerStop(u32 psmfPlayer) {
 	psmfplayer->AbortFinish();
 
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return hleDelayResult(0, "psmfplayer stop", 3000);
+	int delayUs = 3000;
+	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_STANDBY);
+	return hleDelayResult(0, "psmfplayer stop", delayUs);
 }
 
 static int scePsmfPlayerBreak(u32 psmfPlayer)
@@ -1275,8 +1290,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 
 
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-
+	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_STANDBY);
 	return hleDelayResult(0, "psmfplayer set", delayUs);
 }
 
@@ -1460,7 +1474,10 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
 	int delayUs = psmfplayer->status == PSMF_PLAYER_STATUS_PLAYING ? 3000 : 0;
-	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
+	if(delayUs == 0)
+		psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
+	else
+		CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_PLAYING);
 	psmfplayer->warmUp = 0;
 
 	psmfplayer->mediaengine->openContext();
