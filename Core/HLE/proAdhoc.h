@@ -59,6 +59,7 @@
 #undef ESHUTDOWN
 #undef ECONNABORTED
 #undef ECONNRESET
+#undef ECONNREFUSED
 #undef ENOTCONN
 #undef EAGAIN
 #undef EINPROGRESS
@@ -69,6 +70,7 @@
 #define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
 #define ECONNRESET WSAECONNRESET
+#define ECONNREFUSED WSAECONNREFUSED
 #define ENOTCONN WSAENOTCONN
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
@@ -110,7 +112,8 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 
 // Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL 10000 // 12000 usec on JPCSP, but 10000 works better on BattleZone (in order to get full speed 60 FPS)
+#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+#define GAMEMODE_INIT_DELAY 10000
 
 // psp strutcs and definitions
 #define ADHOCCTL_MODE_NONE     -1
