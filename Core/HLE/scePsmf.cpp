@@ -698,7 +698,7 @@ void __PsmfDoState(PointerWrap &p) {
 }
 
 void __PsmfPlayerDoState(PointerWrap &p) {
-	auto s = p.Section("scePsmfPlayer", 1, 2);
+	auto s = p.Section("scePsmfPlayer", 1, 3);
 	if (!s)
 		return;
 
@@ -706,6 +706,10 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 	Do(p, videoPixelMode);
 	Do(p, videoLoopStatus);
 	if (s >= 2) {
+		if (s >= 3) {
+			Do(p, eventPsmfPlayerStatusChange);
+			CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+		}
 		Do(p, psmfPlayerLibVersion);
 	} else {
 		// Assume the latest, which is what we were emulating before.
