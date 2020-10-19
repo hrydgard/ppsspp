@@ -661,12 +661,9 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 
 	// Try Sending Empty Data
 	int sockerr = FlushPtpSocket(uid);
+	result = 0;
 
-	if (sockerr >= 0) {
-		result = 0;
-		return 0;
-	}
-	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
+	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTFLUSH) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -680,12 +677,16 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
-	else {
+	else if (isDisconnected(sockerr)) {
 		// Change Socket State. // FIXME: Does Alerted Socket should be closed too?
 		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
 		// Disconnected
 		result = ERROR_NET_ADHOC_DISCONNECTED;
+	}
+	
+	if (sockerr != 0) {
+		DEBUG_LOG(SCENET, "sceNetAdhocPtpFlush[%i]: Socket Error (%i)", req.id, sockerr);
 	}
 
 	return 0;
@@ -3590,9 +3591,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
  */
 static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(SCENET, "sceNetAdhocPtpSend(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
-		return 0;
-	}
+
 	int * len = (int *)Memory::GetPointer(dataSizeAddr);
 	const char * data = Memory::GetCharPointer(dataAddr);
 	// Library is initialized
@@ -3641,34 +3640,36 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
 						// Non-Blocking
 						if (flag) 
-							return ERROR_NET_ADHOC_WOULD_BLOCK;
+							return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 						
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
 						return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void*)data, len, timeout, nullptr, nullptr, "ptp send");
 					}
+
+					DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u -> %s:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport, sent, error);
 					
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 					
 					// Disconnected
-					return ERROR_NET_ADHOC_DISCONNECTED;
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 				
 				// Invalid Arguments
-				return ERROR_NET_ADHOC_INVALID_ARG;
+				return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 			}
 			
 			// Not connected
-			return ERROR_NET_ADHOC_NOT_CONNECTED;
+			return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 		}
 		
 		// Invalid Socket
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 /**
@@ -3682,9 +3683,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
  */
 static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
-		return 0;
-	}
+
 	void * buf = (void *)Memory::GetPointer(dataAddr);
 	int * len = (int *)Memory::GetPointer(dataSizeAddr);
 	// Library is initialized
@@ -3724,7 +3723,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 							return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
 						}
 
-						VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPtpRecv[%i:%u] [size=%i]", error, id, ptpsocket.lport, *len);
+						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 					}
 
 					// Free Network Lock
@@ -3749,36 +3748,28 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						return 0;
 					}
 
-					// Non-Critical Error
-					else if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ETIMEDOUT)) {
-						// Blocking Situation
-						if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
-
-						// Timeout
-						return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "ptp recv timeout");
-					}
 					DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
 
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
 					// Disconnected
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "ptp recv disconnected");
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
 
-				return ERROR_NET_ADHOC_NOT_CONNECTED;
+				return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 			}
 
 			// Invalid Socket
-			return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+			return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOC_INVALID_ARG;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid socket arg");
 	}
 	
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 int FlushPtpSocket(int socketId) {
@@ -3809,9 +3800,6 @@ int FlushPtpSocket(int socketId) {
  */
 static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 	DEBUG_LOG(SCENET,"sceNetAdhocPtpFlush(%d,%d,%d) at %08x", id, timeout, nonblock, currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
-		return 0;
-	}
 
 	// Library initialized
 	if (netAdhocInited) {
@@ -3834,12 +3822,22 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
 					if (nonblock)
-						return ERROR_NET_ADHOC_WOULD_BLOCK;
+						return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Simulate blocking behaviour with non-blocking socket
 					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
 					return WaitBlockingAdhocSocket(threadSocketId, PTP_FLUSH, id, nullptr, nullptr, timeout, nullptr, nullptr, "ptp flush");
 				}
+				else if (isDisconnected(error)) {
+					// Change Socket State
+					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+
+					// Disconnected
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+				}
+
+				if (error != 0)
+					DEBUG_LOG(SCENET, "sceNetAdhocPtpFlush[%i:%u -> %s:%u]: Error:%i", id, ptpsocket.lport, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport, error);
 			}
 
 			// Dummy Result, Always success?
@@ -3847,10 +3845,10 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 		}
 		
 		// Invalid Socket
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
 	// Library uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 /**
