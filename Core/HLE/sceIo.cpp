@@ -621,8 +621,6 @@ static void __IoVblank() {
 }
 
 void __IoInit() {
-	MemoryStick_Init();
-
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
@@ -663,6 +661,7 @@ void __IoInit() {
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
+	MemoryStick_Init();
 	lastMemStickState = MemoryStick_State();
 	lastMemStickFatState = MemoryStick_FatState();
 	__DisplayListenVblank(__IoVblank);
