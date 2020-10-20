@@ -354,7 +354,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	if (ret >= 0 && ret <= *req.length) {
 		ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
-		if (ret > 0) {
+		if (ret >= 0) {
 			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 
 			// Peer MAC
@@ -403,7 +403,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
 	else
-		result = ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_DISCONNECTED
+		result = ERROR_NET_ADHOC_TIMEOUT; // ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_DISCONNECTED
 
 	if (ret == SOCKET_ERROR)
 		DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i]: Socket Error (%i)", req.id, sockerr);
@@ -1344,7 +1344,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
 											if (sendTargetPeers.find(threadSocketId) != sendTargetPeers.end()) {
 												DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Socket(%d) is Busy!", id, getLocalPort(pdpsocket.id), pdpsocket.id);
-												return ERROR_NET_ADHOC_BUSY;
+												return hleLogError(SCENET, ERROR_NET_ADHOC_BUSY, "busy?");
 											}
 
 											AdhocSendTargets dest = { len, {}, false };
@@ -1371,10 +1371,10 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 									// Non-Blocking
 									if (flag) 
-										return ERROR_NET_ADHOC_WOULD_BLOCK;
+										return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
-									return ERROR_NET_ADHOC_TIMEOUT; // ERROR_NET_ADHOC_INVALID_ADDR;
+									return hleLogDebug(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout?"); // ERROR_NET_ADHOC_INVALID_ADDR;
 								}
 								//VERBOSE_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u\n", id, getLocalPort(pdpsocket.id), mac2str(daddr, tmpmac), ntohs(target.sin_port));
 							}
@@ -1419,7 +1419,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
 									if (sendTargetPeers.find(threadSocketId) != sendTargetPeers.end()) {
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](BC): Socket(%d) is Busy!", id, getLocalPort(pdpsocket.id), pdpsocket.id);
-										return ERROR_NET_ADHOC_BUSY;
+										return hleLogError(SCENET, ERROR_NET_ADHOC_BUSY, "busy?");
 									}
 
 									sendTargetPeers[threadSocketId] = dest;
@@ -1459,27 +1459,27 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 						}
 
 						// Invalid Destination Address
-						return ERROR_NET_ADHOC_INVALID_ADDR;
+						return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address");
 					}
 
 					// Invalid Argument
-					return ERROR_NET_ADHOC_INVALID_ARG;
+					return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 				}
 
 				// Invalid Socket ID
-				return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+				return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 			}
 
 			// Invalid Data Length
-			return ERROR_NET_ADHOC_INVALID_DATALEN;
+			return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_DATALEN, "invalid data length");
 		}
 
 		// Invalid Destination Port
-		return ERROR_NET_ADHOC_INVALID_PORT;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_PORT, "invalid port");
 	}
 
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 /**
@@ -1584,24 +1584,25 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					// Free Network Lock
 					//_freeNetworkLock();
 
-					return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE; //received;
+					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space"); //received;
 				}
 				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 				error = errno;
 
-				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
+				// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
+				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
 					if (flag == 0) {
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
 						return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
 					}
 
-					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv[%i:%u] [size=%i]", error, id, pdpsocket.lport, *len);
+					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
 				
 				hleEatMicro(1000);
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
-				if (received > 0) {
+				if (received >= 0) {
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 
 					// Peer MAC
@@ -1650,29 +1651,22 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				if (wouldblock) flag = 1;
 #endif
 
-				// Nothing received. On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
-				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET || error == ETIMEDOUT)) {
-					// Blocking Situation
-					if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+				DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Result:%i (Error:%i)", id, pdpsocket.lport, received, error);
 
-					// Timeout
-					return ERROR_NET_ADHOC_TIMEOUT;
-				}
-
-				// Disconnected
-				return ERROR_NET_ADHOC_DISCONNECTED;
+				// Timeout?
+				return hleLogError(SCENET, ERROR_NET_ADHOC_TIMEOUT, "timeout");
 			}
 
 			// Invalid Argument
-			return ERROR_NET_ADHOC_INVALID_ARG;
+			return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 		}
 
 		// Invalid Socket ID
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+		return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
 
 	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
@@ -3755,6 +3749,9 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					}
 
 					DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
+
+					if (*len == 0)
+						return 0;
 
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
