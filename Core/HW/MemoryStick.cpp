@@ -29,12 +29,13 @@ static MemStickState memStickState;
 static MemStickFatState memStickFatState;
 static bool memStickNeedsAssign = false;
 static u64 memStickInsertedAt = 0;
+static uint64_t memstickInitialFree = 0;
 
 const u64 normalMemstickSize = 9ULL * 1024 * 1024 * 1024;
 const u64 smallMemstickSize = 1ULL * 1024 * 1024 * 1024;
 
 void MemoryStick_DoState(PointerWrap &p) {
-	auto s = p.Section("MemoryStick", 1, 4);
+	auto s = p.Section("MemoryStick", 1, 5);
 	if (!s)
 		return;
 
@@ -46,6 +47,9 @@ void MemoryStick_DoState(PointerWrap &p) {
 		// Really no point in storing the memstick size.
 		u64 memStickSize = normalMemstickSize;
 		Do(p, memStickSize);
+	}
+	if (s >= 5) {
+		Do(p, memstickInitialFree);
 	}
 
 	if (s >= 3) {
@@ -72,17 +76,25 @@ u64 MemoryStick_SectorSize() {
 }
 
 u64 MemoryStick_FreeSpace() {
+	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
 	u64 realFreeSpace = pspFileSystem.FreeSpace("ms0:/");
 
 	// Cap the memory stick size to avoid math errors when old games get sizes that were
 	// not planned for back then (even though 2GB cards were available.)
 	// We have a compat setting to make it even smaller for Harry Potter : Goblet of Fire, see #13266.
-	const u64 memStickSize = PSP_CoreParameter().compat.flags().ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
+	const u64 memStickSize = flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
 	// Assume the memory stick is only used to store savedata.
 	u64 usedSpace = pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
 	u64 simulatedFreeSpace = 0;
 	if (usedSpace < memStickSize) {
 		simulatedFreeSpace = memStickSize - usedSpace;
+	}
+	if (flags.MemstickFixedFree) {
+		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
+		realFreeSpace = 0;
+		if (usedSpace <= memstickInitialFree) {
+			realFreeSpace = memstickInitialFree - usedSpace;
+		}
 	}
 
 	return std::min(simulatedFreeSpace, realFreeSpace);
@@ -119,4 +131,5 @@ void MemoryStick_Init() {
 	}
 
 	memStickNeedsAssign = false;
+	memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
 }
