@@ -392,9 +392,12 @@ int main(int argc, const char* argv[])
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
+	g_Config.iMemStickSizeGB = 16;
 	g_Config.bFragmentTestCache = true;
 	g_Config.bEnableWlan = true;
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
+	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory = "";
