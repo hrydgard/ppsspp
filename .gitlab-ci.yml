@@ -1,19 +1,22 @@
 # libretro CI
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
 
 .core-defs:
   variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-    JNI_PATH: libretro
     CORENAME: ppsspp
+    CORE_ARGS: -DLIBRETRO=ON
+
+.linux-defs:
+  variables:
+    EXTRA_PATH: lib
 
 include:
   - template: Jobs/Code-Quality.gitlab-ci.yml
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/linux-x64.yml'
+    file: '/android-cmake.yml'
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/windows-x64-mingw.yml'
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/android-jni.yml'
+    file: '/linux-cmake.yml'
 
 stages:
   - build-prepare
@@ -22,39 +25,29 @@ stages:
   - test
 
 #Desktop
-libretro-build-linux-x64:
+libretro-build-linux-x86_64:
   extends:
+    - .libretro-linux-cmake-x86_64
     - .core-defs
-    - .libretro-linux-x64-make-default
-  variables:
-    MAKEFILE_PATH: libretro
-    MAKEFILE: Makefile
+    - .linux-defs
 
-libretro-build-windows-x64:
-  extends:
-    - .core-defs
-    - .libretro-windows-x64-mingw-make-default
-  variables:
-    MAKEFILE_PATH: libretro
-    MAKEFILE: Makefile
-    
 # Android
-android-armeabi-v7a:
+libretro-build-android-armeabi-v7a:
   extends:
+    - .libretro-android-cmake-armeabi-v7a
     - .core-defs
-    - .libretro-android-jni-armeabi-v7a
 
-android-arm64-v8a:
+libretro-build-android-arm64-v8a:
   extends:
+    - .libretro-android-cmake-arm64-v8a
     - .core-defs
-    - .libretro-android-jni-arm64-v8a
 
-android-x86_64:
+libretro-build-android-x86_64:
   extends:
+    - .libretro-android-cmake-x86_64
     - .core-defs
-    - .libretro-android-jni-x86_64
-    
-android-x86:
+
+libretro-build-android-x86:
   extends:
+    - .libretro-android-cmake-x86
     - .core-defs
-    - .libretro-android-jni-x86
