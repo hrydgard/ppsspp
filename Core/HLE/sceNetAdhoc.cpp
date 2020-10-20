@@ -1360,6 +1360,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									// Free Network Lock
 									//_freeNetworkLock();
 
+									hleEatMicro(1000); // Can be longer than 1ms tho
 									// Sent Data
 									if (sent >= 0) {
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, inet_ntoa(target.sin_addr), ntohs(target.sin_port));
@@ -1451,6 +1452,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								// Free Network Lock
 								//_freeNetworkLock();
 
+								hleEatMicro(1000);
 								// Success, Broadcast never fails!
 								return 0; // len;
 							}
@@ -1478,7 +1480,6 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 	// Library is uninitialized
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
-
 }
 
 /**
@@ -1598,6 +1599,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv[%i:%u] [size=%i]", error, id, pdpsocket.lport, *len);
 				}
 				
+				hleEatMicro(1000);
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
 				if (received > 0) {
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
@@ -2421,6 +2423,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 		}
+		hleEatMicro(1000);
 		return retval;
 	}
 
