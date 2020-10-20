@@ -709,6 +709,8 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		if (s >= 3) {
 			Do(p, eventPsmfPlayerStatusChange);
 			CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+		} else {
+			eventPsmfPlayerStatusChange = -1;
 		}
 		Do(p, psmfPlayerLibVersion);
 	} else {
@@ -724,6 +726,13 @@ void __PsmfShutdown() {
 		delete it->second;
 	psmfMap.clear();
 	psmfPlayerMap.clear();
+}
+
+static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
+	if (eventPsmfPlayerStatusChange == -1) {
+		eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
+	}
+	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | newState);
 }
 
 static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
@@ -1147,7 +1156,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
 	int delayUs = 20000;
-	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_INIT);
+	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
 	return hleDelayResult(0, "player create", delayUs);
 }
 
@@ -1165,7 +1174,7 @@ static int scePsmfPlayerStop(u32 psmfPlayer) {
 
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	int delayUs = 3000;
-	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_STANDBY);
+	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
 	return hleDelayResult(0, "psmfplayer stop", delayUs);
 }
 
@@ -1293,8 +1302,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	_PsmfPlayerFillRingbuffer(psmfplayer);
 	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 
-
-	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_STANDBY);
+	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
 	return hleDelayResult(0, "psmfplayer set", delayUs);
 }
 
@@ -1478,10 +1486,10 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
 	int delayUs = psmfplayer->status == PSMF_PLAYER_STATUS_PLAYING ? 3000 : 0;
-	if(delayUs == 0)
+	if (delayUs == 0)
 		psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
 	else
-		CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | PSMF_PLAYER_STATUS_PLAYING);
+		DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_PLAYING, delayUs);
 	psmfplayer->warmUp = 0;
 
 	psmfplayer->mediaengine->openContext();
