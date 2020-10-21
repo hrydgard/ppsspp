@@ -400,16 +400,6 @@ void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 
 	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerGL_->EndFrame();
-
-	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
-#if 0
-#ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && framebufferManager_->UseBufferedRendering()) {
-		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
-		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
-	}
-#endif
-#endif
 }
 
 void GPU_GLES::FinishDeferred() {

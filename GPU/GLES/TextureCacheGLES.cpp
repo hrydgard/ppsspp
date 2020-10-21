@@ -708,7 +708,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-#ifndef USING_GLES2
 	GPUgstate saved;
 	if (level != 0) {
 		saved = gstate;
@@ -769,9 +768,6 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 
 	return result;
-#else
-	return false;
-#endif
 }
 
 void TextureCacheGLES::DeviceLost() {
