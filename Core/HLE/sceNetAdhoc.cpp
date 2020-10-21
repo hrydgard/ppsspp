@@ -960,6 +960,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		adhocctlRequests.clear();
 		adhocSocketRequests.clear();
 		sendTargetPeers.clear();
+		deleteAllAdhocSockets();
 		
 		// Let's not change "Inited" value when Loading SaveState to prevent memory & port leaks
 		netAdhocMatchingInited = cur_netAdhocMatchingInited;
