@@ -36,7 +36,7 @@
 // #define DEBUG_SHADER
 
 // Missing: Z depth range
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniformMask) {
+bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uniformMask, std::string *errorString) {
 	char *p = buffer;
 
 	*uniformMask = 0;
@@ -768,7 +768,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad stencil-to-alpha type, corrupt ID?");
+		*errorString = "Bad stencil-to-alpha type, corrupt ID?";
 		return false;
 	}
 
@@ -784,7 +784,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad logic op type, corrupt ID?");
+		*errorString = "Bad logic op type, corrupt ID?";
 		return false;
 	}
 

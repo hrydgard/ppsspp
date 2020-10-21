@@ -131,3 +131,9 @@ protected:
 
 struct TBuiltInResource;
 void init_resources(TBuiltInResource &Resources);
+
+enum DoLightComputation {
+	LIGHT_OFF,
+	LIGHT_SHADE,
+	LIGHT_FULL,
+};

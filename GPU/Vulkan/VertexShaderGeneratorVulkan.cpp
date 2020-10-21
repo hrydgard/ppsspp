@@ -39,7 +39,8 @@
 static const char *vulkan_glsl_preamble =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n\n";
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"#define splat3(x) vec3(x)\n\n";
 
 // "Varying" layout - must match fragment shader
 // color0 = 0
@@ -61,12 +62,6 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec2 w2;\n",
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec3 w2;\n",
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
-};
-
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
 };
 
 // Depth range and viewport
@@ -94,7 +89,7 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
+bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::string *errorString) {
 	char *p = buffer;
 
 	WRITE(p, "%s", vulkan_glsl_preamble);

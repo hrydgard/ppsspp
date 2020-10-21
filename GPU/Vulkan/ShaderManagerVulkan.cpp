@@ -262,7 +262,8 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanVertexShader *vs = vsCache_.Get(VSID);
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
+		std::string genErrorString;
+		GenerateVertexShaderVulkanGLSL(VSID, codeBuffer_, &genErrorString);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
@@ -272,7 +273,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (!fs) {
 		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 		// Fragment shader not in cache. Let's compile it.
-		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_, vendorID);
+		std::string genErrorString;
+		bool success = GenerateFragmentShaderVulkanGLSL(FSID, codeBuffer_, vendorID, &genErrorString);
+		_assert_(success);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
@@ -388,7 +391,10 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			break;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
-		GenerateVulkanGLSLVertexShader(id, codeBuffer_);
+		std::string genErrorString;
+		if (!GenerateVertexShaderVulkanGLSL(id, codeBuffer_, &genErrorString)) {
+			return false;
+		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
@@ -399,7 +405,10 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			ERROR_LOG(G3D, "Vulkan shader cache truncated");
 			break;
 		}
-		GenerateVulkanGLSLFragmentShader(id, codeBuffer_, vendorID);
+		std::string genErrorString;
+		if (!GenerateFragmentShaderVulkanGLSL(id, codeBuffer_, vendorID, &genErrorString)) {
+			return false;
+		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
 		fsCache_.Insert(id, fs);
 	}

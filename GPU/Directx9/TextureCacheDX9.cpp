@@ -21,8 +21,8 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
+
 #include "GPU/GPUState.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"

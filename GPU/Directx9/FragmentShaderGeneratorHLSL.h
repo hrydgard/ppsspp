@@ -20,9 +20,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
 
-namespace DX9 {
-
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1
@@ -37,5 +35,3 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
-
-};

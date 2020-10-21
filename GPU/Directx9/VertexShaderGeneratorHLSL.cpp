@@ -18,24 +18,18 @@
 #include <cstdio>
 #include <locale.h>
 
-#if defined(_WIN32) && defined(_DEBUG)
-#include "Common/CommonWindows.h"
-#endif
-
 #include "Common/StringUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 
-#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
+#include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderUniforms.h"
 
 #undef WRITE
 
 #define WRITE p+=sprintf
-
-namespace DX9 {
 
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
@@ -49,13 +43,7 @@ static const char * const boneWeightAttrDecl[9] = {
 	"float4 a_w1:TEXCOORD1;\n  float4 a_w2:TEXCOORD2;\n",
 };
 
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
-};
-
-void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
+bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	char *p = buffer;
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -730,8 +718,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 
 			default:
-				// ILLEGAL
-				break;
+				// Should be unreachable.
+				_assert_(false);
+				return false;
 			}
 		}
 
@@ -756,6 +745,5 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
+	return true;
 }
-
-};

@@ -43,8 +43,7 @@ static const char *vulkan_glsl_preamble =
 
 #define WRITE p+=sprintf
 
-// Missing: Z depth range
-bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_t vulkanVendorId) {
+bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_t vulkanVendorId, std::string *errorString) {
 	char *p = buffer;
 
 	const char *lastFragData = nullptr;
@@ -434,6 +433,11 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			}
 
+			if (!strcmp(srcFactor, "ERROR")) {
+				*errorString = "Bad replaceblend src factor";
+				return false;
+			}
+
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
@@ -550,7 +554,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad stencil-to-alpha type, corrupt ID?");
+		*errorString = "Bad stencil-to-alpha type, corrupt ID?";
 		return false;
 	}
 
@@ -566,7 +570,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Bad logic op type, corrupt ID?");
+		*errorString = "Bad logic op type, corrupt ID?";
 		return false;
 	}
 

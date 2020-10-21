@@ -19,7 +19,7 @@
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
@@ -29,11 +29,9 @@
 
 // #define DEBUG_SHADER
 
-namespace DX9 {
-
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang) {
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	char *p = buffer;
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -372,6 +370,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
 			}
+			if (!strcmp(srcFactor, "ERROR")) {
+				*errorString = "Bad srcfactor in replace blend";
+				return false;
+			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
@@ -379,8 +381,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
 
-			const char *srcFactor = "float3(1.0)";
-			const char *dstFactor = "float3(0.0)";
+			const char *srcFactor = nullptr;
+			const char *dstFactor = nullptr;
 
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
@@ -408,7 +410,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
-			default:                            srcFactor = "u_blendFixB"; break;
+			default:                            dstFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -430,6 +432,9 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			case GE_BLENDMODE_ABSDIFF:
 				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
 				break;
+			default:
+				*errorString = "Bad replace blend eq";
+				return false;
 			}
 		}
 
@@ -535,5 +540,3 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	WRITE(p, "}\n");
 	return true;
 }
-
-};

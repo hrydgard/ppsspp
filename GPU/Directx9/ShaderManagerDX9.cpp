@@ -584,15 +584,21 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	}
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
-	VSShader *vs;
+	VSShader *vs = nullptr;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9);
-		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
-
-		if (vs->Failed()) {
+		std::string genErrorString;
+		if (GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9, &genErrorString)) {
+			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
+		}
+		if (!vs || vs->Failed()) {
 			auto gr = GetI18NCategory("Graphics");
-			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			if (!vs) {
+				// TODO: Report this?
+				ERROR_LOG(G3D, "Shader generation failed, falling back to software transform");
+			} else {
+				ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			}
 			if (!g_Config.bHideSlowWarnings) {
 				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			}
@@ -605,7 +611,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9);
+			bool success = GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9, &genErrorString);
+			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 
@@ -619,7 +626,10 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderHLSL(FSID, codeBuffer_);
+		std::string errorString;
+		bool success = GenerateFragmentShaderHLSL(FSID, codeBuffer_, HLSL_DX9, &errorString);
+		// We're supposed to handle all possible cases.
+		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {

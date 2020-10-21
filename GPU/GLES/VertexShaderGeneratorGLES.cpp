@@ -21,10 +21,6 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
-#if defined(_WIN32) && defined(_DEBUG)
-#include "Common/CommonWindows.h"
-#endif
-
 #include "Common/StringUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -33,7 +29,6 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/VertexShaderGeneratorCommon.h"
 
 #undef WRITE
 
@@ -92,8 +87,7 @@ static const char * const boneWeightInDecl[9] = {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-
-void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
+bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	char *p = buffer;
 	*attrMask = 0;
 	*uniformMask = 0;
@@ -152,6 +146,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
+	WRITE(p, "#define splat3(x) vec3(x)\n");
 
 	if (glslES30 || gl_extensions.IsCoreContext) {
 		attribute = "in";
@@ -843,4 +838,5 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	WRITE(p, "  gl_Position = outPos;\n");
 
 	WRITE(p, "}\n");
+	return true;
 }

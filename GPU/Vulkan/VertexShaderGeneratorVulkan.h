@@ -2,4 +2,4 @@
 
 #include "GPU/Common/ShaderId.h"
 
-bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer);
+bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::string *errorString);

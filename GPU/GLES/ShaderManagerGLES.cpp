@@ -629,7 +629,9 @@ void ShaderManagerGLES::DirtyLastShader() {
 
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
-	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
+	std::string errorString;
+	if (!GenerateFragmentShaderGLSL(FSID, codeBuffer_, &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
@@ -640,7 +642,11 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	uint32_t attrMask;
 	uint64_t uniformMask;
-	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
+	std::string errorString;
+	if (!GenerateVertexShaderGLSL(VSID, codeBuffer_, &attrMask, &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
+		return nullptr;
+	}
 	std::string desc = VertexShaderDesc(VSID);
 	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
