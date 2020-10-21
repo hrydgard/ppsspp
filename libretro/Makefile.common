@@ -526,7 +526,7 @@ ifeq ($(WITH_DYNAREC),1)
 			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
-                               $(EXTDIR)/disarm.cpp \
+			       $(EXTDIR)/disarm.cpp \
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 
 		ifeq ($(HAVE_NEON),1)
@@ -663,7 +663,7 @@ ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += \
 	$(GPUDIR)/Directx9/DepalettizeShaderDX9.cpp \
 	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
-	$(GPUDIR)/Directx9/PixelShaderGeneratorDX9.cpp \
+	$(GPUDIR)/Directx9/FragmentShaderGeneratorHLSL.cpp \
 	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
 	$(GPUDIR)/Directx9/GPU_DX9.cpp \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
@@ -671,12 +671,11 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/StencilBufferDX9.cpp \
 	$(GPUDIR)/Directx9/TextureCacheDX9.cpp \
 	$(GPUDIR)/Directx9/TextureScalerDX9.cpp \
-	$(GPUDIR)/Directx9/VertexShaderGeneratorDX9.cpp
+	$(GPUDIR)/Directx9/VertexShaderGeneratorHLSL.cpp
 
 SOURCES_CXX += \
 	$(GPUDIR)/D3D11/DepalettizeShaderD3D11.cpp \
 	$(GPUDIR)/D3D11/DrawEngineD3D11.cpp \
-	$(GPUDIR)/D3D11/FragmentShaderGeneratorD3D11.cpp \
 	$(GPUDIR)/D3D11/FramebufferManagerD3D11.cpp \
 	$(GPUDIR)/D3D11/GPU_D3D11.cpp \
 	$(GPUDIR)/D3D11/D3D11Util.cpp \
@@ -685,7 +684,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/D3D11/StencilBufferD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureCacheD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureScalerD3D11.cpp \
-	$(GPUDIR)/D3D11/VertexShaderGeneratorD3D11.cpp \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \

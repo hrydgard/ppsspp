@@ -21,8 +21,8 @@
 #include <cstdint>
 
 #include "Common/Common.h"
-#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "Common/Math/lin/matrix4x4.h"

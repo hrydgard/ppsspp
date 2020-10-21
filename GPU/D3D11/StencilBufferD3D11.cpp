@@ -23,7 +23,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"

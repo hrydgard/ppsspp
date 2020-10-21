@@ -21,10 +21,6 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
-#if defined(_WIN32) && defined(_DEBUG)
-#include "Common/CommonWindows.h"
-#endif
-
 #include "Common/StringUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -62,13 +58,6 @@ static const char * const boneWeightInDecl[9] = {
 	"in mediump vec4 w1, w2;\n",
 };
 
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
-};
-
-
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -98,32 +87,32 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-
-void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
+bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	char *p = buffer;
 	*attrMask = 0;
 	*uniformMask = 0;
 	// #define USE_FOR_LOOP
 
 	// In GLSL ES 3.0, you use "out" variables instead.
-	bool glslES30 = false;
-	const char *varying = "varying";
-	const char *attribute = "attribute";
+	GLSLShaderCompat compat{};
+	compat.glslES30 = false;
+	compat.varying = "varying";
+	compat.attribute = "attribute";
 	const char * const * boneWeightDecl = boneWeightAttrDecl;
-	const char *texelFetch = NULL;
+	compat.texelFetch = NULL;
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
 	if (gl_extensions.IsGLES) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
 			WRITE(p, "#version 300 es\n");
-			glslES30 = true;
-			texelFetch = "texelFetch";
+			compat.glslES30 = true;
+			compat.texelFetch = "texelFetch";
 		} else {
 			WRITE(p, "#version 100\n");  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
 				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-				texelFetch = "texelFetch2D";
+				compat.texelFetch = "texelFetch2D";
 			}
 		}
 		WRITE(p, "precision highp float;\n");
@@ -135,20 +124,20 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				glslES30 = true;
+				compat.glslES30 = true;
 				WRITE(p, "#version 330\n");
-				texelFetch = "texelFetch";
+				compat.texelFetch = "texelFetch";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				WRITE(p, "#version 130\n");
 				if (gl_extensions.EXT_gpu_shader4) {
 					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-					texelFetch = "texelFetch";
+					compat.texelFetch = "texelFetch";
 				}
 			} else {
 				WRITE(p, "#version 110\n");
 				if (gl_extensions.EXT_gpu_shader4) {
 					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-					texelFetch = "texelFetch2D";
+					compat.texelFetch = "texelFetch2D";
 				}
 			}
 		}
@@ -158,10 +147,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
+	WRITE(p, "#define splat3(x) vec3(x)\n");
 
-	if (glslES30 || gl_extensions.IsCoreContext) {
-		attribute = "in";
-		varying = "out";
+	if (compat.glslES30 || gl_extensions.IsCoreContext) {
+		compat.attribute = "in";
+		compat.varying = "out";
 		boneWeightDecl = boneWeightInDecl;
 	}
 
@@ -197,7 +187,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	const char *shading = "";
-	if (glslES30)
+	if (compat.glslES30)
 		shading = doFlatShading ? "flat " : "";
 
 	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
@@ -223,31 +213,31 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	}
 
 	if (useHWTransform)
-		WRITE(p, "%s vec3 position;\n", attribute);
+		WRITE(p, "%s vec3 position;\n", compat.attribute);
 	else
-		WRITE(p, "%s vec4 position;\n", attribute);  // need to pass the fog coord in w
+		WRITE(p, "%s vec4 position;\n", compat.attribute);  // need to pass the fog coord in w
 	*attrMask |= 1 << ATTR_POSITION;
 
 	if (useHWTransform && hasNormal) {
-		WRITE(p, "%s mediump vec3 normal;\n", attribute);
+		WRITE(p, "%s mediump vec3 normal;\n", compat.attribute);
 		*attrMask |= 1 << ATTR_NORMAL;
 	}
 
 	bool texcoordVec3In = false;
 	if (doTexture && hasTexcoord) {
 		if (!useHWTransform && doTextureProjection && !isModeThrough) {
-			WRITE(p, "%s vec3 texcoord;\n", attribute);
+			WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
 			texcoordVec3In = true;
 		} else {
-			WRITE(p, "%s vec2 texcoord;\n", attribute);
+			WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
 		}
 		*attrMask |= 1 << ATTR_TEXCOORD;
 	}
 	if (hasColor) {
-		WRITE(p, "%s lowp vec4 color0;\n", attribute);
+		WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
 		*attrMask |= 1 << ATTR_COLOR0;
 		if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
-			WRITE(p, "%s lowp vec3 color1;\n", attribute);
+			WRITE(p, "%s lowp vec3 color1;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_COLOR1;
 		}
 	}
@@ -346,21 +336,21 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		*uniformMask |= DIRTY_CULLRANGE;
 	}
 
-	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, varying);
+	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying);
 	if (lmode) {
-		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, varying);
+		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying);
 	}
 
 	if (doTexture) {
-		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
+		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (enableFog) {
 		// See the fragment shader generator
 		if (highpFog) {
-			WRITE(p, "%s highp float v_fogdepth;\n", varying);
+			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying);
 		} else {
-			WRITE(p, "%s mediump float v_fogdepth;\n", varying);
+			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying);
 		}
 	}
 
@@ -427,17 +417,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			for (int j = 0; j < 4; j++) {
 				WRITE(p, "  index_u = (%i + point_pos.x);\n", j);
 				WRITE(p, "  index_v = (%i + point_pos.y);\n", i);
-				WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, texelFetch);
+				WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, compat.texelFetch);
 				if (doTexture && hasTexcoordTess)
-					WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, texelFetch);
+					WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, compat.texelFetch);
 				if (hasColorTess)
-					WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, texelFetch);
+					WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, compat.texelFetch);
 			}
 		}
 
 		// Basis polynomials as weight coefficients
-		WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(weight_idx.x * 2, 0)");
-		WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(weight_idx.y * 2, 0)");
+		WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2, 0)");
+		WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2, 0)");
 		WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
@@ -454,8 +444,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
 			// Derivatives as weight coefficients
-			WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(weight_idx.x * 2 + 1, 0)");
-			WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(weight_idx.y * 2 + 1, 0)");
+			WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2 + 1, 0)");
+			WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2 + 1, 0)");
 
 			WRITE(p, "  vec3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
 			WRITE(p, "  vec3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");
@@ -849,4 +839,5 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	WRITE(p, "  gl_Position = outPos;\n");
 
 	WRITE(p, "}\n");
+	return true;
 }

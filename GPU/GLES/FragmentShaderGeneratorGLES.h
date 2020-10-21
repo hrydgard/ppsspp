@@ -19,4 +19,4 @@
 
 struct FShaderID;
 
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniformMask);
+bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uniformMask, std::string *errorString);

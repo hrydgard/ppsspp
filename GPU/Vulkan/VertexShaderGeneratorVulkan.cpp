@@ -39,7 +39,8 @@
 static const char *vulkan_glsl_preamble =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n\n";
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"#define splat3(x) vec3(x)\n\n";
 
 // "Varying" layout - must match fragment shader
 // color0 = 0
@@ -61,12 +62,6 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec2 w2;\n",
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec3 w2;\n",
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
-};
-
-enum DoLightComputation {
-	LIGHT_OFF,
-	LIGHT_SHADE,
-	LIGHT_FULL,
 };
 
 // Depth range and viewport
@@ -94,7 +89,7 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
+bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::string *errorString) {
 	char *p = buffer;
 
 	WRITE(p, "%s", vulkan_glsl_preamble);
@@ -134,11 +129,11 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	WRITE(p, "\n");
-	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)
-		WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
+		WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s};\n", ub_vs_lightsStr);
 	if (enableBones)
-		WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
+		WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
 
 	const char *shading = doFlatShading ? "flat " : "";
 
@@ -203,9 +198,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
-		WRITE(p, "  z = z * base.depthRange.x + base.depthRange.y;\n");
+		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - base.depthRange.z) * base.depthRange.w;\n");
+		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -263,7 +258,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  int index;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + point_pos.y) * int(base.spline_counts) + (%i + point_pos.x);\n", i, j);
+				WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
 				WRITE(p, "  _pos[%i] = tess_data.data[index].pos.xyz;\n", i * 4 + j);
 				if (doTexture && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data.data[index].uv.xy;\n", i * 4 + j);
@@ -288,7 +283,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		if (hasColorTess)
 			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
 		else
-			WRITE(p, "  tess.col = base.matambientalpha;\n");
+			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
 			// Derivatives as weight coefficients
 			WRITE(p, "  vec4 deriv_u = tess_weights_u.data[weight_idx.x].deriv;\n");
@@ -317,7 +312,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (lmode)
 				WRITE(p, "  v_color1 = color1;\n");
 		} else {
-			WRITE(p, "  v_color0 = base.matambientalpha;\n");
+			WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
@@ -325,13 +320,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  vec4 outPos = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = u_proj_through * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = base.proj_mtx * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {
@@ -342,17 +337,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  Tess tess;\n");
 				WRITE(p, "  tessellate(tess);\n");
 
-				WRITE(p, "  vec3 worldpos = vec4(tess.pos.xyz, 1.0) * base.world_mtx;\n");
+				WRITE(p, "  vec3 worldpos = vec4(tess.pos.xyz, 1.0) * u_world;\n");
 				if (hasNormalTess) {
-					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%stess.nrm, 0.0) * base.world_mtx);\n", flipNormalTess ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%stess.nrm, 0.0) * u_world);\n", flipNormalTess ? "-" : "");
 				} else {
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 				}
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  vec3 worldpos = vec4(position.xyz, 1.0) * base.world_mtx;\n");
+				WRITE(p, "  vec3 worldpos = vec4(position.xyz, 1.0) * u_world;\n");
 				if (hasNormal)
-					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snormal, 0.0) * base.world_mtx);\n", flipNormal ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snormal, 0.0) * u_world);\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
@@ -365,10 +360,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			WRITE(p, "  mat3x4 skinMatrix = w1.x * bone.m[0];\n");
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * u_bone[0];\n");
 			if (numBoneWeights > 1) {
 				for (int i = 1; i < numBoneWeights; i++) {
-					WRITE(p, "    skinMatrix += %s * bone.m[%i];\n", boneWeightAttr[i], i);
+					WRITE(p, "    skinMatrix += %s * u_bone[%i];\n", boneWeightAttr[i], i);
 				}
 			}
 
@@ -376,35 +371,35 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 			// Trying to simplify this results in bugs in LBP...
 			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix) %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * base.world_mtx;\n");
+			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * u_world;\n");
 
 			if (hasNormal) {
 				WRITE(p, "  mediump vec3 skinnednormal = vec4(%snormal, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			} else {
 				WRITE(p, "  mediump vec3 skinnednormal = vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * base.world_mtx);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * u_world);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * base.view_mtx, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * u_view, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
 		} else {
-			WRITE(p, "  vec4 outPos = base.proj_mtx * viewPos;\n");
+			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = ((matUpdate & 1) && hasColor) ? "color0" : "base.matambientalpha";
-		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "light.matdiffuse";
-		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "light.matspecular.rgb";
+		const char *ambientStr = ((matUpdate & 1) && hasColor) ? "color0" : "u_matambientalpha";
+		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "u_matdiffuse";
+		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
 			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
-			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "base.matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "light.matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "light.matspecular.rgb";
+			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
+			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
+			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
 		}
 
 		bool diffuseIsZero = true;
@@ -412,7 +407,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = light.u_ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -450,9 +445,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 				// We prenormalize light positions for directional lights.
-				WRITE(p, "  toLight = light.pos[%i];\n", i);
+				WRITE(p, "  toLight = u_lightpos%d;\n", i);
 			} else {
-				WRITE(p, "  toLight = light.pos[%i] - worldpos;\n", i);
+				WRITE(p, "  toLight = u_lightpos%d - worldpos;\n", i);
 				WRITE(p, "  distance = length(toLight);\n");
 				WRITE(p, "  toLight /= distance;\n");
 			}
@@ -464,10 +459,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (light.matspecular.a <= 0.0) {\n");
+				WRITE(p, "  if (u_matspecular.a <= 0.0) {\n");
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), u_matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -479,13 +474,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				timesLightScale = "";
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  float angle%i = length(light.dir[%i]) == 0.0 ? 0.0 : dot(normalize(light.dir[%i]), toLight);\n", i, i, i);
-				WRITE(p, "  if (angle%i >= light.angle_spotCoef[%i].x) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (light.angle_spotCoef[%i].y <= 0.0 ? 1.0 : pow(angle%i, light.angle_spotCoef[%i].y));\n", i, i, i, i);
+				WRITE(p, "  float angle%i = length(u_lightdir%d) == 0.0 ? 0.0 : dot(normalize(u_lightdir%d), toLight);\n", i, i, i);
+				WRITE(p, "  if (angle%i >= u_lightangle_spotCoef%d.x) {\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%d.y <= 0.0 ? 1.0 : pow(angle%i, u_lightangle_spotCoef%d.y));\n", i, i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -495,20 +490,20 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				break;
 			}
 
-			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%d * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 			if (doSpecular) {
 				WRITE(p, "  if (dot%i >= 0.0) {\n", i);
 				WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "    if (light.matspecular.a <= 0.0) {\n");
+				WRITE(p, "    if (u_matspecular.a <= 0.0) {\n");
 				WRITE(p, "      dot%i = 1.0;\n", i);
 				WRITE(p, "    } else {\n");
-				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
+				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), u_matspecular.a);\n", i, i);
 				WRITE(p, "    }\n");
 				WRITE(p, "    if (dot%i > 0.0)\n", i);
-				WRITE(p, "      lightSum1 += light.specular[%i] * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "      lightSum1 += u_lightspecular%d * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
 				WRITE(p, "  }\n");
 			}
-			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
+			WRITE(p, "  lightSum0.rgb += (u_lightambient%d * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
 		if (enableLighting) {
@@ -536,7 +531,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				else
 					WRITE(p, "  v_color0 = color0;\n");
 			} else {
-				WRITE(p, "  v_color0 = base.matambientalpha;\n");
+				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode) {
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
@@ -553,17 +548,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
 						WRITE(p, "  v_texcoord = vec3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n");
 					}
 				}
 				break;
@@ -599,15 +594,15 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (%s * base.tex_mtx).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (%s * u_tex).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
 			{
-				std::string lightFactor0 = StringFromFormat("(length(light.pos[%i]) == 0.0 ? worldnormal.z : dot(normalize(light.pos[%i]), worldnormal))", ls0, ls0);
-				std::string lightFactor1 = StringFromFormat("(length(light.pos[%i]) == 0.0 ? worldnormal.z : dot(normalize(light.pos[%i]), worldnormal))", ls1, ls1);
-				WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
+				std::string lightFactor0 = StringFromFormat("(length(u_lightpos%d) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%d), worldnormal))", ls0, ls0);
+				std::string lightFactor1 = StringFromFormat("(length(u_lightpos%d) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%d), worldnormal))", ls1, ls1);
+				WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
 			}
 			break;
 
@@ -619,17 +614,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 		// Compute fogdepth
 		if (enableFog)
-			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
+			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 	}
 
 	if (!isModeThrough && gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING)) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
-		WRITE(p, "  if (base.cullRangeMin.w <= 0.0 || (projPos.z >= base.cullRangeMin.z && projPos.z <= base.cullRangeMax.z)) {\n");
-		const char *outMin = "projPos.x < base.cullRangeMin.x || projPos.y < base.cullRangeMin.y || projPos.z < base.cullRangeMin.z";
-		const char *outMax = "projPos.x > base.cullRangeMax.x || projPos.y > base.cullRangeMax.y || projPos.z > base.cullRangeMax.z";
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
-		WRITE(p, "      outPos.xyzw = vec4(base.cullRangeMax.w);\n");
+		WRITE(p, "      outPos.xyzw = vec4(u_cullRangeMax.w);\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 	}

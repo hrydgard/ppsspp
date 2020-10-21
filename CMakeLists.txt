@@ -1291,8 +1291,6 @@ set(GPU_D3D9
 	GPU/Directx9/DepalettizeShaderDX9.h
 	GPU/Directx9/DrawEngineDX9.cpp
 	GPU/Directx9/DrawEngineDX9.h
-	GPU/Directx9/PixelShaderGeneratorDX9.cpp
-	GPU/Directx9/PixelShaderGeneratorDX9.h
 	GPU/Directx9/FramebufferManagerDX9.cpp
 	GPU/Directx9/FramebufferManagerDX9.h
 	GPU/Directx9/GPU_DX9.cpp
@@ -1306,8 +1304,10 @@ set(GPU_D3D9
 	GPU/Directx9/TextureCacheDX9.h
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
-	GPU/Directx9/VertexShaderGeneratorDX9.cpp
-	GPU/Directx9/VertexShaderGeneratorDX9.h
+	GPU/Directx9/FragmentShaderGeneratorHLSL.cpp
+	GPU/Directx9/FragmentShaderGeneratorHLSL.h
+	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
+	GPU/Directx9/VertexShaderGeneratorHLSL.h
 )
 
 set(GPU_D3D11
@@ -1315,8 +1315,6 @@ set(GPU_D3D11
 	GPU/D3D11/DepalettizeShaderD3D11.h
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
-	GPU/D3D11/FragmentShaderGeneratorD3D11.cpp
-	GPU/D3D11/FragmentShaderGeneratorD3D11.h
 	GPU/D3D11/FramebufferManagerD3D11.cpp
 	GPU/D3D11/FramebufferManagerD3D11.h
 	GPU/D3D11/GPU_D3D11.cpp
@@ -1332,8 +1330,6 @@ set(GPU_D3D11
 	GPU/D3D11/TextureCacheD3D11.h
 	GPU/D3D11/TextureScalerD3D11.cpp
 	GPU/D3D11/TextureScalerD3D11.h
-	GPU/D3D11/VertexShaderGeneratorD3D11.cpp
-	GPU/D3D11/VertexShaderGeneratorD3D11.h
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.

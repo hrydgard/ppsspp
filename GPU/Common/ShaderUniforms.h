@@ -46,30 +46,30 @@ struct UB_VS_FS_Base {
 };
 
 static const char *ub_baseStr =
-R"(  mat4 proj_mtx;
-	mat4 proj_through_mtx;
-  mat3x4 view_mtx;
-  mat3x4 world_mtx;
-  mat3x4 tex_mtx;
-  vec4 uvscaleoffset;
-  vec4 depthRange;
-  vec2 fogcoef;
-  float stencilReplace;
-  vec4 matambientalpha;
-  uint spline_counts;
-  uint depal_mask_shift_off_fmt;
-  int pad2;
-  int pad3;
-  vec4 cullRangeMin;
-  vec4 cullRangeMax;
-  vec3 fogcolor;
-  vec3 texenv;
-  ivec4 alphacolorref;
-  ivec4 alphacolormask;
-  vec3 blendFixA;
-  vec3 blendFixB;
-  vec4 texclamp;
-  vec2 texclampoff;
+R"(  mat4 u_proj;
+  mat4 u_proj_through;
+  mat3x4 u_view;
+  mat3x4 u_world;
+  mat3x4 u_tex;
+  vec4 u_uvscaleoffset;
+  vec4 u_depthRange;
+  vec2 u_fogcoef;
+  float u_stencilReplaceValue;
+  vec4 u_matambientalpha;
+  uint u_spline_counts;
+  uint u_depal_mask_shift_off_fmt;
+  int u_pad2;
+  int u_pad3;
+  vec4 u_cullRangeMin;
+  vec4 u_cullRangeMax;
+  vec3 u_fogcolor;
+  vec3 u_texenv;
+  ivec4 u_alphacolorref;
+  ivec4 u_alphacolormask;
+  vec3 u_blendFixA;
+  vec3 u_blendFixB;
+  vec4 u_texclamp;
+  vec2 u_texclampoff;
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.
@@ -118,16 +118,37 @@ struct UB_VS_Lights {
 
 static const char *ub_vs_lightsStr =
 R"(	vec4 u_ambient;
-	vec3 matdiffuse;
-	vec4 matspecular;
-	vec3 matemissive;
-	vec3 pos[4];
-	vec3 dir[4];
-	vec3 att[4];
-	vec2 angle_spotCoef[4];
-	vec3 ambient[4];
-	vec3 diffuse[4];
-	vec3 specular[4];
+	vec3 u_matdiffuse;
+	vec4 u_matspecular;
+	vec3 u_matemissive;
+	vec3 u_lightpos0;
+	vec3 u_lightpos1;
+	vec3 u_lightpos2;
+	vec3 u_lightpos3;
+	vec3 u_lightdir0;
+	vec3 u_lightdir1;
+	vec3 u_lightdir2;
+	vec3 u_lightdir3;
+	vec3 u_lightatt0;
+	vec3 u_lightatt1;
+	vec3 u_lightatt2;
+	vec3 u_lightatt3;
+	vec4 u_lightangle_spotCoef0;
+	vec4 u_lightangle_spotCoef1;
+	vec4 u_lightangle_spotCoef2;
+	vec4 u_lightangle_spotCoef3;
+	vec3 u_lightambient0;
+	vec3 u_lightambient1;
+	vec3 u_lightambient2;
+	vec3 u_lightambient3;
+	vec3 u_lightdiffuse0;
+	vec3 u_lightdiffuse1;
+	vec3 u_lightdiffuse2;
+	vec3 u_lightdiffuse3;
+	vec3 u_lightspecular0;
+	vec3 u_lightspecular1;
+	vec3 u_lightspecular2;
+	vec3 u_lightspecular3;
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.
@@ -167,13 +188,13 @@ R"(	float4 u_ambient;
 )";
 
 // With some cleverness, we could get away with uploading just half this when only the four or five first
-// bones are being used. This is 512b, 256b would be great.
+// bones are being used. This is 384b.
 struct UB_VS_Bones {
 	float bones[8][12];
 };
 
 static const char *ub_vs_bonesStr =
-R"(	mat3x4 m[8];
+R"(	mat3x4 u_bone[8];
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.

@@ -159,6 +159,8 @@ protected:
 	void SetBit(int bit, bool value = true) {
 		if (value) {
 			d[bit >> 5] |= 1 << (bit & 31);
+		} else {
+			d[bit >> 5] &= ~(1 << (bit & 31));
 		}
 	}
 	void SetBits(int bit, int count, int value) {

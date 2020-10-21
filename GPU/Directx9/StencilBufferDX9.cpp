@@ -22,7 +22,6 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 
