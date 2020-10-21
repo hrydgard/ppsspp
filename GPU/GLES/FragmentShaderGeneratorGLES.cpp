@@ -37,13 +37,11 @@
 
 // Missing: Z depth range
 bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uniformMask, std::string *errorString) {
-	char *p = buffer;
-
 	*uniformMask = 0;
-	// In GLSL ES 3.0, you use "in" variables instead of varying.
 
 	GLSLShaderCompat compat{};
-	compat.varying = "varying";
+	compat.varying_vs = "varying";
+	compat.varying_fs = "varying";
 	compat.fragColor0 = "gl_FragColor";
 	compat.fragColor1 = "fragColor1";
 	compat.texture = "texture2D";
@@ -51,10 +49,6 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	compat.bitwiseOps = false;
 	compat.lastFragData = nullptr;
 	compat.gles = gl_extensions.IsGLES;
-	bool highpFog = false;
-	bool highpTexcoord = false;
-
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
@@ -75,25 +69,20 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 				compat.fragColor1 = "gl_SecondaryFragColorEXT";
 			}
 		}
-
-		// PowerVR needs highp to do the fog in MHU correctly.
-		// Others don't, and some can't handle highp in the fragment shader.
-		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-		highpTexcoord = highpFog;
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
+				compat.versionString = "#version 330";
 				compat.fragColor0 = "fragColor0";
 				compat.texture = "texture";
 				compat.glslES30 = true;
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
-				compat.versionString = "#version 330";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+				compat.versionString = "#version 130";
 				compat.fragColor0 = "fragColor0";
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
-				compat.versionString = "#version 130";
 			} else {
 				compat.versionString = "#version 110";
 				if (gl_extensions.EXT_gpu_shader4) {
@@ -104,31 +93,53 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		}
 	}
 
-	// Here the writing starts!
-	WRITE(p, "%s\n", compat.versionString);
-
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
-			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+			compat.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
 			compat.lastFragData = "fragColor0";
 		} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
-			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+			compat.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
 			compat.lastFragData = "gl_LastFragData[0]";
 		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
 			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-			WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+			compat.framebufferFetchExtension = "#extension GL_NV_shader_framebuffer_fetch : require";
 			compat.lastFragData = "gl_LastFragData[0]";
 		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-			WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+			compat.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			compat.lastFragData = "gl_LastFragColorARM";
 		}
 	}
+
+	if (compat.glslES30 || gl_extensions.IsCoreContext) {
+		compat.varying_vs = "out";
+		compat.varying_fs = "in";
+		compat.attribute = "in";
+	}
+
+	bool highpFog = false;
+	bool highpTexcoord = false;
+	if (compat.gles) {
+		// PowerVR needs highp to do the fog in MHU correctly.
+		// Others don't, and some can't handle highp in the fragment shader.
+		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+		highpTexcoord = highpFog;
+	}
+
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
+
+	char *p = buffer;
+
+	// Here the writing starts!
+	WRITE(p, "%s\n", compat.versionString);
 
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 		WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
 	}
 	if (gl_extensions.EXT_gpu_shader4) {
 		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+	}
+	if (compat.framebufferFetchExtension) {
+		WRITE(p, "%s\n", compat.framebufferFetchExtension);
 	}
 	if (!compat.gles) {
 		WRITE(p, "#define lowp\n");
@@ -139,10 +150,6 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	}
 
 	WRITE(p, "#define splat3(x) vec3(x)\n");
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.varying = "in";
-	}
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -238,16 +245,16 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		WRITE(p, "uniform vec3 u_texenv;\n");
 	}
 
-	WRITE(p, "%s %s vec4 v_color0;\n", shading, compat.varying);
+	WRITE(p, "%s %s vec4 v_color0;\n", shading, compat.varying_fs);
 	if (lmode)
-		WRITE(p, "%s %s vec3 v_color1;\n", shading, compat.varying);
+		WRITE(p, "%s %s vec3 v_color1;\n", shading, compat.varying_fs);
 	if (enableFog) {
 		*uniformMask |= DIRTY_FOGCOLOR;
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
-		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying, highpFog ? "highp" : "mediump");
+		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 	}
 	if (doTexture) {
-		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying, highpTexcoord ? "highp" : "mediump");
+		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {

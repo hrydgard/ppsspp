@@ -88,21 +88,17 @@ static const char * const boneWeightInDecl[9] = {
 // is a bit of a rare configuration, although quite common on mobile.
 
 bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
-	char *p = buffer;
 	*attrMask = 0;
 	*uniformMask = 0;
-	// #define USE_FOR_LOOP
 
 	// In GLSL ES 3.0, you use "out" variables instead.
 	GLSLShaderCompat compat{};
 	compat.glslES30 = false;
-	compat.varying = "varying";
+	compat.varying_vs = "varying";
+	compat.varying_fs = "varying";
 	compat.attribute = "attribute";
-	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	compat.texelFetch = nullptr;
 	compat.gles = gl_extensions.IsGLES;
-	bool highpFog = false;
-	bool highpTexcoord = false;
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
@@ -115,11 +111,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 				compat.texelFetch = "texelFetch2D";
 			}
 		}
-
-		// PowerVR needs highp to do the fog in MHU correctly.
-		// Others don't, and some can't handle highp in the fragment shader.
-		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-		highpTexcoord = highpFog;
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
@@ -140,6 +131,25 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 		}
 	}
 
+	if (compat.glslES30 || gl_extensions.IsCoreContext) {
+		compat.attribute = "in";
+		compat.varying_vs = "out";
+		compat.varying_fs = "in";
+	}
+
+	char *p = buffer;
+	// Here the writing starts!
+	WRITE(p, "%s\n", compat.versionString);
+
+	bool highpFog = false;
+	bool highpTexcoord = false;
+	if (compat.gles) {
+		// PowerVR needs highp to do the fog in MHU correctly.
+		// Others don't, and some can't handle highp in the fragment shader.
+		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+		highpTexcoord = highpFog;
+	}
+
 	if (gl_extensions.EXT_gpu_shader4) {
 		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 	}
@@ -152,12 +162,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
-	}
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.attribute = "in";
-		compat.varying = "out";
-		boneWeightDecl = boneWeightInDecl;
 	}
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -211,6 +215,10 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
 	if (enableBones) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+		const char * const * boneWeightDecl = boneWeightAttrDecl;
+		if (!strcmp(compat.attribute, "in")) {
+			boneWeightDecl = boneWeightInDecl;
+		}
 		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
 		*attrMask |= 1 << ATTR_W1;
 		if (numBoneWeights >= 5)
@@ -341,21 +349,21 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 		*uniformMask |= DIRTY_CULLRANGE;
 	}
 
-	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying);
+	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
 	if (lmode) {
-		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying);
+		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
 	}
 
 	if (doTexture) {
-		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying, highpTexcoord ? "highp" : "mediump");
+		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (enableFog) {
 		// See the fragment shader generator
 		if (highpFog) {
-			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying);
+			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
 		} else {
-			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying);
+			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
 		}
 	}
 
@@ -523,30 +531,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
-
-			// To loop through the weights, we unfortunately need to put them in a float array.
-			// GLSL ES sucks - no way to directly initialize an array!
-			switch (numBoneWeights) {
-			case 1: WRITE(p, "  float w[1]; w[0] = w1;\n"); break;
-			case 2: WRITE(p, "  float w[2]; w[0] = w1.x; w[1] = w1.y;\n"); break;
-			case 3: WRITE(p, "  float w[3]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z;\n"); break;
-			case 4: WRITE(p, "  float w[4]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w;\n"); break;
-			case 5: WRITE(p, "  float w[5]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2;\n"); break;
-			case 6: WRITE(p, "  float w[6]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y;\n"); break;
-			case 7: WRITE(p, "  float w[7]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z;\n"); break;
-			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
-			}
-
-			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
-			if (numBoneWeights > 1) {
-				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
-				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
-				WRITE(p, "  }\n");
-			}
-
-#else
-
 #ifdef USE_BONE_ARRAY
 			if (numBoneWeights == 1)
 				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
@@ -573,8 +557,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
 				WRITE(p, " + %s * u_bone%i", weightAttr, i);
 			}
-#endif
-
 #endif
 
 			WRITE(p, ";\n");

@@ -141,13 +141,15 @@ enum DoLightComputation {
 
 struct GLSLShaderCompat {
 	const char *versionString;
-	const char *varying;
+	const char *varying_fs;
+	const char *varying_vs;
 	const char *attribute;
 	const char *fragColor0;
 	const char *fragColor1;
 	const char *texture;
 	const char *texelFetch;
 	const char *lastFragData;
+	const char *framebufferFetchExtension;
 	bool gles;
 	bool glslES30;
 	bool bitwiseOps;
