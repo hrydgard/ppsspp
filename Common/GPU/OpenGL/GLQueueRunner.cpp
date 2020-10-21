@@ -426,6 +426,10 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 		tex.magFilter = linear ? GL_LINEAR : GL_NEAREST;
 		tex.minFilter = linear ? GL_LINEAR : GL_NEAREST;
 		tex.canWrap = isPowerOf2(fbo->width) && isPowerOf2(fbo->height);
+		if (gl_extensions.OES_texture_npot) {
+			tex.canWrap = true;
+		}
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tex.wrapT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tex.magFilter);
