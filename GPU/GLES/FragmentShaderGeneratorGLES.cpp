@@ -141,6 +141,8 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		WRITE(p, "#define highp\n");
 	}
 
+	WRITE(p, "#define splat3(x) vec3(x)\n");
+
 	if (compat.glslES30 || gl_extensions.IsCoreContext) {
 		compat.varying = "in";
 	}

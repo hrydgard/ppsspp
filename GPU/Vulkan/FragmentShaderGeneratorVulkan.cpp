@@ -39,7 +39,8 @@ static const char *vulkan_glsl_preamble =
 	"#extension GL_ARB_separate_shader_objects : enable\n"
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"#extension GL_ARB_conservative_depth : enable\n"
-	"#extension GL_ARB_shader_image_load_store : enable\n\n";
+	"#extension GL_ARB_shader_image_load_store : enable\n"
+	"#define splat3(x) vec3(x)\n\n";
 
 #define WRITE p+=sprintf
 
@@ -561,10 +562,10 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  fragColor0.rgb = vec3(1.0, 1.0, 1.0);\n");
+		WRITE(p, "  fragColor0.rgb = splat3(1.0);\n");
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  fragColor0.rgb = vec3(1.0, 1.0, 1.0) - fragColor0.rgb;\n");
+		WRITE(p, "  fragColor0.rgb = splat3(1.0) - fragColor0.rgb;\n");
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
