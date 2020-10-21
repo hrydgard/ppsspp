@@ -42,16 +42,16 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	*uniformMask = 0;
 	// In GLSL ES 3.0, you use "in" variables instead of varying.
 
-	bool glslES30 = false;
-	const char *varying = "varying";
-	const char *fragColor0 = "gl_FragColor";
-	const char *fragColor1 = "fragColor1";
-	const char *texture = "texture2D";
-	const char *texelFetch = NULL;
+	GLSLShaderCompat compat{};
+	compat.varying = "varying";
+	compat.fragColor0 = "gl_FragColor";
+	compat.fragColor1 = "fragColor1";
+	compat.texture = "texture2D";
+	compat.texelFetch = NULL;
+	compat.bitwiseOps = false;
+	compat.lastFragData = nullptr;
 	bool highpFog = false;
 	bool highpTexcoord = false;
-	bool bitwiseOps = false;
-	const char *lastFragData = nullptr;
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
@@ -59,11 +59,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		// ES doesn't support dual source alpha :(
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
 			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
-			fragColor0 = "fragColor0";
-			texture = "texture";
-			glslES30 = true;
-			bitwiseOps = true;
-			texelFetch = "texelFetch";
+			compat.fragColor0 = "fragColor0";
+			compat.texture = "texture";
+			compat.glslES30 = true;
+			compat.bitwiseOps = true;
+			compat.texelFetch = "texelFetch";
 
 			if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 				WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
@@ -72,12 +72,12 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 			WRITE(p, "#version 100\n");  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
 				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-				bitwiseOps = true;
-				texelFetch = "texelFetch2D";
+				compat.bitwiseOps = true;
+				compat.texelFetch = "texelFetch2D";
 			}
 			if (gl_extensions.EXT_blend_func_extended) {
 				// Oldy moldy GLES, so use the fixed output name.
-				fragColor1 = "gl_SecondaryFragColorEXT";
+				compat.fragColor1 = "gl_SecondaryFragColorEXT";
 
 				if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 					WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
@@ -93,17 +93,17 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 			if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-				lastFragData = "fragColor0";
+				compat.lastFragData = "fragColor0";
 			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-				lastFragData = "gl_LastFragData[0]";
+				compat.lastFragData = "gl_LastFragData[0]";
 			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
 				// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
 				WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-				lastFragData = "gl_LastFragData[0]";
+				compat.lastFragData = "gl_LastFragData[0]";
 			} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-				lastFragData = "gl_LastFragColorARM";
+				compat.lastFragData = "gl_LastFragColorARM";
 			}
 		}
 
@@ -111,16 +111,16 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				fragColor0 = "fragColor0";
-				texture = "texture";
-				glslES30 = true;
-				bitwiseOps = true;
-				texelFetch = "texelFetch";
+				compat.fragColor0 = "fragColor0";
+				compat.texture = "texture";
+				compat.glslES30 = true;
+				compat.bitwiseOps = true;
+				compat.texelFetch = "texelFetch";
 				WRITE(p, "#version 330\n");
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				fragColor0 = "fragColor0";
-				bitwiseOps = true;
-				texelFetch = "texelFetch";
+				compat.fragColor0 = "fragColor0";
+				compat.bitwiseOps = true;
+				compat.texelFetch = "texelFetch";
 				WRITE(p, "#version 130\n");
 				if (gl_extensions.EXT_gpu_shader4) {
 					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
@@ -129,8 +129,8 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 				WRITE(p, "#version 110\n");
 				if (gl_extensions.EXT_gpu_shader4) {
 					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-					bitwiseOps = true;
-					texelFetch = "texelFetch2D";
+					compat.bitwiseOps = true;
+					compat.texelFetch = "texelFetch2D";
 				}
 			}
 		}
@@ -141,8 +141,8 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		WRITE(p, "#define highp\n");
 	}
 
-	if (glslES30 || gl_extensions.IsCoreContext) {
-		varying = "in";
+	if (compat.glslES30 || gl_extensions.IsCoreContext) {
+		compat.varying = "in";
 	}
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -180,7 +180,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	}
 
 	const char *shading = "";
-	if (glslES30)
+	if (compat.glslES30)
 		shading = doFlatShading ? "flat" : "";
 
 	if (doTexture)
@@ -189,7 +189,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 		*uniformMask |= DIRTY_SHADERBLEND;
 		if (!gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			if (!texelFetch) {
+			if (!compat.texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
@@ -216,7 +216,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		} else {
 			*uniformMask |= DIRTY_ALPHACOLORREF;
 			WRITE(p, "uniform vec4 u_alphacolorref;\n");
-			if (bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
+			if (compat.bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
 				*uniformMask |= DIRTY_ALPHACOLORMASK;
 				WRITE(p, "uniform ivec4 u_alphacolormask;\n");
 			}
@@ -239,21 +239,21 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		WRITE(p, "uniform vec3 u_texenv;\n");
 	}
 
-	WRITE(p, "%s %s vec4 v_color0;\n", shading, varying);
+	WRITE(p, "%s %s vec4 v_color0;\n", shading, compat.varying);
 	if (lmode)
-		WRITE(p, "%s %s vec3 v_color1;\n", shading, varying);
+		WRITE(p, "%s %s vec3 v_color1;\n", shading, compat.varying);
 	if (enableFog) {
 		*uniformMask |= DIRTY_FOGCOLOR;
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
-		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
+		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying, highpFog ? "highp" : "mediump");
 	}
 	if (doTexture) {
-		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
+		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {
 		if (enableAlphaTest && !alphaTestAgainstZero) {
-			if (bitwiseOps) {
+			if (compat.bitwiseOps) {
 				WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
 			} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 				WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
@@ -262,7 +262,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 			}
 		}
 		if (enableColorTest && !colorTestAgainstZero) {
-			if (bitwiseOps) {
+			if (compat.bitwiseOps) {
 				WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
 			} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 				WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
@@ -272,9 +272,9 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		}
 	}
 
-	if (!strcmp(fragColor0, "fragColor0")) {
+	if (!strcmp(compat.fragColor0, "fragColor0")) {
 		const char *qualifierColor0 = "out";
-		if (lastFragData && !strcmp(lastFragData, fragColor0)) {
+		if (compat.lastFragData && !strcmp(compat.lastFragData, compat.fragColor0)) {
 			qualifierColor0 = "inout";
 		}
 		// Output the output color definitions.
@@ -353,9 +353,9 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 
 			if (!shaderDepal) {
 				if (doTextureProjection) {
-					WRITE(p, "  vec4 t = %sProj(tex, %s);\n", texture, texcoord);
+					WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
 				} else {
-					WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", texture, texcoord);
+					WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
 				}
 			} else {
 				if (doTextureProjection) {
@@ -375,10 +375,10 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    uv_round = uv;\n");
 				WRITE(p, "  }\n");
-				WRITE(p, "  vec4 t = %s(tex, uv_round);\n", texture);
-				WRITE(p, "  vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", texture);
-				WRITE(p, "  vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", texture);
-				WRITE(p, "  vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", texture);
+				WRITE(p, "  vec4 t = %s(tex, uv_round);\n", compat.texture);
+				WRITE(p, "  vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", compat.texture);
+				WRITE(p, "  vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", compat.texture);
+				WRITE(p, "  vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", compat.texture);
 				WRITE(p, "  int depalMask = (u_depal & 0xFF);\n");
 				WRITE(p, "  int depalShift = ((u_depal >> 8) & 0xFF);\n");
 				WRITE(p, "  int depalOffset = (((u_depal >> 16) & 0xFF) << 4);\n");
@@ -552,12 +552,12 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else if (g_Config.bFragmentTestCache) {
-				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", texture, alphaTestXCoord.c_str());
+				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", compat.texture, alphaTestXCoord.c_str());
 				WRITE(p, "  if (aResult < 0.5) %s\n", discardStatement);
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					if (bitwiseOps) {
+					if (compat.bitwiseOps) {
 						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
@@ -589,9 +589,9 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else if (g_Config.bFragmentTestCache) {
-				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", texture);
-				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", texture);
-				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);
+				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", compat.texture);
+				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", compat.texture);
+				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", compat.texture);
 				if (colorTestFunc == GE_COMP_EQUAL) {
 					// Equal means all parts must be equal (so discard if any is not.)
 					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) %s\n", discardStatement);
@@ -602,7 +602,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
-					if (bitwiseOps) {
+					if (compat.bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
@@ -649,11 +649,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
 			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-				WRITE(p, "  lowp vec4 destColor = %s;\n", lastFragData);
-			} else if (!texelFetch) {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
+				WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
+			} else if (!compat.texelFetch) {
+				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
 			} else {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", texelFetch);
+				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
 			}
 
 			const char *srcFactor = "vec3(1.0)";
@@ -755,16 +755,16 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
-		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", fragColor1);
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
 		break;
 
 	case REPLACE_ALPHA_NO:
-		WRITE(p, "  %s = v;\n", fragColor0);
+		WRITE(p, "  %s = v;\n", compat.fragColor0);
 		break;
 
 	default:
@@ -775,10 +775,10 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", compat.fragColor0);
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", fragColor0, fragColor0);
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", compat.fragColor0, compat.fragColor0);
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
@@ -787,15 +787,6 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		*errorString = "Bad logic op type, corrupt ID?";
 		return false;
 	}
-
-#ifdef DEBUG_SHADER
-	if (doTexture) {
-		WRITE(p, "  %s = texture2D(tex, v_texcoord.xy);\n", fragColor0);
-		WRITE(p, "  %s += vec4(0.3,0,0.3,0.3);\n", fragColor0);
-	} else {
-		WRITE(p, "  %s = vec4(1,0,1,1);\n", fragColor0);
-	}
-#endif
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 		const double scale = DepthSliceFactor() * 65535.0;

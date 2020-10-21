@@ -137,3 +137,15 @@ enum DoLightComputation {
 	LIGHT_SHADE,
 	LIGHT_FULL,
 };
+
+struct GLSLShaderCompat {
+	const char *varying;
+	const char *attribute;
+	const char *fragColor0;
+	const char *fragColor1;
+	const char *texture;
+	const char *texelFetch;
+	const char *lastFragData;
+	bool glslES30;
+	bool bitwiseOps;
+};

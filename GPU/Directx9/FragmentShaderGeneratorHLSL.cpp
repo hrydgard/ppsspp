@@ -66,6 +66,21 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
+	// Output some compatibility defines
+	switch (lang) {
+	case ShaderLanguage::HLSL_DX9:
+		WRITE(p, "#define DISCARD clip(-1)\n");
+		break;
+	case ShaderLanguage::HLSL_D3D11:
+	case ShaderLanguage::HLSL_D3D11_LEVEL9:
+		WRITE(p, "#define DISCARD discard\n");
+		break;
+	}
+	WRITE(p, "#define vec2 float2\n");
+	WRITE(p, "#define vec3 float3\n");
+	WRITE(p, "#define vec4 float4\n");
+	WRITE(p, "#define splat3(x) float3(x, x, x)\n");
+
 	if (lang == HLSL_DX9) {
 		if (doTexture)
 			WRITE(p, "sampler tex : register(s0);\n");
@@ -288,7 +303,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  clip(-1);\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -298,11 +313,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops?
-						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) DISCARD;\n", alphaTestFuncs[alphaTestFunc]);
 					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			}
 		}
@@ -317,14 +332,14 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) clip(-1);\n");
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) DISCARD;\n");
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) clip(-1);\n");
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) DISCARD;\n");
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -335,15 +350,15 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 						WRITE(p, "  uint3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
 						WRITE(p, "  uint3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
-						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) discard;\n", test, test, test);
+						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) DISCARD;\n", test, test, test);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
 						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) clip(-1);\n", test, test, test);
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) DISCARD;\n", test, test, test);
 					}
 				}
 				else {
-					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
+					WRITE(p, "  DISCARD;\n");
 				}
 			}
 		}

@@ -95,6 +95,12 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 	}
 
+	// Output some compatibility defines
+	WRITE(p, "#define vec2 float2\n");
+	WRITE(p, "#define vec3 float3\n");
+	WRITE(p, "#define vec4 float4\n");
+	WRITE(p, "#define splat3(x) float3(x, x, x)\n");
+
 	if (lang == HLSL_DX9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
 		if (isModeThrough) {
