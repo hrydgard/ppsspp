@@ -2580,9 +2580,9 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 	if (game_type <= 0 || game_type > 3 || num_members < 2 || num_members > 16 || (game_type == 1 && num_members > 4))
 		return ERROR_NET_ADHOCCTL_INVALID_ARG;
 
+	deleteAllGMB();
+
 	SceNetEtherAddr* addrs = PSPPointer<SceNetEtherAddr>::Create(membersAddr); // List of participating MAC addresses (started from host)
-	gameModeMacs.clear();
-	requiredGameModeMacs.clear();
 	for (int i = 0; i < num_members; i++) {
 		requiredGameModeMacs.push_back(*addrs);
 		DEBUG_LOG(SCENET, "GameMode macAddress#%d=%s", i, mac2str(addrs).c_str());
@@ -2643,6 +2643,8 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 	if (!hostMac)
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 
+	deleteAllGMB();
+
 	// Add host mac first
 	gameModeMacs.push_back(*(SceNetEtherAddr*)hostMac);
 
@@ -2681,11 +2683,11 @@ int NetAdhoc_Term() {
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Delete Adhoc Sockets
-		deleteAllAdhocSockets();
-
 		// Delete GameMode Buffers
 		deleteAllGMB();
+
+		// Delete Adhoc Sockets
+		deleteAllAdhocSockets();
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
