@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace Draw {
 	class DrawContext;
@@ -139,6 +140,7 @@ enum DoLightComputation {
 };
 
 struct GLSLShaderCompat {
+	const char *versionString;
 	const char *varying;
 	const char *attribute;
 	const char *fragColor0;
@@ -146,6 +148,7 @@ struct GLSLShaderCompat {
 	const char *texture;
 	const char *texelFetch;
 	const char *lastFragData;
+	bool gles;
 	bool glslES30;
 	bool bitwiseOps;
 };

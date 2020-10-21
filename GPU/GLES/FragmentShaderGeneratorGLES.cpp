@@ -47,41 +47,32 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 	compat.fragColor0 = "gl_FragColor";
 	compat.fragColor1 = "fragColor1";
 	compat.texture = "texture2D";
-	compat.texelFetch = NULL;
+	compat.texelFetch = nullptr;
 	compat.bitwiseOps = false;
 	compat.lastFragData = nullptr;
+	compat.gles = gl_extensions.IsGLES;
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	if (gl_extensions.IsGLES) {
-		// ES doesn't support dual source alpha :(
+	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
-			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
+			compat.versionString = "#version 300 es";  // GLSL ES 3.0
 			compat.fragColor0 = "fragColor0";
 			compat.texture = "texture";
 			compat.glslES30 = true;
 			compat.bitwiseOps = true;
 			compat.texelFetch = "texelFetch";
-
-			if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
-				WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
-			}
 		} else {
-			WRITE(p, "#version 100\n");  // GLSL ES 1.0
+			compat.versionString = "#version 100";  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
-				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch2D";
 			}
 			if (gl_extensions.EXT_blend_func_extended) {
 				// Oldy moldy GLES, so use the fixed output name.
 				compat.fragColor1 = "gl_SecondaryFragColorEXT";
-
-				if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
-					WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
-				}
 			}
 		}
 
@@ -89,25 +80,6 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 		// Others don't, and some can't handle highp in the fragment shader.
 		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 		highpTexcoord = highpFog;
-
-		if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-			if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
-				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-				compat.lastFragData = "fragColor0";
-			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
-				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-				compat.lastFragData = "gl_LastFragData[0]";
-			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-				// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-				WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-				compat.lastFragData = "gl_LastFragData[0]";
-			} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-				WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-				compat.lastFragData = "gl_LastFragColorARM";
-			}
-		}
-
-		WRITE(p, "precision lowp float;\n");
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
@@ -116,29 +88,54 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 				compat.glslES30 = true;
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
-				WRITE(p, "#version 330\n");
+				compat.versionString = "#version 330";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				compat.fragColor0 = "fragColor0";
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
-				WRITE(p, "#version 130\n");
-				if (gl_extensions.EXT_gpu_shader4) {
-					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-				}
+				compat.versionString = "#version 130";
 			} else {
-				WRITE(p, "#version 110\n");
+				compat.versionString = "#version 110";
 				if (gl_extensions.EXT_gpu_shader4) {
-					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 					compat.bitwiseOps = true;
 					compat.texelFetch = "texelFetch2D";
 				}
 			}
 		}
+	}
 
-		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
+	// Here the writing starts!
+	WRITE(p, "%s\n", compat.versionString);
+
+	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
+			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+			compat.lastFragData = "fragColor0";
+		} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
+			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+			compat.lastFragData = "gl_LastFragData[0]";
+		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
+			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
+			WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+			compat.lastFragData = "gl_LastFragData[0]";
+		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
+			WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+			compat.lastFragData = "gl_LastFragColorARM";
+		}
+	}
+
+	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
+		WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
+	}
+	if (gl_extensions.EXT_gpu_shader4) {
+		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+	}
+	if (!compat.gles) {
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
+	} else {
+		WRITE(p, "precision lowp float;\n");
 	}
 
 	WRITE(p, "#define splat3(x) vec3(x)\n");

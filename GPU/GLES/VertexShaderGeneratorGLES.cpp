@@ -99,23 +99,22 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 	compat.varying = "varying";
 	compat.attribute = "attribute";
 	const char * const * boneWeightDecl = boneWeightAttrDecl;
-	compat.texelFetch = NULL;
+	compat.texelFetch = nullptr;
+	compat.gles = gl_extensions.IsGLES;
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
-	if (gl_extensions.IsGLES) {
+	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
-			WRITE(p, "#version 300 es\n");
+			compat.versionString = "#version 300 es";  // GLSL ES 3.0
 			compat.glslES30 = true;
 			compat.texelFetch = "texelFetch";
 		} else {
-			WRITE(p, "#version 100\n");  // GLSL ES 1.0
+			compat.versionString = "#version 100";  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
-				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 				compat.texelFetch = "texelFetch2D";
 			}
 		}
-		WRITE(p, "precision highp float;\n");
 
 		// PowerVR needs highp to do the fog in MHU correctly.
 		// Others don't, and some can't handle highp in the fragment shader.
@@ -125,29 +124,35 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrM
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				compat.glslES30 = true;
-				WRITE(p, "#version 330\n");
+				compat.versionString = "#version 330";
 				compat.texelFetch = "texelFetch";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				WRITE(p, "#version 130\n");
+				compat.versionString = "#version 130";
 				if (gl_extensions.EXT_gpu_shader4) {
-					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 					compat.texelFetch = "texelFetch";
 				}
 			} else {
-				WRITE(p, "#version 110\n");
+				compat.versionString = "#version 110";
 				if (gl_extensions.EXT_gpu_shader4) {
-					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 					compat.texelFetch = "texelFetch2D";
 				}
 			}
 		}
+	}
 
-		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
+	if (gl_extensions.EXT_gpu_shader4) {
+		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+	}
+
+	WRITE(p, "#define splat3(x) vec3(x)\n");
+
+	if (compat.gles) {
+		WRITE(p, "precision highp float;\n");
+	} else {
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
-	WRITE(p, "#define splat3(x) vec3(x)\n");
 
 	if (compat.glslES30 || gl_extensions.IsCoreContext) {
 		compat.attribute = "in";
