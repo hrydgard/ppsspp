@@ -1334,6 +1334,8 @@ int friendFinder(){
 				if (initNetwork(&product_code) == 0) {
 					networkInited = true;
 					INFO_LOG(SCENET, "FriendFinder: Network [RE]Initialized");
+					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 				} 
 				else {
 					networkInited = false;

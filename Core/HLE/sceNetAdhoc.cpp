@@ -1974,7 +1974,7 @@ int sceNetAdhocctlScan() {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
 					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 					//if (error == ECONNABORTED || error == ECONNRESET || error == ENOTCONN) return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // A case where it need to reconnect to AdhocServer
-					return ERROR_NET_ADHOCCTL_BUSY;
+					return hleLogError(SCENET, ERROR_NET_ADHOCCTL_BUSY, "busy");
 				}
 				else if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_SCAN, {0} };
@@ -1989,7 +1989,7 @@ int sceNetAdhocctlScan() {
 			}
 		}
 		else if (adhocctlState == ADHOCCTL_STATE_SCANNING)
-			return ERROR_NET_ADHOCCTL_BUSY;
+			return hleLogError(SCENET, ERROR_NET_ADHOCCTL_BUSY, "busy");
 
 		// Already connected to a group. Should we fake a success?
 		// We need to notify the handler on success, even if it was faked. Using flag = 0/ADHOCCTL_EVENT_ERROR for error?
@@ -2000,7 +2000,7 @@ int sceNetAdhocctlScan() {
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(SCENET, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 }
 
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
