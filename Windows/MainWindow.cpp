@@ -970,6 +970,10 @@ namespace MainWindow
 			InputDevice::BeginPolling();
 			break;
 
+		case WM_USER_SWITCHUMD_UPDATED:
+			UpdateSwitchUMD();
+			break;
+
 		case WM_MENUSELECT:
 			// Called when a menu is opened. Also when an item is selected, but meh.
 			UpdateMenus(true);

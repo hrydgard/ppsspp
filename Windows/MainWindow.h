@@ -21,6 +21,7 @@ namespace MainWindow
 		WM_USER_BROWSE_BOOT_DONE = WM_USER + 104,
 		WM_USER_TOGGLE_FULLSCREEN = WM_USER + 105,
 		WM_USER_RESTART_EMUTHREAD = WM_USER + 106,
+		WM_USER_SWITCHUMD_UPDATED = WM_USER + 107
 	};
 
 	enum {
@@ -66,6 +67,7 @@ namespace MainWindow
 	void Close();
 	void UpdateMenus(bool isMenuSelect = false);
 	void UpdateCommands();
+	void UpdateSwitchUMD();
 	void SetWindowTitle(const wchar_t *title);
 	void Redraw();
 	HWND GetHWND();

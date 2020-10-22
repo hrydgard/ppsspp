@@ -1379,6 +1379,13 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TOGGLE_BREAK, L"\tF8", isPaused ? "Run" : "Break");
 	}
 
+	void UpdateSwitchUMD() {
+		HMENU menu = GetMenu(GetHWND());
+		GlobalUIState state = GetUIState();
+		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
+		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
+	}
+
 	// Message handler for about box.
 	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (message) {
