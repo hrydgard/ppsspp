@@ -115,6 +115,11 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
 #define GAMEMODE_INIT_DELAY 10000
 
+// GameMode Type
+#define ADHOCCTL_GAMETYPE_1A	1
+#define ADHOCCTL_GAMETYPE_1B	2
+#define ADHOCCTL_GAMETYPE_2A	3
+
 // psp strutcs and definitions
 #define ADHOCCTL_MODE_NONE     -1 // We only use this internally as initial value before attempting to create/connect/join/scan any group
 #define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC

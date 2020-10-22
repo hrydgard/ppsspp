@@ -98,6 +98,7 @@ int NetAdhoc_Term();
 extern bool netAdhocInited;
 extern bool netAdhocctlInited;
 extern bool networkInited;
+extern bool netAdhocGameModeEntered;
 extern int adhocDefaultTimeout; //3000000 usec
 extern int adhocDefaultDelay; //10000
 extern int adhocExtraDelay; //20000

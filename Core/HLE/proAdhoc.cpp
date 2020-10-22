@@ -1340,6 +1340,7 @@ int friendFinder(){
 					INFO_LOG(SCENET, "FriendFinder: Network [RE]Initialized");
 					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
 					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+					netAdhocGameModeEntered = false;
 				} 
 				else {
 					networkInited = false;
@@ -1425,14 +1426,14 @@ int friendFinder(){
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
+
+								if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
+									//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
-
-							if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 						else {
 							//adhocctlState = ADHOCCTL_STATE_CONNECTED;
@@ -1527,17 +1528,17 @@ int friendFinder(){
 									it = gameModeMacs.begin() + 1;
 									gameModeMacs.insert(it, packet->mac);
 								}
+
+								// From JPCSP: Join complete when all the required MACs have joined
+								if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
+									// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
+									//gameModeMacs = requiredGameModeMacs;
+									//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode Member [%s] Already Existed!", mac2str(&packet->mac).c_str());
-
-							// From JPCSP: Join complete when all the required MACs have joined
-							if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
-								//gameModeMacs = requiredGameModeMacs;
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 
 						// Update HUD User Count
