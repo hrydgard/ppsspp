@@ -33,88 +33,8 @@
 
 #define WRITE p+=sprintf
 
-// #define DEBUG_SHADER
-
-// Missing: Z depth range
-bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
-
-	GLSLShaderCompat compat{};
-	compat.varying_vs = "varying";
-	compat.varying_fs = "varying";
-	compat.fragColor0 = "gl_FragColor";
-	compat.fragColor1 = "fragColor1";
-	compat.texture = "texture2D";
-	compat.texelFetch = nullptr;
-	compat.bitwiseOps = false;
-	compat.lastFragData = nullptr;
-	compat.gles = gl_extensions.IsGLES;
-
-	if (compat.gles) {
-		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
-			compat.versionString = "#version 300 es";  // GLSL ES 3.0
-			compat.fragColor0 = "fragColor0";
-			compat.texture = "texture";
-			compat.glslES30 = true;
-			compat.bitwiseOps = true;
-			compat.texelFetch = "texelFetch";
-		} else {
-			compat.versionString = "#version 100";  // GLSL ES 1.0
-			if (gl_extensions.EXT_gpu_shader4) {
-				compat.bitwiseOps = true;
-				compat.texelFetch = "texelFetch2D";
-			}
-			if (gl_extensions.EXT_blend_func_extended) {
-				// Oldy moldy GLES, so use the fixed output name.
-				compat.fragColor1 = "gl_SecondaryFragColorEXT";
-			}
-		}
-	} else {
-		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
-			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				compat.versionString = "#version 330";
-				compat.fragColor0 = "fragColor0";
-				compat.texture = "texture";
-				compat.glslES30 = true;
-				compat.bitwiseOps = true;
-				compat.texelFetch = "texelFetch";
-			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				compat.versionString = "#version 130";
-				compat.fragColor0 = "fragColor0";
-				compat.bitwiseOps = true;
-				compat.texelFetch = "texelFetch";
-			} else {
-				compat.versionString = "#version 110";
-				if (gl_extensions.EXT_gpu_shader4) {
-					compat.bitwiseOps = true;
-					compat.texelFetch = "texelFetch2D";
-				}
-			}
-		}
-	}
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
-			compat.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			compat.lastFragData = "fragColor0";
-		} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
-			compat.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			compat.lastFragData = "gl_LastFragData[0]";
-		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-			compat.framebufferFetchExtension = "#extension GL_NV_shader_framebuffer_fetch : require";
-			compat.lastFragData = "gl_LastFragData[0]";
-		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-			compat.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
-			compat.lastFragData = "gl_LastFragColorARM";
-		}
-	}
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.varying_vs = "out";
-		compat.varying_fs = "in";
-		compat.attribute = "in";
-	}
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -129,8 +49,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uni
 
 	char *p = buffer;
 
-	// Here the writing starts!
-	WRITE(p, "%s\n", compat.versionString);
+	WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
 
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 		WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");

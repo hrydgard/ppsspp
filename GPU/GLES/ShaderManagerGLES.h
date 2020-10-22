@@ -183,6 +183,7 @@ private:
 	void Clear();
 	Shader *CompileFragmentShader(FShaderID id);
 	Shader *CompileVertexShader(VShaderID id);
+	void DetectShaderLanguage();
 
 	struct LinkedShaderCacheEntry {
 		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)
@@ -195,6 +196,7 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	GLRenderManager *render_;
+	GLSLShaderCompat compat_{};
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;

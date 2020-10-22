@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "GPU/Common/ShaderCommon.h"
+
 struct FShaderID;
 
-bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, uint64_t *uniformMask, std::string *errorString);
+bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString);

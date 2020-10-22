@@ -87,59 +87,12 @@ static const char * const boneWeightInDecl[9] = {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
 
-	// In GLSL ES 3.0, you use "out" variables instead.
-	GLSLShaderCompat compat{};
-	compat.glslES30 = false;
-	compat.varying_vs = "varying";
-	compat.varying_fs = "varying";
-	compat.attribute = "attribute";
-	compat.texelFetch = nullptr;
-	compat.gles = gl_extensions.IsGLES;
-
-	if (compat.gles) {
-		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
-			compat.versionString = "#version 300 es";  // GLSL ES 3.0
-			compat.glslES30 = true;
-			compat.texelFetch = "texelFetch";
-		} else {
-			compat.versionString = "#version 100";  // GLSL ES 1.0
-			if (gl_extensions.EXT_gpu_shader4) {
-				compat.texelFetch = "texelFetch2D";
-			}
-		}
-	} else {
-		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
-			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				compat.glslES30 = true;
-				compat.versionString = "#version 330";
-				compat.texelFetch = "texelFetch";
-			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				compat.versionString = "#version 130";
-				if (gl_extensions.EXT_gpu_shader4) {
-					compat.texelFetch = "texelFetch";
-				}
-			} else {
-				compat.versionString = "#version 110";
-				if (gl_extensions.EXT_gpu_shader4) {
-					compat.texelFetch = "texelFetch2D";
-				}
-			}
-		}
-	}
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.attribute = "in";
-		compat.varying_vs = "out";
-		compat.varying_fs = "in";
-	}
-
 	char *p = buffer;
-	// Here the writing starts!
-	WRITE(p, "%s\n", compat.versionString);
+	WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
