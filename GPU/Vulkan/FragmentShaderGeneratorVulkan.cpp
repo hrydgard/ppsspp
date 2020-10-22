@@ -393,7 +393,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 				// Have my doubts that this special case is actually worth it, but whatever.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r + v.g + v.b < 0.002) %s\n", discardStatement);
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) %s\n", discardStatement);
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
 					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);

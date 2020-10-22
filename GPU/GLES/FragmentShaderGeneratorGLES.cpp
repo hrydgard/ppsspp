@@ -61,7 +61,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	char *p = buffer;
 
 	if (compat.vulkan) {
-		WRITE(p, vulkan_glsl_preamble);
+		WRITE(p, "%s", vulkan_glsl_preamble);
 	} else {
 		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
 
@@ -367,57 +367,57 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				WRITE(p, "  vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", compat.texture);
 				WRITE(p, "  vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", compat.texture);
 				WRITE(p, "  vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", compat.texture);
-				WRITE(p, "  int depalMask = (u_depal_mask_shift_off_fmt & 0xFF);\n");
-				WRITE(p, "  int depalShift = ((u_depal_mask_shift_off_fmt >> 8) & 0xFF);\n");
-				WRITE(p, "  int depalOffset = (((u_depal_mask_shift_off_fmt >> 16) & 0xFF) << 4);\n");
-				WRITE(p, "  int depalFmt = ((u_depal_mask_shift_off_fmt >> 24) & 0x3);\n");
-				WRITE(p, "  ivec4 col; int index0; int index1; int index2; int index3;\n");
+				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFF);\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFF;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3;\n");
+				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
-				WRITE(p, "    col = ivec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "    index0 = (col.b << 11) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "      index1 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "      index2 = (col.b << 11) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "      index3 = (col.b << 11) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 1:\n");  // 5551
-				WRITE(p, "    col = ivec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "    index0 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "      index1 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "      index2 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "      index3 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 2:\n");  // 4444
-				WRITE(p, "    col = ivec4(t.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
+				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
 				WRITE(p, "    index0 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
+				WRITE(p, "      col = uvec4(t1.rgba * 15.99);\n");
 				WRITE(p, "      index1 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
+				WRITE(p, "      col = uvec4(t2.rgba * 15.99);\n");
 				WRITE(p, "      index2 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(15.99, 15.99, 15.99, 15.99));\n");
+				WRITE(p, "      col = uvec4(t3.rgba * 15.99);\n");
 				WRITE(p, "      index3 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 3:\n");  // 8888
-				WRITE(p, "    col = ivec4(t.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
+				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
 				WRITE(p, "    index0 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = ivec4(t1.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
+				WRITE(p, "      col = uvec4(t1.rgba * 255.99);\n");
 				WRITE(p, "      index1 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t2.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
+				WRITE(p, "      col = uvec4(t2.rgba * 255.99);\n");
 				WRITE(p, "      index2 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
-				WRITE(p, "      col = ivec4(t3.rgba * vec4(255.99, 255.99, 255.99, 255.99));\n");
+				WRITE(p, "      col = uvec4(t3.rgba * 255.99);\n");
 				WRITE(p, "      index3 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
@@ -683,7 +683,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
-			default:                            srcFactor = "u_blendFixB"; break;
+			default:                            dstFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
