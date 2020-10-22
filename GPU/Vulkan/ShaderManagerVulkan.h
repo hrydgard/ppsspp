@@ -25,7 +25,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
@@ -131,6 +131,7 @@ private:
 	void Clear();
 
 	VulkanContext *vulkan_;
+	GLSLShaderCompat compat_{};
 
 	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;
 	FSCache fsCache_;

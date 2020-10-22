@@ -39,7 +39,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
@@ -168,6 +168,8 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
+
+	compat_.SetupForVulkan();
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -271,10 +273,11 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
 	if (!fs) {
-		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+		// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
-		bool success = GenerateFragmentShaderVulkanGLSL(FSID, codeBuffer_, vendorID, &genErrorString);
+		uint64_t uniformMask = 0;  // Not used
+		bool success = GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
 		_assert_(success);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
@@ -399,6 +402,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+	GLSLShaderCompat compat{};
+	compat.SetupForVulkan();
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
@@ -406,7 +411,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			break;
 		}
 		std::string genErrorString;
-		if (!GenerateFragmentShaderVulkanGLSL(id, codeBuffer_, vendorID, &genErrorString)) {
+		uint64_t uniformMask = 0;
+		if (!GenerateFragmentShaderGLSL(id, codeBuffer_, compat, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);

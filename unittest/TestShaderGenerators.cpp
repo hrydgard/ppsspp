@@ -8,7 +8,6 @@
 
 #include "GPU/Vulkan/VulkanContext.h"
 
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
@@ -22,22 +21,6 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
-void SetupCompatForVulkan(GLSLShaderCompat &compat) {
-	compat.fragColor0 = "fragColor0";
-	compat.fragColor1 = "fragColor1";
-	compat.varying_fs = "in";
-	compat.varying_vs = "out";
-	compat.attribute = "in";
-	compat.bitwiseOps = true;
-	compat.framebufferFetchExtension = false;
-	compat.gles = false;
-	compat.glslES30 = true;
-	compat.glslVersionNumber = 450;
-	compat.lastFragData = nullptr;
-	compat.texture = "texture";
-	compat.texelFetch = "texelFetch";
-	compat.vulkan = true;
-}
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	switch (lang) {
@@ -48,11 +31,9 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		// TODO: Need a device :(  Returning false here so it doesn't get tried.
 		return false;
 	case ShaderLanguage::GLSL_VULKAN:
-		return GenerateFragmentShaderVulkanGLSL(id, buffer, 0, errorString);
-	case ShaderLanguage::TEST_GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat{};
-		SetupCompatForVulkan(compat);
+		compat.SetupForVulkan();
 		uint64_t uniformMask;
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
@@ -104,9 +85,6 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return false;
 	case ShaderLanguage::GLSL_300:
 		return false;
-	case ShaderLanguage::TEST_GLSL_VULKAN:
-		// Temporary while testing the vulkan->glsl merge
-		return true;
 
 	default:
 		return false;
@@ -146,7 +124,6 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::TEST_GLSL_VULKAN,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_140,
@@ -184,7 +161,8 @@ bool TestShaderGenerators() {
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
-		// Temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
+		/*
+		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
 		if (generateSuccess[0] != generateSuccess[1]) {
 			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
 			printf("%s\n", buffer[0]);
@@ -196,6 +174,7 @@ bool TestShaderGenerators() {
 			PrintDiff(buffer[0], buffer[1]);
 			return 1;
 		}
+		*/
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
