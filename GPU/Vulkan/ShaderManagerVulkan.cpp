@@ -387,6 +387,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.featureFlags != gstate_c.featureFlags)
 		return false;
 
+	GLSLShaderCompat compat{};
+	compat.SetupForVulkan();
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
@@ -402,8 +404,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
-	GLSLShaderCompat compat{};
-	compat.SetupForVulkan();
+
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {

@@ -205,6 +205,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 		WRITE(p, "}\n\n");
 	}
 
+	// Hardware tessellation
 	if (doBezier || doSpline) {
 		WRITE(p, "struct TessData {\n");
 		WRITE(p, "  vec4 pos;\n");

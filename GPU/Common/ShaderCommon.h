@@ -31,6 +31,8 @@ enum ShaderLanguage {
 	HLSL_DX9,
 	HLSL_D3D11,
 	HLSL_D3D11_LEVEL9,
+
+	TEST_GLSL_VULKAN,
 };
 
 enum DebugShaderType {
@@ -156,4 +158,17 @@ struct GLSLShaderCompat {
 	bool bitwiseOps;
 
 	void SetupForVulkan();
+};
+
+// PSP vertex format.
+enum class PspAttributeLocation {
+	POSITION = 0,
+	TEXCOORD = 1,
+	NORMAL = 2,
+	W1 = 3,
+	W2 = 4,
+	COLOR0 = 5,
+	COLOR1 = 6,
+
+	COUNT
 };

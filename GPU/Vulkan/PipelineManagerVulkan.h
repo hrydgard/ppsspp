@@ -22,23 +22,11 @@
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 
 #include "GPU/Vulkan/VulkanQueueRunner.h"
-
-// PSP vertex format.
-enum class PspAttributeLocation {
-	POSITION = 0,
-	TEXCOORD = 1,
-	NORMAL = 2,
-	W1 = 3,
-	W2 = 4,
-	COLOR0 = 5,
-	COLOR1 = 6,
-
-	COUNT
-};
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here

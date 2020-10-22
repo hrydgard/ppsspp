@@ -264,7 +264,7 @@ static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data
 
 static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x4, m4x3);
+	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
