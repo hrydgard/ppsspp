@@ -352,6 +352,11 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
+
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
 		std::string alphaTestXCoord = "0";
@@ -374,18 +379,12 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 				} else {
 					// This means NEVER.  See above.
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
-		}
-
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
 		if (enableColorTest) {
@@ -419,7 +418,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-			const char *srcFactor = "ERROR";
+			const char *srcFactor = nullptr;
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
@@ -429,9 +428,12 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
+			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
+			// It's close to the same, but clamping can still be an issue.
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 
 			if (!strcmp(srcFactor, "ERROR")) {
@@ -460,6 +462,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -473,6 +476,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			default:                            dstFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -494,6 +498,9 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 			case GE_BLENDMODE_ABSDIFF:
 				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
 				break;
+			default:
+				*errorString = "Bad replace blend eq";
+				return false;
 			}
 		}
 

@@ -174,19 +174,21 @@ bool TestShaderGenerators() {
 		id.d[1] = top;
 
 		bool generateSuccess[numLanguages]{};
+		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			std::string genErrorString;
-			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], &genErrorString);
-			if (!genErrorString.empty()) {
-				printf("%s\n", genErrorString.c_str());
+			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], &genErrorString[j]);
+			if (!genErrorString[j].empty()) {
+				printf("%s\n", genErrorString[j].c_str());
 			}
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
 		// Temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
 		if (generateSuccess[0] != generateSuccess[1]) {
-			printf("mismatching success!\n");
+			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
+			printf("%s\n", buffer[0]);
+			printf("%s\n", buffer[1]);
 			return 1;
 		}
 		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {

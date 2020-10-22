@@ -291,6 +291,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
 		}
 
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
+
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
@@ -320,11 +325,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					WRITE(p, "  DISCARD;\n");
 				}
 			}
-		}
-
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 
 		if (enableColorTest) {
