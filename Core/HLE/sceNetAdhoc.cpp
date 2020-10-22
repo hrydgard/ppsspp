@@ -848,6 +848,19 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	return ERROR_NET_ADHOC_TIMEOUT;
 }
 
+// Using matchingId = -1 to delete all matching events
+void deleteMatchingEvents(const int matchingId = -1) {
+	for (auto it = matchingEvents.begin(); it != matchingEvents.end(); ) {
+		if (matchingId < 0 || it->data[0] == matchingId) {
+			if (Memory::IsValidAddress(it->data[2])) 
+				userMemory.Free(it->data[2]);
+			it = matchingEvents.erase(it);
+		}
+		else
+			++it;
+	}
+}
+
 void netAdhocValidateLoopMemory() {
 	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
 	if (!dummyThreadHackAddr || (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0)) {
@@ -950,11 +963,11 @@ void __NetAdhocDoState(PointerWrap &p) {
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
 		adhocctlEvents.clear();
-		matchingEvents.clear();
 		adhocctlRequests.clear();
 		adhocSocketRequests.clear();
 		sendTargetPeers.clear();
 		deleteAllAdhocSockets();
+		deleteMatchingEvents();
 		
 		// Let's not change "Inited" value when Loading SaveState to prevent memory & port leaks
 		netAdhocMatchingInited = cur_netAdhocMatchingInited;
@@ -4194,12 +4207,7 @@ int NetAdhocMatching_Delete(int matchingId) {
 			item = NULL;
 
 			// Making sure there are no leftover matching events from this session which could cause a crash on the next session
-			for (auto it = matchingEvents.begin(); it != matchingEvents.end(); ) {
-				if (it->data[0] == matchingId)
-					it = matchingEvents.erase(it);
-				else
-					++it;
-			}
+			deleteMatchingEvents(matchingId);
 
 			// Stop Search
 			break;
@@ -4238,7 +4246,7 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 	fakePoolSize = memsize;
 
 	// Initialize Library
-	matchingEvents.clear();
+	deleteMatchingEvents();
 	netAdhocMatchingInited = true;
 
 	// Return Success
