@@ -116,7 +116,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define GAMEMODE_INIT_DELAY 10000
 
 // psp strutcs and definitions
-#define ADHOCCTL_MODE_NONE     -1
+#define ADHOCCTL_MODE_NONE     -1 // We only use this internally as initial value before attempting to create/connect/join/scan any group
 #define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC
 #define ADHOCCTL_MODE_GAMEMODE  1
 
@@ -141,7 +141,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 // ProductType ( extracted from SSID along with ProductId & GroupName, Pattern = "PSP_([AXS])(.........)_([LG])_(.*)" )
 #define PSP_ADHOCCTL_TYPE_COMMERCIAL 0
 #define PSP_ADHOCCTL_TYPE_DEBUG 1
-#define PSP_ADHOCCTL_TYPE_SYSTEM 2
+#define PSP_ADHOCCTL_TYPE_SYSTEM 2 // Used for GameSharing?
 
 // Kernel Utility Netconf Adhoc Types
 #define UTILITY_NETCONF_TYPE_CONNECT_ADHOC 2
@@ -393,8 +393,8 @@ typedef struct SceNetAdhocGameModeBufferStat {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-	s32_le type;
-	uint8_t data[ADHOCCTL_ADHOCID_LEN];
+	s32_le type; // Air Conflicts - Aces Of World War 2 is using 2 for GameSharing?
+	uint8_t data[ADHOCCTL_ADHOCID_LEN]; // Air Conflicts - Aces Of World War 2 is using "000000001" for GameSharing?
 	uint8_t padding[3];
 } PACK SceNetAdhocctlAdhocId; // should this be packed?
 #ifdef _MSC_VER 

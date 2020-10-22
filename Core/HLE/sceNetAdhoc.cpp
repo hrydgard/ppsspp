@@ -1959,6 +1959,7 @@ int sceNetAdhocctlScan() {
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
+			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 
 			// Reset Networks/Group list to prevent other threads from using these soon to be replaced networks
 			peerlock.lock();
@@ -2013,7 +2014,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointer(bufAddr);
 
-	INFO_LOG(SCENET, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x)", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr);
+	INFO_LOG(SCENET, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -2484,7 +2485,7 @@ int NetAdhocctl_Create(const char* groupName) {
 
 				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
 				int us = adhocDefaultDelay;
-				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && iResult == SOCKET_ERROR && friendFinderRunning) {
+				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && adhocctlState != ADHOCCTL_STATE_GAMEMODE && iResult == SOCKET_ERROR && friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_CONNECT, {0} };
 					if (groupNameStruct != NULL) req.group = *groupNameStruct;
 					return WaitBlockingAdhocctlSocket(req, us, "adhocctl connect");

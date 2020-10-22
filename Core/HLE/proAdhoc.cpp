@@ -21,6 +21,10 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#if defined(_WIN32)
+#include "Common/CommonWindows.h"
+#endif
+
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <netinet/tcp.h>
@@ -1635,7 +1639,8 @@ int friendFinder(){
 							// Set group parameters
 							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
 							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							group->mode = adhocctlCurrentMode;
+							// This Mode should be a valid mode (>=0), probably should be sent by AdhocServer since there are 2 possibilities (Normal and GameMode). Air Conflicts - Aces Of World War 2 (which use GameMode) seems to relies on this Mode value.
+							group->mode = std::max(ADHOCCTL_MODE_NORMAL, adhocctlCurrentMode); // default to ADHOCCTL_MODE_NORMAL
 
 							// Link into Group List
 							newnetworks = group;
