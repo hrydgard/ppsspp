@@ -391,8 +391,6 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		auto sock = adhocSockets[req.id - 1];
 		if (sock->flags & ADHOC_F_ALERTRECV) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTRECV;
 			sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -437,8 +435,6 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 				u64 now = (u64)(time_now_d() * 1000000.0);
 				if (sock->flags & ADHOC_F_ALERTSEND) {
 					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-					// FIXME: Should we clear the flag after alert signaled?
-					sock->flags &= ~ADHOC_F_ALERTSEND;
 					sock->alerted_flags |= ADHOC_F_ALERTSEND;
 					break;
 				}
@@ -484,8 +480,6 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTSEND) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTSEND;
 			sock->alerted_flags |= ADHOC_F_ALERTSEND;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -533,8 +527,6 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTRECV) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTRECV;
 			sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -583,8 +575,6 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTACCEPT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTACCEPT;
 			sock->alerted_flags |= ADHOC_F_ALERTACCEPT;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -631,8 +621,6 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTCONNECT) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTCONNECT;
 			sock->alerted_flags |= ADHOC_F_ALERTCONNECT;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -667,8 +655,6 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (sock->flags & ADHOC_F_ALERTFLUSH) {
 			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			// FIXME: Should we clear the flag after alert signaled?
-			sock->flags &= ~ADHOC_F_ALERTFLUSH;
 			sock->alerted_flags |= ADHOC_F_ALERTFLUSH;
 		}
 		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
@@ -1758,8 +1744,6 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				}
 
 				if (sock->flags & ADHOC_F_ALERTPOLL) {
-					// FIXME: Should we clear the flag after alert signaled?
-                    sock->flags &= ~ADHOC_F_ALERTPOLL;
 					sock->alerted_flags |= ADHOC_F_ALERTPOLL;
 
 					return ERROR_NET_ADHOC_SOCKET_ALERTED;
