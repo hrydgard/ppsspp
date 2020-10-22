@@ -1125,8 +1125,8 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 			if (saddr != NULL) {
 				getLocalMac(saddr);
 			}
-			// Valid MAC supplied
-			if (isLocalMAC(saddr)) {
+			// Valid MAC supplied. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+			if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && isLocalMAC(saddr)) {
 				// Create Internet UDP Socket
 				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
@@ -2912,8 +2912,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 		if (saddr != NULL) {
 			getLocalMac(saddr);
 		}
-		// Valid Addresses
-		if (saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr) && !isZeroMAC(daddr)) {
+		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr) && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
 			if (isPTPPortInUse(sport, false))
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
@@ -3438,8 +3438,8 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 		if (saddr != NULL) {
 			getLocalMac(saddr);
 		}
-		// Valid Address
-		if (saddr != NULL && isLocalMAC(saddr)) {
+		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
 			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
 			if (isPTPPortInUse(sport, true))
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
