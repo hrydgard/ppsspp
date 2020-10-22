@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/StringUtils.h"
 
 #include "GPU/Common/ShaderId.h"
@@ -20,6 +22,23 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
+void SetupCompatForVulkan(GLSLShaderCompat &compat) {
+	compat.fragColor0 = "fragColor0";
+	compat.fragColor1 = "fragColor1";
+	compat.varying_fs = "in";
+	compat.varying_vs = "out";
+	compat.attribute = "in";
+	compat.bitwiseOps = true;
+	compat.framebufferFetchExtension = false;
+	compat.gles = false;
+	compat.glslES30 = true;
+	compat.glslVersionNumber = 450;
+	compat.lastFragData = nullptr;
+	compat.texture = "texture";
+	compat.texelFetch = "texelFetch";
+	compat.vulkan = true;
+}
+
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
@@ -30,6 +49,13 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return false;
 	case ShaderLanguage::GLSL_VULKAN:
 		return GenerateFragmentShaderVulkanGLSL(id, buffer, 0, errorString);
+	case ShaderLanguage::TEST_GLSL_VULKAN:
+	{
+		GLSLShaderCompat compat{};
+		SetupCompatForVulkan(compat);
+		uint64_t uniformMask;
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
 	case ShaderLanguage::GLSL_140:
 	case ShaderLanguage::GLSL_300:
 		// TODO: Need a device - except that maybe glslang could be used to verify these ....
@@ -75,15 +101,44 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return result;
 	}
 	case ShaderLanguage::GLSL_140:
-
 		return false;
 	case ShaderLanguage::GLSL_300:
-
 		return false;
+	case ShaderLanguage::TEST_GLSL_VULKAN:
+		// Temporary while testing the vulkan->glsl merge
+		return true;
+
 	default:
 		return false;
 	}
 }
+
+void PrintDiff(const char *a, const char *b) {
+	// Stupidest diff ever: Just print both lines, and a few around it, when we find a mismatch.
+	std::vector<std::string> a_lines;
+	std::vector<std::string> b_lines;
+	SplitString(a, '\n', a_lines);
+	SplitString(b, '\n', b_lines);
+	for (size_t i = 0; i < a_lines.size() && i < b_lines.size(); i++) {
+		if (a_lines[i] != b_lines[i]) {
+			// Print some context
+			for (size_t j = std::max((int)i - 4, 0); j < i; j++) {
+				printf("%s\n", a_lines[j].c_str());
+			}
+			printf("DIFF found at line %d:\n", (int)i);
+			printf("a: %s\n", a_lines[i].c_str());
+			printf("b: %s\n", b_lines[i].c_str());
+			printf("...continues...\n");
+			for (size_t j = i; j < i + 4 && j < a_lines.size(); j++) {
+				printf("a: %s\n", a_lines[j].c_str());
+				printf("b: %s\n", b_lines[j].c_str());
+			}
+			printf("==================\n");
+			return;
+		}
+	}
+}
+
 
 bool TestShaderGenerators() {
 	LoadD3D11();
@@ -91,8 +146,9 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D11,
+		ShaderLanguage::TEST_GLSL_VULKAN,
 		ShaderLanguage::GLSL_VULKAN,
+		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
 		ShaderLanguage::HLSL_DX9,
@@ -106,7 +162,7 @@ bool TestShaderGenerators() {
 	}
 	GMRng rng;
 	int successes = 0;
-	int count = 200;
+	int count = 700;
 
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
@@ -126,6 +182,17 @@ bool TestShaderGenerators() {
 				printf("%s\n", genErrorString.c_str());
 			}
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
+		}
+
+		// Temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
+		if (generateSuccess[0] != generateSuccess[1]) {
+			printf("mismatching success!\n");
+			return 1;
+		}
+		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
+			printf("mismatching shaders!\n");
+			PrintDiff(buffer[0], buffer[1]);
+			return 1;
 		}
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),

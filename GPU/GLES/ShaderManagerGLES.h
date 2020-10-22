@@ -88,7 +88,7 @@ public:
 
 	// Shader depal
 	int u_pal;  // the texture
-	int u_depal;  // the params
+	int u_depal_mask_shift_off_fmt;  // the params
 
 	// Fragment processing inputs
 	int u_alphacolorref;

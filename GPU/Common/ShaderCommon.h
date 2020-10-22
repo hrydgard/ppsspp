@@ -31,6 +31,8 @@ enum ShaderLanguage {
 	HLSL_DX9,
 	HLSL_D3D11,
 	HLSL_D3D11_LEVEL9,
+
+	TEST_GLSL_VULKAN,
 };
 
 enum DebugShaderType {
@@ -142,6 +144,7 @@ enum DoLightComputation {
 struct GLSLShaderCompat {
 	int glslVersionNumber;
 	bool gles;
+	bool vulkan;
 	const char *varying_fs;
 	const char *varying_vs;
 	const char *attribute;

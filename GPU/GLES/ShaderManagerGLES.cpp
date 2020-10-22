@@ -166,7 +166,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
 	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
 	queries.push_back({ &u_spline_counts, "u_spline_counts" });
-	queries.push_back({ &u_depal, "u_depal" });
+	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -298,7 +298,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 		// Poke in a bilinear filter flag in the top bit.
 		val |= gstate.isMagnifyFilteringEnabled() << 31;
-		render_->SetUniformI1(&u_depal, val);
+		render_->SetUniformI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
 	// Update any dirty uniforms before we draw
