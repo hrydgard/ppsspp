@@ -201,7 +201,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = textureSize(tex, 0);\n");
+				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
 				WRITE(p, "  vec2 fraction;\n");
 				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0;\n");
 				WRITE(p, "  if (bilinear) {\n");
@@ -396,7 +396,7 @@ bool GenerateFragmentShaderVulkanGLSL(const FShaderID &id, char *buffer, uint32_
 					WRITE(p, "  if (v.r + v.g + v.b < 0.002) %s\n", discardStatement);
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r + v.g + v.b > 0.002) %s\n", discardStatement);
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
