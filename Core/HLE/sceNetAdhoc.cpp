@@ -343,6 +343,13 @@ int StartGameModeScheduler(int bufSize) {
 }
 
 int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
+	auto sock = adhocSockets[req.id - 1];
+	if (sock->flags & ADHOC_F_ALERTRECV) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTRECV;
+		return 0;
+	}
+
 	sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
@@ -388,12 +395,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		auto sock = adhocSockets[req.id - 1];
-		if (sock->flags & ADHOC_F_ALERTRECV) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTRECV;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
 			return -1;
 		}
@@ -412,6 +414,11 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& pdpsocket = sock->data.pdp;
+	if (sock->flags & ADHOC_F_ALERTSEND) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTSEND;
+		return 0;
+	}
 
 	result = 0;
 	bool retry = false;
@@ -433,12 +440,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 				u64 now = (u64)(time_now_d() * 1000000.0);
-				if (sock->flags & ADHOC_F_ALERTSEND) {
-					result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-					sock->alerted_flags |= ADHOC_F_ALERTSEND;
-					break;
-				}
-				else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
 				else
@@ -461,6 +463,11 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;
+	if (sock->flags & ADHOC_F_ALERTSEND) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTSEND;
+		return 0;
+	}
 
 	// Send Data
 	int ret = send(uid, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
@@ -478,11 +485,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (sock->flags & ADHOC_F_ALERTSEND) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTSEND;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
@@ -505,6 +508,11 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;
+	if (sock->flags & ADHOC_F_ALERTRECV) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTRECV;
+		return 0;
+	}
 
 	int ret = recv(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL);
 	int sockerr = errno;
@@ -525,11 +533,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (sock->flags & ADHOC_F_ALERTRECV) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTRECV;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
@@ -552,6 +556,12 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;
+	if (sock->flags & ADHOC_F_ALERTACCEPT) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTACCEPT;
+		return 0;
+	}
+
 	sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
@@ -573,11 +583,7 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (sock->flags & ADHOC_F_ALERTACCEPT) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTACCEPT;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else {
@@ -596,8 +602,13 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;
-	int sockerr;
+	if (sock->flags & ADHOC_F_ALERTCONNECT) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTCONNECT;
+		return 0;
+	}
 
+	int sockerr;
 	// Wait for Connection (assuming "connect" has been called before)		
 	int ret = IsSocketReady(uid, false, true, &sockerr);
 
@@ -619,11 +630,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	// Timeout
 	else if (ret == 0) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (sock->flags & ADHOC_F_ALERTCONNECT) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTCONNECT;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else {
@@ -646,6 +653,11 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;
+	if (sock->flags & ADHOC_F_ALERTFLUSH) {
+		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
+		sock->alerted_flags |= ADHOC_F_ALERTFLUSH;
+		return 0;
+	}
 
 	// Try Sending Empty Data
 	int sockerr = FlushPtpSocket(uid);
@@ -653,11 +665,7 @@ int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		if (sock->flags & ADHOC_F_ALERTFLUSH) {
-			result = ERROR_NET_ADHOC_SOCKET_ALERTED;
-			sock->alerted_flags |= ADHOC_F_ALERTFLUSH;
-		}
-		else if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
 		else
@@ -1305,6 +1313,12 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 							if (timeout > 0) 
 								setSockTimeout(pdpsocket.id, SO_SNDTIMEO, timeout);
 
+							if (socket->flags & ADHOC_F_ALERTSEND) {
+								socket->alerted_flags |= ADHOC_F_ALERTSEND;
+
+								return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+							}
+
 							// Single Target
 							if (!isBroadcastMAC(daddr)) {
 								// Fill in Target Structure
@@ -1529,6 +1543,12 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				// Apply Receive Timeout Settings to Socket. Let's not wait forever (0 = indefinitely)
 				if (timeout > 0) 
 					setSockTimeout(pdpsocket.id, SO_RCVTIMEO, timeout);
+
+				if (socket->flags & ADHOC_F_ALERTRECV) {
+					socket->alerted_flags |= ADHOC_F_ALERTRECV;
+
+					return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+				}
 
 				// Sender Address
 				sockaddr_in sin;
@@ -3172,6 +3192,12 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 				auto& ptpsocket = socket->data.ptp;
 				socket->nonblocking = flag;
 
+				if (socket->flags & ADHOC_F_ALERTACCEPT) {
+					socket->alerted_flags |= ADHOC_F_ALERTACCEPT;
+
+					return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+				}
+
 				// Listener Socket
 				if (ptpsocket.state == ADHOC_PTP_STATE_LISTEN) {
 					hleEatMicro(500);
@@ -3254,6 +3280,12 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 			auto socket = adhocSockets[id - 1];
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = flag;
+
+			if (socket->flags & ADHOC_F_ALERTCONNECT) {
+				socket->alerted_flags |= ADHOC_F_ALERTCONNECT;
+
+				return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+			}
 
 			// Phantasy Star Portable 2 will try to reconnect even when previous connect already success, so we should return success too if it's already connected
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
@@ -3597,6 +3629,12 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Apply Send Timeout Settings to Socket
 					if (timeout > 0) 
 						setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
+
+					if (socket->flags & ADHOC_F_ALERTSEND) {
+						socket->alerted_flags |= ADHOC_F_ALERTSEND;
+
+						return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+					}
 					
 					// Acquire Network Lock
 					// _acquireNetworkLock();
@@ -3688,6 +3726,12 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Apply Receive Timeout Settings to Socket. Let's not wait forever (0 = indefinitely)
 					if (timeout > 0)
 						setSockTimeout(ptpsocket.id, SO_RCVTIMEO, timeout);
+
+					if (socket->flags & ADHOC_F_ALERTRECV) {
+						socket->alerted_flags |= ADHOC_F_ALERTRECV;
+
+						return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+					}
 
 					// Acquire Network Lock
 					// _acquireNetworkLock();
@@ -3796,6 +3840,12 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 			auto socket = adhocSockets[id - 1];
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = nonblock;
+
+			if (socket->flags & ADHOC_F_ALERTFLUSH) {
+				socket->alerted_flags |= ADHOC_F_ALERTFLUSH;
+
+				return hleLogError(SCENET, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
+			}
 
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
