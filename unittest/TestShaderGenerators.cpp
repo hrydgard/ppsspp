@@ -11,7 +11,6 @@
 #include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
@@ -41,8 +40,6 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	case ShaderLanguage::GLSL_300:
 		// TODO: Need a device - except that maybe glslang could be used to verify these ....
 		return false;
-	case ShaderLanguage::TEST_GLSL_VULKAN:
-		return false;
 	default:
 		return false;
 	}
@@ -58,8 +55,6 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return false;
 		// return DX9::GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_DX9);
 	case ShaderLanguage::GLSL_VULKAN:
-		return GenerateVertexShaderVulkanGLSL(id, buffer, errorString);
-	case ShaderLanguage::TEST_GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat{};
 		compat.SetupForVulkan();
@@ -95,8 +90,6 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return false;
 	case ShaderLanguage::GLSL_300:
 		return false;
-	case ShaderLanguage::TEST_GLSL_VULKAN:
-		return true;
 	default:
 		return false;
 	}
@@ -135,7 +128,6 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::TEST_GLSL_VULKAN,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_140,
@@ -171,7 +163,8 @@ bool TestShaderGenerators() {
 				printf("%s\n", genErrorString[j].c_str());
 			}
 		}
-
+		/*
+		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
 		if (generateSuccess[0] != generateSuccess[1]) {
 			printf("mismatching success! '%s' '%s'\n", genErrorString[0].c_str(), genErrorString[1].c_str());
 			printf("%s\n", buffer[0]);
@@ -183,6 +176,7 @@ bool TestShaderGenerators() {
 			PrintDiff(buffer[0], buffer[1]);
 			return false;
 		}
+		*/
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.

@@ -31,8 +31,6 @@ enum ShaderLanguage {
 	HLSL_DX9,
 	HLSL_D3D11,
 	HLSL_D3D11_LEVEL9,
-
-	TEST_GLSL_VULKAN,
 };
 
 enum DebugShaderType {

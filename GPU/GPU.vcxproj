@@ -483,7 +483,6 @@
     <ClInclude Include="Vulkan\StateMappingVulkan.h" />
     <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
     <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
-    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
     <ClInclude Include="Vulkan\VulkanUtil.h" />
   </ItemGroup>
   <ItemGroup>
@@ -674,7 +673,6 @@
     <ClCompile Include="Vulkan\StencilBufferVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
-    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
     <ClCompile Include="Vulkan\VulkanUtil.cpp" />
   </ItemGroup>
   <ItemGroup>

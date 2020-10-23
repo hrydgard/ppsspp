@@ -40,7 +40,7 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
+#include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
@@ -265,7 +265,10 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
 		std::string genErrorString;
-		GenerateVertexShaderVulkanGLSL(VSID, codeBuffer_, &genErrorString);
+		uint64_t uniformMask = 0;  // Not used
+		uint32_t attributeMask = 0;  // Not used
+		bool success = GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString);
+		_assert_(success);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
@@ -397,7 +400,9 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 		std::string genErrorString;
-		if (!GenerateVertexShaderVulkanGLSL(id, codeBuffer_, &genErrorString)) {
+		uint32_t attributeMask = 0;
+		uint64_t uniformMask = 0;
+		if (!GenerateVertexShaderGLSL(id, codeBuffer_, compat, &attributeMask, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
