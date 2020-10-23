@@ -595,6 +595,7 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 	compat.bitwiseOps = false;
 	compat.lastFragData = nullptr;
 	compat.gles = gl_extensions.IsGLES;
+	compat.forceMatrix4x4 = true;
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {

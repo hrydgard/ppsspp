@@ -156,6 +156,7 @@ struct GLSLShaderCompat {
 	const char *framebufferFetchExtension;
 	bool glslES30;
 	bool bitwiseOps;
+	bool forceMatrix4x4;
 
 	void SetupForVulkan();
 };

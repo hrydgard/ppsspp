@@ -346,9 +346,9 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 				}
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  vec3 worldpos = vec4(position.xyz, 1.0) * u_world;\n");
+				WRITE(p, "  vec3 worldpos = (vec4(position.xyz, 1.0) * u_world).xyz;\n");
 				if (hasNormal)
-					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snormal, 0.0) * u_world);\n", flipNormal ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize((vec4(%snormal, 0.0) * u_world).xyz);\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
@@ -382,7 +382,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * u_world);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * u_view, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4((vec4(worldpos, 1.0) * u_view).xyz, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -595,7 +595,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (%s * u_tex).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (%s * u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 

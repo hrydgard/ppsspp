@@ -197,7 +197,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	int numBoneWeights = 0;
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
 	bool texcoordVec3In = false;
-	bool scaleUV = false;
 
 	if (compat.vulkan) {
 		if (enableBones) {
@@ -291,8 +290,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 			*uniformMask |= DIRTY_PROJMATRIX;
 			// Add all the uniforms we'll need to transform properly.
 		}
-
-		scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 		if (useHWTransform) {
 			// When transforming by hardware, we need a great deal more uniforms...
@@ -625,7 +622,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 			WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(worldpos, 1.0) * u_view;\n");
+		WRITE(p, "  vec4 viewPos = vec4((vec4(worldpos, 1.0) * u_view).xyz, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -787,6 +784,8 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 
+		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
+
 		// Step 3: UV generation
 		if (doTexture) {
 			switch (uvGenMode) {
@@ -795,7 +794,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tess.tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
 							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
@@ -876,6 +875,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		WRITE(p, "  }\n");
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
+	if (compat.vulkan) {
+		WRITE(p, "  gl_PointSize = 1.0;\n");
+	}
 
 	WRITE(p, "}\n");
 	return true;

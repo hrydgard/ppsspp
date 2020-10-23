@@ -95,7 +95,8 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return false;
 	case ShaderLanguage::GLSL_300:
 		return false;
-
+	case ShaderLanguage::TEST_GLSL_VULKAN:
+		return true;
 	default:
 		return false;
 	}
@@ -117,7 +118,7 @@ void PrintDiff(const char *a, const char *b) {
 			printf("a: %s\n", a_lines[i].c_str());
 			printf("b: %s\n", b_lines[i].c_str());
 			printf("...continues...\n");
-			for (size_t j = i; j < i + 4 && j < a_lines.size(); j++) {
+			for (size_t j = i + 1; j < i + 5 && j < a_lines.size(); j++) {
 				printf("a: %s\n", a_lines[j].c_str());
 				printf("b: %s\n", b_lines[j].c_str());
 			}
@@ -182,7 +183,7 @@ bool TestShaderGenerators() {
 			return 1;
 		}
 		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
-			printf("mismatching shaders!\n");
+			printf("mismatching shaders! a=glsl b=vulkan\n");
 			PrintDiff(buffer[0], buffer[1]);
 			return 1;
 		}

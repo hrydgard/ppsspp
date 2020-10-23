@@ -121,7 +121,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
 			WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
 			if (doTextureTransform)
-				WRITE(p, "float4x3 u_tex : register(c%i);\n", CONST_VS_TEXMTX);
+				WRITE(p, "float4x3 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
 			if (enableBones) {
 #ifdef USE_BONE_ARRAY
 				WRITE(p, "float4x3 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
@@ -687,7 +687,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_tex) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				break;
 
