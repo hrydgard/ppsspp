@@ -1263,8 +1263,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/DebugVisVulkan.h
 	GPU/Vulkan/DrawEngineVulkan.cpp
 	GPU/Vulkan/DrawEngineVulkan.h
-	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
-	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
 	GPU/Vulkan/FramebufferManagerVulkan.cpp
 	GPU/Vulkan/FramebufferManagerVulkan.h
 	GPU/Vulkan/GPU_Vulkan.cpp

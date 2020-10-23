@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/StringUtils.h"
 
 #include "GPU/Common/ShaderId.h"
@@ -6,7 +8,6 @@
 
 #include "GPU/Vulkan/VulkanContext.h"
 
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
@@ -20,6 +21,7 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
+
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
@@ -29,7 +31,12 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		// TODO: Need a device :(  Returning false here so it doesn't get tried.
 		return false;
 	case ShaderLanguage::GLSL_VULKAN:
-		return GenerateFragmentShaderVulkanGLSL(id, buffer, 0, errorString);
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForVulkan();
+		uint64_t uniformMask;
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
 	case ShaderLanguage::GLSL_140:
 	case ShaderLanguage::GLSL_300:
 		// TODO: Need a device - except that maybe glslang could be used to verify these ....
@@ -75,15 +82,41 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return result;
 	}
 	case ShaderLanguage::GLSL_140:
-
 		return false;
 	case ShaderLanguage::GLSL_300:
-
 		return false;
+
 	default:
 		return false;
 	}
 }
+
+void PrintDiff(const char *a, const char *b) {
+	// Stupidest diff ever: Just print both lines, and a few around it, when we find a mismatch.
+	std::vector<std::string> a_lines;
+	std::vector<std::string> b_lines;
+	SplitString(a, '\n', a_lines);
+	SplitString(b, '\n', b_lines);
+	for (size_t i = 0; i < a_lines.size() && i < b_lines.size(); i++) {
+		if (a_lines[i] != b_lines[i]) {
+			// Print some context
+			for (size_t j = std::max((int)i - 4, 0); j < i; j++) {
+				printf("%s\n", a_lines[j].c_str());
+			}
+			printf("DIFF found at line %d:\n", (int)i);
+			printf("a: %s\n", a_lines[i].c_str());
+			printf("b: %s\n", b_lines[i].c_str());
+			printf("...continues...\n");
+			for (size_t j = i; j < i + 4 && j < a_lines.size(); j++) {
+				printf("a: %s\n", a_lines[j].c_str());
+				printf("b: %s\n", b_lines[j].c_str());
+			}
+			printf("==================\n");
+			return;
+		}
+	}
+}
+
 
 bool TestShaderGenerators() {
 	LoadD3D11();
@@ -91,8 +124,8 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_VULKAN,
+		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
 		ShaderLanguage::HLSL_DX9,
@@ -106,7 +139,7 @@ bool TestShaderGenerators() {
 	}
 	GMRng rng;
 	int successes = 0;
-	int count = 200;
+	int count = 700;
 
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
@@ -118,15 +151,30 @@ bool TestShaderGenerators() {
 		id.d[1] = top;
 
 		bool generateSuccess[numLanguages]{};
+		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			std::string genErrorString;
-			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], &genErrorString);
-			if (!genErrorString.empty()) {
-				printf("%s\n", genErrorString.c_str());
+			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], &genErrorString[j]);
+			if (!genErrorString[j].empty()) {
+				printf("%s\n", genErrorString[j].c_str());
 			}
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
+
+		/*
+		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
+		if (generateSuccess[0] != generateSuccess[1]) {
+			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
+			printf("%s\n", buffer[0]);
+			printf("%s\n", buffer[1]);
+			return 1;
+		}
+		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
+			printf("mismatching shaders!\n");
+			PrintDiff(buffer[0], buffer[1]);
+			return 1;
+		}
+		*/
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
