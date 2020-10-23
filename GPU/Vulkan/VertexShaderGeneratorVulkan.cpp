@@ -406,6 +406,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
 
+		bool anySpots = false;
 		if (enableLighting) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
@@ -419,18 +420,24 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
+				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN)
+					anySpots = true;
 			}
 
 			if (!specularIsZero) {
-				WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
+				WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
 			}
 			if (!diffuseIsZero) {
 				WRITE(p, "  vec3 toLight;\n");
-				WRITE(p, "  vec3 diffuse;\n");
+				WRITE(p, "  lowp vec3 diffuse;\n");
 			}
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
-				WRITE(p, "  float lightScale;\n");
+				WRITE(p, "  lowp float lightScale;\n");
+			}
+			WRITE(p, "  mediump float ldot;\n");
+			if (anySpots) {
+				WRITE(p, "  lowp float angle;\n");
 			}
 		}
 
@@ -455,14 +462,14 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
-			WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
+			WRITE(p, "  ldot = dot(toLight, worldnormal);\n");
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
 				WRITE(p, "  if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "    dot%i = 1.0;\n", i);
+				WRITE(p, "    ldot = 1.0;\n");
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), u_matspecular.a);\n", i, i);
+				WRITE(p, "    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				WRITE(p, "  }\n");
 			}
 
@@ -478,9 +485,9 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  float angle%i = length(u_lightdir%d) == 0.0 ? 0.0 : dot(normalize(u_lightdir%d), toLight);\n", i, i, i);
-				WRITE(p, "  if (angle%i >= u_lightangle_spotCoef%d.x) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%d.y <= 0.0 ? 1.0 : pow(angle%i, u_lightangle_spotCoef%d.y));\n", i, i, i, i);
+				WRITE(p, "  angle = length(u_lightdir%d) == 0.0 ? 0.0 : dot(normalize(u_lightdir%d), toLight);\n", i, i);
+				WRITE(p, "  if (angle >= u_lightangle_spotCoef%d.x) {\n", i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%d, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%d.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%d.y));\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -490,17 +497,17 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%d * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%d * %s) * max(ldot, 0.0);\n", i, diffuseStr);
 			if (doSpecular) {
-				WRITE(p, "  if (dot%i >= 0.0) {\n", i);
-				WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
+				WRITE(p, "  if (ldot >= 0.0) {\n");
+				WRITE(p, "    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
 				WRITE(p, "    if (u_matspecular.a <= 0.0) {\n");
-				WRITE(p, "      dot%i = 1.0;\n", i);
+				WRITE(p, "      ldot = 1.0;\n");
 				WRITE(p, "    } else {\n");
-				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), u_matspecular.a);\n", i, i);
+				WRITE(p, "      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				WRITE(p, "    }\n");
-				WRITE(p, "    if (dot%i > 0.0)\n", i);
-				WRITE(p, "      lightSum1 += u_lightspecular%d * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "    if (ldot > 0.0)\n");
+				WRITE(p, "      lightSum1 += u_lightspecular%d * %s * ldot %s;\n", i, specularStr, timesLightScale);
 				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%d * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);

@@ -196,7 +196,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 
 	int numBoneWeights = 0;
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
-	bool texcoordVec3In = false;
+	bool texcoordInVec3 = false;
 
 	if (compat.vulkan) {
 		if (enableBones) {
@@ -213,7 +213,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		if (useHWTransform && hasNormal)
 			WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
 
-		bool texcoordInVec3 = false;
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
@@ -267,7 +266,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
-				texcoordVec3In = true;
+				texcoordInVec3 = true;
 			} else {
 				WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
 			}
@@ -521,7 +520,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (texcoordVec3In) {
+			if (texcoordInVec3) {
 				WRITE(p, "  v_texcoord = texcoord;\n");
 			} else {
 				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
@@ -584,15 +583,17 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1)
+			if (numBoneWeights == 1 && !compat.vulkan)
 				WRITE(p, "  %s skinMatrix = w1 * u_bone0", boneMatrix);
 			else
 				WRITE(p, "  %s skinMatrix = w1.x * u_bone0", boneMatrix);
 			for (int i = 1; i < numBoneWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				if (!compat.vulkan) {
+					if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
+					if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				}
 				WRITE(p, " + %s * u_bone%i", weightAttr, i);
 			}
 
