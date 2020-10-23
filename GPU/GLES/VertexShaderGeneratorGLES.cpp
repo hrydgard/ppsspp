@@ -419,7 +419,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 			WRITE(p, "  TessData data[];\n");
 			WRITE(p, "} tess_data;\n");
 
-			WRITE(p, "layout (std430) struct TessWeight {\n");
+			WRITE(p, "struct TessWeight {\n");
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
@@ -450,7 +450,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 			WRITE(p, "}\n");
 		}
 
-		if (!gl_extensions.VersionGEThan(3, 0, 0)) { // For glsl version 1.10
+		if (compat.glslVersionNumber < 130) { // For glsl version 1.10
 			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
 			WRITE(p, "  return mat4(u * v[0], u * v[1], u * v[2], u * v[3]);\n");
 			WRITE(p, "}\n");
@@ -473,23 +473,43 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		WRITE(p, "  vec3 _pos[16];\n");
 		WRITE(p, "  vec2 _tex[16];\n");
 		WRITE(p, "  vec4 _col[16];\n");
-		WRITE(p, "  int index_u, index_v;\n");
-		for (int i = 0; i < 4; i++) {
-			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index_u = (%i + point_pos.x);\n", j);
-				WRITE(p, "  index_v = (%i + point_pos.y);\n", i);
-				WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, compat.texelFetch);
-				if (doTexture && hasTexcoordTess)
-					WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, compat.texelFetch);
-				if (hasColorTess)
-					WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, compat.texelFetch);
+		if (compat.coefsFromBuffers) {
+			WRITE(p, "  int index;\n");
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
+					WRITE(p, "  _pos[%i] = tess_data.data[index].pos.xyz;\n", i * 4 + j);
+					if (doTexture && hasTexcoordTess)
+						WRITE(p, "  _tex[%i] = tess_data.data[index].uv.xy;\n", i * 4 + j);
+					if (hasColorTess)
+						WRITE(p, "  _col[%i] = tess_data.data[index].color;\n", i * 4 + j);
+				}
 			}
-		}
 
-		// Basis polynomials as weight coefficients
-		WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2, 0)");
-		WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2, 0)");
-		WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
+			// Basis polynomials as weight coefficients
+			WRITE(p, "  vec4 basis_u = tess_weights_u.data[weight_idx.x].basis;\n");
+			WRITE(p, "  vec4 basis_v = tess_weights_v.data[weight_idx.y].basis;\n");
+			WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
+
+		} else {
+			WRITE(p, "  int index_u, index_v;\n");
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					WRITE(p, "  index_u = (%i + point_pos.x);\n", j);
+					WRITE(p, "  index_v = (%i + point_pos.y);\n", i);
+					WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, compat.texelFetch);
+					if (doTexture && hasTexcoordTess)
+						WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, compat.texelFetch);
+					if (hasColorTess)
+						WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, compat.texelFetch);
+				}
+			}
+
+			// Basis polynomials as weight coefficients
+			WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2, 0)");
+			WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2, 0)");
+			WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
+		}
 
 		// Tessellate
 		WRITE(p, "  tess.pos = tess_sample(_pos, basis);\n");
@@ -504,9 +524,15 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		else
 			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
-			// Derivatives as weight coefficients
-			WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2 + 1, 0)");
-			WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2 + 1, 0)");
+			if (compat.coefsFromBuffers) {
+				// Derivatives as weight coefficients
+				WRITE(p, "  vec4 deriv_u = tess_weights_u.data[weight_idx.x].deriv;\n");
+				WRITE(p, "  vec4 deriv_v = tess_weights_v.data[weight_idx.y].deriv;\n");
+			} else {
+				// Derivatives as weight coefficients
+				WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2 + 1, 0)");
+				WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.y * 2 + 1, 0)");
+			}
 
 			WRITE(p, "  vec3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
 			WRITE(p, "  vec3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");

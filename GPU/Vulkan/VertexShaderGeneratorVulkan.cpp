@@ -216,7 +216,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 		WRITE(p, "  TessData data[];\n");
 		WRITE(p, "} tess_data;\n");
 
-		WRITE(p, "layout (std430) struct TessWeight {\n");
+		WRITE(p, "struct TessWeight {\n");
 		WRITE(p, "  vec4 basis;\n");
 		WRITE(p, "  vec4 deriv;\n");
 		WRITE(p, "};\n");

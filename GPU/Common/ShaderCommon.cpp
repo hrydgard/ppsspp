@@ -118,4 +118,5 @@ void GLSLShaderCompat::SetupForVulkan() {
 	texelFetch = "texelFetch";
 	vulkan = true;
 	forceMatrix4x4 = false;
+	coefsFromBuffers = true;
 }
