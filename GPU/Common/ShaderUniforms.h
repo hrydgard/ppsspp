@@ -194,10 +194,9 @@ struct UB_VS_Bones {
 };
 
 static const char *ub_vs_bonesStr =
-R"(	mat3x4 u_bone[8];
+R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
-// HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_bonesStr =
 R"(	float4x3 u_bone[8];
 )";

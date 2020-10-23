@@ -580,25 +580,14 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-#ifdef USE_BONE_ARRAY
-			if (numBoneWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
-			else
-				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone[0]");
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
-				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
-			}
-#else
+			const char *boneMatrix = compat.forceMatrix4x4 ? "mat4" : "mat3x4";
+
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
 			if (numBoneWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = w1 * u_bone0");
+				WRITE(p, "  %s skinMatrix = w1 * u_bone0", boneMatrix);
 			else
-				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone0");
+				WRITE(p, "  %s skinMatrix = w1.x * u_bone0", boneMatrix);
 			for (int i = 1; i < numBoneWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
@@ -606,20 +595,18 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
 				WRITE(p, " + %s * u_bone%i", weightAttr, i);
 			}
-#endif
 
 			WRITE(p, ";\n");
 
-			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix).xyz %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = (vec4(skinnedpos, 1.0) * u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = (vec4(%snormal, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
 			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = (vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize((vec4(skinnednormal, 0.0) * u_world).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4((vec4(worldpos, 1.0) * u_view).xyz, 1.0);\n");

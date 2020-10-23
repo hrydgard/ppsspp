@@ -495,7 +495,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
 			render_->SetUniformM4x4(&u_bone[i], bonetemp);
 		}
 	}

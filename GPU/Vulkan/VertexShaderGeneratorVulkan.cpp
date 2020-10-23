@@ -361,25 +361,24 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			WRITE(p, "  mat3x4 skinMatrix = w1.x * u_bone[0];\n");
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * u_bone0");
 			if (numBoneWeights > 1) {
 				for (int i = 1; i < numBoneWeights; i++) {
-					WRITE(p, "    skinMatrix += %s * u_bone[%i];\n", boneWeightAttr[i], i);
+					WRITE(p, " + %s * u_bone%d", boneWeightAttr[i], i);
 				}
 			}
 
 			WRITE(p, ";\n");
 
-			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix) %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * u_world;\n");
+			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix).xyz %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = (vec4(skinnedpos, 1.0) * u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = vec4(%snormal, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = (vec4(%snormal, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
 			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = (vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * u_world);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize((vec4(skinnednormal, 0.0) * u_world).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4((vec4(worldpos, 1.0) * u_view).xyz, 1.0);\n");
@@ -408,7 +407,7 @@ bool GenerateVertexShaderVulkanGLSL(const VShaderID &id, char *buffer, std::stri
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
