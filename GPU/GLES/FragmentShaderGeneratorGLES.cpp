@@ -62,6 +62,9 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	if (compat.vulkan) {
 		WRITE(p, "%s", vulkan_glsl_preamble);
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
 	} else {
 		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
 
@@ -621,15 +624,15 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "vec3(v.a)"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "vec3(1.0 - v.a)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "splat3(v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "splat3(v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0 - v.a * 2.0)"; break;
 			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
 			// It's close to the same, but clamping can still be an issue.
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "splat3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
@@ -654,34 +657,34 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
 			}
 
-			const char *srcFactor = "vec3(1.0)";
-			const char *dstFactor = "vec3(0.0)";
+			const char *srcFactor = "splat3(1.0)";
+			const char *dstFactor = "splat3(0.0)";
 
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
-			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(vec3(1.0) - destColor.rgb)"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "vec3(v.a)"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "vec3(1.0 - v.a)"; break;
-			case GE_SRCBLEND_DSTALPHA:          srcFactor = "vec3(destColor.a)"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "vec3(1.0 - destColor.a)"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(splat3(1.0) - destColor.rgb)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "splat3(v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "splat3(destColor.a)"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0 - destColor.a)"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "splat3(v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "splat3(destColor.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "splat3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
-			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(vec3(1.0) - v.rgb)"; break;
-			case GE_DSTBLEND_SRCALPHA:          dstFactor = "vec3(v.a)"; break;
-			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "vec3(1.0 - v.a)"; break;
-			case GE_DSTBLEND_DSTALPHA:          dstFactor = "vec3(destColor.a)"; break;
-			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "vec3(1.0 - destColor.a)"; break;
-			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "vec3(v.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
+			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(splat3(1.0) - v.rgb)"; break;
+			case GE_DSTBLEND_SRCALPHA:          dstFactor = "splat3(v.a)"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "splat3(1.0 - v.a)"; break;
+			case GE_DSTBLEND_DSTALPHA:          dstFactor = "splat3(destColor.a)"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "splat3(1.0 - destColor.a)"; break;
+			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "splat3(v.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "splat3(1.0 - v.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "splat3(destColor.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "splat3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			default:                            dstFactor = "u_blendFixB"; break;
 			}

@@ -372,15 +372,15 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "float3(v.a, v.a, v.a)"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0 - v.a, 1.0 - v.a, 1.0 - v.a)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "splat3(v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "float3(v.a * 2.0, v.a * 2.0, v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0 - v.a * 2.0, 1.0 - v.a * 2.0, 1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "splat3(v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0 - v.a * 2.0)"; break;
 			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
 			// It's close to the same, but clamping can still be an issue.
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "float3(2.0, 2.0, 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "splat3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
@@ -401,29 +401,29 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
-			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(float3(1.0, 1.0, 1.0) - destColor.rgb)"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(splat3(1.0) - destColor.rgb)"; break;
 			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0) - v.aaa"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "float3(destColor.aaa)"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0) - destColor.aaa"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0) - v.aaa * 2.0"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "destColor.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
-			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(float3(1.0, 1.0, 1.0) - v.rgb)"; break;
+			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(splat3(1.0) - v.rgb)"; break;
 			case GE_DSTBLEND_SRCALPHA:          dstFactor = "v.aaa"; break;
-			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "splat3(1.0) - v.aaa"; break;
 			case GE_DSTBLEND_DSTALPHA:          dstFactor = "destColor.aaa"; break;
-			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "splat3(1.0) - destColor.aaa"; break;
 			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "v.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "splat3(1.0) - v.aaa * 2.0"; break;
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			default:                            dstFactor = "u_blendFixB"; break;
 			}
@@ -512,10 +512,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  v.rgb = float3(1.0, 1.0, 1.0);\n");
+		WRITE(p, "  v.rgb = splat3(1.0);\n");
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  v.rgb = float3(1.0, 1.0, 1.0) - v.rgb;\n");
+		WRITE(p, "  v.rgb = splat3(1.0) - v.rgb;\n");
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;

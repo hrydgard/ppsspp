@@ -636,7 +636,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = float3(0, 0, 0);\n");
+				WRITE(p, "  Out.v_color1 = splat3(0.0);\n");
 		}
 
 		// Step 3: UV generation
@@ -651,7 +651,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						else
 							WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  Out.v_texcoord = float3(0.0, 0.0, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = splat3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
