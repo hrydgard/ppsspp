@@ -918,6 +918,7 @@ extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
 extern int adhocConnectionType;
@@ -1030,7 +1031,7 @@ void changeBlockingMode(int fd, int nonblocking);
  * Count Virtual Networks by analyzing the Friend List
  * @return Number of Virtual Networks
  */
-int countAvailableNetworks();
+int countAvailableNetworks(const bool excludeSelf = false);
 
 /*
  * Find an existing group in networks

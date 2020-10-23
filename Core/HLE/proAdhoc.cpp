@@ -66,6 +66,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
 int adhocConnectionType               = ADHOC_CONNECT;
@@ -319,7 +320,7 @@ void changeBlockingMode(int fd, int nonblocking) {
 #endif
 }
 
-int countAvailableNetworks() {
+int countAvailableNetworks(const bool excludeSelf) {
 	// Network Count
 	int count = 0;
 
@@ -327,7 +328,7 @@ int countAvailableNetworks() {
 	SceNetAdhocctlScanInfo * group = networks;
 
 	// Count Groups
-	for (; group != NULL; group = group->next) count++;
+	for (; group != NULL && (!excludeSelf || !isLocalMAC(&group->bssid.mac_addr)); group = group->next) count++;
 
 	// Return Network Count
 	return count;
@@ -1169,6 +1170,7 @@ void AfterAdhocMipsCall::run(MipsCall& call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", HandlerID, EventID);
 	SetAdhocctlInCallback(false);
+	isAdhocctlBusy = false;
 	DEBUG_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", HandlerID, EventID, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
@@ -1341,6 +1343,7 @@ int friendFinder(){
 					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
 					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 					netAdhocGameModeEntered = false;
+					isAdhocctlBusy = false;
 				} 
 				else {
 					networkInited = false;

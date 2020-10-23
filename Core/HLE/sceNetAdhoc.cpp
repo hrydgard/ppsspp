@@ -74,7 +74,7 @@ int adhocDefaultDelay = 10000; //10000
 int adhocExtraDelay = 20000; //20000
 int adhocEventPollDelay = 100000; //100000; // Same timings with PSP_ADHOCCTL_RECV_TIMEOUT ?
 int adhocMatchingEventDelay = 30000; //30000
-int adhocEventDelay = 1000000; //1000000
+int adhocEventDelay = 2000000; //2000000 on real PSP ?
 u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
 
 SceUID threadAdhocID;
@@ -287,6 +287,12 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
 		adhocctlState = waitVal;
+		// FIXME: It seems Adhocctl is still busy within the Adhocctl Handler function (ie. during callbacks), 
+		// so we should probably set isAdhocctlBusy to false after mispscall are fully executed (ie. in afterAction).
+		// But since Adhocctl Handler is optional, there might be cases where there are no handler thus no callback/mipcall being triggered,
+		// so we should probably need to set isAdhocctlBusy to false here too as a workaround (or may be there is internal handler by default?)
+		if (adhocctlHandlers.empty())
+			isAdhocctlBusy = false;
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -877,7 +883,7 @@ void netAdhocValidateLoopMemory() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 7);
+	auto s = p.Section("sceNetAdhoc", 1, 8);
 	if (!s)
 		return;
 
@@ -960,6 +966,14 @@ void __NetAdhocDoState(PointerWrap &p) {
 	else {
 		adhocctlStateEvent = -1;
 	}
+	if (s >= 8) {
+		Do(p, isAdhocctlBusy);
+		Do(p, netAdhocGameModeEntered);
+	}
+	else {
+		isAdhocctlBusy = false;
+		netAdhocGameModeEntered = false;
+	}
 	
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -1031,6 +1045,7 @@ u32 sceNetAdhocInit() {
 	if (!netAdhocInited) {
 		// Library initialized
 		netAdhocInited = true;
+		isAdhocctlBusy = false;
 
 		// FIXME: It seems official prx is using sceNetAdhocGameModeDeleteMaster in here?
 		NetAdhocGameMode_DeleteMaster();
@@ -1128,9 +1143,10 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 		// Valid Arguments are supplied
 		if (mac != NULL && bufferSize > 0) {
 			// Port is in use by another PDP Socket. 
-			// TODO: Need to test whether using the same PDP port is allowed or not, since PDP/UDP is connectionless it might be allowed.
-			if (isPDPPortInUse(port))
+			if (isPDPPortInUse(port)) {
+				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+			}
 
 			//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 			if (port == 0) port = -static_cast<int>(portOffset);
@@ -1183,6 +1199,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 						// Allocated Memory
 						if (internal != NULL) {
 							// Find Free Translator Index
+							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 							int i = 0; 
 							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
 
@@ -1973,10 +1990,18 @@ int sceNetAdhocctlScan() {
 
 	// Library initialized
 	if (netAdhocctlInited) {
-		int us = adhocDefaultDelay * 2;
+		int us = adhocDefaultDelay;
+		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
+		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
+			// TODO: Valhalla Knights 2 need handler notification, but need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
+			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
+			hleEatMicro(500);
+			return 0;
+		}
 
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
-		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED) {
+		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
+			isAdhocctlBusy = true;
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 
@@ -2005,22 +2030,16 @@ int sceNetAdhocctlScan() {
 					return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
 				}
 			}
-			else {
-				// Return Success and let friendFinder thread to notify the handler when scan completed
-				// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
-				hleEatMicro(us);
-				return 0;
-			}
-		}
-		else if (adhocctlState == ADHOCCTL_STATE_SCANNING)
-			return hleLogError(SCENET, ERROR_NET_ADHOCCTL_BUSY, "busy");
 
-		// Already connected to a group. Should we fake a success?
-		// We need to notify the handler on success, even if it was faked. Using flag = 0/ADHOCCTL_EVENT_ERROR for error?
-		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
-		// FIXME: returning ERROR_NET_ADHOCCTL_BUSY may trigger the game (ie. Ford Street Racing) to call sceNetAdhocctlDisconnect, But Not returning a Success(0) will cause Valhalla Knights 2 not working properly
-		hleEatMicro(us);
-		return 0;
+			// Return Success and let friendFinder thread to notify the handler when scan completed
+			// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
+			hleEatMicro(us);
+			// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlScan switching to a different thread for at least 100ms after returning success and before executing the next line?
+			return hleDelayResult(0, "scan delay", adhocEventPollDelay);
+		}
+		
+		// FIXME: Returning BUSY when previous adhocctl handler's callback is not fully executed yet, But returning success and notifying handler's callback with error (ie. ALREADY_CONNECTED) when previous adhocctl handler's callback is fully executed? Is there a case where error = BUSY sent through handler's callback?
+		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_BUSY, "busy");
 	}
 
 	// Library uninitialized
@@ -2045,12 +2064,20 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 		// Minimum Argument Requirements
 		if (buflen != NULL) {
+			// FIXME: Do we need to exclude Groups created by this device it's self?
+			bool excludeSelf = false;
+
 			// Multithreading Lock
 			peerlock.lock();
 
+			// FIXME: When already connected to a group GetScanInfo will return size = 0 ? or may be only hides the group created by it's self?
+			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) { 
+				*buflen = 0;
+				DEBUG_LOG(SCENET, "NetworkList [Available: 0] Already in a Group");
+			}
 			// Length Returner Mode
-			if (buf == NULL) {
-				int availNetworks = countAvailableNetworks();
+			else if (buf == NULL) {
+				int availNetworks = countAvailableNetworks(excludeSelf);
 				*buflen = availNetworks * sizeof(SceNetAdhocctlScanInfoEmu);
 				DEBUG_LOG(SCENET, "NetworkList [Available: %i]", availNetworks);
 			}
@@ -2071,7 +2098,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 					SceNetAdhocctlScanInfo * group = networks;
 
 					// Iterate Group List
-					for (; group != NULL && discovered < requestcount; group = group->next) {
+					for (; group != NULL && (!excludeSelf || !isLocalMAC(&group->bssid.mac_addr)) && discovered < requestcount; group = group->next) {
 						// Copy Group Information
 						//buf[discovered] = *group;
 						buf[discovered].group_name = group->group_name;
@@ -2106,6 +2133,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 
+			hleEatMicro(2000);
 			// Return Success
 			return 0;
 		}
@@ -2164,9 +2192,17 @@ u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
-		int us = adhocDefaultDelay * 5;
-		// Connected State (Adhoc Mode)
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { // (threadStatus == ADHOCCTL_STATE_CONNECTED) 
+		int us = adhocDefaultDelay * 3;
+		hleEatMicro(1000);
+
+		if (isAdhocctlBusy) {
+			return ERROR_NET_ADHOCCTL_BUSY;
+		}
+
+		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { 
+			isAdhocctlBusy = true;
+
 			// Clear Network Name
 			memset(&parameter.group_name, 0, sizeof(parameter.group_name));
 
@@ -2196,7 +2232,6 @@ u32 NetAdhocctl_Disconnect() {
 				}
 				else {
 					// Set Disconnected State
-					//adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 					return ERROR_NET_ADHOCCTL_BUSY;
 				}
 			}
@@ -2226,12 +2261,16 @@ u32 NetAdhocctl_Disconnect() {
 
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
-		//hleCheckCurrentCallbacks();
+		// FIXME: When there are no handler the state will immediately became ADHOCCTL_STATE_DISCONNECTED ?
+		if (adhocctlHandlers.empty()) {
+			adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+		}
+		else {
+			notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		}
 
-		hleEatMicro(us);
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
-		return 0;
+		return hleDelayResult(0, "disconnect delay", us);
 	}
 
 	// Library uninitialized
@@ -2302,6 +2341,7 @@ int NetAdhocctl_Term() {
 		}
 		threadAdhocID = 0;
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
+		isAdhocctlBusy = false;
 		netAdhocctlInited = false;
 	}
 
@@ -2459,8 +2499,18 @@ int NetAdhocctl_Create(const char* groupName) {
 	if (netAdhocctlInited) {
 		// Valid Argument
 		if (validNetworkName(groupNameStruct)) {
-			// Disconnected State, may also need to check for Scanning state to prevent some games from failing to host a game session
-			if ((adhocctlState == ADHOCCTL_STATE_DISCONNECTED) || (adhocctlState == ADHOCCTL_STATE_SCANNING)) {
+			// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
+			if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
+				// TODO: Need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
+				hleEatMicro(500);
+				return 0;
+			}
+
+			// Disconnected State
+			if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
+				isAdhocctlBusy = true;
+
 				// Set Network Name
 				if (groupNameStruct != NULL) parameter.group_name = *groupNameStruct;
 
@@ -2487,7 +2537,7 @@ int NetAdhocctl_Create(const char* groupName) {
 
 				if (iResult == SOCKET_ERROR && error != EAGAIN && error != EWOULDBLOCK) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
+
 					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
 					if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 						adhocctlState = ADHOCCTL_STATE_GAMEMODE;
@@ -2516,7 +2566,8 @@ int NetAdhocctl_Create(const char* groupName) {
 
 				hleEatMicro(us);
 				// Return Success
-				return 0;
+				// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlCreate switching to a different thread for at least 100ms after returning success and before executing the next line.
+				return hleDelayResult(0, "create/connect/join delay", adhocEventPollDelay);
 			}
 
 			// Connected State
@@ -2958,8 +3009,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr) && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
-			if (isPTPPortInUse(sport, false))
+			if (isPTPPortInUse(sport, false)) {
+				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+			}
 
 			// Random Port required
 			if (sport == 0) {
@@ -3019,6 +3072,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						// Allocated Memory
 						if (internal != NULL) {
 							// Find Free Translator ID
+							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 							int i = 0;
 							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
 
@@ -3122,6 +3176,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 			// Allocated Memory
 			if (internal != NULL) {
 				// Find Free Translator ID
+				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 				int i = 0;
 				for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
 
@@ -3496,8 +3551,10 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
 			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
-			if (isPTPPortInUse(sport, true))
+			if (isPTPPortInUse(sport, true)) {
+				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
+			}
 
 			// Random Port required
 			if (sport == 0) {
@@ -3558,6 +3615,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 							// Allocated Memory
 							if (internal != NULL) {
 								// Find Free Translator ID
+								// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 								int i = 0;
 								for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
 
@@ -5255,7 +5313,7 @@ void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	hleSkipDeadbeef();
-	int delayus = 10000;
+	int delayus = adhocDefaultDelay;
 
 	auto params = adhocctlEvents.begin();
 	if (params != adhocctlEvents.end())
@@ -5282,11 +5340,12 @@ void __NetTriggerCallbacks()
 				newState = ADHOCCTL_STATE_CONNECTED;
 				if (adhocConnectionType == ADHOC_CREATE)
 					delayus = adhocEventDelay; // May affects Dissidia 012 and GTA VCS
-				else if (adhocConnectionType == ADHOC_CONNECT && getActivePeerCount() == 0)
+				else if (adhocConnectionType == ADHOC_CONNECT)
 					delayus = adhocEventDelay / 2;
 				break;
 			case ADHOCCTL_EVENT_SCAN: // notified only when scan completed?
 				newState = ADHOCCTL_STATE_DISCONNECTED;
+				//delayus = adhocEventDelay / 2;
 				break;
 			case ADHOCCTL_EVENT_DISCONNECT:
 				newState = ADHOCCTL_STATE_DISCONNECTED;
@@ -5316,8 +5375,7 @@ void __NetTriggerCallbacks()
 				newState = ADHOCCTL_STATE_WOL;
 				break;
 			case ADHOCCTL_EVENT_ERROR:
-				// FIXME: Should we change the state on error or leave it alone? for example after Creating/Joining a group, doing Scan could trigger an error through handler, what about the AdhocctlState after this error?
-				//newState = ADHOCCTL_STATE_DISCONNECTED;
+				delayus = adhocDefaultDelay * 3;
 				break;
 			}
 
@@ -5477,7 +5535,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 	if (netAdhocctlInited) {
 		// Minimum Arguments
 		if (buflen != NULL) {
-			// FIXME: Sometimes returing 0x80410682 before AdhocctlGetState became ADHOCCTL_STATE_CONNECTED or related to Auth/Library ?
+			// FIXME: Sometimes returing 0x80410682 when Adhocctl is still BUSY or before AdhocctlGetState became ADHOCCTL_STATE_CONNECTED or related to Auth/Library ?
 
 			// Multithreading Lock
 			peerlock.lock();
@@ -5496,6 +5554,8 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 
 				// Calculate Request Count
 				int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfoEmu);
+
+				// FIXME: When bufAddr is not null but buffer size is smaller than activePeers * sizeof(SceNetAdhocctlPeerInfoEmu), simply return buffer size = 0 without filling the buffer?
 
 				// Clear Memory
 				memset(buf, 0, *buflen);
