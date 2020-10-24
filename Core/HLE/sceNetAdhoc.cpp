@@ -1685,7 +1685,7 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	adhocSockets[id - 1]->flags = flg;
 	adhocSockets[id - 1]->alerted_flags = 0;
 
-	return 0;
+	return hleDelayResult(0, "set socket alert delay", 1000);
 }
 
 // Flags seems to be bitmasks of ADHOC_F_ALERT... (need more games to test this)
