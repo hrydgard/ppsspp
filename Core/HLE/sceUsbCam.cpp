@@ -306,7 +306,7 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-   #ifdef HAVE_WIN32_CAMERA
+	#ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			return winCamera->getDeviceList();
 		}
@@ -326,7 +326,7 @@ int Camera::startCapture() {
 	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
-   #ifdef HAVE_WIN32_CAMERA
+	#ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			if (winCamera->isShutDown()) {
 				delete winCamera;
@@ -350,7 +350,7 @@ int Camera::startCapture() {
 
 int Camera::stopCapture() {
 	INFO_LOG(HLE, "%s", __FUNCTION__);
-   #ifdef HAVE_WIN32_CAMERA
+	#ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}

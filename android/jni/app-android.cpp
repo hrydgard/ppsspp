@@ -690,6 +690,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, 
 	AndroidAudio_Recording_Stop(g_audioState);
 }
 
+bool audioRecording_Available() {
+	return true;
+}
+
+bool audioRecording_State() {
+	return AndroidAudio_Recording_State(g_audioState);
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);

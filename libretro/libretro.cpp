@@ -909,6 +909,8 @@ void NativeResized() {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif

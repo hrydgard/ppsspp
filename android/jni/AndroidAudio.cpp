@@ -40,7 +40,7 @@ bool AndroidAudio_Recording_SetSampleRate(AndroidAudioState *state, int sampleRa
 		return false;
 	}
 	state->input_sample_rate = sampleRate;
-	INFO_LOG(AUDIO, "AndroidAudio_Recording_SetSampleRate");
+	INFO_LOG(AUDIO, "AndroidAudio_Recording_SetSampleRate=%d", sampleRate);
 	return true;
 }
 
@@ -73,6 +73,13 @@ bool AndroidAudio_Recording_Stop(AndroidAudioState *state) {
 	state->ctx->AudioRecord_Stop();
 	INFO_LOG(AUDIO, "AndroidAudio_Recording_Stop");
 	return true;
+}
+
+bool AndroidAudio_Recording_State(AndroidAudioState *state) {
+	if (!state) {
+		return false;
+	}
+	return state->input_enable;
 }
 
 bool AndroidAudio_Resume(AndroidAudioState *state) {

@@ -329,7 +329,7 @@ bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
-	return true;
+	return audioRecording_Available();
 #endif
 	return false;
 }
@@ -339,7 +339,7 @@ bool Microphone::isMicStarted() {
 	if(winMic)
 		return winMic->isStarted();
 #elif PPSSPP_PLATFORM(ANDROID)
-	return micState;
+	return audioRecording_State();
 #endif
 	return false;
 }
