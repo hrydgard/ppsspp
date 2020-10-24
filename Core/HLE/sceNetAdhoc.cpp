@@ -4738,23 +4738,19 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
 }
 
-int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
-	
+int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress, int optLen, u32 optDataPtr) {
 	// Initialized Library
 	if (netAdhocMatchingInited)
 	{
-		SceNetEtherAddr * target = (SceNetEtherAddr *)macAddress;
-		void * opt = NULL;
+		SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
+		void* opt = NULL;
 		if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
 
 		// Valid Arguments
 		if (target != NULL && ((optLen == 0) || (optLen > 0 && opt != NULL)))
 		{
 			// Find Matching Context
-			SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+			SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
 
 			// Found Matching Context
 			if (context != NULL)
@@ -4763,7 +4759,7 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 				if (context->running)
 				{
 					// Find Peer
-					SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)target);
+					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
 
 					// Found Peer
 					if (peer != NULL)
@@ -4792,6 +4788,7 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 							// Marking peer to be timedout instead of deleting immediately
 							peer->lastping = 0;
 
+							hleEatCycles(adhocDefaultDelay);
 							// Return Success
 							return 0;
 						}
@@ -4819,11 +4816,18 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 	return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
 }
 
+int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
+	if (!g_Config.bEnableWlan)
+		return -1;	
+	return NetAdhocMatching_CancelTargetWithOpt(matchingId, macAddress, optLen, optDataPtr);
+}
+
 int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str());
 	if (!g_Config.bEnableWlan)
 		return -1;
-	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, 0);
+	return NetAdhocMatching_CancelTargetWithOpt(matchingId, macAddress, 0, 0);
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
@@ -5400,7 +5404,7 @@ void __NetTriggerCallbacks()
 void __NetMatchingCallbacks() //(int matchingId)
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
-	int delayus = 10000;
+	int delayus = adhocDefaultDelay;
 
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end())
@@ -6878,6 +6882,7 @@ int matchingEventThread(int matchingId)
 			context->eventlock->lock();
 
 			// Iterate Message List
+			int msg_count = 0;
 			ThreadMessage * msg = context->event_stack; 
 			for (; msg != NULL; msg = msg->next)
 			{
@@ -6895,6 +6900,7 @@ int matchingEventThread(int matchingId)
 				// Notify Event Handlers
 				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
 				//context->eventlock->lock();
+				msg_count++;
 			}
 
 			// Clear Event Message Stack
@@ -6902,6 +6908,7 @@ int matchingEventThread(int matchingId)
 
 			// Free Stack
 			context->eventlock->unlock();
+			INFO_LOG(SCENET, "EventLoop[%d]: Finished (%d msg)", matchingId, msg_count);
 		}
 
 		// Free memory
@@ -7114,11 +7121,62 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 		}
 
 		if (contexts != NULL) {
+			// Process Last Messages
+			if (context->input_stack != NULL)
+			{
+				// Claim Stack
+				context->inputlock->lock();
+
+				// Iterate Message List
+				int msg_count = 0;
+				ThreadMessage* msg = context->input_stack;
+				for (; msg != NULL; msg = msg->next)
+				{
+					// Default Optional Data
+					void* opt = NULL;
+
+					// Grab Optional Data
+					if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
+
+					// Send Accept Packet
+					if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
+
+					// Send Join Packet
+					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
+
+					// Send Cancel Packet
+					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
+
+					// Send Bulk Data Packet
+					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+
+					// Send Birth Packet
+					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
+
+					// Send Death Packet
+					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
+
+					// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
+					//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+
+					// Pop input stack from front (this should be queue instead of stack?)
+					context->input_stack = msg->next;
+					free(msg);
+					msg = context->input_stack;
+					msg_count++;
+				}
+
+				// Free Stack
+				context->inputlock->unlock();
+				INFO_LOG(SCENET, "InputLoop[%d]: Finished (%d msg)", matchingId, msg_count);
+			}
+
 			// Clear IO Message Stack
 			clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
 
-			// Send Bye Messages
-			sendByePacket(context);
+			// Send Bye Messages. FIXME: Official prx seems to be sending DEATH instead of BYE packet during MatchingStop?
+			//sendByePacket(context);
+			sendDeathPacket(context, &context->mac);
 
 			// Free Peer List Buffer
 			clearPeerList(context); //deleteAllMembers(context);
