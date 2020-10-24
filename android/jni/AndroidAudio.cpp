@@ -34,18 +34,27 @@ AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, int optimalF
 	return state;
 }
 
-bool AndroidAudio_Recording_Start(AndroidAudioState *state, int sampleRate) {
+bool AndroidAudio_Recording_SetSampleRate(AndroidAudioState *state, int sampleRate) {
+	if (!state) {
+		ERROR_LOG(AUDIO, "AndroidAudioState not initialized, cannot set recording sample rate");
+		return false;
+	}
+	state->input_sample_rate = sampleRate;
+	INFO_LOG(AUDIO, "AndroidAudio_Recording_SetSampleRate");
+	return true;
+}
+
+bool AndroidAudio_Recording_Start(AndroidAudioState *state) {
 	if (!state) {
 		ERROR_LOG(AUDIO, "AndroidAudioState not initialized, cannot start recording!");
 		return false;
 	}
+	state->input_enable = 1;
 	if (!state->ctx) {
 		ERROR_LOG(AUDIO, "OpenSLContext not initialized, cannot start recording!");
 		return false;
 	}
-	state->input_enable = 1;
-	state->input_sample_rate = sampleRate;
-	state->ctx->AudioRecord_Start(sampleRate);
+	state->ctx->AudioRecord_Start(state->input_sample_rate);
 	INFO_LOG(AUDIO, "AndroidAudio_Recording_Start");
 	return true;
 }

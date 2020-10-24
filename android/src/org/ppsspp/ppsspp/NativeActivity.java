@@ -228,6 +228,11 @@ public abstract class NativeActivity extends Activity {
 				mCameraHelper.startCamera();
 			}
 			break;
+		case REQUEST_CODE_MICROPHONE_PERMISSION:
+			if (permissionsGranted(permissions, grantResults)) {
+				NativeApp.audioRecording_Start();
+			}
+			break;
 		default:
 		}
 	}
@@ -1295,9 +1300,10 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("microphone_command")) {
 			if (params.startsWith("startRecording:")) {
+				int sampleRate = Integer.parseInt(params.replace("startRecording:", ""));
+				NativeApp.audioRecording_SetSampleRate(sampleRate);
 				if (!askForPermissions(permissionsForMicrophone, REQUEST_CODE_MICROPHONE_PERMISSION)) {
-					int sampleRate = Integer.valueOf(params.replace("startRecording:", ""));
-					NativeApp.audioRecording_Start(sampleRate);
+					NativeApp.audioRecording_Start();
 				}
 			} else if (params.equals("stopRecording")) {
 				NativeApp.audioRecording_Stop();

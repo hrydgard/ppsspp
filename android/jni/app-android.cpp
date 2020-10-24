@@ -678,8 +678,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass)
 	}
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Start(JNIEnv *, jclass, jint sampleRate) {
-	AndroidAudio_Recording_Start(g_audioState, sampleRate);
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1SetSampleRate(JNIEnv *, jclass, jint sampleRate) {
+	AndroidAudio_Recording_SetSampleRate(g_audioState, sampleRate);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Start(JNIEnv *, jclass) {
+	AndroidAudio_Recording_Start(g_audioState);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, jclass) {
