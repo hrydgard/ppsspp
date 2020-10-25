@@ -118,7 +118,7 @@ void __UsbMicShutdown() {
 }
 
 void __UsbMicDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbMic", 0, 1);
+	auto s = p.Section("sceUsbMic", 0, 2);
 	if (!s) {
 		return;
 	}
@@ -128,18 +128,30 @@ void __UsbMicDoState(PointerWrap &p) {
 	Do(p, curSampleRate);
 	Do(p, curChannels);
 	Do(p, micState);
+	if (s > 1) {
+		Do(p, eventUsbMicAudioUpdate);
+		CoreTiming::RestoreRegisterEvent(eventUsbMicAudioUpdate, "UsbMicAudioUpdate", &__UsbMicAudioUpdate);
+	} else {
+		eventUsbMicAudioUpdate = -1;
+	}
+
+	if (!audioBuf && numNeedSamples > 0) {
+		audioBuf = new QueueBuf(numNeedSamples << 1);
+	}
+	if(eventUsbMicAudioUpdate = -1)
+		eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
 	// Maybe also need to save the state of audioBuf.
 	if (waitingThreads.size() != 0 && p.mode == PointerWrap::MODE_READ) {
 		u64 waitTimeus = (waitingThreads[0].needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThreads[0].sampleRate;
 		CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, waitingThreads[0].threadID);
 	}
+
 	if (micState == 0) {
 		if (Microphone::isMicStarted())
 			Microphone::stopMic();
 	} else if (micState == 1) {
 		if (Microphone::isMicStarted()) {
-			Microphone::stopMic();
-			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
+			// Ok, started.
 		} else {
 			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
 		}
