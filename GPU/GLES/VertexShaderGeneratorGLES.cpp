@@ -162,8 +162,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
-	bool doBezier = id.Bit(VS_BIT_BEZIER);
-	bool doSpline = id.Bit(VS_BIT_SPLINE);
+	// Apparently we don't support bezier/spline together with bones.
+	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones;
+	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones;
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);

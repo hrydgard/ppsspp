@@ -70,8 +70,8 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
-	bool doBezier = id.Bit(VS_BIT_BEZIER);
-	bool doSpline = id.Bit(VS_BIT_SPLINE);
+	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
+	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
