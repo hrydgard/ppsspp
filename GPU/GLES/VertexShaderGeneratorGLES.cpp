@@ -163,8 +163,13 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
 	// Apparently we don't support bezier/spline together with bones.
-	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones;
-	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones;
+	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
+	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
+	if ((doBezier || doSpline) && !hasNormal) {
+		// Bad usage.
+		*errorString = "Invalid flags - tess requires normal.";
+		return false;
+	}
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);

@@ -173,15 +173,15 @@ bool TestShaderGenerators() {
 		}
 
 		if (generateSuccess[0] != generateSuccess[1]) {
-			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
+			printf("mismatching success! '%s' '%s'\n", genErrorString[0].c_str(), genErrorString[1].c_str());
 			printf("%s\n", buffer[0]);
 			printf("%s\n", buffer[1]);
-			return 1;
+			return false;
 		}
 		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
 			printf("mismatching shaders! a=glsl b=vulkan\n");
 			PrintDiff(buffer[0], buffer[1]);
-			return 1;
+			return false;
 		}
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
