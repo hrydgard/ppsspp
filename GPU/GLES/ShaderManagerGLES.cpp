@@ -264,7 +264,7 @@ static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data
 
 static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x4, m4x3);
+	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
@@ -495,7 +495,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
 			render_->SetUniformM4x4(&u_bone[i], bonetemp);
 		}
 	}
@@ -595,6 +595,7 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 	compat.bitwiseOps = false;
 	compat.lastFragData = nullptr;
 	compat.gles = gl_extensions.IsGLES;
+	compat.forceMatrix4x4 = true;
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {

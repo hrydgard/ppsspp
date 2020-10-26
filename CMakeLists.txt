@@ -1278,8 +1278,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/TextureCacheVulkan.h
 	GPU/Vulkan/TextureScalerVulkan.cpp
 	GPU/Vulkan/TextureScalerVulkan.h
-	GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
-	GPU/Vulkan/VertexShaderGeneratorVulkan.h
 	GPU/Vulkan/VulkanUtil.cpp
 	GPU/Vulkan/VulkanUtil.h
 )

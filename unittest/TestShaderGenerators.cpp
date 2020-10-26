@@ -11,7 +11,6 @@
 #include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
@@ -56,7 +55,13 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return false;
 		// return DX9::GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_DX9);
 	case ShaderLanguage::GLSL_VULKAN:
-		return GenerateVertexShaderVulkanGLSL(id, buffer, errorString);
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForVulkan();
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+	}
 	default:
 		return false;
 	}
@@ -85,7 +90,6 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		return false;
 	case ShaderLanguage::GLSL_300:
 		return false;
-
 	default:
 		return false;
 	}
@@ -107,7 +111,7 @@ void PrintDiff(const char *a, const char *b) {
 			printf("a: %s\n", a_lines[i].c_str());
 			printf("b: %s\n", b_lines[i].c_str());
 			printf("...continues...\n");
-			for (size_t j = i; j < i + 4 && j < a_lines.size(); j++) {
+			for (size_t j = i + 1; j < i + 5 && j < a_lines.size(); j++) {
 				printf("a: %s\n", a_lines[j].c_str());
 				printf("b: %s\n", b_lines[j].c_str());
 			}
@@ -140,6 +144,57 @@ bool TestShaderGenerators() {
 	GMRng rng;
 	int successes = 0;
 	int count = 700;
+
+	// Generate a bunch of random vertex shader IDs, try to generate shader source.
+	// Then compile it and check that it's ok.
+	for (int i = 0; i < count; i++) {
+		uint32_t bottom = rng.R32();
+		uint32_t top = rng.R32();
+		VShaderID id;
+		id.d[0] = bottom;
+		id.d[1] = top;
+
+		bool generateSuccess[numLanguages]{};
+		std::string genErrorString[numLanguages];
+
+		for (int j = 0; j < numLanguages; j++) {
+			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], &genErrorString[j]);
+			if (!genErrorString[j].empty()) {
+				printf("%s\n", genErrorString[j].c_str());
+			}
+		}
+		/*
+		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
+		if (generateSuccess[0] != generateSuccess[1]) {
+			printf("mismatching success! '%s' '%s'\n", genErrorString[0].c_str(), genErrorString[1].c_str());
+			printf("%s\n", buffer[0]);
+			printf("%s\n", buffer[1]);
+			return false;
+		}
+		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
+			printf("mismatching shaders! a=glsl b=vulkan\n");
+			PrintDiff(buffer[0], buffer[1]);
+			return false;
+		}
+		*/
+
+		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
+		// let's try to compile them.
+		for (int j = 0; j < numLanguages; j++) {
+			if (generateSuccess[j]) {
+				if (!TestCompileShader(buffer[j], languages[j], true)) {
+					printf("Error compiling vertex shader:\n\n%s\n\n", LineNumberString(buffer[j]).c_str());
+					return false;
+				}
+				successes++;
+			}
+		}
+	}
+
+	printf("%d/%d vertex shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+
+	successes = 0;
+	count = 200;
 
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
@@ -190,47 +245,6 @@ bool TestShaderGenerators() {
 	}
 
 	printf("%d/%d fragment shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
-
-	successes = 0;
-	count = 200;
-
-	// Generate a bunch of random vertex shader IDs, try to generate shader source.
-	// Then compile it and check that it's ok.
-	for (int i = 0; i < count; i++) {
-		uint32_t bottom = rng.R32();
-		uint32_t top = rng.R32();
-		VShaderID id;
-		id.d[0] = bottom;
-		id.d[1] = top;
-
-		// Skip testing beziers for now. I'll deal with those bugs later.
-		id.SetBit(VS_BIT_BEZIER, false);
-		id.SetBit(VS_BIT_SPLINE, false);
-
-		bool generateSuccess[numLanguages]{};
-
-		for (int j = 0; j < numLanguages; j++) {
-			std::string genErrorString;
-			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], &genErrorString);
-			if (!genErrorString.empty()) {
-				printf("%s\n", genErrorString.c_str());
-			}
-		}
-
-		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
-		// let's try to compile them.
-		for (int j = 0; j < numLanguages; j++) {
-			if (generateSuccess[j]) {
-				if (!TestCompileShader(buffer[j], languages[j], true)) {
-					printf("Error compiling vertex shader:\n\n%s\n\n", LineNumberString(buffer[j]).c_str());
-					return false;
-				}
-				successes++;
-			}
-		}
-	}
-
-	printf("%d/%d vertex shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
 
 	successes = 0;
 	count = 200;

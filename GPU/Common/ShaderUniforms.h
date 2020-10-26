@@ -50,7 +50,7 @@ R"(  mat4 u_proj;
   mat4 u_proj_through;
   mat3x4 u_view;
   mat3x4 u_world;
-  mat3x4 u_tex;
+  mat3x4 u_texmtx;
   vec4 u_uvscaleoffset;
   vec4 u_depthRange;
   vec2 u_fogcoef;
@@ -78,7 +78,7 @@ R"(  float4x4 u_proj;
   float4x4 u_proj_through;
   float4x3 u_view;
   float4x3 u_world;
-  float4x3 u_tex;
+  float4x3 u_texmtx;
   float4 u_uvscaleoffset;
   float4 u_depthRange;
   float2 u_fogcoef;
@@ -194,10 +194,9 @@ struct UB_VS_Bones {
 };
 
 static const char *ub_vs_bonesStr =
-R"(	mat3x4 u_bone[8];
+R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
-// HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_bonesStr =
 R"(	float4x3 u_bone[8];
 )";

@@ -117,4 +117,6 @@ void GLSLShaderCompat::SetupForVulkan() {
 	texture = "texture";
 	texelFetch = "texelFetch";
 	vulkan = true;
+	forceMatrix4x4 = false;
+	coefsFromBuffers = true;
 }

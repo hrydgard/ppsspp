@@ -647,7 +647,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/StencilBufferVulkan.cpp \
 	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
 	$(GPUDIR)/Vulkan/TextureScalerVulkan.cpp \
-	$(GPUDIR)/Vulkan/VertexShaderGeneratorVulkan.cpp \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
 	$(LIBRETRODIR)/libretro_vulkan.cpp

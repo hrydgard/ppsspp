@@ -154,6 +154,21 @@ struct GLSLShaderCompat {
 	const char *framebufferFetchExtension;
 	bool glslES30;
 	bool bitwiseOps;
+	bool forceMatrix4x4;
+	bool coefsFromBuffers;
 
 	void SetupForVulkan();
+};
+
+// PSP vertex format.
+enum class PspAttributeLocation {
+	POSITION = 0,
+	TEXCOORD = 1,
+	NORMAL = 2,
+	W1 = 3,
+	W2 = 4,
+	COLOR0 = 5,
+	COLOR1 = 6,
+
+	COUNT
 };

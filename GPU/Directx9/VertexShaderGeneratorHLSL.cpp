@@ -70,8 +70,13 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
-	bool doBezier = id.Bit(VS_BIT_BEZIER);
-	bool doSpline = id.Bit(VS_BIT_SPLINE);
+	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
+	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
+	if ((doBezier || doSpline) && !hasNormal) {
+		// Bad usage.
+		*errorString = "Invalid flags - tess requires normal.";
+		return false;
+	}
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
@@ -121,7 +126,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
 			WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
 			if (doTextureTransform)
-				WRITE(p, "float4x3 u_tex : register(c%i);\n", CONST_VS_TEXMTX);
+				WRITE(p, "float4x3 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
 			if (enableBones) {
 #ifdef USE_BONE_ARRAY
 				WRITE(p, "float4x3 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
@@ -631,7 +636,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = float3(0, 0, 0);\n");
+				WRITE(p, "  Out.v_color1 = splat3(0.0);\n");
 		}
 
 		// Step 3: UV generation
@@ -646,7 +651,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						else
 							WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  Out.v_texcoord = float3(0.0, 0.0, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = splat3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
@@ -687,7 +692,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_tex) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				break;
 
