@@ -40,6 +40,13 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	case ShaderLanguage::GLSL_300:
 		// TODO: Need a device - except that maybe glslang could be used to verify these ....
 		return false;
+	case ShaderLanguage::HLSL_D3D11_TEST:
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForVulkan();
+		uint64_t uniformMask;
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
 	default:
 		return false;
 	}
@@ -62,6 +69,14 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		uint64_t uniformMask;
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
+	case ShaderLanguage::HLSL_D3D11_TEST:
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForD3D11();
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+	}
 	default:
 		return false;
 	}
@@ -70,6 +85,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
+	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
 		return !output.empty();
@@ -128,8 +144,9 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::GLSL_VULKAN,
+		ShaderLanguage::HLSL_D3D11_TEST,
 		ShaderLanguage::HLSL_D3D11,
+		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
 		ShaderLanguage::HLSL_DX9,

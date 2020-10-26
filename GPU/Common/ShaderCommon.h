@@ -30,6 +30,8 @@ enum ShaderLanguage {
 	GLSL_VULKAN,
 	HLSL_DX9,
 	HLSL_D3D11,
+
+	HLSL_D3D11_TEST,  // temporary
 };
 
 enum DebugShaderType {
@@ -155,8 +157,10 @@ struct GLSLShaderCompat {
 	bool bitwiseOps;
 	bool forceMatrix4x4;
 	bool coefsFromBuffers;
+	bool d3d11;
 
 	void SetupForVulkan();
+	void SetupForD3D11();
 };
 
 // PSP vertex format.

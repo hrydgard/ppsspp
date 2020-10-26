@@ -120,3 +120,23 @@ void GLSLShaderCompat::SetupForVulkan() {
 	forceMatrix4x4 = false;
 	coefsFromBuffers = true;
 }
+
+
+void GLSLShaderCompat::SetupForD3D11() {
+	fragColor0 = "fragColor0";
+	fragColor1 = "fragColor1";
+	varying_fs = "in";
+	varying_vs = "out";
+	attribute = "in";
+	bitwiseOps = true;
+	framebufferFetchExtension = nullptr;
+	gles = false;
+	glslES30 = true;
+	glslVersionNumber = 450;
+	lastFragData = nullptr;
+	texture = "texture";
+	texelFetch = "texelFetch";
+	d3d11 = true;
+	forceMatrix4x4 = false;
+	coefsFromBuffers = true;
+}
