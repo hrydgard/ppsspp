@@ -2422,7 +2422,7 @@ u32 sceKernelFindModuleByUID(u32 uid)
 		ERROR_LOG(SCEMODULE, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
 		return 0;
 	}
-	INFO_LOG(SCEMODULE, "sceKernelFindModuleByUID(%d)", uid);
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr, uid);
 	return module->modulePtr;
 }
 
