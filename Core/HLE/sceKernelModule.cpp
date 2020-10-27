@@ -283,7 +283,7 @@ public:
 			memcpy(pnm, ptemp, 0x2C);
 			pnm->modid = GetUID();
 			pnm += 0x30;
-			ptemp += 0x30;
+			ptemp += 0x2C;
 			memcpy(pnm, ptemp, 0xC0 - 0x2C);
 		}
 		Do(p, memoryBlockAddr);
