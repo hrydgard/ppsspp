@@ -47,7 +47,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
-	bool fragmentTestCache = g_Config.bFragmentTestCache && !compat.vulkan;
+	bool enableFragmentTestCache = g_Config.bFragmentTestCache && !compat.vulkan;
 
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
@@ -202,7 +202,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		}
 
 		if (enableAlphaTest || enableColorTest) {
-			if (g_Config.bFragmentTestCache) {
+			if (enableFragmentTestCache) {
 				WRITE(p, "uniform sampler2D testtex;\n");
 			} else {
 				*uniformMask |= DIRTY_ALPHACOLORREF;
@@ -241,7 +241,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
 
-		if (!g_Config.bFragmentTestCache) {
+		if (!enableFragmentTestCache) {
 			if (enableAlphaTest && !alphaTestAgainstZero) {
 				if (compat.bitwiseOps) {
 					WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
@@ -516,7 +516,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
 		std::string alphaTestXCoord = "0";
-		if (fragmentTestCache) {
+		if (enableFragmentTestCache) {
 			if (enableColorTest && !colorTestAgainstZero) {
 				WRITE(p, "  vec4 vScale256 = v * %f + %f;\n", 255.0 / 256.0, 0.5 / 256.0);
 				alphaTestXCoord = "vScale256.a";
@@ -542,7 +542,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
 					WRITE(p, "  %s\n", discardStatement);
 				}
-			} else if (fragmentTestCache) {
+			} else if (enableFragmentTestCache) {
 				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", compat.texture, alphaTestXCoord.c_str());
 				WRITE(p, "  if (aResult < 0.5) %s\n", discardStatement);
 			} else {
@@ -579,7 +579,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
 					WRITE(p, "  %s\n", discardStatement);
 				}
-			} else if (g_Config.bFragmentTestCache) {
+			} else if (enableFragmentTestCache) {
 				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", compat.texture);
 				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", compat.texture);
 				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", compat.texture);
