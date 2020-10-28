@@ -114,6 +114,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define ADHOC_GAMEMODE_PORT 31000
 #define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
 #define GAMEMODE_INIT_DELAY 10000
+#define GAMEMODE_SYNC_TIMEOUT 250000
 
 // GameMode Type
 #define ADHOCCTL_GAMETYPE_1A	1
@@ -326,6 +327,7 @@ typedef struct GameModeArea {
 	//int socket; // PDP socket?
 	u64 updateTimestamp;
 	int dataUpdated;
+	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
 } PACK GameModeArea;

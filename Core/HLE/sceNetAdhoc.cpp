@@ -66,6 +66,7 @@ bool netAdhocctlInited;
 bool networkInited = false;
 
 bool netAdhocGameModeEntered = false;
+int netAdhocEnterGameModeTimeout = 15000000; // 15 sec as default timeout, to wait for all players to join
 
 bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
@@ -147,37 +148,79 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	int uid = (int)(userdata & 0xFFFFFFFF);
 
-	// TODO: May be we should check for timeout too? since EnterGammeMode have timeout arg
 	if (IsGameModeActive()) {
 		auto sock = adhocSockets[gameModeSocket - 1];
 
-		// Send Master data		
-		if (masterGameModeArea.dataUpdated) {
-			for (auto& gma : replicaGameModeAreas) {
-				if (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
-					int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
-					if (sent >= 0) {
-						masterGameModeArea.dataUpdated = 0;
-						DEBUG_LOG(SCENET, "GameMode Sent %d bytes to %s", masterGameModeArea.size, mac2str(&gma.mac).c_str());
+		// Need to make sure all replicas have been created before we start syncing data
+		if (replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			// Send Master data
+			if (masterGameModeArea.dataUpdated) {
+				int sentcount = 0;
+				for (auto& gma : replicaGameModeAreas) {
+					if (!gma.dataSent && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
+						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
+							gma.dataSent = 1;
+							DEBUG_LOG(SCENET, "GameMode: Master data Sent %d bytes to Area #%d [%s]", masterGameModeArea.size, gma.id, mac2str(&gma.mac).c_str());
+							sentcount++;
+						}
+					}
+					else if (gma.dataSent) sentcount++;
+				}
+				if (sentcount == replicaGameModeAreas.size()) 
+					masterGameModeArea.dataUpdated = 0;
+			}
+			// Need to sync (send + recv) all players initial data (data from CreateMaster) after Master + All Replicas are created, and before the first UpdateMaster / UpdateReplica is called for Star Wars The Force Unleashed to show the correct players color on minimap (also prevent Starting issue on other GameMode games)
+			else {
+				u32 error;
+				SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+				if (error == 0 && waitID == sock->data.pdp.id) {
+					// Resume thread after all replicas data have been received
+					int recvd = 0;
+					for (auto& gma : replicaGameModeAreas) {
+						// Either replicas new data has been received or that player has been disconnected
+						if (gma.dataUpdated || gma.updateTimestamp == 0)
+							recvd++;
+					}
+					// Resume blocked thread
+					u64 now = CoreTiming::GetGlobalTimeUsScaled();
+					if (recvd == replicaGameModeAreas.size()) {
+						u32 waitVal = __KernelGetWaitValue(threadID, error);
+						if (error == 0) {
+							DEBUG_LOG(SCENET, "GameMode: Resuming Thread %d after Master data Synced (Result = %08x)", threadID, waitVal);
+							__KernelResumeThreadFromWait(threadID, waitVal);
+						}
+						else
+							ERROR_LOG(SCENET, "GameMode: Error (%08x) on WaitValue %d ThreadID %d", error, waitVal, threadID);
+					}
+					// Attempt to Re-Send initial Master data (in case previous packets were lost)
+					else if (static_cast<s64>(now - masterGameModeArea.updateTimestamp) > GAMEMODE_SYNC_TIMEOUT) {
+						DEBUG_LOG(SCENET, "GameMode: Attempt to Re-Send Master data after Sync Timeout (%d us)", GAMEMODE_SYNC_TIMEOUT);
+						// Reset Sent marker on players who haven't replied yet (except disconnected players)
+						for (auto& gma : replicaGameModeAreas)
+							if (!gma.dataUpdated && gma.updateTimestamp != 0)
+								gma.dataSent = 0;
+						masterGameModeArea.updateTimestamp = now;
+						masterGameModeArea.dataUpdated = 1;
 					}
 				}
 			}
-		}
 
-		// Recv new Replica data. We shouldn't do too much activity on a single event and just try again later after a short delay (1ms or lower, to prevent long sync with max players)
-		if (IsGameModeActive() && IsSocketReady(sock->data.pdp.id, true, false) > 0) {
-			SceNetEtherAddr sendermac;
-			s32_le senderport = ADHOC_GAMEMODE_PORT;
-			s32_le bufsz = uid; // GAMEMODE_BUFFER_SIZE;
-			int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
-			if (ret >= 0 && bufsz > 0) {
-				for (auto& gma : replicaGameModeAreas) {
-					if (IsMatch(gma.mac, sendermac)) {
-						DEBUG_LOG(SCENET, "GameMode Received %d bytes of new Data for Area [%s]", bufsz, mac2str(&sendermac).c_str());
-						memcpy(gma.data, gameModeBuffer, std::min(gma.size, bufsz));
-						gma.dataUpdated = 1;
-						gma.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
-						break;
+			// Recv new Replica data when available
+			if (IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+				SceNetEtherAddr sendermac;
+				s32_le senderport = ADHOC_GAMEMODE_PORT;
+				s32_le bufsz = uid; // GAMEMODE_BUFFER_SIZE;
+				int ret = sceNetAdhocPdpRecv(gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
+				if (ret >= 0 && bufsz > 0) {
+					for (auto& gma : replicaGameModeAreas) {
+						if (IsMatch(gma.mac, sendermac)) {
+							DEBUG_LOG(SCENET, "GameMode: Replica data Received %d bytes for Area #%d [%s]", bufsz, gma.id, mac2str(&sendermac).c_str());
+							memcpy(gma.data, gameModeBuffer, std::min(gma.size, bufsz));
+							gma.dataUpdated = 1;
+							gma.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
+							break;
+						}
 					}
 				}
 			}
@@ -969,10 +1012,12 @@ void __NetAdhocDoState(PointerWrap &p) {
 	if (s >= 8) {
 		Do(p, isAdhocctlBusy);
 		Do(p, netAdhocGameModeEntered);
+		Do(p, netAdhocEnterGameModeTimeout);
 	}
 	else {
 		isAdhocctlBusy = false;
 		netAdhocGameModeEntered = false;
+		netAdhocEnterGameModeTimeout = 15000000;
 	}
 	
 	if (p.mode == p.MODE_READ) {
@@ -2534,6 +2579,7 @@ int NetAdhocctl_Create(const char* groupName) {
 				// Send Packet
 				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 				int error = errno;
+				adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
 
 				if (iResult == SOCKET_ERROR && error != EAGAIN && error != EWOULDBLOCK) {
 					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
@@ -2681,6 +2727,7 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 	adhocctlCurrentMode = ADHOCCTL_MODE_GAMEMODE;
 	adhocConnectionType = ADHOC_CREATE;
 	netAdhocGameModeEntered = true;
+	netAdhocEnterGameModeTimeout = timeout;
 	return NetAdhocctl_Create(group_name);
 }
 
@@ -2742,6 +2789,7 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 	adhocctlCurrentMode = ADHOCCTL_MODE_GAMEMODE;
 	adhocConnectionType = ADHOC_JOIN;
 	netAdhocGameModeEntered = true;
+	netAdhocEnterGameModeTimeout = timeout;
 	return hleLogDebug(SCENET, NetAdhocctl_Create(group_name), "");
 }
 
@@ -4007,6 +4055,7 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	if (size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(SCENET, ERROR_NET_ADHOCCTL_INVALID_ARG, "invalid arg");
 
+	hleEatMicro(1000);
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
 	u8* buf = (u8*)realloc(gameModeBuffer, size);
@@ -4016,14 +4065,21 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 	u8* data = (u8*)malloc(size);
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
-		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, localMac, data };
+		masterGameModeArea = { 0, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 1, 0, localMac, data };
 		// Socket's buffer size should fit the largest size from master/replicas, should we waited until master & all replicas to be created first before creating the socket? (ie. the first time UpdateMaster being called?)
 		gameModeSocket = sceNetAdhocPdpCreate((const char*)&localMac, ADHOC_GAMEMODE_PORT, size, 0); 
 		StartGameModeScheduler(size);
-	}
 
-	hleEatMicro(GAMEMODE_INIT_DELAY);
-	return hleLogDebug(SCENET, 0, "success"); // returned an id just like CreateReplica? always return 0?
+		// Block current thread to sync initial master data
+		if (gameModeSocket > 0 && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			auto sock = adhocSockets[gameModeSocket - 1];
+			__KernelWaitCurThread(WAITTYPE_NET, sock->data.pdp.id, 0, 0, false, "syncing master data");
+			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+		}
+		return hleLogDebug(SCENET, 0, "success"); // returned an id just like CreateReplica? always return 0?
+	}
+	
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
 }
 
 /**
@@ -4059,7 +4115,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 	// MAC address already existed!
 	if (it != replicaGameModeAreas.end()) {
 		WARN_LOG(SCENET, "sceNetAdhocGameModeCreateReplica - [%s] is already existed (id: %d)", mac2str((SceNetEtherAddr*)mac).c_str(), it->id);
-		return it->id;
+		return it->id; // ERROR_NET_ADHOC_ALREADY_CREATED
 	}
 
 	int ret = 0;
@@ -4067,11 +4123,20 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
 		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, size, 0);
-		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, *(SceNetEtherAddr*)mac, data };
+		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, 0, *(SceNetEtherAddr*)mac, data };
 		replicaGameModeAreas.push_back(gma);
-		ret = gma.id;
+		ret = gma.id; // Valid id for replica is higher than 0?
+
+		// Block current thread to sync initial master data
+		if (gameModeSocket > 0 && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
+			auto sock = adhocSockets[gameModeSocket - 1];
+			__KernelWaitCurThread(WAITTYPE_NET, sock->data.pdp.id, ret, 0, false, "syncing master data");
+			DEBUG_LOG(SCENET, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
+		}
+		return hleLogSuccessInfoI(SCENET, ret, "success");
 	}
-	return hleLogSuccessInfoI(SCENET, ret, "success"); // valid id for replica started from 1?
+
+	return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CREATED, "not created");
 }
 
 static int sceNetAdhocGameModeUpdateMaster() {
@@ -4089,8 +4154,11 @@ static int sceNetAdhocGameModeUpdateMaster() {
 		Memory::Memcpy(masterGameModeArea.data, masterGameModeArea.addr, masterGameModeArea.size);
 		masterGameModeArea.dataUpdated = 1;
 		masterGameModeArea.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
+		// Reset sent marker
+		for (auto& gma : replicaGameModeAreas)
+			gma.dataSent = 0;
 	}
-
+	
 	hleEatMicro(1000);
 	return 0;
 }
@@ -4143,7 +4211,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 				GameModeUpdateInfo* gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
 				gmuinfo->length = sizeof(GameModeUpdateInfo);
 				if (gma.data && gma.dataUpdated) {
-					memcpy(Memory::GetPointer(gma.addr), gma.data, gma.size);
+					Memory::Memcpy(gma.addr, gma.data, gma.size);
 					gma.dataUpdated = 0;
 					gmuinfo->updated = 1;
 					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
@@ -5314,10 +5382,10 @@ void __NetTriggerCallbacks()
 		u32_le args[3] = { 0, 0, 0 };
 		args[0] = flags;
 		args[1] = error;
+		u64 now = (u64)(time_now_d() * 1000000.0);
 
 		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		u64 now = (u64)(time_now_d() * 1000000.0);
-		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || now - adhocctlStartTime > adhocDefaultTimeout)
+		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || static_cast<s64>(now - adhocctlStartTime) > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {

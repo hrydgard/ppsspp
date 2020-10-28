@@ -1405,6 +1405,12 @@ int friendFinder(){
 				}
 			}
 
+			// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
+			if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
+				netAdhocGameModeEntered = false;
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOC_TIMEOUT);
+			}
+
 			// Handle Packets
 			if (rxpos > 0) {
 				// BSSID Packet
@@ -1430,8 +1436,8 @@ int friendFinder(){
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
 
-								if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
-									//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
+								// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
+								if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
 									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
 								}
 							}
@@ -1533,10 +1539,9 @@ int friendFinder(){
 								}
 
 								// From JPCSP: Join complete when all the required MACs have joined
-								if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
+								if (netAdhocGameModeEntered && requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
 									// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
 									//gameModeMacs = requiredGameModeMacs;
-									//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
 									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
 								}
 							}
@@ -1582,13 +1587,14 @@ int friendFinder(){
 						// Log Incoming Peer Delete Request
 						INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
 
-						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
-							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[peer](SceNetEtherAddr const& e) {
-									return isMacMatch(&e, &peer->mac_addr);
-								}), gameModeMacs.end());
-						}*/
+							for (auto& gma : replicaGameModeAreas)
+								if (isMacMatch(&gma.mac, &peer->mac_addr)) {
+									gma.updateTimestamp = 0;
+									break;
+								}
+						}
 
 						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
 						deleteFriendByIP(packet->ip);
