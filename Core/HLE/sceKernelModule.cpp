@@ -168,6 +168,7 @@ struct NativeModule {
 	char name[28];
 	u32_le status;
 	u32_le unk1;
+	u32_le modid; // 0x2C
 	u32_le usermod_thid;
 	u32_le memid;
 	u32_le mpidtext;
@@ -233,7 +234,7 @@ enum NativeModuleStatus {
 
 class PSPModule : public KernelObject {
 public:
-	PSPModule() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false) {}
+	PSPModule() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false), modulePtr(0) {}
 	~PSPModule() {
 		if (memoryBlockAddr) {
 			// If it's either below user memory, or using a high kernel bit, it's in kernel.
@@ -243,6 +244,11 @@ public:
 				userMemory.Free(memoryBlockAddr);
 			}
 			g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
+		}
+
+		if (modulePtr) {
+			//Only alloc at kernel memory.
+			kernelMemory.Free(modulePtr);
 		}
 	}
 	const char *GetName() override { return nm.name; }
@@ -263,11 +269,23 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 4);
+		auto s = p.Section("Module", 1, 5);
 		if (!s)
 			return;
 
-		Do(p, nm);
+		if (s >= 5) {
+			Do(p, nm);
+		} else {
+			char temp[192];
+			NativeModule *pnm = &nm;
+			char *ptemp = temp;
+			DoArray(p, ptemp, 0xC0);
+			memcpy(pnm, ptemp, 0x2C);
+			pnm->modid = GetUID();
+			pnm += 0x30;
+			ptemp += 0x2C;
+			memcpy(pnm, ptemp, 0xC0 - 0x2C);
+		}
 		Do(p, memoryBlockAddr);
 		Do(p, memoryBlockSize);
 		Do(p, isFake);
@@ -288,6 +306,10 @@ public:
 		if (s >= 4) {
 			Do(p, libstub);
 			Do(p, libstubend);
+		}
+
+		if (s >= 5) {
+			Do(p, modulePtr);
 		}
 
 		ModuleWaitingThread mwt = {0};
@@ -422,6 +444,7 @@ public:
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
+	u32 modulePtr;
 	bool isFake;
 };
 
@@ -1104,6 +1127,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	module->nm.modid = module->GetUID();
+
 	bool reportedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
@@ -1310,6 +1335,12 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
 		module->textEnd = firstImportStubAddr - 4;
+		// Reference Jpcsp.
+		if (reader.GetFirstSegmentAlign() > 0)
+			module->textStart &= ~(reader.GetFirstSegmentAlign() - 1);
+		// PSP set these values even if no section.
+		module->nm.text_addr = module->textStart;
+		module->nm.text_size = reader.GetTotalTextSizeFromSeg();
 	}
 
 	if (!module->isFake) {
@@ -1539,6 +1570,15 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			__PsmfPlayerLoadModule(devkitVersion);
 		}
 	}
+
+	u32 moduleSize = sizeof(module->nm);
+	char tag[32];
+	snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
+	module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+
+	// Fill the struct.
+	if (Memory::IsValidAddress(module->modulePtr))
+		Memory::WriteStruct(module->modulePtr, &module->nm);
 
 	error = 0;
 	return module;
@@ -1895,6 +1935,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			module->isFake = true;
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
+
+			u32 moduleSize = sizeof(module->nm);
+			char tag[32];
+			snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
+			module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+
+			// Fill the struct.
+			if(Memory::IsValidAddress(module->modulePtr))
+				Memory::WriteStruct(module->modulePtr, &module->nm);
 
 			// TODO: It would be more ideal to allocate memory for this module.
 
@@ -2367,16 +2416,30 @@ static u32 sceKernelGetModuleId()
 
 u32 sceKernelFindModuleByUID(u32 uid)
 {
-	ERROR_LOG(SCEMODULE, "UNIMPL sceKernelFindModuleByUID(%d)", uid);
-	return 0;
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
+	if (!module || module->isFake) {
+		ERROR_LOG(SCEMODULE, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
+		return 0;
+	}
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr, uid);
+	return module->modulePtr;
 }
 
 u32 sceKernelFindModuleByName(const char *name)
 {
-	int index = GetModuleIndex(name);
-	u32 temp = index + 1;
-	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", temp, name);
-	return temp;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module)
+			continue;
+		if (!module->isFake && strcmp(name, module->nm.name) == 0) {
+			INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
+			return module->modulePtr;
+		}
+	}
+	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found or Fake", name);
+	return 0;
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
