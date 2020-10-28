@@ -833,16 +833,15 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
-		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
+		// Handled at the end.
 		break;
 
 	case REPLACE_ALPHA_YES:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
 		break;
 
 	case REPLACE_ALPHA_NO:
-		WRITE(p, "  %s = v;\n", compat.fragColor0);
+		// Nothing to do.
 		break;
 
 	default:
@@ -853,10 +852,10 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", compat.fragColor0);
+		WRITE(p, "  v.rgb = splat3(1.0);\n");
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", compat.fragColor0, compat.fragColor0);
+		WRITE(p, "  v.rgb = splat3(1.0) - v.rgb;\n");
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
@@ -886,6 +885,13 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
 		// Writing depth prevents the bug, even with depth_unchanged specified.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
+	}
+
+	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
+	} else {
+		WRITE(p, "  %s = v;\n", compat.fragColor0);
 	}
 
 	if (compat.d3d11) {

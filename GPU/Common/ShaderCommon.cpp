@@ -116,6 +116,7 @@ void GLSLShaderCompat::SetupForVulkan() {
 	lastFragData = nullptr;
 	texture = "texture";
 	texelFetch = "texelFetch";
+	d3d11 = false;
 	vulkan = true;
 	forceMatrix4x4 = false;
 	coefsFromBuffers = true;
@@ -137,6 +138,7 @@ void GLSLShaderCompat::SetupForD3D11() {
 	lastFragData = nullptr;
 	texture = "texture";
 	texelFetch = "texelFetch";
+	vulkan = false;
 	d3d11 = true;
 	forceMatrix4x4 = false;
 	coefsFromBuffers = true;

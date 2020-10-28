@@ -33,9 +33,10 @@ const char *hlsl_preamble =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
 "#define vec4 float4\n"
-"#define uvec3 uint\n"
+"#define uvec3 uint3\n"
 "#define ivec3 int3\n"
-"#define splat3(x) float3(x, x, x)\n";
+"#define splat3(x) float3(x, x, x)\n"
+"#define usplat3(x) uvec3(x, x, x)\n";
 
 const char *hlsl_d3d11_preamble =
 "#define DISCARD discard\n"
@@ -153,7 +154,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	}
 	if (enableColorTest) {
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "uint3 roundAndScaleTo255iv(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
+			WRITE(p, "uvec3 roundAndScaleTo255iv(float3 x) { return uvec3(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
 			WRITE(p, "vec3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 		}
@@ -364,9 +365,9 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char *test = colorTestFuncs[colorTestFunc];
 					if (lang == HLSL_D3D11) {
-						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  uint3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
-						WRITE(p, "  uint3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
+						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  ivec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
+						WRITE(p, "  ivec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) DISCARD;\n", test, test, test);
 					} else {
@@ -518,6 +519,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	}
 
 	switch (stencilToAlpha) {
+	case REPLACE_ALPHA_DUALSOURCE:
+		// Handled at the end.
+		break;
+
 	case REPLACE_ALPHA_YES:
 		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
 		break;
@@ -525,6 +530,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	case REPLACE_ALPHA_NO:
 		// Do nothing, v is already fine.
 		break;
+
+	default:
+		*errorString = "Bad stencil-to-alpha type, corrupt ID?";
+		return false;
 	}
 
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
@@ -537,6 +546,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
+
+	default:
+		*errorString = "Bad logic op type, corrupt ID?";
+		return false;
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
