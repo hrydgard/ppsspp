@@ -56,7 +56,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
-	bool enableFragmentTestCache = g_Config.bFragmentTestCache && !compat.vulkan;
+	bool enableFragmentTestCache = g_Config.bFragmentTestCache && !compat.vulkan && !compat.d3d11;
 
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
@@ -411,7 +411,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			if (!shaderDepal) {
 				if (compat.d3d11) {
 					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex.Sample(samp, %sv_texcoord.xy / %sv_texcoord.z)%s;\n", compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
 					} else {
 						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
 					}

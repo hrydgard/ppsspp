@@ -57,6 +57,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
@@ -312,19 +313,20 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			WRITE(p, "  v = lerp(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 
+		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "DISCARD;";
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
-					WRITE(p, "  clip(v.a - 0.002);\n");
+					WRITE(p, "  if (v.a < 0.002) %s\n", discardStatement);
 				} else if (alphaTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.  Happens sometimes, actually...
-					WRITE(p, "  clip(-v.a + 0.002);\n");
+					WRITE(p, "  if (v.a > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  DISCARD;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -338,7 +340,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, "  DISCARD;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}
@@ -355,7 +357,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  DISCARD;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -374,7 +376,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					}
 				}
 				else {
-					WRITE(p, "  DISCARD;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}
