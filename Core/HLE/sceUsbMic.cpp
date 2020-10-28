@@ -74,6 +74,8 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 						isNeedInput = false;
 				} else {
 					u64 waitTimeus = (waitingThread.needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThread.sampleRate;
+					if(eventUsbMicAudioUpdate == -1)
+						eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
 					CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, userdata);
 				}
 			} else {
@@ -137,13 +139,6 @@ void __UsbMicDoState(PointerWrap &p) {
 
 	if (!audioBuf && numNeedSamples > 0) {
 		audioBuf = new QueueBuf(numNeedSamples << 1);
-	}
-	if(eventUsbMicAudioUpdate = -1)
-		eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
-	// Maybe also need to save the state of audioBuf.
-	if (waitingThreads.size() != 0 && p.mode == PointerWrap::MODE_READ) {
-		u64 waitTimeus = (waitingThreads[0].needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThreads[0].sampleRate;
-		CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, waitingThreads[0].threadID);
 	}
 
 	if (micState == 0) {
@@ -415,6 +410,8 @@ u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 		waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;
 		isNeedInput = true;
 	}
+	if(eventUsbMicAudioUpdate == -1)
+		eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	std::unique_lock<std::mutex> lock(wtMutex);
