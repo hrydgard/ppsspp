@@ -667,7 +667,15 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
-					if (compat.bitwiseOps) {
+					// TODO: Unify these paths better.
+					if (compat.d3d11) {
+						const char *test = colorTestFuncs[colorTestFunc];
+						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  uvec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
+						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
+						// We have to test the components separately, or we get incorrect results.  See #10629.
+						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) %s\n", test, test, test, discardStatement);
+					} else if (compat.bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						if (compat.vulkan) {
@@ -723,7 +731,9 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+			if (compat.d3d11) {
+				WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
+			} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 				WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
 			} else if (!compat.texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
@@ -731,34 +741,34 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
 			}
 
-			const char *srcFactor = "splat3(1.0)";
-			const char *dstFactor = "splat3(0.0)";
+			const char *srcFactor = nullptr;
+			const char *dstFactor = nullptr;
 
 			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(splat3(1.0) - destColor.rgb)"; break;
-			case GE_SRCBLEND_SRCALPHA:          srcFactor = "splat3(v.a)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
 			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
-			case GE_SRCBLEND_DSTALPHA:          srcFactor = "splat3(destColor.a)"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0 - destColor.a)"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "splat3(v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0 - v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "splat3(destColor.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "splat3(1.0 - destColor.a * 2.0)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "destColor.aaa"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0) - destColor.aaa"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0) - v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "destColor.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
 			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(splat3(1.0) - v.rgb)"; break;
-			case GE_DSTBLEND_SRCALPHA:          dstFactor = "splat3(v.a)"; break;
-			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "splat3(1.0 - v.a)"; break;
-			case GE_DSTBLEND_DSTALPHA:          dstFactor = "splat3(destColor.a)"; break;
-			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "splat3(1.0 - destColor.a)"; break;
-			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "splat3(v.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "splat3(1.0 - v.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "splat3(destColor.a * 2.0)"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "splat3(1.0 - destColor.a * 2.0)"; break;
+			case GE_DSTBLEND_SRCALPHA:          dstFactor = "v.aaa"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "splat3(1.0) - v.aaa"; break;
+			case GE_DSTBLEND_DSTALPHA:          dstFactor = "destColor.aaa"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "splat3(1.0) - destColor.aaa"; break;
+			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "splat3(1.0) - v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			default:                            dstFactor = "u_blendFixB"; break;
 			}

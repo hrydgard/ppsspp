@@ -36,7 +36,8 @@ const char *hlsl_preamble =
 "#define uvec3 uint3\n"
 "#define ivec3 int3\n"
 "#define splat3(x) float3(x, x, x)\n"
-"#define usplat3(x) uvec3(x, x, x)\n";
+"#define mix lerp\n"
+"#define mod(x, y) fmod(x, y)\n";
 
 const char *hlsl_d3d11_preamble =
 "#define DISCARD discard\n"
@@ -228,12 +229,12 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (id.Bit(FS_BIT_CLAMP_S)) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
-					ucoord = "fmod(" + ucoord + ", u_texclamp.x)";
+					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
 				}
 				if (id.Bit(FS_BIT_CLAMP_T)) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
-					vcoord = "fmod(" + vcoord + ", u_texclamp.y)";
+					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
 				}
 				if (textureAtOffset) {
 					ucoord = "(" + ucoord + " + u_texclampoff.x)";
@@ -259,16 +260,18 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 				}
 			}
-			WRITE(p, "  vec4 p = In.v_color0;\n");
+			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha) {
+				WRITE(p, "  vec4 p = In.v_color0;\n");
+			}
 
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (texFunc) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  vec4 v = p * t%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
@@ -287,7 +290,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				case GE_TEXFUNC_DECAL:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
@@ -311,7 +314,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = lerp(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 
 		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "DISCARD;";
@@ -334,10 +337,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
 					if (lang == HLSL_D3D11) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops?
-						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) DISCARD;\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					}
 				} else {
 					// This means NEVER.  See above.
@@ -351,10 +354,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) DISCARD;\n");
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) %s\n", discardStatement);
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) DISCARD;\n");
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
@@ -365,15 +368,15 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char *test = colorTestFuncs[colorTestFunc];
 					if (lang == HLSL_D3D11) {
-						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  ivec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
-						WRITE(p, "  ivec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
+						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  uvec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
+						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
-						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) DISCARD;\n", test, test, test);
+						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) %s\n", test, test, test, discardStatement);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
 						WRITE(p, "  vec3 colortest = roundAndScaleTo255v(v.rgb);\n");
-						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) DISCARD;\n", test, test, test);
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) %s\n", test, test, test, discardStatement);
 					}
 				}
 				else {
@@ -422,7 +425,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(splat3(1.0) - destColor.rgb)"; break;
 			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
-			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0) - v.aaa"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "destColor.aaa"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0) - destColor.aaa"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;

@@ -923,6 +923,11 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 
 bool VulkanContext::InitSwapchain() {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
+	if (res == VK_ERROR_SURFACE_LOST_KHR) {
+		// Not much to do.
+		ERROR_LOG(G3D, "VK: Surface lost in InitSwapchain");
+		return false;
+	}
 	_dbg_assert_(res == VK_SUCCESS);
 	uint32_t presentModeCount;
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);

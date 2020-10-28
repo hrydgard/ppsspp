@@ -173,6 +173,7 @@ bool TestShaderGenerators() {
 
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);
+		id.SetBit(FS_BIT_SHADER_DEPAL, false);
 
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];
