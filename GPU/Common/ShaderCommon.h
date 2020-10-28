@@ -144,6 +144,8 @@ struct GLSLShaderCompat {
 	int glslVersionNumber;
 	bool gles;
 	bool vulkan;
+	bool d3d11;
+	bool d3d9;
 	const char *varying_fs;
 	const char *varying_vs;
 	const char *attribute;
@@ -153,11 +155,11 @@ struct GLSLShaderCompat {
 	const char *texelFetch;
 	const char *lastFragData;
 	const char *framebufferFetchExtension;
+	const char *inPrefix;
 	bool glslES30;
 	bool bitwiseOps;
 	bool forceMatrix4x4;
 	bool coefsFromBuffers;
-	bool d3d11;
 
 	void SetupForVulkan();
 	void SetupForD3D11();

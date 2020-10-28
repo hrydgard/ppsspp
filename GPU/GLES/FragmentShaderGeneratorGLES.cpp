@@ -40,7 +40,16 @@ static const char *vulkan_glsl_preamble =
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "#extension GL_ARB_conservative_depth : enable\n"
 "#extension GL_ARB_shader_image_load_store : enable\n"
-"#define splat3(x) vec3(x)\n\n";
+"#define splat3(x) vec3(x)\n"
+"#define lowp\n"
+"#define mediump\n"
+"#define highp\n"
+"#define DISCARD discard\n"
+"\n";
+extern const char *hlsl_preamble;
+extern const char *hlsl_d3d9_preamble;
+extern const char *hlsl_d3d11_preamble;
+extern const char *hlsl_late_preamble;
 
 bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
@@ -62,11 +71,15 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	if (compat.vulkan) {
 		WRITE(p, "%s", vulkan_glsl_preamble);
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
+	} else if (compat.d3d11) {
+		WRITE(p, "%s", hlsl_preamble);
+		WRITE(p, "%s", hlsl_d3d11_preamble);
+	} else if (compat.d3d9) {
+		WRITE(p, "%s", hlsl_preamble);
+		WRITE(p, "%s", hlsl_d3d9_preamble);
 	} else {
 		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
+		WRITE(p, "#define DISCARD discard\n");
 
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
 			WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
@@ -102,6 +115,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
+	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
@@ -169,6 +183,52 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "layout (location = 0, index = 1) out vec4 fragColor1;\n");
 		}
+	} else if (compat.d3d11) {
+		WRITE(p, "SamplerState samp : register(s0);\n");
+		WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+				// No sampler required, we Load
+				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
+			}
+		}
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
+
+		if (enableAlphaTest) {
+			WRITE(p, "int roundAndScaleTo255i(float x) { return int(floor(x * 255.0f + 0.5f)); }\n");
+		}
+		if (enableColorTest) {
+			WRITE(p, "uvec3 roundAndScaleTo255iv(float3 x) { return uvec3(floor(x * 255.0f + 0.5f)); }\n");
+		}
+
+		WRITE(p, "struct PS_IN {\n");
+		if (doTexture) {
+			WRITE(p, "  vec3 v_texcoord: TEXCOORD0;\n");
+		}
+		const char *colorInterpolation = doFlatShading ? "nointerpolation " : "";
+		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
+		if (lmode) {
+			WRITE(p, "  vec3 v_color1: COLOR1;\n");
+		}
+		if (enableFog) {
+			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
+		}
+		if ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
+		}
+		WRITE(p, "};\n");
+
+		WRITE(p, "struct PS_OUT {\n");
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "  vec4 target : SV_Target0;\n");
+			WRITE(p, "  vec4 target1 : SV_Target1;\n");
+		} else {
+			WRITE(p, "  vec4 target : SV_Target;\n");
+		}
+		if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			WRITE(p, "  float depth : SV_DEPTH;\n");
+		}
+		WRITE(p, "};\n");
 	} else {
 		if (shaderDepal && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
@@ -283,22 +343,28 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
-	WRITE(p, "void main() {\n");
+	if (compat.d3d11) {
+		WRITE(p, "%s", hlsl_late_preamble);
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
+	} else {
+		WRITE(p, "void main() {\n");
+	}
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  vec4 v = v_color0;\n");
+		WRITE(p, "  vec4 v = %sv_color0;\n", compat.inPrefix);
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+			WRITE(p, "  vec4 s = vec4(%sv_color1, 0.0);\n", compat.inPrefix);
 			secondary = " + s";
 		} else {
 			secondary = "";
 		}
 
 		if (doTexture) {
-			const char *texcoord = "v_texcoord";
+			std::string texcoord = std::string(compat.inPrefix) + "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -312,11 +378,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
-				std::string ucoord = "v_texcoord.x";
-				std::string vcoord = "v_texcoord.y";
+				std::string ucoord = std::string(compat.inPrefix) + "v_texcoord.x";
+				std::string vcoord = std::string(compat.inPrefix) + "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord = "(v_texcoord.x / v_texcoord.z)";
-					vcoord = "(v_texcoord.y / v_texcoord.z)";
+					ucoord = StringFromFormat("(%sv_texcoord.x / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
+					vcoord = StringFromFormat("(%sv_texcoord.y / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
@@ -343,18 +409,26 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			}
 
 			if (!shaderDepal) {
-				if (doTextureProjection) {
-					WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+				if (compat.d3d11) {
+					if (doTextureProjection) {
+						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+					} else {
+						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
+					}
 				} else {
-					WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+					if (doTextureProjection) {
+						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord.c_str());
+					} else {
+						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord.c_str());
+					}
 				}
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
-					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord.c_str(), texcoord.c_str());
 				} else {
-					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord.c_str());
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
 				WRITE(p, "  vec2 fraction;\n");
@@ -441,7 +515,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			}
 
 			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
-				WRITE(p, "  vec4 p = v_color0;\n");
+				WRITE(p, "  vec4 p = %sv_color0;\n", compat.inPrefix);
 
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (texFunc) {
@@ -504,11 +578,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
+			WRITE(p, "  vec4 v = %sv_color0 %s;\n", compat.inPrefix, secondary);
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(%sv_fogdepth, 0.0, 1.0);\n", compat.inPrefix);
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
@@ -527,7 +601,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			}
 		}
 
-		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "discard;";
+		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "DISCARD;";
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
@@ -812,6 +886,10 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
 		// Writing depth prevents the bug, even with depth_unchanged specified.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
+	}
+
+	if (compat.d3d11) {
+		WRITE(p, "  return outfragment;\n");
 	}
 
 	WRITE(p, "}\n");

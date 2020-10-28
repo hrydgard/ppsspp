@@ -119,12 +119,13 @@ void GLSLShaderCompat::SetupForVulkan() {
 	vulkan = true;
 	forceMatrix4x4 = false;
 	coefsFromBuffers = true;
+	inPrefix = "";
 }
 
 
 void GLSLShaderCompat::SetupForD3D11() {
-	fragColor0 = "fragColor0";
-	fragColor1 = "fragColor1";
+	fragColor0 = "outfragment.target";
+	fragColor1 = "outfragment.target1";
 	varying_fs = "in";
 	varying_vs = "out";
 	attribute = "in";
@@ -139,4 +140,5 @@ void GLSLShaderCompat::SetupForD3D11() {
 	d3d11 = true;
 	forceMatrix4x4 = false;
 	coefsFromBuffers = true;
+	inPrefix = "In.";
 }

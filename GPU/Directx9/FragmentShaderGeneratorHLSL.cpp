@@ -29,6 +29,23 @@
 
 // #define DEBUG_SHADER
 
+const char *hlsl_preamble =
+"#define vec2 float2\n"
+"#define vec3 float3\n"
+"#define vec4 float4\n"
+"#define uvec3 uint\n"
+"#define ivec3 int3\n"
+"#define splat3(x) float3(x, x, x)\n";
+
+const char *hlsl_d3d11_preamble =
+"#define DISCARD discard\n"
+"#define DISCARD_BELOW(x) clip(x);\n";
+const char *hlsl_d3d9_preamble =
+"#define DISCARD clip(-1)\n"
+"#define DISCARD_BELOW(x) clip(x)\n";
+
+const char *hlsl_late_preamble = "";
+
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
 bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString) {
@@ -66,26 +83,24 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
+	WRITE(p, "%s", hlsl_preamble);
+
 	// Output some compatibility defines
 	switch (lang) {
 	case ShaderLanguage::HLSL_DX9:
-		WRITE(p, "#define DISCARD clip(-1)\n");
+		WRITE(p, hlsl_d3d9_preamble);
 		break;
 	case ShaderLanguage::HLSL_D3D11:
-		WRITE(p, "#define DISCARD discard\n");
+		WRITE(p, hlsl_d3d11_preamble);
 		break;
 	}
-	WRITE(p, "#define vec2 float2\n");
-	WRITE(p, "#define vec3 float3\n");
-	WRITE(p, "#define vec4 float4\n");
-	WRITE(p, "#define splat3(x) float3(x, x, x)\n");
 
 	if (lang == HLSL_DX9) {
 		if (doTexture)
 			WRITE(p, "sampler tex : register(s0);\n");
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-				WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+				WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
 				WRITE(p, "sampler fbotex : register(s1);\n");
 			}
 			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
@@ -96,15 +111,15 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			}
 		}
 		if (gstate_c.needShaderTexClamp && doTexture) {
-			WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
 			if (textureAtOffset) {
-				WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
 			}
 		}
 
 		if (enableAlphaTest || enableColorTest) {
-			WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-			WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
+			WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+			WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
 		}
 		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
@@ -117,11 +132,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		}
 	} else {
 		WRITE(p, "SamplerState samp : register(s0);\n");
-		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
+		WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 				// No sampler required, we Load
-				WRITE(p, "Texture2D<float4> fboTex : register(t1);\n");
+				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
 			}
 		}
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
@@ -139,54 +154,56 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		if (lang == HLSL_D3D11) {
 			WRITE(p, "uint3 roundAndScaleTo255iv(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
-			WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+			WRITE(p, "vec3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 		}
 	}
 
 	WRITE(p, "struct PS_IN {\n");
 	if (doTexture) {
-		WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
+		WRITE(p, "  vec3 v_texcoord: TEXCOORD0;\n");
 	}
 	const char *colorInterpolation = doFlatShading && lang == HLSL_D3D11 ? "nointerpolation " : "";
-	WRITE(p, "  %sfloat4 v_color0: COLOR0;\n", colorInterpolation);
+	WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
 	if (lmode) {
-		WRITE(p, "  float3 v_color1: COLOR1;\n");
+		WRITE(p, "  vec3 v_color1: COLOR1;\n");
 	}
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
 	if (lang == HLSL_D3D11 && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
-		WRITE(p, "  float4 pixelPos : SV_POSITION;\n");
+		WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
 	}
 	WRITE(p, "};\n");
 
 	if (lang == HLSL_DX9) {
-		WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
+		WRITE(p, "%s", hlsl_late_preamble);
+		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
 	} else {
 		WRITE(p, "struct PS_OUT {\n");
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-			WRITE(p, "  float4 target : SV_Target0;\n");
-			WRITE(p, "  float4 target1 : SV_Target1;\n");
+			WRITE(p, "  vec4 target : SV_Target0;\n");
+			WRITE(p, "  vec4 target1 : SV_Target1;\n");
 		}
 		else {
-			WRITE(p, "  float4 target : SV_Target;\n");
+			WRITE(p, "  vec4 target : SV_Target;\n");
 		}
 		if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			WRITE(p, "  float depth : SV_DEPTH;\n");
 		}
 		WRITE(p, "};\n");
+		WRITE(p, "%s", hlsl_late_preamble);
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
 	}
 
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  float4 v = In.v_color0;\n");
+		WRITE(p, "  vec4 v = In.v_color0;\n");
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  float4 s = float4(In.v_color1, 0);\n");
+			WRITE(p, "  vec4 s = vec4(In.v_color1, 0.0);\n");
 			secondary = " + s";
 		} else {
 			secondary = "";
@@ -221,7 +238,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
-				WRITE(p, "  float2 fixedcoord = float2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
+				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
 				// We already projected it.
 				doTextureProjection = false;
@@ -229,55 +246,55 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 			if (lang == HLSL_D3D11) {
 				if (doTextureProjection) {
-					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+					WRITE(p, "  vec4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
-					WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+					WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 				}
 			} else {
 				if (doTextureProjection) {
-					WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
-					WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+					WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 				}
 			}
-			WRITE(p, "  float4 p = In.v_color0;\n");
+			WRITE(p, "  vec4 p = In.v_color0;\n");
 
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (texFunc) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  float4 v = p * t%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = p * t%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  float4 v = float4(lerp(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  float4 v = float4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  float4 v = t%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
 				case GE_TEXFUNC_UNKNOWN1:
 				case GE_TEXFUNC_UNKNOWN2:
 				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  float4 v = float4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
 				default:
-					WRITE(p, "  float4 v = p;\n"); break;
+					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 
 			} else {	// texfmt == RGB
 				switch (texFunc) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  float4 v = float4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  float4 v = float4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  float4 v = float4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(lerp(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  float4 v = float4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
 				case GE_TEXFUNC_UNKNOWN1:
 				case GE_TEXFUNC_UNKNOWN2:
 				case GE_TEXFUNC_UNKNOWN3:
-					WRITE(p, "  float4 v = float4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
 				default:
-					WRITE(p, "  float4 v = p;\n"); break;
+					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			}
 
@@ -287,12 +304,12 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
+			WRITE(p, "  vec4 v = In.v_color0 %s;\n", secondary);
 		}
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v = lerp(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 
 		if (enableAlphaTest) {
@@ -352,7 +369,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) DISCARD;\n", test, test, test);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
-						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
+						WRITE(p, "  vec3 colortest = roundAndScaleTo255v(v.rgb);\n");
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) DISCARD;\n", test, test, test);
 					}
 				}
@@ -393,7 +410,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		}
 
 		if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
+			WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
 
 			const char *srcFactor = nullptr;
 			const char *dstFactor = nullptr;
@@ -403,7 +420,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(splat3(1.0) - destColor.rgb)"; break;
 			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
 			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0) - v.aaa"; break;
-			case GE_SRCBLEND_DSTALPHA:          srcFactor = "float3(destColor.aaa)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "destColor.aaa"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0) - destColor.aaa"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0) - v.aaa * 2.0"; break;
@@ -540,8 +557,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 	if (lang == HLSL_D3D11) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
-			WRITE(p, "  outfragment.target1 = float4(0.0, 0.0, 0.0, v.a);\n");
+			WRITE(p, "  outfragment.target = vec4(v.rgb, %s);\n", replacedAlpha.c_str());
+			WRITE(p, "  outfragment.target1 = vec4(0.0, 0.0, 0.0, v.a);\n");
 			WRITE(p, "  return outfragment;\n");
 		}
 		else {
