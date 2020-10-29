@@ -114,9 +114,15 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define ADHOC_GAMEMODE_PORT 31000
 #define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
 #define GAMEMODE_INIT_DELAY 10000
+#define GAMEMODE_SYNC_TIMEOUT 250000
+
+// GameMode Type
+#define ADHOCCTL_GAMETYPE_1A	1
+#define ADHOCCTL_GAMETYPE_1B	2
+#define ADHOCCTL_GAMETYPE_2A	3
 
 // psp strutcs and definitions
-#define ADHOCCTL_MODE_NONE     -1
+#define ADHOCCTL_MODE_NONE     -1 // We only use this internally as initial value before attempting to create/connect/join/scan any group
 #define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC
 #define ADHOCCTL_MODE_GAMEMODE  1
 
@@ -141,7 +147,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 // ProductType ( extracted from SSID along with ProductId & GroupName, Pattern = "PSP_([AXS])(.........)_([LG])_(.*)" )
 #define PSP_ADHOCCTL_TYPE_COMMERCIAL 0
 #define PSP_ADHOCCTL_TYPE_DEBUG 1
-#define PSP_ADHOCCTL_TYPE_SYSTEM 2
+#define PSP_ADHOCCTL_TYPE_SYSTEM 2 // Used for GameSharing?
 
 // Kernel Utility Netconf Adhoc Types
 #define UTILITY_NETCONF_TYPE_CONNECT_ADHOC 2
@@ -321,6 +327,7 @@ typedef struct GameModeArea {
 	//int socket; // PDP socket?
 	u64 updateTimestamp;
 	int dataUpdated;
+	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
 } PACK GameModeArea;
@@ -393,8 +400,8 @@ typedef struct SceNetAdhocGameModeBufferStat {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-	s32_le type;
-	uint8_t data[ADHOCCTL_ADHOCID_LEN];
+	s32_le type; // Air Conflicts - Aces Of World War 2 is using 2 for GameSharing?
+	uint8_t data[ADHOCCTL_ADHOCID_LEN]; // Air Conflicts - Aces Of World War 2 is using "000000001" for GameSharing?
 	uint8_t padding[3];
 } PACK SceNetAdhocctlAdhocId; // should this be packed?
 #ifdef _MSC_VER 
@@ -913,6 +920,7 @@ extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
 extern int adhocConnectionType;
@@ -1025,7 +1033,7 @@ void changeBlockingMode(int fd, int nonblocking);
  * Count Virtual Networks by analyzing the Friend List
  * @return Number of Virtual Networks
  */
-int countAvailableNetworks();
+int countAvailableNetworks(const bool excludeSelf = false);
 
 /*
  * Find an existing group in networks

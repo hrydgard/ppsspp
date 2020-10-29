@@ -21,6 +21,10 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#if defined(_WIN32)
+#include "Common/CommonWindows.h"
+#endif
+
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <netinet/tcp.h>
@@ -62,6 +66,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
 int adhocConnectionType               = ADHOC_CONNECT;
@@ -315,7 +320,7 @@ void changeBlockingMode(int fd, int nonblocking) {
 #endif
 }
 
-int countAvailableNetworks() {
+int countAvailableNetworks(const bool excludeSelf) {
 	// Network Count
 	int count = 0;
 
@@ -323,7 +328,7 @@ int countAvailableNetworks() {
 	SceNetAdhocctlScanInfo * group = networks;
 
 	// Count Groups
-	for (; group != NULL; group = group->next) count++;
+	for (; group != NULL && (!excludeSelf || !isLocalMAC(&group->bssid.mac_addr)); group = group->next) count++;
 
 	// Return Network Count
 	return count;
@@ -1165,6 +1170,7 @@ void AfterAdhocMipsCall::run(MipsCall& call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", HandlerID, EventID);
 	SetAdhocctlInCallback(false);
+	isAdhocctlBusy = false;
 	DEBUG_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", HandlerID, EventID, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
@@ -1334,6 +1340,10 @@ int friendFinder(){
 				if (initNetwork(&product_code) == 0) {
 					networkInited = true;
 					INFO_LOG(SCENET, "FriendFinder: Network [RE]Initialized");
+					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+					netAdhocGameModeEntered = false;
+					isAdhocctlBusy = false;
 				} 
 				else {
 					networkInited = false;
@@ -1395,6 +1405,12 @@ int friendFinder(){
 				}
 			}
 
+			// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
+			if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
+				netAdhocGameModeEntered = false;
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOC_TIMEOUT);
+			}
+
 			// Handle Packets
 			if (rxpos > 0) {
 				// BSSID Packet
@@ -1419,14 +1435,14 @@ int friendFinder(){
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
+
+								// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
+								if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
-
-							if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 						else {
 							//adhocctlState = ADHOCCTL_STATE_CONNECTED;
@@ -1521,17 +1537,16 @@ int friendFinder(){
 									it = gameModeMacs.begin() + 1;
 									gameModeMacs.insert(it, packet->mac);
 								}
+
+								// From JPCSP: Join complete when all the required MACs have joined
+								if (netAdhocGameModeEntered && requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
+									// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
+									//gameModeMacs = requiredGameModeMacs;
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode Member [%s] Already Existed!", mac2str(&packet->mac).c_str());
-
-							// From JPCSP: Join complete when all the required MACs have joined
-							if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
-								//gameModeMacs = requiredGameModeMacs;
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 
 						// Update HUD User Count
@@ -1572,13 +1587,14 @@ int friendFinder(){
 						// Log Incoming Peer Delete Request
 						INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
 
-						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
-							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[peer](SceNetEtherAddr const& e) {
-									return isMacMatch(&e, &peer->mac_addr);
-								}), gameModeMacs.end());
-						}*/
+							for (auto& gma : replicaGameModeAreas)
+								if (isMacMatch(&gma.mac, &peer->mac_addr)) {
+									gma.updateTimestamp = 0;
+									break;
+								}
+						}
 
 						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
 						deleteFriendByIP(packet->ip);
@@ -1633,7 +1649,8 @@ int friendFinder(){
 							// Set group parameters
 							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
 							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							group->mode = adhocctlCurrentMode;
+							// This Mode should be a valid mode (>=0), probably should be sent by AdhocServer since there are 2 possibilities (Normal and GameMode). Air Conflicts - Aces Of World War 2 (which use GameMode) seems to relies on this Mode value.
+							group->mode = std::max(ADHOCCTL_MODE_NORMAL, adhocctlCurrentMode); // default to ADHOCCTL_MODE_NORMAL
 
 							// Link into Group List
 							newnetworks = group;
