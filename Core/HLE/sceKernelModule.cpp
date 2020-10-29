@@ -88,6 +88,8 @@ enum : u32 {
 	NID_MODULE_SDK_VERSION = 0x11B97506,
 };
 
+int eventKillsceKernelFindModuleByName = -1;
+
 // This is a workaround for misbehaving homebrew (like TBL's Suicide Barbie (Final)).
 static const char * const lieAboutSuccessModules[] = {
 	"flash0:/kd/audiocodec.prx",
@@ -2426,6 +2428,17 @@ u32 sceKernelFindModuleByUID(u32 uid)
 	return module->modulePtr;
 }
 
+
+void __KillsceKernelFindModuleByName(u64 userdata, int cyclesLate){
+	int exitStatus = 0;
+	__KernelDeleteThread(userdata, exitStatus, "KillsceKernelFindModuleByName");
+	if (exitStatus < 0)
+		WARN_LOG(SCEMODULE, "Cannot kill sceKernelFindModuleByName's thread");
+	else
+		INFO_LOG(SCEMODULE, "Success kill sceKernelFindModuleByName's thread");
+
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
 	u32 error;
@@ -2433,12 +2446,24 @@ u32 sceKernelFindModuleByName(const char *name)
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 		if (!module)
 			continue;
-		if (!module->isFake && strcmp(name, module->nm.name) == 0) {
-			INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
-			return module->modulePtr;
+		if (strcmp(name, module->nm.name) == 0) {
+			if (!module->isFake) {
+				if (eventKillsceKernelFindModuleByName == -1)
+					eventKillsceKernelFindModuleByName = CoreTiming::RegisterEvent("KillsceKernelFindModuleByName", __KillsceKernelFindModuleByName);										
+				INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
+				return module->modulePtr;
+			}
+			else {
+				if (eventKillsceKernelFindModuleByName > 0) {
+					WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Fake ,killing this thread", name);					
+					CoreTiming::ScheduleEvent(usToCycles(500 * 1000), eventKillsceKernelFindModuleByName, module->nm.modid);
+					eventKillsceKernelFindModuleByName = -1;
+				}
+				return 0;
+			}
 		}
 	}
-	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found or Fake", name);
+	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found", name);
 	return 0;
 }
 
