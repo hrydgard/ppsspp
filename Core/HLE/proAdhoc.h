@@ -41,7 +41,7 @@
 #include <thread>
 #include <mutex>
 
-#include "net/resolve.h"
+#include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
 
 #include "Core/Config.h"
@@ -49,7 +49,6 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
-#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
@@ -57,8 +56,10 @@
 
 #ifdef _WIN32
 #undef errno
+#undef ESHUTDOWN
 #undef ECONNABORTED
 #undef ECONNRESET
+#undef ECONNREFUSED
 #undef ENOTCONN
 #undef EAGAIN
 #undef EINPROGRESS
@@ -66,8 +67,10 @@
 #undef EALREADY
 #undef ETIMEDOUT
 #define errno WSAGetLastError()
+#define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
 #define ECONNRESET WSAECONNRESET
+#define ECONNREFUSED WSAECONNREFUSED
 #define ENOTCONN WSAENOTCONN
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
@@ -75,11 +78,13 @@
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
+inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
+inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
 
 #ifndef POLL_ERR
@@ -97,7 +102,7 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 #endif
 
 #ifndef SD_BOTH
-#define SD_BOTH 0x02
+#define SD_BOTH SHUT_RDWR //0x02
 #endif
 
 #define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)
@@ -105,13 +110,24 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 // Server Listening Port
 #define SERVER_PORT 27312
 
+// Default GameMode definitions
+#define ADHOC_GAMEMODE_PORT 31000
+#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+#define GAMEMODE_INIT_DELAY 10000
+#define GAMEMODE_SYNC_TIMEOUT 250000
+
+// GameMode Type
+#define ADHOCCTL_GAMETYPE_1A	1
+#define ADHOCCTL_GAMETYPE_1B	2
+#define ADHOCCTL_GAMETYPE_2A	3
+
 // psp strutcs and definitions
-#define ADHOCCTL_MODE_NONE -1
-#define ADHOCCTL_MODE_ADHOC 0 //ADHOCCTL_MODE_NORMAL
-#define ADHOCCTL_MODE_GAMEMODE 1
+#define ADHOCCTL_MODE_NONE     -1 // We only use this internally as initial value before attempting to create/connect/join/scan any group
+#define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC
+#define ADHOCCTL_MODE_GAMEMODE  1
 
 // Event Types for Event Handler
-#define ADHOCCTL_EVENT_ERROR 0
+#define ADHOCCTL_EVENT_ERROR 0 // Used to pass error code to Adhocctl Handler?
 #define ADHOCCTL_EVENT_CONNECT 1
 #define ADHOCCTL_EVENT_DISCONNECT 2
 #define ADHOCCTL_EVENT_SCAN 3
@@ -131,7 +147,7 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 // ProductType ( extracted from SSID along with ProductId & GroupName, Pattern = "PSP_([AXS])(.........)_([LG])_(.*)" )
 #define PSP_ADHOCCTL_TYPE_COMMERCIAL 0
 #define PSP_ADHOCCTL_TYPE_DEBUG 1
-#define PSP_ADHOCCTL_TYPE_SYSTEM 2
+#define PSP_ADHOCCTL_TYPE_SYSTEM 2 // Used for GameSharing?
 
 // Kernel Utility Netconf Adhoc Types
 #define UTILITY_NETCONF_TYPE_CONNECT_ADHOC 2
@@ -151,15 +167,15 @@ inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode
 #define ADHOC_EV_CONNECT	0x0004
 #define ADHOC_EV_ACCEPT		0x0008
 #define ADHOC_EV_FLUSH		0x0010
-#define ADHOC_EV_INVALID	0x0100
-#define ADHOC_EV_DELETE		0x0200
+#define ADHOC_EV_INVALID	0x0100 // ignored on events but can be raised on revents? similar to POLLNVAL on posix poll?
+#define ADHOC_EV_DELETE		0x0200 // ignored on events but can be raised on revents? similar to POLLERR on posix poll?
 #define ADHOC_EV_ALERT		0x0400
-#define ADHOC_EV_DISCONNECT	0x0800
+#define ADHOC_EV_DISCONNECT	0x0800 // ignored on events but can be raised on revents? similar to POLLHUP on posix poll?
 
 // PTP Connection States
 #define ADHOC_PTP_STATE_CLOSED		0
 #define ADHOC_PTP_STATE_LISTEN		1
-#define ADHOC_PTP_STATE_SYN_SENT	2
+#define ADHOC_PTP_STATE_SYN_SENT	2 // 3-way handshake normally: [client]send SYN -> [server]recv SYN and reply with ACK+SYN -> [client]recv SYN and reply with ACK -> Established
 #define ADHOC_PTP_STATE_SYN_RCVD	3
 #define ADHOC_PTP_STATE_ESTABLISHED 4
 
@@ -204,9 +220,9 @@ extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
 
 // Malloc Pool Information
 typedef struct SceNetMallocStat {
-	s32_le pool; // Pointer to the pool? // This should be the poolSize isn't?
-	s32_le maximum; // Maximum size of the pool? Maximum usage (ie. pool- free) ?
-	s32_le free; // How much memory is free
+	s32_le pool; // On Vantage Master Portable this is 0x1ffe0 on sceNetGetMallocStat, while the poolSize arg on sceNetInit was 0x20000
+	s32_le maximum; // On Vantage Master Portable this is 0x4050, Footprint of Highest amount allocated so far?
+	s32_le free; // On Vantage Master Portable this is 0x1f300, VMP compares this value with required size before sending data
 } PACK SceNetMallocStat;
 
 // Adhoc Virtual Network Name
@@ -249,18 +265,20 @@ typedef struct SceNetAdhocctlNickname {
 typedef struct SceNetAdhocctlParameter {
   s32_le channel;
   SceNetAdhocctlGroupName group_name; // This group name is probably similar to SSID name on AP
-  SceNetAdhocctlBSSId bssid;
-  SceNetAdhocctlNickname nickname;
+  SceNetAdhocctlNickname nickname; // According to the old PSPSDK this is the bssid, but according to the dumped content when using newer firmware this is the nickname (this is also the nickname on VitaSDK)
+  SceNetAdhocctlBSSId bssid; // FIXME: bssid and nickname position might be swapped on older/newer firmware?
 } PACK SceNetAdhocctlParameter;
 
-// Peer Information
+// Peer Information (internal use only)
 typedef struct SceNetAdhocctlPeerInfo {
   SceNetAdhocctlPeerInfo * next;
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u32_le ip_addr;
-  uint8_t padding[2];
+  u16_le padding;
+  u32_le flags;
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
+  
+  u32_le ip_addr; // internal use only
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -268,8 +286,8 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   u32_le next; // Changed the pointer to u32
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u32_le ip_addr; //jpcsp wrote 6bytes of 0x11 for this & padding
-  u16 padding; // Changed the padding to u16
+  u16_le padding; //00 00
+  u32_le flags; //00 04 00 00 on KHBBS and FF FF FF FF on Ys vs. Sora no Kiseki // State of the peer? Or related to sceNetAdhocAuth_CF4D9BED ?
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfoEmu;
 
@@ -291,8 +309,28 @@ typedef struct SceNetAdhocMatchingMemberInfoEmu {
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
 typedef struct SceNetAdhocctlGameModeInfo {
   s32_le num;
-  SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+  SceNetEtherAddr members[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
 } PACK SceNetAdhocctlGameModeInfo;
+
+// GameModeUpdateInfo
+typedef struct GameModeUpdateInfo {
+	u32_le length; //size of GameModeUpdateInfo (16 bytes)
+	s32_le updated;
+	u64_le timeStamp;
+} PACK GameModeUpdateInfo;
+
+// GameModeArea (Internal use only)
+typedef struct GameModeArea {
+	int id; // started from 1 for replica? master = 0 or -1?
+	int size;
+	u32 addr;
+	//int socket; // PDP socket?
+	u64 updateTimestamp;
+	int dataUpdated;
+	int dataSent;
+	SceNetEtherAddr mac;
+	u8* data;  // upto "size" bytes started from "addr" ?
+} PACK GameModeArea;
 
 // Socket Polling Event Listener
 typedef struct SceNetAdhocPollSd{
@@ -302,26 +340,45 @@ typedef struct SceNetAdhocPollSd{
 } PACK SceNetAdhocPollSd;
 
 // PDP Socket Status
-typedef struct SceNetAdhocPdpStat{
-  u32_le next; // struct SceNetAdhocPdpStat * next;
-  s32_le id;
-  SceNetEtherAddr laddr;
-  u16_le lport;
-  u32_le rcv_sb_cc;
+typedef struct SceNetAdhocPdpStat {
+	u32_le next; 
+	s32_le id; // posix socket id
+	SceNetEtherAddr laddr;
+	u16_le lport;
+	u32_le rcv_sb_cc; // Obscure The Aftermath will check if this is 0 or not before calling PdpRecv, Might to be number of bytes available to be Received?
 } PACK SceNetAdhocPdpStat;
 
 // PTP Socket Status
 typedef struct SceNetAdhocPtpStat {
-  u32_le next; // Changed the pointer to u32
-  s32_le id;
-  SceNetEtherAddr laddr;
-  SceNetEtherAddr paddr;
-  u16_le lport;
-  u16_le pport;
-  s32_le snd_sb_cc;
-  s32_le rcv_sb_cc;
-  s32_le state;
+	u32_le next; // Changed the pointer to u32
+	s32_le id; // posix socket id
+	SceNetEtherAddr laddr;
+	SceNetEtherAddr paddr;
+	u16_le lport;
+	u16_le pport;
+	s32_le snd_sb_cc; // Number of bytes existed in buffer to be sent/flushed?
+	s32_le rcv_sb_cc; // Number of bytes available in buffer to be received?
+	s32_le state;
 } PACK SceNetAdhocPtpStat;
+
+// PDP & PTP Socket Union (Internal use only)
+typedef struct AdhocSocket {
+	s32_le type; // SOCK_PDP/SOCK_PTP
+	s32_le flags; // Socket Alert Flags
+	s32_le alerted_flags; // Socket Alerted Flags
+	s32_le nonblocking; // last non-blocking flag
+	u32 buffer_size;
+	u32 send_timeout; // default connect timeout
+	u32 recv_timeout; // default accept timeout
+	s32 retry_interval; // related to keepalive
+	s32 retry_count; // multiply with retry interval to be used as keepalive timeout
+	s32 attemptCount; // connect/accept attempts
+	u64 lastAttempt; // timestamp to retry again
+	union {
+		SceNetAdhocPdpStat pdp;
+		SceNetAdhocPtpStat ptp;
+	} data;
+} PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
 typedef struct SceNetAdhocGameModeOptData {
@@ -343,8 +400,8 @@ typedef struct SceNetAdhocGameModeBufferStat {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-	s32_le type;
-	uint8_t data[ADHOCCTL_ADHOCID_LEN];
+	s32_le type; // Air Conflicts - Aces Of World War 2 is using 2 for GameSharing?
+	uint8_t data[ADHOCCTL_ADHOCID_LEN]; // Air Conflicts - Aces Of World War 2 is using "000000001" for GameSharing?
 	uint8_t padding[3];
 } PACK SceNetAdhocctlAdhocId; // should this be packed?
 #ifdef _MSC_VER 
@@ -510,19 +567,24 @@ typedef struct SceNetAdhocMatchingContext {
 // End of psp definitions
 
 enum {
+	// pspnet_adhoc_auth
+	ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED		= 0x80410601,
+
+	// pspnet_adhoc
 	ERROR_NET_ADHOC_INVALID_SOCKET_ID				= 0x80410701,
 	ERROR_NET_ADHOC_INVALID_ADDR					= 0x80410702,
 	ERROR_NET_ADHOC_INVALID_PORT					= 0x80410703,
+	ERROR_NET_ADHOC_INVALID_BUFLEN					= 0x80410704,
 	ERROR_NET_ADHOC_INVALID_DATALEN					= 0x80410705,
-	ERROR_NET_ADHOC_NOT_ENOUGH_SPACE				= 0x80400706,
+	ERROR_NET_ADHOC_NOT_ENOUGH_SPACE				= 0x80400706, // not a typo
 	ERROR_NET_ADHOC_SOCKET_DELETED					= 0x80410707,
 	ERROR_NET_ADHOC_SOCKET_ALERTED					= 0x80410708,
 	ERROR_NET_ADHOC_WOULD_BLOCK						= 0x80410709, //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
 	ERROR_NET_ADHOC_PORT_IN_USE						= 0x8041070a,
 	ERROR_NET_ADHOC_NOT_CONNECTED					= 0x8041070B,
 	ERROR_NET_ADHOC_DISCONNECTED					= 0x8041070c,
-	ERROR_NET_ADHOC_NOT_OPENED						= 0x8040070D,
-	ERROR_NET_ADHOC_NOT_LISTENED					= 0x8040070E,
+	ERROR_NET_ADHOC_NOT_OPENED						= 0x8040070D, // not a typo
+	ERROR_NET_ADHOC_NOT_LISTENED					= 0x8040070E, // not a typo
 	ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL				= 0x8041070F,
 	ERROR_NET_ADHOC_PORT_NOT_AVAIL					= 0x80410710,
 	ERROR_NET_ADHOC_INVALID_ARG						= 0x80410711,
@@ -538,7 +600,9 @@ enum {
 	ERROR_NET_ADHOC_NOT_IN_GAMEMODE					= 0x8041071B,
 	ERROR_NET_ADHOC_NOT_CREATED						= 0x8041071C,
 
+	// pspnet_adhoc_matching
 	ERROR_NET_ADHOC_MATCHING_INVALID_MODE			= 0x80410801,
+	ERROR_NET_ADHOC_MATCHING_INVALID_PORT			= 0x80410802,
 	ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM			= 0x80410803,
 	ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT		= 0x80410804,
 	ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN			= 0x80410805,
@@ -562,21 +626,26 @@ enum {
 	ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED		= 0x80410817,
 	ERROR_NET_ADHOC_MATCHING_DATA_BUSY				= 0x80410818,
 
+	// pspnet_adhocctl
+	ERROR_NET_ADHOCCTL_NOT_LEFT_IBSS				= 0x80410b01,
+	ERROR_NET_ADHOCCTL_ALREADY_CONNECTED			= 0x80410b02,
 	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF				= 0x80410b03,
 	ERROR_NET_ADHOCCTL_INVALID_ARG					= 0x80410B04,
+	ERROR_NET_ADHOCCTL_TIMEOUT						= 0x80410b05,
 	ERROR_NET_ADHOCCTL_ID_NOT_FOUND					= 0x80410B06,
 	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED			= 0x80410b07,
 	ERROR_NET_ADHOCCTL_NOT_INITIALIZED				= 0x80410b08,
 	ERROR_NET_ADHOCCTL_DISCONNECTED					= 0x80410b09,
+	ERROR_NET_ADHOCCTL_NO_SCAN_INFO					= 0x80410b0a,
+	ERROR_NET_ADHOCCTL_INVALID_IBSS					= 0x80410b0b,
 	ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE			= 0x80410B0C,
 	ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE		= 0x80410B0D,
+	ERROR_NET_ADHOCCTL_WLAN_BEACON_LOST				= 0x80410b0e,
+	ERROR_NET_ADHOCCTL_WLAN_SUSPENDED				= 0x80410b0f,
 	ERROR_NET_ADHOCCTL_BUSY							= 0x80410b10,
+	ERROR_NET_ADHOCCTL_CHANNEL_NOT_MATCH			= 0x80410b11,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS			= 0x80410b12,
 	ERROR_NET_ADHOCCTL_STACKSIZE_TOO_SHORT			= 0x80410B13,
-
-	ERROR_NET_WLAN_INVALID_ARG						= 0x80410D13,
-
-	ERROR_NET_NO_SPACE								= 0x80410001
 };
 
 const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
@@ -646,10 +715,10 @@ enum {
 #define PSP_ADHOC_MATCHING_EVENT_DENY			4
 #define PSP_ADHOC_MATCHING_EVENT_CANCEL			5
 #define PSP_ADHOC_MATCHING_EVENT_ACCEPT			6
-#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7
-#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8
+#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
+#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_ERROR			9
-#define PSP_ADHOC_MATCHING_EVENT_BYE			10
+#define PSP_ADHOC_MATCHING_EVENT_BYE			10	// Should only be triggered on Parent/P2P mode and for Parent/P2P peer ?
 #define PSP_ADHOC_MATCHING_EVENT_DATA			11
 #define PSP_ADHOC_MATCHING_EVENT_DATA_ACK		12
 #define PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT	13
@@ -819,14 +888,16 @@ private:
 extern int actionAfterAdhocMipsCall;
 extern int actionAfterMatchingMipsCall;
 
+#define MAX_SOCKET	255 // FIXME: PSP might not allows more than 255 sockets? Hotshots Tennis doesn't seems to works with socketId > 255
+#define SOCK_PDP	1
+#define SOCK_PTP	2
 // Aux vars
 extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
-extern SceNetAdhocPdpStat * pdp[255];
-extern SceNetAdhocPtpStat * ptp[255];
+extern AdhocSocket* adhocSockets[MAX_SOCKET];
 
 union SockAddrIN4 {
 	sockaddr addr;
@@ -837,6 +908,7 @@ extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
 extern bool isOriPort;
 extern bool isLocalServer;
+extern SockAddrIN4 g_adhocServerIP; // Resolved Adhoc Server IP so we don't need to repeatedly resolve the DNS again later
 extern SockAddrIN4 g_localhostIP; // Used to differentiate localhost IP on multiple-instance
 extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
 extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
@@ -846,9 +918,27 @@ extern SceNetAdhocMatchingContext * contexts;
 extern int one;                 
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
-extern SceNetAdhocctlScanInfo * networks; 
-extern int threadStatus;
+extern SceNetAdhocctlScanInfo * networks;
+extern u64 adhocctlStartTime;
+extern bool isAdhocctlBusy;
+extern int adhocctlState;
+extern int adhocctlCurrentMode;
+extern int adhocConnectionType;
+
+extern int gameModeSocket;
+extern u8* gameModeBuffer;
+extern GameModeArea masterGameModeArea;
+extern std::vector<GameModeArea> replicaGameModeAreas;
+extern std::vector<SceNetEtherAddr> requiredGameModeMacs;
+extern std::vector<SceNetEtherAddr> gameModeMacs;
 // End of Aux vars
+
+enum AdhocConnectionType : int
+{
+	ADHOC_CONNECT = 0,
+	ADHOC_CREATE = 1,
+	ADHOC_JOIN = 2,
+};
 
 // Check if Matching callback is running
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context);
@@ -858,9 +948,16 @@ int IsAdhocctlInCallback();
 int SetAdhocctlInCallback(bool IsInCB);
 
 /**
+ * Compare MAC Addresses
+ * @param addr1 & addr2 To-be-compared MAC Address
+ * @return True if both matched
+ */
+bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2);
+
+/**
  * Local MAC Check
  * @param saddr To-be-checked MAC Address
- * @return 1 if valid or... 0
+ * @return True if it's local mac
  */
 bool isLocalMAC(const SceNetEtherAddr * addr);
 
@@ -872,12 +969,14 @@ bool isLocalMAC(const SceNetEtherAddr * addr);
 bool isPDPPortInUse(uint16_t port);
 
 /**
- * Check whether PTP Port is in use or not
+ * Check whether PTP Port is in use or not (only sockets with non-Listening state will be considered as in use)
  * @param port To-be-checked Port Number
+ * @param forListen to check for listening or non-listening port
  * @return 1 if in use or... 0
  */
-bool isPTPPortInUse(uint16_t port);
+bool isPTPPortInUse(uint16_t port, bool forListen);
 
+// Convert MAC address to string
 std::string mac2str(SceNetEtherAddr* mac);
 
 /*
@@ -910,6 +1009,19 @@ extern int newChat;
  */
 SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC);
 
+/*
+ * Find a Peer/Friend by IP address
+ */
+SceNetAdhocctlPeerInfo* findFriendByIP(uint32_t ip);
+
+/**
+ * Get the Readability(ie. recv) and/or Writability(ie. send) of a socket
+ * @param fd File Descriptor of the socket
+ * @param timeout in usec (micro seconds), 0 = non-blocking
+ * @return > 0 = ready, 0 = timeout, -1 = error (errorcode only represent error of select and doesn't represent error of the socket)
+ */
+int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode = nullptr, int timeoutUS = 0);
+
 /**
  * Changes the Blocking Mode of the socket
  * @param fd File Descriptor of the socket
@@ -921,7 +1033,7 @@ void changeBlockingMode(int fd, int nonblocking);
  * Count Virtual Networks by analyzing the Friend List
  * @return Number of Virtual Networks
  */
-int countAvailableNetworks();
+int countAvailableNetworks(const bool excludeSelf = false);
 
 /*
  * Find an existing group in networks
@@ -934,14 +1046,14 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC);
 void freeGroupsRecursive(SceNetAdhocctlScanInfo * node);
 
 /**
- * Closes & Deletes all PDP Sockets
+ * Closes & Deletes all PDP & PTP Sockets
  */
-void deleteAllPDP();
+void deleteAllAdhocSockets();
 
-/**
- * Closes & Deletes all PTP sockets
- */
-void deleteAllPTP();
+/*
+* Deletes all GameMode Buffers
+*/
+void deleteAllGMB();
 
 /**
  * Delete Friend from Local List
@@ -953,9 +1065,9 @@ void deleteFriendByIP(uint32_t ip);
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
-void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
+void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
 /**
  * Friend Finder Thread (Receives Peer Information)
@@ -1156,6 +1268,11 @@ uint32_t getLocalIp(int sock);
 bool isPrivateIP(uint32_t ip);
 
 /*
+ * Get Number of bytes available in buffer to be Received
+ */
+u_long getAvailToRecv(int sock);
+
+/*
  * Get UDP Socket Max Message Size
  */
 int getSockMaxSize(int udpsock);
@@ -1184,6 +1301,16 @@ int getSockNoDelay(int tcpsock);
 * Set TCP Socket TCP_NODELAY (Nagle Algo)
 */
 int setSockNoDelay(int tcpsock, int flag);
+
+/*
+* Set Socket SO_NOSIGPIPE when supported
+*/
+int setSockNoSIGPIPE(int sock, int flag);
+
+/*
+* Set Socket SO_REUSEADDR and SO_REUSEPORT when supported
+*/
+int setSockReuseAddrPort(int sock);
 
 /*
 * Set Socket KeepAlive (opt = SO_KEEPALIVE)
@@ -1245,6 +1372,13 @@ int getPTPSocketCount();
  * @return 0 on success or... -1
  */
 int initNetwork(SceNetAdhocctlAdhocId *adhocid);
+
+/**
+ * Zero MAC Check
+ * @param addr To-be-checked MAC Address
+ * @return true if MAC is all zeroes
+ */
+bool isZeroMAC(const SceNetEtherAddr* addr);
 
 /**
  * Broadcast MAC Check

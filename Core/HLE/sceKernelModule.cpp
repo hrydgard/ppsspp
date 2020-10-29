@@ -21,17 +21,17 @@
 
 #include "zlib.h"
 
-#include "base/stringutil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
@@ -168,6 +168,7 @@ struct NativeModule {
 	char name[28];
 	u32_le status;
 	u32_le unk1;
+	u32_le modid; // 0x2C
 	u32_le usermod_thid;
 	u32_le memid;
 	u32_le mpidtext;
@@ -233,7 +234,7 @@ enum NativeModuleStatus {
 
 class PSPModule : public KernelObject {
 public:
-	PSPModule() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false) {}
+	PSPModule() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false), modulePtr(0) {}
 	~PSPModule() {
 		if (memoryBlockAddr) {
 			// If it's either below user memory, or using a high kernel bit, it's in kernel.
@@ -243,6 +244,11 @@ public:
 				userMemory.Free(memoryBlockAddr);
 			}
 			g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
+		}
+
+		if (modulePtr) {
+			//Only alloc at kernel memory.
+			kernelMemory.Free(modulePtr);
 		}
 	}
 	const char *GetName() override { return nm.name; }
@@ -263,11 +269,23 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 4);
+		auto s = p.Section("Module", 1, 5);
 		if (!s)
 			return;
 
-		Do(p, nm);
+		if (s >= 5) {
+			Do(p, nm);
+		} else {
+			char temp[192];
+			NativeModule *pnm = &nm;
+			char *ptemp = temp;
+			DoArray(p, ptemp, 0xC0);
+			memcpy(pnm, ptemp, 0x2C);
+			pnm->modid = GetUID();
+			pnm += 0x30;
+			ptemp += 0x2C;
+			memcpy(pnm, ptemp, 0xC0 - 0x2C);
+		}
 		Do(p, memoryBlockAddr);
 		Do(p, memoryBlockSize);
 		Do(p, isFake);
@@ -288,6 +306,10 @@ public:
 		if (s >= 4) {
 			Do(p, libstub);
 			Do(p, libstubend);
+		}
+
+		if (s >= 5) {
+			Do(p, modulePtr);
 		}
 
 		ModuleWaitingThread mwt = {0};
@@ -330,6 +352,8 @@ public:
 				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 			}
 		}
+
+		HLEPlugins::DoState(p);
 
 		RebuildImpExpModuleNames();
 	}
@@ -420,6 +444,7 @@ public:
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
+	u32 modulePtr;
 	bool isFake;
 };
 
@@ -529,6 +554,7 @@ void __KernelModuleShutdown()
 {
 	loadedModules.clear();
 	MIPSAnalyst::Reset();
+	HLEPlugins::Unload();
 }
 
 // Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
@@ -1101,6 +1127,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	module->nm.modid = module->GetUID();
+
 	bool reportedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
@@ -1307,6 +1335,12 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
 		module->textEnd = firstImportStubAddr - 4;
+		// Reference Jpcsp.
+		if (reader.GetFirstSegmentAlign() > 0)
+			module->textStart &= ~(reader.GetFirstSegmentAlign() - 1);
+		// PSP set these values even if no section.
+		module->nm.text_addr = module->textStart;
+		module->nm.text_size = reader.GetTotalTextSizeFromSeg();
 	}
 
 	if (!module->isFake) {
@@ -1537,8 +1571,38 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 	}
 
+	u32 moduleSize = sizeof(module->nm);
+	char tag[32];
+	snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
+	module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+
+	// Fill the struct.
+	if (Memory::IsValidAddress(module->modulePtr))
+		Memory::WriteStruct(module->modulePtr, &module->nm);
+
 	error = 0;
 	return module;
+}
+
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string) {
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (!info.exists)
+		return SCE_KERNEL_ERROR_NOFILE;
+
+	std::vector<uint8_t> buffer;
+	buffer.resize((size_t)info.size);
+
+	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+	pspFileSystem.ReadFile(handle, &buffer[0], info.size);
+	pspFileSystem.CloseFile(handle);
+
+	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	u32 magic;
+	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, error);
+
+	if (module == nullptr)
+		return error;
+	return module->GetUID();
 }
 
 static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string *error_string) {
@@ -1600,6 +1664,11 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+	if (HLEPlugins::Load()) {
+		KernelRotateThreadReadyQueue(0);
+		__KernelReSchedule("Started plugins");
+	}
 }
 
 
@@ -1712,6 +1781,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		}
 		return false;
 	}
+
+	host->NotifySymbolMapUpdated();
 
 	mipsr4k.pc = module->nm.entry_addr;
 
@@ -1865,6 +1936,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 
+			u32 moduleSize = sizeof(module->nm);
+			char tag[32];
+			snprintf(tag, sizeof(tag), "SceModule-%d", module->nm.modid);
+			module->modulePtr = kernelMemory.Alloc(moduleSize, true, tag);
+
+			// Fill the struct.
+			if(Memory::IsValidAddress(module->modulePtr))
+				Memory::WriteStruct(module->modulePtr, &module->nm);
+
 			// TODO: It would be more ideal to allocate memory for this module.
 
 			return hleLogSuccessInfoI(LOADER, module->GetUID(), "created fake module");
@@ -1960,12 +2040,71 @@ static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
+int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
+	if (needsWait) {
+		*needsWait = false;
+	}
+
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+	if (!module) {
+		return error;
+	}
+
+	u32 priority = 0x20;
+	u32 stacksize = 0x40000;
+	int attribute = module->nm.attribute;
+	u32 entryAddr = module->nm.entry_addr;
+
+	if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
+		entryAddr = module->nm.module_start_func;
+		if (module->nm.module_start_thread_attr != 0)
+			attribute = module->nm.module_start_thread_attr;
+	} else if (entryAddr == (u32)-1 || entryAddr == module->memoryBlockAddr - 1) {
+		if (smoption) {
+			// TODO: Does sceKernelStartModule() really give an error when no entry only if you pass options?
+			attribute = smoption->attribute;
+		} else {
+			// TODO: Why are we just returning the module ID in this case?
+			WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
+			module->nm.status = MODULE_STATUS_STARTED;
+			return moduleId;
+		}
+	}
+
+	if (Memory::IsValidAddress(entryAddr)) {
+		if (smoption && smoption->priority > 0) {
+			priority = smoption->priority;
+		} else if (module->nm.module_start_thread_priority > 0) {
+			priority = module->nm.module_start_thread_priority;
+		}
+
+		if (smoption && smoption->stacksize > 0) {
+			stacksize = smoption->stacksize;
+		} else if (module->nm.module_start_thread_stacksize > 0) {
+			stacksize = module->nm.module_start_thread_stacksize;
+		}
+
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
+		__KernelStartThreadValidate(threadID, argsize, argAddr);
+		__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+		if (needsWait) {
+			*needsWait = true;
+		}
+	} else if (entryAddr == 0) {
+		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): no entry address", moduleId, argsize, argAddr, returnValueAddr);
+		module->nm.status = MODULE_STATUS_STARTED;
+	} else {
+		ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): invalid entry address", moduleId, argsize, argAddr, returnValueAddr);
+		return -1;
+	}
+
+	return moduleId;
+}
+
 static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	u32 priority = 0x20;
-	u32 stacksize = 0x40000; 
-	u32 attr = 0;
-	int stackPartition = 0;
 	SceKernelSMOption smoption = {0};
 	if (optionAddr) {
 		Memory::ReadStruct(optionAddr, &smoption);
@@ -1994,71 +2133,19 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
-		int attribute = module->nm.attribute;
-		u32 entryAddr = module->nm.entry_addr;
+		bool needsWait;
+		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr ? &smoption : nullptr, &needsWait);
 
-		if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
-		{
-			entryAddr = module->nm.module_start_func;
-			if (module->nm.module_start_thread_attr != 0)
-				attribute = module->nm.module_start_thread_attr;
-		}
-		else if ((entryAddr == (u32)-1) || entryAddr == module->memoryBlockAddr - 1)
-		{
-			if (optionAddr)
-			{
-				// TODO: Does sceKernelStartModule() really give an error when no entry only if you pass options?
-				attribute = smoption.attribute;
-			}
-			else
-			{
-				// TODO: Why are we just returning the module ID in this case?
-				WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
-				module->nm.status = MODULE_STATUS_STARTED;
-				RETURN(moduleId);
-				return;
-			}
-		}
-
-		if (Memory::IsValidAddress(entryAddr))
-		{
-			if ((optionAddr) && smoption.priority > 0) {
-				priority = smoption.priority;
-			} else if (module->nm.module_start_thread_priority > 0) {
-				priority = module->nm.module_start_thread_priority;
-			}
-
-			if ((optionAddr) && (smoption.stacksize > 0)) {
-				stacksize = smoption.stacksize;
-			} else if (module->nm.module_start_thread_stacksize > 0) {
-				stacksize = module->nm.module_start_thread_stacksize;
-			}
-
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
-			__KernelStartThreadValidate(threadID, argsize, argAddr);
-			__KernelSetThreadRA(threadID, NID_MODULERETURN);
+		if (needsWait) {
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
 
 			const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
 			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
-		else if (entryAddr == 0)
-		{
-			INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
-			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			module->nm.status = MODULE_STATUS_STARTED;
-		}
-		else
-		{
-			ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): invalid entry address",
-			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			RETURN(-1);
-			return;
-		}
-	}
 
-	RETURN(moduleId);
+		RETURN(ret);
+	}
 }
 
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
@@ -2327,16 +2414,32 @@ static u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
+u32 sceKernelFindModuleByUID(u32 uid)
+{
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
+	if (!module || module->isFake) {
+		ERROR_LOG(SCEMODULE, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
+		return 0;
+	}
+	INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr, uid);
+	return module->modulePtr;
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelFindModuleByName(%s)", name);
-	
-	int index = GetModuleIndex(name);
-
-	if (index == -1)
-		return 0;
-	
-	return 1;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module)
+			continue;
+		if (!module->isFake && strcmp(name, module->nm.name) == 0) {
+			INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
+			return module->modulePtr;
+		}
+	}
+	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found or Fake", name);
+	return 0;
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)

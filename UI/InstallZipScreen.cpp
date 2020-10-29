@@ -15,13 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "i18n/i18n.h"
-#include "ui/ui.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "file/file_util.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Util/GameManager.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"

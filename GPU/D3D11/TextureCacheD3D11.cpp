@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <map>
 #include <algorithm>
 #include <cstring>
+#include <cfloat>
 
 #include <d3d11.h>
 
@@ -25,7 +25,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
@@ -37,8 +37,14 @@
 #include "Core/Host.h"
 
 #include "ext/xxhash.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
+// For depth depal
+struct DepthPushConstants {
+	float z_scale;
+	float z_offset;
+	float pad[2];
+};
 
 #define INVALID_TEX (ID3D11ShaderResourceView *)(-1LL)
 
@@ -113,6 +119,10 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 	isBgraBackend_ = true;
 	lastBoundTexture = INVALID_TEX;
 
+	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
+	_dbg_assert_(SUCCEEDED(hr));
+
 	HRESULT result = 0;
 
 	SetupTextureDecoder();
@@ -121,6 +131,8 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 }
 
 TextureCacheD3D11::~TextureCacheD3D11() {
+	depalConstants_->Release();
+
 	// pFramebufferVertexDecl->Release();
 	Clear(true);
 }
@@ -145,40 +157,13 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 
 void TextureCacheD3D11::ForgetLastTexture() {
 	InvalidateLastTexture();
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+
 	ID3D11ShaderResourceView *nullTex[2]{};
 	context_->PSSetShaderResources(0, 2, nullTex);
 }
 
-void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
-	if (!entry || entry->texturePtr == lastBoundTexture) {
-		lastBoundTexture = INVALID_TEX;
-	}
-}
-
-void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	key.minFilt = minFilt & 1;
-	key.mipFilt = 0;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
+void TextureCacheD3D11::InvalidateLastTexture() {
+	lastBoundTexture = INVALID_TEX;
 }
 
 void TextureCacheD3D11::StartFrame() {
@@ -208,7 +193,10 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -236,9 +224,9 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
-	SamplerCacheKey key{};
-	UpdateSamplingParams(*entry, key);
-	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
 }
 
@@ -375,11 +363,13 @@ protected:
 	int renderH_;
 };
 
-void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+void TextureCacheD3D11::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	ID3D11PixelShader *pshader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, framebuffer->drawnFormat);
+	bool need_depalettize = IsClutFormat(texFormat);
+	bool depth = channel == NOTIFY_FB_DEPTH;
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
+		pshader = depalShaderCache_->GetDepalettizePixelShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 	}
 
 	if (pshader) {
@@ -405,10 +395,23 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ApplyTextureFramebuffer_DepalShader");
 		context_->PSSetShaderResources(3, 1, &clutTexture);
 		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
-		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
+
+		if (depth) {
+			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
+			DepthPushConstants push;
+			push.z_scale = scaleFactors.scale;
+			push.z_offset = scaleFactors.offset;
+			D3D11_MAPPED_SUBRESOURCE map;
+			context_->Map(depalConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			memcpy(map.pData, &push, sizeof(push));
+			context_->Unmap(depalConstants_, 0);
+			context_->PSSetConstantBuffers(0, 1, &depalConstants_);
+		}
 		shaderApply.Shade();
 
+		context_->PSSetShaderResources(0, 1, &nullTexture);  // Make D3D11 validation happy. Really of no consequence since we rebind anyway.
 		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
@@ -418,36 +421,24 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, GetClutDestFormatD3D11(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");  // Probably not necessary.
 	}
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
-	InvalidateLastTexture();
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
-
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	// TODO: If a framebuffer is attached here, might end up with a bad entry.texture.
-	// Should just always create one here or something (like GLES.)
-
-	if (entry->framebuffer) {
-		// Nothing else to do here.
-		return;
-	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
@@ -768,26 +759,26 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 }
 
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(false);
-	if (!nextTexture_)
-		return false;
+	SetTexture();
+	if (!nextTexture_) {
+		if (nextFramebufferTexture_) {
+			VirtualFramebuffer *vfb = nextFramebufferTexture_;
+			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			// We may have blitted to a temp FBO.
+			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			return retval;
+		} else {
+			return false;
+		}
+	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
 	ApplyTexture();
-
-	// TODO: Centralize.
-	if (entry->framebuffer) {
-		VirtualFramebuffer *vfb = entry->framebuffer;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
-		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-		return retval;
-	}
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	if (!texture)

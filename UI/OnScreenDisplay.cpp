@@ -1,10 +1,10 @@
 #include "UI/OnScreenDisplay.h"
 
-#include "base/colorutil.h"
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "ui/ui_context.h"
+#include "Common/UI/Context.h"
 
 #include "Common/TimeUtil.h"
 
@@ -22,8 +22,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	float y = 10.0f;
 	// Then draw them all. 
 	const std::list<OnScreenMessages::Message> &messages = osm.Messages();
+	double now = time_now_d();
 	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
-		float alpha = (iter->endTime - time_now_d()) * 4.0f;
+		float alpha = (iter->endTime - now) * 4.0f;
 		if (alpha > 1.0) alpha = 1.0f;
 		if (alpha < 0.0) alpha = 0.0f;
 		// Messages that are wider than the screen are left-aligned instead of centered.

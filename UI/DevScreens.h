@@ -23,9 +23,8 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "i18n/i18n.h"
-#include "ui/ui_screen.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -46,6 +45,7 @@ protected:
 	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
+	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 };
 
 class JitDebugScreen : public UIDialogScreenWithBackground {

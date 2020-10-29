@@ -17,13 +17,13 @@
 
 #include <d3d11.h>
 
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
@@ -199,7 +199,6 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
 	context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
 	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -244,5 +243,6 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 
 	tex->Release();
 	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

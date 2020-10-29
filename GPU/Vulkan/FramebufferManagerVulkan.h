@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -53,8 +53,6 @@ public:
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
-
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 

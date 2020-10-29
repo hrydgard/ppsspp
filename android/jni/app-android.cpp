@@ -49,25 +49,28 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "thread/threadutil.h"
-#include "file/zip_read.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
-#include "profiler/profiler.h"
-#include "math/math_util.h"
-#include "net/resolve.h"
-#include "util/text/parsers.h"
+#include "Common/Net/Resolve.h"
 #include "android/jni/AndroidAudio.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
 #include "AndroidEGLContext.h"
@@ -864,7 +867,6 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 	NativeUpdate();
 
 	NativeRender(graphicsContext);
-	time_update();
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -1287,7 +1289,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			NativeUpdate();
 
 			NativeRender(graphicsContext);
-			time_update();
 
 			graphicsContext->SwapBuffers();
 

@@ -25,17 +25,19 @@
 #include <netfw.h>
 #endif
 
-#include "base/stringutil.h"
-#include "file/path.h"
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "json/json_reader.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "net/url.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
+
+#include "Common/File/PathBrowser.h"
+#include "Common/Data/Format/JSONReader.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/WebServer.h"
 #include "UI/RemoteISOScreen.h"
@@ -427,12 +429,12 @@ void RemoteISOConnectScreen::update() {
 		break;
 
 	case ScanStatus::FAILED:
-		nextRetry_ = real_time_now() + 15.0;
+		nextRetry_ = time_now_d() + 15.0;
 		status_ = ScanStatus::RETRY_SCAN;
 		break;
 
 	case ScanStatus::RETRY_SCAN:
-		if (nextRetry_ < real_time_now()) {
+		if (nextRetry_ < time_now_d()) {
 			status_ = ScanStatus::SCANNING;
 			nextRetry_ = 0.0;
 

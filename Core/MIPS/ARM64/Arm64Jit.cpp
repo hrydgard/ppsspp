@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -472,7 +472,7 @@ void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 }
 
 bool Arm64Jit::ReplaceJalTo(u32 dest) {
-#ifdef ARM64
+#if PPSSPP_ARCH(ARM64)
 	const ReplacementTableEntry *entry = nullptr;
 	u32 funcSize = 0;
 	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {

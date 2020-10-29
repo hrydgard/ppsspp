@@ -29,11 +29,19 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-//Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
-//#define JPEG_DEBUG
+// Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
+// #define JPEG_DEBUG
 #ifdef JPEG_DEBUG
 #include "ext/xxhash.h"
 #endif
+
+struct u24_be {
+	unsigned char value[3];
+
+	operator unsigned int() {
+		return 0x00000000 | (value[0] << 16) | (value[1] << 8) | (value[2] << 0);
+	}
+};
 
 static int mjpegWidth, mjpegHeight;
 

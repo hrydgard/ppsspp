@@ -12,25 +12,28 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "base/display.h"
+#include "Common/Net/Resolve.h"
+#include "Common/UI/Screen.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
 #include "Common/TimeUtil.h"
-#include "file/zip_read.h"
-#include "input/input_state.h"
-#include "net/resolve.h"
-#include "ui/screen.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
-#include "input/keycodes.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
-#include "Common/GraphicsContext.h"
-#include "Common/Log.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -249,7 +252,6 @@ static LocationHelper *locationHelper;
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
-			time_update();
 		}
 
 

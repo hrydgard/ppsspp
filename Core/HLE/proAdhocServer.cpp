@@ -44,12 +44,18 @@
 #include <errno.h>
 //#include <sqlite3.h>
 
-#include "i18n/i18n.h"
-#include "thread/threadutil.h"
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
 
-#include "Common/FileUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
+
+#include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Util/PortManager.h"
+#include "Core/Instance.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/proAdhocServer.h"
@@ -848,7 +854,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = user->resolver.ip;
 
 					// Send Data
-					int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+					int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send peer] (Socket error %d)", errno);
 
 					// Set Player Name
@@ -861,7 +867,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = peer->resolver.ip;
 
 					// Send Data
-					iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+					iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user] (Socket error %d)", errno);
 
 					// Set BSSID
@@ -883,7 +889,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 				g->playercount++;
 
 				// Send Network BSSID to User
-				int iResult = send(user->stream, (const char*)&bssid, sizeof(bssid), 0);
+				int iResult = send(user->stream, (const char*)&bssid, sizeof(bssid), MSG_NOSIGNAL);
 				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user bssid] (Socket error %d)", errno);
 
 				// Notify User
@@ -975,7 +981,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 			packet.ip = user->resolver.ip;
 
 			// Send Data
-			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: disconnect_user[send peer] (Socket error %d)", errno);
 
 			// Move Pointer
@@ -1074,13 +1080,13 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 			}
 
 			// Send Group Packet
-			int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send user] (Socket error %d)", errno);
 		}
 
 		// Notify Player of End of Scan
 		uint8_t opcode = OPCODE_SCAN_COMPLETE;
-		int iResult = send(user->stream, (const char*)&opcode, 1, 0);
+		int iResult = send(user->stream, (const char*)&opcode, 1, MSG_NOSIGNAL);
 		if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send peer complete] (Socket error %d)", errno);
 
 		// Notify User
@@ -1139,7 +1145,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 				strcpy(packet.base.message, message);
 
 				// Send Data
-				int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+				int iResult = send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send user chat] (Socket error %d)", errno);
 			}
 		}
@@ -1181,7 +1187,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 			packet.name = user->resolver.name;
 
 			// Send Data
-			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send peer chat] (Socket error %d)", errno);
 
 			// Move Pointer
@@ -1728,11 +1734,8 @@ void interrupt(int sig)
  */
 void enable_address_reuse(int fd)
 {
-	// Enable Value
-	int on = 1;
-
 	// Enable Port Reuse
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+	setSockReuseAddrPort(fd);
 }
 
 /**
@@ -1806,6 +1809,9 @@ int create_listen_socket(uint16_t port)
 	// Created Socket
 	if(fd != -1)
 	{
+		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+		setSockNoSIGPIPE(fd, 1);
+
 		// Enable KeepAlive
 		enable_keepalive(fd);
 
@@ -1825,12 +1831,10 @@ int create_listen_socket(uint16_t port)
 		local.sin_addr.s_addr = INADDR_ANY;
 		local.sin_port = htons(port);
 
-		//Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. Doesn't work well when PPSSPP_ID reseted everytime emulation restarted.
-		/*
+		// Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. (ie. Capcom Classics Collection Remixed)
 		if (PPSSPP_ID > 1) {
 			local.sin_addr = g_localhostIP.in.sin_addr;
 		}
-		*/
 
 		// Bind Local Address to Socket
 		int bindresult = bind(fd, (struct sockaddr *)&local, sizeof(local));
@@ -1930,7 +1934,7 @@ int server_loop(int server)
 			SceNetAdhocctlUserNode * next = user->next;
 
 			// Receive Data from User
-			int recvresult = recv(user->stream, (char*)user->rx + user->rxpos, sizeof(user->rx) - user->rxpos, 0);
+			int recvresult = recv(user->stream, (char*)user->rx + user->rxpos, sizeof(user->rx) - user->rxpos, MSG_NOSIGNAL);
 
 			// Connection Closed or Timed Out
 			if(recvresult == 0 || (recvresult == -1 && errno != EAGAIN && errno != EWOULDBLOCK) || get_user_state(user) == USER_STATE_TIMED_OUT)
@@ -2072,10 +2076,10 @@ int server_loop(int server)
 		}
 
 		// Prevent needless CPU Overload (1ms Sleep)
-		sleep_ms(1);
+		sleep_ms(10);
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (adhocServerRunning && Core_IsStepping()) sleep_ms(1);
+		while (adhocServerRunning && Core_IsStepping() && coreState != CORE_POWERDOWN) sleep_ms(10);
 	}
 
 	// Free User Database Memory

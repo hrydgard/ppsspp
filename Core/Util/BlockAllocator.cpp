@@ -390,13 +390,13 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr) const
 
 void BlockAllocator::ListBlocks() const
 {
-	INFO_LOG(SCEKERNEL,"-----------");
+	DEBUG_LOG(SCEKERNEL,"-----------");
 	for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
 		const Block &b = *bp;
-		INFO_LOG(SCEKERNEL, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
+		DEBUG_LOG(SCEKERNEL, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
-	INFO_LOG(SCEKERNEL,"-----------");
+	DEBUG_LOG(SCEKERNEL,"-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const

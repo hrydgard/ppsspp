@@ -19,11 +19,12 @@
 #include <set>
 #include <cstdint>
 
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -210,9 +211,9 @@ static std::string ReadShaderSrc(const std::string &filename) {
 // Note: called on resize and settings changes.
 bool PresentationCommon::UpdatePostShader() {
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	DestroyPostShader();
@@ -371,7 +372,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	Semantic pos = SEM_POSITION;
 	Semantic tc = SEM_TEXCOORD0;
 	// Shader translation marks these both as "TEXCOORDs" on HLSL...
-	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D11_LEVEL9 || lang_ == HLSL_DX9)) {
+	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_DX9)) {
 		pos = SEM_TEXCOORD0;
 		tc = SEM_TEXCOORD1;
 	}
@@ -491,7 +492,6 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage st
 		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
 		break;
 	case HLSL_D3D11:
-	case HLSL_D3D11_LEVEL9:
 		mappedLang = Draw::ShaderLanguage::HLSL_D3D11;
 		break;
 	default:
@@ -754,9 +754,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa) {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	bool firstIsUpscalingFilter = shaderInfo.empty() ? false : shaderInfo.front()->isUpscalingFilter;

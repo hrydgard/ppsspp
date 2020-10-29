@@ -3,7 +3,8 @@
 #include <string>
 #include <cstring>
 #include <cstdint>
-#include "base/basictypes.h"
+
+#include "Common/Common.h"
 
 // TODO: There will be additional bits, indicating that groups of these will be
 // sent to the shader and processed there. This will cut down the number of shaders ("ubershader approach")
@@ -158,6 +159,8 @@ protected:
 	void SetBit(int bit, bool value = true) {
 		if (value) {
 			d[bit >> 5] |= 1 << (bit & 31);
+		} else {
+			d[bit >> 5] &= ~(1 << (bit & 31));
 		}
 	}
 	void SetBits(int bit, int count, int value) {

@@ -20,7 +20,7 @@
 #include <png.h>
 #include <zlib.h>
 #endif
-#include "data/base64.h"
+#include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"

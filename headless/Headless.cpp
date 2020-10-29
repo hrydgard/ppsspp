@@ -9,11 +9,13 @@
 #include <jni.h>
 #endif
 
-#include "base/NativeApp.h"
-#include "file/zip_read.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -170,7 +172,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
-	time_update();
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
@@ -194,7 +195,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
-		time_update();
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
@@ -328,14 +328,6 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
-
-	std::string error_string;
-	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
-
 	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
@@ -347,6 +339,14 @@ int main(int argc, const char* argv[])
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
+
+	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
+	host = headlessHost;
+
+	std::string error_string;
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -392,9 +392,12 @@ int main(int argc, const char* argv[])
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
+	g_Config.iMemStickSizeGB = 16;
 	g_Config.bFragmentTestCache = true;
 	g_Config.bEnableWlan = true;
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
+	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory = "";

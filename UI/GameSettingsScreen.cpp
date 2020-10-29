@@ -17,21 +17,23 @@
 
 #include "ppsspp_config.h"
 
-#include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+#include <algorithm>
 
-#include "base/colorutil.h"
-#include "base/stringutil.h"
-#include "Common/TimeUtil.h"
-#include "math/curves.h"
-#include "net/resolve.h"
-#include "gfx_es2/gpu_features.h"
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
-#include "ui/root.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui_context.h"
+#include "Common/Net/Resolve.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/Context.h"
+
+#include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Math/curves.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
@@ -49,12 +51,14 @@
 #include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 
-#include "Common/KeyMap.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -73,6 +77,8 @@
 #include <shlobj.h>
 #include "Windows/W32Util/ShellUtil.h"
 #endif
+
+extern bool g_ShaderNameListChanged;
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
@@ -305,24 +311,51 @@ void GameSettingsScreen::CreateViews() {
 	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
-	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
-	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcChoice_->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	});
+	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
-	for (auto shaderInfo : shaderChain) {
-		for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-			auto &setting = shaderInfo->settings[i];
-			if (!setting.name.empty()) {
-				auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
-				graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+	std::vector<std::string> alreadyAddedShader;
+	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
+		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
+		shaderNames_[i] = g_Config.vPostShaderNames[i];
+		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
+		postProcChoice_->OnClick.Add([=](EventParams &e) {
+			auto gr = GetI18NCategory("Graphics");
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i);
+			procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
+			if (e.v)
+				procScreen->SetPopupOrigin(e.v);
+			screenManager()->push(procScreen);
+			return UI::EVENT_DONE;
+		});
+		postProcChoice_->SetEnabledFunc([] {
+			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		});
+
+		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
+		for (auto shaderInfo : shaderChain) {
+			// Disable duplicated shader slider
+			bool duplicated = std::find(alreadyAddedShader.begin(), alreadyAddedShader.end(), shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.push_back(shaderInfo->section);
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					if (duplicated) {
+						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
+						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						settingValue->SetEnabled(false);
+					} else {
+						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						settingValue->SetEnabledFunc([] {
+							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+						});
+					}
+				}
 			}
 		}
 	}
 
+	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
@@ -415,6 +448,15 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	});
 
+	CheckBox *clearHack = graphicsSettings->Add(new CheckBox(&g_Config.bClearFramebuffersOnFirstUseHack, gr->T("Clear Speedhack", "Clear framebuffers on first use (speedhack)")));
+	clearHack->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("ClearSpeedhack Tip", "Sometimes faster (mostly on mobile devices), may cause glitches"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	clearHack->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering;
+	});
+
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
@@ -503,22 +545,28 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
+	static const char *texFilters[] = { "Auto", "Nearest", "Linear" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-	PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-	cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+	bool showCardboardSettings = true;
+#else
+	// If you enabled it through the ini, you can see this. Useful for testing.
+	bool showCardboardSettings = g_Config.bEnableCardboardVR;
 #endif
+	if (showCardboardSettings) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
+		graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+	}
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
 	if (cameraList.size() >= 1) {
@@ -796,6 +844,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 1, 15000, n->T("Minimum Timeout", "Minimum Timeout (override low latency in ms)"), 100, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bTCPNoDelay, n->T("TCP No Delay", "TCP No Delay (faster TCP)")));
+	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
@@ -821,7 +870,7 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(sy->T("UI Language")));  // Should be renamed "UI"?
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
-	systemSettings->Add(new CheckBox(&g_Config.bUISound, dev->T("UI Sound")));
+	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
 	enableReports_ = Reporting::IsEnabled();
@@ -849,6 +898,7 @@ void GameSettingsScreen::CreateViews() {
 	rewindFreq->SetZeroLabel(sy->T("Off"));
 
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
+	PopupSliderChoice *memStickSize = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Change Memory Stick Size(GB)"), screenManager(), "GB"));
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
@@ -1211,6 +1261,11 @@ void GameSettingsScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
+	if (g_ShaderNameListChanged) {
+		g_ShaderNameListChanged = false;
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		RecreateViews();
+	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1474,19 +1529,11 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
-	auto gr = GetI18NCategory("Graphics");
-	auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"));
-	procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
-	if (e.v)
-		procScreen->SetPopupOrigin(e.v);
-	screenManager()->push(procScreen);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	g_Config.vPostShaderNames.push_back("Off");
+	g_ShaderNameListChanged = true;
 	NativeMessageReceived("gpu_resized", "");
-	RecreateViews(); // Update setting name
 	return UI::EVENT_DONE;
 }
 
@@ -1761,7 +1808,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
-	std::vector<std::string> listIP = {"myneighborsushicat.com", "localhost"};
+	std::vector<std::string> listIP = {"myneighborsushicat.com", "socom.cc", "localhost"}; // TODO: Add some saved recent history too?
 	net::GetIPList(listIP);
 	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));

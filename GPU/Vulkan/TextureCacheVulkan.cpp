@@ -19,23 +19,24 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
-#include "file/vfs.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -44,7 +45,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
@@ -363,7 +363,8 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	_assert_(res == VK_SUCCESS);
 
 	CompileScalingShader();
 
@@ -439,31 +440,6 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_LINEAR
 };
 
-void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	key.minFilt = minFilt & 1;
-	key.mipFilt = 0;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		key.sClamp = true;
-		key.tClamp = true;
-	}
-}
-
 void TextureCacheVulkan::StartFrame() {
 	InvalidateLastTexture();
 	depalShaderCache_->Decimate();
@@ -492,7 +468,7 @@ void TextureCacheVulkan::EndFrame() {
 	computeShaderManager_.EndFrame();
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 }
 
@@ -507,7 +483,10 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -530,17 +509,14 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
-	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
-		return;
-	}
+	_assert_(entry);
+	_assert_(entry->vkTex);
 
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
-	SamplerCacheKey key{};
-	UpdateSamplingParams(*entry, key);
-	curSampler_ = samplerCache_.GetOrCreateSampler(key);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);
 }
@@ -551,18 +527,19 @@ void TextureCacheVulkan::Unbind() {
 	InvalidateLastTexture();
 }
 
-void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
-	bool depth = (entry->status & TexCacheEntry::STATUS_DEPTH) != 0;
+	bool depth = channel == NOTIFY_FB_DEPTH;
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
 
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+	bool need_depalettize = IsClutFormat(texFormat);
+
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -581,7 +558,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 			curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-			InvalidateLastTexture(entry);
 			imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			return;
 		} else {
@@ -658,7 +634,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindPipeline(depalShader->pipeline);
+		renderManager->BindPipeline(depalShader->pipeline, (PipelineFlags)0);
 
 		if (depth) {
 			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
@@ -691,16 +667,14 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 		gstate_c.SetUseShaderDepal(false);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
+
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-	InvalidateLastTexture(entry);
 }
 
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
@@ -727,11 +701,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
-	if (entry->framebuffer) {
-		// Nothing else to do here.
-		return;
-	}
-
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 		// Proceeding here can cause a crash.
@@ -740,7 +709,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+
+	// maxLevel here is the max level to upload. Not the count.
 	int maxLevel = entry->maxLevel;
+
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
@@ -769,6 +741,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	if (badMipSizes) {
 		maxLevel = 0;
 	}
+
+	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
+	// such as when using replacement textures - but let's keep the same amount of levels.
+	int maxLevelToGenerate = maxLevel;
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
@@ -854,8 +830,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		// If we want to use the GE debugger, we should add VK_IMAGE_USAGE_TRANSFER_SRC_BIT too...
+		VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 		// Compute experiment
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && hardwareScaling) {
@@ -875,7 +850,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		snprintf(texName, sizeof(texName), "texture_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format));
 		image->SetTag(texName);
 
-		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, imageLayout, usage, mapping);
+		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
 			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 			lowMemoryMode_ = true;
@@ -894,7 +869,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			scaleFactor = 1;
 			actualFmt = dstFmt;
 
-			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+			allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		}
 
 		if (!allocSuccess) {
@@ -903,7 +878,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			entry->vkTex = nullptr;
 		}
 	}
-	lastBoundTexture = entry->vkTex;
 
 	ReplacedTextureDecodeInfo replacedInfo;
 	if (replacer_.Enabled() && !replaced.Valid()) {
@@ -1018,6 +992,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 		}
 
+		// Generate any additional mipmap levels.
+		for (int level = maxLevel + 1; level <= maxLevelToGenerate; level++) {
+			entry->vkTex->GenerateMip(cmdInit, level);
+		}
+
 		if (maxLevel == 0) {
 			entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
 		} else {
@@ -1028,8 +1007,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
-
-	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -1142,26 +1119,26 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	SetTexture(false);
-	if (!nextTexture_)
-		return false;
+	SetTexture();
+	if (!nextTexture_) {
+		if (nextFramebufferTexture_) {
+			VirtualFramebuffer *vfb = nextFramebufferTexture_;
+			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			// We may have blitted to a temp FBO.
+			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			return retval;
+		} else {
+			return false;
+		}
+	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
 	ApplyTexture();
-
-	// TODO: Centralize?
-	if (entry->framebuffer) {
-		VirtualFramebuffer *vfb = entry->framebuffer;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
-		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-		return retval;
-	}
 
 	if (!entry->vkTex)
 		return false;

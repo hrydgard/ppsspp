@@ -129,4 +129,6 @@ public:
 		std::lock_guard<std::recursive_mutex> guard(lock);
 		startingDirectory = dir;
 	}
+
+	u64 getDirSize(const std::string &dirPath);
 };

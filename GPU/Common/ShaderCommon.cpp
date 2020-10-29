@@ -5,6 +5,8 @@
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
+#include "ShaderCommon.h"
+
 void init_resources(TBuiltInResource &Resources) {
 	Resources.maxLights = 32;
 	Resources.maxClipPlanes = 6;
@@ -98,4 +100,23 @@ void init_resources(TBuiltInResource &Resources) {
 	Resources.limits.generalSamplerIndexing = 1;
 	Resources.limits.generalVariableIndexing = 1;
 	Resources.limits.generalConstantMatrixVectorIndexing = 1;
+}
+
+void GLSLShaderCompat::SetupForVulkan() {
+	fragColor0 = "fragColor0";
+	fragColor1 = "fragColor1";
+	varying_fs = "in";
+	varying_vs = "out";
+	attribute = "in";
+	bitwiseOps = true;
+	framebufferFetchExtension = nullptr;
+	gles = false;
+	glslES30 = true;
+	glslVersionNumber = 450;
+	lastFragData = nullptr;
+	texture = "texture";
+	texelFetch = "texelFetch";
+	vulkan = true;
+	forceMatrix4x4 = false;
+	coefsFromBuffers = true;
 }

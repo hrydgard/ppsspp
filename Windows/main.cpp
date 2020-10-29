@@ -21,9 +21,9 @@
 #include <functional>
 
 #include "Common/CommonWindows.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
-#include "Common/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"
 
 #include <Wbemidl.h>
@@ -31,16 +31,16 @@
 #include <ShlObj.h>
 #include <mmsystem.h>
 
-#include "base/display.h"
-#include "base/stringutil.h"
-#include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "i18n/i18n.h"
-#include "profiler/profiler.h"
-#include "thread/threadutil.h"
-#include "util/text/utf8.h"
-#include "net/resolve.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Net/Resolve.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -51,6 +51,7 @@
 
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
+#include "Common/StringUtils.h"
 
 #include "Commctrl.h"
 
@@ -88,11 +89,11 @@ extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #if PPSSPP_API(ANY_GL)
-CGEDebugger* geDebuggerWindow = 0;
+CGEDebugger* geDebuggerWindow = nullptr;
 #endif
 
-CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
-CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
+CDisasm *disasmWindow = nullptr;
+CMemoryDlg *memoryWindow = nullptr;
 
 static std::string langRegion;
 static std::string osName;
@@ -563,9 +564,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				break;
 			}
 
-			if (wideArgs[i] == L"--windowed")
-				g_Config.bFullScreen = false;
-
 			if (wideArgs[i].find(gpuBackend) != std::wstring::npos && wideArgs[i].size() > gpuBackend.size()) {
 				const std::wstring restOfOption = wideArgs[i].substr(gpuBackend.size());
 
@@ -678,7 +676,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			accel = hAccelTable;
 			break;
 		case WINDOW_CPUDEBUGGER:
-			wnd = disasmWindow[0] ? disasmWindow[0]->GetDlgHandle() : 0;
+			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : 0;
 			accel = hDebugAccelTable;
 			break;
 		case WINDOW_GEDEBUGGER:

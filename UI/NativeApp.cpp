@@ -43,35 +43,34 @@
 #include "Windows/CaptureDevice.h"
 #endif
 
-#include "base/display.h"
-#include "base/stringutil.h"
-#include "Common/TimeUtil.h"
-#include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/draw_text.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "input/input_state.h"
-#include "math/fast/fast_math.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "ui/ui.h"
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "util/text/utf8.h"
-
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/draw_text.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
 #include "android/jni/app-android.h"
 
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Input/InputState.h"
+#include "Common/Math/fast/fast_math.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "Common/CPUDetect.h"
-#include "Common/FileUtil.h"
-#include "Common/KeyMap.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
@@ -82,6 +81,7 @@
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
@@ -125,9 +125,9 @@ static UI::Theme ui_theme;
 
 Atlas g_ui_atlas;
 
-#if defined(ARM) && defined(__ANDROID__)
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
@@ -148,6 +148,7 @@ std::string config_filename;
 
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
+bool g_ShaderNameListChanged = false;
 static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
@@ -291,9 +292,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
 
-#if defined(ARM) && defined(__ANDROID__)
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 	ArmEmitterTest();
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 	Arm64EmitterTest();
 #endif
 }
@@ -361,6 +362,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_PLUGINS));
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
 	// and in the root PSP directory as well.
@@ -368,6 +370,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) + ".nomedia");
 }
 
 static void CheckFailedGPUBackends() {
@@ -592,8 +595,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen"))
+				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.bFullScreen = true;
+					System_SendMessage("toggle_fullscreen", "1");
+				}
+				if (!strcmp(argv[i], "--windowed")) {
+					g_Config.bFullScreen = false;
+					System_SendMessage("toggle_fullscreen", "0");
+				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))

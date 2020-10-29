@@ -3,11 +3,22 @@
 #include <thread>
 #include <atomic>
 #include <vector>
-#include <stdlib.h>
+#include <cstdlib>
 
+#include "Common/Log.h"
+#include "Common/LogManager.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/TimeUtil.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/ConsoleListener.h"
+#include "Common/Input/InputState.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -18,18 +29,12 @@
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Log.h"
-#include "LogManager.h"
-#include "ConsoleListener.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
+
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
-#include "input/input_state.h"
-#include "base/NativeApp.h"
-#include "thread/threadutil.h"
+#include "GPU/Common/PresentationCommon.h"
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
@@ -314,10 +319,8 @@ static void check_variables(CoreParameter &coreParam)
 
    if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
    {
-      coreParam.pixelWidth  = coreParam.renderWidth  = 
-         g_Config.iInternalResolution * 480;
-      coreParam.pixelHeight = coreParam.renderHeight = 
-         g_Config.iInternalResolution * 272;
+      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * 480;
+      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
 
       if (gpu)
       {
@@ -349,11 +352,12 @@ void retro_init(void)
 
    g_Config.bEnableLogging = true;
    g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
-   g_Config.bMemStickInserted = PSP_MEMORYSTICK_STATE_INSERTED;
+   g_Config.bMemStickInserted = true;
    g_Config.iGlobalVolume = VOLUME_MAX - 1;
    g_Config.iAltSpeedVolume = -1;
    g_Config.bEnableSound = true;
    g_Config.iCwCheatRefreshRate = 60;
+   g_Config.iMemStickSizeGB = 16;
 
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
@@ -417,7 +421,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->geometry.base_height  = g_Config.iInternalResolution * 272;
    info->geometry.max_width    = g_Config.iInternalResolution * 480;
    info->geometry.max_height   = g_Config.iInternalResolution * 272;
-   info->geometry.aspect_ratio = 16.0 / 9.0;
+   info->geometry.aspect_ratio = 480.0 / 272.0;  // Not 16:9! But very, very close.
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
@@ -885,6 +889,11 @@ float System_GetPropertyFloat(SystemProperty prop)
    {
       case SYSPROP_DISPLAY_REFRESH_RATE:
          return 60.f;
+      case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+      case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+      case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+      case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+         return 0.0f;
       default:
          break;
    }

@@ -18,10 +18,10 @@
 
 #include <thread>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/TimeUtil.h"
@@ -43,8 +43,8 @@
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
-#include "thin3d/VulkanRenderManager.h"
-#include "thin3d/VulkanQueueRunner.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -141,7 +141,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 	}
 	fclose(f);
 	if (!result) {
-		WARN_LOG(G3D, "Bad Vulkan pipeline cache");
+		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
 		File::Delete(filename);
 	} else {
@@ -224,14 +224,18 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
+
+	if (vulkan_->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
+	}
 
 	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
@@ -552,43 +556,18 @@ void GPU_Vulkan::DeviceRestore() {
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
+	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
+	buffer += offset;
+	bufsize -= offset;
+	if ((int)bufsize < 0)
+		return;
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	char texStats[256];
 	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	snprintf(buffer, bufsize - 1,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d, uploads: %d\n"
+	snprintf(buffer, bufsize,
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
 		"%s\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManager_->NumVFBs(),
-		(int)textureCacheVulkan_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),

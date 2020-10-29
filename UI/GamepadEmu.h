@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "input/input_state.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Input/InputState.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "Core/CoreParameter.h"
 
 class GamepadView : public UI::View {

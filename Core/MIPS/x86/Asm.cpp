@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "ABI.h"
 #include "x64Emitter.h"

@@ -22,11 +22,12 @@
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <ctype.h>
-#include "Common.h"
-#include "CPUDetect.h"
-#include "StringUtils.h"
-#include "FileUtil.h"
-#include "util/text/utf8.h"
+
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) 
 #if PPSSPP_PLATFORM(UWP)

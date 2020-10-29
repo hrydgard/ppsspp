@@ -67,6 +67,9 @@ public:
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		return g_symbolMap->LoadSymbolMap(fn.c_str());
 	}
+
+	virtual void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
+
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
 		g_symbolMap->SaveSymbolMap(fn.c_str());
@@ -88,6 +91,8 @@ public:
 	void SendUIMessage(const std::string &message, const std::string &value) override {
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
+
+	void NotifySwitchUMDUpdated() override {}
 
 private:
 	std::string SymbolMapFilename(std::string currentFilename);

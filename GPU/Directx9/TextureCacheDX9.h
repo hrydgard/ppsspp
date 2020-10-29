@@ -49,10 +49,10 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void ForgetLastTexture() override;
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
-
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
+	void ForgetLastTexture() override {
+		InvalidateLastTexture();
+	}
+	void InvalidateLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
@@ -62,13 +62,14 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
 private:
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+	void ApplySamplingParams(const SamplerCacheKey &key);
+
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {

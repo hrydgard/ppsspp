@@ -426,8 +426,10 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMemoryInit()
 {
-	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd()-PSP_GetKernelMemoryBase());
-	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd()-PSP_GetUserMemoryBase());
+	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
+	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
+	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
+	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
@@ -1137,6 +1139,16 @@ static int sceKernelPrintf(const char *formatString)
 
 		if (param > 6)
 			supported = false;
+	}
+
+	// Scrub for beeps and other suspicious control characters.
+	for (size_t i = 0; i < result.size(); i++) {
+		switch (result[i]) {
+		case 7:  // BEL
+		case 8:  // Backspace
+			result[i] = ' ';
+			break;
+		}
 	}
 
 	// Just in case there were embedded strings that had \n's.

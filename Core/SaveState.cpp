@@ -20,14 +20,14 @@
 #include <thread>
 #include <mutex>
 
-#include "base/stringutil.h"
-#include "i18n/i18n.h"
-#include "thread/threadutil.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Text/Parsers.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
 #include "Core/SaveState.h"
@@ -43,6 +43,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -618,7 +619,19 @@ namespace SaveState
 			if (File::GetModifTime(fn, time)) {
 				char buf[256];
 				// TODO: Use local time format? Americans and some others might not like ISO standard :)
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				switch (g_Config.iDateFormat) {
+				case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+					strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+					strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+					break;
+				default: // Should never happen
+					return "";
+				}
 				return std::string(buf);
 			}
 		}
@@ -670,12 +683,12 @@ namespace SaveState
 			return;
 
 		// For fast-forwarding, otherwise they may be useless and too close.
-		time_update();
-		float diff = time_now_d() - rewindLastTime;
+		double now = time_now_d();
+		float diff = now - rewindLastTime;
 		if (diff < rewindMaxWallFrequency)
 			return;
 
-		rewindLastTime = time_now_d();
+		rewindLastTime = now;
 		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}

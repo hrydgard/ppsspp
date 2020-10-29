@@ -20,20 +20,15 @@ SDLJoystick *joystick = NULL;
 #include <thread>
 #include <locale>
 
-#include "base/display.h"
-#include "Common/TimeUtil.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
-#include "image/png_load.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
-#include "net/resolve.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Net/Resolve.h"
 #include "NKCodeFromSDL.h"
-#include "util/const_map.h"
-#include "util/text/utf8.h"
-#include "math/math_util.h"
-#include "thin3d/GLRenderManager.h"
-#include "thread/threadutil.h"
-#include "math.h"
+#include "Common/Math/math_util.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "SDL_syswm.h"
 
@@ -46,11 +41,17 @@ SDLJoystick *joystick = NULL;
 #include <X11/Xlib-xcb.h>
 #endif
 
+#include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/Data/Collections/ConstMap.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Common/GraphicsContext.h"
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
@@ -282,12 +283,19 @@ std::string System_GetProperty(SystemProperty prop) {
 		// Set c and c++ strings back to POSIX
 		std::locale::global(std::locale("POSIX"));
 		if (!locale.empty()) {
+			// Technically, this is an opaque string, but try to find the locale code.
+			size_t messagesPos = locale.find("LC_MESSAGES=");
+			if (messagesPos != std::string::npos) {
+				messagesPos += strlen("LC_MESSAGES=");
+				size_t semi = locale.find(';', messagesPos);
+				locale = locale.substr(messagesPos, semi - messagesPos);
+			}
+
 			if (locale.find("_", 0) != std::string::npos) {
 				if (locale.find(".", 0) != std::string::npos) {
 					return locale.substr(0, locale.find(".",0));
-				} else {
-					return locale;
 				}
+				return locale;
 			}
 		}
 		return "en_US";
@@ -470,6 +478,10 @@ int main(int argc, char *argv[]) {
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+
+#ifdef SDL_HINT_TOUCH_MOUSE_EVENTS
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+#endif
 
 	if (VulkanMayBeAvailable()) {
 		printf("DEBUG: Vulkan might be available.\n");
@@ -685,7 +697,7 @@ int main(int argc, char *argv[]) {
 	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
 	int width = 0, height = 0;
 	unsigned char *imageData;
-	if (pngLoad(iconPath, &width, &height, &imageData, false) == 1) {
+	if (pngLoad(iconPath, &width, &height, &imageData) == 1) {
 		SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32,
 							0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 		memcpy(surface->pixels, imageData, width*height*4);
@@ -855,68 +867,56 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 					break;
 				}
-#if !SDL_VERSION_ATLEAST(2, 0, 10)
 // This behavior doesn't feel right on a macbook with a touchpad.
 #if !PPSSPP_PLATFORM(MAC)
 			case SDL_FINGERMOTION:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEMOTION;
-					touchEvent.motion.type = SDL_MOUSEMOTION;
-					touchEvent.motion.timestamp = event.tfinger.timestamp;
-					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.state = SDL_GetMouseState(NULL, NULL);
-					touchEvent.motion.x = event.tfinger.x * w;
-					touchEvent.motion.y = event.tfinger.y * h;
-
-					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
-
-					SDL_PushEvent(&touchEvent);
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_MOVE;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
 					break;
 				}
 			case SDL_FINGERDOWN:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEBUTTONDOWN;
-					touchEvent.button.type = SDL_MOUSEBUTTONDOWN;
-					touchEvent.button.timestamp = SDL_GetTicks();
-					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.button = SDL_BUTTON_LEFT;
-					touchEvent.button.state = SDL_PRESSED;
-					touchEvent.button.clicks = 1;
-					touchEvent.button.x = event.tfinger.x * w;
-					touchEvent.button.y = event.tfinger.y * h;
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_DOWN;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
 
-					touchEvent.motion.type = SDL_MOUSEMOTION;
-					touchEvent.motion.timestamp = SDL_GetTicks();
-					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.x = event.tfinger.x * w;
-					touchEvent.motion.y = event.tfinger.y * h;
-					// Any real mouse cursor should also move
-					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
-					// First finger down event also has to be a motion to that position
-					SDL_PushEvent(&touchEvent);
-					touchEvent.motion.type = SDL_MOUSEBUTTONDOWN;
-					// Now we push the mouse button event
-					SDL_PushEvent(&touchEvent);
+					KeyInput key;
+					key.deviceId = DEVICE_ID_MOUSE;
+					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+					key.flags = KEY_DOWN;
+					NativeKey(key);
 					break;
 				}
 			case SDL_FINGERUP:
 				{
 					SDL_GetWindowSize(window, &w, &h);
-					touchEvent.type = SDL_MOUSEBUTTONUP;
-					touchEvent.button.type = SDL_MOUSEBUTTONUP;
-					touchEvent.button.timestamp = SDL_GetTicks();
-					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.button = SDL_BUTTON_LEFT;
-					touchEvent.button.state = SDL_RELEASED;
-					touchEvent.button.clicks = 1;
-					touchEvent.button.x = event.tfinger.x * w;
-					touchEvent.button.y = event.tfinger.y * h;
-					SDL_PushEvent(&touchEvent);
+					TouchInput input;
+					input.id = event.tfinger.fingerId;
+					input.x = event.tfinger.x * w;
+					input.y = event.tfinger.y * h;
+					input.flags = TOUCH_UP;
+					input.timestamp = event.tfinger.timestamp;
+					NativeTouch(input);
+
+					KeyInput key;
+					key.deviceId = DEVICE_ID_MOUSE;
+					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+					key.flags = KEY_UP;
+					NativeKey(key);
 					break;
 				}
-#endif
 #endif
 			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
@@ -1122,7 +1122,6 @@ int main(int argc, char *argv[]) {
 		ToggleFullScreenIfFlagSet(window);
 
 		// Simple throttling to not burn the GPU in the menu.
-		time_update();
 		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
 			double diffTime = time_now_d() - startTime;
 			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
@@ -1130,7 +1129,6 @@ int main(int argc, char *argv[]) {
 				sleep_ms(sleepTime);
 		}
 
-		time_update();
 		framecount++;
 	}
 

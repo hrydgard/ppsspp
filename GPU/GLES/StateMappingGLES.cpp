@@ -21,9 +21,9 @@
 
 
 #include "StateMappingGLES.h"
-#include "profiler/profiler.h"
-#include "gfx/gl_debug_log.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -259,13 +259,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		bool cullEnable;
 		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
-		if (gstate.isModeClear()) {
-			// Culling
-			cullEnable = false;
-		} else {
-			// Set cull
-			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		}
+		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
 	}
 

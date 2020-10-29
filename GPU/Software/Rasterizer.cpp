@@ -18,10 +18,9 @@
 #include <algorithm>
 #include <cmath>
 
-#include "base/basictypes.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -1036,9 +1035,9 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		levelFrac = 0;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR) {
+	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
 		filt = true;
-	} else if (g_Config.iTexFiltering == TEX_FILTER_NEAREST) {
+	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
 		filt = false;
 	} else {
 		filt = detail > 0 ? gstate.isMinifyFilteringEnabled() : gstate.isMagnifyFilteringEnabled();

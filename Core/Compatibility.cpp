@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "file/ini_file.h"
+
+#include "Common/Data/Format/IniFile.h"
 #include "Core/Compatibility.h"
 #include "Core/System.h"
 
@@ -61,6 +62,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "MGS2AcidHack", &flags_.MGS2AcidHack);
 	CheckSetting(iniFile, gameID, "SonicRivalsHack", &flags_.SonicRivalsHack);
 	CheckSetting(iniFile, gameID, "BlockTransferAllowCreateFB", &flags_.BlockTransferAllowCreateFB);
+	CheckSetting(iniFile, gameID, "IntraVRAMBlockTransferAllowCreateFB", &flags_.IntraVRAMBlockTransferAllowCreateFB);
 	CheckSetting(iniFile, gameID, "YugiohSaveFix", &flags_.YugiohSaveFix);
 	CheckSetting(iniFile, gameID, "ForceUMDDelay", &flags_.ForceUMDDelay);
 	CheckSetting(iniFile, gameID, "ForceMax60FPS", &flags_.ForceMax60FPS);
@@ -69,6 +71,9 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "MoreAccurateVMMUL", &flags_.MoreAccurateVMMUL);
 	CheckSetting(iniFile, gameID, "ForceSoftwareRenderer", &flags_.ForceSoftwareRenderer);
 	CheckSetting(iniFile, gameID, "DarkStalkersPresentHack", &flags_.DarkStalkersPresentHack);
+	CheckSetting(iniFile, gameID, "ReportSmallMemstick", &flags_.ReportSmallMemstick);
+	CheckSetting(iniFile, gameID, "MemstickFixedFree", &flags_.MemstickFixedFree);
+	CheckSetting(iniFile, gameID, "DateLimited", &flags_.DateLimited);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

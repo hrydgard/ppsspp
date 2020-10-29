@@ -17,7 +17,7 @@
 
 #include <cstdio>
 
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -38,6 +38,12 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
 		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
+		// Support for depth.
+		if (pixelFormat == GE_FORMAT_DEPTH16) {
+			WRITE(p, "cbuffer params : register(b0) {\n");
+			WRITE(p, "  float z_scale; float z_offset;\n");
+			WRITE(p, "};\n");
+		}
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 450\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
@@ -53,7 +59,6 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 			WRITE(p, "  float z_scale; float z_offset;\n");
 			WRITE(p, "};\n");
 		}
-
 	} else {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
@@ -73,21 +78,27 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
 		WRITE(p, "void main() {\n");
-		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "  float color = texture(tex, v_texcoord0).r;\n");
-		} else {
-			WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
-		}
+		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
 	}
 
 	int mask = gstate.getClutIndexMask();
 	int shift = gstate.getClutIndexShift();
 	int offset = gstate.getClutIndexStartPos();
 	GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
+
+	// Sampling turns our texture into floating point. To avoid this, might be able
 	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
-	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
+	// Anyhow, we simply work around this by converting back to integer, which is fine.
 	// Use the mask to skip reading some components.
+
+	// TODO: Since we actually have higher precision color data here, we might want to apply a dithering pattern here
+	// in the 5551, 565 and 4444 modes. This would benefit Test Drive which renders at 16-bit on the real hardware
+	// and dithers immediately, while we render at higher color depth and thus don't dither resulting in banding
+	// when we sample it at low color depth like this.
+
+	// An alternative would be to have a special mode where we keep some extra precision here and sample the CLUT linearly - works for ramps such
+	// as those that Test Drive uses for its color remapping. But would need game specific flagging.
+
 	int shiftedMask = mask << shift;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
@@ -119,7 +130,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		break;
 	case GE_FORMAT_DEPTH16:
 		// Remap depth buffer.
-		WRITE(p, "  float depth = (color - z_offset) * z_scale;\n");
+		WRITE(p, "  float depth = (color.x - z_offset) * z_scale;\n");
 		WRITE(p, "  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
@@ -318,7 +329,6 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 	case HLSL_DX9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
-	case HLSL_D3D11_LEVEL9:
 	default:
 		_assert_msg_(false, "Depal shader language not supported: %d", (int)language);
 	}

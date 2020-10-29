@@ -57,6 +57,7 @@ u32 sceKernelReferThreadRunStatus(u32 uid, u32 statusPtr);
 int sceKernelReleaseWaitThread(SceUID threadID);
 int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr);
 int sceKernelRotateThreadReadyQueue(int priority);
+int KernelRotateThreadReadyQueue(int priority);
 int sceKernelCheckThreadStack();
 int sceKernelSuspendThread(SceUID threadID);
 int sceKernelResumeThread(SceUID threadID);
@@ -107,6 +108,7 @@ enum WaitType : int
 	WAITTYPE_VMEM         = 22,
 	WAITTYPE_ASYNCIO      = 23,
 	WAITTYPE_MICINPUT     = 24, // fake
+	WAITTYPE_NET          = 25, // fake
 
 	NUM_WAITTYPES
 };

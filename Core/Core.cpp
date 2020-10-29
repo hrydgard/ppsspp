@@ -22,11 +22,12 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "base/NativeApp.h"
-#include "base/display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
-#include "thread/threadutil.h"
-#include "profiler/profiler.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/Log.h"
@@ -218,12 +219,10 @@ void Core_RunLoop(GraphicsContext *ctx) {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
 		Core_StateProcessed();
-		time_update();
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
 		// Simple throttling to not burn the GPU in the menu.
-		time_update();
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
@@ -234,7 +233,6 @@ void Core_RunLoop(GraphicsContext *ctx) {
 	}
 
 	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
-		time_update();
 		UpdateRunLoop();
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();

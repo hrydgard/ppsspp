@@ -23,6 +23,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/LogManager.h"
+#include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
@@ -81,6 +82,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_VMEM,            "Volatile Mem" },
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
 	{ WAITTYPE_MICINPUT,        "Microphone input"},
+	{ WAITTYPE_NET,             "Network"},
 };
 
 const char *getWaitTypeName(WaitType type)
@@ -682,6 +684,7 @@ int __KernelRegisterActionType(ActionCreator creator)
 
 void __KernelRestoreActionType(int actionType, ActionCreator creator)
 {
+	_assert_(actionType >= 0);
 	mipsCalls.restoreActionType(actionType, creator);
 }
 
@@ -2149,7 +2152,7 @@ void __KernelReturnFromThread()
 }
 
 int sceKernelExitThread(int exitStatus) {
-	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	PSPThread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(thread != NULL, "Exited from a NULL thread.");
@@ -2185,7 +2188,7 @@ void _sceKernelExitThread(int exitStatus) {
 }
 
 int sceKernelExitDeleteThread(int exitStatus) {
-	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() > 0x0307FFFF)
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	PSPThread *thread = __GetCurrentThread();
 	if (thread)
@@ -2244,10 +2247,7 @@ bool __KernelIsDispatchEnabled()
 	return dispatchEnabled && __InterruptsEnabled();
 }
 
-int sceKernelRotateThreadReadyQueue(int priority)
-{
-	VERBOSE_LOG(SCEKERNEL, "sceKernelRotateThreadReadyQueue(%x)", priority);
-
+int KernelRotateThreadReadyQueue(int priority) {
 	PSPThread *cur = __GetCurrentThread();
 
 	// 0 is special, it means "my current priority."
@@ -2257,11 +2257,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	if (!threadReadyQueue.empty(priority))
-	{
+	if (!threadReadyQueue.empty(priority)) {
 		// In other words, yield to everyone else.
-		if (cur->nt.currentPriority == priority)
-		{
+		if (cur->nt.currentPriority == priority) {
 			threadReadyQueue.push_back(priority, currentThread);
 			cur->nt.status = (cur->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
 		}
@@ -2270,9 +2268,16 @@ int sceKernelRotateThreadReadyQueue(int priority)
 			threadReadyQueue.rotate(priority);
 	}
 
-	hleReSchedule("rotatethreadreadyqueue");
-	hleEatCycles(250);
 	return 0;
+}
+
+int sceKernelRotateThreadReadyQueue(int priority) {
+	int result = KernelRotateThreadReadyQueue(priority);
+	if (result == 0) {
+		hleReSchedule("rotatethreadreadyqueue");
+		hleEatCycles(250);
+	}
+	return hleLogSuccessVerboseI(SCEKERNEL, result);
 }
 
 int sceKernelDeleteThread(int threadID) {
@@ -2304,6 +2309,8 @@ int sceKernelTerminateDeleteThread(int threadID)
 		ERROR_LOG(SCEKERNEL, "sceKernelTerminateDeleteThread(%i): cannot terminate current thread", threadID);
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 	}
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
@@ -2335,6 +2342,8 @@ int sceKernelTerminateThread(SceUID threadID) {
 	if (__IsInInterrupt() && sceKernelGetCompiledSdkVersion() >= 0x03080000) {
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 	}
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	if (threadID == 0 || threadID == currentThread) {
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_THID, "cannot terminate current thread");
 	}
@@ -2800,6 +2809,7 @@ int sceKernelResumeThread(SceUID threadID)
 		// If it was dormant, waiting, etc. before we don't flip its ready state.
 		if (t->nt.status == 0)
 			__KernelChangeReadyState(t, threadID, true);
+		hleReSchedule("resume thread from suspend");
 		return 0;
 	}
 	else

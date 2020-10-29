@@ -1,30 +1,33 @@
 #include <cstdio>
+#include <cstdint>
+#include <ctime>
 
-#include "base/basictypes.h"
+#include "ppsspp_config.h"
+
 #include "Common/TimeUtil.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/time.h>
-#include <unistd.h>
-#endif
 
 #ifdef HAVE_LIBNX
 #include <switch.h>
 #endif // HAVE_LIBNX
 
-#include "Common/Log.h"
+#ifdef _WIN32
+#include "CommonWindows.h"
+#include <mmsystem.h>
+#include <sys/timeb.h>
+#else
+#include <sys/time.h>
+#include <unistd.h>
+#endif
 
 static double curtime = 0;
 
 #ifdef _WIN32
 
-LARGE_INTEGER frequency;
-double frequencyMult;
-LARGE_INTEGER startTime;
+static LARGE_INTEGER frequency;
+static double frequencyMult;
+static LARGE_INTEGER startTime;
 
-double real_time_now() {
+double time_now_d() {
 	if (frequency.QuadPart == 0) {
 		QueryPerformanceFrequency(&frequency);
 		QueryPerformanceCounter(&startTime);
@@ -39,33 +42,17 @@ double real_time_now() {
 
 #else
 
-uint64_t _frequency = 0;
-uint64_t _starttime = 0;
-
-double real_time_now() {
+double time_now_d() {
 	static time_t start;
 	struct timeval tv;
-	gettimeofday(&tv, NULL);
+	gettimeofday(&tv, nullptr);
 	if (start == 0) {
 		start = tv.tv_sec;
 	}
-	tv.tv_sec -= start;
-	return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / 1000000.0);
 }
 
 #endif
-
-void time_update() {
-	curtime = real_time_now();
-}
-
-double time_now_d() {
-	return curtime;
-}
-
-int time_now_ms() {
-	return int(curtime*1000.0);
-}
 
 void sleep_ms(int ms) {
 #ifdef _WIN32
@@ -77,26 +64,26 @@ void sleep_ms(int ms) {
 #endif
 }
 
-LoggingDeadline::LoggingDeadline(const char *name, int ms) : name_(name), endCalled_(false) {
-	totalTime_ = (double)ms * 0.001;
-	time_update();
-	endTime_ = time_now_d() + totalTime_;
-}
+// Return the current time formatted as Minutes:Seconds:Milliseconds
+// in the form 00:00:000.
+void GetTimeFormatted(char formattedTime[13]) {
+	time_t sysTime;
+	struct tm * gmTime;
+	char tmp[13];
 
-LoggingDeadline::~LoggingDeadline() {
-	if (!endCalled_)
-		End();
-}
+	time(&sysTime);
+	gmTime = localtime(&sysTime);
 
-bool LoggingDeadline::End() {
-	endCalled_ = true;
-	time_update();
-	if (time_now_d() > endTime_) {
-		double late = (time_now_d() - endTime_);
-		double totalTime = late + totalTime_;
-		ERROR_LOG(SYSTEM, "===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
-		return false;
-	}
-	return true;
-}
+	strftime(tmp, 6, "%M:%S", gmTime);
 
+	// Now tack on the milliseconds
+#ifdef _WIN32
+	struct timeb tp;
+	(void)::ftime(&tp);
+	snprintf(formattedTime, 13, "%s:%03i", tmp, tp.millitm);
+#else
+	struct timeval t;
+	(void)gettimeofday(&t, NULL);
+	snprintf(formattedTime, 13, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
+#endif
+}

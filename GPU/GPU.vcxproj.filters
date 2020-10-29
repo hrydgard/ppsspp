@@ -66,9 +66,6 @@
     <ClInclude Include="Directx9\GPU_DX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\DrawEngineDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
@@ -79,9 +76,6 @@
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\ShaderManagerDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Common\IndexGenerator.h">
@@ -156,9 +150,6 @@
     <ClInclude Include="Vulkan\DrawEngineVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Vulkan\FramebufferManagerVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
@@ -178,9 +169,6 @@
       <Filter>Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Vulkan\TextureScalerVulkan.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Vulkan\VulkanUtil.h">
@@ -217,12 +205,6 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\ShaderManagerD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h">
       <Filter>D3D11</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\TextureCacheD3D11.h">
@@ -288,6 +270,12 @@
     <ClInclude Include="ge_constants.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Directx9\VertexShaderGeneratorHLSL.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\FragmentShaderGeneratorHLSL.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -326,9 +314,6 @@
     <ClCompile Include="Directx9\GPU_DX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
     <ClCompile Include="Directx9\DrawEngineDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
@@ -339,9 +324,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\TextureScalerDX9.cpp">
@@ -428,9 +410,6 @@
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
@@ -447,9 +426,6 @@
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanUtil.cpp">
@@ -492,12 +468,6 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\ShaderManagerD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp">
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\TextureCacheD3D11.cpp">
@@ -574,6 +544,12 @@
     </ClCompile>
     <ClCompile Include="GeConstants.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\VertexShaderGeneratorHLSL.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\FragmentShaderGeneratorHLSL.cpp">
+      <Filter>DirectX9</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

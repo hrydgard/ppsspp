@@ -19,14 +19,15 @@
 #include <algorithm>
 #include <vector>
 
-#include "base/NativeApp.h"
-#include "base/display.h"
-#include "input/input_state.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/Display.h"
+#include "Common/Input/InputState.h"
 #include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/MainWindow.h"
 #include "Windows/WindowsHost.h"
 #include "Common/CommonFuncs.h"
+#include "Common/SysError.h"
 #include "Core/Config.h"
 
 #ifndef HID_USAGE_PAGE_GENERIC
@@ -194,7 +195,7 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg());
+			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
 		}
 	}
 
@@ -283,7 +284,7 @@ namespace WindowsRawInput {
 
 	LRESULT ProcessChar(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 		KeyInput key;
-		key.keyCode = wParam;  // Note that this is NOT a NKCODE but a Unicode character!
+		key.keyCode = (int)wParam;  // Note that this is NOT a NKCODE but a Unicode character!
 		key.flags = KEY_CHAR;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		NativeKey(key);

@@ -200,12 +200,12 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -215,12 +215,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -230,12 +230,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -245,12 +245,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -260,12 +260,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -275,12 +275,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -290,12 +290,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -305,12 +305,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|arm'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -320,12 +320,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -335,12 +335,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -350,12 +350,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -365,12 +365,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -383,7 +383,70 @@
     <ClInclude Include="..\..\Common\Arm64Emitter.h" />
     <ClInclude Include="..\..\Common\ArmCommon.h" />
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
+    <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
+    <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\FixedSizeQueue.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\Hashmaps.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\TinySet.h" />
+    <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h" />
+    <ClInclude Include="..\..\Common\Data\Convert\SmallDataConvert.h" />
+    <ClInclude Include="..\..\Common\Data\Encoding\Base64.h" />
+    <ClInclude Include="..\..\Common\Data\Encoding\Compression.h" />
+    <ClInclude Include="..\..\Common\Data\Encoding\Shiftjis.h" />
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf16.h" />
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf8.h" />
+    <ClInclude Include="..\..\Common\Data\Format\IniFile.h" />
+    <ClInclude Include="..\..\Common\Data\Format\JSONReader.h" />
+    <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h" />
+    <ClInclude Include="..\..\Common\Data\Format\PNGLoad.h" />
+    <ClInclude Include="..\..\Common\Data\Format\RIFF.h" />
+    <ClInclude Include="..\..\Common\Data\Format\ZIMLoad.h" />
+    <ClInclude Include="..\..\Common\Data\Format\ZIMSave.h" />
+    <ClInclude Include="..\..\Common\Data\Hash\Hash.h" />
+    <ClInclude Include="..\..\Common\Data\Random\Rng.h" />
+    <ClInclude Include="..\..\Common\Data\Text\I18n.h" />
+    <ClInclude Include="..\..\Common\Data\Text\Parsers.h" />
+    <ClInclude Include="..\..\Common\Data\Text\WrapText.h" />
+    <ClInclude Include="..\..\Common\File\DirListing.h" />
+    <ClInclude Include="..\..\Common\File\DiskFree.h" />
+    <ClInclude Include="..\..\Common\File\FileDescriptor.h" />
+    <ClInclude Include="..\..\Common\File\FileUtil.h" />
+    <ClInclude Include="..\..\Common\File\PathBrowser.h" />
+    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
+    <ClInclude Include="..\..\Common\GPU\DataFormat.h" />
+    <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h" />
+    <ClInclude Include="..\..\Common\GPU\thin3d.h" />
+    <ClInclude Include="..\..\Common\GPU\thin3d_create.h" />
+    <ClInclude Include="..\..\Common\Input\GestureDetector.h" />
+    <ClInclude Include="..\..\Common\Input\InputState.h" />
+    <ClInclude Include="..\..\Common\Input\KeyCodes.h" />
+    <ClInclude Include="..\..\Common\Math\curves.h" />
+    <ClInclude Include="..\..\Common\Math\expression_parser.h" />
+    <ClInclude Include="..\..\Common\Math\fast\fast_math.h" />
+    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h" />
+    <ClInclude Include="..\..\Common\Math\geom2d.h" />
+    <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h" />
+    <ClInclude Include="..\..\Common\Math\lin\vec3.h" />
+    <ClInclude Include="..\..\Common\Math\math_util.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPClient.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPHeaders.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPServer.h" />
+    <ClInclude Include="..\..\Common\Net\Resolve.h" />
+    <ClInclude Include="..\..\Common\Net\Sinks.h" />
+    <ClInclude Include="..\..\Common\Net\URL.h" />
+    <ClInclude Include="..\..\Common\Net\WebsocketServer.h" />
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
+    <ClInclude Include="..\..\Common\Render\DrawBuffer.h" />
+    <ClInclude Include="..\..\Common\Render\TextureAtlas.h" />
+    <ClInclude Include="..\..\Common\Render\Text\draw_text.h" />
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h" />
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h" />
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h" />
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
@@ -404,28 +467,42 @@
     <ClInclude Include="..\..\Common\Crypto\sha256.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
-    <ClInclude Include="..\..\Common\FileUtil.h" />
-    <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
-    <ClInclude Include="..\..\Common\KeyMap.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
-    <ClInclude Include="..\..\Common\MathUtil.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
-    <ClInclude Include="..\..\Common\stdafx.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
-    <ClInclude Include="..\..\Common\ThreadPools.h" />
-    <ClInclude Include="..\..\Common\ThreadSafeList.h" />
+    <ClInclude Include="..\..\Common\SysError.h" />
+    <ClInclude Include="..\..\Common\System\Display.h" />
+    <ClInclude Include="..\..\Common\System\NativeApp.h" />
+    <ClInclude Include="..\..\Common\System\System.h" />
+    <ClInclude Include="..\..\Common\Thread\Executor.h" />
+    <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h" />
+    <ClInclude Include="..\..\Common\Thread\ThreadPool.h" />
+    <ClInclude Include="..\..\Common\Thread\ThreadUtil.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />
-    <ClInclude Include="..\..\Common\Timer.h" />
     <ClInclude Include="..\..\Common\TimeUtil.h" />
+    <ClInclude Include="..\..\Common\UI\Context.h" />
+    <ClInclude Include="..\..\Common\UI\Root.h" />
+    <ClInclude Include="..\..\Common\UI\Screen.h" />
+    <ClInclude Include="..\..\Common\UI\Tween.h" />
+    <ClInclude Include="..\..\Common\UI\UI.h" />
+    <ClInclude Include="..\..\Common\UI\UIScreen.h" />
+    <ClInclude Include="..\..\Common\UI\View.h" />
+    <ClInclude Include="..\..\Common\UI\ViewGroup.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="..\..\ext\libpng17\png.h" />
+    <ClInclude Include="..\..\ext\libpng17\pngconf.h" />
+    <ClInclude Include="..\..\ext\libpng17\pngdebug.h" />
+    <ClInclude Include="..\..\ext\libpng17\pnginfo.h" />
+    <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
+    <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
+    <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
@@ -433,6 +510,58 @@
     <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
+    <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp" />
+    <ClCompile Include="..\..\Common\Data\Convert\SmallDataConvert.cpp" />
+    <ClCompile Include="..\..\Common\Data\Encoding\Base64.cpp" />
+    <ClCompile Include="..\..\Common\Data\Encoding\Compression.cpp" />
+    <ClCompile Include="..\..\Common\Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\PNGLoad.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\ZIMLoad.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\ZIMSave.cpp" />
+    <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp" />
+    <ClCompile Include="..\..\Common\Data\Text\I18n.cpp" />
+    <ClCompile Include="..\..\Common\Data\Text\Parsers.cpp" />
+    <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp" />
+    <ClCompile Include="..\..\Common\File\DirListing.cpp" />
+    <ClCompile Include="..\..\Common\File\DiskFree.cpp" />
+    <ClCompile Include="..\..\Common\File\FileDescriptor.cpp" />
+    <ClCompile Include="..\..\Common\File\FileUtil.cpp" />
+    <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
+    <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp" />
+    <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp" />
+    <ClCompile Include="..\..\Common\GPU\thin3d.cpp" />
+    <ClCompile Include="..\..\Common\Input\GestureDetector.cpp" />
+    <ClCompile Include="..\..\Common\Input\InputState.cpp" />
+    <ClCompile Include="..\..\Common\Math\curves.cpp" />
+    <ClCompile Include="..\..\Common\Math\expression_parser.cpp" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_math.c" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c" />
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c" />
+    <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
+    <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
+    <ClCompile Include="..\..\Common\Math\math_util.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPClient.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPHeaders.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPServer.cpp" />
+    <ClCompile Include="..\..\Common\Net\Resolve.cpp" />
+    <ClCompile Include="..\..\Common\Net\Sinks.cpp" />
+    <ClCompile Include="..\..\Common\Net\URL.cpp" />
+    <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp" />
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
+    <ClCompile Include="..\..\Common\Render\DrawBuffer.cpp" />
+    <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp" />
+    <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp" />
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp" />
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp" />
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp" />
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\ColorConv.cpp" />
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
@@ -442,8 +571,6 @@
     <ClCompile Include="..\..\Common\Crypto\sha1.cpp" />
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="..\..\Common\FileUtil.cpp" />
-    <ClCompile Include="..\..\Common\KeyMap.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
@@ -453,30 +580,49 @@
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
     <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
-    <ClCompile Include="..\..\Common\Misc.cpp" />
+    <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
-    <ClCompile Include="..\..\Common\stdafx.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
-    <ClCompile Include="..\..\Common\ThreadPools.cpp" />
+    <ClCompile Include="..\..\Common\System\Display.cpp" />
+    <ClCompile Include="..\..\Common\Thread\Executor.cpp" />
+    <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp" />
+    <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp" />
+    <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
-    <ClCompile Include="..\..\Common\Timer.cpp" />
     <ClCompile Include="..\..\Common\TimeUtil.cpp" />
+    <ClCompile Include="..\..\Common\UI\Context.cpp" />
+    <ClCompile Include="..\..\Common\UI\Root.cpp" />
+    <ClCompile Include="..\..\Common\UI\Screen.cpp" />
+    <ClCompile Include="..\..\Common\UI\Tween.cpp" />
+    <ClCompile Include="..\..\Common\UI\UI.cpp" />
+    <ClCompile Include="..\..\Common\UI\UIScreen.cpp" />
+    <ClCompile Include="..\..\Common\UI\View.cpp" />
+    <ClCompile Include="..\..\Common\UI\ViewGroup.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\png.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngerror.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngget.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngmem.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngpread.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngread.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngrio.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngrtran.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngrutil.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngset.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngtest.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngtrans.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngwio.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
+    <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\libpng17\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
+    <None Include="..\..\Common\Math\lin\matrix_neon.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

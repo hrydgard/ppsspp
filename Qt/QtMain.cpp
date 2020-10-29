@@ -30,12 +30,16 @@
 #include "SDL/SDLJoystick.h"
 #include "SDL_audio.h"
 #endif
+
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Math/math_util.h"
+
 #include "QtMain.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "thread/threadutil.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"

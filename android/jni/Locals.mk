@@ -14,13 +14,12 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/miniupnp \
   $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/$(NATIVE)/base \
-  $(LOCAL_PATH)/$(NATIVE)/ext \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libpng17 \
-  $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
+  $(LOCAL_PATH)/../../ext/libpng17 \
+  $(LOCAL_PATH)/../../ext/libzip \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 
-LOCAL_STATIC_LIBRARIES := native libzip glslang-build miniupnp-build
+LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build
 LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
   # Prettier stack traces are nice on other platforms.
@@ -70,7 +69,7 @@ ifeq ($(TARGET_ARCH_ABI),x86_64)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_64 -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
@@ -80,8 +79,6 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
-
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_64 -DARM64
 endif
 
 # Compile with profiling.

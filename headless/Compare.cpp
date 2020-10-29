@@ -16,10 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "headless/Compare.h"
-#include "file/file_util.h"
 
 #include "Common/ColorConv.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Host.h"
 
 #include "GPU/GPUState.h"

@@ -17,8 +17,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include "math/math_util.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Math/math_util.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -445,7 +445,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
-		if (reallyAClear && gstate.getColorMask() != 0 && gstate.getClearModeColorMask() != 0) {
+		if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
 			result->setSafeSize = true;
 			result->safeWidth = scissorX2;
 			result->safeHeight = scissorY2;
@@ -469,8 +469,8 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
 	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
-		bool clearingColor = gstate.isModeClear() && gstate.getClearModeColorMask() != 0;
-		bool writingColor = gstate.getColorMask() != 0;
+		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
+		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
 		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > transformed[0].x;
 		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > transformed[0].y;
 

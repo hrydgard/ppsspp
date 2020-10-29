@@ -19,14 +19,13 @@
 
 #include <d3d9.h>
 
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -77,7 +76,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	LPDIRECT3DVERTEXBUFFER9 vbo;

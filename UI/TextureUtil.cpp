@@ -1,17 +1,17 @@
 #include <algorithm>
 
-#include "base/colorutil.h"
-#include "thin3d/thin3d.h"
-#include "image/zim_load.h"
-#include "image/png_load.h"
-#include "math/math_util.h"
-#include "math/curves.h"
-#include "file/vfs.h"
+#include "Common/GPU/thin3d.h"
 #include "ext/jpge/jpgd.h"
-#include "ui/view.h"
-#include "ui/ui_context.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/UI/View.h"
+#include "Common/UI/Context.h"
+#include "Common/Render/DrawBuffer.h"
 
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/curves.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "UI/TextureUtil.h"
@@ -63,7 +63,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	break;
 
 	case PNG:
-		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0])) {
 			*num_levels = 1;
 			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			if (!image[0]) {

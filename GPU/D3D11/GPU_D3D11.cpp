@@ -39,9 +39,9 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
-#include "base/NativeApp.h"
-#include "profiler/profiler.h"
-#include "i18n/i18n.h"
+#include "Common/System/System.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -146,11 +146,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
-	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
@@ -194,6 +193,7 @@ void GPU_D3D11::BuildReportingInfo() {
 }
 
 void GPU_D3D11::DeviceLost() {
+	draw_->InvalidateCachedState();
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManagerD3D11_->ClearShaders();
@@ -305,38 +305,13 @@ void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	snprintf(buffer, bufsize - 1,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d, uploads: %d\n"
-		"Vertex, Fragment shaders loaded: %i, %i\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManagerD3D11_->NumVFBs(),
-		(int)textureCacheD3D11_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
+	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
+	buffer += offset;
+	bufsize -= offset;
+	if ((int)bufsize < 0)
+		return;
+	snprintf(buffer, bufsize,
+		"Vertex, Fragment shaders loaded: %d, %d\n",
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);

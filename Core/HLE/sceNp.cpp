@@ -162,6 +162,7 @@ static int sceNpAuthInit(u32 poolSize, u32 stackSize, u32 threadPrio)
 	npAuthMemStat.npMemSize = poolSize;
 	npAuthMemStat.npMaxMemSize = poolSize / 2;    // Dummy
 	npAuthMemStat.npFreeMemSize = poolSize - 16;  // Dummy.
+	npAuthEvents.clear();
 
 	npAuthInited = true;
 	return 0;

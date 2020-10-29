@@ -17,16 +17,15 @@
 
 #include <functional>
 
-#include "base/basictypes.h"
-#include "json/json_reader.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "i18n/i18n.h"
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/viewgroup.h"
-#include "gfx_es2/draw_buffer.h"
-
+#include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"

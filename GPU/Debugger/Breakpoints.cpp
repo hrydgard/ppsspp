@@ -19,7 +19,6 @@
 #include <set>
 #include <mutex>
 
-#include "base/basictypes.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 

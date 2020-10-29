@@ -15,14 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ext/native/thin3d/thin3d.h"
-#include "ext/native/thin3d/VulkanRenderManager.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -180,10 +179,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 	}
 
 	VkPipeline pipeline = vulkan2D_->GetPipeline(rp, stencilVs_, stencilFs_, false, Vulkan2D::VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS);
-	renderManager->BindPipeline(pipeline);
+	renderManager->BindPipeline(pipeline, PIPELINE_FLAG_USES_DEPTH_STENCIL);
 	renderManager->SetViewport({ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f });
 	renderManager->SetScissor({ { 0, 0, },{ (uint32_t)w, (uint32_t)h } });
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	draw_->BindTextures(0, 1, &tex);
 	VkImageView drawPixelsImageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
@@ -225,5 +223,6 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 
 	tex->Release();
 	RebindFramebuffer("RebindFramebuffer - NotifyStencilUpload");
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

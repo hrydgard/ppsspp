@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include <Common/Hashmaps.h>
-#include <unordered_map>
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -27,8 +28,6 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
-#include "gfx/gl_common.h"
-#include "thin3d/GLRenderManager.h"
 
 class LinkedShader;
 class ShaderManagerGLES;
@@ -90,7 +89,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	GLRBuffer *vbo;

@@ -20,13 +20,12 @@
 #include <map>
 #include <cstdint>
 
-#include "base/basictypes.h"
-#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "Common/Common.h"
+#include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "thin3d/d3dx9_loader.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/lin/matrix4x4.h"
 
 namespace DX9 {
 

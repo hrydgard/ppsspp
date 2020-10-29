@@ -4,9 +4,89 @@
     <Filter Include="Crypto">
       <UniqueIdentifier>{da855697-f7aa-49bf-b969-7a90c5b4d259}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{c2303262-a4f0-4400-8dd7-35ad6ac5f443}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\libpng17">
+      <UniqueIdentifier>{b0ac485c-3153-4708-b098-f5a518a95b79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{819c6967-1ed6-4fec-8415-a018ae524180}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{7368a8e7-cf29-49e9-87be-f1e69771555e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{93937cf8-9cc6-4ea5-a9c8-bdc186aa0317}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Text">
+      <UniqueIdentifier>{ad268930-1885-451c-969d-39871232244a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Encoding">
+      <UniqueIdentifier>{553115bf-c2fa-4c7d-a1db-587b2337c73f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Random">
+      <UniqueIdentifier>{4451d43c-69ec-42d2-8f0f-09032a1c46f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Color">
+      <UniqueIdentifier>{c6e1a659-b5d9-4015-93b4-9e383959b19c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Hash">
+      <UniqueIdentifier>{99f1fb79-2a8c-4ac0-8cba-57d9b2f87d32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Collections">
+      <UniqueIdentifier>{7277c320-2c19-40d0-81a4-2f6cbb20790c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Convert">
+      <UniqueIdentifier>{f924399b-932d-4aeb-b4e1-1da72f1fd2e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{211cb745-2675-4667-b0aa-964f33fc67dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\fast">
+      <UniqueIdentifier>{6f1f3b4e-8efd-4f39-b5a9-50d7c75b4616}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\lin">
+      <UniqueIdentifier>{56599f1d-b05b-4b55-b664-e6738d5edafc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File">
+      <UniqueIdentifier>{4841c76f-fc06-41b0-9fbf-4d73bd591ce5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data\Format">
+      <UniqueIdentifier>{98e1f400-451f-497f-bbbc-e88c74c9aab0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File\VFS">
+      <UniqueIdentifier>{b23bdba1-6007-4edb-ac75-a04cf8c5e172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiler">
+      <UniqueIdentifier>{6673c122-d7ed-4ccc-969a-12d317ee1f93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="System">
+      <UniqueIdentifier>{661f7d9d-5922-48d6-88ea-2f24bb57419f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Net">
+      <UniqueIdentifier>{c0424523-60b1-4886-a15d-68eda99ff01b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{8e12d2c0-157a-4625-a970-665e1ec9a425}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{03e7b6a3-ac95-4145-b045-9c644186a0a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\D3D11">
+      <UniqueIdentifier>{4a53cf3f-fb5d-471f-8570-7dcdf479cce6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render">
+      <UniqueIdentifier>{84fe421c-de5d-4732-9518-dd5ef6c46a72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\GL">
+      <UniqueIdentifier>{2eb259f7-2735-493a-88be-96eb38f1b34e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render\Text">
+      <UniqueIdentifier>{28139b08-f8d5-41a2-a5ee-bf86cf1469c3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\Common\ABI.cpp" />
     <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
@@ -17,8 +97,6 @@
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="..\..\Common\FileUtil.cpp" />
-    <ClCompile Include="..\..\Common\KeyMap.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
@@ -28,13 +106,10 @@
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
     <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
-    <ClCompile Include="..\..\Common\Misc.cpp" />
+    <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
-    <ClCompile Include="..\..\Common\stdafx.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
-    <ClCompile Include="..\..\Common\ThreadPools.cpp" />
     <ClCompile Include="..\..\Common\Thunk.cpp" />
-    <ClCompile Include="..\..\Common\Timer.cpp" />
     <ClCompile Include="..\..\Common\TimeUtil.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
@@ -47,21 +122,257 @@
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\ext\libpng17\png.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngerror.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngget.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngmem.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngpread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngread.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngrutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngset.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngtest.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngtrans.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwio.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwrite.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwtran.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libpng17\pngwutil.c">
+      <Filter>ext\libpng17</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Input\GestureDetector.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Input\InputState.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\Executor.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Base64.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Compression.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Encoding\Utf8.cpp">
+      <Filter>Data\Encoding</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp">
+      <Filter>Data\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp">
+      <Filter>Data\Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\I18n.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\Parsers.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\WrapText.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Convert\SmallDataConvert.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\curves.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\expression_parser.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\math_util.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_math.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\fast\fast_matrix_sse.c">
+      <Filter>Math\fast</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Math\lin\vec3.cpp">
+      <Filter>Math\lin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\DiskFree.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\PathBrowser.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\VFS.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\IniFile.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONReader.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\JSONWriter.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Profiler\Profiler.cpp">
+      <Filter>Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\Display.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\DirListing.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\FileUtil.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\FileDescriptor.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPClient.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPHeaders.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\Resolve.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\Sinks.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\URL.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\PNGLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\ZIMLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\ZIMSave.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\Context.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\Root.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\Screen.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\Tween.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\UI.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\UIScreen.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\View.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\ViewGroup.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\thin3d.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp">
+      <Filter>GPU\D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\DrawBuffer.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp">
+      <Filter>GPU\GL</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp">
+      <Filter>Render\Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\Common\ABI.h" />
     <ClInclude Include="..\..\Common\Arm64Emitter.h" />
     <ClInclude Include="..\..\Common\ArmCommon.h" />
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
+    <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerDeque.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerFuncs.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerList.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerMap.h" />
-    <ClInclude Include="..\..\Common\Serialize\SerializerSet.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
     <ClInclude Include="..\..\Common\ColorConv.h" />
     <ClInclude Include="..\..\Common\ColorConvNEON.h" />
@@ -73,24 +384,17 @@
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
-    <ClInclude Include="..\..\Common\FileUtil.h" />
-    <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
-    <ClInclude Include="..\..\Common\KeyMap.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\LogManager.h" />
-    <ClInclude Include="..\..\Common\MathUtil.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
     <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
-    <ClInclude Include="..\..\Common\stdafx.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
     <ClInclude Include="..\..\Common\Swap.h" />
-    <ClInclude Include="..\..\Common\ThreadPools.h" />
-    <ClInclude Include="..\..\Common\ThreadSafeList.h" />
+    <ClInclude Include="..\..\Common\SysError.h" />
     <ClInclude Include="..\..\Common\Thunk.h" />
-    <ClInclude Include="..\..\Common\Timer.h" />
     <ClInclude Include="..\..\Common\TimeUtil.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
@@ -103,5 +407,273 @@
     <ClInclude Include="..\..\Common\Crypto\sha256.h">
       <Filter>Crypto</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeList.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeMap.h" />
+    <ClInclude Include="..\..\Common\Serialize\SerializeSet.h" />
+    <ClInclude Include="..\..\ext\libpng17\png.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngdebug.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pnginfo.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pnglibconf.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngpriv.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libpng17\pngstruct.h">
+      <Filter>ext\libpng17</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\GestureDetector.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\InputState.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Input\KeyCodes.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\Executor.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ThreadPool.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ThreadUtil.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\TinySet.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Random\Rng.h">
+      <Filter>Data\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Base64.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Compression.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Shiftjis.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf8.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Encoding\Utf16.h">
+      <Filter>Data\Encoding</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h">
+      <Filter>Data\Color</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Hash\Hash.h">
+      <Filter>Data\Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\I18n.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\Parsers.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\WrapText.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Convert\SmallDataConvert.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\curves.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\expression_parser.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\geom2d.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\math_util.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\fast\fast_math.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h">
+      <Filter>Math\fast</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Math\lin\vec3.h">
+      <Filter>Math\lin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\DiskFree.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\PathBrowser.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\RIFF.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\VFS.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\IniFile.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONReader.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\JSONWriter.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Profiler\Profiler.h">
+      <Filter>Profiler</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\Display.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\NativeApp.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\System.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\DirListing.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\FileUtil.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\FileDescriptor.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPClient.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPHeaders.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\Resolve.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\Sinks.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\URL.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\WebsocketServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\PNGLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\ZIMLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\ZIMSave.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\Context.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\Root.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\Screen.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\Tween.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\UI.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\UIScreen.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\View.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\ViewGroup.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\DataFormat.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\thin3d.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\thin3d_create.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\DrawBuffer.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\TextureAtlas.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h">
+      <Filter>GPU\GL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\FixedSizeQueue.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\Hashmaps.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\libpng17\CMakeLists.txt">
+      <Filter>ext\libpng17</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
+      <Filter>Math\fast</Filter>
+    </None>
+    <None Include="..\..\Common\Math\lin\matrix_neon.s">
+      <Filter>Math\lin</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
 	std::string iniFile;  // which ini file was this definition in? So we can write settings back later
@@ -83,6 +83,8 @@ void ReloadAllPostShaderInfo();
 
 const ShaderInfo *GetPostShaderInfo(const std::string &name);
 std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);
+std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names);
+bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
 const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);

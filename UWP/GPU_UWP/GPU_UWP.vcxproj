@@ -204,7 +204,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -219,7 +219,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -234,7 +234,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -249,7 +249,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -264,7 +264,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -279,7 +279,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -294,7 +294,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -309,7 +309,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -324,7 +324,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -339,7 +339,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -354,7 +354,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -369,7 +369,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext/native/ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/snappy;../../ext/native;../../Common;../../ext;../../ext/glslang;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -404,22 +404,20 @@
     <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h" />
     <ClInclude Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h" />
-    <ClInclude Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\GPU_D3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureScalerD3D11.h" />
-    <ClInclude Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
     <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
     <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
-    <ClInclude Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.h" />
-    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.h" />
+    <ClInclude Include="..\..\GPU\Directx9\FragmentShaderGeneratorHLSL.h" />
+    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorHLSL.h" />
     <ClInclude Include="..\..\GPU\GeDisasm.h" />
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
@@ -466,7 +464,6 @@
     <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\FramebufferManagerD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\GPU_D3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp" />
@@ -474,14 +471,13 @@
     <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureScalerD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
-    <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp" />
-    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.cpp" />
+    <ClCompile Include="..\..\GPU\Directx9\FragmentShaderGeneratorHLSL.cpp" />
+    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorHLSL.cpp" />
     <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />

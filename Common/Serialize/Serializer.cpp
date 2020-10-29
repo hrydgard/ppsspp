@@ -21,7 +21,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {

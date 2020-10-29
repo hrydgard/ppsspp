@@ -39,11 +39,11 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_SAVE            = 3,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD        = 4,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE        = 5,
-	SCE_UTILITY_SAVEDATA_TYPE_DELETE          = 6,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE      = 7,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE      = 6,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE   = 7,// When run on a PSP, displays a list of all saves on the PSP. Weird. (Not really, it's to let you free up space)
 	SCE_UTILITY_SAVEDATA_TYPE_SIZES           = 8,
 	SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE      = 9,
-	SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE    = 10,
+	SCE_UTILITY_SAVEDATA_TYPE_DELETE          = 10,
 	SCE_UTILITY_SAVEDATA_TYPE_LIST            = 11,
 	SCE_UTILITY_SAVEDATA_TYPE_FILES           = 12,
 	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE  = 13,
@@ -65,11 +65,11 @@ static const char *const utilitySavedataTypeNames[] = {
 	"SAVE",
 	"LISTLOAD",
 	"LISTSAVE",
-	"DELETE",
 	"LISTDELETE",
+	"LISTALLDELETE",
 	"SIZES",
 	"AUTODELETE",
-	"SINGLEDELETE",
+	"DELETE",
 	"LIST",
 	"FILES",
 	"MAKEDATASECURE",
@@ -273,17 +273,20 @@ struct SaveFileInfo
 {
 	s64 size;
 	std::string saveName;
+	std::string saveDir;
 	int idx;
 
 	char title[128];
 	char saveTitle[128];
 	char saveDetail[1024];
 
+	bool broken;
+
 	tm modif_time;
 
 	PPGeImage *texture;
 
-	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL)
+	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL), broken(false)
 	{
 		memset(title, 0, 128);
 		memset(saveTitle, 0, 128);
@@ -339,6 +342,7 @@ public:
 	int GetFilenameCount();
 	const SaveFileInfo& GetFileInfo(int idx);
 	std::string GetFilename(int idx) const;
+	std::string GetSaveDir(int idx) const;
 
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
@@ -353,12 +357,14 @@ public:
 	int GetLastEmptySave();
 	int GetSaveNameIndex(SceUtilitySavedataParam* param);
 
+	bool wouldHasMultiSaveName(SceUtilitySavedataParam* param);
+
 	void DoState(PointerWrap &p);
 
 private:
 	void Clear();
-	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
-	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
+	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);

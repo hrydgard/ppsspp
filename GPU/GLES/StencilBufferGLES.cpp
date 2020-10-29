@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "gfx_es2/glsl_program.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
@@ -158,7 +158,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 
 	shaderManagerGL_->DirtyLastShader();
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
@@ -218,7 +218,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 	}
 
 	tex->Release();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	RebindFramebuffer("RebindFramebuffer - Stencil");
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

@@ -29,10 +29,10 @@
 #include <string>
 #include <cmath>
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
-#include "image/png_load.h"
-#include "image/zim_save.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Format/ZIMSave.h"
 
 #include "kanjifilter.h"
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
@@ -46,7 +46,7 @@
 // add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 using namespace std;
 static int global_id;
@@ -152,7 +152,7 @@ struct Image {
 	bool LoadPNG(const char *png_name) {
 		unsigned char *img_data;
 		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data, false)) {
+		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
 			printf("Failed to load %s\n", png_name);
 			exit(1);
 			return false;
@@ -354,7 +354,7 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 }
 
 void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
-	FT_Library freetype;
+	FT_Library freetype = 0;
 	assert(FT_Init_FreeType(&freetype) == 0);
 
 	vector<FT_Face> fonts;

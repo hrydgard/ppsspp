@@ -15,14 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
 #include <algorithm>
 
-#include "profiler/profiler.h"
-#include "gfx/gl_common.h"
-#include "gfx/gl_debug_log.h"
-#include "gfx_es2/glsl_program.h"
-#include "thin3d/thin3d.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/ColorConv.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -264,23 +263,6 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 	}
 }
 
-void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
-
-	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
-	if (matchingDepthBuffer && matchingSize) {
-		int w = std::min(src->renderWidth, dst->renderWidth);
-		int h = std::min(src->renderHeight, dst->renderHeight);
-
-		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
-			// Let's only do this if not clearing depth.
-			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-			dst->last_frame_depth_updated = gpuStats.numFlips;
-		}
-	}
-}
-
 void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		render_->BindTexture(stage, nullptr);
@@ -331,8 +313,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
-	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
@@ -362,7 +343,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		return;
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE)) {
+	if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
 		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 		// In case the src goes outside, we just skip the optimization in that case.
 		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;

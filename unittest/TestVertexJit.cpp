@@ -86,14 +86,14 @@ public:
 		SetupExecute(vtype, useJit);
 
 		int total = 0;
-		double st = real_time_now();
+		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
 				dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
 				++total;
 			}
-		} while (real_time_now() - st < 0.5);
-		double elapsed = real_time_now() - st;
+		} while (time_now_d() - st < 0.5);
+		double elapsed = time_now_d() - st;
 
 		return total / elapsed;
 	}

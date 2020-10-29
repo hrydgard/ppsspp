@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/draw_buffer.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 class MultiTouchDisplay : public UI::View {
 public:

@@ -20,9 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "base/stringutil.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
 #include "Windows/GEDebugger/GEDebugger.h"

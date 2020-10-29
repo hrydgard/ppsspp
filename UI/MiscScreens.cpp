@@ -20,20 +20,23 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "gfx_es2/draw_buffer.h"
-#include "math/curves.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
-#include "util/random/rng.h"
-#include "file/vfs.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
 
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Math/curves.h"
+#include "Common/File/VFS/VFS.h"
+
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -301,7 +304,7 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
+PostProcScreen::PostProcScreen(const std::string &title, int id) : ListPopupScreen(title), id_(id) {
 	auto ps = GetI18NCategory("PostShaders");
 	ReloadAllPostShaderInfo();
 	shaders_ = GetAllPostShaderInfo();
@@ -310,7 +313,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (!shaders_[i].visible)
 			continue;
-		if (shaders_[i].section == g_Config.sPostShaderName)
+		if (shaders_[i].section == g_Config.vPostShaderNames[id_])
 			selected = i;
 		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
@@ -320,7 +323,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 void PostProcScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
-	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].section;
+	g_Config.vPostShaderNames[id_] = shaders_[listView_->GetSelected()].section;
 }
 
 TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {
@@ -712,6 +715,9 @@ void CreditsScreen::render() {
 		"xebra",
 		"LunaMoo",
 		"zminhquanz",
+		"ANR2ME",
+		"adenovan",
+		"iota97",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
 		specialthanksMaxim.c_str(),

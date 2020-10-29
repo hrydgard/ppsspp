@@ -19,16 +19,16 @@
 //#define SHADERLOG
 #endif
 
-#include "base/stringutil.h"
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/dataconv.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Data/Encoding/Utf8.h"
 
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/StringUtils.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Log.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
@@ -39,8 +39,8 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
@@ -168,6 +168,8 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
+
+	compat_.SetupForVulkan();
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -262,7 +264,11 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanVertexShader *vs = vsCache_.Get(VSID);
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
+		std::string genErrorString;
+		uint64_t uniformMask = 0;  // Not used
+		uint32_t attributeMask = 0;  // Not used
+		bool success = GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString);
+		_assert_(success);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
@@ -270,9 +276,12 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
 	if (!fs) {
-		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+		// uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 		// Fragment shader not in cache. Let's compile it.
-		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_, vendorID);
+		std::string genErrorString;
+		uint64_t uniformMask = 0;  // Not used
+		bool success = GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
+		_assert_(success);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
@@ -381,6 +390,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.featureFlags != gstate_c.featureFlags)
 		return false;
 
+	GLSLShaderCompat compat{};
+	compat.SetupForVulkan();
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
@@ -388,18 +399,28 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			break;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
-		GenerateVulkanGLSLVertexShader(id, codeBuffer_);
+		std::string genErrorString;
+		uint32_t attributeMask = 0;
+		uint64_t uniformMask = 0;
+		if (!GenerateVertexShaderGLSL(id, codeBuffer_, compat, &attributeMask, &uniformMask, &genErrorString)) {
+			return false;
+		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
+
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
 			ERROR_LOG(G3D, "Vulkan shader cache truncated");
 			break;
 		}
-		GenerateVulkanGLSLFragmentShader(id, codeBuffer_, vendorID);
+		std::string genErrorString;
+		uint64_t uniformMask = 0;
+		if (!GenerateFragmentShaderGLSL(id, codeBuffer_, compat, &uniformMask, &genErrorString)) {
+			return false;
+		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
 		fsCache_.Insert(id, fs);
 	}

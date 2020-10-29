@@ -18,7 +18,7 @@
 #include <set>
 
 #include "ext/xxhash.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
@@ -481,7 +481,7 @@ u64 IRBlock::CalculateHash() const {
 			buffer[pos++] = instr.encoding;
 		}
 
-		return XXH64(&buffer[0], origSize_, 0x9A5C33B8);
+		return XXH3_64bits(&buffer[0], origSize_);
 	}
 
 	return 0;

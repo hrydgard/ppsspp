@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/basictypes.h"
+#include "Common.h"
 #include "Core/HDRemaster.h"
 
 bool g_RemasterMode;

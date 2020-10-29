@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "ppsspp_config.h"
 #include "CommonWindows.h"
 
@@ -7,7 +6,7 @@
 #include <commctrl.h>
 
 #include "Misc.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -201,7 +200,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 
 	int totalListSize = rect.right-rect.left;
 	for (int i = 0; i < columnCount; i++) {
-		lvc.cx = columns[i].size * totalListSize;
+		lvc.cx = (int)(columns[i].size * totalListSize);
 		lvc.pszText = (LPTSTR)columns[i].name;
 
 		if (columns[i].flags & GLVC_CENTERED)

@@ -5,23 +5,19 @@
 #include "ppsspp_config.h"
 
 #include <limits>
-#include <algorithm>
 #include <vector>
 #include <cmath>
 #include <cinttypes>
 
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 
-#include "base/basictypes.h"
-
-#include "Arm64Emitter.h"
-#include "MathUtil.h"
-#include "CommonTypes.h"
-#include "CommonWindows.h"
-#include "CPUDetect.h"
-
-#include "CommonWindows.h"
+#include "Common/Arm64Emitter.h"
+#include "Common/Math/math_util.h"
+#include "Common/CommonTypes.h"
+#include "Common/CommonWindows.h"
+#include "Common/CPUDetect.h"
+#include "Common/Log.h"
 
 #ifdef IOS
 #include <libkern/OSCacheControl.h>

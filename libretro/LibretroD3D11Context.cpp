@@ -1,7 +1,8 @@
-
+#include "Common/Log.h"
 #include "Core/ConfigValues.h"
 #include "libretro/LibretroD3D11Context.h"
-#include "thin3d/d3d11_loader.h"
+#include "Common/GPU/D3D11/D3D11Loader.h"
+
 #include <d3d11_1.h>
 
 #ifdef __MINGW32__
@@ -29,6 +30,12 @@ void LibretroD3D11Context::CreateDrawContext() {
 		ERROR_LOG(G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_D3D11_VERSION, d3d11_->interface_version);
 		return;
 	}
+
+   // Reject lower feature levels. We have D3D9 for these ancient GPUs.
+   if (d3d11_->featureLevel < D3D_FEATURE_LEVEL_10_0) {
+      ERROR_LOG(G3D, "D3D11 featureLevel not high enough - rejecting!\n");
+      return;
+   }
 
 	ptr_D3DCompile = d3d11_->D3DCompile;
 

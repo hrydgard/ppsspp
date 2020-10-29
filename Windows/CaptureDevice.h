@@ -171,8 +171,8 @@ public:
 
 protected:
 	WindowsCaptureDevice *device;
-	SwsContext *img_convert_ctx;
-	SwrContext *resample_ctx;
+	SwsContext *img_convert_ctx = nullptr;
+	SwrContext *resample_ctx = nullptr;
 };
 
 class WindowsCaptureDevice {
@@ -222,12 +222,12 @@ protected:
 	CAPTUREDEVIDE_ERROR error;
 	std::string errorMessage;
 
-	bool isDeviceChanged;
+	bool isDeviceChanged = false;
 
 // MF interface.
-	ReaderCallback *m_pCallback;
-	IMFSourceReader *m_pReader;
-	IMFMediaSource *m_pSource;
+	ReaderCallback *m_pCallback = nullptr;
+	IMFSourceReader *m_pReader = nullptr;
+	IMFMediaSource *m_pSource = nullptr;
 
 // Message loop.
 	std::mutex mutex;
@@ -241,15 +241,15 @@ protected:
 	std::mutex paramMutex;
 
 // Camera only
-	unsigned char *imageRGB;
-	int imgRGBLineSizes[4];
-	unsigned char *imageJpeg;
-	int imgJpegSize;
+	unsigned char *imageRGB = nullptr;
+	int imgRGBLineSizes[4]{};
+	unsigned char *imageJpeg = nullptr;
+	int imgJpegSize = 0;
 
 //Microphone only
-	u8 *resampleBuf;
-	u32 resampleBufSize;
-	QueueBuf *rawAudioBuf;
+	u8 *resampleBuf = nullptr;
+	u32 resampleBufSize = 0;
+	QueueBuf *rawAudioBuf = nullptr;
 };
 
 extern WindowsCaptureDevice *winCamera;

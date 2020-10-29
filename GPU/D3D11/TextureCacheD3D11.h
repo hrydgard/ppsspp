@@ -58,9 +58,8 @@ public:
 	}
 
 	void ForgetLastTexture() override;
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
+	void InvalidateLastTexture() override;
 
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
 protected:
@@ -74,7 +73,7 @@ private:
 	TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 	ID3D11Device *device_;
@@ -92,6 +91,7 @@ private:
 	SamplerCacheD3D11 samplerCache_;
 
 	ID3D11ShaderResourceView *lastBoundTexture;
+	ID3D11Buffer *depalConstants_;
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
@@ -100,6 +100,7 @@ private:
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	ShaderManagerD3D11 *shaderManager_;
+
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

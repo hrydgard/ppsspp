@@ -21,7 +21,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/FixedSizeQueue.h"
+#include "Common/Data/Collections/FixedSizeQueue.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

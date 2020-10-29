@@ -19,10 +19,10 @@
 #include <set>
 #include <thread>
 
-#include "thread/threadutil.h"
-#include "profiler/profiler.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -621,8 +621,6 @@ static void __IoVblank() {
 }
 
 void __IoInit() {
-	MemoryStick_Init();
-
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
@@ -663,6 +661,7 @@ void __IoInit() {
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
+	MemoryStick_Init();
 	lastMemStickState = MemoryStick_State();
 	lastMemStickFatState = MemoryStick_FatState();
 	__DisplayListenVblank(__IoVblank);
@@ -967,6 +966,8 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	block  = pgd->file_offset/pgd->block_size;
 	offset = pgd->file_offset%pgd->block_size;
 
+	if (size > (int)pgd->data_size)
+		size = (int)pgd->data_size;
 	remain_size = size;
 
 	while(remain_size){

@@ -5,9 +5,9 @@
 #include <WinError.h>
 
 #include "Common/Log.h"
-#include "base/display.h"
-#include "util/text/utf8.h"
-#include "i18n/i18n.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -15,9 +15,9 @@
 #include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/d3d11_loader.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/D3D11/D3D11Loader.h"
 
 #ifdef __MINGW32__
 #undef __uuidof
@@ -54,7 +54,7 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	// D3D11 has no need for display rotation.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-#if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
+#if defined(_DEBUG) && !PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 	UINT createDeviceFlags = 0;
@@ -74,9 +74,6 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_1,
 		D3D_FEATURE_LEVEL_10_0,
-		D3D_FEATURE_LEVEL_9_3,
-		D3D_FEATURE_LEVEL_9_2,
-		D3D_FEATURE_LEVEL_9_1,
 	};
 	const UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 

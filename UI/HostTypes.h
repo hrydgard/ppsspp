@@ -43,6 +43,7 @@ public:
 
 	bool IsDebuggingEnabled() override {return false;}
 	bool AttemptLoadSymbolMap() override {return false;}
+	void NotifySymbolMapUpdated() override {}
 	void SetWindowTitle(const char *message) override {}
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override {
@@ -52,4 +53,6 @@ public:
 	void SendUIMessage(const std::string &message, const std::string &value) override {
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
+
+	void NotifySwitchUMDUpdated() override {}
 };

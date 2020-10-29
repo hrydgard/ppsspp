@@ -20,10 +20,10 @@
 #include <tuple>
 #include <map>
 
-#include "Common/Hashmaps.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 
 // Vulkan doesn't really have the concept of an FBO that owns the images,
 // but it does have the concept of a framebuffer as a set of attachments.
@@ -154,7 +154,6 @@ private:
 	void DestroyDeviceObjects();
 
 	VulkanContext *vulkan_ = nullptr;
-	VkPipelineCache cache_ = VK_NULL_HANDLE;
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
@@ -163,7 +162,7 @@ private:
 		VkDescriptorPool descPool;
 		int numDescriptors;
 	};
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	struct PipelineKey {
 		VkShaderModule module;

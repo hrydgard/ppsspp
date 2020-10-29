@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace Draw {
 	class DrawContext;
@@ -29,7 +30,6 @@ enum ShaderLanguage {
 	GLSL_VULKAN,
 	HLSL_DX9,
 	HLSL_D3D11,
-	HLSL_D3D11_LEVEL9,
 };
 
 enum DebugShaderType {
@@ -104,7 +104,7 @@ enum : uint64_t {
 
 	// Other dirty elements that aren't uniforms!
 	DIRTY_FRAMEBUF = 1ULL << 40,
-	DIRTY_TEXTURE_IMAGE = 1ULL << 41,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 41,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
 	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
 
 	// Render State
@@ -131,3 +131,43 @@ protected:
 
 struct TBuiltInResource;
 void init_resources(TBuiltInResource &Resources);
+
+enum DoLightComputation {
+	LIGHT_OFF,
+	LIGHT_SHADE,
+	LIGHT_FULL,
+};
+
+struct GLSLShaderCompat {
+	int glslVersionNumber;
+	bool gles;
+	bool vulkan;
+	const char *varying_fs;
+	const char *varying_vs;
+	const char *attribute;
+	const char *fragColor0;
+	const char *fragColor1;
+	const char *texture;
+	const char *texelFetch;
+	const char *lastFragData;
+	const char *framebufferFetchExtension;
+	bool glslES30;
+	bool bitwiseOps;
+	bool forceMatrix4x4;
+	bool coefsFromBuffers;
+
+	void SetupForVulkan();
+};
+
+// PSP vertex format.
+enum class PspAttributeLocation {
+	POSITION = 0,
+	TEXCOORD = 1,
+	NORMAL = 2,
+	W1 = 3,
+	W2 = 4,
+	COLOR0 = 5,
+	COLOR1 = 6,
+
+	COUNT
+};

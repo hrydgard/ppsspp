@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 #include "MiscScreens.h"
 
 namespace UI {

@@ -25,8 +25,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 static const float FONT_SCALE = 0.65f;
 

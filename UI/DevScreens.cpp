@@ -17,23 +17,28 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "base/stringutil.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
-#include "profiler/profiler.h"
+#include "ppsspp_config.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -49,11 +54,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
-#if PPSSPP_API(D3DX9)
-int GetD3DXVersion();
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 int GetD3DCompilerVersion();
-#endif
 #endif
 
 static const char *logLevelList[] = {
@@ -91,6 +92,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
 	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenu::OnResetLimitedLogging);
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -106,6 +108,10 @@ UI::EventReturn DevMenu::OnToggleAudioDebug(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn DevMenu::OnResetLimitedLogging(UI::EventParams &e) {
+	Reporting::ResetCounts();
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
@@ -458,7 +464,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
-#if defined(ARM) || defined(ARM64) || defined(MIPS)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 	deviceSpecs->Add(new InfoItem(si->T("Cores"), StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
@@ -482,11 +488,7 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-#if PPSSPP_API(D3DX9)
-		deviceSpecs->Add(new InfoItem(si->T("D3DX Version"), StringFromFormat("%d", GetD3DXVersion())));
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-#endif
 	}
 #endif
 #endif
@@ -536,16 +538,6 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 #endif
 
-#if 0
-	// For debugging, DO NOT translate
-	deviceSpecs->Add(new InfoItem("Resolution1",
-		StringFromFormat("dp: %dx%d px: %dx%d dpi_s: %0.1fx%0.1f",
-			dp_xres, dp_yres, pixel_xres, pixel_yres, g_dpi_scale_x, g_dpi_scale_y)));
-	deviceSpecs->Add(new InfoItem("Resolution2",
-		StringFromFormat("dpi_s_r: %0.1fx%0.1f px_in_dp: %0.1fx%0.1f",
-			g_dpi_scale_real_x, g_dpi_scale_real_y, pixel_in_dps_x, pixel_in_dps_y)));
-#endif
-
 	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
 	std::string apiVersion;
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
@@ -562,7 +554,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("API Version"), apiVersion));
 	deviceSpecs->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
 	if (moga.empty()) {
 		moga = si->T("(none detected)");

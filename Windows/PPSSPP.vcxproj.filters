@@ -729,5 +729,8 @@
     <Text Include="..\libretro\CMakeLists.txt">
       <Filter>Other Platforms\libretro</Filter>
     </Text>
+    <Text Include="..\libretro\README_WINDOWS.txt">
+      <Filter>Other Platforms\libretro</Filter>
+    </Text>
   </ItemGroup>
 </Project>

@@ -18,11 +18,13 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <cstdlib>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/SysError.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -257,7 +259,7 @@ void FreeMemoryPages(void *ptr, size_t size) {
 	size = (size + page_size - 1) & (~(page_size - 1));
 #ifdef _WIN32
 	if (!VirtualFree(ptr, 0, MEM_RELEASE)) {
-		ERROR_LOG(MEMMAP, "FreeMemoryPages failed!\n%s", GetLastErrorMsg());
+		ERROR_LOG(MEMMAP, "FreeMemoryPages failed!\n%s", GetLastErrorMsg().c_str());
 	}
 #else
 	munmap(ptr, size);
@@ -302,13 +304,13 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 #if PPSSPP_PLATFORM(UWP)
 	DWORD oldValue;
 	if (!VirtualProtectFromApp((void *)ptr, size, protect, &oldValue)) {
-		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 		return false;
 	}
 #else
 	DWORD oldValue;
 	if (!VirtualProtect((void *)ptr, size, protect, &oldValue)) {
-		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 		return false;
 	}
 #endif

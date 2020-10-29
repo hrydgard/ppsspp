@@ -164,7 +164,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -182,7 +182,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -202,7 +202,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -221,7 +221,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -244,7 +244,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -267,7 +267,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -292,7 +292,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -317,7 +317,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -370,14 +370,12 @@
     <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DepalettizeShaderD3D11.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />
-    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h" />
     <ClInclude Include="D3D11\FramebufferManagerD3D11.h" />
     <ClInclude Include="D3D11\GPU_D3D11.h" />
     <ClInclude Include="D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="D3D11\StateMappingD3D11.h" />
     <ClInclude Include="D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="D3D11\TextureScalerD3D11.h" />
-    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\Debugger.h" />
     <ClInclude Include="Debugger\Playback.h" />
@@ -387,12 +385,12 @@
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
     <ClInclude Include="Directx9\FramebufferManagerDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
-    <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
+    <ClInclude Include="Directx9\FragmentShaderGeneratorHLSL.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
     <ClInclude Include="Directx9\DrawEngineDX9.h" />
-    <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h" />
+    <ClInclude Include="Directx9\VertexShaderGeneratorHLSL.h" />
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GLES\DepalettizeShaderGLES.h">
@@ -478,7 +476,6 @@
     <ClInclude Include="Vulkan\DebugVisVulkan.h" />
     <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
     <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
-    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
     <ClInclude Include="Vulkan\FramebufferManagerVulkan.h" />
     <ClInclude Include="Vulkan\GPU_Vulkan.h" />
     <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
@@ -486,7 +483,6 @@
     <ClInclude Include="Vulkan\StateMappingVulkan.h" />
     <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
     <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
-    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
     <ClInclude Include="Vulkan\VulkanUtil.h" />
   </ItemGroup>
   <ItemGroup>
@@ -549,7 +545,6 @@
     <ClCompile Include="D3D11\D3D11Util.cpp" />
     <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp" />
     <ClCompile Include="D3D11\DrawEngineD3D11.cpp" />
-    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp" />
     <ClCompile Include="D3D11\FramebufferManagerD3D11.cpp" />
     <ClCompile Include="D3D11\GPU_D3D11.cpp" />
     <ClCompile Include="D3D11\ShaderManagerD3D11.cpp" />
@@ -557,7 +552,6 @@
     <ClCompile Include="D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="D3D11\TextureScalerD3D11.cpp" />
-    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\Debugger.cpp" />
     <ClCompile Include="Debugger\Playback.cpp" />
@@ -566,14 +560,14 @@
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />
     <ClCompile Include="Directx9\FramebufferManagerDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
-    <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
+    <ClCompile Include="Directx9\FragmentShaderGeneratorHLSL.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
     <ClCompile Include="Directx9\StateMappingDX9.cpp" />
     <ClCompile Include="Directx9\StencilBufferDX9.cpp" />
     <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
     <ClCompile Include="Directx9\TextureScalerDX9.cpp" />
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
-    <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
+    <ClCompile Include="Directx9\VertexShaderGeneratorHLSL.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GeConstants.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
@@ -671,7 +665,6 @@
     <ClCompile Include="Vulkan\DebugVisVulkan.cpp" />
     <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
-    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
     <ClCompile Include="Vulkan\FramebufferManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
@@ -680,7 +673,6 @@
     <ClCompile Include="Vulkan\StencilBufferVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
-    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
     <ClCompile Include="Vulkan\VulkanUtil.cpp" />
   </ItemGroup>
   <ItemGroup>

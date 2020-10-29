@@ -17,12 +17,12 @@
 
 #include <algorithm>
 
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "base/NativeApp.h"
-#include "gfx/texture_atlas.h"
-#include "math/math_util.h"
-#include "ui/ui_context.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Math/math_util.h"
+#include "Common/UI/Context.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"

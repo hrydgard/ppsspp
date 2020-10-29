@@ -305,6 +305,8 @@ protected:
 		}
 	}
 
+	size_t FormatGPUStatsCommon(char *buf, size_t size);
+
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	DrawEngineCommon *drawEngineCommon_ = nullptr;
@@ -367,7 +369,6 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
-
 	int lastVsync_ = -1;
 };
 

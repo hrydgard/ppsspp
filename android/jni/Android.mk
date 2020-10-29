@@ -101,25 +101,15 @@ ARCH_FILES := \
   Arm64EmitterTest.cpp
 endif
 
-ifeq ($(TARGET_ARCH_ABI),armeabi)
-ARCH_FILES := \
-  $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEON.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
-  ArmEmitterTest.cpp
-endif
+NATIVE_FILES :=\
+  $(SRC)/Common/GPU/OpenGL/gl3stub.c \
+  $(SRC)/Common/GPU/OpenGL/thin3d_gl.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
+  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
 EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGL.cpp \
@@ -127,12 +117,14 @@ EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
 VULKAN_FILES := \
-  $(SRC)/Common/Vulkan/VulkanLoader.cpp \
-  $(SRC)/Common/Vulkan/VulkanContext.cpp \
-  $(SRC)/Common/Vulkan/VulkanDebug.cpp \
-  $(SRC)/Common/Vulkan/VulkanImage.cpp \
-  $(SRC)/Common/Vulkan/VulkanMemory.cpp \
-  $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
+  $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanRenderManager.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanLoader.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanContext.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
@@ -143,7 +135,6 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
-  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
   $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
 #endif
@@ -156,11 +147,56 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
+EXT_FILES := \
+  $(SRC)/ext/cityhash/city.cpp \
+  $(SRC)/ext/libpng17/png.c \
+  $(SRC)/ext/libpng17/pngerror.c \
+  $(SRC)/ext/libpng17/pngget.c \
+  $(SRC)/ext/libpng17/pngmem.c \
+  $(SRC)/ext/libpng17/pngpread.c \
+  $(SRC)/ext/libpng17/pngread.c \
+  $(SRC)/ext/libpng17/pngrio.c \
+  $(SRC)/ext/libpng17/pngrtran.c \
+  $(SRC)/ext/libpng17/pngrutil.c \
+  $(SRC)/ext/libpng17/pngset.c \
+  $(SRC)/ext/libpng17/pngtest.c \
+  $(SRC)/ext/libpng17/pngtrans.c \
+  $(SRC)/ext/libpng17/pngwio.c \
+  $(SRC)/ext/libpng17/pngwrite.c \
+  $(SRC)/ext/libpng17/pngwtran.c \
+  $(SRC)/ext/libpng17/pngwutil.c \
+  $(SRC)/ext/jpge/jpgd.cpp \
+  $(SRC)/ext/jpge/jpge.cpp \
+  $(SRC)/ext/sha1/sha1.cpp \
+  $(SRC)/ext/gason/gason.cpp \
+  $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/amctrl.c \
+  $(SRC)/ext/libkirk/SHA1.c \
+  $(SRC)/ext/libkirk/bn.c \
+  $(SRC)/ext/libkirk/ec.c \
+  $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/sfmt19937/SFMT.c \
+  $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy-sinksource.cpp \
+  $(SRC)/ext/snappy/snappy-stubs-internal.cpp \
+  $(SRC)/ext/snappy/snappy.cpp \
+  $(SRC)/ext/udis86/decode.c \
+  $(SRC)/ext/udis86/itab.c \
+  $(SRC)/ext/udis86/syn-att.c \
+  $(SRC)/ext/udis86/syn-intel.c \
+  $(SRC)/ext/udis86/syn.c \
+  $(SRC)/ext/udis86/udis86.c \
+  $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/xxhash.c \
+
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
   $(SPIRV_CROSS_FILES) \
+  $(EXT_FILES) \
+  $(NATIVE_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -185,30 +221,74 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
   $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
   $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
-  $(SRC)/ext/libkirk/AES.c \
-  $(SRC)/ext/libkirk/amctrl.c \
-  $(SRC)/ext/libkirk/SHA1.c \
-  $(SRC)/ext/libkirk/bn.c \
-  $(SRC)/ext/libkirk/ec.c \
-  $(SRC)/ext/libkirk/kirk_engine.c \
-  $(SRC)/ext/sfmt19937/SFMT.c \
-  $(SRC)/ext/snappy/snappy-c.cpp \
-  $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/ext/udis86/decode.c \
-  $(SRC)/ext/udis86/itab.c \
-  $(SRC)/ext/udis86/syn-att.c \
-  $(SRC)/ext/udis86/syn-intel.c \
-  $(SRC)/ext/udis86/syn.c \
-  $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp \
-  $(SRC)/ext/xxhash.c \
+  $(SRC)/Common/Buffer.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
+  $(SRC)/Common/Data/Color/RGBAUtil.cpp \
+  $(SRC)/Common/Data/Convert/SmallDataConvert.cpp \
+  $(SRC)/Common/Data/Encoding/Base64.cpp \
+  $(SRC)/Common/Data/Encoding/Compression.cpp \
+  $(SRC)/Common/Data/Encoding/Utf8.cpp \
+  $(SRC)/Common/Data/Format/RIFF.cpp \
+  $(SRC)/Common/Data/Format/IniFile.cpp \
+  $(SRC)/Common/Data/Format/JSONReader.cpp \
+  $(SRC)/Common/Data/Format/JSONWriter.cpp \
+  $(SRC)/Common/Data/Format/PNGLoad.cpp \
+  $(SRC)/Common/Data/Format/PNGLoad.h \
+  $(SRC)/Common/Data/Format/ZIMLoad.cpp \
+  $(SRC)/Common/Data/Format/ZIMLoad.h \
+  $(SRC)/Common/Data/Format/ZIMSave.cpp \
+  $(SRC)/Common/Data/Format/ZIMSave.h \
+  $(SRC)/Common/Data/Hash/Hash.cpp \
+  $(SRC)/Common/Data/Text/I18n.cpp \
+  $(SRC)/Common/Data/Text/Parsers.cpp \
+  $(SRC)/Common/Data/Text/WrapText.cpp \
+  $(SRC)/Common/File/VFS/VFS.cpp \
+  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/DiskFree.cpp \
+  $(SRC)/Common/File/PathBrowser.cpp \
+  $(SRC)/Common/File/FileUtil.cpp \
+  $(SRC)/Common/File/DirListing.cpp \
+  $(SRC)/Common/File/FileDescriptor.cpp \
+  $(SRC)/Common/GPU/thin3d.cpp \
+  $(SRC)/Common/Render/DrawBuffer.cpp \
+  $(SRC)/Common/Render/TextureAtlas.cpp \
+  $(SRC)/Common/Render/Text/draw_text.cpp \
+  $(SRC)/Common/Render/Text/draw_text_android.cpp \
+  $(SRC)/Common/Input/GestureDetector.cpp \
+  $(SRC)/Common/Input/InputState.cpp \
+  $(SRC)/Common/Math/fast/fast_math.c \
+  $(SRC)/Common/Math/fast/fast_matrix.c \
+  $(SRC)/Common/Math/math_util.cpp \
+  $(SRC)/Common/Math/curves.cpp \
+  $(SRC)/Common/Math/expression_parser.cpp \
+  $(SRC)/Common/Math/lin/vec3.cpp.arm \
+  $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
+  $(SRC)/Common/Net/HTTPClient.cpp \
+  $(SRC)/Common/Net/HTTPHeaders.cpp \
+  $(SRC)/Common/Net/HTTPServer.cpp \
+  $(SRC)/Common/Net/Resolve.cpp \
+  $(SRC)/Common/Net/Sinks.cpp \
+  $(SRC)/Common/Net/URL.cpp \
+  $(SRC)/Common/Net/WebsocketServer.cpp \
+  $(SRC)/Common/Profiler/Profiler.cpp \
+  $(SRC)/Common/System/Display.cpp \
+  $(SRC)/Common/Thread/Executor.cpp \
+  $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
+  $(SRC)/Common/Thread/ThreadPool.cpp \
+  $(SRC)/Common/Thread/ThreadUtil.cpp \
+  $(SRC)/Common/UI/Root.cpp \
+  $(SRC)/Common/UI/Screen.cpp \
+  $(SRC)/Common/UI/UI.cpp \
+  $(SRC)/Common/UI/Context.cpp \
+  $(SRC)/Common/UI/UIScreen.cpp \
+  $(SRC)/Common/UI/Tween.cpp \
+  $(SRC)/Common/UI/View.cpp \
+  $(SRC)/Common/UI/ViewGroup.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
-  $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
@@ -216,12 +296,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/MemArenaWin32.cpp \
   $(SRC)/Common/MemArenaPosix.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
-  $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtils.cpp \
-  $(SRC)/Common/ThreadPools.cpp \
-  $(SRC)/Common/Timer.cpp \
+  $(SRC)/Common/SysError.cpp \
   $(SRC)/Common/TimeUtil.cpp \
-  $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
@@ -295,6 +372,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
+  $(SRC)/Core/KeyMap.cpp \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
@@ -313,6 +391,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/TextureReplacer.cpp \
+  $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/DisassemblyManager.cpp \
@@ -346,6 +425,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/KUBridge.cpp \
+  $(SRC)/Core/HLE/Plugins.cpp \
   $(SRC)/Core/HLE/sceAdler.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
   $(SRC)/Core/HLE/__sceAudio.cpp.arm \
@@ -536,10 +616,25 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
 
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
+    $(SRC)/ext/libpng17/arm/arm_init.c \
+    $(SRC)/ext/libpng17/arm/filter_neon_intrinsics.c \
+    $(SRC)/ext/libpng17/arm/filter_neon.S.neon
+
+else ifeq ($(TARGET_ARCH_ABI),x86)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/Common/Math/fast/fast_matrix_sse.c
+else ifeq ($(TARGET_ARCH_ABI),x86_64)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    $(SRC)/Common/Math/fast/fast_matrix_sse.c
+endif
+
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)
 endif
-
 
 ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)
@@ -595,7 +690,6 @@ ifeq ($(UNITTEST),1)
 endif
 
 $(call import-module,libzip)
-$(call import-module,native)
 $(call import-module,glslang-build)
 $(call import-module,miniupnp-build)
 

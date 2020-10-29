@@ -16,9 +16,23 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
-#include "IndexGenerator.h"
 
-#include "Common/Common.h"
+#include "ppsspp_config.h"
+#include "CPUDetect.h"
+#include "Common.h"
+
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+#include "IndexGenerator.h"
 
 // Points don't need indexing...
 const u8 IndexGenerator::indexedPrimitiveType[7] = {
@@ -83,19 +97,98 @@ void IndexGenerator::AddList(int numVerts, bool clockwise) {
 	}
 }
 
+alignas(16) static const u16 offsets_clockwise[24] = {
+	0, (u16)(0 + 1), (u16)(0 + 2),
+	1, (u16)(1 + 2), (u16)(1 + 1),
+	2, (u16)(2 + 1), (u16)(2 + 2),
+	3, (u16)(3 + 2), (u16)(3 + 1),
+	4, (u16)(4 + 1), (u16)(4 + 2),
+	5, (u16)(5 + 2), (u16)(5 + 1),
+	6, (u16)(6 + 1), (u16)(6 + 2),
+	7, (u16)(7 + 2), (u16)(7 + 1),
+};
+
+alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
+	0, (u16)(0 + 2), (u16)(0 + 1),
+	1, (u16)(1 + 1), (u16)(1 + 2),
+	2, (u16)(2 + 2), (u16)(2 + 1),
+	3, (u16)(3 + 1), (u16)(3 + 2),
+	4, (u16)(4 + 2), (u16)(4 + 1),
+	5, (u16)(5 + 1), (u16)(5 + 2),
+	6, (u16)(6 + 2), (u16)(6 + 1),
+	7, (u16)(7 + 1), (u16)(7 + 2),
+};
+
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
+	int numTris = numVerts - 2;
+
+#ifdef _M_SSE
+	// In an SSE2 register we can fit 8 16-bit integers.
+	// However, we need to output a multiple of 3 indices.
+	// The first such multiple is 24, which means we'll generate 24 indices per cycle,
+	// which corresponds to 8 triangles. That's pretty cool.
+
+	// We allow ourselves to write some extra indices to avoid the fallback loop.
+	// That's alright as we're appending to a buffer - they will get overwritten anyway.
+	int numChunks = (numTris + 7) / 8;
+	__m128i ibase8 = _mm_set1_epi16(index_);
+	__m128i increment = _mm_set1_epi16(8);
+	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
+	__m128i offsets0 = _mm_load_si128(offsets);
+	__m128i offsets1 = _mm_load_si128(offsets + 1);
+	__m128i offsets2 = _mm_load_si128(offsets + 2);
+	__m128i *dst = (__m128i *)inds_;
+	for (int i = 0; i < numChunks; i++) {
+		_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
+		_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
+		_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
+		ibase8 = _mm_add_epi16(ibase8, increment);
+		dst += 3;
+	}
+	inds_ += numTris * 3;
+	// wind doesn't need to be updated, an even number of triangles have been drawn.
+#elif PPSSPP_ARCH(ARM_NEON)
+	int numChunks = (numTris + 7) / 8;
+	uint16x8_t ibase8 = vdupq_n_u16(index_);
+	uint16x8_t increment = vdupq_n_u16(8);
+	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
+	uint16x8_t offsets0 = vld1q_u16(offsets);
+	uint16x8_t offsets1 = vld1q_u16(offsets + 8);
+	uint16x8_t offsets2 = vld1q_u16(offsets + 16);
+	u16 *dst = inds_;
+	for (int i = 0; i < numChunks; i++) {
+		vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
+		vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
+		vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
+		ibase8 = vaddq_u16(ibase8, increment);
+		dst += 3 * 8;
+	}
+	inds_ += numTris * 3;
+#else
+	// Slow fallback loop.
 	int wind = clockwise ? 1 : 2;
-	const int numTris = numVerts - 2;
-	u16 *outInds = inds_;
 	int ibase = index_;
-	for (int i = 0; i < numTris; i++) {
+	size_t numPairs = numTris / 2;
+	u16 *outInds = inds_;
+	while (numPairs > 0) {
+		*outInds++ = ibase;
+		*outInds++ = ibase + wind;
+		*outInds++ = ibase + (wind ^ 3);
+		*outInds++ = ibase + 1;
+		*outInds++ = ibase + 1 + (wind ^ 3);
+		*outInds++ = ibase + 1 + wind;
+		ibase += 2;
+		numPairs--;
+	}
+	if (numTris & 1) {
 		*outInds++ = ibase;
 		*outInds++ = ibase + wind;
 		wind ^= 3;  // toggle between 1 and 2
 		*outInds++ = ibase + wind;
-		ibase++;
 	}
 	inds_ = outInds;
+#endif
+
 	index_ += numVerts;
 	if (numTris > 0)
 		count_ += numTris * 3;

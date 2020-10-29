@@ -17,17 +17,17 @@
 
 #include <algorithm>
 
-#include "base/colorutil.h"
-#include "base/stringutil.h"
-#include "file/vfs.h"
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/draw_text.h"
-#include "image/zim_load.h"
-#include "image/png_load.h"
-#include "util/text/utf8.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/draw_text.h"
 
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"
@@ -1202,7 +1202,7 @@ bool PPGeImage::Load() {
 	unsigned char *textureData;
 	int success;
 	if (filename_.empty()) {
-		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData, false);
+		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData);
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
@@ -1210,7 +1210,7 @@ bool PPGeImage::Load() {
 			return false;
 		}
 
-		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData, false);
+		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData);
 	}
 	if (!success) {
 		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");

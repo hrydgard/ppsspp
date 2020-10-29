@@ -17,10 +17,11 @@
 
 #include <cmath>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
-#include "Common/Common.h"
+#include "Common/BitSet.h"
 #include "Common/BitScan.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
@@ -101,6 +102,8 @@ namespace MIPSInt
 		// issue the cache instruction at that interval.
 
 		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
+
+		// NOTE: If you add support for more, make sure they are handled in the various Jit::Comp_Cache.
 		switch (func) {
 		// Icache
 		case 8:

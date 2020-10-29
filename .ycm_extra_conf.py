@@ -41,7 +41,7 @@ flags = [
 '-fexceptions',
 '-DNDEBUG',
 '-Iext/native',
-'-Iext/native/ext',
+'-Iext',
 '-Iext/glew',
 '-ICommon',
 # THIS IS IMPORTANT! Without a "-std=<something>" flag, clang won't know which

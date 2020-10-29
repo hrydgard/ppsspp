@@ -19,13 +19,13 @@
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
-#include "base/display.h"
-#include "math/lin/matrix4x4.h"
-#include "ext/native/thin3d/thin3d.h"
-#include "base/basictypes.h"
-
+#include "Common/Common.h"
+#include "Common/System/Display.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/ColorConv.h"
-#include "Common/MathUtil.h"
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -34,7 +34,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Stepping.h"
-
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
@@ -312,18 +311,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	// Copy the remaining pixels that didn't fit in SSE.
 	for (; x < c; ++x) {
 		memcpy(dstp + x, srcp + x, 3);
-	}
-}
-
-void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
-	bool matchingSize = src->width == dst->width && src->height == dst->height;
-	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
-	if (matchingDepthBuffer && matchingSize && matchingRenderSize) {
-		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
-		RebindFramebuffer("RebindFramebuffer - BlitFramebufferDepth");
-		dst->last_frame_depth_updated = gpuStats.numFlips;
 	}
 }
 

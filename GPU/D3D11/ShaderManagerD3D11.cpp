@@ -22,11 +22,11 @@
 
 #include <map>
 
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/dataconv.h"
-#include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
@@ -35,8 +35,8 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
-#include "GPU/D3D11/VertexShaderGeneratorD3D11.h"
+#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
+#include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/D3D11/D3D11Util.h"
 
 D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, FShaderID id, const char *code, bool useHWTransform)
@@ -208,7 +208,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	D3D11VertexShader *vs;
 	if (vsIter == vsCache_.end()) {
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderD3D11(VSID, codeBuffer_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
+		std::string genErrorString;
+		GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_D3D11, &genErrorString);
 		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {
@@ -220,7 +221,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	D3D11FragmentShader *fs;
 	if (fsIter == fsCache_.end()) {
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderD3D11(FSID, codeBuffer_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
+		std::string genErrorString;
+		GenerateFragmentShaderHLSL(FSID, codeBuffer_, HLSL_D3D11, &genErrorString);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {

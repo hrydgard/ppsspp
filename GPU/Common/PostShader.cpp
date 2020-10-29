@@ -22,11 +22,13 @@
 #include <vector>
 #include <algorithm>
 
-#include "file/ini_file.h"
-#include "file/file_util.h"
-#include "file/vfs.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "GPU/Common/PostShader.h"
 
@@ -211,6 +213,25 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 		std::reverse(backwards.begin(), backwards.end());
 	// Not backwards anymore.
 	return backwards;
+}
+
+std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names) {
+	std::vector<const ShaderInfo *> fullChain;
+	for (auto shaderName : names) {
+		if (shaderName == "Off")
+			break;
+		auto shaderChain = GetPostShaderChain(shaderName);
+		fullChain.insert(fullChain.end(), shaderChain.begin(), shaderChain.end());
+	}
+	return fullChain;
+}
+
+bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain) {
+	for (auto shaderInfo : chain) {
+		if (shaderInfo->requires60fps)
+			return true;
+	}
+	return false;
 }
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {

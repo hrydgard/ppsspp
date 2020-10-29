@@ -19,7 +19,7 @@
 
 #include "Common/GraphicsContext.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class VulkanContext;
 class VulkanRenderManager;

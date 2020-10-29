@@ -26,13 +26,14 @@
 
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <thread>
 #include "Common/TimeUtil.h"
-#include "i18n/i18n.h"
-#include "net/resolve.h"
-#include "thread/threadutil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -65,7 +66,7 @@ PortManager::~PortManager() {
 }
 
 void PortManager::Terminate() {
-	INFO_LOG(SCENET, "PortManager::Terminate()");
+	VERBOSE_LOG(SCENET, "PortManager::Terminate()");
 	if (urls) {
 		FreeUPNPUrls(urls);
 		free(urls);
@@ -96,7 +97,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
 	
-	INFO_LOG(SCENET, "PortManager::Initialize(%d)", timeout);
+	VERBOSE_LOG(SCENET, "PortManager::Initialize(%d)", timeout);
 	if (!g_Config.bEnableUPnP) {
 		ERROR_LOG(SCENET, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
@@ -265,7 +266,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 
 bool PortManager::Restore() {
 	int r;
-	INFO_LOG(SCENET, "PortManager::Restore()");
+	VERBOSE_LOG(SCENET, "PortManager::Restore()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
@@ -318,7 +319,7 @@ bool PortManager::Clear() {
 	char rHost[64];
 	char duration[16];
 
-	INFO_LOG(SCENET, "PortManager::Clear()");
+	VERBOSE_LOG(SCENET, "PortManager::Clear()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Clear - the init was not done !");

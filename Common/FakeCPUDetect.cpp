@@ -15,9 +15,10 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <cstdint>
+#include <cstring>
+#include <memory>
 
-#include <memory.h>
-#include "base/basictypes.h"
 #include "Common.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"

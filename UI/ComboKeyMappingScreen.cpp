@@ -15,23 +15,23 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/System/Display.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/File/PathBrowser.h"
+#include "Common/Math/curves.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
+#include "Core/Config.h"
+
 #include "TouchControlVisibilityScreen.h"
 #include "UI/ComboKeyMappingScreen.h"
-
-#include "Core/Config.h"
-#include "i18n/i18n.h"
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "file/path.h"
-#include "gfx_es2/draw_buffer.h"
-#include "gfx/texture_atlas.h"
-#include "math/curves.h"
-#include "base/stringutil.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-
-#include "Common/TimeUtil.h"
 
 void ComboKeyScreen::CreateViews() {
 	using namespace UI;

@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <shlwapi.h>
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
 #include "BufferLock.h"
 #include "ext/jpge/jpge.h"
@@ -111,13 +111,15 @@ MediaParam defaultAudioParam = { 44100, 2, 16, MFAudioFormat_PCM };
 
 HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride);
 
-ReaderCallback::ReaderCallback(WindowsCaptureDevice *device): img_convert_ctx(nullptr), resample_ctx(nullptr){
-	this->device = device;
-}
+ReaderCallback::ReaderCallback(WindowsCaptureDevice *_device) : device(_device) {}
 
 ReaderCallback::~ReaderCallback() {
-	sws_freeContext(img_convert_ctx);
-	swr_free(&resample_ctx);
+	if (img_convert_ctx) {
+		sws_freeContext(img_convert_ctx);
+	}
+	if (resample_ctx) {
+		swr_free(&resample_ctx);
+	}
 }
 
 HRESULT ReaderCallback::QueryInterface(REFIID riid, void** ppv)
@@ -439,20 +441,10 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 	return av_samples_get_buffer_size(nullptr, dstChannels, outSamplesCount, AV_SAMPLE_FMT_S16, 0);
 }
 
-WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE type) :
-	type(type),
-	m_pCallback(nullptr),
-	m_pSource(nullptr),
-	m_pReader(nullptr),
-	imageRGB(nullptr),
-	imageJpeg(nullptr),
-	imgJpegSize(0),
-	resampleBuf(nullptr),
-	resampleBufSize(0),
-	rawAudioBuf(nullptr),
+WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
+	type(_type),
 	error(CAPTUREDEVIDE_ERROR_NO_ERROR),
 	errorMessage(""),
-	isDeviceChanged(false),
 	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
 	param = { 0 };
 	deviceParam = { 0 };
@@ -482,6 +474,7 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 		break;
 	}
 }
+
 void WindowsCaptureDevice::CheckDevices() {
 	isDeviceChanged = true;
 }

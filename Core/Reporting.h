@@ -53,6 +53,9 @@ namespace Reporting
 	void Init();
 	void Shutdown();
 
+	// Resets counts on any count-limited logs (see ShouldLogNTimes).
+	void ResetCounts();
+
 	// Check savestate compatibility, mostly needed on load.
 	void DoState(PointerWrap &p);
 

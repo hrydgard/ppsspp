@@ -34,13 +34,13 @@
 #undef free
 #endif
 
-#include "base/basictypes.h"
-#include "base/stringutil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
-#include "thin3d/thin3d.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "ext/SPIRV-Cross/spirv.hpp"
 #include "ext/SPIRV-Cross/spirv_common.hpp"

@@ -19,9 +19,8 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
-#include "Common/Hashmaps.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
@@ -89,7 +88,7 @@ public:
 
 	// Shader depal
 	int u_pal;  // the texture
-	int u_depal;  // the params
+	int u_depal_mask_shift_off_fmt;  // the params
 
 	// Fragment processing inputs
 	int u_alphacolorref;
@@ -184,6 +183,7 @@ private:
 	void Clear();
 	Shader *CompileFragmentShader(FShaderID id);
 	Shader *CompileVertexShader(VShaderID id);
+	void DetectShaderLanguage();
 
 	struct LinkedShaderCacheEntry {
 		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)
@@ -196,6 +196,7 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	GLRenderManager *render_;
+	GLSLShaderCompat compat_{};
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;

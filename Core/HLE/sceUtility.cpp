@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <set>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -717,6 +717,15 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
+		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either, 
+			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
+			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED), 
+			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING), 
+			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
+			Memory::Write_U32(param, destaddr);
+			return 0x800ADF4;
+		}
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
 		param = g_Config.bWlanPowerSave?PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON:PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;

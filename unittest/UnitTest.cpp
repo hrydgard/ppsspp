@@ -23,19 +23,26 @@
 //
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
-
+//
+// To use, set command line parameter to one or more of the tests below, or "all".
+// Search for "availableTests".
 
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <string>
 #include <sstream>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
-#include "base/NativeApp.h"
-#include "input/input_state.h"
+#include "ppsspp_config.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Input/InputState.h"
 #include "ext/disarm.h"
-#include "math/math_util.h"
-#include "util/text/parsers.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
@@ -61,6 +68,16 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
+
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
+
+jclass findClass(const char *name) {
+	return nullptr;
+}
+#endif
 
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
@@ -294,10 +311,19 @@ bool TestVFPUSinCos() {
 	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
 	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
 
-	for (float angle = -10.0f; angle < 10.0f; angle++) {
+	vfpu_sincos(-1.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, -1.0f);
+	EXPECT_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(-2.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, -1.0f);
+
+	for (float angle = -10.0f; angle < 10.0f; angle += 0.1f) {
 		vfpu_sincos(angle, sine, cosine);
 		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
 		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
+
+		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
 	}
 	return true;
 }
@@ -545,15 +571,16 @@ struct TestItem {
 bool TestArmEmitter();
 bool TestArm64Emitter();
 bool TestX64Emitter();
+bool TestShaderGenerators();
 
 TestItem availableTests[] = {
-#if defined(ARM64) || defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
 #endif
-#if defined(ARM) || defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(ArmEmitter),
 #endif
-#if defined(_M_X64) || defined(_M_IX86)
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(X64Emitter),
 #endif
 	TEST_ITEM(VertexJit),
@@ -567,7 +594,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
-	TEST_ITEM(MemMap),
+	TEST_ITEM(ShaderGenerators),
 };
 
 int main(int argc, const char *argv[]) {

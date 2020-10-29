@@ -1,11 +1,11 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 #include <windowsx.h>
 #include "..\resource.h"
 
-#include "base/display.h"
-#include "util/text/utf8.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h" //	BAD

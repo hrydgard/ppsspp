@@ -26,11 +26,9 @@
 #include <sys/time.h>
 #endif
 
-#include "i18n/i18n.h"
-#include "profiler/profiler.h"
-
-#include "gfx_es2/gpu_features.h"
-
+#include "Common/Data/Text/I18n.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -192,7 +190,7 @@ static void ScheduleLagSync(int over = 0) {
 			over = 0;
 		}
 		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
-		lastLagSync = real_time_now();
+		lastLagSync = time_now_d();
 	}
 }
 
@@ -296,7 +294,7 @@ void __DisplayDoState(PointerWrap &p) {
 		Do(p, lagSyncEvent);
 		Do(p, lagSyncScheduled);
 		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
-		lastLagSync = real_time_now();
+		lastLagSync = time_now_d();
 		if (lagSyncScheduled != g_Config.bForceLagSync) {
 			ScheduleLagSync();
 		}
@@ -315,7 +313,8 @@ void __DisplayDoState(PointerWrap &p) {
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
 		// It's unlikely to overlap with the first value in gpuStats.
-		p.ExpectVoid(&gl_extensions.gpuVendor, sizeof(gl_extensions.gpuVendor));
+		int gpuVendorTemp = 0;
+		p.ExpectVoid(&gpuVendorTemp, sizeof(gpuVendorTemp));
 	}
 	if (s < 6) {
 		GPUStatistics_v0 oldStats;
@@ -451,7 +450,6 @@ static bool IsRunningSlow() {
 }
 
 static void CalculateFPS() {
-	time_update();
 	double now = time_now_d();
 
 	if (now >= lastFpsTime + 1.0) {
@@ -580,8 +578,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (!throttle && !doFrameSkip)
 		return;
 
-	time_update();
-
 	float scaledTimestep = timestep;
 	if (fpsLimit > 0 && fpsLimit != 60) {
 		scaledTimestep *= 60.0f / fpsLimit;
@@ -623,6 +619,9 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 			skipFrame = true;
 	}
 
+	// TODO: This is NOT where we should wait, really! We should mark each outgoing frame with the desired
+	// timestamp to push it to display, and sleep in the render thread to achieve that.
+
 	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody unthrottled)
 		if (nextFrameTime - curFrameTime > 2*scaledTimestep) {
@@ -636,7 +635,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 				const double left = nextFrameTime - curFrameTime;
 				usleep((long)(left * 1000000));
 #endif
-				time_update();
 			}
 		}
 		curFrameTime = time_now_d();
@@ -651,8 +649,6 @@ static void DoFrameIdleTiming() {
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
-
-	time_update();
 
 	double before = time_now_d();
 	double dist = before - lastFrameTime;
@@ -674,14 +670,14 @@ static void DoFrameIdleTiming() {
 	// Give a little extra wiggle room in case the next vblank does more work.
 	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
 	if (numVBlanksSinceFlip >= 2 && before < goal) {
-		while (time_now_d() < goal) {
+		double cur_time;
+		while ((cur_time = time_now_d()) < goal) {
 #ifdef _WIN32
 			sleep_ms(1);
 #else
-			const double left = goal - time_now_d();
+			const double left = goal - cur_time;
 			usleep((long)(left * 1000000));
 #endif
-			time_update();
 		}
 
 		if (g_Config.bDrawFrameGraph) {
@@ -751,7 +747,6 @@ void __DisplayFlip(int cyclesLate) {
 	// But, let's flip at least once every 10 vblanks, to update fps, etc.
 	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
 	// Also let's always flip for animated shaders.
-	const ShaderInfo *shaderInfo = g_Config.sPostShaderName == "Off" ? nullptr : GetPostShaderInfo(g_Config.sPostShaderName);
 	bool postEffectRequiresFlip = false;
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
@@ -764,11 +759,7 @@ void __DisplayFlip(int cyclesLate) {
 
 	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
 	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(unthrottleNeedsSkip && !FrameTimingThrottled())) {
-		if (shaderInfo) {
-			postEffectRequiresFlip = (shaderInfo->requires60fps || duplicateFrames);
-		} else {
-			postEffectRequiresFlip = duplicateFrames;
-		}
+		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
 
 	const bool fbDirty = gpu->FramebufferDirty();
@@ -851,7 +842,7 @@ void __DisplayFlip(int cyclesLate) {
 
 		if (g_Config.bDrawFrameGraph) {
 			// Track how long we sleep (whether vsync or sleep_ms.)
-			frameSleepHistory[frameSleepPos] += real_time_now() - lastFrameTimeHistory;
+			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
 		}
 	} else {
 		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
@@ -899,23 +890,24 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
-	time_update();
 	double before = time_now_d();
 	// Don't lag too long ever, if they leave it paused.
-	while (time_now_d() < goal && goal < time_now_d() + 0.01) {
+	double now = before;
+	while (now < goal && goal < now + 0.01) {
+		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
 #ifndef _WIN32
-		const double left = goal - time_now_d();
-		usleep((long)(left * 1000000));
+		const double left = goal - now;
+		usleep((long)(left * 1000000.0));
 #endif
-		time_update();
+		now = time_now_d();
 	}
 
 	const int emuOver = (int)cyclesToUs(cyclesLate);
-	const int over = (int)((time_now_d() - goal) * 1000000);
+	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
 	if (g_Config.bDrawFrameGraph) {
-		frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
+		frameSleepHistory[frameTimeHistoryPos] += now - before;
 	}
 }
 

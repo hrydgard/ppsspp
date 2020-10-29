@@ -14,8 +14,9 @@
 
 #include <array>
 #include <string>
+#include <cstdint>
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 
 class WaveFileWriter
 {
@@ -36,6 +37,6 @@ private:
 	bool skip_silence = false;
 	uint32_t audio_size = 0;
 	std::array<short, BUFFER_SIZE> conv_buffer{};
-	void Write(u32 value);
+	void Write(uint32_t value);
 	void Write4(const char* ptr);
 };

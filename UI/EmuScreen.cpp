@@ -19,24 +19,24 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "profiler/profiler.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Render/Text/draw_text.h"
 
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/gpu_features.h"
-#include "gfx_es2/draw_text.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/Tween.h"
+#include "Common/UI/View.h"
 
-#include "input/input_state.h"
-#include "math/curves.h"
-#include "ui/root.h"
-#include "ui/ui.h"
-#include "ui/ui_context.h"
-#include "ui/ui_tween.h"
-#include "ui/view.h"
-#include "i18n/i18n.h"
-
-#include "Common/KeyMap.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Input/InputState.h"
 #include "Common/Log.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Math/curves.h"
 #include "Common/TimeUtil.h"
 
 #ifndef MOBILE_DEVICE
@@ -48,6 +48,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -1028,6 +1029,7 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
 	cardboardDisableButton_->SetVisibility(V_GONE);
+	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
 	if (g_Config.bEnableNetworkChat) {
 		switch (g_Config.iChatButtonPosition) {
@@ -1287,7 +1289,7 @@ ABI: %s
 	int x = 20;
 	int y = 50;
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 100;
+	y += 140;
 
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -1308,7 +1310,13 @@ PC: %08x)",
 			info.address,
 			info.pc);
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 120;
+		y += 180;
+	} else {
+		snprintf(statbuf, sizeof(statbuf), R"(
+BREAK
+)");
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	}
 
 	std::string kernelState = __KernelStateSummary();
@@ -1572,7 +1580,7 @@ void EmuScreen::renderUI() {
 	}
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowGpuProfile) {
-		DrawProfilerVis(ctx, gpu);
+		DrawGPUProfilerVis(ctx, gpu);
 	}
 
 #endif

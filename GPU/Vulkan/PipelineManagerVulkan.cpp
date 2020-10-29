@@ -3,18 +3,18 @@
 #include <set>
 #include <sstream>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "ext/native/thin3d/thin3d.h"
-#include "ext/native/thin3d/VulkanRenderManager.h"
-#include "ext/native/thin3d/VulkanQueueRunner.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
 	// The pipeline cache is created on demand (or explicitly through Load).
@@ -325,6 +325,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_BLEND_CONSTANT;
 	if (key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_LINES;
+	if (dss.depthTestEnable || dss.stencilTestEnable) {
+		vulkanPipeline->flags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+	}
 	return vulkanPipeline;
 }
 
@@ -550,7 +553,7 @@ void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
 
 	// Wipe all line-drawing pipelines.
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->UsesLines()) {
+		if (value->flags & PIPELINE_FLAG_USES_LINES) {
 			if (value->pipeline)
 				vulkan_->Delete().QueueDeletePipeline(value->pipeline);
 			delete value;
@@ -583,6 +586,8 @@ struct StoredVulkanPipelineKey {
 	}
 };
 
+// If you're looking for how to invalidate the cache, it's done in ShaderManagerVulkan, look for CACHE_VERSION and increment it.
+// (Header of the same file this is stored in).
 void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
@@ -617,7 +622,6 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	// Make sure the set of pipelines we write is "unique".
 	std::set<StoredVulkanPipelineKey> keys;
 
-	// TODO: Use derivative pipelines when possible, helps Mali driver pipeline creation speed at least.
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;

@@ -21,6 +21,7 @@
 #include <string>
 
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Common/Swap.h"
 
 class PointerWrap;

@@ -4,7 +4,7 @@
 #include <QTouchEvent>
 #include <QMouseEvent>
 #include <QInputDialog>
-#include "gfx_es2/glsl_program.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include <QGLWidget>
 
 #ifndef SDL
@@ -22,16 +22,16 @@ QTM_USE_NAMESPACE
 #include <atomic>
 #include <thread>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
-#include "file/zip_read.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
-#include "thin3d/thin3d.h"
-#include "base/NativeApp.h"
-#include "net/resolve.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Net/Resolve.h"
 #include "NKCodeFromQt.h"
 
 #include "Common/GraphicsContext.h"
@@ -39,8 +39,8 @@ QTM_USE_NAMESPACE
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 // Input
 void SimulateGamepad();
