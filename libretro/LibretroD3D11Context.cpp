@@ -31,6 +31,12 @@ void LibretroD3D11Context::CreateDrawContext() {
 		return;
 	}
 
+   // Reject lower feature levels. We have D3D9 for these ancient GPUs.
+   if (d3d11_->featureLevel < D3D_FEATURE_LEVEL_10_0) {
+      ERROR_LOG(G3D, "D3D11 featureLevel not high enough - rejecting!\n");
+      return;
+   }
+
 	ptr_D3DCompile = d3d11_->D3DCompile;
 
 	ID3D11Device1 *device1 = nullptr;
