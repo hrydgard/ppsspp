@@ -9,7 +9,6 @@
 
 #include "GPU/Vulkan/VulkanContext.h"
 
-#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
@@ -24,10 +23,6 @@
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	uint64_t uniformMask;
 	switch (lang) {
-	case ShaderLanguage::HLSL_D3D11:
-		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
-	case ShaderLanguage::HLSL_D3D9:
-		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
@@ -45,12 +40,12 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
 
-	case ShaderLanguage::HLSL_D3D9_TEST:
+	case ShaderLanguage::HLSL_D3D9:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
-	case ShaderLanguage::HLSL_D3D11_TEST:
+	case ShaderLanguage::HLSL_D3D11:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
@@ -64,21 +59,28 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	switch (lang) {
-	case ShaderLanguage::HLSL_D3D11:
-		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
-	case ShaderLanguage::HLSL_D3D9:
-		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::HLSL_D3D9_TEST:
+	case ShaderLanguage::GLSL_140:
+	{
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+	}
+
+	case ShaderLanguage::GLSL_300:
+	{
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+	}
+	case ShaderLanguage::HLSL_D3D9:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::HLSL_D3D11_TEST:
+	case ShaderLanguage::HLSL_D3D11:
 	{
 		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
@@ -92,13 +94,11 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 	std::vector<uint32_t> spirv;
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
-	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
 		return !output.empty();
 	}
 	case ShaderLanguage::HLSL_D3D9:
-	case ShaderLanguage::HLSL_D3D9_TEST:
 	{
 		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, vertex ? "vs_2_0" : "ps_2_0", errorMessage);
 		if (blob) {
@@ -153,9 +153,7 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D9_TEST,
 		ShaderLanguage::HLSL_D3D9,
-		ShaderLanguage::HLSL_D3D11_TEST,
 		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_140,
@@ -237,6 +235,7 @@ bool TestShaderGenerators() {
 	successes = 0;
 	count = 200;
 
+	/*
 	// Generate a bunch of random vertex shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
 	for (int i = 0; i < count; i++) {
@@ -287,6 +286,9 @@ bool TestShaderGenerators() {
 
 	successes = 0;
 	count = 200;
+	*/
+
+	_CrtCheckMemory();
 
 	for (int i = 0; i < numLanguages; i++) {
 		delete[] buffer[i];

@@ -273,9 +273,6 @@
     <ClInclude Include="Directx9\VertexShaderGeneratorHLSL.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\FragmentShaderGeneratorHLSL.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -546,9 +543,6 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\VertexShaderGeneratorHLSL.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\FragmentShaderGeneratorHLSL.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
   </ItemGroup>

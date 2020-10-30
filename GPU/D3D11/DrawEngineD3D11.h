@@ -28,7 +28,6 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 

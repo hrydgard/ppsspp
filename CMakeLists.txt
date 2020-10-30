@@ -1300,8 +1300,6 @@ set(GPU_D3D9
 	GPU/Directx9/TextureCacheDX9.h
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
-	GPU/Directx9/FragmentShaderGeneratorHLSL.cpp
-	GPU/Directx9/FragmentShaderGeneratorHLSL.h
 	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
 	GPU/Directx9/VertexShaderGeneratorHLSL.h
 )
