@@ -25,6 +25,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
 class D3D11Context;
 class D3D11PushBuffer;
@@ -109,6 +110,7 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
+	GLSLShaderCompat compat_;
 
 	typedef std::map<FShaderID, D3D11FragmentShader *> FSCache;
 	FSCache fsCache_;
@@ -128,8 +130,8 @@ private:
 	ID3D11Buffer *push_lights;
 	ID3D11Buffer *push_bones;
 
-	D3D11FragmentShader *lastFShader_;
-	D3D11VertexShader *lastVShader_;
+	D3D11FragmentShader *lastFShader_ = nullptr;
+	D3D11VertexShader *lastVShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

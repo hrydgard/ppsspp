@@ -35,7 +35,6 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
-#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/D3D11/D3D11Util.h"
 
@@ -90,7 +89,7 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 }
 
 ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
-	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), lastVShader_(nullptr), lastFShader_(nullptr) {
+	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), compat_(ShaderLanguage::HLSL_D3D11) {
 	codeBuffer_ = new char[16384];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
@@ -222,7 +221,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	if (fsIter == fsCache_.end()) {
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
-		GenerateFragmentShaderHLSL(FSID, codeBuffer_, HLSL_D3D11, &genErrorString);
+		uint64_t uniformMask;
+		GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
