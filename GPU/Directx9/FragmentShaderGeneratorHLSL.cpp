@@ -98,7 +98,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
 			}
 		}
-		if (gstate_c.needShaderTexClamp && doTexture) {
+		if (needShaderTexClamp && doTexture) {
 			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
 			if (textureAtOffset) {
 				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
@@ -238,7 +238,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				}
 			} else {
 				if (doTextureProjection) {
-					WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
 					WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 				}
