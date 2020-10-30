@@ -34,7 +34,7 @@
 
 #define WRITE p+=sprintf
 
-static const char *vulkan_glsl_preamble =
+const char *vulkan_glsl_preamble_fs =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
@@ -46,17 +46,31 @@ static const char *vulkan_glsl_preamble =
 "#define highp\n"
 "#define DISCARD discard\n"
 "\n";
-extern const char *hlsl_preamble;
-extern const char *hlsl_d3d9_preamble;
-extern const char *hlsl_d3d11_preamble;
-extern const char *hlsl_late_preamble;
+
+const char *hlsl_preamble_fs =
+"#define vec2 float2\n"
+"#define vec3 float3\n"
+"#define vec4 float4\n"
+"#define uvec3 uint3\n"
+"#define ivec3 int3\n"
+"#define splat3(x) float3(x, x, x)\n"
+"#define mix lerp\n"
+"#define mod(x, y) fmod(x, y)\n";
+
+const char *hlsl_d3d11_preamble_fs =
+"#define DISCARD discard\n"
+"#define DISCARD_BELOW(x) clip(x);\n";
+const char *hlsl_d3d9_preamble_fs =
+"#define DISCARD clip(-1)\n"
+"#define DISCARD_BELOW(x) clip(x)\n";
+
 
 bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
-	bool enableFragmentTestCache = g_Config.bFragmentTestCache && !compat.vulkan && !compat.d3d11;
+	bool enableFragmentTestCache = g_Config.bFragmentTestCache && ShaderLanguageIsOpenGL(compat.shaderLanguage);
 
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
@@ -69,15 +83,20 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 
 	char *p = buffer;
 
-	if (compat.vulkan) {
-		WRITE(p, "%s", vulkan_glsl_preamble);
-	} else if (compat.d3d11) {
-		WRITE(p, "%s", hlsl_preamble);
-		WRITE(p, "%s", hlsl_d3d11_preamble);
-	} else if (compat.d3d9) {
-		WRITE(p, "%s", hlsl_preamble);
-		WRITE(p, "%s", hlsl_d3d9_preamble);
-	} else {
+	switch (compat.shaderLanguage) {
+	case ShaderLanguage::GLSL_VULKAN:
+		WRITE(p, "%s", vulkan_glsl_preamble_fs);
+		break;
+	case ShaderLanguage::HLSL_D3D11:
+		WRITE(p, "%s", hlsl_preamble_fs);
+		WRITE(p, "%s", hlsl_d3d11_preamble_fs);
+		break;
+	case ShaderLanguage::HLSL_D3D9:
+		WRITE(p, "%s", hlsl_preamble_fs);
+		WRITE(p, "%s", hlsl_d3d9_preamble_fs);
+		break;
+	default:
+		// OpenGL
 		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
 		WRITE(p, "#define DISCARD discard\n");
 
@@ -134,13 +153,13 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = "";
-	if (compat.glslES30 || compat.vulkan)
+	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN)
 		shading = doFlatShading ? "flat" : "";
 
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
-	if (compat.vulkan) {
+	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		if (earlyFragmentTests) {
 			WRITE(p, "layout (early_fragment_tests) in;\n");
 		} else if (useAdrenoBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
@@ -183,7 +202,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "layout (location = 0, index = 1) out vec4 fragColor1;\n");
 		}
-	} else if (compat.d3d11) {
+	} else if (compat.shaderLanguage == ShaderLanguage::HLSL_D3D11) {
 		WRITE(p, "SamplerState samp : register(s0);\n");
 		WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
@@ -229,7 +248,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			WRITE(p, "  float depth : SV_DEPTH;\n");
 		}
 		WRITE(p, "};\n");
-	} else {
+	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (shaderDepal && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
 		}
@@ -343,8 +362,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
-	if (compat.d3d11) {
-		WRITE(p, "%s", hlsl_late_preamble);
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
 	} else {
@@ -364,7 +382,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		}
 
 		if (doTexture) {
-			std::string texcoord = std::string(compat.inPrefix) + "v_texcoord";
+			std::string texcoord = StringFromFormat("%sv_texcoord", compat.inPrefix);
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -378,8 +396,8 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
-				std::string ucoord = std::string(compat.inPrefix) + "v_texcoord.x";
-				std::string vcoord = std::string(compat.inPrefix) + "v_texcoord.y";
+				std::string ucoord = StringFromFormat("%sv_texcoord.x", compat.inPrefix);
+				std::string vcoord = StringFromFormat("%sv_texcoord.y", compat.inPrefix);
 				if (doTextureProjection) {
 					ucoord = StringFromFormat("(%sv_texcoord.x / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
 					vcoord = StringFromFormat("(%sv_texcoord.y / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
@@ -409,7 +427,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			}
 
 			if (!shaderDepal) {
-				if (compat.d3d11) {
+				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (doTextureProjection) {
 						WRITE(p, "  vec4 t = tex.Sample(samp, %sv_texcoord.xy / %sv_texcoord.z)%s;\n", compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
 					} else {
@@ -668,7 +686,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					// TODO: Unify these paths better.
-					if (compat.d3d11) {
+					if (compat.shaderLanguage == HLSL_D3D11) {
 						const char *test = colorTestFuncs[colorTestFunc];
 						WRITE(p, "  uvec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						WRITE(p, "  uvec3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
@@ -678,7 +696,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					} else if (compat.bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						if (compat.vulkan) {
+						if (compat.shaderLanguage == GLSL_VULKAN) {
 							// TODO: Use this for GL as well?
 							WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 						} else {
@@ -728,10 +746,10 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (replaceBlend == REPLACE_BLEND_COPY_FBO && compat.shaderLanguage != HLSL_D3D9) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (compat.d3d11) {
+			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
 			} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 				WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
@@ -904,7 +922,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		WRITE(p, "  %s = v;\n", compat.fragColor0);
 	}
 
-	if (compat.d3d11) {
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return outfragment;\n");
 	}
 

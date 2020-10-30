@@ -372,7 +372,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	Semantic pos = SEM_POSITION;
 	Semantic tc = SEM_TEXCOORD0;
 	// Shader translation marks these both as "TEXCOORDs" on HLSL...
-	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_DX9)) {
+	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D9)) {
 		pos = SEM_TEXCOORD0;
 		tc = SEM_TEXCOORD1;
 	}
@@ -488,7 +488,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage st
 	case GLSL_VULKAN:
 		mappedLang = Draw::ShaderLanguage::GLSL_VULKAN;
 		break;
-	case HLSL_DX9:
+	case HLSL_D3D9:
 		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
 		break;
 	case HLSL_D3D11:

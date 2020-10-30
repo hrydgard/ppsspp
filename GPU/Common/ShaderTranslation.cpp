@@ -126,7 +126,7 @@ float u_video : register(c5);
 // Should probably do it in the source shader instead and then back translate to old style GLSL, but
 // SPIRV-Cross currently won't compile with the Android NDK so I can't be bothered.
 std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage stage) {
-	if (lang != HLSL_D3D11 && lang != HLSL_DX9)
+	if (lang != HLSL_D3D11 && lang != HLSL_D3D9)
 		return code;
 
 	std::stringstream out;
@@ -134,18 +134,18 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 	// Output the uniform buffer.
 	if (lang == HLSL_D3D11)
 		out << cbufferDecl;
-	else if (lang == HLSL_DX9)
+	else if (lang == HLSL_D3D9)
 		out << d3d9RegisterDecl;
 
 	// Alright, now let's go through it line by line and zap the single uniforms.
 	std::string line;
 	std::stringstream instream(code);
 	while (std::getline(instream, line)) {
-		if (line == "uniform sampler2D sampler0;" && lang == HLSL_DX9) {
+		if (line == "uniform sampler2D sampler0;" && lang == HLSL_D3D9) {
 			out << "sampler2D sampler0 : register(s0);\n";
 			continue;
 		}
-		if (line == "uniform sampler2D sampler1;" && lang == HLSL_DX9) {
+		if (line == "uniform sampler2D sampler1;" && lang == HLSL_D3D9) {
 			out << "sampler2D sampler1 : register(s1);\n";
 			continue;
 		}
@@ -291,7 +291,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 
 	switch (destLang) {
 #ifdef _WIN32
-	case HLSL_DX9:
+	case HLSL_D3D9:
 	{
 		spirv_cross::CompilerHLSL hlsl(spirv);
 		spirv_cross::CompilerHLSL::Options options{};

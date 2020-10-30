@@ -169,7 +169,7 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 
-	compat_.SetupForVulkan();
+	compat_.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -390,8 +390,6 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.featureFlags != gstate_c.featureFlags)
 		return false;
 
-	GLSLShaderCompat compat{};
-	compat.SetupForVulkan();
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
@@ -402,7 +400,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		std::string genErrorString;
 		uint32_t attributeMask = 0;
 		uint64_t uniformMask = 0;
-		if (!GenerateVertexShaderGLSL(id, codeBuffer_, compat, &attributeMask, &uniformMask, &genErrorString)) {
+		if (!GenerateVertexShaderGLSL(id, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
@@ -418,7 +416,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
-		if (!GenerateFragmentShaderGLSL(id, codeBuffer_, compat, &uniformMask, &genErrorString)) {
+		if (!GenerateFragmentShaderGLSL(id, codeBuffer_, compat_, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);

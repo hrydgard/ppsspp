@@ -164,7 +164,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage lang) {
 	char *p = buffer;
 
-	const char *modFunc = lang == HLSL_DX9 ? "fmod" : "mod";
+	const char *modFunc = lang == HLSL_D3D9 ? "fmod" : "mod";
 
 	char lookupMethod[128] = "index.r";
 	char offset[128] = "";
@@ -305,7 +305,7 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 		WRITE(p, "  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
 		WRITE(p, "  gl_FragColor = texture2D(pal, vec2(coord, 0.0));\n");
 		WRITE(p, "}\n");
-	} else if (lang == HLSL_DX9) {
+	} else if (lang == HLSL_D3D9) {
 		WRITE(p, "sampler tex: register(s0);\n");
 		WRITE(p, "sampler pal: register(s1);\n");
 		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) : COLOR0 {\n");
@@ -326,7 +326,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 	case HLSL_D3D11:
 		GenerateDepalShader300(buffer, pixelFormat, language);
 		break;
-	case HLSL_DX9:
+	case HLSL_D3D9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
 	default:

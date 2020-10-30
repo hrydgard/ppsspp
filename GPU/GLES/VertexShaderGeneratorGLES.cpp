@@ -113,7 +113,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	bool highpTexcoord = false;
 
 	char *p = buffer;
-	if (compat.vulkan) {
+	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "%s", vulkan_glsl_preamble);
 	} else {
 		if (compat.gles) {
@@ -126,13 +126,13 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		WRITE(p, "#define splat3(x) vec3(x)\n");
 	}
 
-	if (!compat.vulkan && gl_extensions.EXT_gpu_shader4) {
+	if (!ShaderLanguageIsOpenGL(compat.shaderLanguage) && gl_extensions.EXT_gpu_shader4) {
 		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 	}
 
 	if (compat.gles) {
 		WRITE(p, "precision highp float;\n");
-	} else if (!compat.vulkan) {
+	} else if (!compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
@@ -175,7 +175,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
-	if (compat.vulkan) {
+	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s};\n", ub_baseStr);
 		if (enableLighting || doShadeMapping)
@@ -185,7 +185,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	}
 
 	const char *shading = "";
-	if (compat.glslES30 || compat.vulkan)
+	if (compat.glslES30 || compat.shaderLanguage == GLSL_VULKAN)
 		shading = doFlatShading ? "flat " : "";
 
 	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
@@ -204,7 +204,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
 	bool texcoordInVec3 = false;
 
-	if (compat.vulkan) {
+	if (compat.shaderLanguage == GLSL_VULKAN) {
 		if (enableBones) {
 			numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
@@ -307,15 +307,10 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 				*uniformMask |= DIRTY_TEXMATRIX;
 			}
 			if (enableBones) {
-#ifdef USE_BONE_ARRAY
-				WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBoneWeights);
-				*uniformMask |= DIRTY_BONE_UNIFORMS;
-#else
 				for (int i = 0; i < numBoneWeights; i++) {
 					WRITE(p, "uniform mat4 u_bone%i;\n", i);
 					*uniformMask |= DIRTY_BONEMATRIX0 << i;
 				}
-#endif
 			}
 			if (doTexture) {
 				WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
@@ -415,7 +410,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 	if (doBezier || doSpline) {
 		*uniformMask |= DIRTY_BEZIERSPLINE;
 
-		if (compat.vulkan) {
+		if (compat.shaderLanguage == GLSL_VULKAN) {
 			WRITE(p, "struct TessData {\n");
 			WRITE(p, "  vec4 pos;\n");
 			WRITE(p, "  vec4 uv;\n");
@@ -615,14 +610,14 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1 && !compat.vulkan)
+			if (numBoneWeights == 1 && compat.shaderLanguage != GLSL_VULKAN)
 				WRITE(p, "  %s skinMatrix = w1 * u_bone0", boneMatrix);
 			else
 				WRITE(p, "  %s skinMatrix = w1.x * u_bone0", boneMatrix);
 			for (int i = 1; i < numBoneWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
-				if (!compat.vulkan) {
+				if (compat.shaderLanguage != GLSL_VULKAN) {
 					if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
 					if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
 				}
@@ -895,7 +890,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 		WRITE(p, "  }\n");
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
-	if (compat.vulkan) {
+	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "  gl_PointSize = 1.0;\n");
 	}
 

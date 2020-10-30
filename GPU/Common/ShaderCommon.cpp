@@ -102,45 +102,46 @@ void init_resources(TBuiltInResource &Resources) {
 	Resources.limits.generalConstantMatrixVectorIndexing = 1;
 }
 
-void GLSLShaderCompat::SetupForVulkan() {
-	fragColor0 = "fragColor0";
-	fragColor1 = "fragColor1";
-	varying_fs = "in";
-	varying_vs = "out";
-	attribute = "in";
-	bitwiseOps = true;
-	framebufferFetchExtension = nullptr;
-	gles = false;
-	glslES30 = true;
-	glslVersionNumber = 450;
-	lastFragData = nullptr;
-	texture = "texture";
-	texelFetch = "texelFetch";
-	d3d11 = false;
-	vulkan = true;
-	forceMatrix4x4 = false;
-	coefsFromBuffers = true;
-	inPrefix = "";
+void GLSLShaderCompat::SetupForShaderLanguage(ShaderLanguage lang) {
+	shaderLanguage = lang;
+	switch (lang) {
+	case GLSL_VULKAN:
+		fragColor0 = "fragColor0";
+		fragColor1 = "fragColor1";
+		varying_fs = "in";
+		varying_vs = "out";
+		attribute = "in";
+		bitwiseOps = true;
+		framebufferFetchExtension = nullptr;
+		gles = false;
+		glslES30 = true;
+		glslVersionNumber = 450;
+		lastFragData = nullptr;
+		texture = "texture";
+		texelFetch = "texelFetch";
+		forceMatrix4x4 = false;
+		coefsFromBuffers = true;
+		inPrefix = "";
+		break;
+	case HLSL_D3D9:
+	case HLSL_D3D11:
+		fragColor0 = "outfragment.target";
+		fragColor1 = "outfragment.target1";
+		varying_fs = "in";
+		varying_vs = "out";
+		attribute = "in";
+		bitwiseOps = true;
+		framebufferFetchExtension = nullptr;
+		gles = false;
+		glslES30 = true;
+		glslVersionNumber = 0;
+		lastFragData = nullptr;
+		texture = "texture";
+		texelFetch = "texelFetch";
+		forceMatrix4x4 = false;
+		coefsFromBuffers = true;
+		inPrefix = "In.";
+		break;
+	}
 }
 
-
-void GLSLShaderCompat::SetupForD3D11() {
-	fragColor0 = "outfragment.target";
-	fragColor1 = "outfragment.target1";
-	varying_fs = "in";
-	varying_vs = "out";
-	attribute = "in";
-	bitwiseOps = true;
-	framebufferFetchExtension = nullptr;
-	gles = false;
-	glslES30 = true;
-	glslVersionNumber = 450;
-	lastFragData = nullptr;
-	texture = "texture";
-	texelFetch = "texelFetch";
-	vulkan = false;
-	d3d11 = true;
-	forceMatrix4x4 = false;
-	coefsFromBuffers = true;
-	inPrefix = "In.";
-}

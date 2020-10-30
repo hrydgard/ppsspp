@@ -20,19 +20,16 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
-
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
-	case ShaderLanguage::HLSL_DX9:
-		GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_DX9, errorString);
-		// TODO: Need a device :(  Returning false here so it doesn't get tried.
-		return false;
+	case ShaderLanguage::HLSL_D3D9:
+		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat{};
-		compat.SetupForVulkan();
+		compat.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
 		uint64_t uniformMask;
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
@@ -40,10 +37,17 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	case ShaderLanguage::GLSL_300:
 		// TODO: Need a device - except that maybe glslang could be used to verify these ....
 		return false;
+	case ShaderLanguage::HLSL_D3D9_TEST:
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D9);
+		uint64_t uniformMask;
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
 	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		GLSLShaderCompat compat{};
-		compat.SetupForD3D11();
+		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D11);
 		uint64_t uniformMask;
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
@@ -56,15 +60,21 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
-	case ShaderLanguage::HLSL_DX9:
-		GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_DX9, errorString);
-		// TODO: Need a device :(  Returning false here so it doesn't get tried.
-		return false;
-		// return DX9::GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_DX9);
+	case ShaderLanguage::HLSL_D3D9:
+		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
+		// return DX9::GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		GLSLShaderCompat compat{};
-		compat.SetupForVulkan();
+		compat.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+	}
+	case ShaderLanguage::HLSL_D3D9_TEST:
+	{
+		GLSLShaderCompat compat{};
+		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D9);
 		uint32_t attrMask;
 		uint64_t uniformMask;
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
@@ -72,7 +82,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		GLSLShaderCompat compat{};
-		compat.SetupForD3D11();
+		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D11);
 		uint32_t attrMask;
 		uint64_t uniformMask;
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
@@ -82,7 +92,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	}
 }
 
-bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
+bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std::string *errorMessage) {
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 	case ShaderLanguage::HLSL_D3D11_TEST:
@@ -90,8 +100,18 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex) {
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
 		return !output.empty();
 	}
-	case ShaderLanguage::HLSL_DX9:
-		return false;
+	case ShaderLanguage::HLSL_D3D9:
+	case ShaderLanguage::HLSL_D3D9_TEST:
+	{
+		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, vertex ? "vs_2_0" : "ps_2_0", errorMessage);
+		if (blob) {
+			blob->Release();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		std::vector<uint32_t> spirv;
@@ -144,12 +164,13 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D11_TEST,
+		ShaderLanguage::HLSL_D3D9_TEST,
+		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::HLSL_D3D11,
+		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
-		ShaderLanguage::HLSL_DX9,
 	};
 	const int numLanguages = ARRAY_SIZE(languages);
 
@@ -203,8 +224,9 @@ bool TestShaderGenerators() {
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
 			if (generateSuccess[j]) {
-				if (!TestCompileShader(buffer[j], languages[j], false)) {
-					printf("Error compiling fragment shader:\n\n%s\n\n", LineNumberString(buffer[j]).c_str());
+				std::string errorMessage;
+				if (!TestCompileShader(buffer[j], languages[j], false, &errorMessage)) {
+					printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}
 				successes++;
@@ -254,8 +276,9 @@ bool TestShaderGenerators() {
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
 			if (generateSuccess[j]) {
-				if (!TestCompileShader(buffer[j], languages[j], true)) {
-					printf("Error compiling vertex shader:\n\n%s\n\n", LineNumberString(buffer[j]).c_str());
+				std::string errorMessage;
+				if (!TestCompileShader(buffer[j], languages[j], true, &errorMessage)) {
+					printf("Error compiling vertex shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}
 				successes++;

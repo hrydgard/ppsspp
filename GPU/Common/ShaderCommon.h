@@ -25,14 +25,19 @@ namespace Draw {
 }
 
 enum ShaderLanguage {
-	GLSL_140,
+	GLSL_140,  // really covers a lot more. This set of languages is not good.
 	GLSL_300,
 	GLSL_VULKAN,
-	HLSL_DX9,
+	HLSL_D3D9,
 	HLSL_D3D11,
 
 	HLSL_D3D11_TEST,  // temporary
+	HLSL_D3D9_TEST,  // temporary
 };
+
+inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
+	return lang == GLSL_140 || lang == GLSL_300;
+}
 
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
@@ -142,10 +147,8 @@ enum DoLightComputation {
 
 struct GLSLShaderCompat {
 	int glslVersionNumber;
+	ShaderLanguage shaderLanguage;
 	bool gles;
-	bool vulkan;
-	bool d3d11;
-	bool d3d9;
 	const char *varying_fs;
 	const char *varying_vs;
 	const char *attribute;
@@ -155,14 +158,13 @@ struct GLSLShaderCompat {
 	const char *texelFetch;
 	const char *lastFragData;
 	const char *framebufferFetchExtension;
-	const char *inPrefix;
+	const char *inPrefix = "";
 	bool glslES30;
 	bool bitwiseOps;
 	bool forceMatrix4x4;
 	bool coefsFromBuffers;
 
-	void SetupForVulkan();
-	void SetupForD3D11();
+	void SetupForShaderLanguage(ShaderLanguage lang);
 };
 
 // PSP vertex format.

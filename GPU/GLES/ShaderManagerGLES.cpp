@@ -585,6 +585,7 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 
 void ShaderManagerGLES::DetectShaderLanguage() {
 	GLSLShaderCompat &compat = compat_;
+	compat.shaderLanguage = ShaderLanguage::GLSL_140;
 	compat.attribute = "attribute";
 	compat.varying_vs = "varying";
 	compat.varying_fs = "varying";
@@ -599,6 +600,7 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
+			compat.shaderLanguage = ShaderLanguage::GLSL_300;
 			compat.glslVersionNumber = 300;  // GLSL ES 3.0
 			compat.fragColor0 = "fragColor0";
 			compat.texture = "texture";
@@ -606,6 +608,7 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 			compat.bitwiseOps = true;
 			compat.texelFetch = "texelFetch";
 		} else {
+			compat.shaderLanguage = ShaderLanguage::GLSL_140;
 			compat.glslVersionNumber = 100;  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
 				compat.bitwiseOps = true;
@@ -619,6 +622,7 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
+				compat.shaderLanguage = ShaderLanguage::GLSL_300;
 				compat.glslVersionNumber = 330;
 				compat.fragColor0 = "fragColor0";
 				compat.texture = "texture";
@@ -626,11 +630,13 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+				compat.shaderLanguage = ShaderLanguage::GLSL_140;
 				compat.glslVersionNumber = 130;
 				compat.fragColor0 = "fragColor0";
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
 			} else {
+				compat.shaderLanguage = ShaderLanguage::GLSL_140;
 				compat.glslVersionNumber = 110;
 				if (gl_extensions.EXT_gpu_shader4) {
 					compat.bitwiseOps = true;

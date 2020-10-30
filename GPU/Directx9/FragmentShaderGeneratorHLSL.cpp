@@ -29,24 +29,9 @@
 
 // #define DEBUG_SHADER
 
-const char *hlsl_preamble =
-"#define vec2 float2\n"
-"#define vec3 float3\n"
-"#define vec4 float4\n"
-"#define uvec3 uint3\n"
-"#define ivec3 int3\n"
-"#define splat3(x) float3(x, x, x)\n"
-"#define mix lerp\n"
-"#define mod(x, y) fmod(x, y)\n";
-
-const char *hlsl_d3d11_preamble =
-"#define DISCARD discard\n"
-"#define DISCARD_BELOW(x) clip(x);\n";
-const char *hlsl_d3d9_preamble =
-"#define DISCARD clip(-1)\n"
-"#define DISCARD_BELOW(x) clip(x)\n";
-
-const char *hlsl_late_preamble = "";
+extern const char *hlsl_preamble_fs;
+extern const char *hlsl_d3d9_preamble_fs;
+extern const char *hlsl_d3d11_preamble_fs;
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
@@ -86,19 +71,19 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
-	WRITE(p, "%s", hlsl_preamble);
+	WRITE(p, "%s", hlsl_preamble_fs);
 
 	// Output some compatibility defines
 	switch (lang) {
-	case ShaderLanguage::HLSL_DX9:
-		WRITE(p, hlsl_d3d9_preamble);
+	case ShaderLanguage::HLSL_D3D9:
+		WRITE(p, hlsl_d3d9_preamble_fs);
 		break;
 	case ShaderLanguage::HLSL_D3D11:
-		WRITE(p, hlsl_d3d11_preamble);
+		WRITE(p, hlsl_d3d11_preamble_fs);
 		break;
 	}
 
-	if (lang == HLSL_DX9) {
+	if (lang == HLSL_D3D9) {
 		if (doTexture)
 			WRITE(p, "sampler tex : register(s0);\n");
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
@@ -178,8 +163,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	}
 	WRITE(p, "};\n");
 
-	if (lang == HLSL_DX9) {
-		WRITE(p, "%s", hlsl_late_preamble);
+	if (lang == HLSL_D3D9) {
 		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
 	} else {
 		WRITE(p, "struct PS_OUT {\n");
@@ -194,7 +178,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			WRITE(p, "  float depth : SV_DEPTH;\n");
 		}
 		WRITE(p, "};\n");
-		WRITE(p, "%s", hlsl_late_preamble);
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
 	}

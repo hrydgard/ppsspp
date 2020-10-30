@@ -279,7 +279,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 			if (!success) {
 				std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 				ERROR_LOG(G3D, "Error in shader compilation! %s\n", infoLog.c_str());
 				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 #endif

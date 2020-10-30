@@ -108,7 +108,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	WRITE(p, "#define mat3x4 float4x3\n");  // note how the conventions are backwards
 	WRITE(p, "#define splat3(x) vec3(x, x, x)\n");
 
-	if (lang == HLSL_DX9) {
+	if (lang == HLSL_D3D9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
 		if (isModeThrough) {
 			WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
@@ -245,7 +245,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
-	if (lang == HLSL_DX9) {
+	if (lang == HLSL_D3D9) {
 		WRITE(p, "  vec4 gl_Position   : POSITION;\n");
 	} else {
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
