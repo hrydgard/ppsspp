@@ -41,6 +41,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
@@ -510,7 +511,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 ShaderManagerDX9::ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device)
-	: ShaderManagerCommon(draw), device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
+	: ShaderManagerCommon(draw), device_(device), compat_(HLSL_D3D9) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -627,7 +628,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
-		bool success = GenerateFragmentShaderHLSL(FSID, codeBuffer_, HLSL_D3D9, &errorString);
+		uint64_t uniformMask;
+		bool success = GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);

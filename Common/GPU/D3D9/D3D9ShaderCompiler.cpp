@@ -30,12 +30,13 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 		&pErrorMsg);
 
 	if (pErrorMsg) {
-		*errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
+		*errorMessage = std::string((CHAR *)pErrorMsg->GetBufferPointer());
 
 		OutputDebugStringUTF8(LineNumberString(std::string(code)).c_str());
 		OutputDebugStringUTF8(errorMessage->c_str());
 
 		pErrorMsg->Release();
+		pShaderCode = nullptr;
 	} else if (FAILED(hr)) {
 		*errorMessage = GetStringErrorMsg(hr);
 		if (pShaderCode) {
