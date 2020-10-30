@@ -52,7 +52,7 @@ static const char *vscode = R"(
 struct VS_IN {
 	float4 ObjPos   : POSITION;
 	float2 Uv    : TEXCOORD0;
-};"
+};
 struct VS_OUT {
 	float4 ProjPos  : POSITION;
 	float2 Uv    : TEXCOORD0;

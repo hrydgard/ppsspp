@@ -7,6 +7,8 @@
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/CommonFuncs.h"
 #include "Common/SysError.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 struct ID3DXConstantTable;
 
@@ -29,6 +31,10 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 
 	if (pErrorMsg) {
 		*errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
+
+		OutputDebugStringUTF8(LineNumberString(std::string(code)).c_str());
+		OutputDebugStringUTF8(errorMessage->c_str());
+
 		pErrorMsg->Release();
 	} else if (FAILED(hr)) {
 		*errorMessage = GetStringErrorMsg(hr);
