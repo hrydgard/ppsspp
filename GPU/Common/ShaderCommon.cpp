@@ -130,7 +130,7 @@ void GLSLShaderCompat::SetupForShaderLanguage(ShaderLanguage lang) {
 		varying_fs = "in";
 		varying_vs = "out";
 		attribute = "in";
-		bitwiseOps = true;
+		bitwiseOps = lang == HLSL_D3D11;
 		framebufferFetchExtension = nullptr;
 		gles = false;
 		glslES30 = true;

@@ -218,7 +218,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
 				}
 			}
-			if (gstate_c.needShaderTexClamp && doTexture) {
+			if (needShaderTexClamp && doTexture) {
 				WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
 				if (textureAtOffset) {
 					WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
@@ -311,7 +311,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
 			}
 		}
-		if (gstate_c.needShaderTexClamp && doTexture) {
+		if (needShaderTexClamp && doTexture) {
 			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
 			if (textureAtOffset) {
 				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
@@ -521,7 +521,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
 					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(%sv_texcoord.x, %sv_texcoord.y, 0, %sv_texcoord.z))%s;\n", compat.inPrefix, compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
 					} else {
 						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
 					}
@@ -785,6 +785,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 						WRITE(p, "  uvec3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) %s\n", test, test, test, discardStatement);
+					} else if (compat.shaderLanguage == HLSL_D3D9) {
+						const char *test = colorTestFuncs[colorTestFunc];
+						// TODO: Use a texture to lookup bitwise ops instead?
+						WRITE(p, "  vec3 colortest = roundAndScaleTo255v(v.rgb);\n");
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) %s\n", test, test, test, discardStatement);
 					} else if (compat.bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
