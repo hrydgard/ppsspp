@@ -4,6 +4,7 @@
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "Common/Data/Random/Rng.h"
 
 #include "GPU/Vulkan/VulkanContext.h"
@@ -147,7 +148,7 @@ void PrintDiff(const char *a, const char *b) {
 			printf("a: %s\n", a_lines[i].c_str());
 			printf("b: %s\n", b_lines[i].c_str());
 			printf("...continues...\n");
-			for (size_t j = i + 1; j < i + 5 && j < a_lines.size(); j++) {
+			for (size_t j = i + 1; j < i + 5 && j < a_lines.size() && j < b_lines.size(); j++) {
 				printf("a: %s\n", a_lines[j].c_str());
 				printf("b: %s\n", b_lines[j].c_str());
 			}
@@ -195,6 +196,10 @@ bool TestShaderGenerators() {
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);
 		id.SetBit(FS_BIT_SHADER_DEPAL, false);
+
+		// DX9 disabling:
+		if (static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) == ReplaceAlphaType::REPLACE_ALPHA_DUALSOURCE)
+			continue;
 
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];

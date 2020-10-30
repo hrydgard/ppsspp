@@ -164,10 +164,9 @@ protected:
 		}
 	}
 	void SetBits(int bit, int count, int value) {
-		if (value != 0) {
-			const int mask = (1 << count) - 1;
-			d[bit >> 5] |= (value & mask) << (bit & 31);
-		}
+		const int mask = (1 << count) - 1;
+		const int shifted_mask = mask << (bit & 31);
+		d[bit >> 5] = (d[bit >> 5] & ~shifted_mask) | ((value & mask) << (bit & 31));
 	}
 };
 

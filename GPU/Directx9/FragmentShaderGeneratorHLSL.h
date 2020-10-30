@@ -19,19 +19,6 @@
 
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
 bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString);
-
-#define CONST_PS_TEXENV 0
-#define CONST_PS_ALPHACOLORREF 1
-#define CONST_PS_ALPHACOLORMASK 2
-#define CONST_PS_FOGCOLOR 3
-#define CONST_PS_STENCILREPLACE 4
-#define CONST_PS_BLENDFIXA 5
-#define CONST_PS_BLENDFIXB 6
-#define CONST_PS_FBOTEXSIZE 7
-#define CONST_PS_TEXCLAMP 8
-#define CONST_PS_TEXCLAMPOFF 9
-
-// For stencil upload
-#define CONST_PS_STENCILVALUE 10

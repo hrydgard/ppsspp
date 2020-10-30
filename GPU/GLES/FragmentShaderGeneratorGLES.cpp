@@ -202,29 +202,75 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "layout (location = 0, index = 1) out vec4 fragColor1;\n");
 		}
-	} else if (compat.shaderLanguage == ShaderLanguage::HLSL_D3D11) {
-		WRITE(p, "SamplerState samp : register(s0);\n");
-		WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
-		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-				// No sampler required, we Load
-				WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
+	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+		if (compat.shaderLanguage == HLSL_D3D9) {
+			if (doTexture)
+				WRITE(p, "sampler tex : register(s0);\n");
+			if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+				if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+					WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+					WRITE(p, "sampler fbotex : register(s1);\n");
+				}
+				if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
+					WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+				}
+				if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
+					WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
+				}
 			}
+			if (gstate_c.needShaderTexClamp && doTexture) {
+				WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+				if (textureAtOffset) {
+					WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+				}
+			}
+
+			if (enableAlphaTest || enableColorTest) {
+				WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+				WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
+			}
+			if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
+				WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
+			}
+			if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
+				WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+			}
+			if (enableFog) {
+				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			}
+		} else {
+			WRITE(p, "SamplerState samp : register(s0);\n");
+			WRITE(p, "Texture2D<vec4> tex : register(t0);\n");
+			if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+				if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+					// No sampler required, we Load
+					WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
+				}
+			}
+			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 		}
-		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 
 		if (enableAlphaTest) {
-			WRITE(p, "int roundAndScaleTo255i(float x) { return int(floor(x * 255.0f + 0.5f)); }\n");
+			if (compat.shaderLanguage == HLSL_D3D11) {
+				WRITE(p, "int roundAndScaleTo255i(float x) { return int(floor(x * 255.0f + 0.5f)); }\n");
+			} else {
+				// D3D11 level 9 gets to take this path.
+				WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
+			}
 		}
 		if (enableColorTest) {
-			WRITE(p, "uvec3 roundAndScaleTo255iv(float3 x) { return uvec3(floor(x * 255.0f + 0.5f)); }\n");
+			if (compat.shaderLanguage == HLSL_D3D11) {
+				WRITE(p, "uvec3 roundAndScaleTo255iv(float3 x) { return uvec3(floor(x * 255.0f + 0.5f)); }\n");
+			} else {
+				WRITE(p, "vec3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+			}
 		}
 
 		WRITE(p, "struct PS_IN {\n");
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord: TEXCOORD0;\n");
 		}
-		const char *colorInterpolation = doFlatShading ? "nointerpolation " : "";
+		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1: COLOR1;\n");
@@ -232,22 +278,60 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		}
-		if ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		if (compat.shaderLanguage == HLSL_D3D11 && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
 			WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
 		}
 		WRITE(p, "};\n");
 
-		WRITE(p, "struct PS_OUT {\n");
-		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-			WRITE(p, "  vec4 target : SV_Target0;\n");
-			WRITE(p, "  vec4 target1 : SV_Target1;\n");
-		} else {
-			WRITE(p, "  vec4 target : SV_Target;\n");
+		if (compat.shaderLanguage == HLSL_D3D11) {
+			WRITE(p, "struct PS_OUT {\n");
+			if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+				WRITE(p, "  vec4 target : SV_Target0;\n");
+				WRITE(p, "  vec4 target1 : SV_Target1;\n");
+			} else {
+				WRITE(p, "  vec4 target : SV_Target;\n");
+			}
+			if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+				WRITE(p, "  float depth : SV_DEPTH;\n");
+			}
+			WRITE(p, "};\n");
 		}
-		if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
-			WRITE(p, "  float depth : SV_DEPTH;\n");
+	} else if (compat.shaderLanguage == HLSL_D3D9) {
+		if (doTexture)
+			WRITE(p, "sampler tex : register(s0);\n");
+		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+				WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+				WRITE(p, "sampler fbotex : register(s1);\n");
+			}
+			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
+				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+			}
+			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
+				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
+			}
 		}
-		WRITE(p, "};\n");
+		if (gstate_c.needShaderTexClamp && doTexture) {
+			WRITE(p, "vec4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+			if (textureAtOffset) {
+				WRITE(p, "vec2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+			}
+		}
+
+		if (enableAlphaTest || enableColorTest) {
+			WRITE(p, "vec4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+			WRITE(p, "vec4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
+		}
+		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
+			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
+		}
+		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
+			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+		}
+		if (enableFog) {
+			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+		}
+
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (shaderDepal && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
@@ -362,9 +446,11 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
-		WRITE(p, "  PS_OUT outfragment;\n");
+		WRITE(p, "  PS_OUT outfragment;\n");		
+	} else if (compat.shaderLanguage == HLSL_D3D9) {
+		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -433,13 +519,19 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					} else {
 						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
 					}
+				} else if (compat.shaderLanguage == HLSL_D3D9) {
+					if (doTextureProjection) {
+						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+					} else {
+						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
+					}
 				} else {
 					if (doTextureProjection) {
 						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord.c_str());
 					} else {
 						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord.c_str());
 					}
-				}
+				} 
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
@@ -918,12 +1010,14 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
-	} else {
+	} else if (compat.shaderLanguage != HLSL_D3D9) {
 		WRITE(p, "  %s = v;\n", compat.fragColor0);
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "  return outfragment;\n");
+	} else if (compat.shaderLanguage == HLSL_D3D9) {
+		WRITE(p, "  return v;\n");
 	}
 
 	WRITE(p, "}\n");

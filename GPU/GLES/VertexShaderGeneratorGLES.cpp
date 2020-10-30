@@ -132,7 +132,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 
 	if (compat.gles) {
 		WRITE(p, "precision highp float;\n");
-	} else if (!compat.shaderLanguage == GLSL_VULKAN) {
+	} else if (compat.shaderLanguage != GLSL_VULKAN) {
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
