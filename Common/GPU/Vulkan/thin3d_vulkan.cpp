@@ -215,7 +215,9 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	// We'll need this to free it later.
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
-	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
+	std::string errorMessage;
+	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage)) {
+		INFO_LOG(G3D, "Shader compile to module failed: %s", errorMessage.c_str());
 		return false;
 	}
 

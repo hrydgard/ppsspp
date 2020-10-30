@@ -146,25 +146,25 @@ enum DoLightComputation {
 };
 
 struct GLSLShaderCompat {
-	int glslVersionNumber;
-	ShaderLanguage shaderLanguage;
-	bool gles;
-	const char *varying_fs;
-	const char *varying_vs;
-	const char *attribute;
-	const char *fragColor0;
-	const char *fragColor1;
-	const char *texture;
-	const char *texelFetch;
-	const char *lastFragData;
-	const char *framebufferFetchExtension;
-	const char *inPrefix = "";
-	bool glslES30;
-	bool bitwiseOps;
-	bool forceMatrix4x4;
-	bool coefsFromBuffers;
+	explicit GLSLShaderCompat(ShaderLanguage lang);
 
-	void SetupForShaderLanguage(ShaderLanguage lang);
+	int glslVersionNumber = 0;
+	ShaderLanguage shaderLanguage;
+	bool gles = false;
+	const char *varying_fs = nullptr;
+	const char *varying_vs = nullptr;
+	const char *attribute = nullptr;
+	const char *fragColor0 = nullptr;
+	const char *fragColor1 = nullptr;
+	const char *texture = nullptr;
+	const char *texelFetch = nullptr;
+	const char *lastFragData = nullptr;
+	const char *framebufferFetchExtension = nullptr;
+	const char *inPrefix = "";
+	bool glslES30 = false;
+	bool bitwiseOps = false;
+	bool forceMatrix4x4 = false;
+	bool coefsFromBuffers = false;
 };
 
 // PSP vertex format.

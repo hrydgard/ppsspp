@@ -1177,24 +1177,43 @@ EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 
 // Compile a given string containing GLSL into SPV for use by VK
 // Return value of false means an error was encountered.
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
-	const char *pshader,
-	std::vector<unsigned int> &spirv, std::string *errorMessage) {
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant,
+			   std::vector<unsigned int> &spirv, std::string *errorMessage) {
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
-	EProfile profile = ECoreProfile;
-	int defaultVersion = 450;
 	TBuiltInResource Resources;
 	init_resources(Resources);
 
-	// Enable SPIR-V and Vulkan rules when parsing GLSL
-	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+	int defaultVersion;
+	EShMessages messages;
+	EProfile profile;
+
+	switch (variant) {
+	case GLSLVariant::VULKAN:
+		// Enable SPIR-V and Vulkan rules when parsing GLSL
+		messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+		defaultVersion = 450;
+		profile = ECoreProfile;
+		break;
+	case GLSLVariant::GL140:
+		messages = (EShMessages)(EShMsgDefault);
+		defaultVersion = 140;
+		profile = ECompatibilityProfile;
+		break;
+	case GLSLVariant::GLES300:
+		messages = (EShMessages)(EShMsgDefault);
+		defaultVersion = 300;
+		profile = EEsProfile;
+		break;
+	default:
+		return false;
+	}
 
 	EShLanguage stage = FindLanguage(shader_type);
 	glslang::TShader shader(stage);
 
-	shaderStrings[0] = pshader;
+	shaderStrings[0] = sourceCode;
 	shader.setStrings(shaderStrings, 1);
 
 	if (!shader.parse(&Resources, defaultVersion, profile, false, true, messages)) {

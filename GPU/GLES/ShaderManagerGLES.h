@@ -196,7 +196,7 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	GLRenderManager *render_;
-	GLSLShaderCompat compat_{};
+	GLSLShaderCompat compat_;
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;
@@ -204,8 +204,8 @@ private:
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
 
-	LinkedShader *lastShader_;
-	u64 shaderSwitchDirtyUniforms_;
+	LinkedShader *lastShader_ = nullptr;
+	u64 shaderSwitchDirtyUniforms_ = 0;
 	char *codeBuffer_;
 
 	typedef DenseHashMap<FShaderID, Shader *, nullptr> FSCache;
@@ -214,7 +214,7 @@ private:
 	typedef DenseHashMap<VShaderID, Shader *, nullptr> VSCache;
 	VSCache vsCache_;
 
-	bool diskCacheDirty_;
+	bool diskCacheDirty_ = false;
 	struct {
 		std::vector<VShaderID> vert;
 		std::vector<FShaderID> frag;

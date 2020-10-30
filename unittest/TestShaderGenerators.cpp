@@ -22,6 +22,7 @@
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
+	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
@@ -29,27 +30,29 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_140:
+	{
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
+
 	case ShaderLanguage::GLSL_300:
-		// TODO: Need a device - except that maybe glslang could be used to verify these ....
-		return false;
+	{
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+	}
+
 	case ShaderLanguage::HLSL_D3D9_TEST:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D9);
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D11);
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
 	}
 	default:
@@ -58,34 +61,26 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 }
 
 bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
+	uint32_t attrMask;
+	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
 	case ShaderLanguage::HLSL_D3D9:
 		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
-		// return DX9::GenerateFragmentShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9);
 	case ShaderLanguage::GLSL_VULKAN:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
-		uint32_t attrMask;
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9_TEST:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D9);
-		uint32_t attrMask;
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
-		GLSLShaderCompat compat{};
-		compat.SetupForShaderLanguage(ShaderLanguage::HLSL_D3D11);
-		uint32_t attrMask;
-		uint64_t uniformMask;
+		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	default:
@@ -94,6 +89,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 }
 
 bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std::string *errorMessage) {
+	std::vector<uint32_t> spirv;
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
 	case ShaderLanguage::HLSL_D3D11_TEST:
@@ -114,19 +110,11 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 	}
 
 	case ShaderLanguage::GLSL_VULKAN:
-	{
-		std::vector<uint32_t> spirv;
-		std::string errorMessage;
-		bool result = GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, spirv, &errorMessage);
-		if (!result) {
-			printf("GLSLtoSPV ERROR:\n%s\n\n", errorMessage.c_str());
-		}
-		return result;
-	}
+		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
 	case ShaderLanguage::GLSL_140:
-		return false;
+		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GL140, spirv, errorMessage);
 	case ShaderLanguage::GLSL_300:
-		return false;
+		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
 		return false;
 	}
@@ -167,8 +155,8 @@ bool TestShaderGenerators() {
 	ShaderLanguage languages[] = {
 		ShaderLanguage::HLSL_D3D9_TEST,
 		ShaderLanguage::HLSL_D3D9,
+		ShaderLanguage::HLSL_D3D11_TEST,
 		ShaderLanguage::HLSL_D3D11,
-		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
@@ -213,6 +201,7 @@ bool TestShaderGenerators() {
 		}
 
 		// KEEPING FOR REUSE LATER: Defunct temporary test.
+		/*
 		if (generateSuccess[0] != generateSuccess[1]) {
 			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
 			printf("%s\n", buffer[0]);
@@ -224,7 +213,11 @@ bool TestShaderGenerators() {
 			PrintDiff(buffer[0], buffer[1]);
 			return 1;
 		}
-
+		if (generateSuccess[2] && strcmp(buffer[2], buffer[3])) {
+			printf("mismatching shaders! a=glsl b=hlsl\n");
+			PrintDiff(buffer[2], buffer[3]);
+			return 1;
+		}*/
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {
@@ -262,7 +255,7 @@ bool TestShaderGenerators() {
 				printf("%s\n", genErrorString[j].c_str());
 			}
 		}
-		/*
+
 		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
 		if (generateSuccess[0] != generateSuccess[1]) {
 			printf("mismatching success! '%s' '%s'\n", genErrorString[0].c_str(), genErrorString[1].c_str());
@@ -275,7 +268,6 @@ bool TestShaderGenerators() {
 			PrintDiff(buffer[0], buffer[1]);
 			return false;
 		}
-		*/
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.

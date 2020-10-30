@@ -99,7 +99,7 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
-static const char *vulkan_glsl_preamble =
+const char *vulkan_glsl_preamble_vs =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
@@ -114,7 +114,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShade
 
 	char *p = buffer;
 	if (compat.shaderLanguage == GLSL_VULKAN) {
-		WRITE(p, "%s", vulkan_glsl_preamble);
+		WRITE(p, "%s", vulkan_glsl_preamble_vs);
 	} else {
 		if (compat.gles) {
 			// PowerVR needs highp to do the fog in MHU correctly.

@@ -571,7 +571,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 }
 
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
-		: ShaderManagerCommon(draw), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+	  : ShaderManagerCommon(draw), compat_(GLSL_140), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
@@ -585,18 +585,8 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 
 void ShaderManagerGLES::DetectShaderLanguage() {
 	GLSLShaderCompat &compat = compat_;
-	compat.shaderLanguage = ShaderLanguage::GLSL_140;
-	compat.attribute = "attribute";
-	compat.varying_vs = "varying";
-	compat.varying_fs = "varying";
-	compat.fragColor0 = "gl_FragColor";
-	compat.fragColor1 = "fragColor1";
-	compat.texture = "texture2D";
-	compat.texelFetch = nullptr;
-	compat.bitwiseOps = false;
-	compat.lastFragData = nullptr;
+
 	compat.gles = gl_extensions.IsGLES;
-	compat.forceMatrix4x4 = true;
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {

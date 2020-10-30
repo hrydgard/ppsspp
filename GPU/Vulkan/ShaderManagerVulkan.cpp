@@ -53,7 +53,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 
-	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, spirv, &errorMessage);
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -109,7 +109,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 #ifdef SHADERLOG
 	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
-	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, spirv, &errorMessage);
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, GLSLVariant::VULKAN, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -158,7 +158,7 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 }
 
 ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
-	: ShaderManagerCommon(draw), vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
+	: ShaderManagerCommon(draw), vulkan_(vulkan), compat_(GLSL_VULKAN), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
@@ -168,8 +168,6 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
-
-	compat_.SetupForShaderLanguage(ShaderLanguage::GLSL_VULKAN);
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {

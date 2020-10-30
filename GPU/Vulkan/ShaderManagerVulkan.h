@@ -131,7 +131,7 @@ private:
 	void Clear();
 
 	VulkanContext *vulkan_;
-	GLSLShaderCompat compat_{};
+	GLSLShaderCompat compat_;
 
 	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;
 	FSCache fsCache_;
@@ -147,8 +147,8 @@ private:
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
 
-	VulkanFragmentShader *lastFShader_;
-	VulkanVertexShader *lastVShader_;
+	VulkanFragmentShader *lastFShader_ = nullptr;
+	VulkanVertexShader *lastVShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
