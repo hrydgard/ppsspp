@@ -306,6 +306,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
+  $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
   $(SRC)/GPU/Common/PresentationCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
@@ -340,7 +341,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/StateMappingGLES.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
   $(SRC)/GPU/GLES/VertexShaderGeneratorGLES.cpp.arm \
-  $(SRC)/GPU/GLES/FragmentShaderGeneratorGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \

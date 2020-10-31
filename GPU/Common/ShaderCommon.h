@@ -142,8 +142,8 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-struct GLSLShaderCompat {
-	explicit GLSLShaderCompat(ShaderLanguage lang);
+struct ShaderLanguageDesc {
+	explicit ShaderLanguageDesc(ShaderLanguage lang);
 
 	int glslVersionNumber = 0;
 	ShaderLanguage shaderLanguage;

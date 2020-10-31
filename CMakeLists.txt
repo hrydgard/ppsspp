@@ -1235,8 +1235,6 @@ set(GPU_GLES
 	GPU/GLES/DepthBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
-	GPU/GLES/FragmentShaderGeneratorGLES.cpp
-	GPU/GLES/FragmentShaderGeneratorGLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
 	GPU/GLES/FragmentTestCacheGLES.h
 	GPU/GLES/FramebufferManagerGLES.cpp
@@ -1340,6 +1338,8 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
+	GPU/Common/FragmentShaderGenerator.cpp
+	GPU/Common/FragmentShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp

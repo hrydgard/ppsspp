@@ -39,7 +39,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
@@ -278,7 +278,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
-		bool success = GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
 		_assert_(success);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
@@ -414,7 +414,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
-		if (!GenerateFragmentShaderGLSL(id, codeBuffer_, compat_, &uniformMask, &genErrorString)) {
+		if (!GenerateFragmentShader(id, codeBuffer_, compat_, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);

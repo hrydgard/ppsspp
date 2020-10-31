@@ -22,7 +22,7 @@
 
 #include "Common/Common.h"
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -112,7 +112,7 @@ private:
 	void Clear();
 
 	LPDIRECT3DDEVICE9 device_;
-	GLSLShaderCompat compat_;
+	ShaderLanguageDesc compat_;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

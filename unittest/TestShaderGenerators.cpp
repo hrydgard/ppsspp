@@ -9,7 +9,7 @@
 
 #include "GPU/Vulkan/VulkanContext.h"
 
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
@@ -25,30 +25,28 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
+		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_140:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
-		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
-
 	case ShaderLanguage::GLSL_300:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
-		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
-
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
+		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateFragmentShaderGLSL(id, buffer, compat, &uniformMask, errorString);
+		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
+		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	default:
 		return false;
@@ -61,29 +59,28 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_VULKAN);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_140:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-
 	case ShaderLanguage::GLSL_300:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		//ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
+		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
-		GLSLShaderCompat compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		//ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
+		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
 	}
 	default:
 		return false;

@@ -35,7 +35,7 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ZERO,

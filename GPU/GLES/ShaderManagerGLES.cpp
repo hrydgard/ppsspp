@@ -584,7 +584,7 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 }
 
 void ShaderManagerGLES::DetectShaderLanguage() {
-	GLSLShaderCompat &compat = compat_;
+	ShaderLanguageDesc &compat = compat_;
 
 	compat.gles = gl_extensions.IsGLES;
 
@@ -708,7 +708,7 @@ void ShaderManagerGLES::DirtyLastShader() {
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
 	std::string errorString;
-	if (!GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &errorString)) {
+	if (!GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &errorString)) {
 		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}

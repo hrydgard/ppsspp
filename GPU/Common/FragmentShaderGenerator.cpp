@@ -26,9 +26,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -65,7 +63,7 @@ const char *hlsl_d3d9_preamble_fs =
 "#define DISCARD_BELOW(x) clip(x)\n";
 
 
-bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
 	errorString->clear();
 

@@ -105,7 +105,7 @@ const char *vulkan_glsl_preamble_vs =
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "#define splat3(x) vec3(x)\n\n";
 
-bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
 

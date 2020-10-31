@@ -24,7 +24,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 class Shader;
 
@@ -196,7 +196,7 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	GLRenderManager *render_;
-	GLSLShaderCompat compat_;
+	ShaderLanguageDesc compat_;
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;

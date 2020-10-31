@@ -222,7 +222,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask;
-		GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
+		GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {

@@ -101,7 +101,7 @@ void init_resources(TBuiltInResource &Resources) {
 	Resources.limits.generalConstantMatrixVectorIndexing = 1;
 }
 
-GLSLShaderCompat::GLSLShaderCompat(ShaderLanguage lang) {
+ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 	shaderLanguage = lang;
 	switch (lang) {
 	case GLSL_140:
