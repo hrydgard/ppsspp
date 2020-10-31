@@ -234,7 +234,6 @@ enum NativeModuleStatus {
 
 class PSPModule : public KernelObject {
 public:
-	PSPModule() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false), modulePtr(0) {}
 	~PSPModule() {
 		if (memoryBlockAddr) {
 			// If it's either below user memory, or using a high kernel bit, it's in kernel.
@@ -431,20 +430,19 @@ public:
 	std::vector<VarSymbolExport> exportedVars;
 	std::vector<VarSymbolImport> importedVars;
 	std::set<std::string> impExpModuleNames;
-
 	// Keep track of the code region so we can throw out analysis results
 	// when unloaded.
-	u32 textStart;
-	u32 textEnd;
+	u32 textStart = 0;
+	u32 textEnd = 0;
 
 	// Keep track of the libstub pointers so we can recheck on load state.
-	u32 libstub;
-	u32 libstubend;
+	u32 libstub = 0;
+	u32 libstubend = 0;
 
-	u32 memoryBlockAddr;
-	u32 memoryBlockSize;
-	u32 modulePtr;
-	bool isFake;
+	u32 memoryBlockAddr = 0;
+	u32 memoryBlockSize = 0;
+	u32 modulePtr = 0;
+	bool isFake = false;
 };
 
 KernelObject *__KernelModuleObject()
