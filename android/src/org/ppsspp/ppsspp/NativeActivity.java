@@ -122,10 +122,14 @@ public abstract class NativeActivity extends Activity {
 	private static final String[] permissionsForCamera = {
 		Manifest.permission.CAMERA
 	};
+	private static final String[] permissionsForMicrophone = {
+		Manifest.permission.RECORD_AUDIO
+	};
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
 	public static final int REQUEST_CODE_LOCATION_PERMISSION = 2;
 	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
+	public static final int REQUEST_CODE_MICROPHONE_PERMISSION = 4;
 
 	// Functions for the app activity to override to change behaviour.
 
@@ -222,6 +226,11 @@ public abstract class NativeActivity extends Activity {
 		case REQUEST_CODE_CAMERA_PERMISSION:
 			if (mCameraHelper != null && permissionsGranted(permissions, grantResults)) {
 				mCameraHelper.startCamera();
+			}
+			break;
+		case REQUEST_CODE_MICROPHONE_PERMISSION:
+			if (permissionsGranted(permissions, grantResults)) {
+				NativeApp.audioRecording_Start();
 			}
 			break;
 		default:
@@ -1288,6 +1297,16 @@ public abstract class NativeActivity extends Activity {
 				}
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
+			}
+		} else if (command.equals("microphone_command")) {
+			if (params.startsWith("startRecording:")) {
+				int sampleRate = Integer.parseInt(params.replace("startRecording:", ""));
+				NativeApp.audioRecording_SetSampleRate(sampleRate);
+				if (!askForPermissions(permissionsForMicrophone, REQUEST_CODE_MICROPHONE_PERMISSION)) {
+					NativeApp.audioRecording_Start();
+				}
+			} else if (params.equals("stopRecording")) {
+				NativeApp.audioRecording_Stop();
 			}
 		} else if (command.equals("uistate")) {
 			Window window = this.getWindow();

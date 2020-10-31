@@ -43,7 +43,7 @@ typedef struct {
 	float garbage3;
 	float speed;
 	float bearing;
-}  GpsData;
+} GpsData;
 
 typedef struct {
 	unsigned char   id;
