@@ -43,6 +43,8 @@ static const char * const boneWeightAttrDecl[9] = {
 	"vec4 a_w1:TEXCOORD1;\n  vec4 a_w2:TEXCOORD2;\n",
 };
 
+extern const char *hlsl_preamble_vs;
+
 bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString) {
 	char *p = buffer;
 
@@ -101,12 +103,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	}
 
 	// Output some compatibility defines
-	WRITE(p, "#define vec2 float2\n");
-	WRITE(p, "#define vec3 float3\n");
-	WRITE(p, "#define vec4 float4\n");
-	WRITE(p, "#define mat4 float4x4\n");
-	WRITE(p, "#define mat3x4 float4x3\n");  // note how the conventions are backwards
-	WRITE(p, "#define splat3(x) vec3(x, x, x)\n");
+	WRITE(p, "%s", hlsl_preamble_vs);
 
 	if (lang == HLSL_D3D9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
@@ -399,9 +396,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  Tess tess;\n");
 				WRITE(p, "  tessellate(In, tess);\n");
 
-				WRITE(p, "  vec3 worldpos = mul(vec4(tess.pos.xyz, 1.0), u_world);\n");
+				WRITE(p, "  vec3 worldpos = mul(vec4(tess.pos.xyz, 1.0), u_world).xyz;\n");
 				if (hasNormalTess)
-					WRITE(p, "  vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world));\n", flipNormalTess ? "-" : "");
+					WRITE(p, "  vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world)).xyz;\n", flipNormalTess ? "-" : "");
 				else
 					WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			} else {

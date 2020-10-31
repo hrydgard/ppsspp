@@ -30,6 +30,9 @@ enum ShaderLanguage {
 	GLSL_VULKAN,
 	HLSL_D3D9,
 	HLSL_D3D11,
+
+	HLSL_D3D9_TEST,
+	HLSL_D3D11_TEST,
 };
 
 inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
