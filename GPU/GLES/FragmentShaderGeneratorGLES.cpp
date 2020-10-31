@@ -468,7 +468,8 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		}
 
 		if (doTexture) {
-			std::string texcoord = StringFromFormat("%sv_texcoord", compat.inPrefix);
+			char texcoord[64];
+			snprintf(texcoord, sizeof(texcoord), "%sv_texcoord", compat.inPrefix);
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -507,7 +508,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 				}
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
-				texcoord = "fixedcoord";
+				truncate_cpy(texcoord, "fixedcoord");
 				// We already projected it.
 				doTextureProjection = false;
 			}
@@ -517,28 +518,28 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					if (doTextureProjection) {
 						WRITE(p, "  vec4 t = tex.Sample(samp, %sv_texcoord.xy / %sv_texcoord.z)%s;\n", compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
 					} else {
-						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
 					if (doTextureProjection) {
 						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(%sv_texcoord.x, %sv_texcoord.y, 0, %sv_texcoord.z))%s;\n", compat.inPrefix, compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
 					} else {
-						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord.c_str(), bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
 				} else {
 					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord.c_str());
+						WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
 					} else {
-						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord.c_str());
+						WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
 					}
 				} 
 			} else {
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
-					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord.c_str(), texcoord.c_str());
+					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
 				} else {
-					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord.c_str());
+					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
 				WRITE(p, "  vec2 fraction;\n");

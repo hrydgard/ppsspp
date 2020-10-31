@@ -597,6 +597,9 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 			compat.glslES30 = true;
 			compat.bitwiseOps = true;
 			compat.texelFetch = "texelFetch";
+			compat.varying_vs = "out";
+			compat.varying_fs = "in";
+			compat.attribute = "in";
 		} else {
 			compat.shaderLanguage = ShaderLanguage::GLSL_140;
 			compat.glslVersionNumber = 100;  // GLSL ES 1.0
@@ -619,6 +622,9 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 				compat.glslES30 = true;
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
+				compat.varying_vs = "out";
+				compat.varying_fs = "in";
+				compat.attribute = "in";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				compat.shaderLanguage = ShaderLanguage::GLSL_140;
 				compat.glslVersionNumber = 130;
@@ -651,12 +657,6 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 			compat.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			compat.lastFragData = "gl_LastFragColorARM";
 		}
-	}
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.varying_vs = "out";
-		compat.varying_fs = "in";
-		compat.attribute = "in";
 	}
 }
 
