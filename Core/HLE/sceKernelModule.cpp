@@ -282,10 +282,9 @@ public:
 			DoArray(p, ptemp, 0xC0);
 			memcpy(pnm, ptemp, 0x2C);
 			pnm->modid = GetUID();
-			pnm += 0x30;
-			ptemp += 0x2C;
-			memcpy(pnm, ptemp, 0xC0 - 0x2C);
+			memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
 		}
+
 		Do(p, memoryBlockAddr);
 		Do(p, memoryBlockSize);
 		Do(p, isFake);
@@ -424,7 +423,7 @@ public:
 		return impExpModuleNames.find(moduleName) != impExpModuleNames.end();
 	}
 
-	NativeModule nm;
+	NativeModule nm{};
 	std::vector<ModuleWaitingThread> waitingThreads;
 
 	std::vector<FuncSymbolExport> exportedFuncs;
