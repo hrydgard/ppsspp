@@ -453,22 +453,34 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	} else {
 		WRITE(p, "void main() {\n");
 	}
+
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
+		if (lmode)
+			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		if (enableFog) {
+			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
+		}
+		if (doTexture) {
+			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
+		}
+	}
+
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  vec4 v = %sv_color0;\n", compat.inPrefix);
+		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(%sv_color1, 0.0);\n", compat.inPrefix);
+			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
 			secondary = " + s";
 		} else {
 			secondary = "";
 		}
 
 		if (doTexture) {
-			char texcoord[64];
-			snprintf(texcoord, sizeof(texcoord), "%sv_texcoord", compat.inPrefix);
+			char texcoord[64] = "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -482,11 +494,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
-				std::string ucoord = StringFromFormat("%sv_texcoord.x", compat.inPrefix);
-				std::string vcoord = StringFromFormat("%sv_texcoord.y", compat.inPrefix);
+				std::string ucoord = "v_texcoord.x";
+				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord = StringFromFormat("(%sv_texcoord.x / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
-					vcoord = StringFromFormat("(%sv_texcoord.y / %sv_texcoord.z)", compat.inPrefix, compat.inPrefix);
+					ucoord = "(v_texcoord.x / v_texcoord.z)";
+					vcoord = "(v_texcoord.y / v_texcoord.z)";
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
@@ -515,13 +527,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (!shaderDepal) {
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex.Sample(samp, %sv_texcoord.xy / %sv_texcoord.z)%s;\n", compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex.Sample(samp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 					} else {
 						WRITE(p, "  vec4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
 				} else if (compat.shaderLanguage == HLSL_D3D9) {
 					if (doTextureProjection) {
-						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(%sv_texcoord.x, %sv_texcoord.y, 0, %sv_texcoord.z))%s;\n", compat.inPrefix, compat.inPrefix, compat.inPrefix, bgraTexture ? ".bgra" : "");
+						WRITE(p, "  vec4 t = tex2Dproj(tex, vec4(v_texcoord.x, v_texcoord.y, 0, v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
 					} else {
 						WRITE(p, "  vec4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 					}
@@ -625,7 +637,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 
 			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
-				WRITE(p, "  vec4 p = %sv_color0;\n", compat.inPrefix);
+				WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (texFunc) {
@@ -688,11 +700,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = %sv_color0 %s;\n", compat.inPrefix, secondary);
+			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(%sv_fogdepth, 0.0, 1.0);\n", compat.inPrefix);
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 

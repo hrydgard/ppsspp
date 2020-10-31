@@ -40,7 +40,6 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 			pShaderCode->Release();
 			pShaderCode = nullptr;
 		}
-		pShaderCode = nullptr;
 	} else if (FAILED(hr)) {
 		*errorMessage = GetStringErrorMsg(hr);
 		if (pShaderCode) {

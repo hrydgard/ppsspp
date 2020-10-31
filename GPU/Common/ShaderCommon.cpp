@@ -153,7 +153,6 @@ ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
-		inPrefix = "";
 		break;
 	case HLSL_D3D9:
 	case HLSL_D3D11:
@@ -172,7 +171,6 @@ ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
-		inPrefix = "In.";
 		break;
 	}
 }
