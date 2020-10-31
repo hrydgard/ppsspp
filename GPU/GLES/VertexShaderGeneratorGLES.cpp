@@ -126,7 +126,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		WRITE(p, "#define splat3(x) vec3(x)\n");
 	}
 
-	if (!ShaderLanguageIsOpenGL(compat.shaderLanguage) && gl_extensions.EXT_gpu_shader4) {
+	if (ShaderLanguageIsOpenGL(compat.shaderLanguage) && gl_extensions.EXT_gpu_shader4) {
 		WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 	}
 
