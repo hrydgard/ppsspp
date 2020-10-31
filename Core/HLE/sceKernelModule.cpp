@@ -2362,7 +2362,7 @@ void __KernelReturnFromModuleFunc()
 		{
 			if (module->nm.status == MODULE_STATUS_UNLOADING) {
 				// TODO: Maybe should maintain the exitCode?
-				sceKernelDeleteThread(it->threadID);
+				sceKernelTerminateDeleteThread(it->threadID);
 			} else {
 				if (it->statusPtr != 0)
 					Memory::Write_U32(exitStatus, it->statusPtr);
