@@ -67,6 +67,7 @@ const char *hlsl_d3d9_preamble_fs =
 
 bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
+	errorString->clear();
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -695,20 +696,17 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(%sv_fogdepth, 0.0, 1.0);\n", compat.inPrefix);
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
-		std::string alphaTestXCoord = "0";
+		char alphaTestXCoord[64] = "0";
 		if (enableFragmentTestCache) {
 			if (enableColorTest && !colorTestAgainstZero) {
 				WRITE(p, "  vec4 vScale256 = v * %f + %f;\n", 255.0 / 256.0, 0.5 / 256.0);
-				alphaTestXCoord = "vScale256.a";
+				truncate_cpy(alphaTestXCoord, "vScale256.a");
 			} else if (enableAlphaTest && !alphaTestAgainstZero) {
-				char temp[64];
-				snprintf(temp, sizeof(temp), "v.a * %f + %f", 255.0 / 256.0, 0.5 / 256.0);
-				alphaTestXCoord = temp;
+				snprintf(alphaTestXCoord, sizeof(alphaTestXCoord), "v.a * %f + %f", 255.0 / 256.0, 0.5 / 256.0);
 			}
 		}
 
@@ -728,7 +726,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else if (enableFragmentTestCache) {
-				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", compat.texture, alphaTestXCoord.c_str());
+				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", compat.texture, alphaTestXCoord);
 				WRITE(p, "  if (aResult < 0.5) %s\n", discardStatement);
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
@@ -919,36 +917,33 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		}
 	}
 
-	std::string replacedAlpha = "0.0";
-	char replacedAlphaTemp[64] = "";
+	char replacedAlpha[64] = "0.0";
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = "u_stencilReplaceValue";
+			truncate_cpy(replacedAlpha, "u_stencilReplaceValue");
 			break;
 
 		case STENCIL_VALUE_ZERO:
-			replacedAlpha = "0.0";
+			truncate_cpy(replacedAlpha, "0.0");
 			break;
 
 		case STENCIL_VALUE_ONE:
 		case STENCIL_VALUE_INVERT:
 			// In invert, we subtract by one, but we want to output one here.
-			replacedAlpha = "1.0";
+			truncate_cpy(replacedAlpha, "1.0");
 			break;
 
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_DECR_4:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
-			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 15.0);
-			replacedAlpha = replacedAlphaTemp;
+			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
 		case STENCIL_VALUE_INCR_8:
 		case STENCIL_VALUE_DECR_8:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
-			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 255.0);
-			replacedAlpha = replacedAlphaTemp;
+			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
@@ -963,7 +958,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 		break;
 
 	case REPLACE_ALPHA_YES:
-		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
+		WRITE(p, "  v.a = %s;\n", replacedAlpha);
 		break;
 
 	case REPLACE_ALPHA_NO:
@@ -1014,7 +1009,7 @@ bool GenerateFragmentShaderGLSL(const FShaderID &id, char *buffer, const GLSLSha
 	}
 
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
 	} else if (compat.shaderLanguage != HLSL_D3D9) {
 		WRITE(p, "  %s = v;\n", compat.fragColor0);

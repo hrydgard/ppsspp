@@ -512,7 +512,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 
 ShaderManagerDX9::ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device)
 	: ShaderManagerCommon(draw), device_(device), compat_(HLSL_D3D9) {
-	codeBuffer_ = new char[16384];
+	codeBuffer_ = new char[32768];
 }
 
 ShaderManagerDX9::~ShaderManagerDX9() {
