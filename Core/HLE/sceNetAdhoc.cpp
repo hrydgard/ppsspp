@@ -411,6 +411,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	if (ret >= 0 && ret <= *req.length) {
 		ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
+		*req.length = 0;
 		if (ret >= 0) {
 			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 
@@ -451,6 +452,28 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		}
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
+	}
+	// Returning required buffer size when available data in recv buffer is larger than provided buffer size
+	else if (ret > *req.length) {
+		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, *req.length, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+		*req.length = ret;
+
+		// Peer MAC
+		SceNetEtherAddr mac;
+
+		// Find Peer MAC
+		if (resolveIP(sin.sin_addr.s_addr, &mac)) {
+			// Provide Sender Information
+			*req.remoteMAC = mac;
+			*req.remotePort = ntohs(sin.sin_port) - portOffset;
+
+			// FIXME: Do we need to update last recv timestamp? eventhough data hasn't been retrieved yet (ie. peeked)
+			peerlock.lock();
+			auto peer = findFriend(&mac);
+			if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+			peerlock.unlock();
+		}
+		result = ERROR_NET_ADHOC_NOT_ENOUGH_SPACE;
 	}
 	else
 		result = ERROR_NET_ADHOC_TIMEOUT; // ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_DISCONNECTED
@@ -890,8 +913,8 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 
 	u64 startTime = (u64)(time_now_d() * 1000000.0);
 	adhocSocketRequests[threadSocketId] = { type, pspSocketId, buffer, len, tmout, startTime, remoteMAC, remotePort };
-	// Some games (ie. Power Stone Collection) are using as small as 100 usec timeout
-	CoreTiming::ScheduleEvent(usToCycles(100), adhocSocketNotifyEvent, threadSocketId);
+	// Some games (ie. Hitman Reborn Battle Arena 2) are using as small as 50 usec timeout
+	CoreTiming::ScheduleEvent(usToCycles(1), adhocSocketNotifyEvent, threadSocketId);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, 0, 0, false, reason);
 
 	// Fallback return value
