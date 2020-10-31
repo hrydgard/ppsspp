@@ -64,6 +64,8 @@ struct GLExtensions {
 	bool ARB_draw_instanced;
 	bool ARB_buffer_storage;
 	bool ARB_cull_distance;
+	bool ARB_depth_clamp;
+	bool ARB_uniform_buffer_object;
 
 	// EXT
 	bool EXT_swap_control_tear;

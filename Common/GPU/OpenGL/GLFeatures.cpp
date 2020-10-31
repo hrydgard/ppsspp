@@ -354,6 +354,8 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_draw_instanced = g_set_gl_extensions.count("GL_EXT_draw_instanced") != 0;
 	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
 	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
+	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
+	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -498,10 +500,10 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(3, 1)) {
 			gl_extensions.ARB_draw_instanced = true;
-			// ARB_uniform_buffer_object = true;
+			gl_extensions.ARB_uniform_buffer_object = true;
 		}
 		if (gl_extensions.VersionGEThan(3, 2)) {
-			// ARB_depth_clamp = true;
+			gl_extensions.ARB_depth_clamp = true;
 		}
 		if (gl_extensions.VersionGEThan(3, 3)) {
 			gl_extensions.ARB_blend_func_extended = true;
@@ -541,6 +543,8 @@ void CheckGLExtensions() {
 #ifdef __APPLE__
 	if (!gl_extensions.IsGLES && !gl_extensions.IsCoreContext) {
 		// Apple doesn't allow OpenGL 3.x+ in compatibility contexts.
+		// TODO: But are we still ever creating these on Apple? Would really
+		// like to kill this ForceGL2 flag.
 		gl_extensions.ForceGL2 = true;
 	}
 #endif
