@@ -22,7 +22,7 @@
 
 #include "Common/Common.h"
 #include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
-#include "GPU/Directx9/FragmentShaderGeneratorHLSL.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -112,14 +112,15 @@ private:
 	void Clear();
 
 	LPDIRECT3DDEVICE9 device_;
+	ShaderLanguageDesc compat_;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
 
 	char *codeBuffer_;
 
-	VSShader *lastVShader_;
-	PSShader *lastPShader_;
+	VSShader *lastVShader_ = nullptr;
+	PSShader *lastPShader_ = nullptr;
 
 	typedef std::map<FShaderID, PSShader *> FSCache;
 	FSCache fsCache_;

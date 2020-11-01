@@ -571,7 +571,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 }
 
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
-		: ShaderManagerCommon(draw), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+	  : ShaderManagerCommon(draw), compat_(GLSL_140), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
@@ -584,28 +584,24 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 }
 
 void ShaderManagerGLES::DetectShaderLanguage() {
-	GLSLShaderCompat &compat = compat_;
-	compat.attribute = "attribute";
-	compat.varying_vs = "varying";
-	compat.varying_fs = "varying";
-	compat.fragColor0 = "gl_FragColor";
-	compat.fragColor1 = "fragColor1";
-	compat.texture = "texture2D";
-	compat.texelFetch = nullptr;
-	compat.bitwiseOps = false;
-	compat.lastFragData = nullptr;
+	ShaderLanguageDesc &compat = compat_;
+
 	compat.gles = gl_extensions.IsGLES;
-	compat.forceMatrix4x4 = true;
 
 	if (compat.gles) {
 		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
+			compat.shaderLanguage = ShaderLanguage::GLSL_300;
 			compat.glslVersionNumber = 300;  // GLSL ES 3.0
 			compat.fragColor0 = "fragColor0";
 			compat.texture = "texture";
 			compat.glslES30 = true;
 			compat.bitwiseOps = true;
 			compat.texelFetch = "texelFetch";
+			compat.varying_vs = "out";
+			compat.varying_fs = "in";
+			compat.attribute = "in";
 		} else {
+			compat.shaderLanguage = ShaderLanguage::GLSL_140;
 			compat.glslVersionNumber = 100;  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
 				compat.bitwiseOps = true;
@@ -619,18 +615,24 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 	} else {
 		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
+				compat.shaderLanguage = ShaderLanguage::GLSL_300;
 				compat.glslVersionNumber = 330;
 				compat.fragColor0 = "fragColor0";
 				compat.texture = "texture";
 				compat.glslES30 = true;
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
+				compat.varying_vs = "out";
+				compat.varying_fs = "in";
+				compat.attribute = "in";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+				compat.shaderLanguage = ShaderLanguage::GLSL_140;
 				compat.glslVersionNumber = 130;
 				compat.fragColor0 = "fragColor0";
 				compat.bitwiseOps = true;
 				compat.texelFetch = "texelFetch";
 			} else {
+				compat.shaderLanguage = ShaderLanguage::GLSL_140;
 				compat.glslVersionNumber = 110;
 				if (gl_extensions.EXT_gpu_shader4) {
 					compat.bitwiseOps = true;
@@ -655,12 +657,6 @@ void ShaderManagerGLES::DetectShaderLanguage() {
 			compat.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			compat.lastFragData = "gl_LastFragColorARM";
 		}
-	}
-
-	if (compat.glslES30 || gl_extensions.IsCoreContext) {
-		compat.varying_vs = "out";
-		compat.varying_fs = "in";
-		compat.attribute = "in";
 	}
 }
 
@@ -712,7 +708,7 @@ void ShaderManagerGLES::DirtyLastShader() {
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
 	std::string errorString;
-	if (!GenerateFragmentShaderGLSL(FSID, codeBuffer_, compat_, &uniformMask, &errorString)) {
+	if (!GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &errorString)) {
 		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}

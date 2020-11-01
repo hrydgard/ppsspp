@@ -21,4 +21,4 @@
 
 struct VShaderID;
 
-bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const GLSLShaderCompat &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
+bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);

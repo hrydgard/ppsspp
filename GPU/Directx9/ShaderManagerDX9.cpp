@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-#define SHADERLOG
+//#define SHADERLOG
 #endif
 
 #include <cmath>
@@ -41,6 +41,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
@@ -57,7 +58,7 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 	bool success;
 	std::string errorMessage;
 
-	success = CompilePixelShader(device, code, &shader, NULL, errorMessage);
+	success = CompilePixelShaderD3D9(device, code, &shader, &errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -107,7 +108,7 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(device, code, &shader, NULL, errorMessage);
+	success = CompileVertexShaderD3D9(device, code, &shader, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -510,8 +511,8 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 ShaderManagerDX9::ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device)
-	: ShaderManagerCommon(draw), device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
-	codeBuffer_ = new char[16384];
+	: ShaderManagerCommon(draw), device_(device), compat_(HLSL_D3D9) {
+	codeBuffer_ = new char[32768];
 }
 
 ShaderManagerDX9::~ShaderManagerDX9() {
@@ -588,7 +589,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		std::string genErrorString;
-		if (GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9, &genErrorString)) {
+		if (GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_D3D9, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
@@ -611,7 +612,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			bool success = GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_DX9, &genErrorString);
+			bool success = GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_D3D9, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
@@ -627,7 +628,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
-		bool success = GenerateFragmentShaderHLSL(FSID, codeBuffer_, HLSL_DX9, &errorString);
+		uint64_t uniformMask;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);

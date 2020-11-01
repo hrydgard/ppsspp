@@ -367,7 +367,14 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int
 // GLSL compiler
 void init_glslang();
 void finalize_glslang();
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
+
+enum class GLSLVariant {
+	VULKAN,
+	GL140,
+	GLES300,
+};
+
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage);
 
 const char *VulkanResultToString(VkResult res);
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);

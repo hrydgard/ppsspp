@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderCommon.h"
 
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString);
+struct FShaderID;
+
+// D3D9 constants
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1
@@ -35,3 +36,5 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
+
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString);

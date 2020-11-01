@@ -25,12 +25,16 @@ namespace Draw {
 }
 
 enum ShaderLanguage {
-	GLSL_140,
+	GLSL_140,  // really covers a lot more. This set of languages is not good.
 	GLSL_300,
 	GLSL_VULKAN,
-	HLSL_DX9,
+	HLSL_D3D9,
 	HLSL_D3D11,
 };
+
+inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
+	return lang == GLSL_140 || lang == GLSL_300;
+}
 
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
@@ -138,25 +142,25 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-struct GLSLShaderCompat {
-	int glslVersionNumber;
-	bool gles;
-	bool vulkan;
-	const char *varying_fs;
-	const char *varying_vs;
-	const char *attribute;
-	const char *fragColor0;
-	const char *fragColor1;
-	const char *texture;
-	const char *texelFetch;
-	const char *lastFragData;
-	const char *framebufferFetchExtension;
-	bool glslES30;
-	bool bitwiseOps;
-	bool forceMatrix4x4;
-	bool coefsFromBuffers;
+struct ShaderLanguageDesc {
+	explicit ShaderLanguageDesc(ShaderLanguage lang);
 
-	void SetupForVulkan();
+	int glslVersionNumber = 0;
+	ShaderLanguage shaderLanguage;
+	bool gles = false;
+	const char *varying_fs = nullptr;
+	const char *varying_vs = nullptr;
+	const char *attribute = nullptr;
+	const char *fragColor0 = nullptr;
+	const char *fragColor1 = nullptr;
+	const char *texture = nullptr;
+	const char *texelFetch = nullptr;
+	const char *lastFragData = nullptr;
+	const char *framebufferFetchExtension = nullptr;
+	bool glslES30 = false;
+	bool bitwiseOps = false;
+	bool forceMatrix4x4 = false;
+	bool coefsFromBuffers = false;
 };
 
 // PSP vertex format.

@@ -331,15 +331,7 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	}
 }
 
-SasInstance::SasInstance()
-	: maxVoices(PSP_SAS_VOICES_MAX),
-		sampleRate(44100),
-		outputMode(PSP_SAS_OUTPUTMODE_MIXED),
-		mixBuffer(0),
-		sendBuffer(0),
-		sendBufferDownsampled(0),
-		sendBufferProcessed(0),
-		grainSize(0) {
+SasInstance::SasInstance() {
 #ifdef AUDIO_TO_FILE
 	audioDump = fopen("D:\\audio.raw", "wb");
 #endif

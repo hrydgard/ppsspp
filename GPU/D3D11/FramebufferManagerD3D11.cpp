@@ -51,7 +51,7 @@ static const char *vscode =
 	"struct VS_IN {\n"
 	"  float4 ObjPos   : POSITION;\n"
 	"  float2 Uv    : TEXCOORD0;\n"
-	"};"
+	"};\n"
 	"struct VS_OUT {\n"
 	"  float2 Uv    : TEXCOORD0;\n"
 	"  float4 ProjPos  : SV_Position;\n"

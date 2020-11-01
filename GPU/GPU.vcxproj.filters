@@ -186,9 +186,6 @@
     <ClInclude Include="GLES\TextureScalerGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\FragmentShaderGeneratorGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\DepalettizeShaderGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -273,8 +270,8 @@
     <ClInclude Include="Directx9\VertexShaderGeneratorHLSL.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\FragmentShaderGeneratorHLSL.h">
-      <Filter>DirectX9</Filter>
+    <ClInclude Include="Common\FragmentShaderGenerator.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -446,9 +443,6 @@
     <ClCompile Include="GLES\StencilBufferGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
@@ -548,8 +542,8 @@
     <ClCompile Include="Directx9\VertexShaderGeneratorHLSL.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\FragmentShaderGeneratorHLSL.cpp">
-      <Filter>DirectX9</Filter>
+    <ClCompile Include="Common\FragmentShaderGenerator.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

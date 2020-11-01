@@ -52,7 +52,7 @@ static const char *vscode = R"(
 struct VS_IN {
 	float4 ObjPos   : POSITION;
 	float2 Uv    : TEXCOORD0;
-};"
+};
 struct VS_OUT {
 	float4 ProjPos  : POSITION;
 	float2 Uv    : TEXCOORD0;
@@ -88,11 +88,11 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 		std::string errorMsg;
-		if (!CompileVertexShader(device_, vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
+		if (!CompileVertexShaderD3D9(device_, vscode, &pFramebufferVertexShader, &errorMsg)) {
 			OutputDebugStringA(errorMsg.c_str());
 		}
 
-		if (!CompilePixelShader(device_, pscode, &pFramebufferPixelShader, nullptr, errorMsg)) {
+		if (!CompilePixelShaderD3D9(device_, pscode, &pFramebufferPixelShader, &errorMsg)) {
 			OutputDebugStringA(errorMsg.c_str());
 			if (pFramebufferVertexShader) {
 				pFramebufferVertexShader->Release();
@@ -116,7 +116,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		ShaderTranslationInit();
 
-		presentation_->SetLanguage(HLSL_DX9);
+		presentation_->SetLanguage(HLSL_D3D9);
 		preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 	}
 

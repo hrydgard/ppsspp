@@ -248,6 +248,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Playback.cpp \
 	$(GPUDIR)/Debugger/Record.cpp \
 	$(GPUDIR)/Debugger/Stepping.cpp \
+	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
@@ -271,7 +272,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/VertexShaderGeneratorGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \
-	$(GPUDIR)/GLES/FragmentShaderGeneratorGLES.cpp \
 	$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \
 	$(GPUDIR)/GLES/FramebufferManagerGLES.cpp \
 	$(GPUDIR)/GLES/TextureCacheGLES.cpp \
@@ -661,7 +661,6 @@ ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += \
 	$(GPUDIR)/Directx9/DepalettizeShaderDX9.cpp \
 	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
-	$(GPUDIR)/Directx9/FragmentShaderGeneratorHLSL.cpp \
 	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
 	$(GPUDIR)/Directx9/GPU_DX9.cpp \
 	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \

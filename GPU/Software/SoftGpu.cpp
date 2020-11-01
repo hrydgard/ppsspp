@@ -76,7 +76,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		break;
 	case GPUBackend::DIRECT3D9:
 		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_DX9);
+		presentation_->SetLanguage(HLSL_D3D9);
 		break;
 	case GPUBackend::DIRECT3D11:
 		ShaderTranslationInit();

@@ -368,7 +368,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {
 	std::vector<uint32_t> spirv;
-	bool success = GLSLtoSPV(stage, code, spirv, error);
+	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, error);
 	if (!error->empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
