@@ -1299,7 +1299,7 @@ set(GPU_D3D9
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
 	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
-	GPU/Directx9/VertexShaderGeneratorHLSL.h
+	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_D3D11

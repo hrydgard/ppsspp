@@ -11,7 +11,7 @@
 
 #include "GPU/Common/FragmentShaderGenerator.h"
 
-#include "GPU/Directx9/VertexShaderGeneratorHLSL.h"
+#include "GPU/GLES/VertexShaderGeneratorGLES.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
 #include "GPU/D3D11/D3D11Util.h"
@@ -39,13 +39,11 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
-	case ShaderLanguage::HLSL_D3D9_TEST:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
-	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
@@ -74,25 +72,15 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::HLSL_D3D9_TEST:
+	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::HLSL_D3D11_TEST:
+	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
 		return GenerateVertexShaderGLSL(id, buffer, compat, &attrMask, &uniformMask, errorString);
-	}
-	case ShaderLanguage::HLSL_D3D9:
-	{
-		//ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D9, errorString);
-	}
-	case ShaderLanguage::HLSL_D3D11:
-	{
-		//ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateVertexShaderHLSL(id, buffer, ShaderLanguage::HLSL_D3D11, errorString);
 	}
 	default:
 		return false;
@@ -103,12 +91,10 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 	std::vector<uint32_t> spirv;
 	switch (lang) {
 	case ShaderLanguage::HLSL_D3D11:
-	case ShaderLanguage::HLSL_D3D11_TEST:
 	{
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
 		return !output.empty();
 	}
-	case ShaderLanguage::HLSL_D3D9_TEST:
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, vertex ? "vs_2_0" : "ps_2_0", errorMessage);
@@ -164,9 +150,8 @@ bool TestShaderGenerators() {
 	LoadD3DCompilerDynamic();
 
 	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D11_TEST,
-		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::HLSL_D3D9,
+		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_VULKAN,
 		ShaderLanguage::GLSL_140,
 		ShaderLanguage::GLSL_300,
@@ -211,19 +196,6 @@ bool TestShaderGenerators() {
 			if (!genErrorString[j].empty()) {
 				printf("%s\n", genErrorString[j].c_str());
 			}
-		}
-
-		// KEEPING FOR REUSE LATER: Defunct temporary test: Compare GLSL-in-Vulkan-mode vs Vulkan
-		if (generateSuccess[0] != generateSuccess[1]) {
-			printf("mismatching success! '%s' '%s'\n", genErrorString[0].c_str(), genErrorString[1].c_str());
-			printf("%s\n", buffer[0]);
-			printf("%s\n", buffer[1]);
-			return false;
-		}
-		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
-			printf("mismatching shaders!\n");
-			PrintDiff(buffer[0], buffer[1]);
-			return false;
 		}
 
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
@@ -273,24 +245,6 @@ bool TestShaderGenerators() {
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
 
-		// KEEPING FOR REUSE LATER: Defunct temporary test.
-		/*
-		if (generateSuccess[0] != generateSuccess[1]) {
-			printf("mismatching success! %s %s\n", genErrorString[0].c_str(), genErrorString[1].c_str());
-			printf("%s\n", buffer[0]);
-			printf("%s\n", buffer[1]);
-			return 1;
-		}
-		if (generateSuccess[0] && strcmp(buffer[0], buffer[1])) {
-			printf("mismatching shaders! a=glsl b=hlsl\n");
-			PrintDiff(buffer[0], buffer[1]);
-			return 1;
-		}
-		if (generateSuccess[2] && strcmp(buffer[2], buffer[3])) {
-			printf("mismatching shaders! a=glsl b=hlsl\n");
-			PrintDiff(buffer[2], buffer[3]);
-			return 1;
-		}*/
 		// Now that we have the strings ready for easy comparison (buffer,4 in the watch window),
 		// let's try to compile them.
 		for (int j = 0; j < numLanguages; j++) {

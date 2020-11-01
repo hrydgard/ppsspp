@@ -580,7 +580,9 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		std::string genErrorString;
-		if (GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_D3D9, &genErrorString)) {
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		if (GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
@@ -603,7 +605,9 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			bool success = GenerateVertexShaderHLSL(VSID, codeBuffer_, HLSL_D3D9, &genErrorString);
+			uint32_t attrMask;
+			uint64_t uniformMask;
+			bool success = GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}

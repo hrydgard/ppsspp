@@ -390,7 +390,6 @@
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
     <ClInclude Include="Directx9\DrawEngineDX9.h" />
-    <ClInclude Include="Directx9\VertexShaderGeneratorHLSL.h" />
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GLES\DepalettizeShaderGLES.h">
@@ -561,7 +560,6 @@
     <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
     <ClCompile Include="Directx9\TextureScalerDX9.cpp" />
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
-    <ClCompile Include="Directx9\VertexShaderGeneratorHLSL.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GeConstants.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
