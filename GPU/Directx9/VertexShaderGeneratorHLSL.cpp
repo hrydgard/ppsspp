@@ -382,25 +382,13 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
-		if (lang == HLSL_D3D11) {
-			if (isModeThrough) {
-				WRITE(p, "  float4 outPos = mul(u_proj_through, vec4(In.position.xyz, 1.0));\n");
-			} else {
-				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(In.position.xyz, 1.0)));\n");
-				} else {
-					WRITE(p, "  vec4 outPos = mul(u_proj, vec4(In.position.xyz, 1.0));\n");
-				}
-			}
+		if (isModeThrough) {
+			WRITE(p, "  float4 outPos = mul(u_proj_through, vec4(In.position.xyz, 1.0));\n");
 		} else {
-			if (isModeThrough) {
-				WRITE(p, "  vec4 outPos = mul(vec4(In.position.xyz, 1.0), u_proj_through);\n");
+			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(In.position.xyz, 1.0)));\n");
 			} else {
-				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  vec4 outPos = depthRoundZVP(mul(vec4(In.position.xyz, 1.0), u_proj));\n");
-				} else {
-					WRITE(p, "  vec4 outPos = mul(vec4(In.position.xyz, 1.0), u_proj);\n");
-				}
+				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(In.position.xyz, 1.0));\n");
 			}
 		}
 	}  else {
@@ -472,20 +460,11 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view), 1.0);\n");
 
-		if (lang == HLSL_D3D11) {
-			// Final view and projection transforms.
-			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
-			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
-			}
+		// Final view and projection transforms.
+		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 		} else {
-			// Final view and projection transforms.
-			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(viewPos, u_proj));\n");
-			} else {
-				WRITE(p, "  vec4 outPos = mul(viewPos, u_proj);\n");
-			}
+			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.

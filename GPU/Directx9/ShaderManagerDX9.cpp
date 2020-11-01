@@ -224,13 +224,6 @@ void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float e
 	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
-// Utility
-void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
-	float m4x4[16];
-	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
-	device_->SetVertexShaderConstantF(creg, m4x4, 4);
-}
-
 void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 	float m3x4[12];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
@@ -238,9 +231,7 @@ void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 }
 
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
-	float transp[16];
-	Transpose4x4(transp, pMatrix);
-	device_->SetVertexShaderConstantF(creg, transp, 4);
+	device_->SetVertexShaderConstantF(creg, pMatrix, 4);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it

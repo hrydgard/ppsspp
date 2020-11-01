@@ -98,7 +98,6 @@ private:
 	inline void PSSetFloat(int creg, float value);
 	inline void PSSetFloatArray(int creg, const float *value, int count);
 
-	void VSSetMatrix4x3(int creg, const float *m4x3);
 	void VSSetMatrix4x3_3(int creg, const float *m4x3);
 	inline void VSSetColorUniform3(int creg, u32 color);
 	inline void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
