@@ -59,7 +59,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
-	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES) && !useHWTransform;
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -212,7 +212,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 		// only software transform supplies color1 as vertex data
 		if (lmode) {
-			WRITE(p, "  vec4 color1 : COLOR1;\n");
+			WRITE(p, "  vec3 color1 : COLOR1;\n");
 		}
 		WRITE(p, "};\n");
 	}
@@ -355,7 +355,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (hasColor) {
 		WRITE(p, "  vec4 color0 = In.color0;\n");
 		if (lmode && !useHWTransform) {
-			WRITE(p, "  vec4 color1 = In.color1;\n");
+			WRITE(p, "  vec3 color1 = In.color1;\n");
 		}
 	}
 	if (hasNormal) {
@@ -382,7 +382,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (hasColor) {
 			WRITE(p, "  Out.v_color0 = color0;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = color1.rgb;\n");
+				WRITE(p, "  Out.v_color1 = color1;\n");
 		} else {
 			WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			if (lmode)
@@ -392,12 +392,12 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  Out.v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(In.position.xyz, 1.0));\n");
+			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(In.position.xyz, 1.0)));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(position.xyz, 1.0)));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(In.position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(position.xyz, 1.0));\n");
 			}
 		}
 	}  else {

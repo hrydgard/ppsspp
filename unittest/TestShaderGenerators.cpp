@@ -191,8 +191,17 @@ bool TestShaderGenerators() {
 		id.d[0] = bottom;
 		id.d[1] = top;
 
+		// The generated bits need some adjustment:
+
 		// We don't use these bits in the HLSL shader generator.
 		id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, 0);
+		// If mode is through, we won't do hardware transform.
+		if (id.Bit(VS_BIT_IS_THROUGH)) {
+			id.SetBit(VS_BIT_USE_HW_TRANSFORM, 0);
+		}
+		if (!id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
+			id.SetBit(VS_BIT_ENABLE_BONES, 0);
+		}
 
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];
@@ -223,7 +232,7 @@ bool TestShaderGenerators() {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], true, &errorMessage)) {
-					printf("Error compiling vertex shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					printf("Error compiling vertex shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					return false;
 				}
 				successes++;

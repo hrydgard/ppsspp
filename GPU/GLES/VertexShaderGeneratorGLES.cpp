@@ -200,7 +200,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
-	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES) && useHWTransform;
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -404,7 +404,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			}
 			// only software transform supplies color1 as vertex data
 			if (lmode) {
-				WRITE(p, "  vec4 color1 : COLOR1;\n");
+				WRITE(p, "  vec3 color1 : COLOR1;\n");
 			}
 			WRITE(p, "};\n");
 		}
@@ -738,7 +738,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (hasColor) {
 			WRITE(p, "  vec4 color0 = In.color0;\n");
 			if (lmode && !useHWTransform) {
-				WRITE(p, "  vec4 color1 = In.color1;\n");
+				WRITE(p, "  vec3 color1 = In.color1;\n");
 			}
 		}
 		if (hasNormal) {
@@ -758,25 +758,25 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
 			if (texCoordInVec3) {
-				WRITE(p, "  v_texcoord = texcoord;\n");
+				WRITE(p, "  %sv_texcoord = texcoord;\n", compat.vsOutPrefix);
 			} else {
-				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
+				WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
 			}
 		}
 		if (hasColor) {
-			WRITE(p, "  v_color0 = color0;\n");
+			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
 			if (lmode)
-				WRITE(p, "  v_color1 = color1;\n");
+				WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
 		} else {
-			WRITE(p, "  v_color0 = u_matambientalpha;\n");
+			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0);\n");
+				WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
 		}
 		if (enableFog) {
-			WRITE(p, "  v_fogdepth = position.w;\n");
+			WRITE(p, "  %sv_fogdepth = position.w;\n", compat.vsOutPrefix);
 		}
 		if (isModeThrough)	{
-			WRITE(p, "  vec4 outPos = u_proj_through * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
