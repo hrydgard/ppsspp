@@ -65,10 +65,16 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
 	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
-	if ((doBezier || doSpline) && !hasNormal) {
-		// Bad usage.
-		*errorString = "Invalid flags - tess requires normal.";
-		return false;
+	if (doBezier || doSpline) {
+		if (!hasNormal) {
+			// Bad usage.
+			*errorString = "Invalid flags - tess requires normal.";
+			return false;
+		}
+		if (lang == HLSL_D3D9) {
+			*errorString = "D3D9: Tess not supported";
+			return false;
+		}
 	}
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
@@ -252,21 +258,19 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	// Hardware tessellation
 	if (doSpline || doBezier) {
-		if (lang == HLSL_D3D11) {
-			WRITE(p, "struct TessData {\n");
-			WRITE(p, "  vec3 pos; float pad1;\n");
-			WRITE(p, "  vec2 tex; vec2 pad2;\n");
-			WRITE(p, "  vec4 col;\n");
-			WRITE(p, "};\n");
-			WRITE(p, "StructuredBuffer<TessData> tess_data : register(t0);\n");
+		WRITE(p, "struct TessData {\n");
+		WRITE(p, "  vec3 pos; float pad1;\n");
+		WRITE(p, "  vec2 tex; vec2 pad2;\n");
+		WRITE(p, "  vec4 col;\n");
+		WRITE(p, "};\n");
+		WRITE(p, "StructuredBuffer<TessData> tess_data : register(t0);\n");
 
-			WRITE(p, "struct TessWeight {\n");
-			WRITE(p, "  vec4 basis;\n");
-			WRITE(p, "  vec4 deriv;\n");
-			WRITE(p, "};\n");
-			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_u : register(t1);\n");
-			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_v : register(t2);\n");
-		}
+		WRITE(p, "struct TessWeight {\n");
+		WRITE(p, "  vec4 basis;\n");
+		WRITE(p, "  vec4 deriv;\n");
+		WRITE(p, "};\n");
+		WRITE(p, "StructuredBuffer<TessWeight> tess_weights_u : register(t1);\n");
+		WRITE(p, "StructuredBuffer<TessWeight> tess_weights_v : register(t2);\n");
 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
 		for (int i = 2; i <= 4; i++) {
@@ -308,9 +312,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
 				WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
-				WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
+				WRITE(p, "  _pos[%i] = tess_data[index].pos.xyz;\n", i * 4 + j);
 				if (doTexture && hasTexcoordTess)
-					WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);
+					WRITE(p, "  _tex[%i] = tess_data[index].tex.xy;\n", i * 4 + j);
 				if (hasColorTess)
 					WRITE(p, "  _col[%i] = tess_data[index].col;\n", i * 4 + j);
 			}
@@ -327,7 +331,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (hasTexcoordTess)
 				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
 			else
-				WRITE(p, "  tess.tex = In.normal.xy;\n");
+				WRITE(p, "  tess.tex = normal.xy;\n");
 		}
 		if (hasColorTess)
 			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
@@ -388,7 +392,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		} else {
 			WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = vec3(0.0);\n");
+				WRITE(p, "  Out.v_color1 = splat3(0.0);\n");
 		}
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth = position.w;\n");
@@ -412,7 +416,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 				WRITE(p, "  vec3 worldpos = mul(vec4(tess.pos.xyz, 1.0), u_world).xyz;\n");
 				if (hasNormalTess)
-					WRITE(p, "  vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world)).xyz;\n", flipNormalTess ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world).xyz);\n", flipNormalTess ? "-" : "");
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			} else {

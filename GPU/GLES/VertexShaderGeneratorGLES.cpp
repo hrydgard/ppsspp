@@ -138,7 +138,7 @@ const char *hlsl_preamble_vs =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
 "#define vec4 float4\n"
-"#define int2 ivec2\n"
+"#define ivec2 int2\n"
 "#define mat4 float4x4\n"
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) vec3(x, x, x)\n"
@@ -212,6 +212,10 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (!hasNormal) {
 			// Bad usage.
 			*errorString = "Invalid flags - tess requires normal.";
+			return false;
+		}
+		if (compat.shaderLanguage == HLSL_D3D9 || compat.texelFetch == nullptr) {
+			*errorString = "Tess not supported on this shader language version";
 			return false;
 		}
 	}
@@ -299,9 +303,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		} else {
 			WRITE(p, "#pragma warning( disable : 3571 )\n");
 			if (isModeThrough) {
-				WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
+				WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
 			} else {
-				WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
+				WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
 				// Add all the uniforms we'll need to transform properly.
 			}
 
@@ -597,23 +601,23 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (compat.shaderLanguage == GLSL_VULKAN) {
 			WRITE(p, "struct TessData {\n");
 			WRITE(p, "  vec4 pos;\n");
-			WRITE(p, "  vec4 uv;\n");
-			WRITE(p, "  vec4 color;\n");
+			WRITE(p, "  vec4 tex;\n");
+			WRITE(p, "  vec4 col;\n");
 			WRITE(p, "};\n");
 			WRITE(p, "layout (std430, set = 0, binding = 6) readonly buffer s_tess_data {\n");
-			WRITE(p, "  TessData data[];\n");
-			WRITE(p, "} tess_data;\n");
+			WRITE(p, "  TessData tess_data[];\n");
+			WRITE(p, "};\n");
 
 			WRITE(p, "struct TessWeight {\n");
 			WRITE(p, "  vec4 basis;\n");
 			WRITE(p, "  vec4 deriv;\n");
 			WRITE(p, "};\n");
 			WRITE(p, "layout (std430, set = 0, binding = 7) readonly buffer s_tess_weights_u {\n");
-			WRITE(p, "  TessWeight data[];\n");
-			WRITE(p, "} tess_weights_u;\n");
+			WRITE(p, "  TessWeight tess_weights_u[];\n");
+			WRITE(p, "};\n");
 			WRITE(p, "layout (std430, set = 0, binding = 8) readonly buffer s_tess_weights_v {\n");
-			WRITE(p, "  TessWeight data[];\n");
-			WRITE(p, "} tess_weights_v;\n");
+			WRITE(p, "  TessWeight tess_weights_v[];\n");
+			WRITE(p, "};\n");
 		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 			WRITE(p, "uniform sampler2D u_tess_points;\n"); // Control Points
 			WRITE(p, "uniform sampler2D u_tess_weights_u;\n");
@@ -690,17 +694,17 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			for (int i = 0; i < 4; i++) {
 				for (int j = 0; j < 4; j++) {
 					WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
-					WRITE(p, "  _pos[%i] = tess_data.data[index].pos.xyz;\n", i * 4 + j);
+					WRITE(p, "  _pos[%i] = tess_data[index].pos.xyz;\n", i * 4 + j);
 					if (doTexture && hasTexcoordTess)
-						WRITE(p, "  _tex[%i] = tess_data.data[index].uv.xy;\n", i * 4 + j);
+						WRITE(p, "  _tex[%i] = tess_data[index].tex.xy;\n", i * 4 + j);
 					if (hasColorTess)
-						WRITE(p, "  _col[%i] = tess_data.data[index].color;\n", i * 4 + j);
+						WRITE(p, "  _col[%i] = tess_data[index].col;\n", i * 4 + j);
 				}
 			}
 
 			// Basis polynomials as weight coefficients
-			WRITE(p, "  vec4 basis_u = tess_weights_u.data[weight_idx.x].basis;\n");
-			WRITE(p, "  vec4 basis_v = tess_weights_v.data[weight_idx.y].basis;\n");
+			WRITE(p, "  vec4 basis_u = tess_weights_u[weight_idx.x].basis;\n");
+			WRITE(p, "  vec4 basis_v = tess_weights_v[weight_idx.y].basis;\n");
 			WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
 
 		} else {
@@ -738,8 +742,8 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (hasNormalTess) {
 			if (compat.coefsFromBuffers) {
 				// Derivatives as weight coefficients
-				WRITE(p, "  vec4 deriv_u = tess_weights_u.data[weight_idx.x].deriv;\n");
-				WRITE(p, "  vec4 deriv_v = tess_weights_v.data[weight_idx.y].deriv;\n");
+				WRITE(p, "  vec4 deriv_u = tess_weights_u[weight_idx.x].deriv;\n");
+				WRITE(p, "  vec4 deriv_v = tess_weights_v[weight_idx.y].deriv;\n");
 			} else {
 				// Derivatives as weight coefficients
 				WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", compat.texelFetch, "ivec2(weight_idx.x * 2 + 1, 0)");
@@ -800,7 +804,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		} else {
 			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
 			if (lmode)
-				WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
+				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 		if (enableFog) {
 			WRITE(p, "  %sv_fogdepth = position.w;\n", compat.vsOutPrefix);
@@ -1018,7 +1022,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
 				// v_color1 only exists when lmode = 1.
 				if (specularIsZero) {
-					WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
+					WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 				} else {
 					WRITE(p, "  %sv_color1 = clamp(lightSum1, 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
@@ -1040,7 +1044,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
 			}
 			if (lmode)
-				WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
+				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
 		}
 
 		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
@@ -1057,7 +1061,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 						else
 							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n", compat.vsOutPrefix);
 					} else {
-						WRITE(p, "  %sv_texcoord = vec3(0.0);\n", compat.vsOutPrefix);
+						WRITE(p, "  %sv_texcoord = splat3(0.0);\n", compat.vsOutPrefix);
 					}
 				} else {
 					if (hasTexcoord) {
