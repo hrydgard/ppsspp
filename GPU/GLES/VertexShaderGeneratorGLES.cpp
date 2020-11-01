@@ -139,6 +139,7 @@ const char *hlsl_preamble_vs =
 "#define vec3 float3\n"
 "#define vec4 float4\n"
 "#define ivec2 int2\n"
+"#define ivec4 int4\n"
 "#define mat4 float4x4\n"
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) vec3(x, x, x)\n"
@@ -297,9 +298,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		// Note: These two share some code after this hellishly large if/else.
 		if (compat.shaderLanguage == HLSL_D3D11) {
-			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
-			WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
-			WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
+			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+			WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
+			WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
 		} else {
 			WRITE(p, "#pragma warning( disable : 3571 )\n");
 			if (isModeThrough) {

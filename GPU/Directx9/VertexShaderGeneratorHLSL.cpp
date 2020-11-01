@@ -173,9 +173,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "vec4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
 		}
 	} else {
-		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
-		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
-		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
+		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
 	}
 
 	bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
