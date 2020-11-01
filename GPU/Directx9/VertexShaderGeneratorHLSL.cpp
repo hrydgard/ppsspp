@@ -357,30 +357,52 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	}
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
-	WRITE(p, "  VS_OUT Out;\n");  
+	WRITE(p, "  VS_OUT Out;\n");
+	if (doTexture) {
+		if (texCoordInVec3) {
+			WRITE(p, "  vec3 texcoord = In.texcoord;\n");
+		} else {
+			WRITE(p, "  vec2 texcoord = In.texcoord;\n");
+		}
+	}
+	if (hasColor) {
+		WRITE(p, "  vec4 color0 = In.color0;\n");
+		if (lmode && !useHWTransform) {
+			WRITE(p, "  vec4 color1 = In.color1;\n");
+		}
+	}
+	if (hasNormal) {
+		WRITE(p, "  vec3 normal = In.normal;\n");
+	}
+	if (useHWTransform) {
+		WRITE(p, "  vec3 position = In.position;\n");
+	} else {
+		WRITE(p, "  vec4 position = In.position;\n");
+	}
+
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
 			if (texCoordInVec3) {
-				WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+				WRITE(p, "  Out.v_texcoord = texcoord;\n");
 			} else {
-				WRITE(p, "  Out.v_texcoord = vec3(In.texcoord, 1.0);\n");
+				WRITE(p, "  Out.v_texcoord = vec3(texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
-			WRITE(p, "  Out.v_color0 = In.color0;\n");
+			WRITE(p, "  Out.v_color0 = color0;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = In.color1.rgb;\n");
+				WRITE(p, "  Out.v_color1 = color1.rgb;\n");
 		} else {
-			WRITE(p, "  Out.v_color0 = In.u_matambientalpha;\n");
+			WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			if (lmode)
 				WRITE(p, "  Out.v_color1 = vec3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
+			WRITE(p, "  Out.v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  float4 outPos = mul(u_proj_through, vec4(In.position.xyz, 1.0));\n");
+			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(In.position.xyz, 1.0));\n");
 		} else {
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(In.position.xyz, 1.0)));\n");
@@ -400,14 +422,14 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (hasNormalTess)
 					WRITE(p, "  vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world)).xyz;\n", flipNormalTess ? "-" : "");
 				else
-					WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  vec3 worldpos = mul(vec4(In.position.xyz, 1.0), u_world);\n");
+				WRITE(p, "  vec3 worldpos = mul(vec4(position.xyz, 1.0), u_world).xyz;\n");
 				if (hasNormal)
-					WRITE(p, "  vec3 worldnormal = normalize(mul(vec4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 				else
-					WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
 		} else {
 			static const char * const boneWeightAttr[8] = {
@@ -444,18 +466,18 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix);\n");
-			WRITE(p, "  vec3 worldpos = mul(float4(skinnedpos, 1.0), u_world);\n");
+			WRITE(p, "  vec3 skinnedpos = mul(float4(position.xyz, 1.0), skinMatrix).xyz;\n");
+			WRITE(p, "  vec3 worldpos = mul(float4(skinnedpos, 1.0), u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  vec3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
+				WRITE(p, "  vec3 skinnednormal = mul(float4(%snormal, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
 			} else {
-				WRITE(p, "  vec3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
+				WRITE(p, "  vec3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
 			}
-			WRITE(p, "  vec3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view), 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -466,9 +488,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
+		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "u_matambientalpha";
+		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
+		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
 			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
 			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
@@ -609,7 +631,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (doBezier || doSpline)
 					WRITE(p, "  Out.v_color0 = tess.col;\n");
 				else
-					WRITE(p, "  Out.v_color0 = In.color0;\n");
+					WRITE(p, "  Out.v_color0 = color0;\n");
 			} else {
 				WRITE(p, "  Out.v_color0 = u_matambientalpha;\n");
 			}
@@ -627,13 +649,13 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						if (doBezier || doSpline)
 							WRITE(p, "  Out.v_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  Out.v_texcoord = vec3(In.texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
+							WRITE(p, "  Out.v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = splat3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  Out.v_texcoord = vec3(In.texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n");
 					}
@@ -645,12 +667,12 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(In.position.xyz, 1.0)";
+						temp_tc = "vec4(position.xyz, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							if (hasTexcoord) {
-								temp_tc = StringFromFormat("vec4(In.texcoord.xy, 0.0, 1.0)");
+								temp_tc = StringFromFormat("vec4(texcoord.xy, 0.0, 1.0)");
 							} else {
 								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 							}
@@ -658,13 +680,13 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = flipNormal ? "vec4(normalize(-In.normal), 1.0)" : "vec4(normalize(In.normal), 1.0)";
+							temp_tc = flipNormal ? "vec4(normalize(-normal), 1.0)" : "vec4(normalize(normal), 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc =  flipNormal ? "vec4(-In.normal, 1.0)" : "vec4(In.normal, 1.0)";
+							temp_tc =  flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;

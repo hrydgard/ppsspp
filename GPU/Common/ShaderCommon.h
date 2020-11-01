@@ -160,6 +160,7 @@ struct ShaderLanguageDesc {
 	const char *texelFetch = nullptr;
 	const char *lastFragData = nullptr;
 	const char *framebufferFetchExtension = nullptr;
+	const char *vsOutPrefix = "";
 	bool glslES30 = false;
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;

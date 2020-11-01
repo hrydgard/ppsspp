@@ -103,11 +103,12 @@ const char *vulkan_glsl_preamble_vs =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
-"#define mul(x, y) x * y\n"
+"#define mul(x, y) ((x) * (y))\n"
 "#define splat3(x) vec3(x)\n"
 "#define lowp\n"
 "#define mediump\n"
-"#define highp\n\n";
+"#define highp\n"
+"\n";
 
 const char *hlsl_preamble_vs =
 "#define vec2 float2\n"
@@ -115,7 +116,10 @@ const char *hlsl_preamble_vs =
 "#define vec4 float4\n"
 "#define mat4 float4x4\n"
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
-"#define splat3(x) vec3(x, x, x)\n";
+"#define splat3(x) vec3(x, x, x)\n"
+"#define mediump\n"
+"#define highp\n"
+"\n";
 
 bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
@@ -148,7 +152,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "#define highp\n");
 		}
 		WRITE(p, "#define splat3(x) vec3(x)\n");
-		WRITE(p, "#define mul(x, y) x * y\n");
+		WRITE(p, "#define mul(x, y) ((x) * (y))\n");
 	}
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -206,7 +210,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 
 	int numBoneWeights = 0;
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
-	bool texcoordInVec3 = false;
+	bool texCoordInVec3 = false;
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -233,7 +237,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
-				texcoordInVec3 = true;
+				texCoordInVec3 = true;
 			} else
 				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 		}
@@ -363,7 +367,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "  vec4 position : POSITION;\n");
 			if (doTexture && hasTexcoord) {
 				if (doTextureTransform && !isModeThrough) {
-					texcoordInVec3 = true;
+					texCoordInVec3 = true;
 					WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
 				} else
 					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
@@ -423,7 +427,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (doTexture && hasTexcoord) {
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
-				texcoordInVec3 = true;
+				texCoordInVec3 = true;
 			} else {
 				WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
 			}
@@ -698,12 +702,33 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
+		if (doTexture) {
+			if (texCoordInVec3) {
+				WRITE(p, "  vec3 texcoord = In.texcoord;\n");
+			} else {
+				WRITE(p, "  vec2 texcoord = In.texcoord;\n");
+			}
+		}
+		if (hasColor) {
+			WRITE(p, "  vec4 color0 = In.color0;\n");
+			if (lmode && !useHWTransform) {
+				WRITE(p, "  vec4 color1 = In.color1;\n");
+			}
+		}
+		if (hasNormal) {
+			WRITE(p, "  vec3 normal = In.normal;\n");
+		}
+		if (useHWTransform) {
+			WRITE(p, "  vec3 position = In.position;\n");
+		} else {
+			WRITE(p, "  vec4 position = In.position;\n");
+		}
 	}
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (texcoordInVec3) {
+			if (texCoordInVec3) {
 				WRITE(p, "  v_texcoord = texcoord;\n");
 			} else {
 				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
@@ -726,9 +751,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, vec4(position.xyz, 1.0)));\n");
 			} else {
-				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = mul(u_proj, vec4(position.xyz, 1.0));\n");
 			}
 		}
 	} else {
@@ -793,13 +818,13 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "  mediump vec3 worldnormal = normalize((vec4(skinnednormal, 0.0) * u_world).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4((vec4(worldpos, 1.0) * u_view).xyz, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 		} else {
-			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
+			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -927,32 +952,32 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		if (enableLighting) {
 			// Sum up ambient, emissive here.
 			if (lmode) {
-				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
+				WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
 				// v_color1 only exists when lmode = 1.
 				if (specularIsZero) {
-					WRITE(p, "  v_color1 = vec3(0.0);\n");
+					WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
 				} else {
-					WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
+					WRITE(p, "  %sv_color1 = clamp(lightSum1, 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 			} else {
 				if (specularIsZero) {
-					WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
+					WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
 				} else {
-					WRITE(p, "  v_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
+					WRITE(p, "  %sv_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 			}
 		} else {
 			// Lighting doesn't affect color.
 			if (hasColor) {
 				if (doBezier || doSpline)
-					WRITE(p, "  v_color0 = tess.col;\n");
+					WRITE(p, "  %sv_color0 = tess.col;\n", compat.vsOutPrefix);
 				else
-					WRITE(p, "  v_color0 = color0;\n");
+					WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
 			} else {
-				WRITE(p, "  v_color0 = u_matambientalpha;\n");
+				WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
 			}
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0);\n");
+				WRITE(p, "  %sv_color1 = vec3(0.0);\n", compat.vsOutPrefix);
 		}
 
 		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
@@ -965,17 +990,17 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+							WRITE(p, "  %sv_texcoord = vec3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 						else
-							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
+							WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n", compat.vsOutPrefix);
 					} else {
-						WRITE(p, "  v_texcoord = vec3(0.0);\n");
+						WRITE(p, "  %sv_texcoord = vec3(0.0);\n", compat.vsOutPrefix);
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  %sv_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					} else {
-						WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n", compat.vsOutPrefix);
 					}
 				}
 				break;
@@ -1011,7 +1036,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  v_texcoord = (%s * u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  %sv_texcoord = (%s * u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", compat.vsOutPrefix, temp_tc.c_str());
 				}
 				break;
 
@@ -1019,7 +1044,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				{
 					std::string lightFactor0 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls0, ls0);
 					std::string lightFactor1 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls1, ls1);
-					WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
+					WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", compat.vsOutPrefix, lightFactor0.c_str(), lightFactor1.c_str());
 				}
 				break;
 
@@ -1031,7 +1056,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 
 		// Compute fogdepth
 		if (enableFog)
-			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
 	if (!isModeThrough && gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING)) {
@@ -1045,11 +1070,15 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 	}
-	WRITE(p, "  gl_Position = outPos;\n");
-	if (compat.shaderLanguage == GLSL_VULKAN) {
-		WRITE(p, "  gl_PointSize = 1.0;\n");
-	}
 
+	// We've named the output gl_Position in HLSL as well.
+	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
+	if (compat.shaderLanguage == GLSL_VULKAN) {
+		WRITE(p, " gl_PointSize = 1.0;\n");
+	}
+	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+		WRITE(p, "  return Out;\n");
+	}
 	WRITE(p, "}\n");
 	return true;
 }
