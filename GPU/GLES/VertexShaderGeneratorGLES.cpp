@@ -728,7 +728,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
-		if (doTexture) {
+		if (doTexture && hasTexcoord) {
 			if (texCoordInVec3) {
 				WRITE(p, "  vec3 texcoord = In.texcoord;\n");
 			} else {
@@ -890,7 +890,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			}
 
 			if (!specularIsZero) {
-				WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
+				WRITE(p, "  lowp vec3 lightSum1 = splat3(0.0);\n");
 			}
 			if (!diffuseIsZero) {
 				WRITE(p, "  vec3 toLight;\n");
@@ -1065,7 +1065,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  %sv_texcoord = (%s * u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", compat.vsOutPrefix, temp_tc.c_str());
+					WRITE(p, "  %sv_texcoord = mul(%s, u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", compat.vsOutPrefix, temp_tc.c_str());
 				}
 				break;
 

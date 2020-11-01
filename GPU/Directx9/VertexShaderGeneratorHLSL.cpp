@@ -345,7 +345,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
 	WRITE(p, "  VS_OUT Out;\n");
-	if (doTexture) {
+	if (doTexture && hasTexcoord) {
 		if (texCoordInVec3) {
 			WRITE(p, "  vec3 texcoord = In.texcoord;\n");
 		} else {
@@ -490,19 +490,19 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 
 			if (!specularIsZero) {
-				WRITE(p, "  vec3 lightSum1 = 0;\n");
+				WRITE(p, "  lowp vec3 lightSum1 = splat3(0.0);\n");
 			}
 			if (!diffuseIsZero) {
 				WRITE(p, "  vec3 toLight;\n");
-				WRITE(p, "  vec3 diffuse;\n");
+				WRITE(p, "  lowp vec3 diffuse;\n");
 			}
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
-				WRITE(p, "  float lightScale;\n");
+				WRITE(p, "  lowp float lightScale;\n");
 			}
-			WRITE(p, "  float ldot;\n");
+			WRITE(p, "  mediump float ldot;\n");
 			if (anySpots) {
-				WRITE(p, "  float angle;\n");
+				WRITE(p, "  lowp float angle;\n");
 			}
 		}
 
@@ -656,13 +656,13 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 						break;
 					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc =  flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
+							temp_tc = flipNormal ? "vec4(-normal, 1.0)" : "vec4(normal, 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_texmtx) * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  Out.v_texcoord = mul(%s, u_texmtx).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				break;
 
