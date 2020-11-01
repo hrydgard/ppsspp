@@ -492,9 +492,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
 	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
@@ -535,7 +532,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
-	
+
+	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -546,10 +546,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
-	} else
+	} else {
 		LoadTextureLevel(*entry, replaced, 0, scaleFactor, dstFmt);
+	}
 
-	// Mipmapping only enable when texture scaling disable
+	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
 	bool genMips = false;
 	if (maxLevel > 0 && scaleFactor == 1) {

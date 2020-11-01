@@ -55,7 +55,7 @@ struct VirtualFramebuffer {
 	int fb_stride;
 	int z_stride;
 
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
+	GEBufferFormat format;  // virtual, in reality they are all RGBA8888 for better quality but we can reinterpret that as necessary
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;

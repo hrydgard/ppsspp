@@ -471,11 +471,16 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	// No texture found, or changed (depending on entry).
 	// Check for framebuffers.
 
-	TextureDefinition def{};
+	TextureDefinition def;
 	def.addr = texaddr;
 	def.dim = dim;
 	def.format = format;
 	def.bufw = bufw;
+	def.swizzled = gstate.isTextureSwizzled();
+
+	if (texaddr == 0x40cc000) {
+		texaddr = texaddr;
+	}
 
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, 0);
 	if (candidates.size() > 0) {
@@ -851,9 +856,11 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
 		if (entry.format != (GETextureFormat)framebuffer->format) {
 			WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
-		} else {
 			return FramebufferMatchInfo{ FramebufferMatch::VALID };
+		} else {
+			// TODO: Here we should either change the format of the framebuffer, reinterpreting it,
+			// or read from it while reinterpreting it. Not sure which is generally best.
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 	} else {
 		// Apply to buffered mode only.
@@ -1007,6 +1014,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.format = fmt;
 	def.bufw = GetTextureBufw(0, texaddr, fmt);
 	def.dim = gstate.getTextureDimension(0);
+	def.swizzled = gstate.isTextureSwizzled();
 
 	std::vector<AttachCandidate> candidates = GetFramebufferCandidates(def, texaddrOffset);
 	if (candidates.size() > 0) {

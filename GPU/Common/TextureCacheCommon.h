@@ -98,6 +98,7 @@ struct TextureDefinition {
 	GETextureFormat format;
 	u32 dim;
 	u32 bufw;
+	bool swizzled;
 };
 
 

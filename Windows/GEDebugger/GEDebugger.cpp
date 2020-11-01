@@ -285,7 +285,7 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[25
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
-		_snwprintf(desc, 256, L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), state.FrameBufFormat());
+		_snwprintf(desc, 256, L"Color: 0x%08x (%dx%d) fmt %s", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), GeBufferFormatToString(state.FrameBufFormat()));
 		break;
 
 	case PRIMARY_DEPTHBUF:
