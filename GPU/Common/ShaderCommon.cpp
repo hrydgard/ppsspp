@@ -171,6 +171,7 @@ ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 		texelFetch = "texelFetch";
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
+		vsOutPrefix = "Out.";
 		break;
 	}
 }

@@ -157,6 +157,7 @@ struct ShaderLanguageDesc {
 	const char *texelFetch = nullptr;
 	const char *lastFragData = nullptr;
 	const char *framebufferFetchExtension = nullptr;
+	const char *vsOutPrefix = "";
 	bool glslES30 = false;
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;
@@ -174,4 +175,17 @@ enum class PspAttributeLocation {
 	COLOR1 = 6,
 
 	COUNT
+};
+
+// Pre-fetched attrs and uniforms (used by GL only).
+enum {
+	ATTR_POSITION = 0,
+	ATTR_TEXCOORD = 1,
+	ATTR_NORMAL = 2,
+	ATTR_W1 = 3,
+	ATTR_W2 = 4,
+	ATTR_COLOR0 = 5,
+	ATTR_COLOR1 = 6,
+
+	ATTR_COUNT,
 };

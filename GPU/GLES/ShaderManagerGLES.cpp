@@ -721,7 +721,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	std::string errorString;
-	if (!GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &errorString)) {
+	if (!GenerateVertexShader(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &errorString)) {
 		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}

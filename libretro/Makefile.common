@@ -249,6 +249,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Record.cpp \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
+	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
@@ -269,7 +270,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
 	$(GPUDIR)/GLES/DepalettizeShaderGLES.cpp \
 	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
-	$(GPUDIR)/GLES/VertexShaderGeneratorGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \
 	$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \

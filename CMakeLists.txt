@@ -1250,8 +1250,6 @@ set(GPU_GLES
 	GPU/GLES/TextureScalerGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
 	GPU/GLES/DrawEngineGLES.h
-	GPU/GLES/VertexShaderGeneratorGLES.cpp
-	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_VULKAN
@@ -1299,7 +1297,7 @@ set(GPU_D3D9
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
 	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
-	GPU/Directx9/VertexShaderGeneratorHLSL.h
+	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_D3D11
@@ -1340,6 +1338,8 @@ set(GPU_SOURCES
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FragmentShaderGenerator.cpp
 	GPU/Common/FragmentShaderGenerator.h
+	GPU/Common/VertexShaderGenerator.cpp
+	GPU/Common/VertexShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp

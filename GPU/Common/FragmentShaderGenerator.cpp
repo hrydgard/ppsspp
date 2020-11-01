@@ -51,6 +51,9 @@ const char *hlsl_preamble_fs =
 "#define vec4 float4\n"
 "#define uvec3 uint3\n"
 "#define ivec3 int3\n"
+"#define ivec4 int4\n"
+"#define mat4 float4x4\n"
+"#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) float3(x, x, x)\n"
 "#define mix lerp\n"
 "#define mod(x, y) fmod(x, y)\n";
@@ -246,7 +249,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					WRITE(p, "Texture2D<vec4> fboTex : register(t1);\n");
 				}
 			}
-			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
+			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 		}
 
 		if (enableAlphaTest) {

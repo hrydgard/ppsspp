@@ -17,11 +17,13 @@
 
 #pragma once
 
-#include <string>
-#include "GPU/Common/ShaderID.h"
+#include "Common/CommonTypes.h"
 
-bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang, std::string *errorString);
+struct VShaderID;
 
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
+
+// D3D9 constants.
 enum {
 	CONST_VS_PROJ = 0,
 	CONST_VS_PROJ_THROUGH = 4,

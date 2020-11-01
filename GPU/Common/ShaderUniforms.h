@@ -72,34 +72,6 @@ R"(  mat4 u_proj;
   vec2 u_texclampoff;
 )";
 
-// HLSL code is shared so these names are changed to match those in DX9.
-static const char *cb_baseStr =
-R"(  float4x4 u_proj;
-  float4x4 u_proj_through;
-  float4x3 u_view;
-  float4x3 u_world;
-  float4x3 u_texmtx;
-  float4 u_uvscaleoffset;
-  float4 u_depthRange;
-  float2 u_fogcoef;
-  float u_stencilReplaceValue;
-  float4 u_matambientalpha;
-  uint u_spline_counts;
-  uint u_depal_mask_shift_off_fmt;
-  int pad2;
-  int pad3;
-  float4 u_cullRangeMin;
-  float4 u_cullRangeMax;
-  float3 u_fogcolor;
-  float3 u_texenv;
-  uint4 u_alphacolorref;
-  uint4 u_alphacolormask;
-  float3 u_blendFixA;
-  float3 u_blendFixB;
-  float4 u_texclamp;
-  float2 u_texclampoff;
-)";
-
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
 // them to float unnecessarily, could just as well expand in the shader.
 struct UB_VS_Lights {
@@ -151,42 +123,6 @@ R"(	vec4 u_ambient;
 	vec3 u_lightspecular3;
 )";
 
-// HLSL code is shared so these names are changed to match those in DX9.
-static const char *cb_vs_lightsStr =
-R"(	float4 u_ambient;
-	float3 u_matdiffuse;
-	float4 u_matspecular;
-	float3 u_matemissive;
-	float3 u_lightpos0;
-	float3 u_lightpos1;
-	float3 u_lightpos2;
-	float3 u_lightpos3;
-	float3 u_lightdir0;
-	float3 u_lightdir1;
-	float3 u_lightdir2;
-	float3 u_lightdir3;
-	float3 u_lightatt0;
-	float3 u_lightatt1;
-	float3 u_lightatt2;
-	float3 u_lightatt3;
-	float4 u_lightangle_spotCoef0;
-	float4 u_lightangle_spotCoef1;
-	float4 u_lightangle_spotCoef2;
-	float4 u_lightangle_spotCoef3;
-	float3 u_lightambient0;
-	float3 u_lightambient1;
-	float3 u_lightambient2;
-	float3 u_lightambient3;
-	float3 u_lightdiffuse0;
-	float3 u_lightdiffuse1;
-	float3 u_lightdiffuse2;
-	float3 u_lightdiffuse3;
-	float3 u_lightspecular0;
-	float3 u_lightspecular1;
-	float3 u_lightspecular2;
-	float3 u_lightspecular3;
-)";
-
 // With some cleverness, we could get away with uploading just half this when only the four or five first
 // bones are being used. This is 384b.
 struct UB_VS_Bones {
@@ -195,10 +131,6 @@ struct UB_VS_Bones {
 
 static const char *ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
-)";
-
-static const char *cb_vs_bonesStr =
-R"(	float4x3 u_bone[8];
 )";
 
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);

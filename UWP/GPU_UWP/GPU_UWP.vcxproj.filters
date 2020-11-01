@@ -41,7 +41,6 @@
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
-    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorHLSL.cpp" />
     <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />
@@ -57,6 +56,7 @@
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -96,7 +96,6 @@
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
     <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
-    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorHLSL.h" />
     <ClInclude Include="..\..\GPU\GeDisasm.h" />
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
@@ -114,5 +113,6 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
   </ItemGroup>
 </Project>
