@@ -1134,7 +1134,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
 		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
-		WRITE(p, "      outPos.xyzw = vec4(u_cullRangeMax.w);\n");
+		WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 	}
