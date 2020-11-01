@@ -96,7 +96,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		break;
 	default:
 		// OpenGL
-		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.glslES30 ? " es" : "");
+		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles && compat.glslES30 ? " es" : "");
 		WRITE(p, "#define DISCARD discard\n");
 
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
