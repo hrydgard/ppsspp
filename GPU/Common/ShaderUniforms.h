@@ -92,7 +92,7 @@ R"(  float4x4 u_proj;
   float4 u_cullRangeMax;
   float3 u_fogcolor;
   float3 u_texenv;
-  uint4 u_alphacolorref;
+  int4 u_alphacolorref;
   uint4 u_alphacolormask;
   float3 u_blendFixA;
   float3 u_blendFixB;
@@ -198,7 +198,7 @@ R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bon
 )";
 
 static const char *cb_vs_bonesStr =
-R"(	float4x3 u_bone[8];
+R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);

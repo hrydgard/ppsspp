@@ -31,17 +31,8 @@
 
 #define WRITE p+=sprintf
 
-static const char * const boneWeightAttrDecl[9] = {	
-	"#ERROR#",
-	"float  a_w1:TEXCOORD1;\n",
-	"vec2 a_w1:TEXCOORD1;\n",
-	"vec3 a_w1:TEXCOORD1;\n",
-	"vec4 a_w1:TEXCOORD1;\n",
-	"vec4 a_w1:TEXCOORD1;\n  float  a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec2 a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec3 a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec4 a_w2:TEXCOORD2;\n",
-};
+extern const char *boneWeightAttrDeclHLSL[9];
+extern const char *boneWeightAttrInitHLSL[9];
 
 extern const char *hlsl_preamble_vs;
 
@@ -108,9 +99,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (lang == HLSL_D3D9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
 		if (isModeThrough) {
-			WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
+			WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
 		} else {
-			WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
+			WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
 			// Add all the uniforms we'll need to transform properly.
 		}
 
@@ -127,13 +118,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (doTextureTransform)
 				WRITE(p, "mat3x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
 			if (enableBones) {
-#ifdef USE_BONE_ARRAY
-				WRITE(p, "mat3x4 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
-#else
 				for (int i = 0; i < numBoneWeights; i++) {
 					WRITE(p, "mat3x4 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
 				}
-#endif
 			}
 			if (doTexture) {
 				WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
@@ -195,7 +182,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  uint instanceId : SV_InstanceID;\n");
 		}
 		if (enableBones) {
-			WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
+			WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 		}
 		if (doTexture && hasTexcoord) {
 			WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
@@ -284,7 +271,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
-			WRITE(p, "float%d tess_sample(in float%d points[16], float4x4 weights) {\n", i, i);
+			WRITE(p, "float%d tess_sample(in float%d points[16], mat4 weights) {\n", i, i);
 			WRITE(p, "  float%d pos = float%d(%s);\n", i, i, init[i - 2]);
 			for (int v = 0; v < 4; ++v) {
 				for (int u = 0; u < 4; ++u) {
@@ -295,7 +282,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "}\n");
 		}
 
-		WRITE(p, "float4x4 outerProduct(vec4 u, vec4 v) {\n");
+		WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
 		WRITE(p, "  return mul((float4x1)v, (float1x4)u);\n");
 		WRITE(p, "}\n");
 
@@ -330,7 +317,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		// Basis polynomials as weight coefficients
 		WRITE(p, "  vec4 basis_u = tess_weights_u[weight_idx.x].basis;\n");
 		WRITE(p, "  vec4 basis_v = tess_weights_v[weight_idx.y].basis;\n");
-		WRITE(p, "  float4x4 basis = outerProduct(basis_u, basis_v);\n");
+		WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
 		WRITE(p, "  tess.pos = tess_sample(_pos, basis);\n");
@@ -379,6 +366,9 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	} else {
 		WRITE(p, "  vec4 position = In.position;\n");
 	}
+	if (enableBones) {
+		WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
+	}
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
@@ -425,7 +415,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  vec3 worldpos = mul(vec4(position.xyz, 1.0), u_world).xyz;\n");
+				WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
 				if (hasNormal)
 					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 				else
@@ -433,48 +423,28 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 		} else {
 			static const char * const boneWeightAttr[8] = {
-				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
-				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
+				"w1.x", "w1.y", "w1.z", "w1.w",
+				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			if (lang == HLSL_D3D11) {
-				if (numBoneWeights == 1)
-					WRITE(p, "  mat3x4 skinMatrix = mul(In.a_w1, u_bone[0])");
-				else
-					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone[0])");
-				for (int i = 1; i < numBoneWeights; i++) {
-					const char *weightAttr = boneWeightAttr[i];
-					// workaround for "cant do .x of scalar" issue
-					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
-					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
-					WRITE(p, " + mul(In.%s, u_bone[%i])", weightAttr, i);
-				}
-			} else {
-				if (numBoneWeights == 1)
-					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone0)");
-				else
-					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone0)");
-				for (int i = 1; i < numBoneWeights; i++) {
-					const char *weightAttr = boneWeightAttr[i];
-					// workaround for "cant do .x of scalar" issue
-					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
-					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
-					WRITE(p, " + mul(In.%s, u_bone%i)", weightAttr, i);
-				}
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * u_bone0");
+			for (int i = 1; i < numBoneWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				WRITE(p, " + %s * u_bone%d", weightAttr, i);
 			}
 
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = mul(float4(position.xyz, 1.0), skinMatrix).xyz;\n");
-			WRITE(p, "  vec3 worldpos = mul(float4(skinnedpos, 1.0), u_world).xyz;\n");
+			WRITE(p, "  vec3 skinnedpos = mul(vec4(position, 1.0), skinMatrix).xyz;\n");
+			WRITE(p, "  vec3 worldpos = mul(vec4(skinnedpos, 1.0), u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  vec3 skinnednormal = mul(float4(%snormal, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
 			} else {
-				WRITE(p, "  vec3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
@@ -503,7 +473,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		bool distanceNeeded = false;
 		bool anySpots = false;
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = u_ambient * %s + float4(u_matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -622,7 +592,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (specularIsZero) {
 					WRITE(p, "  Out.v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 				} else {
-					WRITE(p, "  Out.v_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + float4(lightSum1, 0.0), 0.0, 1.0);\n");
+					WRITE(p, "  Out.v_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
 				}
 			}
 		} else {
@@ -667,7 +637,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(position.xyz, 1.0)";
+						temp_tc = "vec4(position, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{

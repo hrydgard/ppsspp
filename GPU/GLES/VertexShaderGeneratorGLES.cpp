@@ -58,6 +58,30 @@ static const char * const boneWeightInDecl[9] = {
 	"in mediump vec4 w1, w2;\n",
 };
 
+const char *boneWeightAttrDeclHLSL[9] = {
+	"#ERROR boneWeightAttrDecl#\n",
+	"float  a_w1:TEXCOORD1;\n",
+	"vec2 a_w1:TEXCOORD1;\n",
+	"vec3 a_w1:TEXCOORD1;\n",
+	"vec4 a_w1:TEXCOORD1;\n",
+	"vec4 a_w1:TEXCOORD1;\n  float a_w2:TEXCOORD2;\n",
+	"vec4 a_w1:TEXCOORD1;\n  vec2 a_w2:TEXCOORD2;\n",
+	"vec4 a_w1:TEXCOORD1;\n  vec3 a_w2:TEXCOORD2;\n",
+	"vec4 a_w1:TEXCOORD1;\n  vec4 a_w2:TEXCOORD2;\n",
+};
+
+const char *boneWeightAttrInitHLSL[9] = {
+	"  #ERROR#\n",
+	"  vec4 w1 = vec4(In.a_w1, 0.0, 0.0, 0.0);\n",
+	"  vec4 w1 = vec4(In.a_w1.xy, 0.0, 0.0);\n",
+	"  vec4 w1 = vec4(In.a_w1.xyz, 0.0);\n",
+	"  vec4 w1 = In.a_w1;\n",
+	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2, 0.0, 0.0, 0.0);\n",
+	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2.xy, 0.0, 0.0);\n",
+	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2.xyz, 0.0);\n",
+	"  vec4 w1 = In.a_w1;\n  vec4 w2 = In.a_w2;\n",
+};
+
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -117,6 +141,7 @@ const char *hlsl_preamble_vs =
 "#define mat4 float4x4\n"
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) vec3(x, x, x)\n"
+"#define lowp\n"
 "#define mediump\n"
 "#define highp\n"
 "\n";
@@ -210,6 +235,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 
 	int numBoneWeights = 0;
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	if (enableBones) {
+		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+	}
 	bool texCoordInVec3 = false;
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
@@ -221,7 +249,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s};\n", ub_vs_bonesStr);
 
 		if (enableBones) {
-			numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
 		}
 
@@ -349,7 +376,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				WRITE(p, "  uint instanceId : SV_InstanceID;\n");
 			}
 			if (enableBones) {
-				WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
+				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
 			if (doTexture && hasTexcoord) {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
@@ -402,7 +429,6 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		WRITE(p, "};\n");
 	} else {
 		if (enableBones) {
-			numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 			const char * const * boneWeightDecl = boneWeightAttrDecl;
 			if (!strcmp(compat.attribute, "in")) {
 				boneWeightDecl = boneWeightInDecl;
@@ -723,6 +749,9 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 		} else {
 			WRITE(p, "  vec4 position = In.position;\n");
 		}
+		if (enableBones) {
+			WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
+		}
 	}
 
 	if (!useHWTransform) {
@@ -772,7 +801,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 				}
 			} else {
 				// No skinning, just standard T&L.
-				WRITE(p, "  vec3 worldpos = mul(vec4(position.xyz, 1.0), u_world).xyz;\n");
+				WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
 				if (hasNormal)
 					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 				else
@@ -807,15 +836,15 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 
 			WRITE(p, ";\n");
 
-			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (vec4(skinnedpos, 1.0) * u_world).xyz;\n");
+			WRITE(p, "  vec3 skinnedpos = mul(vec4(position, 1.0), skinMatrix).xyz%s;\n", factor);
+			WRITE(p, "  vec3 worldpos = mul(vec4(skinnedpos, 1.0), u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = (vec4(%snormal, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
 			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = (vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((vec4(skinnednormal, 0.0) * u_world).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
@@ -1010,7 +1039,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 					std::string temp_tc;
 					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
-						temp_tc = "vec4(position.xyz, 1.0)";
+						temp_tc = "vec4(position, 1.0)";
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{

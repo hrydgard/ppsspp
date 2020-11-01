@@ -191,6 +191,9 @@ bool TestShaderGenerators() {
 		id.d[0] = bottom;
 		id.d[1] = top;
 
+		// We don't use these bits in the HLSL shader generator.
+		id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, 0);
+
 		bool generateSuccess[numLanguages]{};
 		std::string genErrorString[numLanguages];
 
