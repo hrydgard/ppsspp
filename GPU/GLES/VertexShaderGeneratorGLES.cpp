@@ -138,6 +138,7 @@ const char *hlsl_preamble_vs =
 "#define vec2 float2\n"
 "#define vec3 float3\n"
 "#define vec4 float4\n"
+"#define int2 ivec2\n"
 "#define mat4 float4x4\n"
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) vec3(x, x, x)\n"
@@ -207,10 +208,12 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 	// Apparently we don't support bezier/spline together with bones.
 	bool doBezier = id.Bit(VS_BIT_BEZIER) && !enableBones && useHWTransform;
 	bool doSpline = id.Bit(VS_BIT_SPLINE) && !enableBones && useHWTransform;
-	if ((doBezier || doSpline) && !hasNormal) {
-		// Bad usage.
-		*errorString = "Invalid flags - tess requires normal.";
-		return false;
+	if (doBezier || doSpline) {
+		if (!hasNormal) {
+			// Bad usage.
+			*errorString = "Invalid flags - tess requires normal.";
+			return false;
+		}
 	}
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
@@ -611,18 +614,35 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "layout (std430, set = 0, binding = 8) readonly buffer s_tess_weights_v {\n");
 			WRITE(p, "  TessWeight data[];\n");
 			WRITE(p, "} tess_weights_v;\n");
-		} else {
+		} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 			WRITE(p, "uniform sampler2D u_tess_points;\n"); // Control Points
 			WRITE(p, "uniform sampler2D u_tess_weights_u;\n");
 			WRITE(p, "uniform sampler2D u_tess_weights_v;\n");
 
 			WRITE(p, "uniform int u_spline_counts;\n");
+		} else if (compat.shaderLanguage == HLSL_D3D11) {
+			WRITE(p, "struct TessData {\n");
+			WRITE(p, "  vec3 pos; float pad1;\n");
+			WRITE(p, "  vec2 tex; vec2 pad2;\n");
+			WRITE(p, "  vec4 col;\n");
+			WRITE(p, "};\n");
+			WRITE(p, "StructuredBuffer<TessData> tess_data : register(t0);\n");
+
+			WRITE(p, "struct TessWeight {\n");
+			WRITE(p, "  vec4 basis;\n");
+			WRITE(p, "  vec4 deriv;\n");
+			WRITE(p, "};\n");
+			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_u : register(t1);\n");
+			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_v : register(t2);\n");
+		} else if (compat.shaderLanguage == HLSL_D3D9) {
+
 		}
 
+		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
 			WRITE(p, "vec%d tess_sample(in vec%d points[16], mat4 weights) {\n", i, i);
-			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
+			WRITE(p, "  vec%d pos = vec%d(%s);\n", i, i, init[i - 2]);
 			for (int v = 0; v < 4; ++v) {
 				for (int u = 0; u < 4; ++u) {
 					WRITE(p, "  pos += weights[%i][%i] * points[%i];\n", v, u, v * 4 + u);
@@ -632,9 +652,13 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "}\n");
 		}
 
-		if (compat.glslVersionNumber < 130) { // For glsl version 1.10
+		if (ShaderLanguageIsOpenGL(compat.shaderLanguage) && compat.glslVersionNumber < 130) { // For glsl version 1.10
 			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
 			WRITE(p, "  return mat4(u * v[0], u * v[1], u * v[2], u * v[3]);\n");
+			WRITE(p, "}\n");
+		} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
+			WRITE(p, "  return mul((float4x1)v, (float1x4)u);\n");
 			WRITE(p, "}\n");
 		}
 
@@ -647,7 +671,13 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			WRITE(p, "  vec3 nrm;\n");
 		WRITE(p, "};\n");
 
-		WRITE(p, "void tessellate(out Tess tess) {\n");
+		if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+			WRITE(p, "void tessellate(in VS_IN In, out Tess tess) {\n");
+			WRITE(p, "  vec3 position = In.position;\n");
+			WRITE(p, "  vec3 normal = In.normal;\n");
+		} else {
+			WRITE(p, "void tessellate(out Tess tess) {\n");
+		}
 		WRITE(p, "  ivec2 point_pos = ivec2(position.z, normal.z)%s;\n", doBezier ? " * 3" : "");
 		WRITE(p, "  ivec2 weight_idx = ivec2(position.xy);\n");
 
@@ -791,7 +821,11 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			if (doBezier || doSpline) {
 				// Hardware tessellation
 				WRITE(p, "  Tess tess;\n");
-				WRITE(p, "  tessellate(tess);\n");
+				if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+					WRITE(p, "  tessellate(In, tess);\n");
+				} else {
+					WRITE(p, "  tessellate(tess);\n");
+				}
 
 				WRITE(p, "  vec3 worldpos = mul(vec4(tess.pos.xyz, 1.0), u_world).xyz;\n");
 				if (hasNormalTess) {

@@ -271,8 +271,8 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
-			WRITE(p, "float%d tess_sample(in float%d points[16], mat4 weights) {\n", i, i);
-			WRITE(p, "  float%d pos = float%d(%s);\n", i, i, init[i - 2]);
+			WRITE(p, "vec%d tess_sample(in vec%d points[16], mat4 weights) {\n", i, i);
+			WRITE(p, "  vec%d pos = vec%d(%s);\n", i, i, init[i - 2]);
 			for (int v = 0; v < 4; ++v) {
 				for (int u = 0; u < 4; ++u) {
 					WRITE(p, "  pos += weights[%i][%i] * points[%i];\n", v, u, v * 4 + u);
@@ -296,8 +296,10 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(in VS_IN In, out Tess tess) {\n");
-		WRITE(p, "  int2 point_pos = int2(In.position.z, In.normal.z)%s;\n", doBezier ? " * 3" : "");
-		WRITE(p, "  int2 weight_idx = int2(In.position.xy);\n");
+		WRITE(p, "  vec3 position = In.position;\n");
+		WRITE(p, "  vec3 normal = In.normal;\n");
+		WRITE(p, "  ivec2 point_pos = ivec2(position.z, normal.z)%s;\n", doBezier ? " * 3" : "");
+		WRITE(p, "  ivec2 weight_idx = ivec2(position.xy);\n");
 		// Load 4x4 control points
 		WRITE(p, "  vec3 _pos[16];\n");
 		WRITE(p, "  vec2 _tex[16];\n");
@@ -305,7 +307,7 @@ bool GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "  int index;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + point_pos.y) * u_spline_counts + (%i + point_pos.x);\n", i, j);
+				WRITE(p, "  index = (%i + point_pos.y) * int(u_spline_counts) + (%i + point_pos.x);\n", i, j);
 				WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
 				if (doTexture && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);
