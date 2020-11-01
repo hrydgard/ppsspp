@@ -23,12 +23,12 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM)) {
+	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
+	if (uvgMode == GE_TEXMAP_TEXTURE_MATRIX) {
 		int uvprojMode = id.Bits(VS_BIT_UVPROJ_MODE, 2);
 		const char *uvprojModes[4] = { "TexProjPos ", "TexProjUV ", "TexProjNNrm ", "TexProjNrm " };
 		desc << uvprojModes[uvprojMode];
 	}
-	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -63,7 +63,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
@@ -85,7 +84,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
-		id.SetBit(VS_BIT_DO_TEXTURE_TRANSFORM, doTextureTransform);
 	}
 
 	if (useHWTransform) {
@@ -96,7 +94,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
-		if (doTextureTransform) {
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
 			id.SetBits(VS_BIT_UVPROJ_MODE, 2, gstate.getUVProjMode());
 		} else if (doShadeMapping) {
 			id.SetBits(VS_BIT_LS0, 2, gstate.getUVLS0());
