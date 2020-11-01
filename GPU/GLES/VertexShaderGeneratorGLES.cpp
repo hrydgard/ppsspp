@@ -122,7 +122,7 @@ bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLan
 			highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 			highpTexcoord = highpFog;
 		}
-		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles ? " es" : "");
+		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.glslES30 ? " es" : "");
 		WRITE(p, "#define splat3(x) vec3(x)\n");
 	}
 
