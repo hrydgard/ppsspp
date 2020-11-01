@@ -34,8 +34,8 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
 #include "GPU/D3D11/D3D11Util.h"
 
 D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, FShaderID id, const char *code, bool useHWTransform)
@@ -210,7 +210,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
+		GenerateVertexShader(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
 		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {

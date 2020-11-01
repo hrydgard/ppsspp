@@ -582,7 +582,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		if (GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString)) {
+		if (GenerateVertexShader(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
@@ -607,7 +607,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// Can still work with software transform.
 			uint32_t attrMask;
 			uint64_t uniformMask;
-			bool success = GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
+			bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}

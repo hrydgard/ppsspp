@@ -21,7 +21,7 @@
 
 struct VShaderID;
 
-bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
 
 // D3D9 constants.
 enum {

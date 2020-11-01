@@ -27,8 +27,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 
 #undef WRITE
 
@@ -148,7 +147,7 @@ const char *hlsl_preamble_vs =
 "#define highp\n"
 "\n";
 
-bool GenerateVertexShaderGLSL(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
 

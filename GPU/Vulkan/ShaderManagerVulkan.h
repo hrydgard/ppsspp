@@ -24,7 +24,7 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "Common/Math/lin/matrix4x4.h"

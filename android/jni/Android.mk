@@ -326,6 +326,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
+  $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/Playback.cpp \
@@ -333,14 +334,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp.arm \
+  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
-  $(SRC)/GPU/GLES/StencilBufferGLES.cpp.arm \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
   $(SRC)/GPU/GLES/StateMappingGLES.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
-  $(SRC)/GPU/GLES/VertexShaderGeneratorGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \

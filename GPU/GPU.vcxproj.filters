@@ -189,9 +189,6 @@
     <ClInclude Include="GLES\DepalettizeShaderGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\VertexShaderGeneratorGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\FramebufferManagerGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -268,6 +265,9 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\FragmentShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VertexShaderGenerator.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -443,9 +443,6 @@
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\VertexShaderGeneratorGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
@@ -537,6 +534,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\FragmentShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexShaderGenerator.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

@@ -23,23 +23,10 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 
 class Shader;
-
-// Pre-fetched attrs and uniforms
-enum {
-	ATTR_POSITION = 0,
-	ATTR_TEXCOORD = 1,
-	ATTR_NORMAL = 2,
-	ATTR_W1 = 3,
-	ATTR_W2 = 4,
-	ATTR_COLOR0 = 5,
-	ATTR_COLOR1 = 6,
-
-	ATTR_COUNT,
-};
 
 class LinkedShader {
 public:

@@ -21,7 +21,7 @@
 #include <cstdint>
 
 #include "Common/Common.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"

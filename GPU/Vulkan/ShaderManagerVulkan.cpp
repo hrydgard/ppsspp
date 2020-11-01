@@ -36,11 +36,11 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
+#include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Common/FragmentShaderGenerator.h"
-#include "GPU/GLES/VertexShaderGeneratorGLES.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
@@ -265,7 +265,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
 		uint32_t attributeMask = 0;  // Not used
-		bool success = GenerateVertexShaderGLSL(VSID, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString);
+		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString);
 		_assert_(success);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
@@ -398,7 +398,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		std::string genErrorString;
 		uint32_t attributeMask = 0;
 		uint64_t uniformMask = 0;
-		if (!GenerateVertexShaderGLSL(id, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString)) {
+		if (!GenerateVertexShader(id, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
