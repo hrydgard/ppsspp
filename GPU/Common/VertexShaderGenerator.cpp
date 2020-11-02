@@ -26,12 +26,13 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/ShaderWriter.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 
 #undef WRITE
 
-#define WRITE p+=sprintf
+#define WRITE(p, ...) p.W(__VA_ARGS__)
 
 static const char * const boneWeightAttrDecl[9] = {
 	"#ERROR#",
@@ -132,32 +133,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
-	char *p = buffer;
-	if (compat.shaderLanguage == GLSL_VULKAN) {
-		WRITE(p, "%s", vulkan_glsl_preamble_vs);
-	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "%s", hlsl_preamble_vs);
-	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-		if (compat.gles) {
-			// PowerVR needs highp to do the fog in MHU correctly.
-			// Others don't, and some can't handle highp in the fragment shader.
-			highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-			highpTexcoord = highpFog;
-		}
-		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles && compat.glslES30 ? " es" : "");
+	std::vector<const char*> gl_exts;
+	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
-		if (compat.gles) {
-			WRITE(p, "precision highp float;\n");
-		} else {
-			WRITE(p, "#define lowp\n");
-			WRITE(p, "#define mediump\n");
-			WRITE(p, "#define highp\n");
-		}
-		WRITE(p, "#define splat3(x) vec3(x)\n");
-		WRITE(p, "#define mul(x, y) ((x) * (y))\n");
 	}
+	ShaderWriter p(buffer, compat, ShaderStage::Vertex, gl_exts.data(), gl_exts.size());
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);

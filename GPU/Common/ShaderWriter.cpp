@@ -103,6 +103,11 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 				W("precision lowp float;\n");
 			}
 			break;
+		case ShaderStage::Vertex:
+			if (lang_.gles) {
+				W("precision highp float;\n");
+			}
+			break;
 		}
 		for (size_t i = 0; i < num_gl_extensions; i++) {
 			W("%s\n", gl_extensions[i]);
@@ -113,6 +118,7 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 			W("#define highp\n");
 		}
 		W("#define splat3(x) vec3(x)\n");
+		W("#define mul(x, y) ((x) * (y))\n");
 		break;
 	}
 }
