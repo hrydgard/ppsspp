@@ -31,7 +31,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
-#define WRITE(p, ...) p.W(__VA_ARGS__)
+#define WRITE(p, ...) p.F(__VA_ARGS__)
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;

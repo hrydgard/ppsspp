@@ -32,7 +32,7 @@
 
 #undef WRITE
 
-#define WRITE(p, ...) p.W(__VA_ARGS__)
+#define WRITE(p, ...) p.F(__VA_ARGS__)
 
 static const char * const boneWeightAttrDecl[9] = {
 	"#ERROR#",

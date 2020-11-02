@@ -15,20 +15,25 @@ public:
 		Preamble(gl_extensions, num_gl_extensions);
 	}
 
+	// I tried to call all three write functions "W", but only MSVC
+	// managed to disentangle the ambiguities, so had to give up on that.
+
 	// Assumes the input is zero-terminated.
+	// C : Copies a buffer directly to the stream.
 	template<size_t T>
-	void W(const char(&text)[T]) {
+	void C(const char(&text)[T]) {
 		memcpy(p_, text, T);
 		p_ += T;
 	}
+	// W: Writes a zero-terminated string to the stream.
 	void W(const char *text) {
 		size_t len = strlen(text);
 		memcpy(p_, text, len + 1);
 		p_ += len;
 	}
 
-	// Formats into the buffer.
-	void W(const char *format, ...);
+	// F: Formats into the buffer.
+	void F(const char *format, ...);
 
 	// void BeginMain();
 	// void EndMain();

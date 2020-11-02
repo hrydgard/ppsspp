@@ -59,7 +59,7 @@ const char *hlsl_preamble_vs =
 "\n";
 
 // Unsafe. But doesn't matter, we'll use big buffers for shader gen.
-void ShaderWriter::W(char *format, ...) {
+void ShaderWriter::F(const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 	p_ += vsprintf(p_, format, args);
@@ -95,30 +95,30 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 		}
 		break;
 	default:  // OpenGL
-		W("#version %d%s\n", lang_.glslVersionNumber, lang_.gles && lang_.glslES30 ? " es" : "");
+		F("#version %d%s\n", lang_.glslVersionNumber, lang_.gles && lang_.glslES30 ? " es" : "");
 		switch (stage_) {
 		case ShaderStage::Fragment:
-			W("#define DISCARD discard\n");
+			C("#define DISCARD discard\n");
 			if (lang_.gles) {
-				W("precision lowp float;\n");
+				C("precision lowp float;\n");
 			}
 			break;
 		case ShaderStage::Vertex:
 			if (lang_.gles) {
-				W("precision highp float;\n");
+				C("precision highp float;\n");
 			}
 			break;
 		}
 		for (size_t i = 0; i < num_gl_extensions; i++) {
-			W("%s\n", gl_extensions[i]);
+			F("%s\n", gl_extensions[i]);
 		}
 		if (!lang_.gles) {
-			W("#define lowp\n");
-			W("#define mediump\n");
-			W("#define highp\n");
+			C("#define lowp\n");
+			C("#define mediump\n");
+			C("#define highp\n");
 		}
-		W("#define splat3(x) vec3(x)\n");
-		W("#define mul(x, y) ((x) * (y))\n");
+		C("#define splat3(x) vec3(x)\n");
+		C("#define mul(x, y) ((x) * (y))\n");
 		break;
 	}
 }
