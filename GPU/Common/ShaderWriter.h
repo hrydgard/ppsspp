@@ -23,7 +23,7 @@ public:
 	template<size_t T>
 	void C(const char(&text)[T]) {
 		memcpy(p_, text, T);
-		p_ += T;
+		p_ += T - 1;
 	}
 	// W: Writes a zero-terminated string to the stream.
 	void W(const char *text) {
