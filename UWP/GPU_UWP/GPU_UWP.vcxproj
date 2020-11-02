@@ -388,6 +388,7 @@
     <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h" />
     <ClInclude Include="..\..\GPU\Common\IndexGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\PostShader.h" />
+    <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderId.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderTranslation.h" />
@@ -445,6 +446,7 @@
     <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp" />
     <ClCompile Include="..\..\GPU\Common\IndexGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\PostShader.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderId.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderTranslation.cpp" />

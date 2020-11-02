@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "CommonTypes.h"
+#include "Common/CommonTypes.h"
 
 // Broken out of MemMap.h to avoid a bad include dependency.
 

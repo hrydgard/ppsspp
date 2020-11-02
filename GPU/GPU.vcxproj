@@ -338,6 +338,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="Common\DrawEngineCommon.h" />
     <ClInclude Include="Common\FragmentShaderGenerator.h" />
@@ -475,6 +476,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="Common\DrawEngineCommon.cpp" />
     <ClCompile Include="Common\FragmentShaderGenerator.cpp" />

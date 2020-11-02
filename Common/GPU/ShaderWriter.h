@@ -4,10 +4,34 @@
 
 #include "Common/Log.h"
 #include "Common/GPU/Shader.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUCommon.h"
+#include "Common/Data/Collections/Slice.h"
 
 // Helps generate a shader compatible with all backends.
+// 
+// Can use the uniform buffer support in thin3d.
+//
 // Using #defines and magic in this class, we partially define our own shader language that basically looks
 // like GLSL, but has a few little oddities like splat3.
+
+struct InputDef {
+	const char *type;
+	const char *name;
+};
+
+struct UniformDef {
+	const char *type;
+	const char *name;
+	int index;
+};
+
+struct VaryingDef {
+	const char *type;
+	const char *name;
+	const char *semantic;
+	int index;
+};
 
 class ShaderWriter {
 public:
@@ -21,23 +45,42 @@ public:
 	// Assumes the input is zero-terminated.
 	// C : Copies a buffer directly to the stream.
 	template<size_t T>
-	void C(const char(&text)[T]) {
+	ShaderWriter &C(const char(&text)[T]) {
 		memcpy(p_, text, T);
 		p_ += T - 1;
+		return *this;
 	}
 	// W: Writes a zero-terminated string to the stream.
-	void W(const char *text) {
+	ShaderWriter &W(const char *text) {
 		size_t len = strlen(text);
 		memcpy(p_, text, len + 1);
 		p_ += len;
+		return *this;
 	}
 
 	// F: Formats into the buffer.
-	void F(const char *format, ...);
+	ShaderWriter &F(const char *format, ...);
 
-	// void BeginMain();
-	// void EndMain();
+	// Several of the shader languages ignore samplers, beware of that.
+	void DeclareSampler2D(const char *name, int binding);
+	void DeclareTexture2D(const char *name, int binding);
 
+	ShaderWriter &SampleTexture2D(const char *texName, const char *samplerName, const char *uv);
+
+	// Simple shaders with no special tricks.
+	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
+	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
+
+	// For simple shaders that output a single color, we can deal with this generically.
+	void EndVSMain();
+	void EndFSMain(const char *vec4_color_variable);
+
+
+	void Rewind(size_t offset) {
+		p_ -= offset;
+	}
+
+	// Can probably remove this
 	char *GetPos() {
 		return p_;
 	}

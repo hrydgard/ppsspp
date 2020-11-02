@@ -11,6 +11,7 @@
 
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/ReinterpretFramebuffer.h"
 
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/D3D11/D3D11Loader.h"
@@ -141,11 +142,71 @@ void PrintDiff(const char *a, const char *b) {
 	}
 }
 
+const char *ShaderLanguageToString(ShaderLanguage lang) {
+	switch (lang) {
+	case HLSL_D3D11: return "HLSL_D3D11";
+	case HLSL_D3D9: return "HLSL_D3D9";
+	case GLSL_VULKAN: return "GLSL_VULKAN";
+	case GLSL_1xx: return "GLSL_1xx";
+	case GLSL_3xx: return "GLSL_3xx";
+	default: return "N/A";
+	}
+}
+
+bool TestReinterpretShaders() {
+	ShaderLanguage languages[] = {
+		ShaderLanguage::HLSL_D3D11,
+		ShaderLanguage::GLSL_VULKAN,
+		ShaderLanguage::GLSL_3xx,
+	};
+	GEBufferFormat fmts[3] = {
+		GE_FORMAT_565,
+		GE_FORMAT_5551,
+		GE_FORMAT_4444,
+	};
+	char *buffer = new char[65536];
+
+	// Generate all despite failures - it's only 6.
+	bool failed = false;
+
+	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
+		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+
+		ShaderLanguageDesc desc(languages[k]);
+
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				if (i == j)
+					continue;  // useless shader!
+				if (!GenerateReinterpretFragmentShader(buffer, fmts[i], fmts[j], desc)) {
+					printf("Failed!\n%s\n", buffer);
+					failed = true;
+				} else {
+					std::string errorMessage;
+					if (!TestCompileShader(buffer, languages[k], false, &errorMessage)) {
+						printf("Error compiling fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
+						failed = true;
+						return false;
+					} else {
+						printf("===\n%s\n===\n", buffer);
+					}
+				}
+			}
+		}
+
+	}
+	return !failed;
+}
+
 
 bool TestShaderGenerators() {
 	LoadD3D11();
 	init_glslang();
 	LoadD3DCompilerDynamic();
+
+	if (!TestReinterpretShaders()) {
+		return false;
+	}
 
 	ShaderLanguage languages[] = {
 		ShaderLanguage::HLSL_D3D9,
