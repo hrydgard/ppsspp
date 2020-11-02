@@ -27,44 +27,11 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
+#include "GPU/Common/ShaderWriter.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
-#define WRITE p+=sprintf
-
-const char *vulkan_glsl_preamble_fs =
-"#version 450\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"#extension GL_ARB_conservative_depth : enable\n"
-"#extension GL_ARB_shader_image_load_store : enable\n"
-"#define splat3(x) vec3(x)\n"
-"#define lowp\n"
-"#define mediump\n"
-"#define highp\n"
-"#define DISCARD discard\n"
-"\n";
-
-const char *hlsl_preamble_fs =
-"#define vec2 float2\n"
-"#define vec3 float3\n"
-"#define vec4 float4\n"
-"#define uvec3 uint3\n"
-"#define ivec3 int3\n"
-"#define ivec4 int4\n"
-"#define mat4 float4x4\n"
-"#define mat3x4 float4x3\n"  // note how the conventions are backwards
-"#define splat3(x) float3(x, x, x)\n"
-"#define mix lerp\n"
-"#define mod(x, y) fmod(x, y)\n";
-
-const char *hlsl_d3d11_preamble_fs =
-"#define DISCARD discard\n"
-"#define DISCARD_BELOW(x) clip(x);\n";
-const char *hlsl_d3d9_preamble_fs =
-"#define DISCARD clip(-1)\n"
-"#define DISCARD_BELOW(x) clip(x)\n";
-
+#define WRITE(p, ...) p.F(__VA_ARGS__)
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
@@ -83,44 +50,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	char *p = buffer;
-
-	switch (compat.shaderLanguage) {
-	case ShaderLanguage::GLSL_VULKAN:
-		WRITE(p, "%s", vulkan_glsl_preamble_fs);
-		break;
-	case ShaderLanguage::HLSL_D3D11:
-		WRITE(p, "%s", hlsl_preamble_fs);
-		WRITE(p, "%s", hlsl_d3d11_preamble_fs);
-		break;
-	case ShaderLanguage::HLSL_D3D9:
-		WRITE(p, "%s", hlsl_preamble_fs);
-		WRITE(p, "%s", hlsl_d3d9_preamble_fs);
-		break;
-	default:
-		// OpenGL
-		WRITE(p, "#version %d%s\n", compat.glslVersionNumber, compat.gles && compat.glslES30 ? " es" : "");
-		WRITE(p, "#define DISCARD discard\n");
-
+	std::vector<const char*> gl_exts;
+	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
-			WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
+			gl_exts.push_back("#extension GL_EXT_blend_func_extended : require");
 		}
 		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			gl_exts.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
 		if (compat.framebufferFetchExtension) {
-			WRITE(p, "%s\n", compat.framebufferFetchExtension);
+			gl_exts.push_back(compat.framebufferFetchExtension);
 		}
-		if (!compat.gles) {
-			WRITE(p, "#define lowp\n");
-			WRITE(p, "#define mediump\n");
-			WRITE(p, "#define highp\n");
-		} else {
-			WRITE(p, "precision lowp float;\n");
-		}
-
-		WRITE(p, "#define splat3(x) vec3(x)\n");
 	}
+
+	ShaderWriter p(buffer, compat, ShaderStage::Fragment, gl_exts.data(), gl_exts.size());
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);

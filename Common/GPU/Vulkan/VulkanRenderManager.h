@@ -289,7 +289,7 @@ public:
 		return renderStepOffset_ + (int)steps_.size();
 	}
 
-	void CreateBackbuffers();
+	bool CreateBackbuffers();
 	void DestroyBackbuffers();
 
 	bool HasBackbuffers() {

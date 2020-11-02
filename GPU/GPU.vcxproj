@@ -351,6 +351,7 @@
     <ClInclude Include="Common\ShaderId.h" />
     <ClInclude Include="Common\ShaderTranslation.h" />
     <ClInclude Include="Common\ShaderUniforms.h" />
+    <ClInclude Include="Common\ShaderWriter.h" />
     <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\StencilCommon.h" />
@@ -488,6 +489,7 @@
     <ClCompile Include="Common\ShaderId.cpp" />
     <ClCompile Include="Common\ShaderTranslation.cpp" />
     <ClCompile Include="Common\ShaderUniforms.cpp" />
+    <ClCompile Include="Common\ShaderWriter.cpp" />
     <ClCompile Include="Common\SplineCommon.cpp" />
     <ClCompile Include="Common\StencilCommon.cpp" />
     <ClCompile Include="Common\TextureDecoderNEON.cpp">

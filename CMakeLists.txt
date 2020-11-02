@@ -1356,6 +1356,8 @@ set(GPU_SOURCES
 	GPU/Common/ShaderUniforms.h
 	GPU/Common/ShaderCommon.cpp
 	GPU/Common/ShaderCommon.h
+	GPU/Common/ShaderWriter.cpp
+	GPU/Common/ShaderWriter.h
 	GPU/Common/ShaderTranslation.cpp
 	GPU/Common/ShaderTranslation.h
 	GPU/Common/SplineCommon.cpp

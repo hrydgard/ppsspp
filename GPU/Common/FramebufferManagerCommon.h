@@ -55,7 +55,7 @@ struct VirtualFramebuffer {
 	int fb_stride;
 	int z_stride;
 
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
+	GEBufferFormat format;  // virtual, in reality they are all RGBA8888 for better quality but we can reinterpret that as necessary
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
@@ -424,4 +424,9 @@ protected:
 		FBO_OLD_AGE = 5,
 		FBO_OLD_USAGE_FLAG = 15,
 	};
+
+	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
+	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
+	// since we don't want N different implementations.
+	Draw::Pipeline *reinterpretFromTo_[3][3];
 };

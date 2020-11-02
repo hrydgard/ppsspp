@@ -411,7 +411,7 @@ void PresentationCommon::CreateDeviceObjects() {
 
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
-	// TODO: Use 4 and a strip?
+	// TODO: Use a triangle strip? Makes the UV rotation slightly more complex.
 	idata_ = draw_->CreateBuffer(sizeof(uint16_t) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 	uint16_t indexes[] = { 0, 1, 2, 0, 2, 3 };
 	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);

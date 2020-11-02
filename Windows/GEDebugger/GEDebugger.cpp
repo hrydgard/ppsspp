@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -274,10 +275,10 @@ void CGEDebugger::SetupPreviews() {
 	}
 }
 
-void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[256]) {
+void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256]) {
 	if (showClut_) {
 		// In this case, we're showing the texture here.
-		_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 		return;
 	}
 
@@ -285,24 +286,24 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[25
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
-		_snwprintf(desc, 256, L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), state.FrameBufFormat());
+		snprintf(desc, 256, "Color: 0x%08x (%dx%d) fmt %s", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), GeBufferFormatToString(state.FrameBufFormat()));
 		break;
 
 	case PRIMARY_DEPTHBUF:
-		_snwprintf(desc, 256, L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
+		snprintf(desc, 256, "Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
 		break;
 
 	case PRIMARY_STENCILBUF:
-		_snwprintf(desc, 256, L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
+		snprintf(desc, 256, "Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
 		break;
 	}
 }
 
-void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256]) {
+void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) {
 	if (showClut_) {
-		_snwprintf(desc, 256, L"CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
+		snprintf(desc, 256, "CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
 	} else {
-		_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		snprintf(desc, 256, "Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 	}
 }
 
@@ -414,9 +415,12 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 		primaryWindow->SetFlags(flags);
 		primaryWindow->Draw(primaryBuffer_->GetData(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), primaryBuffer_->GetFlipped(), fmt);
 
-		wchar_t desc[256];
+		char desc[256];
+		wchar_t w_desc[256];
 		DescribePrimaryPreview(state, desc);
-		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
+		ConvertUTF8ToWString(w_desc, ARRAY_SIZE(w_desc), desc);
+
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, w_desc);
 	} else if (primaryWindow != nullptr) {
 		primaryWindow->Clear();
 		primaryBuffer_ = nullptr;
@@ -452,9 +456,11 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 			secondWindow->Draw(secondBuffer_->GetData(), secondBuffer_->GetStride(), secondBuffer_->GetHeight(), secondBuffer_->GetFlipped(), fmt);
 		}
 
-		wchar_t desc[256];
+		char desc[256];
 		DescribeSecondPreview(state, desc);
-		SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
+		wchar_t w_desc[256];
+		ConvertUTF8ToWString(w_desc, ARRAY_SIZE(w_desc), desc);
+		SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, w_desc);
 	} else if (secondWindow != nullptr) {
 		secondWindow->Clear();
 		secondBuffer_ = nullptr;
@@ -474,7 +480,7 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 
 	SetupPreviews();
 
-	wchar_t desc[256] = {0};
+	char desc[256] = {0};
 
 	if (!primaryWindow->HasTex()) {
 		desc[0] = 0;
@@ -491,7 +497,10 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 		DescribePixel(pix, primaryBuffer_->GetFormat(), x, y, desc);
 	}
 
-	SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
+	wchar_t w_desc[256];
+	ConvertUTF8ToWString(w_desc, ARRAY_SIZE(w_desc), desc);
+
+	SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, w_desc);
 }
 
 void CGEDebugger::SecondPreviewHover(int x, int y) {
@@ -499,7 +508,7 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 		return;
 	}
 
-	wchar_t desc[256] = {0};
+	char desc[256] = {0};
 
 	if (!secondWindow->HasTex()) {
 		desc[0] = 0;
@@ -519,11 +528,12 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
 		}
 	}
-
-	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
+	wchar_t w_desc[256];
+	ConvertUTF8ToWString(w_desc, ARRAY_SIZE(w_desc), desc);
+	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, w_desc);
 }
 
-void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]) {
+void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]) {
 	switch (fmt) {
 	case GPU_DBG_FORMAT_565:
 	case GPU_DBG_FORMAT_565_REV:
@@ -539,18 +549,18 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		break;
 
 	case GPU_DBG_FORMAT_16BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 65535.0f));
+		snprintf(desc, 256, "%d,%d: %d / %f", x, y, pix, pix * (1.0f / 65535.0f));
 		break;
 
 	case GPU_DBG_FORMAT_8BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 255.0f));
+		snprintf(desc, 256, "%d,%d: %d / %f", x, y, pix, pix * (1.0f / 255.0f));
 		break;
 
 	case GPU_DBG_FORMAT_24BIT_8X:
 	{
 		DepthScaleFactors depthScale = GetDepthScaleFactors();
 		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.Apply((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
+		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.Apply((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
 		break;
 	}
 
@@ -559,18 +569,18 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 			// These are only ever going to be depth values, so let's also show scaled to 16 bit.
 			int z24 = pix & 0x00FFFFFF;
 			int z16 = z24 - 0x800000 + 0x8000;
-			_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, z16, z16 * (1.0f / 65535.0f));
+			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, z16 * (1.0f / 65535.0f));
 		}
 		break;
 
 	case GPU_DBG_FORMAT_24X_8BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
+		snprintf(desc, 256, "%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
 		break;
 
 	case GPU_DBG_FORMAT_FLOAT: {
 		float pixf = *(float *)&pix;
 		DepthScaleFactors depthScale = GetDepthScaleFactors();
-		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, pixf, depthScale.Apply(pixf));
+		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.Apply(pixf));
 		break;
 	}
 
@@ -585,16 +595,16 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 
 			int z16_2 = factors.Apply(z);
 
-			_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
+			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
 		}
 		break;
 
 	default:
-		_snwprintf(desc, 256, L"Unexpected format");
+		snprintf(desc, 256, "Unexpected format");
 	}
 }
 
-void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]) {
+void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]) {
 	u32 r = -1, g = -1, b = -1, a = -1;
 
 	switch (fmt) {
@@ -658,11 +668,11 @@ void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, in
 		break;
 
 	default:
-		_snwprintf(desc, 256, L"Unexpected format");
+		snprintf(desc, 256, "Unexpected format");
 		return;
 	}
 
-	_snwprintf(desc, 256, L"%d,%d: r=%d, g=%d, b=%d, a=%d", x, y, r, g, b, a);
+	snprintf(desc, 256, "%d,%d: r=%d, g=%d, b=%d, a=%d", x, y, r, g, b, a);
 }
 
 void CGEDebugger::UpdateTextureLevel(int level) {

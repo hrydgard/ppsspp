@@ -213,7 +213,11 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	}
 }
 
-void VulkanRenderManager::CreateBackbuffers() {
+bool VulkanRenderManager::CreateBackbuffers() {
+	if (!vulkan_->GetSwapchain()) {
+		ERROR_LOG(G3D, "No swapchain - can't create backbuffers");
+		return false;
+	}
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
 	_dbg_assert_(res == VK_SUCCESS);
 
@@ -222,7 +226,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "vkGetSwapchainImagesKHR failed");
 		delete[] swapchainImages;
-		return;
+		return false;
 	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
@@ -283,6 +287,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 		INFO_LOG(G3D, "Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
+	return true;
 }
 
 void VulkanRenderManager::StopThread() {
