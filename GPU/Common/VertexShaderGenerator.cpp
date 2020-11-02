@@ -122,30 +122,8 @@ static const char * const boneWeightDecl[9] = {
 	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
-const char *vulkan_glsl_preamble_vs =
-"#version 450\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"#define mul(x, y) ((x) * (y))\n"
-"#define splat3(x) vec3(x)\n"
-"#define lowp\n"
-"#define mediump\n"
-"#define highp\n"
-"\n";
-
-const char *hlsl_preamble_vs =
-"#define vec2 float2\n"
-"#define vec3 float3\n"
-"#define vec4 float4\n"
-"#define ivec2 int2\n"
-"#define ivec4 int4\n"
-"#define mat4 float4x4\n"
-"#define mat3x4 float4x3\n"  // note how the conventions are backwards
-"#define splat3(x) vec3(x, x, x)\n"
-"#define lowp\n"
-"#define mediump\n"
-"#define highp\n"
-"\n";
+extern const char *vulkan_glsl_preamble_vs;
+extern const char *hlsl_preamble_vs;
 
 bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;

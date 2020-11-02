@@ -52,6 +52,11 @@ enum DebugShaderStringType {
 	SHADER_STRING_STATS = 2,
 };
 
+enum class ShaderStage {
+	Vertex,
+	Fragment
+};
+
 // Shared between the backends. Not all are necessarily used by each backend, but this lets us share
 // more code than before.
 enum : uint64_t {

@@ -424,4 +424,9 @@ protected:
 		FBO_OLD_AGE = 5,
 		FBO_OLD_USAGE_FLAG = 15,
 	};
+
+	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
+	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
+	// since we don't want N different implementations.
+	Draw::Pipeline *reinterpretFromTo_[3][3];
 };

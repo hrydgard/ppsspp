@@ -270,6 +270,9 @@
     <ClInclude Include="Common\VertexShaderGenerator.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ShaderWriter.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -537,6 +540,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ShaderWriter.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
