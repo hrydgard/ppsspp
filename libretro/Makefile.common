@@ -236,6 +236,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \
 	$(GPUCOMMONDIR)/ShaderTranslation.cpp \
+	$(GPUCOMMONDIR)/ShaderWriter.cpp \
 	$(GPUCOMMONDIR)/GPUDebugInterface.cpp \
 	$(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp \
 	$(GPUCOMMONDIR)/TransformCommon.cpp \

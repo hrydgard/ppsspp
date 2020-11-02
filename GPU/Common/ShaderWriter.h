@@ -28,7 +28,7 @@ public:
 	}
 
 	// Formats into the buffer.
-	void W(char *format, ...);
+	void W(const char *format, ...);
 
 	// void BeginMain();
 	// void EndMain();
