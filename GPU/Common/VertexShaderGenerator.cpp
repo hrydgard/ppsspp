@@ -858,14 +858,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1 && compat.shaderLanguage != GLSL_VULKAN)
+			if (numBoneWeights == 1 && ShaderLanguageIsOpenGL(compat.shaderLanguage))
 				WRITE(p, "  %s skinMatrix = w1 * u_bone0", boneMatrix);
 			else
 				WRITE(p, "  %s skinMatrix = w1.x * u_bone0", boneMatrix);
 			for (int i = 1; i < numBoneWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (compat.shaderLanguage != GLSL_VULKAN) {
+				// workaround for "cant do .x of scalar" issue.
+				if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 					if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
 					if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
 				}
