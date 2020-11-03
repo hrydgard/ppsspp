@@ -311,6 +311,7 @@ namespace MIPSComp {
 		case 40: //sb
 		case 41: //sh
 		case 43: //sw
+#ifndef MASKED_PSP_MEMORY
 			if (jo.cachePointers && g_Config.bFastMemory) {
 				// ARM has smaller load/store immediate displacements than MIPS, 12 bits - and some memory ops only have 8 bits.
 				int offsetRange = 0x3ff;
@@ -327,6 +328,7 @@ namespace MIPSComp {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 						targetReg = gpr.R(rt);
 					}
+
 					switch (o) {
 					case 35: LDR(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 					case 37: LDRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
@@ -342,6 +344,7 @@ namespace MIPSComp {
 					break;
 				}
 			}
+#endif
 
 			if (!load && gpr.IsImm(rt) && gpr.TryMapTempImm(rt) != INVALID_REG) {
 				// We're storing an immediate value, let's see if we can optimize rt.

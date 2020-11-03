@@ -358,7 +358,6 @@ namespace MIPSComp {
 						ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
 					}
 				}
-
 				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
 				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[2]), fpr.V(vregs[3]), SCRATCH1_64, 8);
 

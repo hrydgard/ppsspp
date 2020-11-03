@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(ARM64)
 
 #include "Common/Log.h"
