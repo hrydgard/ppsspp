@@ -2553,7 +2553,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 		}
-		hleEatMicro(100);
+		hleEatMicro(50);
 		return retval;
 	}
 
@@ -7251,9 +7251,8 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 			// Clear IO Message Stack
 			clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
 
-			// Send Bye Messages. FIXME: Official prx seems to be sending DEATH instead of BYE packet during MatchingStop?
-			//sendByePacket(context);
-			sendDeathPacket(context, &context->mac);
+			// Send Bye Messages. FIXME: Official prx seems to be sending DEATH instead of BYE packet during MatchingStop? But DEATH packet doesn't works with DBZ Team Tag
+			sendByePacket(context);
 
 			// Free Peer List Buffer
 			clearPeerList(context); //deleteAllMembers(context);
