@@ -253,13 +253,13 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		return false;
 	}
 
-	Draw::UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
-		{ "gl_HalfPixel", 0, -1, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
-		{ "u_texelDelta", 1, 1, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
-		{ "u_pixelDelta", 2, 2, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
-		{ "u_time", 3, 3, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
-		{ "u_setting", 4, 4, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
-		{ "u_video", 5, 5, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+	UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
+		{ "gl_HalfPixel", 0, -1, UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
+		{ "u_texelDelta", 1, 1, UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
+		{ "u_pixelDelta", 2, 2, UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
+		{ "u_time", 3, 3, UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
+		{ "u_setting", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
+		{ "u_video", 5, 5, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
 	} };
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
 	if (!pipeline)
@@ -366,7 +366,7 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc) {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) {
 	using namespace Draw;
 
 	Semantic pos = SEM_POSITION;

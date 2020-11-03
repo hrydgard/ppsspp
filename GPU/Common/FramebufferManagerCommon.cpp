@@ -35,6 +35,7 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/ReinterpretFramebuffer.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUInterface.h"
@@ -514,6 +515,59 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 	}
+}
+
+void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat oldFormat) {
+	if (!useBufferedRendering_ || !vfb->fbo) {
+		return;
+	}
+	GEBufferFormat newFormat = vfb->format;
+
+	_assert_(newFormat != oldFormat);
+
+	// We only reinterpret between 16 - bit formats, for now.
+	if (!IsGeBufferFormat16BitColor(oldFormat) || !IsGeBufferFormat16BitColor(newFormat)) {
+		// 16->32 and 32->16 will require some more specialized shaders.
+		return;
+	}
+
+	if (!reinterpretVS_) {
+		char *buffer = new char[4000];
+		const ShaderLanguageDesc &desc = draw_->GetShaderLanguageDesc();
+		GenerateReinterpretVertexShader(buffer, desc);
+		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, desc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_vs");
+		delete[] buffer;
+	}
+
+	// See if we need to create a new pipeline.
+	if (!reinterpretFromTo_[(int)oldFormat][(int)newFormat]) {
+		std::vector<Draw::ShaderModule *> shaders;
+
+		using namespace Draw;
+		Draw::PipelineDesc desc{};
+		// We use a "fullscreen triangle".
+		InputLayoutDesc inputDesc{};  // No inputs, we generate it in the shader.
+		InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
+		DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
+		BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
+		RasterState *rasterNoCull = draw_->CreateRasterState({});
+
+		// No uniforms for these, only a single texture input.
+		PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, nullptr };
+		Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+
+		inputLayout->Release();
+		depth->Release();
+		blendstateOff->Release();
+		rasterNoCull->Release();
+	}
+
+	// Copy to a temp framebuffer.
+	Draw::Framebuffer *temp = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
+
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {

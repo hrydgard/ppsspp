@@ -8,6 +8,8 @@
 #include "GPU/GPUCommon.h"
 #include "Common/Data/Collections/Slice.h"
 
+#include "Common/GPU/thin3d.h"
+
 // Helps generate a shader compatible with all backends.
 // 
 // Can use the uniform buffer support in thin3d.
@@ -72,7 +74,7 @@ public:
 	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
 
 	// For simple shaders that output a single color, we can deal with this generically.
-	void EndVSMain();
+	void EndVSMain(Slice<VaryingDef> varyings);
 	void EndFSMain(const char *vec4_color_variable);
 
 

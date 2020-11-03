@@ -120,6 +120,7 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 			if (lang_.gles) {
 				C("precision highp float;\n");
 			}
+			C("#define gl_VertexIndex gl_VertexID\n");
 			break;
 		}
 		if (!lang_.gles) {
@@ -134,18 +135,47 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 }
 
 void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings) {
+	_assert_(this->stage_ == ShaderStage::Vertex);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 	case HLSL_D3D9:
+	{
+		C("struct VS_OUTPUT {\n");
+		C("  vec4 pos : POSITION;\n");
+		for (auto &varying : varyings) {
+			F("  %s %s : %s;\n", varying.type, varying.name, varying.semantic);
+		}
+		C("};\n");
+
+		C("VS_OUTPUT main(  ");  // 2 spaces for the D3D9 rewind
+		if (lang_.shaderLanguage == HLSL_D3D11) {
+			C("uint gl_VertexIndex : SV_VertexID, ");
+		}
+		Rewind(2);  // Get rid of the last comma.
+		C(") {\n");
+		C("  vec4 gl_Position;\n");
+		for (auto &varying : varyings) {
+			F("  %s %s;\n", varying.type, varying.name);
+		}
 		break;
+	}
 	case GLSL_VULKAN:
-	default:
+		for (auto &varying : varyings) {
+			F("layout(location = %d) out %s %s;  // %s\n", varying.index, varying.type, varying.name, varying.semantic);
+		}
+		C("void main() {\n");
+		break;
+	default:  // OpenGL
+		for (auto &varying : varyings) {
+			F("%s %s %s;  // %s (%d)\n", lang_.varying_vs, varying.type, varying.name, varying.semantic, varying.index);
+		}
 		C("void main() {\n");
 		break;
 	}
 }
 
 void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings) {
+	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		if (!uniforms.is_empty()) {
@@ -186,7 +216,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		break;
 	default:
 		for (auto &varying : varyings) {
-			F("in %s %s;  // %s\n", varying.type, varying.name, varying.semantic);
+			F("%s %s %s;  // %s\n", lang_.varying_fs, varying.type, varying.name, varying.semantic);
 		}
 		if (!strcmp(lang_.fragColor0, "fragColor0")) {
 			C("out vec4 fragColor0;\n");
@@ -196,11 +226,27 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 	}
 }
 
-void ShaderWriter::EndVSMain() {
+void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
+	_assert_(this->stage_ == ShaderStage::Vertex);
+	switch (lang_.shaderLanguage) {
+	case HLSL_D3D11:
+	case HLSL_D3D9:
+		C("  VS_OUTPUT vs_out;\n");
+		C("  vs_out.pos = gl_Position;\n");
+		for (auto &varying : varyings) {
+			F("  vs_out.%s = %s;\n", varying.name, varying.name);
+		}
+		C("  return vs_out;\n");
+		break;
+	case GLSL_VULKAN:
+	default:  // OpenGL
+		break;
+	}
 	C("}\n");
 }
 
 void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
+	_assert_(this->stage_ == ShaderStage::Fragment);
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 	case HLSL_D3D9:
@@ -254,4 +300,3 @@ ShaderWriter &ShaderWriter::SampleTexture2D(const char *texName, const char *sam
 	}
 	return *this;
 }
-

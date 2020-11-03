@@ -1,5 +1,9 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+#include <cstddef>  // for size_t
+
 // GLSL_1xx and GLSL_3xx each cover a lot of sub variants. All the little quirks
 // that differ are covered in ShaderLanguageDesc.
 // Defined as a bitmask so stuff like GetSupportedShaderLanguages can return combinations.
@@ -45,6 +49,30 @@ struct ShaderLanguageDesc {
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;
 	bool coefsFromBuffers = false;
+};
+
+enum class UniformType : int8_t {
+	FLOAT1,
+	FLOAT2,
+	FLOAT3,
+	FLOAT4,
+	MATRIX4X4,
+};
+
+// Describe uniforms intricately enough that we can support them on all backends.
+// This will generate a uniform struct on the newer backends and individual uniforms on the older ones.
+struct UniformDesc {
+	const char *name;  // For GL
+	int16_t vertexReg;        // For D3D
+	int16_t fragmentReg;      // For D3D
+	UniformType type;
+	int16_t offset;
+	// TODO: Support array elements etc.
+};
+
+struct UniformBufferDesc {
+	size_t uniformBufferSize;
+	std::vector<UniformDesc> uniforms;
 };
 
 // For passing error messages from shader compilation (and other critical issues) back to the host.

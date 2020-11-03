@@ -170,6 +170,23 @@ bool TestReinterpretShaders() {
 	bool failed = false;
 
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
+		ShaderLanguageDesc desc(languages[k]);
+		if (!GenerateReinterpretVertexShader(buffer, desc)) {
+			printf("Failed!\n%s\n", buffer);
+			failed = true;
+		} else {
+			std::string errorMessage;
+			if (!TestCompileShader(buffer, languages[k], true, &errorMessage)) {
+				printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+				failed = true;
+				return false;
+			} else {
+				printf("===\n%s\n===\n", buffer);
+			}
+		}
+	}
+
+	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
 		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
 
 		ShaderLanguageDesc desc(languages[k]);

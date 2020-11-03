@@ -396,7 +396,7 @@ DrawContext::~DrawContext() {
 	DestroyPresets();
 }
 
-// TODO: SSE/NEON
+// TODO: Use the functions we have in Common/ColorConv.cpp.
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
@@ -455,7 +455,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 	}
 }
 
-// TODO: SSE/NEON
+// TODO: Use the functions we have in Common/ColorConv.cpp.
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.

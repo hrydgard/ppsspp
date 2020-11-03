@@ -287,6 +287,9 @@ enum GEBufferFormat
 };
 
 const char *GeBufferFormatToString(GEBufferFormat fmt);
+inline bool IsGeBufferFormat16BitColor(GEBufferFormat fmt) {
+	return (int)fmt < 3;
+}
 
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)

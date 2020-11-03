@@ -1,7 +1,12 @@
 #include <cstdarg>
 
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
+
+static const VaryingDef varyings[1] = {
+	{ "vec2", "v_texcoord", "TEXCOORD0" },
+};
 
 // TODO: We could have an option to preserve any extra color precision. But gonna start without it.
 // Requires full size integer math.
@@ -14,10 +19,6 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	writer.DeclareSampler2D("samp", 0);
 	writer.DeclareTexture2D("tex", 0);
-
-	static const VaryingDef varyings[1] = {
-		{ "vec4", "v_texcoord", "TEXCOORD0" },
-	};
 
 	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
 
@@ -60,5 +61,22 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 	}
 
 	writer.EndFSMain("outColor");
+	return true;
+}
+
+bool GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lang) {
+	if (!lang.bitwiseOps) {
+		return false;
+	}
+	ShaderWriter writer(buffer, lang, ShaderStage::Vertex, nullptr, 0);
+
+	writer.BeginVSMain(Slice<InputDef>::empty(), Slice<UniformDef>::empty(), varyings);
+
+	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
+	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
+	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
+	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
+
+	writer.EndVSMain(varyings);
 	return true;
 }
