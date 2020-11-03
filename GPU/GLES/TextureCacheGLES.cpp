@@ -492,6 +492,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
+	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+
 	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
@@ -532,10 +535,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
-
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
+	
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
