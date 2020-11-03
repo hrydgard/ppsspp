@@ -820,11 +820,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
 			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "splat3(1.0 - v.a)"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "destColor.aaa"; break;
-			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "splat3(1.0) - destColor.aaa"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "(splat3(1.0) - destColor.aaa)"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "splat3(1.0) - v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "(splat3(1.0) - v.aaa * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "destColor.aaa * 2.0"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "(splat3(1.0) - destColor.aaa * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			default:                            srcFactor = "u_blendFixA"; break;
 			}
@@ -832,13 +832,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
 			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(splat3(1.0) - v.rgb)"; break;
 			case GE_DSTBLEND_SRCALPHA:          dstFactor = "v.aaa"; break;
-			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "splat3(1.0) - v.aaa"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "(splat3(1.0) - v.aaa)"; break;
 			case GE_DSTBLEND_DSTALPHA:          dstFactor = "destColor.aaa"; break;
-			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "splat3(1.0) - destColor.aaa"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "(splat3(1.0) - destColor.aaa)"; break;
 			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "v.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "splat3(1.0) - v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "(splat3(1.0) - v.aaa * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "splat3(1.0) - destColor.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "(splat3(1.0) - destColor.aaa * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			default:                            dstFactor = "u_blendFixB"; break;
 			}
