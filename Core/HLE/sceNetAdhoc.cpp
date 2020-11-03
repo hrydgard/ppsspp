@@ -2553,7 +2553,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 		}
-		hleEatMicro(100);
+		hleEatMicro(50);
 		return retval;
 	}
 
