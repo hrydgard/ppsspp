@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
+#include "Common/GPU/Shader.h"
 
 struct VShaderID;
 

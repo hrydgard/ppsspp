@@ -30,6 +30,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 

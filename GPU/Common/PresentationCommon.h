@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderCommon.h"
+#include "Common/GPU/Shader.h"
 
 struct CardboardSettings {
 	bool enabled;

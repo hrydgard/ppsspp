@@ -36,6 +36,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/Shader.h"
 
 #include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"

@@ -18,8 +18,9 @@
 #pragma once
 
 #include <cstdint>
+
+#include "Common/GPU/Shader.h"
 #include "GPU/ge_constants.h"
-#include "GPU/Common/ShaderCommon.h"
 
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
 

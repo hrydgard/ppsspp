@@ -4,7 +4,8 @@
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
-#include "ShaderCommon.h"
+#include "Common/GPU/Shader.h"
+#include "GPU/Common/ShaderCommon.h"
 
 void init_resources(TBuiltInResource &Resources) {
 	Resources.maxLights = 32;

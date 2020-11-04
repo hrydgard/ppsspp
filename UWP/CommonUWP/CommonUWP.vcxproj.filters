@@ -363,6 +363,12 @@
     <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp">
       <Filter>Render\Text</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\Shader.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\ShaderWriter.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -661,6 +667,12 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h">
       <Filter>Data\Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\Shader.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\ShaderWriter.h">
+      <Filter>GPU</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
