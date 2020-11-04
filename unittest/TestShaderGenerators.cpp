@@ -26,14 +26,14 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
-	case ShaderLanguage::GLSL_140:
+	case ShaderLanguage::GLSL_1xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
-	case ShaderLanguage::GLSL_300:
+	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
 		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -60,14 +60,14 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::strin
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
 		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::GLSL_140:
+	case ShaderLanguage::GLSL_1xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
 		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
-	case ShaderLanguage::GLSL_300:
+	case ShaderLanguage::GLSL_3xx:
 	{
-		ShaderLanguageDesc compat(ShaderLanguage::GLSL_140);
+		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
 		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
@@ -106,9 +106,9 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 
 	case ShaderLanguage::GLSL_VULKAN:
 		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
-	case ShaderLanguage::GLSL_140:
+	case ShaderLanguage::GLSL_1xx:
 		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GL140, spirv, errorMessage);
-	case ShaderLanguage::GLSL_300:
+	case ShaderLanguage::GLSL_3xx:
 		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
 		return false;
@@ -151,8 +151,8 @@ bool TestShaderGenerators() {
 		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::HLSL_D3D11,
 		ShaderLanguage::GLSL_VULKAN,
-		ShaderLanguage::GLSL_140,
-		ShaderLanguage::GLSL_300,
+		ShaderLanguage::GLSL_1xx,
+		ShaderLanguage::GLSL_3xx,
 	};
 	const int numLanguages = ARRAY_SIZE(languages);
 

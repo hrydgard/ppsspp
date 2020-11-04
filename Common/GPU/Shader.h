@@ -1,15 +1,18 @@
 #pragma once
 
+// GLSL_1xx and GLSL_3xx each cover a lot of sub variants. All the little quirks
+// that differ are covered in ShaderLanguageDesc.
+// Defined as a bitmask so stuff like GetSupportedShaderLanguages can return combinations.
 enum ShaderLanguage {
-	GLSL_140,  // really covers a lot more. This set of languages is not good.
-	GLSL_300,
-	GLSL_VULKAN,
-	HLSL_D3D9,
-	HLSL_D3D11,
+	GLSL_1xx = 1,
+	GLSL_3xx = 2,
+	GLSL_VULKAN = 4,
+	HLSL_D3D9 = 8,
+	HLSL_D3D11 = 16,
 };
 
 inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
-	return lang == GLSL_140 || lang == GLSL_300;
+	return lang == GLSL_1xx || lang == GLSL_3xx;
 }
 
 enum class ShaderStage {
