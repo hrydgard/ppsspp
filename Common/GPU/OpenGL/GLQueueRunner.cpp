@@ -277,21 +277,26 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glCompileShader(shader);
 			GLint success = 0;
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+			std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
 			if (!success) {
-				std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
-#if PPSSPP_PLATFORM(ANDROID)
-				ERROR_LOG(G3D, "Error in shader compilation! %s\n", infoLog.c_str());
-				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-#endif
-				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.shader->desc.c_str());
-				ERROR_LOG(G3D, "Info log: %s", infoLog.c_str());
-				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
+				std::string errorString = StringFromFormat(
+					"Error in shader compilation for: %s\n"
+					"Info log: %s\n"
+					"Shader source:\n%s\n//END\n\n",
+					step.create_shader.shader->desc.c_str(),
+					infoLog.c_str(),
+					LineNumberString(code).c_str());
+				if (errorCallback_) {
+					std::string desc = StringFromFormat("Shader compilation failed: %s", step.create_shader.stage == GL_VERTEX_SHADER ? "vertex" : "fragment");
+					errorCallback_(desc.c_str(), errorString.c_str(), errorCallbackUserData_);
+				}
 				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog.c_str(), step.create_shader.shader->desc.c_str(), (const char *)code);
+			} else {
 #ifdef SHADERLOG
 				OutputDebugStringUTF8(infoLog.c_str());
 #endif
 				step.create_shader.shader->failed = true;
-				step.create_shader.shader->error = infoLog;
+				step.create_shader.shader->error = infoLog;  // Hm, we never use this.
 			}
 			// Before we throw away the code, attach it to the shader for debugging.
 			step.create_shader.shader->code = code;

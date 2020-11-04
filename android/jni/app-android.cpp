@@ -82,6 +82,7 @@ struct JNIEnv {};
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/Host.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
@@ -777,6 +778,10 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			return false;
 		}
 
+		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		}, nullptr);
+
 		if (useCPUThread) {
 			EmuThreadStart();
 		} else {
@@ -795,6 +800,11 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			SystemToast("Graphics initialization failed. Quitting.");
 			return false;
 		}
+
+		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		}, nullptr);
+
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}

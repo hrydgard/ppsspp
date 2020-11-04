@@ -801,6 +801,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	Shader *fs = fsCache_.Get(FSID);
 	if (!fs)	{
 		// Fragment shader not in cache. Let's compile it.
+		// Can't really tell if we succeeded since the compile is on the GPU thread later.
 		fs = CompileFragmentShader(FSID);
 		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
