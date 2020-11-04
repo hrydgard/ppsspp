@@ -12,7 +12,8 @@
 #include <string>
 #include <vector>
 
-#include "DataFormat.h"
+#include "Common/GPU/DataFormat.h"
+#include "Common/GPU/Shader.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -201,15 +202,6 @@ enum class TextureAddressMode {
 	REPEAT_MIRROR,
 	CLAMP_TO_EDGE,
 	CLAMP_TO_BORDER,
-};
-
-enum class ShaderLanguage {
-	GLSL_ES_200 = 1,
-	GLSL_ES_300 = 2,
-	GLSL_410 = 4,
-	GLSL_VULKAN = 8,
-	HLSL_D3D9 = 32,
-	HLSL_D3D11 = 64,
 };
 
 enum FormatSupport {

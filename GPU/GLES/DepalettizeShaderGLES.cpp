@@ -162,7 +162,7 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 
 	char *buffer = new char[2048];
 
-	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_300 : GLSL_140);
+	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_3xx : GLSL_1xx);
 	
 	std::string src(buffer);
 	GLRShader *fragShader = render_->CreateShader(GL_FRAGMENT_SHADER, src, "depal");

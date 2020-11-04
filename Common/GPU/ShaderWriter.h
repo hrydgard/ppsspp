@@ -1,9 +1,9 @@
 #pragma once
 
+#include <cstring>
+
 #include "Common/Log.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUCommon.h"
-#include "GPU/Common/ShaderCommon.h"
+#include "Common/GPU/Shader.h"
 
 // Helps generate a shader compatible with all backends.
 // Using #defines and magic in this class, we partially define our own shader language that basically looks

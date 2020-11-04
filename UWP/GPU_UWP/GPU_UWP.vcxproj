@@ -392,7 +392,6 @@
     <ClInclude Include="..\..\GPU\Common\ShaderId.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderTranslation.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderUniforms.h" />
-    <ClInclude Include="..\..\GPU\Common\ShaderWriter.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\SplineCommon.h" />
@@ -450,7 +449,6 @@
     <ClCompile Include="..\..\GPU\Common\ShaderId.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderTranslation.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
-    <ClCompile Include="..\..\GPU\Common\ShaderWriter.cpp" />
     <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp" />

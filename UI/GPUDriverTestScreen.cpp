@@ -1,9 +1,10 @@
 #include "GPUDriverTestScreen.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/View.h"
+#include "Common/GPU/Shader.h"
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {
-	{Draw::ShaderLanguage::GLSL_ES_200,
+	{ShaderLanguage::GLSL_1xx,
 	R"(
 	#ifdef GL_ES
 	precision lowp float;
@@ -23,7 +24,7 @@ static const std::vector<Draw::ShaderSource> fsDiscard = {
 		gl_FragColor = color;
 	})"
 	},
-	{Draw::ShaderLanguage::GLSL_VULKAN,
+	{ShaderLanguage::GLSL_VULKAN,
 	R"(#version 450
 	#extension GL_ARB_separate_shader_objects : enable
 	#extension GL_ARB_shading_language_420pack : enable

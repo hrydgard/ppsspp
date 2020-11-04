@@ -36,6 +36,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/Shader.h"
 
 #include "GPU/Common/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
@@ -219,10 +220,10 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 }
 
 bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage) {
-	if (srcLang != GLSL_300 && srcLang != GLSL_140)
+	if (srcLang != GLSL_3xx && srcLang != GLSL_1xx)
 		return false;
 
-	if ((srcLang == GLSL_140 || srcLang == GLSL_300) && destLang == GLSL_VULKAN) {
+	if ((srcLang == GLSL_1xx || srcLang == GLSL_3xx) && destLang == GLSL_VULKAN) {
 		// Let's just mess about at the string level, no need to recompile.
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
@@ -326,7 +327,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		return true;
 	}
 #endif
-	case GLSL_140:
+	case GLSL_1xx:
 	{
 		spirv_cross::CompilerGLSL glsl(std::move(spirv));
 		// The SPIR-V is now parsed, and we can perform reflection on it.
@@ -351,7 +352,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		*dest = glsl.compile();
 		return true;
 	}
-	case GLSL_300:
+	case GLSL_3xx:
 	{
 		spirv_cross::CompilerGLSL glsl(std::move(spirv));
 		// The SPIR-V is now parsed, and we can perform reflection on it.

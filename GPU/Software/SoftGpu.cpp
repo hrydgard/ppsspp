@@ -72,7 +72,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
-		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
+		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_3xx : GLSL_1xx);
 		break;
 	case GPUBackend::DIRECT3D9:
 		ShaderTranslationInit();

@@ -18,7 +18,8 @@
 #pragma once
 
 #include <string>
-#include "GPU/Common/ShaderCommon.h"
+
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 
 struct TranslatedShaderMetadata {

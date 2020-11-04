@@ -19,14 +19,14 @@
 #include <cstdlib>
 #include <locale.h>
 
-#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/ShaderWriter.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
-#include "GPU/Common/ShaderWriter.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 

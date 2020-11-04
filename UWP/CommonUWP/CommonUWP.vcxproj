@@ -419,6 +419,8 @@
     <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
     <ClInclude Include="..\..\Common\GPU\DataFormat.h" />
     <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h" />
+    <ClInclude Include="..\..\Common\GPU\Shader.h" />
+    <ClInclude Include="..\..\Common\GPU\ShaderWriter.h" />
     <ClInclude Include="..\..\Common\GPU\thin3d.h" />
     <ClInclude Include="..\..\Common\GPU\thin3d_create.h" />
     <ClInclude Include="..\..\Common\Input\GestureDetector.h" />
@@ -536,6 +538,8 @@
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
     <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp" />
     <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp" />
+    <ClCompile Include="..\..\Common\GPU\Shader.cpp" />
+    <ClCompile Include="..\..\Common\GPU\ShaderWriter.cpp" />
     <ClCompile Include="..\..\Common\GPU\thin3d.cpp" />
     <ClCompile Include="..\..\Common\Input\GestureDetector.cpp" />
     <ClCompile Include="..\..\Common\Input\InputState.cpp" />

@@ -286,7 +286,7 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 	float texel_offset = ((float)clutBase + 0.5f) / texturePixels;
 	sprintf(offset, " + %f", texel_offset);
 
-	if (lang == GLSL_140) {
+	if (lang == GLSL_1xx) {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 100\n");
 			WRITE(p, "precision mediump float;\n");
@@ -318,10 +318,10 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 
 void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	switch (language) {
-	case GLSL_140:
+	case GLSL_1xx:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
-	case GLSL_300:
+	case GLSL_3xx:
 	case GLSL_VULKAN:
 	case HLSL_D3D11:
 		GenerateDepalShader300(buffer, pixelFormat, language);

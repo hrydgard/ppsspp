@@ -4,7 +4,8 @@
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
-#include "ShaderCommon.h"
+#include "Common/GPU/Shader.h"
+#include "GPU/Common/ShaderCommon.h"
 
 void init_resources(TBuiltInResource &Resources) {
 	Resources.maxLights = 32;
@@ -104,7 +105,7 @@ void init_resources(TBuiltInResource &Resources) {
 ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 	shaderLanguage = lang;
 	switch (lang) {
-	case GLSL_140:
+	case GLSL_1xx:
 		// Just used in the shader test, and as a basis for the others in DetectShaderLanguage.
 		glslVersionNumber = 110;
 		attribute = "attribute";
@@ -119,7 +120,7 @@ ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 		gles = false;
 		forceMatrix4x4 = true;
 		break;
-	case GLSL_300:
+	case GLSL_3xx:
 		// Just used in the shader test.
 		glslVersionNumber = 300;  // GLSL ES 3.0
 		varying_vs = "out";

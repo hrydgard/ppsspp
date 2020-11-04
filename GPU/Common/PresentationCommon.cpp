@@ -240,8 +240,8 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	}
 
 	std::string vsError, fsError;
-	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_140, vsSourceGLSL, &vsError);
-	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_140, fsSourceGLSL, &fsError);
+	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_1xx, vsSourceGLSL, &vsError);
+	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_1xx, fsSourceGLSL, &fsError);
 
 	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
 	if (!fs || !vs) {
@@ -476,29 +476,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage st
 		}
 	}
 
-	Draw::ShaderLanguage mappedLang;
-	// These aren't exact, unfortunately, but we just need the type Draw will accept.
-	switch (lang_) {
-	case GLSL_140:
-		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
-		break;
-	case GLSL_300:
-		mappedLang = Draw::ShaderLanguage::GLSL_410;
-		break;
-	case GLSL_VULKAN:
-		mappedLang = Draw::ShaderLanguage::GLSL_VULKAN;
-		break;
-	case HLSL_D3D9:
-		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
-		break;
-	case HLSL_D3D11:
-		mappedLang = Draw::ShaderLanguage::HLSL_D3D11;
-		break;
-	default:
-		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
-		break;
-	}
-	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, mappedLang, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
+	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
 	if (shader)
 		postShaderModules_.push_back(shader);
 	return shader;

@@ -8,6 +8,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
@@ -254,7 +255,7 @@ public:
 private:
 	GLRenderManager *render_;
 	ShaderStage stage_;
-	ShaderLanguage language_ = ShaderLanguage::GLSL_ES_200;
+	ShaderLanguage language_ = GLSL_1xx;
 	GLRShader *shader_ = nullptr;
 	GLuint glstage_ = 0;
 	std::string source_;  // So we can recompile in case of context loss.
@@ -345,10 +346,11 @@ public:
 		return caps_;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
-		if (gl_extensions.IsGLES)
-			return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
-		else
-			return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
+		if (gl_extensions.GLES3) {
+			return (uint32_t)(ShaderLanguage::GLSL_3xx | ShaderLanguage::GLSL_1xx);
+		} else {
+			return (uint32_t)ShaderLanguage::GLSL_1xx;
+		}
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 

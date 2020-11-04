@@ -105,7 +105,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 	needGLESRebinds_ = true;
 	CreateDeviceObjects();
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
+	presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_3xx : GLSL_1xx);
 }
 
 void FramebufferManagerGLES::Init() {

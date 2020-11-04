@@ -496,6 +496,10 @@ add_library(Common STATIC
 	Common/GPU/thin3d.cpp
 	Common/GPU/thin3d.h
 	Common/GPU/thin3d_create.h
+	Common/GPU/Shader.cpp
+	Common/GPU/Shader.h
+	Common/GPU/ShaderWriter.cpp
+	Common/GPU/ShaderWriter.h
 	Common/GPU/OpenGL/GLCommon.h
 	Common/GPU/OpenGL/GLDebugLog.cpp
 	Common/GPU/OpenGL/GLDebugLog.h
@@ -1356,8 +1360,6 @@ set(GPU_SOURCES
 	GPU/Common/ShaderUniforms.h
 	GPU/Common/ShaderCommon.cpp
 	GPU/Common/ShaderCommon.h
-	GPU/Common/ShaderWriter.cpp
-	GPU/Common/ShaderWriter.h
 	GPU/Common/ShaderTranslation.cpp
 	GPU/Common/ShaderTranslation.h
 	GPU/Common/SplineCommon.cpp

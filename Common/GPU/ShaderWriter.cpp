@@ -1,4 +1,9 @@
-#include "GPU/Common/ShaderWriter.h"
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+
+#include "Common/GPU/Shader.h"
+#include "Common/GPU/ShaderWriter.h"
 
 const char *vulkan_glsl_preamble_fs =
 "#version 450\n"

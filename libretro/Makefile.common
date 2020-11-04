@@ -166,6 +166,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/FileDescriptor.cpp \
 	$(COMMONDIR)/File/DirListing.cpp \
 	$(COMMONDIR)/GPU/thin3d.cpp \
+	$(COMMONDIR)/GPU/Shader.cpp \
+	$(COMMONDIR)/GPU/ShaderWriter.cpp \
 	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
@@ -236,7 +238,6 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \
 	$(GPUCOMMONDIR)/ShaderTranslation.cpp \
-	$(GPUCOMMONDIR)/ShaderWriter.cpp \
 	$(GPUCOMMONDIR)/GPUDebugInterface.cpp \
 	$(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp \
 	$(GPUCOMMONDIR)/TransformCommon.cpp \

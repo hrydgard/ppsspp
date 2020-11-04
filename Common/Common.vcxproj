@@ -428,6 +428,8 @@
     <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
     <ClInclude Include="GPU\OpenGL\GLCommon.h" />
     <ClInclude Include="GPU\OpenGL\GLDebugLog.h" />
+    <ClInclude Include="GPU\Shader.h" />
+    <ClInclude Include="GPU\ShaderWriter.h" />
     <ClInclude Include="GPU\thin3d.h" />
     <ClInclude Include="GPU\thin3d_create.h" />
     <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
@@ -749,6 +751,8 @@
     <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
     <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp" />
     <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp" />
+    <ClCompile Include="GPU\Shader.cpp" />
+    <ClCompile Include="GPU\ShaderWriter.cpp" />
     <ClCompile Include="GPU\thin3d.cpp" />
     <ClCompile Include="GPU\Vulkan\thin3d_vulkan.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanContext.cpp" />

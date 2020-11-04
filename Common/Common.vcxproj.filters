@@ -375,6 +375,12 @@
     <ClInclude Include="Data\Collections\ThreadSafeList.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Shader.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\ShaderWriter.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -722,6 +728,12 @@
     </ClCompile>
     <ClCompile Include="Render\Text\draw_text_win.cpp">
       <Filter>Render\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\Shader.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\ShaderWriter.cpp">
+      <Filter>GPU</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
