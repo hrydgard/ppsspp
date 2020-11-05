@@ -1556,36 +1556,6 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	}
 }
 
-void FramebufferManagerCommon::OptimizeDownloadRange(VirtualFramebuffer * vfb, int & x, int & y, int & w, int & h) {
-	if (gameUsesSequentialCopies_) {
-		// Ignore the x/y/etc., read the entire thing.
-		x = 0;
-		y = 0;
-		w = vfb->width;
-		h = vfb->height;
-	}
-	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-		// Mark it as fully downloaded until next render to it.
-		vfb->memoryUpdated = true;
-		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-	} else {
-		// Let's try to set the flag eventually, if the game copies a lot.
-		// Some games copy subranges very frequently.
-		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-		static int frameLastCopy = 0;
-		static u32 bufferLastCopy = 0;
-		static int copiesThisFrame = 0;
-		if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-			frameLastCopy = gpuStats.numFlips;
-			bufferLastCopy = vfb->fb_address;
-			copiesThisFrame = 0;
-		}
-		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-			gameUsesSequentialCopies_ = true;
-		}
-	}
-}
-
 bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp, u32 skipDrawReason) {
 	if (!useBufferedRendering_) {
 		return false;
@@ -2045,7 +2015,35 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	}
 	if (vfb && vfb->fbo) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		OptimizeDownloadRange(vfb, x, y, w, h);
+		if (gameUsesSequentialCopies_) {
+			// Ignore the x/y/etc., read the entire thing.
+			x = 0;
+			y = 0;
+			w = vfb->width;
+			h = vfb->height;
+			vfb->memoryUpdated = true;
+			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+		} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+			// Mark it as fully downloaded until next render to it.
+			vfb->memoryUpdated = true;
+			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+		} else {
+			// Let's try to set the flag eventually, if the game copies a lot.
+			// Some games copy subranges very frequently.
+			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+			static int frameLastCopy = 0;
+			static u32 bufferLastCopy = 0;
+			static int copiesThisFrame = 0;
+			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+				frameLastCopy = gpuStats.numFlips;
+				bufferLastCopy = vfb->fb_address;
+				copiesThisFrame = 0;
+			}
+			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+				gameUsesSequentialCopies_ = true;
+			}
+		}
+
 		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
 			// No need to blit
 			PackFramebufferSync_(vfb, x, y, w, h);
@@ -2089,7 +2087,8 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 
 		// No need to download if we already have it.
 		if (w > 0 && h > 0 && !vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
-			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+			// We intentionally don't try to optimize into a full download here - we don't want to over download.
+
 			// CLUT framebuffers are often incorrectly estimated in size.
 			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 				vfb->memoryUpdated = true;
