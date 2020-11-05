@@ -214,14 +214,12 @@ public:
 
 GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	switch (stage) {
-	case ShaderStage::VERTEX: return GL_VERTEX_SHADER;
+	case ShaderStage::Vertex: return GL_VERTEX_SHADER;
 #ifndef USING_GLES2
-	case ShaderStage::COMPUTE: return GL_COMPUTE_SHADER;
-	case ShaderStage::EVALUATION: return GL_TESS_EVALUATION_SHADER;
-	case ShaderStage::CONTROL: return GL_TESS_CONTROL_SHADER;
-	case ShaderStage::GEOMETRY: return GL_GEOMETRY_SHADER;
+	case ShaderStage::Compute: return GL_COMPUTE_SHADER;
+	case ShaderStage::Geometry: return GL_GEOMETRY_SHADER;
 #endif
-	case ShaderStage::FRAGMENT:
+	case ShaderStage::Fragment:
 	default:
 		return GL_FRAGMENT_SHADER;
 	}

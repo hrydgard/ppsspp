@@ -109,7 +109,7 @@ protected:
 
 	void ShowPostShaderError(const std::string &errorString);
 
-	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
+	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 	bool AllocateFramebuffer(int w, int h);

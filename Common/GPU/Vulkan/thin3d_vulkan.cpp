@@ -171,13 +171,11 @@ public:
 
 VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	switch (stage) {
-	case ShaderStage::VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
-	case ShaderStage::GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
-	case ShaderStage::COMPUTE: return VK_SHADER_STAGE_COMPUTE_BIT;
-	case ShaderStage::EVALUATION: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-	case ShaderStage::CONTROL: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
+	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
 	default:
-	case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
 }
 

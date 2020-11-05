@@ -162,15 +162,6 @@ enum class TextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum class ShaderStage {
-	VERTEX,
-	FRAGMENT,
-	GEOMETRY,
-	CONTROL,  // HULL
-	EVALUATION,  // DOMAIN
-	COMPUTE,
-};
-
 enum class CullMode : uint8_t {
 	NONE,
 	FRONT,

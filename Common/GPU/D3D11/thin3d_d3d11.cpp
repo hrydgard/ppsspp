@@ -892,16 +892,14 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	std::string errors;
 	const char *target = nullptr;
 	switch (stage) {
-	case ShaderStage::FRAGMENT: target = fragmentModel; break;
-	case ShaderStage::VERTEX: target = vertexModel; break;
-	case ShaderStage::GEOMETRY:
+	case ShaderStage::Fragment: target = fragmentModel; break;
+	case ShaderStage::Vertex: target = vertexModel; break;
+	case ShaderStage::Geometry:
 		if (!geometryModel)
 			return nullptr;
 		target = geometryModel;
 		break;
-	case ShaderStage::COMPUTE:
-	case ShaderStage::CONTROL:
-	case ShaderStage::EVALUATION:
+	case ShaderStage::Compute:
 	default:
 		Crash();
 		break;
@@ -935,13 +933,13 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	module->stage = stage;
 	module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
 	switch (stage) {
-	case ShaderStage::VERTEX:
+	case ShaderStage::Vertex:
 		result = device_->CreateVertexShader(data, dataSize, nullptr, &module->vs);
 		break;
-	case ShaderStage::FRAGMENT:
+	case ShaderStage::Fragment:
 		result = device_->CreatePixelShader(data, dataSize, nullptr, &module->ps);
 		break;
-	case ShaderStage::GEOMETRY:
+	case ShaderStage::Geometry:
 		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
 		break;
 	default:
@@ -986,14 +984,14 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		D3D11ShaderModule *module = (D3D11ShaderModule *)iter;
 		shaders.push_back(module);
 		switch (module->GetStage()) {
-		case ShaderStage::VERTEX:
+		case ShaderStage::Vertex:
 			vshader = module;
 			dPipeline->vs = module->vs;
 			break;
-		case ShaderStage::FRAGMENT:
+		case ShaderStage::Fragment:
 			dPipeline->ps = module->ps;
 			break;
-		case ShaderStage::GEOMETRY:
+		case ShaderStage::Geometry:
 			dPipeline->gs = module->gs;
 			break;
 		}

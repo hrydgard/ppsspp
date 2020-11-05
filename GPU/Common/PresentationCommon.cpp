@@ -240,8 +240,8 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	}
 
 	std::string vsError, fsError;
-	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_1xx, vsSourceGLSL, &vsError);
-	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_1xx, fsSourceGLSL, &fsError);
+	Draw::ShaderModule *vs = CompileShaderModule(ShaderStage::Vertex, GLSL_1xx, vsSourceGLSL, &vsError);
+	Draw::ShaderModule *fs = CompileShaderModule(ShaderStage::Fragment, GLSL_1xx, fsSourceGLSL, &fsError);
 
 	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
 	if (!fs || !vs) {
@@ -465,7 +465,7 @@ void PresentationCommon::DestroyPostShader() {
 	postShaderFBOUsage_.clear();
 }
 
-Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
 	std::string translated = src;
 	bool translationFailed = false;
 	if (lang != lang_) {

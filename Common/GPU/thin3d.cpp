@@ -367,12 +367,12 @@ ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vect
 }
 
 bool DrawContext::CreatePresets() {
-	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::VERTEX, vsTexCol);
-	vsPresets_[VS_COLOR_2D] = CreateShader(this, ShaderStage::VERTEX, vsCol);
+	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsTexCol);
+	vsPresets_[VS_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsCol);
 
-	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::FRAGMENT, fsTexCol);
-	fsPresets_[FS_COLOR_2D] = CreateShader(this, ShaderStage::FRAGMENT, fsCol);
-	fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE] = CreateShader(this, ShaderStage::FRAGMENT, fsTexColRBSwizzle);
+	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsTexCol);
+	fsPresets_[FS_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsCol);
+	fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE] = CreateShader(this, ShaderStage::Fragment, fsTexColRBSwizzle);
 
 	return vsPresets_[VS_TEXTURE_COLOR_2D] && vsPresets_[VS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D] && fsPresets_[FS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE];
 }

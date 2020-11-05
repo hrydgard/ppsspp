@@ -17,7 +17,9 @@ inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
 
 enum class ShaderStage {
 	Vertex,
-	Fragment
+	Fragment,
+	Geometry,
+	Compute,
 };
 
 struct ShaderLanguageDesc {
