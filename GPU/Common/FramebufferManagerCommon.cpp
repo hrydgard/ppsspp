@@ -1090,7 +1090,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	shaderManager_->DirtyLastShader();
 	char tag[256];
-	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString((GEBufferFormat)vfb->colorDepth));
+	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, tag });
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
