@@ -1431,14 +1431,16 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->drawnFormat = vfb->format;
 		nvfb->colorDepth = vfb->colorDepth;
 
-		if (!CreateDownloadTempBuffer(nvfb)) {
+		char name[64];
+		snprintf(name, sizeof(name), "download_temp");
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth, name });
+		if (!nvfb->fbo) {
 			delete nvfb;
-			return nullptr;
+			ERROR_LOG(FRAMEBUF, "Error creating download temp FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
+			return false;
 		}
 
 		bvfbs_.push_back(nvfb);
-	} else {
-		UpdateDownloadTempBuffer(nvfb);
 	}
 
 	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -1446,36 +1448,6 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	nvfb->dirtyAfterDisplay = true;
 
 	return nvfb;
-}
-
-bool FramebufferManagerCommon::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// When updating VRAM, it need to be exact format.
-	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-		switch (nvfb->format) {
-		case GE_FORMAT_4444:
-			nvfb->colorDepth = Draw::FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			nvfb->colorDepth = Draw::FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			nvfb->colorDepth = Draw::FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			nvfb->colorDepth = Draw::FBO_8888;
-			break;
-		}
-	}
-
-	char name[64];
-	snprintf(name, sizeof(name), "download_temp");
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth, name });
-	if (!nvfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
-		return false;
-	}
-	return true;
 }
 
 void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor) {

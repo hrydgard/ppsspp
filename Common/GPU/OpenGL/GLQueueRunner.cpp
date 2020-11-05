@@ -1434,7 +1434,6 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	if (convert && tempBuffer_ && readbackBuffer_) {
 		ConvertFromRGBA8888(readbackBuffer_, tempBuffer_, pixelStride, pixelStride, rect.w, rect.h, pass.readback.dstFormat);
 	}
-
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
