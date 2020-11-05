@@ -254,7 +254,7 @@ public:
 	}
 	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		if (stage_ == ShaderStage::FRAGMENT) {
+		if (stage_ == ShaderStage::Fragment) {
 			device->SetPixelShader(pshader_);
 		} else {
 			device->SetVertexShader(vshader_);
@@ -697,10 +697,10 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			delete pipeline;
 			return NULL;
 		}
-		if (iter->GetStage() == ShaderStage::FRAGMENT) {
+		if (iter->GetStage() == ShaderStage::Fragment) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
 		}
-		else if (iter->GetStage() == ShaderStage::VERTEX) {
+		else if (iter->GetStage() == ShaderStage::Vertex) {
 			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
 		}
 	}
@@ -1034,10 +1034,10 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	auto compile = [&](const char *profile) -> HRESULT {
 		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 	};
-	HRESULT hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0");
+	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_2_0" : "vs_2_0");
 	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
 		// Might be a post shader.  Let's try using shader model 3.
-		hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_3_0" : "vs_3_0");
+		hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
 	}
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
@@ -1055,7 +1055,7 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	}
 
 	bool success = false;
-	if (stage_ == ShaderStage::FRAGMENT) {
+	if (stage_ == ShaderStage::Fragment) {
 		HRESULT result = device->CreatePixelShader((DWORD *)codeBuffer->GetBufferPointer(), &pshader_);
 		success = SUCCEEDED(result);
 	} else {

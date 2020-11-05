@@ -102,7 +102,7 @@ void GPUDriverTestScreen::DiscardTest() {
 
 		// Create the special shader module.
 
-		discardFragShader_ = CreateShader(draw, Draw::ShaderStage::FRAGMENT, fsDiscard);
+		discardFragShader_ = CreateShader(draw, ShaderStage::Fragment, fsDiscard);
 
 		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
 		BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
