@@ -1435,7 +1435,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		if (!nvfb->fbo) {
 			delete nvfb;
 			ERROR_LOG(FRAMEBUF, "Error creating download temp FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
-			return false;
+			return nullptr;
 		}
 
 		bvfbs_.push_back(nvfb);
