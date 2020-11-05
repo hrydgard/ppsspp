@@ -6,6 +6,7 @@
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/DataFormat.h"
+#include "Common/GPU/Shader.h"
 #include "Common/Data/Collections/TinySet.h"
 
 struct GLRViewport {
@@ -341,6 +342,11 @@ class GLQueueRunner {
 public:
 	GLQueueRunner() {}
 
+	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
+		errorCallback_ = callback;
+		errorCallbackUserData_ = userdata;
+	}
+
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls);
@@ -423,4 +429,7 @@ private:
 
 	bool sawOutOfMemory_ = false;
 	bool useDebugGroups_ = false;
+
+	ErrorCallbackFn errorCallback_ = nullptr;
+	void *errorCallbackUserData_ = nullptr;
 };

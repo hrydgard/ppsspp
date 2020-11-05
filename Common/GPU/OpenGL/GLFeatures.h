@@ -55,6 +55,7 @@ struct GLExtensions {
 	bool ARB_pixel_buffer_object;
 	bool ARB_blend_func_extended;  // dual source blending
 	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
+	bool ARB_explicit_attrib_location;
 	bool ARB_shader_image_load_store;
 	bool ARB_shading_language_420pack;
 	bool ARB_conservative_depth;

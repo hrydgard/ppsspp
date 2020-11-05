@@ -354,6 +354,10 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
+	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) override {
+		renderManager_.SetErrorCallback(callback, userdata);
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;

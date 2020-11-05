@@ -357,6 +357,10 @@ public:
 	GLRenderManager();
 	~GLRenderManager();
 
+	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
+		queueRunner_.SetErrorCallback(callback, userdata);
+	}
+
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
 	bool ThreadFrame();  // Returns false to request exiting the loop.

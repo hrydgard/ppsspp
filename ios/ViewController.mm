@@ -34,6 +34,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/Host.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -202,6 +203,10 @@ static LocationHelper *locationHelper;
 
 	graphicsContext = new IOSGraphicsContext();
 	
+	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+	}, nullptr);
+
 	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;

@@ -567,6 +567,8 @@ public:
 
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
+	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
+
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;

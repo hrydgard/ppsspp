@@ -356,6 +356,7 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
 	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
 	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
+	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -507,7 +508,7 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(3, 3)) {
 			gl_extensions.ARB_blend_func_extended = true;
-			// ARB_explicit_attrib_location = true;
+			gl_extensions.ARB_explicit_attrib_location = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 0)) {
 			// ARB_gpu_shader5 = true;

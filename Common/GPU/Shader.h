@@ -41,3 +41,8 @@ struct ShaderLanguageDesc {
 	bool forceMatrix4x4 = false;
 	bool coefsFromBuffers = false;
 };
+
+// For passing error messages from shader compilation (and other critical issues) back to the host.
+// This can run on any thread - be aware!
+// TODO: See if we can find a less generic name for this.
+typedef void (*ErrorCallbackFn)(const char *shortDesc, const char *details, void *userdata);
