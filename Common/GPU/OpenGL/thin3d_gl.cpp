@@ -742,8 +742,6 @@ public:
 
 	GLRenderManager *render_;
 	GLRFramebuffer *framebuffer = nullptr;
-
-	FBColorDepth colorDepth = FBO_8888;
 };
 
 // TODO: SSE/NEON optimize, and move to ColorConv.cpp.

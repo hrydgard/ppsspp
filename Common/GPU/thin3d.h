@@ -244,13 +244,6 @@ enum class NativeObject {
 	NULL_IMAGEVIEW,
 };
 
-enum FBColorDepth {
-	FBO_8888,
-	FBO_565,
-	FBO_4444,
-	FBO_5551,
-};
-
 enum FBChannel {
 	FB_COLOR_BIT = 1,
 	FB_DEPTH_BIT = 2,
@@ -292,7 +285,6 @@ struct FramebufferDesc {
 	int depth;
 	int numColorAttachments;
 	bool z_stencil;
-	FBColorDepth colorDepth;
 	const char *tag;  // For graphics debuggers
 };
 

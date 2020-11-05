@@ -284,7 +284,7 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
@@ -303,10 +303,6 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 		// To do this safely in Vulkan, we need to use input attachments.
 		return VK_NULL_HANDLE;
 	}
-}
-
-void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// Nothing to do here.
 }
 
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -370,12 +366,11 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	// BlitFramebuffer can clip, but CopyFramebufferImage is more restricted.
 	// In case the src goes outside, we just skip the optimization in that case.
 	const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
-	const bool sameDepth = dst->colorDepth == src->colorDepth;
 	const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
 	const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
 	const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 	const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
-	if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
+	if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 		draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, "BlitFramebuffer_Copy");
 	} else {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer_Blit");

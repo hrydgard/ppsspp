@@ -278,7 +278,7 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 	}
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
@@ -290,18 +290,6 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 		}
 	} else {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-	}
-}
-
-void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
-
-	// Discard the previous contents of this buffer where possible.
-	if (gl_extensions.GLES3) {
-		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "UpdateDownloadTempBuffer");
-	} else if (gl_extensions.IsGLES) {
-		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "UpdateDownloadTempBuffer");
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
 	}
 }
 
@@ -347,12 +335,11 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 		// In case the src goes outside, we just skip the optimization in that case.
 		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
-		const bool sameDepth = dst->colorDepth == src->colorDepth;
 		const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
 		const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
-		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
+		if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, "BlitFramebuffer");
 			return;
 		}

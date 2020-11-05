@@ -78,8 +78,6 @@ struct VirtualFramebuffer {
 	u16 newHeight;
 	int lastFrameNewSize;
 
-	// TODO: Handle fbo and colorDepth better.
-	u8 colorDepth;
 	Draw::Framebuffer *fbo;
 
 	u16 drawnWidth;
@@ -304,7 +302,7 @@ public:
 	virtual void Resized();
 	virtual void DestroyAllFBOs();
 
-	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
+	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h);
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
@@ -349,8 +347,6 @@ protected:
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
-	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb);
-	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 

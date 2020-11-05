@@ -1072,7 +1072,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
 	// It's not worth the trouble trying to support lower bit-depth rendering, just
 	// more cases to test that nobody will ever use.
-	vfb->colorDepth = Draw::FBO_8888;
 
 	textureCache_->ForgetLastTexture();
 
@@ -1091,7 +1090,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	shaderManager_->DirtyLastShader();
 	char tag[256];
 	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, tag });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
@@ -1380,7 +1379,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	char name[64];
 	snprintf(name, sizeof(name), "%08x_color_RAM", vfb->fb_address);
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth, name });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, name });
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = ColorBufferByteSize(vfb);
@@ -1429,16 +1428,17 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->drawnWidth = vfb->drawnWidth;
 		nvfb->drawnHeight = vfb->drawnHeight;
 		nvfb->drawnFormat = vfb->format;
-		nvfb->colorDepth = vfb->colorDepth;
 
-		if (!CreateDownloadTempBuffer(nvfb)) {
+		char name[64];
+		snprintf(name, sizeof(name), "download_temp");
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, name });
+		if (!nvfb->fbo) {
 			delete nvfb;
+			ERROR_LOG(FRAMEBUF, "Error creating download temp FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			return nullptr;
 		}
 
 		bvfbs_.push_back(nvfb);
-	} else {
-		UpdateDownloadTempBuffer(nvfb);
 	}
 
 	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -1446,36 +1446,6 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	nvfb->dirtyAfterDisplay = true;
 
 	return nvfb;
-}
-
-bool FramebufferManagerCommon::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// When updating VRAM, it need to be exact format.
-	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-		switch (nvfb->format) {
-		case GE_FORMAT_4444:
-			nvfb->colorDepth = Draw::FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			nvfb->colorDepth = Draw::FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			nvfb->colorDepth = Draw::FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			nvfb->colorDepth = Draw::FBO_8888;
-			break;
-		}
-	}
-
-	char name[64];
-	snprintf(name, sizeof(name), "download_temp");
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth, name });
-	if (!nvfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
-		return false;
-	}
-	return true;
 }
 
 void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor) {
@@ -1767,8 +1737,8 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	tempFBOs_.clear();
 }
 
-Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth color_depth) {
-	u64 key = ((u64)reason << 48) | ((u64)color_depth << 32) | ((u32)w << 16) | h;
+Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h) {
+	u64 key = ((u64)reason << 48) | ((u32)w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
 		it->second.last_frame_used = gpuStats.numFlips;
@@ -1778,7 +1748,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	bool z_stencil = reason == TempFBO::STENCIL;
 	char name[128];
 	snprintf(name, sizeof(name), "temp_fbo_%dx%d%s", w, h, z_stencil ? "_depth" : "");
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, color_depth, name });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
 	}

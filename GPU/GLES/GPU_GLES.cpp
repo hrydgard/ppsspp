@@ -189,21 +189,6 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_VAO;
 	}
 
-	bool useCPU = false;
-	if (!gl_extensions.IsGLES) {
-		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-		// This causes glitches in games that expect the exact values.
-		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || !gl_extensions.VersionGEThan(3, 0)) {
-			useCPU = true;
-		}
-	} else {
-		useCPU = true;
-	}
-
-	if (useCPU)
-		features |= GPU_PREFER_CPU_DOWNLOAD;
-
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
 
