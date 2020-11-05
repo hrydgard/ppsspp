@@ -170,7 +170,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
-		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h, Draw::FBO_8888);
+		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "NotifyStencilUpload_Blit");
 	} else if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE }, "NotifyStencilUpload_NoBlit");

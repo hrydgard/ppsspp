@@ -317,7 +317,7 @@ bool PresentationCommon::AllocateFramebuffer(int w, int h) {
 	}
 
 	// No depth/stencil for post processing
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, Draw::FBO_8888, "presentation" });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, "presentation" });
 	if (!fbo) {
 		return false;
 	}

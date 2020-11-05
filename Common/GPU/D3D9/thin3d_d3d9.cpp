@@ -1081,7 +1081,6 @@ public:
 
 	int width;
 	int height;
-	FBColorDepth colorDepth;
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
@@ -1090,7 +1089,6 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	D3D9Framebuffer *fbo = new D3D9Framebuffer{};
 	fbo->width = desc.width;
 	fbo->height = desc.height;
-	fbo->colorDepth = desc.colorDepth;
 	fbo->depthstenciltex = nullptr;
 
 	HRESULT rtResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
