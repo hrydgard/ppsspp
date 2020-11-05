@@ -420,8 +420,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		return;
 	}
 
-	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+	float srcXFactor = src->renderScaleFactor;
+	float srcYFactor = src->renderScaleFactor;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -431,8 +431,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-	float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+	float dstXFactor = dst->renderScaleFactor;
+	float dstYFactor = dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;

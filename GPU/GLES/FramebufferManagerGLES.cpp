@@ -315,8 +315,8 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
-	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
-	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
+	float srcXFactor = useBlit ? src->renderScaleFactor : 1.0f;
+	float srcYFactor = useBlit ? src->renderScaleFactor : 1.0f;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -326,8 +326,8 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
-	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
+	float dstXFactor = useBlit ? dst->renderScaleFactor : 1.0f;
+	float dstYFactor = useBlit ? dst->renderScaleFactor : 1.0f;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;

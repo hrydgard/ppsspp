@@ -358,6 +358,7 @@ int main(int argc, const char* argv[])
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
+	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
 	coreParameter.pixelWidth = 480;

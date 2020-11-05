@@ -729,7 +729,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	draw_->BindPipeline(nullptr);
 }
 
-void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa) {
+void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
@@ -776,4 +776,6 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool
 		*width = 480 * zoom;
 		*height = 272 * zoom;
 	}
+
+	*scaleFactor = zoom;
 }

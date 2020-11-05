@@ -77,6 +77,7 @@ bool FramebufferManagerCommon::UpdateSize() {
 
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
+	renderScaleFactor_ = (float)PSP_CoreParameter().renderScaleFactor;
 	pixelWidth_ = PSP_CoreParameter().pixelWidth;
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 	bloomHack_ = g_Config.iBloomHack;
@@ -340,14 +341,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		}
 	}
 
-	float renderWidthFactor = renderWidth_ / 480.0f;
-	float renderHeightFactor = renderHeight_ / 272.0f;
-
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && params.fb_address == 0x04154000) {
-		renderWidthFactor = 1.0;
-		renderHeightFactor = 1.0;
-	}
-
 	// None found? Create one.
 	if (!vfb) {
 		vfb = new VirtualFramebuffer{};
@@ -356,27 +349,27 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->fb_stride = params.fb_stride;
 		vfb->z_address = params.z_address;
 		vfb->z_stride = params.z_stride;
+
+		// The other width/height parameters are set in ResizeFramebufFBO below.
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->newWidth = drawing_width;
 		vfb->newHeight = drawing_height;
 		vfb->lastFrameNewSize = gpuStats.numFlips;
-		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
-		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
-		vfb->bufferWidth = drawing_width;
-		vfb->bufferHeight = drawing_height;
 		vfb->format = params.fmt;
 		vfb->drawnFormat = params.fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
-		SetColorUpdated(vfb, skipDrawReason);
 
 		u32 byteSize = ColorBufferByteSize(vfb);
 		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = params.fb_address + byteSize;
 		}
 
+		// This is where we actually create the framebuffer. The true is "force".
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
+
+		SetColorUpdated(vfb, skipDrawReason);
 
 		INFO_LOG(FRAMEBUF, "Creating FBO for %08x (z: %08x) : %i x %i x %i", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->format);
 
@@ -1046,6 +1039,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
+// Requires width/height to be set already.
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
 	_dbg_assert_(h > 0);
@@ -1067,7 +1061,32 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		vfb->bufferHeight = std::max((int)vfb->bufferHeight, h);
 	}
 
-	SetRenderSize(vfb);
+	bool force1x = false;
+	switch (bloomHack_) {
+	case 1:
+		force1x = vfb->bufferWidth <= 128 || vfb->bufferHeight <= 64;
+		break;
+	case 2:
+		force1x = vfb->bufferWidth <= 256 || vfb->bufferHeight <= 128;
+		break;
+	case 3:
+		force1x = vfb->bufferWidth < 480 || vfb->bufferWidth > 800 || vfb->bufferHeight < 272; // GOW uses 864x272
+		break;
+	}
+
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
+		force1x = true;
+	}
+
+	if (force1x && g_Config.iInternalResolution != 1) {
+		vfb->renderScaleFactor = 1.0f;
+		vfb->renderWidth = vfb->bufferWidth;
+		vfb->renderHeight = vfb->bufferHeight;
+	} else {
+		vfb->renderScaleFactor = renderScaleFactor_;
+		vfb->renderWidth = (u16)(vfb->bufferWidth * renderScaleFactor_);
+		vfb->renderHeight = (u16)(vfb->bufferHeight * renderScaleFactor_);
+	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
 	// It's not worth the trouble trying to support lower bit-depth rendering, just
@@ -1655,35 +1674,6 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	}
 }
 
-void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
-	float renderWidthFactor = renderWidth_ / 480.0f;
-	float renderHeightFactor = renderHeight_ / 272.0f;
-	bool force1x = false;
-	switch (bloomHack_) {
-	case 1:
-		force1x = vfb->bufferWidth <= 128 || vfb->bufferHeight <= 64;
-		break;
-	case 2:
-		force1x = vfb->bufferWidth <= 256 || vfb->bufferHeight <= 128;
-		break;
-	case 3:
-		force1x = vfb->bufferWidth < 480 || vfb->bufferWidth > 800 || vfb->bufferHeight < 272; // GOW uses 864x272
-		break;
-	}
-
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
-		force1x = true;
-	}
-
-	if (force1x && g_Config.iInternalResolution != 1) {
-		vfb->renderWidth = vfb->bufferWidth;
-		vfb->renderHeight = vfb->bufferHeight;
-	} else {
-		vfb->renderWidth = (u16)(vfb->bufferWidth * renderWidthFactor);
-		vfb->renderHeight = (u16)(vfb->bufferHeight * renderHeightFactor);
-	}
-}
-
 void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (vfb) {
@@ -1695,10 +1685,11 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 void FramebufferManagerCommon::Resized() {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 
-	int w, h;
-	presentation_->CalculateRenderResolution(&w, &h, &postShaderIsUpscalingFilter_, &postShaderIsSupersampling_);
+	int w, h, scaleFactor;
+	presentation_->CalculateRenderResolution(&w, &h, &scaleFactor, &postShaderIsUpscalingFilter_, &postShaderIsSupersampling_);
 	PSP_CoreParameter().renderWidth = w;
 	PSP_CoreParameter().renderHeight = h;
+	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
 	if (UpdateSize()) {
 		DestroyAllFBOs();
@@ -1736,6 +1727,11 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
+
+	for (auto iter : fbosToDelete_) {
+		iter->Release();
+	}
+	fbosToDelete_.clear();
 }
 
 Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h) {
