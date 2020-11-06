@@ -1368,9 +1368,6 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format) {
-	float renderWidthFactor = renderWidth_ / 480.0f;
-	float renderHeightFactor = renderHeight_ / 272.0f;
-
 	INFO_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
 
 	// A target for the destination is missing - so just create one!
@@ -1387,8 +1384,9 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->newWidth = vfb->width;
 	vfb->newHeight = vfb->height;
 	vfb->lastFrameNewSize = gpuStats.numFlips;
-	vfb->renderWidth = (u16)(vfb->width * renderWidthFactor);
-	vfb->renderHeight = (u16)(vfb->height * renderHeightFactor);
+	vfb->renderScaleFactor = renderScaleFactor_;
+	vfb->renderWidth = (u16)(vfb->width * renderScaleFactor_);
+	vfb->renderHeight = (u16)(vfb->height * renderScaleFactor_);
 	vfb->bufferWidth = vfb->width;
 	vfb->bufferHeight = vfb->height;
 	vfb->format = format;
@@ -1441,6 +1439,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->height = vfb->height;
 		nvfb->renderWidth = vfb->bufferWidth;
 		nvfb->renderHeight = vfb->bufferHeight;
+		nvfb->renderScaleFactor = 1.0f;  // For readbacks we resize to the original size, of course.
 		nvfb->bufferWidth = vfb->bufferWidth;
 		nvfb->bufferHeight = vfb->bufferHeight;
 		nvfb->format = vfb->format;
