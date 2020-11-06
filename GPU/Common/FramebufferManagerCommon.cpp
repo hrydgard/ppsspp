@@ -584,7 +584,7 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	}
 
 	// Copy to a temp framebuffer.
-	Draw::Framebuffer *temp = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
+	Draw::Framebuffer *temp = GetTempFBO(TempFBO::REINTERPRET, vfb->renderWidth, vfb->renderHeight);
 
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
 	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "reinterpret");

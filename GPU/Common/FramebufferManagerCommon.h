@@ -158,6 +158,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// For another type of framebuffers that can happen together with COPY (see Outrun)
+	REINTERPRET,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -320,6 +322,7 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() {
 		return vfbs_;
 	}
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -344,7 +347,6 @@ protected:
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);

@@ -419,12 +419,33 @@ enum GETextureFormat
 	GE_TFMT_DXT5 = 10,
 };
 
-const char *GeTextureFormatToString(GETextureFormat fmt);
-inline bool IsClutFormat(GETextureFormat fmt) {
-	return fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8 || fmt == GE_TFMT_CLUT16 || fmt == GE_TFMT_CLUT32;
+const char *GeTextureFormatToString(GETextureFormat tfmt);
+inline bool IsClutFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8 || tfmt == GE_TFMT_CLUT16 || tfmt == GE_TFMT_CLUT32;
 }
-inline bool IsDXTFormat(GETextureFormat fmt) {
-	return fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5;
+inline bool IsDXTFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_DXT1 || tfmt == GE_TFMT_DXT3 || tfmt == GE_TFMT_DXT5;
+}
+inline bool IsTextureFormatBufferCompatible(GETextureFormat tfmt) {
+	return (int)tfmt < 4;
+}
+inline bool IsBufferFormat16Bit(GEBufferFormat bfmt) {
+	return (int)bfmt < 3;
+}
+inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
+	return (int)tfmt < 3;
+}
+inline bool TextureFormatMatchesBufferFormat(GETextureFormat fmt, GEBufferFormat bfmt) {
+	// First four matches perfectly.
+	if ((int)fmt < 4) {
+		return (int)fmt == (int)bfmt;
+	} else {
+		return false;
+	}
+}
+// only applicable if IsTextureFormatBufferCompatible(fmt)
+inline GEBufferFormat TextureFormatToBufferFormat(GETextureFormat bfmt) {
+	return (GEBufferFormat)(int)bfmt;
 }
 
 enum GETexLevelMode {
