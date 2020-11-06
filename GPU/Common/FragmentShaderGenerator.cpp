@@ -500,7 +500,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 31) != 0U;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -512,13 +512,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  vec4 t1 = %sOffset(tex, uv_round, ivec2(1, 0));\n", compat.texture);
 				WRITE(p, "  vec4 t2 = %sOffset(tex, uv_round, ivec2(0, 1));\n", compat.texture);
 				WRITE(p, "  vec4 t3 = %sOffset(tex, uv_round, ivec2(1, 1));\n", compat.texture);
-				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFF);\n");
-				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFF;\n");
-				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
-				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3;\n");
+				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFU);\n");
+				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 8) & 0xFFU;\n");
+				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 16) & 0xFFU) << 4;\n");
+				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 24) & 0x3U;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
-				WRITE(p, "  case 0:\n");  // 565
+				WRITE(p, "  case 0U:\n");  // 565
 				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "    index0 = (col.b << 11) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
@@ -530,7 +530,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "      index3 = (col.b << 11) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
-				WRITE(p, "  case 1:\n");  // 5551
+				WRITE(p, "  case 1U:\n");  // 5551
 				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "    index0 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
@@ -542,7 +542,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "      index3 = (col.a << 15) | (col.b << 10) | (col.g << 5) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
-				WRITE(p, "  case 2:\n");  // 4444
+				WRITE(p, "  case 2U:\n");  // 4444
 				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
 				WRITE(p, "    index0 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
@@ -554,7 +554,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "      index3 = (col.a << 12) | (col.b << 8) | (col.g << 4) | (col.r);\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
-				WRITE(p, "  case 3:\n");  // 8888
+				WRITE(p, "  case 3U:\n");  // 8888
 				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
 				WRITE(p, "    index0 = (col.a << 24) | (col.b << 16) | (col.g << 8) | (col.r);\n");
 				WRITE(p, "    if (bilinear) {\n");
