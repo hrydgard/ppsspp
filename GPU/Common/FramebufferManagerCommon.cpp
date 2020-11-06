@@ -531,13 +531,15 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 		return;
 	}
 
+	char *vsCode = nullptr;
+	char *fsCode = nullptr;
+
 	if (!reinterpretVS_) {
-		char *buffer = new char[4000];
+		vsCode = new char[4000];
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-		GenerateReinterpretVertexShader(buffer, shaderLanguageDesc);
-		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_vs");
+		GenerateReinterpretVertexShader(vsCode, shaderLanguageDesc);
+		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "reinterpret_vs");
 		_assert_(reinterpretVS_);
-		delete[] buffer;
 	}
 
 	if (!reinterpretSampler_) {
@@ -551,12 +553,11 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 
 	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
 	if (!pipeline) {
-		char *buffer = new char[4000];
+		fsCode = new char[4000];
 		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-		GenerateReinterpretFragmentShader(buffer, oldFormat, newFormat, shaderLanguageDesc);
-		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_fs");
+		GenerateReinterpretFragmentShader(fsCode, oldFormat, newFormat, shaderLanguageDesc);
+		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "reinterpret_fs");
 		_assert_(reinterpretFS);
-		delete[] buffer;
 
 		std::vector<Draw::ShaderModule *> shaders;
 		shaders.push_back(reinterpretVS_);
@@ -597,10 +598,17 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	draw_->Draw(3, 0);
 	draw_->InvalidateCachedState();
 
+	// Unbind.
+	draw_->BindTexture(0, nullptr);
+	RebindFramebuffer("RebindFramebuffer - After reinterpret");
+
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+
+	delete[] vsCode;
+	delete[] fsCode;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {

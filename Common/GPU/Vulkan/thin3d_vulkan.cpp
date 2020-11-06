@@ -1030,8 +1030,12 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
 
-	for (int i = 0; i < (int)input->bindings.size(); i++) {
-		pipeline->stride[i] = input->bindings[i].stride;
+	if (input) {
+		for (int i = 0; i < (int)input->bindings.size(); i++) {
+			pipeline->stride[i] = input->bindings[i].stride;
+		}
+	} else {
+		pipeline->stride[0] = 0;
 	}
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
@@ -1076,6 +1080,8 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&rs);
 
+	VkPipelineVertexInputStateCreateInfo emptyVisc{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+
 	VkGraphicsPipelineCreateInfo createInfo[2]{};
 	for (auto &info : createInfo) {
 		info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1088,7 +1094,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		info.pInputAssemblyState = &inputAssembly;
 		info.pTessellationState = nullptr;
 		info.pMultisampleState = &ms;
-		info.pVertexInputState = &input->visc;
+		info.pVertexInputState = input ? &input->visc : &emptyVisc;
 		info.pRasterizationState = &rs;
 		info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 		info.layout = pipelineLayout_;

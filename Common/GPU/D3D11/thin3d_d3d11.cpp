@@ -664,6 +664,8 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return inputLayout;
 }
 
+class D3D11ShaderModule;
+
 class D3D11Pipeline : public Pipeline {
 public:
 	~D3D11Pipeline() {
@@ -693,6 +695,8 @@ public:
 	ID3D11PixelShader *ps = nullptr;
 	ID3D11GeometryShader *gs = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+
+	std::vector<D3D11ShaderModule *> shaderModules;
 
 	size_t dynamicUniformsSize = 0;
 	ID3D11Buffer *dynamicUniforms = nullptr;
@@ -966,7 +970,9 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	dPipeline->raster = (D3D11RasterState *)desc.raster;
 	dPipeline->blend->AddRef();
 	dPipeline->depth->AddRef();
-	dPipeline->input->AddRef();
+	if (dPipeline->input) {
+		dPipeline->input->AddRef();
+	}
 	dPipeline->raster->AddRef();
 	dPipeline->topology = primToD3D11[(int)desc.prim];
 	if (desc.uniformDesc) {
@@ -983,6 +989,8 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	std::vector<D3D11ShaderModule *> shaders;
 	D3D11ShaderModule *vshader = nullptr;
 	for (auto iter : desc.shaders) {
+		iter->AddRef();
+
 		D3D11ShaderModule *module = (D3D11ShaderModule *)iter;
 		shaders.push_back(module);
 		switch (module->GetStage()) {
@@ -998,6 +1006,7 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			break;
 		}
 	}
+	dPipeline->shaderModules = shaders;
 
 	if (!vshader) {
 		// No vertex shader - no graphics
@@ -1006,11 +1015,15 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 
 	// Can finally create the input layout
-	auto &inputDesc = dPipeline->input->desc;
-	const std::vector<D3D11_INPUT_ELEMENT_DESC> &elements = dPipeline->input->elements;
-	HRESULT hr = device_->CreateInputLayout(elements.data(), (UINT)elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
-	if (!SUCCEEDED(hr)) {
-		Crash();
+	if (dPipeline->input) {
+		auto &inputDesc = dPipeline->input->desc;
+		const std::vector<D3D11_INPUT_ELEMENT_DESC> &elements = dPipeline->input->elements;
+		HRESULT hr = device_->CreateInputLayout(elements.data(), (UINT)elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
+		if (!SUCCEEDED(hr)) {
+			Crash();
+		}
+	} else {
+		dPipeline->il = nullptr;
 	}
 	return dPipeline;
 }
@@ -1081,8 +1094,10 @@ void D3D11DrawContext::ApplyCurrentState() {
 		curTopology_ = curPipeline_->topology;
 	}
 
-	int numVBs = (int)curPipeline_->input->strides.size();
-	context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+	if (curPipeline_->input) {
+		int numVBs = (int)curPipeline_->input->strides.size();
+		context_->IASetVertexBuffers(0, numVBs, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+	}
 	if (dirtyIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		dirtyIndexBuffer_ = false;

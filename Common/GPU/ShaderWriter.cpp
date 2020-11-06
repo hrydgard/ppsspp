@@ -141,10 +141,10 @@ void ShaderWriter::BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniform
 	case HLSL_D3D9:
 	{
 		C("struct VS_OUTPUT {\n");
-		C("  vec4 pos : POSITION;\n");
 		for (auto &varying : varyings) {
 			F("  %s %s : %s;\n", varying.type, varying.name, varying.semantic);
 		}
+		F("  vec4 pos : %s;\n", lang_.shaderLanguage == HLSL_D3D11 ? "SV_Position" : "POSITION");
 		C("};\n");
 
 		C("VS_OUTPUT main(  ");  // 2 spaces for the D3D9 rewind
@@ -268,7 +268,8 @@ void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
 	case HLSL_D3D9:
 		break;
 	case GLSL_VULKAN:
-		F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", binding, name);
+		// In the thin3d descriptor set layout, textures start at 1 in set 0. Hence the +1.
+		F("layout(set = 0, binding = %d) uniform sampler2D %s;\n", binding + 1, name);
 		break;
 	default:
 		F("uniform sampler2D %s;\n", name);
