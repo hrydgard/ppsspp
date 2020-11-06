@@ -89,7 +89,7 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 }
 
 ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
-	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), compat_(ShaderLanguage::HLSL_D3D11) {
+	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel) {
 	codeBuffer_ = new char[16384];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
@@ -210,7 +210,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		GenerateVertexShader(VSID, codeBuffer_, compat_, &attrMask, &uniformMask, &genErrorString);
+		GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), &attrMask, &uniformMask, &genErrorString);
 		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {
@@ -224,7 +224,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask;
-		GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
+		GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), &uniformMask, &genErrorString);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {

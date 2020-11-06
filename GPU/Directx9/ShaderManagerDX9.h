@@ -111,7 +111,6 @@ private:
 	void Clear();
 
 	LPDIRECT3DDEVICE9 device_;
-	ShaderLanguageDesc compat_;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

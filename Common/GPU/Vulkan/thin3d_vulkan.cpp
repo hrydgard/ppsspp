@@ -497,7 +497,6 @@ public:
 	void InvalidateCachedState() override;
 
 private:
-
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
 
@@ -760,6 +759,8 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 
 VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
+	shaderLanguageDesc_.Init(GLSL_VULKAN);
+
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.tessellationShader != 0;
@@ -780,8 +781,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
-	default:
-		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
 	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
@@ -1448,7 +1448,11 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) { _assert_msg_(fb, "Null fb in VKFramebuffer constructor"); }
+	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {
+		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
+		width_ = fb->width;
+		height_ = fb->height;
+	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
 		buf_->vulkan_->Delete().QueueCallback([](void *fb) {

@@ -294,6 +294,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	hr = device_->CreateTexture2D(&packDesc, nullptr, &packTexture_);
 	_assert_(SUCCEEDED(hr));
+
+	shaderLanguageDesc_.Init(HLSL_D3D11);
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
@@ -1205,7 +1207,10 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
 class D3D11Framebuffer : public Framebuffer {
 public:
-	D3D11Framebuffer() {}
+	D3D11Framebuffer(int width, int height) {
+		width_ = width;
+		height_ = height;
+	}
 	~D3D11Framebuffer() {
 		if (colorTex)
 			colorTex->Release();
@@ -1220,8 +1225,6 @@ public:
 		if (depthStencilRTView)
 			depthStencilRTView->Release();
 	}
-	int width;
-	int height;
 
 	ID3D11Texture2D *colorTex = nullptr;
 	ID3D11RenderTargetView *colorRTView = nullptr;
@@ -1236,9 +1239,7 @@ public:
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
-	D3D11Framebuffer *fb = new D3D11Framebuffer();
-	fb->width = desc.width;
-	fb->height = desc.height;
+	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
 	if (desc.numColorAttachments) {
 		fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 		D3D11_TEXTURE2D_DESC descColor{};
@@ -1396,7 +1397,7 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 	}
 
 	// TODO: Check for level too!
-	if (width == src->width && width == dst->width && height == src->height && height == dst->height && x == 0 && y == 0 && z == 0 && dstX == 0 && dstY == 0 && dstZ == 0) {
+	if (width == src->Width() && width == dst->Width() && height == src->Height() && height == dst->Height() && x == 0 && y == 0 && z == 0 && dstX == 0 && dstY == 0 && dstZ == 0) {
 		// Don't need to specify region. This might be faster, too.
 		context_->CopyResource(dstTex, srcTex);
 		return;
@@ -1415,11 +1416,11 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 			dstY -= y;
 			y = 0;
 		}
-		if (x + width > src->width) {
-			width = src->width - x;
+		if (x + width > src->Width()) {
+			width = src->Width() - x;
 		}
-		if (y + height > src->height) {
-			height = src->height - y;
+		if (y + height > src->Height()) {
+			height = src->Height() - y;
 		}
 		D3D11_BOX srcBox{ (UINT)x, (UINT)y, (UINT)z, (UINT)(x + width), (UINT)(y + height), (UINT)(z + depth) };
 		context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);
@@ -1441,11 +1442,11 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		_assert_(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
 
 		// TODO: Figure out where the badness really comes from.
-		if (bx + bw > fb->width) {
-			bw -= (bx + bw) - fb->width;
+		if (bx + bw > fb->Width()) {
+			bw -= (bx + bw) - fb->Width();
 		}
-		if (by + bh > fb->height) {
-			bh -= (by + bh) - fb->height;
+		if (by + bh > fb->Height()) {
+			bh -= (by + bh) - fb->Height();
 		}
 	}
 
@@ -1565,8 +1566,8 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
 			curRenderTargetView_ = fb->colorRTView;
 			curDepthStencilView_ = fb->depthStencilRTView;
-			curRTWidth_ = fb->width;
-			curRTHeight_ = fb->height;
+			curRTWidth_ = fb->Width();
+			curRTHeight_ = fb->Height();
 		}
 	} else {
 		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_) {
@@ -1634,8 +1635,8 @@ uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int chann
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	if (fb) {
-		*w = fb->width;
-		*h = fb->height;
+		*w = fb->Width();
+		*h = fb->Height();
 	} else {
 		*w = bbWidth_;
 		*h = bbHeight_;
