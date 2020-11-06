@@ -607,6 +607,7 @@ OpenGLContext::OpenGLContext() {
 
 	// Detect shader language features.
 	if (gl_extensions.IsGLES) {
+		shaderLanguageDesc_.gles = true;
 		if (gl_extensions.GLES3) {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.glslVersionNumber = 300;  // GLSL ES 3.0
