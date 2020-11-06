@@ -261,7 +261,6 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 		// We have to bind here instead of clear, since it can be that no framebuffer is bound.
 		// The backend can sometimes directly optimize it to a clear.
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer"); 
-		// draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, 0.0f, 0);
 
 		// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 		// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
@@ -339,8 +338,10 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+	float srcXFactor = (float)src->renderScaleFactor;
+	float srcYFactor = (float)src->renderScaleFactor;
+
+	// Some games use wrong-format block transfers. Simulate that.
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -350,8 +351,8 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-	float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+	float dstXFactor = (float)dst->renderScaleFactor;
+	float dstYFactor = (float)dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -367,8 +368,6 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	// BlitFramebuffer can clip, but CopyFramebufferImage is more restricted.
-	// In case the src goes outside, we just skip the optimization in that case.
 	const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
 	const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
 	const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;

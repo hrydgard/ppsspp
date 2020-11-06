@@ -61,21 +61,24 @@ struct VirtualFramebuffer {
 	u16 width;
 	u16 height;
 
-	// renderWidth/renderHeight: The scaled size we render at. May be scaled to render at higher resolutions.
-	// The physical buffer may be larger than renderWidth/renderHeight.
-	u16 renderWidth;
-	u16 renderHeight;
-
-	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than width/height.
+	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than or equal to width/height.
 	// Actual physical buffer is this size times the render resolution multiplier.
 	// The buffer may be used to render a width or height from 0 to these values without being recreated.
 	u16 bufferWidth;
 	u16 bufferHeight;
 
+	// renderWidth/renderHeight: The scaled size we render at. May be scaled to render at higher resolutions.
+	// The physical buffer may be larger than renderWidth/renderHeight.
+	u16 renderWidth;
+	u16 renderHeight;
+
+	float renderScaleFactor;
+
 	u16 usageFlags;
 
 	u16 newWidth;
 	u16 newHeight;
+
 	int lastFrameNewSize;
 
 	Draw::Framebuffer *fbo;
@@ -396,9 +399,10 @@ protected:
 
 	bool gameUsesSequentialCopies_ = false;
 
-	// Sampled in BeginFrame for safety.
+	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
+	float renderScaleFactor_ = 1.0f;
 	int pixelWidth_;
 	int pixelHeight_;
 	int bloomHack_ = 0;

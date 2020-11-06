@@ -23,7 +23,10 @@ enum class ShaderStage {
 };
 
 struct ShaderLanguageDesc {
+	ShaderLanguageDesc() {}
 	explicit ShaderLanguageDesc(ShaderLanguage lang);
+
+	void Init(ShaderLanguage lang);
 
 	int glslVersionNumber = 0;
 	ShaderLanguage shaderLanguage;

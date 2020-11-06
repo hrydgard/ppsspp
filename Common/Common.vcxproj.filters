@@ -729,10 +729,10 @@
     <ClCompile Include="Render\Text\draw_text_win.cpp">
       <Filter>Render\Text</Filter>
     </ClCompile>
-    <ClCompile Include="GPU\Shader.cpp">
+    <ClCompile Include="GPU\ShaderWriter.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
-    <ClCompile Include="GPU\ShaderWriter.cpp">
+    <ClCompile Include="GPU\Shader.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
   </ItemGroup>

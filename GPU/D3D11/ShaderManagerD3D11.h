@@ -110,7 +110,6 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
-	ShaderLanguageDesc compat_;
 
 	typedef std::map<FShaderID, D3D11FragmentShader *> FSCache;
 	FSCache fsCache_;

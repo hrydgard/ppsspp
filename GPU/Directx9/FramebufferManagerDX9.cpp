@@ -383,8 +383,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			return;
 		}
 
-		float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-		float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+		float srcXFactor = (float)src->renderScaleFactor;
+		float srcYFactor = (float)src->renderScaleFactor;
 		const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 		if (srcBpp != bpp && bpp != 0) {
 			srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -394,8 +394,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		int srcY1 = srcY * srcYFactor;
 		int srcY2 = (srcY + h) * srcYFactor;
 
-		float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-		float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+		float dstXFactor = (float)dst->renderScaleFactor;
+		float dstYFactor = (float)dst->renderScaleFactor;
 		const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 		if (dstBpp != bpp && bpp != 0) {
 			dstXFactor = (dstXFactor * bpp) / dstBpp;
