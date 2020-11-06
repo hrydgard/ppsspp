@@ -1433,12 +1433,13 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		snprintf(name, sizeof(name), "download_temp");
 		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, name });
 		if (!nvfb->fbo) {
-			delete nvfb;
-			ERROR_LOG(FRAMEBUF, "Error creating download temp FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
+			ERROR_LOG(FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			return nullptr;
 		}
 
 		bvfbs_.push_back(nvfb);
+	} else {
+		UpdateDownloadTempBuffer(nvfb);
 	}
 
 	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
