@@ -296,7 +296,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 					errorCallback_(desc.c_str(), errorString.c_str(), errorCallbackUserData_);
 				}
 				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog.c_str(), step.create_shader.shader->desc.c_str(), (const char *)code);
-			} else {
 #ifdef SHADERLOG
 				OutputDebugStringUTF8(infoLog.c_str());
 #endif
