@@ -533,40 +533,73 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 
 	if (!reinterpretVS_) {
 		char *buffer = new char[4000];
-		const ShaderLanguageDesc &desc = draw_->GetShaderLanguageDesc();
-		GenerateReinterpretVertexShader(buffer, desc);
-		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, desc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_vs");
+		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+		GenerateReinterpretVertexShader(buffer, shaderLanguageDesc);
+		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_vs");
+		_assert_(reinterpretVS_);
 		delete[] buffer;
 	}
 
+	if (!reinterpretSampler_) {
+		Draw::SamplerStateDesc samplerDesc{};
+		samplerDesc.magFilter = Draw::TextureFilter::LINEAR;
+		samplerDesc.minFilter = Draw::TextureFilter::LINEAR;
+		reinterpretSampler_ = draw_->CreateSamplerState(samplerDesc);
+	}
+
 	// See if we need to create a new pipeline.
-	if (!reinterpretFromTo_[(int)oldFormat][(int)newFormat]) {
+
+	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
+	if (!pipeline) {
+		char *buffer = new char[4000];
+		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+		GenerateReinterpretFragmentShader(buffer, oldFormat, newFormat, shaderLanguageDesc);
+		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)buffer, strlen(buffer), "reinterpret_fs");
+		_assert_(reinterpretFS);
+		delete[] buffer;
+
 		std::vector<Draw::ShaderModule *> shaders;
+		shaders.push_back(reinterpretVS_);
+		shaders.push_back(reinterpretFS);
 
 		using namespace Draw;
 		Draw::PipelineDesc desc{};
 		// We use a "fullscreen triangle".
-		InputLayoutDesc inputDesc{};  // No inputs, we generate it in the shader.
-		InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
+		// TODO: clear the stencil buffer. Hard to actually initialize it with the new alpha, though possible - let's see if
+		// we need it.
 		DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
 		BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
 		RasterState *rasterNoCull = draw_->CreateRasterState({});
 
 		// No uniforms for these, only a single texture input.
-		PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, nullptr };
-		Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+		PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, nullptr, depth, blendstateOff, rasterNoCull, nullptr };
+		pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+		_assert_(pipeline != nullptr);
+		reinterpretFromTo_[(int)oldFormat][(int)newFormat] = pipeline;
 
-		inputLayout->Release();
 		depth->Release();
 		blendstateOff->Release();
 		rasterNoCull->Release();
+		reinterpretFS->Release();
 	}
 
 	// Copy to a temp framebuffer.
 	Draw::Framebuffer *temp = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
 
+	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "reinterpret");
+	draw_->BindPipeline(pipeline);
+	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
+	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
+	draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
+	Draw::Viewport vp = Draw::Viewport{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
+	draw_->SetViewports(1, &vp);
+	draw_->Draw(3, 0);
+	draw_->InvalidateCachedState();
+
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
+
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
 }
 

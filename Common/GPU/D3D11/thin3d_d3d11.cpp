@@ -680,7 +680,7 @@ public:
 		if (dynamicUniforms)
 			dynamicUniforms->Release();
 	}
-	bool RequiresBuffer() {
+	bool RequiresBuffer() override {
 		return true;
 	}
 

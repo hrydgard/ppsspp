@@ -432,6 +432,7 @@ protected:
 	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
-	Draw::Pipeline *reinterpretFromTo_[3][3];
+	Draw::Pipeline *reinterpretFromTo_[3][3]{};
 	Draw::ShaderModule *reinterpretVS_ = nullptr;
+	Draw::SamplerState *reinterpretSampler_ = nullptr;
 };
