@@ -46,7 +46,10 @@ public:
 	virtual void Init() override;
 	void EndFrame();
 	void Resized() override;
-	void DeviceLost();
+
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
+
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
@@ -55,8 +58,6 @@ public:
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-
-	void DeviceRestore(Draw::DrawContext *draw);
 
 protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies

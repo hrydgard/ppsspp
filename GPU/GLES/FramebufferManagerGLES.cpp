@@ -389,16 +389,14 @@ void FramebufferManagerGLES::EndFrame() {
 }
 
 void FramebufferManagerGLES::DeviceLost() {
-	DestroyAllFBOs();
+	FramebufferManagerCommon::DeviceLost();
 	DestroyDeviceObjects();
-	presentation_->DeviceLost();
 }
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
-	presentation_->DeviceRestore(draw);
-	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	FramebufferManagerCommon::DeviceRestore(draw);
 	CreateDeviceObjects();
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 
 void FramebufferManagerGLES::Resized() {

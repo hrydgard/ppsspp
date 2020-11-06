@@ -465,6 +465,8 @@ public:
 
 	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
+		case NativeObject::CONTEXT:
+			return (uint64_t)vulkan_;
 		case NativeObject::FRAMEBUFFER_RENDERPASS:
 			// Return a representative renderpass.
 			return (uint64_t)renderManager_.GetFramebufferRenderPass();

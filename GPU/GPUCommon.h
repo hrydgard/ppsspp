@@ -260,6 +260,9 @@ public:
 	}
 
 protected:
+	void DeviceLost() override;
+	void DeviceRestore() override;
+
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here

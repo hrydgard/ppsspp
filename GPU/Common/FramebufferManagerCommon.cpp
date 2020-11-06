@@ -2102,3 +2102,14 @@ std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
 
 	return list;
 }
+
+void FramebufferManagerCommon::DeviceLost() {
+	DestroyAllFBOs();
+	presentation_->DeviceLost();
+	draw_ = nullptr;
+}
+
+void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	presentation_->DeviceRestore(draw);
+}

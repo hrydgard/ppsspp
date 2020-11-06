@@ -468,7 +468,3 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 
 void FramebufferManagerD3D11::EndFrame() {
 }
-
-void FramebufferManagerD3D11::DeviceLost() {
-	DestroyAllFBOs();
-}

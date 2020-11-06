@@ -468,6 +468,18 @@ void GPUCommon::Reinitialize() {
 		framebufferManager_->DestroyAllFBOs();
 }
 
+// Call at the END of the GPU implementation's DeviceLost
+void GPUCommon::DeviceLost() {
+	framebufferManager_->DeviceLost();
+	draw_ = nullptr;
+}
+
+// Call at the start of the GPU implementation's DeviceRestore
+void GPUCommon::DeviceRestore() {
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	framebufferManager_->DeviceRestore(draw_);
+}
+
 void GPUCommon::UpdateVsyncInterval(bool force) {
 #if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;

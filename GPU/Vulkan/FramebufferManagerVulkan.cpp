@@ -388,15 +388,12 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	DestroyAllFBOs();
+	FramebufferManagerCommon::DeviceLost();
 	DestroyDeviceObjects();
-	presentation_->DeviceLost();
 }
 
-void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
-	vulkan_ = vulkan;
-	draw_ = draw;
-	presentation_->DeviceRestore(draw);
-
+void FramebufferManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
+	FramebufferManagerCommon::DeviceRestore(draw);
+	vulkan_ = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	InitDeviceObjects();
 }

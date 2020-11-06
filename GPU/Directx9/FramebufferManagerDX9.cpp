@@ -559,10 +559,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	void FramebufferManagerDX9::EndFrame() {
 	}
 
-	void FramebufferManagerDX9::DeviceLost() {
-		DestroyAllFBOs();
-	}
-
 	void FramebufferManagerDX9::DecimateFBOs() {
 		FramebufferManagerCommon::DecimateFBOs();
 		for (auto it = offscreenSurfaces_.begin(); it != offscreenSurfaces_.end(); ) {

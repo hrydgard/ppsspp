@@ -300,21 +300,18 @@ void GPU_GLES::DeviceLost() {
 	fragmentTestCache_.DeviceLost();
 	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
-	framebufferManagerGL_->DeviceLost();
-	// Don't even try to access the lost device.
-	draw_ = nullptr;
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	INFO_LOG(G3D, "GPU_GLES: DeviceRestore");
+	GPUCommon::DeviceRestore();
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
 	shaderManagerGL_->DeviceRestore(draw_);
 	textureCacheGL_->DeviceRestore(draw_);
-	framebufferManagerGL_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
 	depalShaderCache_.DeviceRestore(draw_);

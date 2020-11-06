@@ -305,6 +305,9 @@ public:
 	virtual void Resized();
 	virtual void DestroyAllFBOs();
 
+	virtual void DeviceLost();
+	virtual void DeviceRestore(Draw::DrawContext *draw);
+
 	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h);
 
 	// Debug features
