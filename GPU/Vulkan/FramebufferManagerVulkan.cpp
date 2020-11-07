@@ -268,10 +268,11 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	}
 }
 
-VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
+bool FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
+		draw_->BindTexture(0, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return VK_NULL_HANDLE;
+		return false;
 	}
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
@@ -293,14 +294,19 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+		return true;
 	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+		return true;
 	} else {
 		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// To do this safely in Vulkan, we need to use input attachments.
-		return VK_NULL_HANDLE;
+		// Actually if the texture region and render regions don't overlap, this is safe, but we need
+		// to transition to GENERAL image layout which will take some trickery.
+		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
+		draw_->BindTexture(0, nullptr);
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return false;
 	}
 }
 

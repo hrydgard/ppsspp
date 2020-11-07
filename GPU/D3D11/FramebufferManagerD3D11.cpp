@@ -314,12 +314,11 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	}
 }
 
-void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
+bool FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
-		ID3D11ShaderResourceView *view = nullptr;
-		context_->PSSetShaderResources(stage, 1, &view);
+		draw_->BindTexture(0, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
+		return false;
 	}
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
@@ -341,15 +340,16 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
+		return true;
 	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		return true;
 	} else {
 		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
-		ID3D11ShaderResourceView *view = nullptr;
-		context_->PSSetShaderResources(stage, 1, &view);
+		draw_->BindTexture(0, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
+		return false;
 	}
 }
 

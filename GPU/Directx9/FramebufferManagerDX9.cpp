@@ -336,15 +336,11 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
-		if (framebuffer == NULL) {
-			framebuffer = currentRenderVfb_;
-		}
-
+	bool FramebufferManagerDX9::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 		if (!framebuffer->fbo || !useBufferedRendering_) {
 			device_->SetTexture(stage, nullptr);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-			return;
+			return false;
 		}
 
 		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
@@ -366,8 +362,10 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			} else {
 				draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 			}
+			return true;
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+			return true;
 		}
 	}
 

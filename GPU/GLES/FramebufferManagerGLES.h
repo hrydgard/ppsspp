@@ -53,7 +53,7 @@ public:
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 

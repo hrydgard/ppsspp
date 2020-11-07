@@ -57,7 +57,7 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
-	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.

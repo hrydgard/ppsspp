@@ -263,11 +263,11 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 	}
 }
 
-void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
+bool FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		render_->BindTexture(stage, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
+		return false;
 	}
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
@@ -288,8 +288,10 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
+		return true;
 	} else {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		return true;
 	}
 }
 

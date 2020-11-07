@@ -44,7 +44,7 @@ public:
 	void EndFrame();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
