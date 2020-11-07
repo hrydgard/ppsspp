@@ -45,6 +45,7 @@ struct ShaderLanguageDesc {
 	const char *lastFragData = nullptr;
 	const char *framebufferFetchExtension = nullptr;
 	const char *vsOutPrefix = "";
+	const char *viewportYSign = "";
 	bool glslES30 = false;
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;

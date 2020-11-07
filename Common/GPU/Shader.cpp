@@ -74,6 +74,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
 		vsOutPrefix = "Out.";
+		viewportYSign = "-";
 		break;
 	}
 }

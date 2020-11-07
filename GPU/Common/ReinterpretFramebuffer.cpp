@@ -75,6 +75,7 @@ bool GenerateReinterpretVertexShader(char *buffer, const ShaderLanguageDesc &lan
 	writer.C("  float x = -1.0 + float((gl_VertexIndex & 1) << 2);\n");
 	writer.C("  float y = -1.0 + float((gl_VertexIndex & 2) << 1);\n");
 	writer.C("  v_texcoord = (vec2(x, y) + vec2(1.0, 1.0)) * 0.5;\n");
+	writer.F("  y *= %s1.0;\n", lang.viewportYSign);
 	writer.C("  gl_Position = vec4(x, y, 0.0, 1.0);\n");
 
 	writer.EndVSMain(varyings);
