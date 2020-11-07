@@ -233,6 +233,7 @@ public:
 	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
@@ -304,6 +305,9 @@ public:
 
 	virtual void Resized();
 	virtual void DestroyAllFBOs();
+
+	virtual void DeviceLost();
+	virtual void DeviceRestore(Draw::DrawContext *draw);
 
 	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h);
 
@@ -424,9 +428,4 @@ protected:
 		FBO_OLD_AGE = 5,
 		FBO_OLD_USAGE_FLAG = 15,
 	};
-
-	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
-	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
-	// since we don't want N different implementations.
-	Draw::Pipeline *reinterpretFromTo_[3][3];
 };

@@ -242,13 +242,13 @@ void GPU_DX9::BuildReportingInfo() {
 
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
 	shaderManagerDX9_->ClearCache(false);
 	textureCacheDX9_->Clear(false);
-	framebufferManagerDX9_->DeviceLost();
+	GPUCommon::DeviceLost();
 }
 
 void GPU_DX9::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 

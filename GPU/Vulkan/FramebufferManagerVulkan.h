@@ -49,14 +49,13 @@ public:
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
 
-	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
+
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
-
-	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.

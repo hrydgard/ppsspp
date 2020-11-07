@@ -336,41 +336,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
-		if (framebuffer == NULL) {
-			framebuffer = currentRenderVfb_;
-		}
-
-		if (!framebuffer->fbo || !useBufferedRendering_) {
-			device_->SetTexture(stage, nullptr);
-			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-			return;
-		}
-
-		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
-		// Let's just not bother with the copy in that case.
-		bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-		if (GPUStepping::IsStepping()) {
-			skipCopy = true;
-		}
-		if (!skipCopy && framebuffer == currentRenderVfb_) {
-			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
-			if (renderCopy) {
-				VirtualFramebuffer copyInfo = *framebuffer;
-				copyInfo.fbo = renderCopy;
-
-				CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-				RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
-				draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
-			} else {
-				draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-			}
-		} else {
-			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		}
-	}
-
 	void FramebufferManagerDX9::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 		// Nothing to do here.
 	}
@@ -557,10 +522,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::EndFrame() {
-	}
-
-	void FramebufferManagerDX9::DeviceLost() {
-		DestroyAllFBOs();
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {

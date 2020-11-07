@@ -198,10 +198,12 @@ void GPU_D3D11::DeviceLost() {
 	shaderManagerD3D11_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
 	textureCacheD3D11_->Clear(false);
-	framebufferManagerD3D11_->DeviceLost();
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 
