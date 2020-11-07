@@ -57,8 +57,6 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
-	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
-
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
