@@ -66,7 +66,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		bitwiseOps = lang == HLSL_D3D11;
 		framebufferFetchExtension = nullptr;
 		gles = false;
-		glslES30 = true;
+		glslES30 = true;  // Hm, D3D9 too?
 		glslVersionNumber = 0;
 		lastFragData = nullptr;
 		texture = "texture";

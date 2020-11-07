@@ -322,7 +322,7 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() {
 		return vfbs_;
 	}
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
+	void ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);

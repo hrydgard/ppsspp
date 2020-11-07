@@ -957,7 +957,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		// TODO: Kinda ugly, maybe switch direction of the call?
 		GEBufferFormat oldFormat = candidate.fb->format;
 		candidate.fb->format = candidate.match.reinterpretTo;
-		framebufferManager_->ReformatFramebufferFrom(candidate.fb, oldFormat);
+		framebufferManager_->ReinterpretFramebufferFrom(candidate.fb, oldFormat);
 	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");

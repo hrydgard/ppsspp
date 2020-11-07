@@ -503,7 +503,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	if (vfbFormatChanged) {
 		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
 		if (vfb->drawnFormat != vfb->format) {
-			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+			ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
 		}
 	}
 
@@ -517,10 +517,28 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
-void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat oldFormat) {
+void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat oldFormat) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
+
+	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
+
+	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
+		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
+	if (!doReinterpret) {
+		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
+		if (oldFormat == GE_FORMAT_565) {
+			// We have to bind here instead of clear, since it can be that no framebuffer is bound.
+			// The backend can sometimes directly optimize it to a clear.
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
+			// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
+			// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
+			gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+		}
+		return;
+	}
+
 	GEBufferFormat newFormat = vfb->format;
 
 	_assert_(newFormat != oldFormat);
@@ -595,12 +613,13 @@ void FramebufferManagerCommon::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	Draw::Viewport vp = Draw::Viewport{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &vp);
+	// No vertex buffer - generate vertices in shader. TODO: Switch to a vertex buffer for GLES2/D3D9 compat.
 	draw_->Draw(3, 0);
 	draw_->InvalidateCachedState();
 
 	// Unbind.
 	draw_->BindTexture(0, nullptr);
-	RebindFramebuffer("RebindFramebuffer - After reinterpret");
+	RebindFramebuffer("After reinterpret");
 
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
@@ -639,8 +658,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 		}
 	}
 	if (vfb->drawnFormat != vfb->format) {
-		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+		ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
 	}
 
 	if (useBufferedRendering_) {
