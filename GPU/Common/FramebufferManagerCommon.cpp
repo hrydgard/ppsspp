@@ -2244,6 +2244,16 @@ std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
 
 void FramebufferManagerCommon::DeviceLost() {
 	DestroyAllFBOs();
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (reinterpretFromTo_[i][j]) {
+				reinterpretFromTo_[i][j]->Release();
+				reinterpretFromTo_[i][j] = nullptr;
+			}
+		}
+	}
+	reinterpretSampler_->Release();
+	reinterpretVS_->Release();
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }
