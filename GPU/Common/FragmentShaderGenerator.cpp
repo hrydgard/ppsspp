@@ -324,7 +324,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (shaderDepal) {
 			WRITE(p, "uniform sampler2D pal;\n");
-			WRITE(p, "uniform int u_depal_mask_shift_off_fmt;\n");
+			WRITE(p, "uniform uint u_depal_mask_shift_off_fmt;\n");
 			*uniformMask |= DIRTY_DEPAL;
 		}
 
