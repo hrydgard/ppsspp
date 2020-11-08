@@ -906,7 +906,7 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 }
 
 // Try to simulate some common logic ops.
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
 		stencilType = ReplaceAlphaWithStencilType();
@@ -982,7 +982,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead)
 	case REPLACE_BLEND_NO:
 		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
-		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
+		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:

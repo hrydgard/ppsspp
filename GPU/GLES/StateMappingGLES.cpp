@@ -171,8 +171,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 			if (blendState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+					// We take over the responsiblity for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
 					if (fboTexNeedsBind_) {

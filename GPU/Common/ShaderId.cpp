@@ -240,6 +240,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
 
+		// Note how we here recompute some of the work already done in state mapping.
+		// Not ideal! At least we share the code.
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate.FrameBufFormat());
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 

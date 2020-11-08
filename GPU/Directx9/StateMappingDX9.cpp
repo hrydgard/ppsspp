@@ -131,8 +131,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 			if (blendState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+					// We take over the responsiblity for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
 					ResetFramebufferRead();

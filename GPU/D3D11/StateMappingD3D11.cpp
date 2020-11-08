@@ -160,14 +160,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 			if (blendState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+					// We take over the responsiblity for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
 					ResetFramebufferRead();
 					gstate_c.SetAllowFramebufferRead(false);
-					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 				}
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
 			}
