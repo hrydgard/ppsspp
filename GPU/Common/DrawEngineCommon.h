@@ -112,7 +112,7 @@ protected:
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	bool ApplyShaderBlending();
+	bool ApplyFramebufferRead(bool *fboTexNeedsBind);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -169,7 +169,7 @@ protected:
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
-	bool fboTexNeedBind_ = false;
+	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
 
 	// Hardware tessellation

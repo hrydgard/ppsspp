@@ -121,7 +121,7 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-inline void DrawEngineGLES::ResetShaderBlending() {
+inline void DrawEngineGLES::ResetFramebufferRead() {
 	if (fboTexBound_) {
 		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
@@ -170,19 +170,19 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
 			if (blendState.applyFramebufferRead) {
-				if (ApplyShaderBlending()) {
+				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 
 					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-					if (fboTexNeedBind_) {
+					if (fboTexNeedsBind_) {
 						// Note that this is positions, not UVs, that we need the copy from.
 						// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
 						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 						// If we are rendering at a higher resolution, linear is probably best for the dest color.
 						renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 						fboTexBound_ = true;
-						fboTexNeedBind_ = false;
+						fboTexNeedsBind_ = false;
 
 						framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -190,11 +190,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					}
 				} else {
 					// Until next time, force it off.
-					ResetShaderBlending();
+					ResetFramebufferRead();
 					gstate_c.SetAllowFramebufferRead(false);
 				}
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
-				ResetShaderBlending();
+				ResetFramebufferRead();
 			}
 
 			if (blendState.enabled) {
@@ -220,19 +221,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 
-#ifndef MOBILE_DEVICE
-			u8 abits = (gstate.pmska >> 0) & 0xFF;
-			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-			}
-			if (abits != 0 && abits != 0xFF) {
-				// The stencil part of the mask is supported.
-				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-			}
-#endif
 			int mask = (int)rmask | ((int)gmask << 1) | ((int)bmask << 2) | ((int)amask << 3);
 			if (blendState.enabled) {
 				renderManager->SetBlendAndMask(mask, blendState.enabled,
