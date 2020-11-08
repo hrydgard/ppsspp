@@ -8,8 +8,9 @@ static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", "TEXCOORD0" },
 };
 
-// TODO: We could have an option to preserve any extra color precision. But gonna start without it.
-// Requires full size integer math.
+// TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
+// Requires full size integer math. It would be possible to make a floating point-only version with lots of
+// modulo and stuff, might do it one day.
 bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBufferFormat to, const ShaderLanguageDesc &lang) {
 	if (!lang.bitwiseOps) {
 		return false;
@@ -30,7 +31,7 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 		break;
 	case GE_FORMAT_5551:
 		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 5) | (uint(val.b * 31.99) << 10);\n");
-		writer.C("  if (val.a > 128.0) color |= 0x8000U;\n");
+		writer.C("  if (val.a >= 0.5) color |= 0x8000U;\n");
 		break;
 	case GE_FORMAT_565:
 		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 63.99) << 5) | (uint(val.b * 31.99) << 11);\n");
