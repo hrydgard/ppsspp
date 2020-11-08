@@ -115,8 +115,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
-		// Unfortunately, this isn't implemented yet.
-		gstate_c.SetAllowShaderBlend(false);
+		// Unfortunately, this isn't implemented on DX9 yet.
+		gstate_c.SetAllowFramebufferRead(false);
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
 
@@ -127,18 +127,18 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyShaderBlending) {
+			if (blendState.applyFramebufferRead) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					gstate_c.SetAllowFramebufferRead(false);
 				}
-			} else if (blendState.resetShaderBlending) {
+			} else if (blendState.resetFramebufferRead) {
 				ResetShaderBlending();
 			}
 
@@ -149,7 +149,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blendFunc.set(
 					dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
 					dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {

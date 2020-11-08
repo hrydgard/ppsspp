@@ -122,7 +122,7 @@ static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_SET,
 };
 
-void DrawEngineD3D11::ResetShaderBlending() {
+void DrawEngineD3D11::ResetFramebufferRead() {
 	if (fboTexBound_) {
 		ID3D11ShaderResourceView *srv = nullptr;
 		context_->PSSetShaderResources(0, 1, &srv);
@@ -144,7 +144,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
@@ -157,18 +157,18 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.blend.value = 0;
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-			if (blendState.applyShaderBlending) {
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
+			if (blendState.applyFramebufferRead) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
-					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					ResetFramebufferRead();
+					gstate_c.SetAllowFramebufferRead(false);
 				}
-			} else if (blendState.resetShaderBlending) {
-				ResetShaderBlending();
+			} else if (blendState.resetFramebufferRead) {
+				ResetFramebufferRead();
 			}
 
 			if (blendState.enabled) {
@@ -180,7 +180,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.blend.srcAlpha = d3d11BlendFactorLookup[(size_t)blendState.srcAlpha];
 				keys_.blend.destColor = d3d11BlendFactorLookup[(size_t)blendState.dstColor];
 				keys_.blend.destAlpha = d3d11BlendFactorLookup[(size_t)blendState.dstAlpha];
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState_.useBlendColor = blendState.useBlendColor;

@@ -156,7 +156,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
 			// Color Test
@@ -167,9 +167,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 			// to avoid recomputing heavy stuff unnecessarily every draw call.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyShaderBlending) {
+			if (blendState.applyFramebufferRead) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
@@ -191,14 +191,15 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					gstate_c.SetAllowFramebufferRead(false);
 				}
-			} else if (blendState.resetShaderBlending) {
+			} else if (blendState.resetFramebufferRead) {
 				ResetShaderBlending();
 			}
 
 			if (blendState.enabled) {
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
+					// Not quite sure how necessary this is.
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {

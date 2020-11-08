@@ -135,7 +135,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;
@@ -163,20 +163,20 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyShaderBlending) {
+			if (blendState.applyFramebufferRead) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					gstate_c.SetAllowFramebufferRead(false);
 					// Make sure we recompute the fragment shader ID to one that doesn't try to use shader blending.
 					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 				}
-			} else if (blendState.resetShaderBlending) {
+			} else if (blendState.resetFramebufferRead) {
 				ResetShaderBlending();
 			}
 
@@ -188,7 +188,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
 				key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
 				key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState.useBlendColor = blendState.useBlendColor;
