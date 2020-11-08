@@ -92,6 +92,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_BGRA_TEXTURE = 47,
 	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
 	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
+	FS_BIT_COLOR_WRITEMASK = 50,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

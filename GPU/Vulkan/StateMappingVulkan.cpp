@@ -165,7 +165,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyFramebufferRead) {
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
 					// The shader takes over the responsibility for blending, so recompute.
 					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
@@ -178,6 +181,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
@@ -206,24 +210,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.useBlendColor = false;
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-			bool amask = (gstate.pmska & 0xFF) < 128;
-
-			// Let's not write to alpha if stencil isn't enabled.
-			if (IsStencilTestOutputDisabled()) {
-				amask = false;
-			} else {
-				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-					amask = false;
-				}
-			}
-
-			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+			key.colorWriteMask =
+				(maskState.rgba[0] ? VK_COLOR_COMPONENT_R_BIT : 0) |
+				(maskState.rgba[1] ? VK_COLOR_COMPONENT_G_BIT : 0) |
+				(maskState.rgba[2] ? VK_COLOR_COMPONENT_B_BIT : 0) |
+				(maskState.rgba[3] ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 			// Workaround proposed in #10421, for bug where the color write mask is not applied correctly on Adreno.
 			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {
@@ -377,20 +368,16 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 }
 
 void DrawEngineVulkan::BindShaderBlendTex() {
-	// At this point, we know if the vertices are full alpha or not.
-	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	// TODO:  At this point, we know if the vertices are full alpha or not.
+	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		// TODO: Test texture?
 		if (fboTexNeedsBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			fboTexBound_ = true;
 			fboTexNeedsBind_ = false;
 		}
 	}
-
 }
 
 void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {

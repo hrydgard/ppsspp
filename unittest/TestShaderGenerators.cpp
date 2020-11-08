@@ -181,7 +181,7 @@ bool TestReinterpretShaders() {
 				failed = true;
 				return false;
 			} else {
-				printf("===\n%s\n===\n", buffer);
+				//printf("===\n%s\n===\n", buffer);
 			}
 		}
 	}
@@ -215,25 +215,16 @@ bool TestReinterpretShaders() {
 	return !failed;
 }
 
+const ShaderLanguage languages[] = {
+	ShaderLanguage::HLSL_D3D9,
+	ShaderLanguage::HLSL_D3D11,
+	ShaderLanguage::GLSL_VULKAN,
+	ShaderLanguage::GLSL_1xx,
+	ShaderLanguage::GLSL_3xx,
+};
+const int numLanguages = ARRAY_SIZE(languages);
 
-bool TestShaderGenerators() {
-	LoadD3D11();
-	init_glslang();
-	LoadD3DCompilerDynamic();
-
-	if (!TestReinterpretShaders()) {
-		return false;
-	}
-
-	ShaderLanguage languages[] = {
-		ShaderLanguage::HLSL_D3D9,
-		ShaderLanguage::HLSL_D3D11,
-		ShaderLanguage::GLSL_VULKAN,
-		ShaderLanguage::GLSL_1xx,
-		ShaderLanguage::GLSL_3xx,
-	};
-	const int numLanguages = ARRAY_SIZE(languages);
-
+bool TestVertexShaders() {
 	char *buffer[numLanguages];
 
 	for (int i = 0; i < numLanguages; i++) {
@@ -290,8 +281,21 @@ bool TestShaderGenerators() {
 
 	printf("%d/%d vertex shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
 
-	successes = 0;
-	count = 200;
+	for (int i = 0; i < numLanguages; i++) {
+		delete[] buffer[i];
+	}
+	return true;
+}
+
+bool TestFragmentShaders() {
+	char *buffer[numLanguages];
+
+	for (int i = 0; i < numLanguages; i++) {
+		buffer[i] = new char[65536];
+	}
+	GMRng rng;
+	int successes = 0;
+	int count = 300;
 
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
@@ -337,15 +341,31 @@ bool TestShaderGenerators() {
 
 	printf("%d/%d fragment shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
 
-	successes = 0;
-	count = 200;
-
-
-	_CrtCheckMemory();
-
 	for (int i = 0; i < numLanguages; i++) {
 		delete[] buffer[i];
 	}
+	return true;
+}
+
+bool TestShaderGenerators() {
+	LoadD3D11();
+	init_glslang();
+	LoadD3DCompilerDynamic();
+
+	if (!TestReinterpretShaders()) {
+		return false;
+	}
+
+	if (!TestFragmentShaders()) {
+		return false;
+	}
+
+	if (!TestVertexShaders()) {
+		return false;
+	}
+
+	_CrtCheckMemory();
+
 
 	return true;
 } 

@@ -171,6 +171,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
+	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
 		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
@@ -239,6 +240,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
+		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
 
 		// Note how we here recompute some of the work already done in state mapping.
 		// Not ideal! At least we share the code.
@@ -309,6 +311,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 
 		id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
+		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
 		if (g_Config.bVendorBugChecksEnabled) {
 			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {

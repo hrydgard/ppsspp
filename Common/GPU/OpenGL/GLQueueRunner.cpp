@@ -1001,6 +1001,32 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
+		case GLRRenderCommand::UNIFORM4UI:
+		{
+			_dbg_assert_(curProgram);
+			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
+			if (c.uniform4.name) {
+				loc = curProgram->GetUniformLoc(c.uniform4.name);
+			}
+			if (loc >= 0) {
+				switch (c.uniform4.count) {
+				case 1:
+					glUniform1uiv(loc, 1, (GLuint *)&c.uniform4.v[0]);
+					break;
+				case 2:
+					glUniform2uiv(loc, 1, (GLuint *)c.uniform4.v);
+					break;
+				case 3:
+					glUniform3uiv(loc, 1, (GLuint *)c.uniform4.v);
+					break;
+				case 4:
+					glUniform4uiv(loc, 1, (GLuint *)c.uniform4.v);
+					break;
+				}
+			}
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
 		case GLRRenderCommand::UNIFORM4I:
 		{
 			_dbg_assert_(curProgram);

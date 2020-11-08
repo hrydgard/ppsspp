@@ -129,7 +129,10 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyFramebufferRead) {
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
 					// The shader takes over the responsibility for blending, so recompute.
 					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
@@ -160,24 +163,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.blend.disable();
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-			bool amask = (gstate.pmska & 0xFF) < 128;
-
-			// Let's not write to alpha if stencil isn't enabled.
-			if (IsStencilTestOutputDisabled()) {
-				amask = false;
-			} else {
-				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-					amask = false;
-				}
-			}
-
-			dxstate.colorMask.set(rmask, gmask, bmask, amask);
+			dxstate.colorMask.set(maskState.rgba[0], maskState.rgba[1], maskState.rgba[2], maskState.rgba[3]);
 		}
 	}
 
