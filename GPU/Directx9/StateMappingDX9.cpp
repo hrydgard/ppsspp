@@ -131,7 +131,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 			if (blendState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
-					// We take over the responsiblity for blending, so recompute.
+					// The shader takes over the responsibility for blending, so recompute.
 					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
