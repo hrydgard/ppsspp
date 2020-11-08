@@ -104,6 +104,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
+	bool readFramebufferTex = replaceBlend == REPLACE_BLEND_COPY_FBO && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
+
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		if (earlyFragmentTests) {
 			WRITE(p, "layout (early_fragment_tests) in;\n");
@@ -116,10 +118,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
 		}
 
-		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-				WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
-			}
+		if (readFramebufferTex) {
+			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
 		}
 
 		if (shaderDepal) {
@@ -151,11 +151,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (compat.shaderLanguage == HLSL_D3D9) {
 			if (doTexture)
 				WRITE(p, "sampler tex : register(s0);\n");
-			if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-				if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-					WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-					WRITE(p, "sampler fbotex : register(s1);\n");
-				}
+
+			if (readFramebufferTex) {
+				WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+				WRITE(p, "sampler fbotex : register(s1);\n");
+			}
+
+			if (replaceBlend > REPLACE_BLEND_STANDARD) {
 				if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 					WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
 				}
@@ -244,11 +246,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
 		if (doTexture)
 			WRITE(p, "sampler tex : register(s0);\n");
-		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-				WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-				WRITE(p, "sampler fbotex : register(s1);\n");
-			}
+		if (readFramebufferTex) {
+			WRITE(p, "vec2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+			WRITE(p, "sampler fbotex : register(s1);\n");
+		}
+		if (replaceBlend > REPLACE_BLEND_STANDARD) {
 			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
 			}
@@ -276,7 +278,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 		}
-
 	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (shaderDepal && gl_extensions.IsGLES) {
 			WRITE(p, "precision highp int;\n");
@@ -287,7 +288,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 			*uniformMask |= DIRTY_SHADERBLEND;
-			if (!gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+			if (readFramebufferTex) {
 				if (!compat.texelFetch) {
 					WRITE(p, "uniform vec2 u_fbotexSize;\n");
 				}
@@ -869,7 +870,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
+			WRITE(p, "  v.a *= 2.0;\n");
 		}
 	}
 

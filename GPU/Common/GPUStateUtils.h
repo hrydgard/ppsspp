@@ -121,9 +121,9 @@ enum class BlendEq : uint8_t {
 
 struct GenericBlendState {
 	bool enabled;
-	bool resetShaderBlending;
-	bool applyShaderBlending;
-	bool dirtyShaderBlend;
+	bool resetFramebufferRead;
+	bool applyFramebufferRead;
+	bool dirtyShaderBlendFixValues;
 	ReplaceAlphaType replaceAlphaWithStencil;
 
 	BlendFactor srcColor;
@@ -158,7 +158,7 @@ struct GenericBlendState {
 };
 
 void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 
 struct GenericStencilFuncState {
 	bool enabled;

@@ -540,9 +540,9 @@ struct GPUStateCache {
 				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
-	void SetAllowShaderBlend(bool allow) {
-		if (allowShaderBlend != allow) {
-			allowShaderBlend = allow;
+	void SetAllowFramebufferRead(bool allow) {
+		if (allowFramebufferRead != allow) {
+			allowFramebufferRead = allow;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -564,7 +564,7 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool allowShaderBlend;
+	bool allowFramebufferRead;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

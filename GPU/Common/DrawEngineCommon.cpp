@@ -480,8 +480,9 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
 
-bool DrawEngineCommon::ApplyShaderBlending() {
+bool DrawEngineCommon::ApplyFramebufferRead(bool *fboTexNeedsBind) {
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+		*fboTexNeedsBind = false;
 		return true;
 	}
 
@@ -502,7 +503,7 @@ bool DrawEngineCommon::ApplyShaderBlending() {
 		return false;
 	}
 
-	fboTexNeedBind_ = true;
+	*fboTexNeedsBind = true;
 
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 	return true;
