@@ -394,7 +394,7 @@ u32 AuCtx::AuSetLoopNum(int loop)
 // return 1 to read more data stream, 0 don't read
 int AuCtx::AuCheckStreamDataNeeded() {
 	// If we would ask for bytes, then some are needed.
-	if (AuStreamBytesNeeded() != 0) {
+	if (AuStreamBytesNeeded() > 0) {
 		return 1;
 	}
 	return 0;
