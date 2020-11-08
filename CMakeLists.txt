@@ -1354,6 +1354,8 @@ set(GPU_SOURCES
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/PresentationCommon.cpp
 	GPU/Common/PresentationCommon.h
+	GPU/Common/ReinterpretFramebuffer.cpp
+	GPU/Common/ReinterpretFramebuffer.h
 	GPU/Common/ShaderId.cpp
 	GPU/Common/ShaderId.h
 	GPU/Common/ShaderUniforms.cpp

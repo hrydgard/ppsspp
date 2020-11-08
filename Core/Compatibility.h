@@ -72,6 +72,7 @@ struct CompatFlags {
 	bool ReportSmallMemstick;
 	bool MemstickFixedFree;
 	bool DateLimited;
+	bool ReinterpretFramebuffers;
 };
 
 class IniFile;

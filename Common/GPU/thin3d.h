@@ -385,28 +385,7 @@ struct InputLayoutDesc {
 
 class InputLayout : public RefCountedObject { };
 
-enum class UniformType : int8_t {
-	FLOAT1,
-	FLOAT2,
-	FLOAT3,
-	FLOAT4,
-	MATRIX4X4,
-};
-
-// For emulation of uniform buffers on D3D9/GL
-struct UniformDesc {
-	const char *name;  // For GL
-	int16_t vertexReg;        // For D3D
-	int16_t fragmentReg;      // For D3D
-	UniformType type;
-	int16_t offset;
-	// TODO: Support array elements etc.
-};
-
-struct UniformBufferDesc {
-	size_t uniformBufferSize;
-	std::vector<UniformDesc> uniforms;
-};
+// Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:

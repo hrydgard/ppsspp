@@ -35,6 +35,7 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/ReinterpretFramebuffer.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUInterface.h"
@@ -502,7 +503,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	if (vfbFormatChanged) {
 		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
 		if (vfb->drawnFormat != vfb->format) {
-			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+			ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
 		}
 	}
 
@@ -514,6 +515,119 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 	}
+}
+
+void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat oldFormat) {
+	if (!useBufferedRendering_ || !vfb->fbo) {
+		return;
+	}
+
+	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
+
+	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
+		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
+	if (!doReinterpret) {
+		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
+		if (oldFormat == GE_FORMAT_565) {
+			// We have to bind here instead of clear, since it can be that no framebuffer is bound.
+			// The backend can sometimes directly optimize it to a clear.
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
+			// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
+			// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
+			gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+		}
+		return;
+	}
+
+	GEBufferFormat newFormat = vfb->format;
+
+	_assert_(newFormat != oldFormat);
+
+	// We only reinterpret between 16 - bit formats, for now.
+	if (!IsGeBufferFormat16BitColor(oldFormat) || !IsGeBufferFormat16BitColor(newFormat)) {
+		// 16->32 and 32->16 will require some more specialized shaders.
+		return;
+	}
+
+	char *vsCode = nullptr;
+	char *fsCode = nullptr;
+
+	if (!reinterpretVS_) {
+		vsCode = new char[4000];
+		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+		GenerateReinterpretVertexShader(vsCode, shaderLanguageDesc);
+		reinterpretVS_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "reinterpret_vs");
+		_assert_(reinterpretVS_);
+	}
+
+	if (!reinterpretSampler_) {
+		Draw::SamplerStateDesc samplerDesc{};
+		samplerDesc.magFilter = Draw::TextureFilter::LINEAR;
+		samplerDesc.minFilter = Draw::TextureFilter::LINEAR;
+		reinterpretSampler_ = draw_->CreateSamplerState(samplerDesc);
+	}
+
+	// See if we need to create a new pipeline.
+
+	Draw::Pipeline *pipeline = reinterpretFromTo_[(int)oldFormat][(int)newFormat];
+	if (!pipeline) {
+		fsCode = new char[4000];
+		const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
+		GenerateReinterpretFragmentShader(fsCode, oldFormat, newFormat, shaderLanguageDesc);
+		Draw::ShaderModule *reinterpretFS = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "reinterpret_fs");
+		_assert_(reinterpretFS);
+
+		std::vector<Draw::ShaderModule *> shaders;
+		shaders.push_back(reinterpretVS_);
+		shaders.push_back(reinterpretFS);
+
+		using namespace Draw;
+		Draw::PipelineDesc desc{};
+		// We use a "fullscreen triangle".
+		// TODO: clear the stencil buffer. Hard to actually initialize it with the new alpha, though possible - let's see if
+		// we need it.
+		DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
+		BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
+		RasterState *rasterNoCull = draw_->CreateRasterState({});
+
+		// No uniforms for these, only a single texture input.
+		PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, nullptr, depth, blendstateOff, rasterNoCull, nullptr };
+		pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+		_assert_(pipeline != nullptr);
+		reinterpretFromTo_[(int)oldFormat][(int)newFormat] = pipeline;
+
+		depth->Release();
+		blendstateOff->Release();
+		rasterNoCull->Release();
+		reinterpretFS->Release();
+	}
+
+	// Copy to a temp framebuffer.
+	Draw::Framebuffer *temp = GetTempFBO(TempFBO::REINTERPRET, vfb->renderWidth, vfb->renderHeight);
+
+	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "reinterpret");
+	draw_->BindPipeline(pipeline);
+	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
+	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
+	draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
+	Draw::Viewport vp = Draw::Viewport{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
+	draw_->SetViewports(1, &vp);
+	// No vertex buffer - generate vertices in shader. TODO: Switch to a vertex buffer for GLES2/D3D9 compat.
+	draw_->Draw(3, 0);
+	draw_->InvalidateCachedState();
+
+	// Unbind.
+	draw_->BindTexture(0, nullptr);
+	RebindFramebuffer("After reinterpret");
+
+	shaderManager_->DirtyLastShader();
+	textureCache_->ForgetLastTexture();
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+
+	delete[] vsCode;
+	delete[] fsCode;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
@@ -544,8 +658,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 		}
 	}
 	if (vfb->drawnFormat != vfb->format) {
-		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+		ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
 	}
 
 	if (useBufferedRendering_) {
@@ -2149,6 +2262,16 @@ std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
 
 void FramebufferManagerCommon::DeviceLost() {
 	DestroyAllFBOs();
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (reinterpretFromTo_[i][j]) {
+				reinterpretFromTo_[i][j]->Release();
+				reinterpretFromTo_[i][j] = nullptr;
+			}
+		}
+	}
+	reinterpretSampler_->Release();
+	reinterpretVS_->Release();
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }

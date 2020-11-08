@@ -53,7 +53,6 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	int GetLineWidth();
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 

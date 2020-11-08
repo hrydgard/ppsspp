@@ -82,9 +82,9 @@ enum FShaderBit : uint8_t {
 	FS_BIT_DO_TEXTURE_PROJ = 22,
 	FS_BIT_COLOR_DOUBLE = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
-	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits
+	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
-	FS_BIT_REPLACE_BLEND = 32,  // 3 bits
+	FS_BIT_REPLACE_BLEND = 32,  // 3 bits  (ReplaceBlendType)
 	FS_BIT_BLENDEQ = 35,  // 3 bits
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
 	FS_BIT_BLENDFUNC_B = 42,  // 4 bits
@@ -92,7 +92,6 @@ enum FShaderBit : uint8_t {
 	FS_BIT_BGRA_TEXTURE = 47,
 	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
 	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
-	// 50+ are free.
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

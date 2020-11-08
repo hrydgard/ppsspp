@@ -212,6 +212,8 @@ struct FramebufferMatchInfo {
 	FramebufferMatch match;
 	u32 xOffset;
 	u32 yOffset;
+	bool reinterpret;
+	GEBufferFormat reinterpretTo;
 };
 
 struct AttachCandidate {

@@ -57,6 +57,7 @@
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
     <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -114,5 +115,6 @@
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
     <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
     <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
   </ItemGroup>
 </Project>

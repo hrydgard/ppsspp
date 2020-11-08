@@ -307,7 +307,7 @@ public:
 	bool LinkShaders();
 
 	bool RequiresBuffer() override {
-		return inputLayout->RequiresBuffer();
+		return inputLayout && inputLayout->RequiresBuffer();
 	}
 
 	GLuint prim = 0;
@@ -1051,7 +1051,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ERROR_LOG(G3D,  "Invalid primitive type");
 		return nullptr;
 	}
-	if (!desc.depthStencil || !desc.blend || !desc.raster || !desc.inputLayout) {
+	if (!desc.depthStencil || !desc.blend || !desc.raster) {
 		ERROR_LOG(G3D,  "Incomplete prim desciption");
 		return nullptr;
 	}
@@ -1081,7 +1081,9 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->depthStencil->AddRef();
 		pipeline->blend->AddRef();
 		pipeline->raster->AddRef();
-		pipeline->inputLayout->AddRef();
+		if (pipeline->inputLayout) {
+			pipeline->inputLayout->AddRef();
+		}
 		return pipeline;
 	} else {
 		ERROR_LOG(G3D,  "Failed to create pipeline - shaders failed to link");
@@ -1219,7 +1221,9 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0], "Can't call Draw without a vertex buffer");
 	ApplySamplers();
-	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+	if (curPipeline_->inputLayout) {
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+	}
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 }
 
@@ -1227,12 +1231,15 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0], "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
-	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+	if (curPipeline_->inputLayout) {
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+	}
 	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
 	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
+	_assert_(curPipeline_->inputLayout);
 	int stride = curPipeline_->inputLayout->stride;
 	size_t dataSize = stride * vertexCount;
 
@@ -1242,7 +1249,9 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
 
 	ApplySamplers();
-	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
+	if (curPipeline_->inputLayout) {
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
+	}
 	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
 }
 
@@ -1273,7 +1282,7 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
-	stride = (GLsizei)desc.bindings[0].stride;
+	stride = desc.bindings.empty() ? 0 : (GLsizei)desc.bindings[0].stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
@@ -1310,7 +1319,11 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 
 		entries.push_back(entry);
 	}
-	inputLayout_ = render_->CreateInputLayout(entries);
+	if (!entries.empty()) {
+		inputLayout_ = render_->CreateInputLayout(entries);
+	} else {
+		inputLayout_ = nullptr;
+	}
 }
 
 Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {

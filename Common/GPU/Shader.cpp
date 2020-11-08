@@ -31,13 +31,12 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		fragColor0 = "fragColor0";
 		fragColor1 = "fragColor1";
 		texture = "texture";
-		texelFetch = nullptr;
-		bitwiseOps = false;
+		texelFetch = "texelFetch";
+		bitwiseOps = true;
 		lastFragData = nullptr;
-		gles = false;
+		gles = true;
 		forceMatrix4x4 = true;
 		glslES30 = true;
-		bitwiseOps = true;
 		texelFetch = "texelFetch";
 		break;
 	case GLSL_VULKAN:
@@ -67,7 +66,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		bitwiseOps = lang == HLSL_D3D11;
 		framebufferFetchExtension = nullptr;
 		gles = false;
-		glslES30 = true;
+		glslES30 = true;  // Hm, D3D9 too?
 		glslVersionNumber = 0;
 		lastFragData = nullptr;
 		texture = "texture";
@@ -75,6 +74,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		forceMatrix4x4 = false;
 		coefsFromBuffers = true;
 		vsOutPrefix = "Out.";
+		viewportYSign = "-";
 		break;
 	}
 }
