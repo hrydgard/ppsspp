@@ -386,7 +386,7 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
-		if (start + count >= MAX_TEXTURE_SLOTS) {
+		if (start + count > MAX_TEXTURE_SLOTS) {
 			return;
 		}
 		for (int i = 0; i < count; i++) {
@@ -497,7 +497,9 @@ private:
 
 	// Bound state
 	OpenGLSamplerState *boundSamplers_[MAX_TEXTURE_SLOTS]{};
-	OpenGLTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
+	// Point to GLRTexture directly because they can point to the textures
+	// in framebuffers too (which also can be bound).
+	const GLRTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 
 	OpenGLPipeline *curPipeline_ = nullptr;
 	OpenGLBuffer *curVBuffers_[4]{};
@@ -739,15 +741,16 @@ public:
 	bool HasMips() const {
 		return mipLevels_ > 1 || generatedMips_;
 	}
-	bool CanWrap() const {
-		return canWrap_;
-	}
+
 	TextureType GetType() const { return type_; }
 	void Bind(int stage) {
 		render_->BindTexture(stage, tex_);
 	}
 	int NumMipmaps() const {
 		return mipLevels_;
+	}
+	const GLRTexture *GetTex() const {
+		return tex_;
 	}
 
 private:
@@ -760,7 +763,6 @@ private:
 	TextureType type_;
 	int mipLevels_;
 	bool generatedMips_;
-	bool canWrap_;
 };
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
@@ -771,9 +773,8 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	format_ = desc.format;
 	type_ = desc.type;
 	GLenum target = TypeToTarget(desc.type);
-	tex_ = render->CreateTexture(target);
+	tex_ = render->CreateTexture(target, desc.width, desc.height, desc.mipLevels);
 
-	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	mipLevels_ = desc.mipLevels;
 	if (desc.initData.empty())
 		return;
@@ -1091,7 +1092,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 }
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
-	if (start + count >= MAX_TEXTURE_SLOTS) {
+	if (start + count > MAX_TEXTURE_SLOTS) {
 		return;
 	}
 	for (int i = start; i < start + count; i++) {
@@ -1102,14 +1103,14 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 			continue;
 		}
 		glTex->Bind(i);
-		boundTextures_[i] = glTex;
+		boundTextures_[i] = glTex->GetTex();
 	}
 }
 
 void OpenGLContext::ApplySamplers() {
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++) {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
-		const OpenGLTexture *tex = boundTextures_[i];
+		const GLRTexture *tex = boundTextures_[i];
 		if (tex) {
 			_assert_(samp);
 		} else {
@@ -1117,7 +1118,7 @@ void OpenGLContext::ApplySamplers() {
 		}
 		GLenum wrapS;
 		GLenum wrapT;
-		if (tex->CanWrap()) {
+		if (tex->canWrap) {
 			wrapS = samp->wrapU;
 			wrapT = samp->wrapV;
 		} else {
@@ -1125,9 +1126,9 @@ void OpenGLContext::ApplySamplers() {
 			wrapT = GL_CLAMP_TO_EDGE;
 		}
 		GLenum magFilt = samp->magFilt;
-		GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
+		GLenum minFilt = tex->numMips > 1 ? samp->mipMinFilt : samp->minFilt;
 		renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);
-		renderManager_.SetTextureLod(i, 0.0, (float)(tex->NumMipmaps() - 1), 0.0);
+		renderManager_.SetTextureLod(i, 0.0, (float)(tex->numMips - 1), 0.0);
 	}
 }
 
@@ -1376,12 +1377,18 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 
 	GLuint aspect = 0;
-	if (channelBit & FB_COLOR_BIT)
+	if (channelBit & FB_COLOR_BIT) {
 		aspect |= GL_COLOR_BUFFER_BIT;
-	if (channelBit & FB_DEPTH_BIT)
+		boundTextures_[binding] = &fb->framebuffer_->color_texture;
+	}
+	if (channelBit & FB_DEPTH_BIT) {
 		aspect |= GL_DEPTH_BUFFER_BIT;
-	if (channelBit & FB_STENCIL_BIT)
+		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
+	}
+	if (channelBit & FB_STENCIL_BIT) {
 		aspect |= GL_STENCIL_BUFFER_BIT;
+		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
+	}
 	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, aspect, color);
 }
 

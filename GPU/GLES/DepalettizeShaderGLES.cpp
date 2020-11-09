@@ -98,7 +98,7 @@ GLRTexture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, con
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTexture *tex = new DepalTexture();
-	tex->texture = render_->CreateTexture(GL_TEXTURE_2D);
+	tex->texture = render_->CreateTexture(GL_TEXTURE_2D, texturePixels, 1, 1);
 
 	uint8_t *clutCopy = new uint8_t[1024];
 	memcpy(clutCopy, rawClut, 1024);
