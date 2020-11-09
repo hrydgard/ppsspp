@@ -30,6 +30,9 @@ const char *hlsl_preamble_fs =
 "#define mat3x4 float4x3\n"  // note how the conventions are backwards
 "#define splat3(x) float3(x, x, x)\n"
 "#define mix lerp\n"
+"#define lowp\n"
+"#define mediump\n"
+"#define highp\n"
 "#define mod(x, y) fmod(x, y)\n";
 
 const char *hlsl_d3d11_preamble_fs =
