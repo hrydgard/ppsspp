@@ -84,7 +84,6 @@ struct GLExtensions {
 	bool EXT_clip_cull_distance;
 
 	// NV
-	bool NV_shader_framebuffer_fetch;
 	bool NV_copy_image;
 	bool NV_framebuffer_blit;
 	bool NV_pixel_buffer_object; // GL_NV_pixel_buffer_object

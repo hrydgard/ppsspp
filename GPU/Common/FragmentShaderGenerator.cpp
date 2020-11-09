@@ -453,24 +453,24 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 
+	// Two things read from the old framebuffer - shader replacement blending and bit-level masking.
+	if (readFramebuffer) {
+		if (compat.shaderLanguage == HLSL_D3D11) {
+			WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
+		} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+			// If we have EXT_shader_framebuffer_fetch / ARM_shader_framebuffer_fetch, we skip the blit.
+			// We can just read the prev value more directly.
+			WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
+		} else if (!compat.texelFetch) {
+			WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
+		} else {
+			WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
+		}
+	}
+
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");
-
-		// Masking with clear mode is ok, I think?
-		if (readFramebuffer) {
-			if (compat.shaderLanguage == HLSL_D3D11) {
-				WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
-			} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-				// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
-				// We can just read the prev value more directly.
-				WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
-			} else if (!compat.texelFetch) {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
-			} else {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
-			}
-		}
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
@@ -852,21 +852,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
-		}
-
-		// Two things read from the old framebuffer - shader replacement blending and bit-level masking.
-		if (readFramebuffer) {
-			if (compat.shaderLanguage == HLSL_D3D11) {
-				WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
-			} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
-				// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
-				// We can just read the prev value more directly.
-				WRITE(p, "  lowp vec4 destColor = %s;\n", compat.lastFragData);
-			} else if (!compat.texelFetch) {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", compat.texture);
-			} else {
-				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", compat.texelFetch);
-			}
 		}
 
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
