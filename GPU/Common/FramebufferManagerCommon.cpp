@@ -2270,8 +2270,12 @@ void FramebufferManagerCommon::DeviceLost() {
 			}
 		}
 	}
-	reinterpretSampler_->Release();
-	reinterpretVS_->Release();
+	if (reinterpretSampler_) {
+		reinterpretSampler_->Release();
+	}
+	if (reinterpretVS_) {
+		reinterpretVS_->Release();
+	}
 	presentation_->DeviceLost();
 	draw_ = nullptr;
 }
