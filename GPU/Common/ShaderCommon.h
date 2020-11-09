@@ -41,7 +41,7 @@ enum DebugShaderStringType {
 };
 
 // Shared between the backends. Not all are necessarily used by each backend, but this lets us share
-// more code than before.
+// more code than before. TODO: Can probably cut the number of these down without too much slowdown.
 enum : uint64_t {
 	DIRTY_PROJMATRIX = 1ULL << 0,
 	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
@@ -86,12 +86,13 @@ enum : uint64_t {
 	DIRTY_CULLRANGE = 1ULL << 34,
 
 	DIRTY_DEPAL = 1ULL << 35,
+	DIRTY_COLORWRITEMASK = 1ULL << 36,
 
-	// space for 5 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
+	// space for 4 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0xFFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!

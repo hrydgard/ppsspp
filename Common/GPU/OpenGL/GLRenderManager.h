@@ -659,6 +659,30 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void SetUniformUI(const GLint *loc, int count, const uint32_t *udata) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+#ifdef _DEBUG
+		_dbg_assert_(curProgram_);
+#endif
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		data.uniform4.loc = loc;
+		data.uniform4.count = count;
+		memcpy(data.uniform4.v, udata, sizeof(uint32_t) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformUI1(const GLint *loc, uint32_t udata) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+#ifdef _DEBUG
+		_dbg_assert_(curProgram_);
+#endif
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		data.uniform4.loc = loc;
+		data.uniform4.count = 1;
+		memcpy(data.uniform4.v, &udata, sizeof(udata));
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void SetUniformF(const GLint *loc, int count, const float *udata) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG

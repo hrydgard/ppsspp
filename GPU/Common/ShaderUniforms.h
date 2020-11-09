@@ -10,7 +10,7 @@ enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
-	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
+	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
 	DIRTY_BEZIERSPLINE | DIRTY_DEPAL,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
@@ -30,10 +30,10 @@ struct UB_VS_FS_Base {
 	float depthRange[4];
 	float fogCoef[2];	float stencil; float pad0;
 	float matAmbient[4];
-	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
-	int pad2; int pad3;
 	float cullRangeMin[4];
 	float cullRangeMax[4];
+	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
+	uint32_t colorWriteMask; int pad3;
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
@@ -56,17 +56,17 @@ R"(  mat4 u_proj;
   vec2 u_fogcoef;
   float u_stencilReplaceValue;
   vec4 u_matambientalpha;
-  uint u_spline_counts;
-  uint u_depal_mask_shift_off_fmt;
-  int u_pad2;
-  int u_pad3;
   vec4 u_cullRangeMin;
   vec4 u_cullRangeMax;
+  uint u_spline_counts;
+  uint u_depal_mask_shift_off_fmt;
+  uint u_colorWriteMask;
+  int u_pad3;
   vec3 u_fogcolor;
   vec3 u_texenv;
   ivec4 u_alphacolorref;
   ivec4 u_alphacolormask;
-  vec3 u_blendFixA;
+  vec3 u_blendFixA; uint colorWriteMask;
   vec3 u_blendFixB;
   vec4 u_texclamp;
   vec2 u_texclampoff;

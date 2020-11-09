@@ -80,6 +80,7 @@ public:
 	// Fragment processing inputs
 	int u_alphacolorref;
 	int u_alphacolormask;
+	int u_colorWriteMask;
 	int u_testtex;
 	int u_fogcolor;
 	int u_fogcoef;

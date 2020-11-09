@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "Common/CommonTypes.h"
 
 #include "GPU/ge_constants.h"
@@ -25,12 +26,18 @@ enum ReplaceAlphaType {
 };
 
 enum ReplaceBlendType {
-	REPLACE_BLEND_NO,
+	REPLACE_BLEND_NO,  // Blend function handled directly with blend states.
+
 	REPLACE_BLEND_STANDARD,
+
+	// SRC part of blend function handled in-shader.
 	REPLACE_BLEND_PRE_SRC,
 	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
 	REPLACE_BLEND_2X_ALPHA,
 	REPLACE_BLEND_2X_SRC,
+
+	// Full blend equation runs in shader.
+	// We might have to make a copy of the framebuffer target to read from.
 	REPLACE_BLEND_COPY_FBO,
 };
 
@@ -46,6 +53,9 @@ bool IsColorTestTriviallyTrue();
 bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
 bool IsStencilTestOutputDisabled();
+
+// If not, we have to emulate it in the shader, similar to blend replace.
+bool IsColorMaskSimple(uint32_t colorMask);
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
@@ -159,6 +169,15 @@ struct GenericBlendState {
 
 void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
 void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+
+struct GenericMaskState {
+	bool applyFramebufferRead;
+	uint32_t uniformMask;  // For each bit, opposite to the PSP.
+	bool rgba[4];  // true = draw, false = don't draw this channel
+};
+
+void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
+bool IsColorWriteMaskComplex(bool allowFramebufferRead);
 
 struct GenericStencilFuncState {
 	bool enabled;

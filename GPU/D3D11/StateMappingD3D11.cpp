@@ -158,6 +158,10 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
+
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
 			if (blendState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
 					// The shader takes over the responsibility for blending, so recompute.
@@ -170,6 +174,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			} else if (blendState.resetFramebufferRead) {
 				ResetFramebufferRead();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
@@ -204,38 +209,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-			bool amask = (gstate.pmska & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-			u8 abits = (gstate.pmska >> 0) & 0xFF;
-			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-			}
-			if (abits != 0 && abits != 0xFF) {
-				// The stencil part of the mask is supported.
-				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-			}
-#endif
-
-			// Let's not write to alpha if stencil isn't enabled.
-			if (IsStencilTestOutputDisabled()) {
-				amask = false;
-			} else {
-				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-					amask = false;
-				}
-			}
-
-			keys_.blend.colorWriteMask = (rmask ? 1 : 0) | (gmask ? 2 : 0) | (bmask ? 4 : 0) | (amask ? 8 : 0);
+			keys_.blend.colorWriteMask = (maskState.rgba[0] ? 1 : 0) | (maskState.rgba[1] ? 2 : 0) | (maskState.rgba[2] ? 4 : 0) | (maskState.rgba[3] ? 8 : 0);
 		}
 
 		if (!device1_) {

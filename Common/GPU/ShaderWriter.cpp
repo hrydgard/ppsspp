@@ -23,6 +23,7 @@ const char *hlsl_preamble_fs =
 "#define vec3 float3\n"
 "#define vec4 float4\n"
 "#define uvec3 uint3\n"
+"#define uvec4 uint4\n"
 "#define ivec3 int3\n"
 "#define ivec4 int4\n"
 "#define mat4 float4x4\n"

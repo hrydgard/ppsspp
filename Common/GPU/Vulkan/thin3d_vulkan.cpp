@@ -1543,7 +1543,8 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
-	// TODO: There are cases where this is okay, actually.
+	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
+	// we're not ready for this.
 	_assert_(fb != curFramebuffer_);
 
 	int aspect = 0;

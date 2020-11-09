@@ -102,6 +102,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
 	queries.push_back({ &u_alphacolorref, "u_alphacolorref" });
 	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
+	queries.push_back({ &u_colorWriteMask, "u_colorWriteMask" });
 	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
 	queries.push_back({ &u_testtex, "testtex" });
 
@@ -376,6 +377,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
 		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+	}
+	if (dirty & DIRTY_COLORWRITEMASK) {
+		render_->SetUniformUI1(&u_colorWriteMask, ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF)));
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);

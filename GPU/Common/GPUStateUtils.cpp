@@ -956,8 +956,68 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	}
 }
 
-// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
+	// Restrict to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
+	if (!allowFramebufferRead || !PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+		// Don't have a choice - we'll make do but it won't always be right.
+		return false;
+	}
 
+	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
+
+	for (int i = 0; i < 4; i++) {
+		switch (colorMask & 0xFF) {
+		case 0x0:
+		case 0xFF:
+			break;
+		default:
+			return true;
+		}
+		colorMask >>= 8;
+	}
+	return false;
+}
+
+// If we can we emulate the colorMask by simply toggling the full R G B A masks offered
+// by modern hardware, we do that. This is 99.9% of the time.
+// When that's not enough, we fall back on a technique similar to shader blending,
+// we read from the framebuffer (or a copy of it).
+void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
+	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
+	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
+
+	maskState.applyFramebufferRead = false;
+	for (int i = 0; i < 4; i++) {
+		int channelMask = colorMask & 0xFF;
+		switch (channelMask) {
+		case 0x0:
+			maskState.rgba[i] = false;
+			break;
+		case 0xFF:
+			maskState.rgba[i] = true;
+			break;
+		default:
+			if (allowFramebufferRead) {
+				maskState.applyFramebufferRead = true;
+				maskState.rgba[i] = true;
+			} else {
+				// Use the old heuristic.
+				maskState.rgba[i] = channelMask >= 128;
+			}
+		}
+		colorMask >>= 8;
+	}
+
+	// Let's not write to alpha if stencil isn't enabled.
+	if (IsStencilTestOutputDisabled()) {
+		maskState.rgba[3] = false;
+	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+		maskState.rgba[3] = false;
+	}
+}
+
+// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
 void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
