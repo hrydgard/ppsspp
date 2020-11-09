@@ -541,15 +541,6 @@ void CheckGLExtensions() {
 		}
 	}
 
-#ifdef __APPLE__
-	if (!gl_extensions.IsGLES && !gl_extensions.IsCoreContext) {
-		// Apple doesn't allow OpenGL 3.x+ in compatibility contexts.
-		// TODO: But are we still ever creating these on Apple? Would really
-		// like to kill this ForceGL2 flag.
-		gl_extensions.ForceGL2 = true;
-	}
-#endif
-
 	ProcessGPUFeatures();
 
 	int error = glGetError();

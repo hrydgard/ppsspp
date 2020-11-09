@@ -384,6 +384,9 @@
     <ClInclude Include="Data\Collections\Slice.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\ShaderTranslation.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -736,6 +739,9 @@
       <Filter>GPU</Filter>
     </ClCompile>
     <ClCompile Include="GPU\Shader.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\ShaderTranslation.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
   </ItemGroup>

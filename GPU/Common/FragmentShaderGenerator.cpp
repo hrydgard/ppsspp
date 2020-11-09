@@ -436,6 +436,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
+		WRITE(p, "  vec4 target;\n");
 	} else {
 		WRITE(p, "void main() {\n");
 	}
@@ -968,15 +969,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		// Handled at the end.
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:
-		WRITE(p, "  v.a = %s;\n", replacedAlpha);
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
 		break;
 
 	case REPLACE_ALPHA_NO:
-		// Nothing to do.
+		WRITE(p, "  %s = v;\n", compat.fragColor0);
 		break;
 
 	default:
@@ -988,10 +990,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  v.rgb = splat3(1.0);\n");
+		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  v.rgb = splat3(1.0) - v.rgb;\n");
+		WRITE(p, "  %s.rgb = splat3(1.0) - %s.rgb;\n", compat.fragColor0, compat.fragColor0);
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
@@ -1005,11 +1007,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	// TODO: Maybe optimize to only do math on the affected channels?
 	// Or .. meh.
 	if (colorWriteMask) {
-		WRITE(p, "  highp uint v32 = packUnorm4x8(v);\n");
+		WRITE(p, "  highp uint v32 = packUnorm4x8(%s);\n", compat.fragColor0);
 		WRITE(p, "  highp uint d32 = packUnorm4x8(destColor);\n");
 		// Note that the mask has been flipped to the PC way - 1 means write.
 		WRITE(p, "  v32 = (v32 & u_colorWriteMask) | (d32 & ~u_colorWriteMask);\n");
-		WRITE(p, "  v = unpackUnorm4x8(v32);\n");
+		WRITE(p, "  %s = unpackUnorm4x8(v32);\n", compat.fragColor0);
 	}
 
 	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
@@ -1034,20 +1036,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
-	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
-		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
-	} else if (compat.shaderLanguage != HLSL_D3D9) {
-		WRITE(p, "  %s = v;\n", compat.fragColor0);
-	}
-
 	if (compat.shaderLanguage == HLSL_D3D11) {
 		if (writeDepth) {
 			WRITE(p, "  outfragment.depth = gl_FragDepth;\n");
 		}
 		WRITE(p, "  return outfragment;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
-		WRITE(p, "  return v;\n");
+		WRITE(p, "  return target;\n");
 	}
 
 	WRITE(p, "}\n");

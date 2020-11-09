@@ -500,6 +500,8 @@ add_library(Common STATIC
 	Common/GPU/Shader.h
 	Common/GPU/ShaderWriter.cpp
 	Common/GPU/ShaderWriter.h
+	Common/GPU/ShaderTranslation.h
+	Common/GPU/ShaderTranslation.cpp
 	Common/GPU/OpenGL/GLCommon.h
 	Common/GPU/OpenGL/GLDebugLog.cpp
 	Common/GPU/OpenGL/GLDebugLog.h
@@ -1362,8 +1364,6 @@ set(GPU_SOURCES
 	GPU/Common/ShaderUniforms.h
 	GPU/Common/ShaderCommon.cpp
 	GPU/Common/ShaderCommon.h
-	GPU/Common/ShaderTranslation.cpp
-	GPU/Common/ShaderTranslation.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
 	GPU/Common/StencilCommon.cpp

@@ -352,20 +352,17 @@ bool TestShaderGenerators() {
 	init_glslang();
 	LoadD3DCompilerDynamic();
 
-	if (!TestReinterpretShaders()) {
+	if (!TestFragmentShaders()) {
 		return false;
 	}
 
-	if (!TestFragmentShaders()) {
+	if (!TestReinterpretShaders()) {
 		return false;
 	}
 
 	if (!TestVertexShaders()) {
 		return false;
 	}
-
-	_CrtCheckMemory();
-
 
 	return true;
 } 
