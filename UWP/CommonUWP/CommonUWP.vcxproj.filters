@@ -369,6 +369,9 @@
     <ClCompile Include="..\..\Common\GPU\ShaderWriter.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\ShaderTranslation.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -672,6 +675,9 @@
       <Filter>GPU</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\GPU\ShaderWriter.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\ShaderTranslation.h">
       <Filter>GPU</Filter>
     </ClInclude>
   </ItemGroup>

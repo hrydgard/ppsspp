@@ -31,7 +31,7 @@
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"

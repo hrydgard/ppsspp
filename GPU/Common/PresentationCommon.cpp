@@ -33,7 +33,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 
 struct Vertex {
 	float x, y, z;
