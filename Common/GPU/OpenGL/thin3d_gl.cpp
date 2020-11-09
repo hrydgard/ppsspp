@@ -661,11 +661,11 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
-	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
+	if (gl_extensions.IsGLES) {
 		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			shaderLanguageDesc_.lastFragData = "gl_LastFragData[0]";
+			shaderLanguageDesc_.lastFragData = gl_extensions.GLES3 ? "fragColor0" : "gl_LastFragData[0]";
 		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
