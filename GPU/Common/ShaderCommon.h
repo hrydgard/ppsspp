@@ -122,9 +122,6 @@ protected:
 	Draw::DrawContext *draw_ = nullptr;
 };
 
-struct TBuiltInResource;
-void init_resources(TBuiltInResource &Resources);
-
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -156,3 +153,6 @@ enum {
 
 	ATTR_COUNT,
 };
+
+struct TBuiltInResource;
+void init_resources(TBuiltInResource &Resources);
