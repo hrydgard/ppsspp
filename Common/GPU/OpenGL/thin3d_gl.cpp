@@ -632,7 +632,7 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 	} else {
-		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
+		if (gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 				shaderLanguageDesc_.glslVersionNumber = 330;
@@ -645,12 +645,14 @@ OpenGLContext::OpenGLContext() {
 				shaderLanguageDesc_.varying_fs = "in";
 				shaderLanguageDesc_.attribute = "in";
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+				// Hm, I think this is wrong. This should be outside "if (gl_extensions.IsCoreContext)".
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 				shaderLanguageDesc_.glslVersionNumber = 130;
 				shaderLanguageDesc_.fragColor0 = "fragColor0";
 				shaderLanguageDesc_.bitwiseOps = true;
 				shaderLanguageDesc_.texelFetch = "texelFetch";
 			} else {
+				// This too...
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 				shaderLanguageDesc_.glslVersionNumber = 110;
 				if (gl_extensions.EXT_gpu_shader4) {
