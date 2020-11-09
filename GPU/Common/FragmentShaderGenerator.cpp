@@ -113,6 +113,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool readFramebuffer = replaceBlend == REPLACE_BLEND_COPY_FBO || colorWriteMask;
 	bool readFramebufferTex = readFramebuffer && !gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH);
 
+	bool needFragCoord = readFramebuffer || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool writeDepth = gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+
 	if (readFramebuffer && compat.shaderLanguage == HLSL_D3D9) {
 		*errorString = "Framebuffer read not yet supported in HLSL D3D9";
 		return false;
@@ -235,7 +238,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		}
-		if (compat.shaderLanguage == HLSL_D3D11 && readFramebuffer) {
+		if (compat.shaderLanguage == HLSL_D3D11 && needFragCoord) {
 			WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
 		}
 		WRITE(p, "};\n");
@@ -248,8 +251,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			} else {
 				WRITE(p, "  vec4 target : SV_Target;\n");
 			}
-			if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
-				WRITE(p, "  float depth : SV_DEPTH;\n");
+			if (writeDepth) {
+				WRITE(p, "  float depth : SV_Depth;\n");
 			}
 			WRITE(p, "};\n");
 		}
@@ -424,7 +427,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
-		WRITE(p, "  PS_OUT outfragment;\n");		
+		WRITE(p, "  PS_OUT outfragment;\n");
+		if (needFragCoord) {
+			WRITE(p, "  vec4 gl_FragCoord = In.pixelPos;\n");
+		}
+		if (writeDepth) {
+			WRITE(p, "  float gl_FragDepth;\n");
+		}
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "vec4 main( PS_IN In ) : COLOR {\n");
 	} else {
@@ -446,7 +455,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	// Two things read from the old framebuffer - shader replacement blending and bit-level masking.
 	if (readFramebuffer) {
 		if (compat.shaderLanguage == HLSL_D3D11) {
-			WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
+			WRITE(p, "  vec4 destColor = fboTex.Load(int3((int)gl_FragCoord.x, (int)gl_FragCoord.y, 0));\n");
 		} else if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 			// If we have EXT_shader_framebuffer_fetch / ARM_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
@@ -1018,6 +1027,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
+		if (writeDepth) {
+			WRITE(p, "  outfragment.depth = gl_FragDepth;\n");
+		}
 		WRITE(p, "  return outfragment;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  return v;\n");
