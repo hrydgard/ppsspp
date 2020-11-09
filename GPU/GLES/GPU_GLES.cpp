@@ -175,7 +175,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		}
 	}
 
-	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
+	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		// This has caused problems in the past.  Let's only enable on GLES3.
 		if (features & GPU_SUPPORTS_GLSL_ES_300) {
 			features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;

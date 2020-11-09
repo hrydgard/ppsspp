@@ -367,7 +367,6 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_blend_minmax = g_set_gl_extensions.count("GL_EXT_blend_minmax") != 0;
 		gl_extensions.EXT_unpack_subimage = g_set_gl_extensions.count("GL_EXT_unpack_subimage") != 0;
 		gl_extensions.EXT_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_EXT_shader_framebuffer_fetch") != 0;
-		gl_extensions.NV_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;

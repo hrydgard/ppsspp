@@ -662,13 +662,9 @@ OpenGLContext::OpenGLContext() {
 	}
 
 	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
-		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
+		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			shaderLanguageDesc_.lastFragData = "gl_LastFragData[0]";
-		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_NV_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = "gl_LastFragData[0]";
 		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
