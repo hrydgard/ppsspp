@@ -58,8 +58,12 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		break;
 	case HLSL_D3D9:
 	case HLSL_D3D11:
-		fragColor0 = "outfragment.target";
-		fragColor1 = "outfragment.target1";
+		if (lang == HLSL_D3D11) {
+			fragColor0 = "outfragment.target";
+			fragColor1 = "outfragment.target1";
+		} else {
+			fragColor0 = "target";
+		}
 		varying_fs = "in";
 		varying_vs = "out";
 		attribute = "in";
