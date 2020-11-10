@@ -63,6 +63,9 @@ public:
 	// F: Formats into the buffer.
 	ShaderWriter &F(const char *format, ...);
 
+	// Useful for fragment shaders in GLES.
+	void HighPrecisionInt();
+
 	// Several of the shader languages ignore samplers, beware of that.
 	void DeclareSampler2D(const char *name, int binding);
 	void DeclareTexture2D(const char *name, int binding);

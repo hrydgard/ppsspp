@@ -264,6 +264,13 @@ void ShaderWriter::EndFSMain(const char *vec4_color_variable) {
 	C("}\n");
 }
 
+void ShaderWriter::HighPrecisionInt() {
+	if (ShaderLanguageIsOpenGL(lang_.shaderLanguage) && lang_.gles) {
+		C("precision highp int;\n");
+		C("precision highp uint;\n");
+	}
+}
+
 void ShaderWriter::DeclareTexture2D(const char *name, int binding) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:

@@ -18,6 +18,8 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
 
+	writer.HighPrecisionInt();
+
 	writer.DeclareSampler2D("samp", 0);
 	writer.DeclareTexture2D("tex", 0);
 
