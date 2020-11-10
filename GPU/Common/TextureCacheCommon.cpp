@@ -569,6 +569,10 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	std::vector<AttachCandidate> candidates;
 
 	FramebufferNotificationChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? FramebufferNotificationChannel::NOTIFY_FB_DEPTH : FramebufferNotificationChannel::NOTIFY_FB_COLOR;
+	if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+		// Depth texture not supported. Don't try to match it, fall back to the memory behind..
+		return std::vector<AttachCandidate>();
+	}
 
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 

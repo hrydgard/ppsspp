@@ -140,6 +140,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ANISOTROPY;
 #endif
 
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	if (draw_->GetDeviceCaps().dualSourceBlend)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
