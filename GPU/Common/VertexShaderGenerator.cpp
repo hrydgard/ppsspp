@@ -241,18 +241,18 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 		}
 
-		WRITE(p, "layout (location = 1) %sout vec4 v_color0;\n", shading);
+		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %sout vec3 v_color1;\n", shading);
+			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
 		}
 
 		if (doTexture) {
-			WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
+			WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
 		}
 
 		if (enableFog) {
 			// See the fragment shader generator
-			WRITE(p, "layout (location = 3) out float v_fogdepth;\n");
+			WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 		}
 	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		// Note: These two share some code after this hellishly large if/else.

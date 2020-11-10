@@ -141,14 +141,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "layout (binding = 2) uniform sampler2D pal;\n");
 		}
 
-		WRITE(p, "layout (location = 1) %s in vec4 v_color0;\n", shading);
+		// Note: the precision qualifiers must match the vertex shader!
+		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
 		if (lmode)
-			WRITE(p, "layout (location = 2) %s in vec3 v_color1;\n", shading);
+			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
 		if (enableFog) {
-			WRITE(p, "layout (location = 3) in float v_fogdepth;\n");
+			WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		}
 		if (doTexture) {
-			WRITE(p, "layout (location = 0) in vec3 v_texcoord;\n");
+			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {

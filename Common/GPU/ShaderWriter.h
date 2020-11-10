@@ -33,6 +33,7 @@ struct VaryingDef {
 	const char *name;
 	const char *semantic;
 	int index;
+	const char *precision;
 };
 
 class ShaderWriter {
@@ -64,7 +65,8 @@ public:
 	ShaderWriter &F(const char *format, ...);
 
 	// Useful for fragment shaders in GLES.
-	void HighPrecisionInt();
+	// We always default integers to high precision.
+	void HighPrecisionFloat();
 
 	// Several of the shader languages ignore samplers, beware of that.
 	void DeclareSampler2D(const char *name, int binding);

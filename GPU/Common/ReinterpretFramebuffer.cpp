@@ -5,7 +5,7 @@
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
 static const VaryingDef varyings[1] = {
-	{ "vec2", "v_texcoord", "TEXCOORD0" },
+	{ "vec2", "v_texcoord", "TEXCOORD0", 0, "highp" },
 };
 
 // TODO: We could possibly have an option to preserve any extra color precision? But gonna start without it.
@@ -18,7 +18,7 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	ShaderWriter writer(buffer, lang, ShaderStage::Fragment, nullptr, 0);
 
-	writer.HighPrecisionInt();
+	writer.HighPrecisionFloat();
 
 	writer.DeclareSampler2D("samp", 0);
 	writer.DeclareTexture2D("tex", 0);
