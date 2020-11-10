@@ -162,7 +162,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			GenericMaskState maskState;
 			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyFramebufferRead) {
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
 				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
 					// The shader takes over the responsibility for blending, so recompute.
 					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
