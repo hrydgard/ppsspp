@@ -196,6 +196,7 @@ struct GLRRenderData {
 			GLenum frontFace;
 			GLenum cullFace;
 			GLboolean ditherEnable;
+			GLboolean depthClampEnable;
 		} raster;
 	};
 };

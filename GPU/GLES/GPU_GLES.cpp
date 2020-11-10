@@ -221,6 +221,9 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
+	if (draw_->GetDeviceCaps().depthClampSupported)
+		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	if (prefer24) {
