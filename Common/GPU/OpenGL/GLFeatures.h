@@ -34,6 +34,7 @@ struct GLExtensions {
 	int ver[3];
 	int gpuVendor;
 	char model[128];
+	int modelNumber;
 
 	bool IsGLES;
 	bool IsCoreContext;
