@@ -209,6 +209,7 @@ static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_lev
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
+static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { "off", "safe", "balanced", "aggressive" });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
 static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement", "Texture Replacement", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
@@ -242,6 +243,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_unsafe_func_replacements.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
    vars.push_back(ppsspp_io_timing_method.GetOptions());
+   vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back({});
 
    environ_cb = cb;
@@ -312,6 +314,7 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
    ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
+   ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
 
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
