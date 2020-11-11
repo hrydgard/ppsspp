@@ -474,9 +474,10 @@ void CheckGLExtensions() {
 			}
 		}
 
-		// Now, Adreno lies. So let's override it.
-		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
-			WARN_LOG(G3D, "Detected Adreno - lowering int precision");
+		// Now, old Adreno lies. So let's override it.
+		// Not sure about the exact limit here.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 500) {
+			WARN_LOG(G3D, "Detected old Adreno - lowering int precision for safety");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}

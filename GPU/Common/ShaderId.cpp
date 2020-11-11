@@ -265,6 +265,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
+			id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
@@ -310,7 +311,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 
-		id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
 		if (g_Config.bVendorBugChecksEnabled) {
