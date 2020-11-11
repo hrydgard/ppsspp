@@ -160,6 +160,7 @@ void CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_IMGTEC;
 		} else if (vendor == "Qualcomm") {
 			gl_extensions.gpuVendor = GPU_VENDOR_QUALCOMM;
+			sscanf(renderer, "Adreno (TM) %d", &gl_extensions.modelNumber);
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
@@ -473,9 +474,10 @@ void CheckGLExtensions() {
 			}
 		}
 
-		// Now, Adreno lies. So let's override it.
-		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
-			WARN_LOG(G3D, "Detected Adreno - lowering int precision");
+		// Now, old Adreno lies. So let's override it.
+		// Not sure about the exact limit here.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 500) {
+			WARN_LOG(G3D, "Detected old Adreno - lowering int precision for safety");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}

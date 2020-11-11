@@ -300,7 +300,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 		// Poke in a bilinear filter flag in the top bit.
 		val |= gstate.isMagnifyFilteringEnabled() << 31;
-		render_->SetUniformI1(&u_depal_mask_shift_off_fmt, val);
+		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
 	// Update any dirty uniforms before we draw
