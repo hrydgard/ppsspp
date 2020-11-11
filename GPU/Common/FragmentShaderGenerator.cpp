@@ -408,7 +408,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
-	if (colorWriteMask && compat.shaderLanguage == HLSL_D3D11 || (compat.shaderLanguage == GLSL_3xx && compat.glslVersionNumber < 400)) {
+	if (colorWriteMask && (compat.shaderLanguage == HLSL_D3D11 || (compat.shaderLanguage == GLSL_3xx && (!compat.gles && compat.glslVersionNumber < 400)))) {
 		WRITE(p, "uint packUnorm4x8(vec4 v) {\n");
 		WRITE(p, "  v = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * v);\n");
