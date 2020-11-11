@@ -214,6 +214,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 	}
 
 	if (useBlit) {
+		render_->SetScissor({ 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight });
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "NotifyStencilUpload_Blit");
 	}
 
