@@ -709,7 +709,9 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		eventPsmfPlayerStatusChange = -1;
 	} else {
 		Do(p, eventPsmfPlayerStatusChange);
-		CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+		if (eventPsmfPlayerStatusChange != -1) {
+			CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
+		}
 	}
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
