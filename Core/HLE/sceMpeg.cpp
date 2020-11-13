@@ -1495,6 +1495,9 @@ void PostPutAction::run(MipsCall &call) {
 // Program signals that it has written data to the ringbuffer and gets a callback ?
 static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int available)
 {
+	// Generally, program will call sceMpegRingbufferAvailableSize() before this func.
+	// Still need to check available?
+
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
 		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
@@ -1518,15 +1521,21 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 	if (ringbuffer->callback_addr != 0) {
 		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i)", ringbufferAddr, numPackets, available);
 
-		PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
-		action->setRingAddr(ringbufferAddr);
-		// TODO: Should call this multiple times until we get numPackets.
+		// Call this multiple times until we get numPackets.
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
-		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
-		u32 args[3] = {(u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args};
-		hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
+		u32 packetsThisRound = 0;
+		while (numPackets) {
+			PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
+			action->setRingAddr(ringbufferAddr);
+
+			packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
+			numPackets -= packetsThisRound;
+			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args };
+			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
+			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
+		}
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
 	}
