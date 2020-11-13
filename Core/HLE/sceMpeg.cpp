@@ -667,6 +667,7 @@ static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	switch (streamType) {
 	case MPEG_AVC_STREAM:
 		ctx->avcRegistered = true;
+		ctx->mediaengine->addVideoStream(streamNum);
 		// TODO: Probably incorrect?
 		ctx->mediaengine->setVideoStream(streamNum);
 		break;

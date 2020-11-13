@@ -59,6 +59,7 @@ public:
 	void closeMedia();
 	bool loadStream(const u8 *buffer, int readSize, int RingbufferSize);
 	bool reloadStream();
+	bool addVideoStream(int streamNum, int streamId = -1);
 	// open the mpeg context
 	bool openContext(bool keepReadPos = false);
 	void closeContext();
@@ -114,6 +115,7 @@ public:  // TODO: Very little of this below should be public.
 	int m_sws_fmt;
 	u8 *m_buffer;
 	int m_videoStream;
+	int m_expectedVideoStreams;
 
 	// Used by the demuxer.
 	int m_audioStream;
