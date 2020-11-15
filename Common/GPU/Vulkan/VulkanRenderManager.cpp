@@ -551,7 +551,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
-	// Eliminate dupes, instantly convert to a clear if possible.
+	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
 		if (color == VKRRenderPassAction::CLEAR) {
@@ -587,6 +587,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 				data.clear.clearStencil = clearStencil;
 				data.clear.clearMask = clearMask;
 				curRenderStep_->commands.push_back(data);
+				curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 			}
 			return;
 		}
@@ -665,6 +666,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			curWidth_ = curWidthRaw_;
 			curHeight_ = curHeightRaw_;
 		}
+	}
+
+	if (color == VKRRenderPassAction::CLEAR || depth == VKRRenderPassAction::CLEAR || stencil == VKRRenderPassAction::CLEAR) {
+		curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 	}
 
 	// See above - we add a clear afterward if only one side for depth/stencil CLEAR/KEEP.
