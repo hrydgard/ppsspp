@@ -133,7 +133,9 @@ void __UsbMicDoState(PointerWrap &p) {
 	Do(p, micState);
 	if (s > 1) {
 		Do(p, eventUsbMicAudioUpdate);
-		CoreTiming::RestoreRegisterEvent(eventUsbMicAudioUpdate, "UsbMicAudioUpdate", &__UsbMicAudioUpdate);
+		if (eventUsbMicAudioUpdate != -1) {
+			CoreTiming::RestoreRegisterEvent(eventUsbMicAudioUpdate, "UsbMicAudioUpdate", &__UsbMicAudioUpdate);
+		}
 	} else {
 		eventUsbMicAudioUpdate = -1;
 	}
