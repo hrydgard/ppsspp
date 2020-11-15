@@ -98,6 +98,10 @@ static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decod
 static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
+// Calculate the number of total packets added to the ringbuffer by calling the sceMpegRingbufferPut() once.
+static int ringbufferPutPacketsAdded = 0;
+static bool useRingbufferPutCallbackMulti = true;
+
 #ifdef USE_FFMPEG 
 
 extern "C" {
@@ -387,7 +391,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1, 2);
+	auto s = p.Section("sceMpeg", 1, 3);
 	if (!s)
 		return;
 
@@ -400,6 +404,12 @@ void __MpegDoState(PointerWrap &p) {
 		// Let's assume the oldest version.
 		mpegLibVersion = 0x0101;
 	} else {
+		if (s < 3) {
+			useRingbufferPutCallbackMulti = false;
+			ringbufferPutPacketsAdded = 0;
+		} else {
+			Do(p, ringbufferPutPacketsAdded);
+		}
 		Do(p, streamIdGen);
 		Do(p, mpegLibVersion);
 	}
@@ -1438,16 +1448,17 @@ void PostPutAction::run(MipsCall &call) {
 	int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
 	const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
 
-	int packetsAdded = currentMIPS->r[MIPS_REG_V0];
+	int packetsAddedThisRound = currentMIPS->r[MIPS_REG_V0];
+	ringbufferPutPacketsAdded += packetsAddedThisRound;
 
 	// It seems validation is done only by older mpeg libs.
-	if (mpegLibVersion < 0x0105 && packetsAdded > 0) {
+	if (mpegLibVersion < 0x0105 && packetsAddedThisRound > 0) {
 		// TODO: Faster / less wasteful validation.
-		std::unique_ptr<MpegDemux> demuxer(new MpegDemux(packetsAdded * 2048, 0));
+		std::unique_ptr<MpegDemux> demuxer(new MpegDemux(packetsAddedThisRound * 2048, 0));
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
 		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
-		for (int i = 0; i < packetsAdded; ++i) {
+		for (int i = 0; i < packetsAddedThisRound; ++i) {
 			demuxer->addStreamData(buf, 2048);
 			buf += 2048;
 
@@ -1462,34 +1473,34 @@ void PostPutAction::run(MipsCall &call) {
 
 			if (mpegLibVersion <= 0x0103) {
 				// Act like they were actually added, but don't increment read pos.
-				ringbuffer->packetsWritePos += packetsAdded;
-				ringbuffer->packetsAvail += packetsAdded;
+				ringbuffer->packetsWritePos += packetsAddedThisRound;
+				ringbuffer->packetsAvail += packetsAddedThisRound;
 			}
 			return;
 		}
 	}
 
-	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
+	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAddedThisRound > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, 2048, ctx);
 		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer->packets * ringbuffer->packetSize);
 	}
-	if (packetsAdded > 0) {
-		if (packetsAdded > ringbuffer->packets - ringbuffer->packetsAvail) {
-			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packets - ringbuffer->packetsAvail);
-			packetsAdded = ringbuffer->packets - ringbuffer->packetsAvail;
+	if (packetsAddedThisRound > 0) {
+		if (packetsAddedThisRound > ringbuffer->packets - ringbuffer->packetsAvail) {
+			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAddedThisRound, ringbuffer->packets - ringbuffer->packetsAvail);
+			packetsAddedThisRound = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, packetsAdded * 2048) / 2048;
-		if (actuallyAdded != packetsAdded) {
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, packetsAddedThisRound * 2048) / 2048;
+		if (actuallyAdded != packetsAddedThisRound) {
 			WARN_LOG_REPORT(ME, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}
-		ringbuffer->packetsRead += packetsAdded;
-		ringbuffer->packetsWritePos += packetsAdded;
-		ringbuffer->packetsAvail += packetsAdded;
+		ringbuffer->packetsRead += packetsAddedThisRound;
+		ringbuffer->packetsWritePos += packetsAddedThisRound;
+		ringbuffer->packetsAvail += packetsAddedThisRound;
 	}
-	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer->packetsRead, ringbuffer->packets);
+	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAddedThisRound, ringbuffer->packetsRead, ringbuffer->packets);
 
-	call.setReturnValue(packetsAdded);
+	call.setReturnValue(ringbufferPutPacketsAdded);
 }
 
 
@@ -1517,7 +1528,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		WARN_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer->mpeg);
 		return -1;
 	}
-
+	ringbufferPutPacketsAdded = 0;
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
 	if (ringbuffer->callback_addr != 0) {
 		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i)", ringbufferAddr, numPackets, available);
@@ -1536,6 +1547,9 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args };
 			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
 			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
+			// Old savestate don't use this feature, just for compatibility.
+			if (useRingbufferPutCallbackMulti)
+				break;
 		}
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
