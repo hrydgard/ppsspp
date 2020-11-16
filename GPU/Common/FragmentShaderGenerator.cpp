@@ -409,11 +409,21 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
 			}
 		}
+	}
 
+	bool hasPackUnorm4x8 = false;
+	if (compat.shaderLanguage == GLSL_VULKAN) {
+		hasPackUnorm4x8 = true;
+	} else if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
+		if (compat.gles) {
+			hasPackUnorm4x8 = compat.glslVersionNumber >= 310;
+		} else {
+			hasPackUnorm4x8 = compat.glslVersionNumber >= 400;
+		}
 	}
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
-	if (colorWriteMask && (compat.shaderLanguage == HLSL_D3D11 || (compat.shaderLanguage == GLSL_3xx && (!compat.gles && compat.glslVersionNumber < 400)))) {
+	if (colorWriteMask && !hasPackUnorm4x8) {
 		WRITE(p, "uint packUnorm4x8(vec4 v) {\n");
 		WRITE(p, "  v = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * v);\n");

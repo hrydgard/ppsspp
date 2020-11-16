@@ -134,25 +134,6 @@ static const unsigned short primToGL[] = {
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
-#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
-	GL_PATCHES,
-	GL_LINES_ADJACENCY,
-	GL_LINE_STRIP_ADJACENCY,
-	GL_TRIANGLES_ADJACENCY,
-	GL_TRIANGLE_STRIP_ADJACENCY,
-#elif !defined(IOS)
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-#else
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-	GL_POINTS,
-#endif
 };
 
 class OpenGLBuffer;
@@ -607,12 +588,15 @@ OpenGLContext::OpenGLContext() {
 
 	shaderLanguageDesc_.Init(GLSL_1xx);
 
+	shaderLanguageDesc_.glslVersionNumber = gl_extensions.GLSLVersion();
+
+	snprintf(shaderLanguageDesc_.driverInfo, sizeof(shaderLanguageDesc_.driverInfo),
+		"%s - GLSL %d", gl_extensions.model, gl_extensions.GLSLVersion());
 	// Detect shader language features.
 	if (gl_extensions.IsGLES) {
 		shaderLanguageDesc_.gles = true;
 		if (gl_extensions.GLES3) {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
-			shaderLanguageDesc_.glslVersionNumber = 300;  // GLSL ES 3.0
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
 			shaderLanguageDesc_.glslES30 = true;
@@ -623,7 +607,6 @@ OpenGLContext::OpenGLContext() {
 			shaderLanguageDesc_.attribute = "in";
 		} else {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-			shaderLanguageDesc_.glslVersionNumber = 100;  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
 				shaderLanguageDesc_.bitwiseOps = true;
 				shaderLanguageDesc_.texelFetch = "texelFetch2D";
@@ -637,7 +620,6 @@ OpenGLContext::OpenGLContext() {
 		if (gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
-				shaderLanguageDesc_.glslVersionNumber = 330;
 				shaderLanguageDesc_.fragColor0 = "fragColor0";
 				shaderLanguageDesc_.texture = "texture";
 				shaderLanguageDesc_.glslES30 = true;
@@ -649,14 +631,12 @@ OpenGLContext::OpenGLContext() {
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				// Hm, I think this is wrong. This should be outside "if (gl_extensions.IsCoreContext)".
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				shaderLanguageDesc_.glslVersionNumber = 130;
 				shaderLanguageDesc_.fragColor0 = "fragColor0";
 				shaderLanguageDesc_.bitwiseOps = true;
 				shaderLanguageDesc_.texelFetch = "texelFetch";
 			} else {
 				// This too...
 				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				shaderLanguageDesc_.glslVersionNumber = 110;
 				if (gl_extensions.EXT_gpu_shader4) {
 					shaderLanguageDesc_.bitwiseOps = true;
 					shaderLanguageDesc_.texelFetch = "texelFetch2D";

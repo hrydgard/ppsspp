@@ -107,6 +107,8 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 		for (size_t i = 0; i < num_gl_extensions; i++) {
 			F("%s\n", gl_extensions[i]);
 		}
+		// Print some system info - useful to gather information directly from screenshots.
+		F("// %s\n", lang_.driverInfo);
 		switch (stage_) {
 		case ShaderStage::Fragment:
 			C("#define DISCARD discard\n");

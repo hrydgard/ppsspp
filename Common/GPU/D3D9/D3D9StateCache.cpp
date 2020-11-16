@@ -5,7 +5,6 @@
 namespace DX9 {
 
 DirectXState dxstate;
-GLExtensions gl_extensions;
 
 LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
@@ -62,14 +61,6 @@ void DirectXState::Restore() {
 	texMaxMipLevel.restore(); count++;
 	texAddressU.restore(); count++;
 	texAddressV.restore(); count++;
-}
-
-void CheckGLExtensions() {
-	static bool done = false;
-	if (done)
-		return;
-	done = true;
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
 }
 
 }  // namespace DX9

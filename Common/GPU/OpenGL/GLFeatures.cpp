@@ -77,19 +77,28 @@ bool GLExtensions::VersionGEThan(int major, int minor, int sub) {
 }
 
 int GLExtensions::GLSLVersion() {
-	// Used for shader translation and core contexts (Apple drives fail without an exact match.)
-	if (gl_extensions.VersionGEThan(3, 3)) {
-		return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
-	} else if (gl_extensions.VersionGEThan(3, 2)) {
-		return 150;
-	} else if (gl_extensions.VersionGEThan(3, 1)) {
-		return 140;
-	} else if (gl_extensions.VersionGEThan(3, 0)) {
-		return 130;
-	} else if (gl_extensions.VersionGEThan(2, 1)) {
-		return 120;
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.GLES3) {
+			// GLSL version matches ES version.
+			return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
+		} else {
+			return 100;
+		}
 	} else {
-		return 110;
+		// Used for shader translation and core contexts (Apple drives fail without an exact match.)
+		if (gl_extensions.VersionGEThan(3, 3)) {
+			return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
+		} else if (gl_extensions.VersionGEThan(3, 2)) {
+			return 150;
+		} else if (gl_extensions.VersionGEThan(3, 1)) {
+			return 140;
+		} else if (gl_extensions.VersionGEThan(3, 0)) {
+			return 130;
+		} else if (gl_extensions.VersionGEThan(2, 1)) {
+			return 120;
+		} else {
+			return 110;
+		}
 	}
 }
 
