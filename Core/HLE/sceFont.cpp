@@ -1176,7 +1176,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 		optimumFont = nearestFont;
 	}
 	//Special chinese font support
-	if ((g_Config.iLanguage == 11) || (g_Config.iLanguage == 10)) {
+	if ((optimumFont) && (g_Config.iLanguage == 11) || (g_Config.iLanguage == 10)) {
 		if (optimumFont == internalFonts[2])
 			optimumFont = internalFonts[0];
 	}
