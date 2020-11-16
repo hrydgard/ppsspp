@@ -15,6 +15,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 	switch (lang) {
 	case GLSL_1xx:
 		// Just used in the shader test, and as a basis for the others in DetectShaderLanguage.
+		// The real OpenGL initialization happens in thin3d_gl.cpp.
 		glslVersionNumber = 110;
 		attribute = "attribute";
 		varying_vs = "varying";

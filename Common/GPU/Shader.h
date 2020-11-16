@@ -50,6 +50,7 @@ struct ShaderLanguageDesc {
 	bool bitwiseOps = false;
 	bool forceMatrix4x4 = false;
 	bool coefsFromBuffers = false;
+	char driverInfo[128];  // Really only GL uses this.
 };
 
 enum class UniformType : int8_t {
