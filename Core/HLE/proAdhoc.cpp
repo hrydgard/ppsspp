@@ -1940,8 +1940,21 @@ int getSockNoDelay(int tcpsock) {
 	return opt;
 }
 
+//#define TCP_QUICKACK     0x0c
 int setSockNoDelay(int tcpsock, int flag) {
 	int opt = flag;
+	// Disable ACK Delay when supported
+#if defined(TCP_QUICKACK)
+	setsockopt(tcpsock, IPPROTO_TCP, TCP_QUICKACK, (char*)&opt, sizeof(opt));
+#elif defined(_WIN32)
+#if !defined(SIO_TCP_SET_ACK_FREQUENCY)
+	#define SIO_TCP_SET_ACK_FREQUENCY _WSAIOW(IOC_VENDOR,23)
+#endif
+	int freq = flag? 1:2; // can be 1..255, default is 2 (delayed 200ms)
+	DWORD retbytes = 0;
+	WSAIoctl(tcpsock, SIO_TCP_SET_ACK_FREQUENCY, &freq, sizeof(freq), NULL, 0, &retbytes, NULL, NULL);
+#endif
+	// Disable Nagle Algo
 	return setsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt));
 }
 
