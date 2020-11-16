@@ -1918,6 +1918,11 @@ int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBU
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
+int setSockMSS(int sock, int size) {
+	int mss = size; // 1460;
+	return setsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, (char*)&mss, sizeof(mss));
+}
+
 int setSockTimeout(int sock, int opt, unsigned long timeout_usec) { // opt = SO_SNDTIMEO/SO_RCVTIMEO
 	if (timeout_usec > 0 && timeout_usec < minSocketTimeoutUS) timeout_usec = minSocketTimeoutUS; // Override timeout for high latency multiplayer
 #if defined(_WIN32)

@@ -1288,6 +1288,11 @@ int getSockBufferSize(int sock, int opt);
 int setSockBufferSize(int sock, int opt, int size);
 
 /*
+* Set TCP Socket Maximum Segment Size (default is 1460 on 1500 MTU)
+*/
+int setSockMSS(int sock, int size);
+
+/*
 * Set Socket TimeOut (opt = SO_SNDTIMEO/SO_RCVTIMEO)
 */
 int setSockTimeout(int sock, int opt, unsigned long timeout_usec);

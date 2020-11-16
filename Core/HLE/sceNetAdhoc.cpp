@@ -3099,6 +3099,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 				// Valid Socket produced
 				if (tcpsocket > 0) {
+					// Change socket MSS
+					setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+
 					// Change socket buffer size to be consistent on all platforms.
 					setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*2); //PSP_ADHOC_PTP_MFS
 					setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MFS*10
@@ -3268,6 +3271,9 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 
 					// Copy Socket Descriptor to Structure
 					internal->data.ptp.id = newsocket;
+
+					// Change socket MSS
+					setSockMSS(newsocket, PSP_ADHOC_PTP_MSS);
 
 					// Set Default Buffer Size or inherit the size?
 					internal->buffer_size = socket->buffer_size;
@@ -3641,6 +3647,9 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 
 				// Valid Socket produced
 				if (tcpsocket > 0) {
+					// Change socket MSS
+					setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+
 					// Change socket buffer size to be consistent on all platforms.
 					setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*2); //PSP_ADHOC_PTP_MFS
 					setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MFS*10
