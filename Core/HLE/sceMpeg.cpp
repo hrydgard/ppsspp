@@ -1548,7 +1548,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
 			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
 			// Old savestate don't use this feature, just for compatibility.
-			if (useRingbufferPutCallbackMulti)
+			if (!useRingbufferPutCallbackMulti)
 				break;
 		}
 	} else {
