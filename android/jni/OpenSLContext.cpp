@@ -243,7 +243,7 @@ int OpenSLContext::AudioRecord_Start(int sampleRate) {
 	}
 
 	result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_RECORDING);
-	assert(SL_RESULT_SUCCESS == result);
+	_assert_(SL_RESULT_SUCCESS == result);
 
 	return true;
 }
@@ -251,7 +251,7 @@ int OpenSLContext::AudioRecord_Start(int sampleRate) {
 int OpenSLContext::AudioRecord_Stop() {
 	if (recorderRecord != nullptr) {
 		SLresult result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_STOPPED);
-		assert(SL_RESULT_SUCCESS == result);
+		_assert_(SL_RESULT_SUCCESS == result);
 	}
 	if (recorderObject != nullptr) {
 		(*recorderObject)->Destroy(recorderObject);
