@@ -32,6 +32,7 @@
 #endif
 
 #ifdef HAVE_WIN32_MICROPHONE
+#define NOMINMAX
 #include "Windows/CaptureDevice.h"
 #endif
 
@@ -71,8 +72,6 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 					__KernelResumeThreadFromWait(threadID, ret);
 					waitingThreads.erase(waitingThreads.begin() + count);
-					if (waitingThreads.size() == 0)
-						isNeedInput = false;
 				} else {
 					u64 waitTimeus = (waitingThread.needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThread.sampleRate;
 					if(eventUsbMicAudioUpdate == -1)
@@ -89,8 +88,6 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 				DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 				__KernelResumeThreadFromWait(threadID, ret);
 				waitingThreads.erase(waitingThreads.begin() + count);
-				if (waitingThreads.size() == 0)
-					isNeedInput = false;
 			}
 		}
 		++count;
@@ -105,7 +102,7 @@ void __UsbMicInit() {
 	}
 	numNeedSamples = 0;
 	waitingThreads.clear();
-	isNeedInput = false;
+	isNeedInput = true;
 	curSampleRate = 44100;
 	curChannels = 1;
 	micState = 0; 
@@ -156,7 +153,7 @@ void __UsbMicDoState(PointerWrap &p) {
 	}
 }
 
-QueueBuf::QueueBuf(u32 size) : start(0), end(0), capacity(size) {
+QueueBuf::QueueBuf(u32 size) : available(0), end(0), capacity(size) {
 	buf_ = new u8[size];
 }
 
@@ -167,7 +164,7 @@ QueueBuf::~QueueBuf() {
 QueueBuf::QueueBuf(const QueueBuf &buf) {
 	buf_ = new u8[buf.capacity];
 	memcpy(buf_, buf.buf_, buf.capacity);
-	start = buf.start;
+	available = buf.available;
 	end = buf.end;
 	capacity = buf.capacity;
 }
@@ -178,27 +175,28 @@ QueueBuf& QueueBuf::operator=(const QueueBuf &buf) {
 	}
 	std::unique_lock<std::mutex> lock(mutex);
 	memcpy(buf_, buf.buf_, buf.capacity);
-	start = buf.start;
+	available = buf.available;
 	end = buf.end;
 	lock.unlock();
 	return *this;
 }
 
-void QueueBuf::push(u8 *buf, u32 size) {
-	if (getRemainingSize() < size) {
-		resize((capacity + size - getRemainingSize()) * 3 / 2);
-	}
+u32 QueueBuf::push(u8 *buf, u32 size) {
+	u32 addedSize = 0;
+	// This will overwrite the old data if the size prepare to add more than remaining size.
 	std::unique_lock<std::mutex> lock(mutex);
-	if (end + size <= capacity) {
-		memcpy(buf_ + end, buf, size);
-		end += size;
-	} else {
-		memcpy(buf_ + end, buf, capacity - end);
+	while (end + size > capacity) {
+		memcpy(buf_ + end, buf + addedSize, capacity - end);
+		addedSize += capacity - end;
 		size -= capacity - end;
-		memcpy(buf_, buf + capacity - end, size);
-		end = size;
+		end = 0;
 	}
+	memcpy(buf_ + end, buf + addedSize, size);
+	addedSize += size;
+	end = (end + size) % capacity;
+	available = std::min(capacity, available + addedSize);
 	lock.unlock();
+	return addedSize;
 }
 
 u32 QueueBuf::pop(u8 *buf, u32 size) {
@@ -208,15 +206,13 @@ u32 QueueBuf::pop(u8 *buf, u32 size) {
 	ret = size;
 
 	std::unique_lock<std::mutex> lock(mutex);
-	if (start + size <= capacity) {
-		memcpy(buf, buf_ + start, size);
-		start += size;
+	if (getStartPos() + size <= capacity) {
+		memcpy(buf, buf_ + getStartPos(), size);
 	} else {
-		memcpy(buf, buf_ + start, capacity - start);
-		size -= capacity - start;
-		memcpy(buf + capacity - start, buf_, size);
-		start = size;
+		memcpy(buf, buf_ + getStartPos(), capacity - getStartPos());
+		memcpy(buf + capacity - getStartPos(), buf_, size - (capacity - getStartPos()));
 	}
+	available -= size;
 	lock.unlock();
 	return ret;
 }
@@ -228,40 +224,31 @@ void QueueBuf::resize(u32 newSize) {
 	u32 availableSize = getAvailableSize();
 	u8 *oldbuf = buf_;
 
-	std::unique_lock<std::mutex> lock(mutex);
 	buf_ = new u8[newSize];
-	if (end >= start) {
-		memcpy(buf_, oldbuf + start, availableSize);
-	} else {
-		memcpy(buf_, oldbuf + start, capacity - start);
-		memcpy(buf_ + capacity - start, oldbuf, availableSize - (capacity - start));
-	}
-	start = 0;
+	pop(buf_, availableSize);
+	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
 	delete[] oldbuf;
-	lock.unlock();
 }
 
 void QueueBuf::flush() {
 	std::unique_lock<std::mutex> lock(mutex);
-	start = 0;
+	available = 0;
 	end = 0;
 	lock.unlock();
 }
 
 u32 QueueBuf::getAvailableSize() {
-	u32 availableSize = 0;
-	if (end >= start) {
-		availableSize = end - start;
-	} else {
-		availableSize = end + capacity - start;
-	}
-	return availableSize;
+	return available;
 }
 
 u32 QueueBuf::getRemainingSize() {
 	return capacity - getAvailableSize();
+}
+
+u32 QueueBuf::getStartPos() {
+	return end >= available ? end - available : capacity - available + end;
 }
 
 static int sceUsbMicPollInputEnd() {
@@ -353,6 +340,7 @@ bool Microphone::isMicStarted() {
 	return false;
 }
 
+// Deprecated.
 bool Microphone::isNeedInput() {
 	return ::isNeedInput;
 }
@@ -404,18 +392,15 @@ void Microphone::onMicDeviceChange() {
 
 u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	u32 size = maxSamples << 1;
-	if (size > numNeedSamples << 1) {
-		if (!audioBuf) {
-			audioBuf = new QueueBuf(size);
-		} else {
-			audioBuf->resize(size);
-		}
+	if (!audioBuf) {
+		audioBuf = new QueueBuf(size);
+	} else {
+		audioBuf->resize(size);
 	}
 	if (!audioBuf)
 		return 0;
 
 	numNeedSamples = maxSamples;
-	Microphone::flushAudioData();
 	if (!Microphone::isMicStarted()) {
 		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
 		Microphone::startMic(param);
@@ -423,7 +408,6 @@ u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	u64 waitTimeus = 0;
 	if (Microphone::availableAudioBufSize() < size) {
 		waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;
-		isNeedInput = true;
 	}
 	if(eventUsbMicAudioUpdate == -1)
 		eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);

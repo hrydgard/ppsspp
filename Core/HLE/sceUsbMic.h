@@ -41,15 +41,19 @@ public:
 	QueueBuf(const QueueBuf &buf);
 	QueueBuf& operator=(const QueueBuf &buf);
 
-	void push(u8 *buf, u32 size);
+	u32 push(u8 *buf, u32 size);
 	u32 pop(u8 *buf, u32 size);
 	void resize(u32 newSize);
 	void flush();
 	u32 getAvailableSize();
 	u32 getRemainingSize();
+	u32 getStartPos();
+	u32 getCapacity() const {
+		return capacity;
+	}
 
 private:
-	u32 start;
+	u32 available;
 	u32 end;
 	u32 capacity;
 	u8 *buf_;
@@ -61,6 +65,7 @@ namespace Microphone {
 	int stopMic();
 	bool isHaveDevice();
 	bool isMicStarted();
+	// Deprecated.
 	bool isNeedInput();
 	u32 numNeedSamples();
 	u32 availableAudioBufSize();

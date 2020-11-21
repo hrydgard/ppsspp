@@ -225,26 +225,14 @@ HRESULT ReaderCallback::OnReadSample(
 			DWORD length = 0;
 			u32 sizeAfterResample = 0;
 			// pSample can be null, in this case ReadSample still should be called to request next frame.
-			if (pSample && Microphone::isNeedInput()) {
+			if (pSample) {
 				pBuffer->Lock(&sampleBuf, nullptr, &length);
-				if (!device->rawAudioBuf) {
-					device->rawAudioBuf = new QueueBuf(length * 2); // Alloc enough space.
-				}
-				device->rawAudioBuf->push(sampleBuf, length);
 				if (device->needResample()) {
-					sizeAfterResample = device->rawAudioBuf->getAvailableSize() * device->targetMediaParam.sampleRate / device->deviceParam.sampleRate / device->deviceParam.channels;
-					// Wait until have enough audio data.
-					if (sizeAfterResample + Microphone::availableAudioBufSize() >= Microphone::numNeedSamples() * 2) {
-						u32 rawAudioBufSize = device->rawAudioBuf->getAvailableSize();
-						u8 *tempbuf = new u8[rawAudioBufSize];
-						device->rawAudioBuf->pop(tempbuf, rawAudioBufSize);
-						sizeAfterResample = doResample(
-							&device->resampleBuf, device->targetMediaParam.sampleRate, device->targetMediaParam.channels, &device->resampleBufSize,
-							tempbuf, device->deviceParam.sampleRate, device->deviceParam.channels, device->deviceParam.audioFormat, rawAudioBufSize, device->deviceParam.bitsPerSample);
-						delete[] tempbuf;
-						if (device->resampleBuf)
-							Microphone::addAudioData(device->resampleBuf, sizeAfterResample);
-					}		
+					sizeAfterResample = doResample(
+						&device->resampleBuf, device->targetMediaParam.sampleRate, device->targetMediaParam.channels, &device->resampleBufSize,
+						sampleBuf, device->deviceParam.sampleRate, device->deviceParam.channels, device->deviceParam.audioFormat, length, device->deviceParam.bitsPerSample);
+					if (device->resampleBuf)
+						Microphone::addAudioData(device->resampleBuf, sizeAfterResample);	
 				} else {
 					Microphone::addAudioData(sampleBuf, length);
 				}
@@ -470,7 +458,6 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 		break;
 	case CAPTUREDEVIDE_TYPE::AUDIO:
 		av_freep(&resampleBuf);
-		delete rawAudioBuf;
 		break;
 	}
 }
