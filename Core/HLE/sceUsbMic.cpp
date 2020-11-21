@@ -267,7 +267,7 @@ static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	}
 	curSampleRate = sampleRate;
 	curChannels = 1;
-	return __MicInputBlocking(maxSamples, sampleRate, bufAddr);
+	return __MicInput(maxSamples, sampleRate, bufAddr);
 }
 
 static int sceUsbMicInputInitEx(u32 paramAddr) {
@@ -390,7 +390,7 @@ void Microphone::onMicDeviceChange() {
 	}
 }
 
-u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 	u32 size = maxSamples << 1;
 	if (!audioBuf) {
 		audioBuf = new QueueBuf(size);
@@ -404,6 +404,16 @@ u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Microphone::isMicStarted()) {
 		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
 		Microphone::startMic(param);
+	}
+	if (!block) {
+		size = Microphone::availableAudioBufSize();
+		if (size > 0) {
+			u8 *tempbuf8 = new u8[size];
+			Microphone::getAudioData(tempbuf8, Microphone::availableAudioBufSize());
+			Memory::Memcpy(bufAddr, tempbuf8, size);
+			delete[] tempbuf8;
+		}
+		return size;
 	}
 	u64 waitTimeus = 0;
 	if (Microphone::availableAudioBufSize() < size) {
@@ -419,7 +429,7 @@ u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	DEBUG_LOG(HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
 	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
 
-	return maxSamples;
+	return size;
 }
 
 const HLEFunction sceUsbMic[] =

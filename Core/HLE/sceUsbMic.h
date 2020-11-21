@@ -78,4 +78,4 @@ namespace Microphone {
 	void onMicDeviceChange();
 }
 
-u32 __MicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr);
+u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block = true);
