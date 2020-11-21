@@ -439,6 +439,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true),
 	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
 	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
+	ConfigSetting("HideOnScreenMessage", &g_Config.bHideOnScreenMessage, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync2", &g_Config.bForceLagSync, false, true, true),

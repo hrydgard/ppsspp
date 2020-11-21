@@ -234,6 +234,7 @@ public:
 
 	// UI
 	bool bShowDebuggerOnLoad;
+	bool bHideOnScreenMessage;
 	int iShowFPSCounter;
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;

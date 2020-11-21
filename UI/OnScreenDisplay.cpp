@@ -1,5 +1,6 @@
 #include "UI/OnScreenDisplay.h"
 
+#include "Core/Config.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
@@ -56,6 +57,10 @@ restart:
 }
 
 void OnScreenMessages::Show(const std::string &text, float duration_s, uint32_t color, int icon, bool checkUnique, const char *id) {
+	if (g_Config.bHideOnScreenMessage) {
+		return;
+	}
+
 	double now = time_now_d();
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (checkUnique) {
