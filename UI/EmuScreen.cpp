@@ -1071,7 +1071,7 @@ void EmuScreen::CreateViews() {
 	saveStatePreview_->SetVisibility(V_GONE);
 	saveStatePreview_->SetCanBeFocused(false);
 	root_->Add(saveStatePreview_);
-	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
+	onScreenMessagesView_ = root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
@@ -1142,11 +1142,12 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
 }
 
 void EmuScreen::update() {
-
 	UIScreen::update();
+	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? UI::Visibility::V_VISIBLE : UI::Visibility::V_GONE);
 
-	if (bootPending_)
+	if (bootPending_) {
 		bootGame(gamePath_);
+	}
 
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
