@@ -483,10 +483,11 @@ void CheckGLExtensions() {
 			}
 		}
 
-		// Now, old Adreno lies. So let's override it.
-		// Not sure about the exact limit here.
-		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 500) {
-			WARN_LOG(G3D, "Detected old Adreno - lowering int precision for safety");
+		// Now, old Adreno lies about supporting full precision integers. So let's override it.
+		// The model number comparison should probably be 400 or 500. This causes us to avoid depal-in-shader.
+		// It seems though that this caused large perf regressions on Adreno 5xx, so I've bumped it up to 600.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 600) {
+			WARN_LOG(G3D, "Detected old Adreno - lowering reported int precision for safety");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}
