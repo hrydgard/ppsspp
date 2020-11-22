@@ -626,8 +626,8 @@ void GameSettingsScreen::CreateViews() {
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
 	if (micList.size() >= 1) {
-		audioSettings->Add(new ItemHeader(gr->T("Microphone")));
-		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, gr->T("Microphone Device"), micList, nullptr, screenManager()));
+		audioSettings->Add(new ItemHeader(a->T("Microphone")));
+		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
 	}
 
