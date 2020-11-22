@@ -670,8 +670,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
 	$(GPUDIR)/Directx9/StencilBufferDX9.cpp \
 	$(GPUDIR)/Directx9/TextureCacheDX9.cpp \
-	$(GPUDIR)/Directx9/TextureScalerDX9.cpp \
-	$(GPUDIR)/Directx9/VertexShaderGeneratorHLSL.cpp
+	$(GPUDIR)/Directx9/TextureScalerDX9.cpp
 
 SOURCES_CXX += \
 	$(GPUDIR)/D3D11/DepalettizeShaderD3D11.cpp \
