@@ -238,6 +238,7 @@ public:
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
+	bool bShowOnScreenMessages;
 
 	// TODO: Maybe move to a separate theme system.
 	uint32_t uItemStyleFg;

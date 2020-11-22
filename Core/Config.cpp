@@ -461,6 +461,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, &DefaultEnableStateUndo, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
+	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),
 	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false),
 	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false),
 	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0),
