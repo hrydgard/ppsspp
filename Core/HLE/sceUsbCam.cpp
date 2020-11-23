@@ -133,12 +133,12 @@ static int sceUsbCamStopMic() {
 }
 
 static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMicBlocking: size: %d", size);
+	INFO_LOG(HLE, "sceUsbCamReadMicBlocking: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr);
 }
 
 static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMic: size: %d", size);
+	INFO_LOG(HLE, "sceUsbCamReadMic: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, false);
 }
 

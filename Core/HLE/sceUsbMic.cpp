@@ -43,21 +43,19 @@ enum {
 
 int eventUsbMicAudioUpdate = -1;
 
-QueueBuf *audioBuf = nullptr;
-u32 numNeedSamples;
+static QueueBuf *audioBuf = nullptr;
+static u32 numNeedSamples;
 static std::vector<MicWaitInfo> waitingThreads;
-std::mutex wtMutex;
-bool isNeedInput;
-u32 curSampleRate;
-u32 curChannels;
-u32 readMicDataLength;
-int micState; // 0 means stopped, 1 means started, for save state.
+static bool isNeedInput;
+static u32 curSampleRate;
+static u32 curChannels;
+static u32 readMicDataLength;
+static int micState; // 0 means stopped, 1 means started, for save state.
 
 static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
 	int count = 0;
-	std::unique_lock<std::mutex> lock(wtMutex);
 	for (auto waitingThread : waitingThreads) {
 		if (waitingThread.threadID == threadID) {
 			SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MICINPUT, error);
@@ -95,7 +93,6 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 		}
 		++count;
 	}
-	lock.unlock();
 }
 
 void __UsbMicInit() {
@@ -121,7 +118,7 @@ void __UsbMicShutdown() {
 }
 
 void __UsbMicDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbMic", 0, 2);
+	auto s = p.Section("sceUsbMic", 0, 3);
 	if (!s) {
 		return;
 	}
@@ -139,7 +136,9 @@ void __UsbMicDoState(PointerWrap &p) {
 	} else {
 		eventUsbMicAudioUpdate = -1;
 	}
-
+	if (s > 2) {
+		Do(p, readMicDataLength);
+	}
 	if (!audioBuf && numNeedSamples > 0) {
 		audioBuf = new QueueBuf(numNeedSamples << 1);
 	}
@@ -431,9 +430,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 		eventUsbMicAudioUpdate = CoreTiming::RegisterEvent("UsbMicAudioUpdate", &__UsbMicAudioUpdate);
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventUsbMicAudioUpdate, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
-	std::unique_lock<std::mutex> lock(wtMutex);
 	waitingThreads.push_back(waitInfo);
-	lock.unlock();
 	DEBUG_LOG(HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
 	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
 
