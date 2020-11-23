@@ -1333,28 +1333,36 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	return 0;
 }
 
-int sceKernelGetThreadExitStatus(SceUID threadID)
-{
+int __KernelGetThreadExitStatus(SceUID threadID) {
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
 	if (t)
 	{
 		if (t->nt.status == THREADSTATUS_DORMANT) // TODO: can be dormant before starting, too, need to avoid that
 		{
-			DEBUG_LOG(SCEKERNEL,"sceKernelGetThreadExitStatus(%i)", threadID);
+			DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadExitStatus(%d)", threadID);
 			return t->nt.exitStatus;
 		}
 		else
 		{
-			DEBUG_LOG(SCEKERNEL,"sceKernelGetThreadExitStatus(%i): not dormant", threadID);
+			DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadExitStatus(%d): not dormant", threadID);
 			return SCE_KERNEL_ERROR_NOT_DORMANT;
 		}
 	}
 	else
 	{
-		ERROR_LOG(SCEKERNEL,"sceKernelGetThreadExitStatus Error %08x", error);
+		ERROR_LOG(SCEKERNEL, "sceKernelGetThreadExitStatus Error %08x", error);
 		return SCE_KERNEL_ERROR_UNKNOWN_THID;
 	}
+}
+
+int sceKernelGetThreadExitStatus(SceUID threadID)
+{
+	u32 status = __KernelGetThreadExitStatus(threadID);
+	// Seems this is called in a tight-ish loop, maybe awaiting an interrupt - issue #13698
+	// Guess based on sceKernelGetThreadId.
+	hleEatCycles(180);
+	return status;
 }
 
 u32 sceKernelGetThreadmanIdType(u32 uid) {
