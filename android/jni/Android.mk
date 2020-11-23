@@ -125,7 +125,6 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanDebug.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanImage.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
-  $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
@@ -136,7 +135,6 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
-  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
   $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
 #endif
@@ -254,6 +252,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/DirListing.cpp \
   $(SRC)/Common/File/FileDescriptor.cpp \
   $(SRC)/Common/GPU/thin3d.cpp \
+  $(SRC)/Common/GPU/Shader.cpp \
+  $(SRC)/Common/GPU/ShaderWriter.cpp \
+  $(SRC)/Common/GPU/ShaderTranslation.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
   $(SRC)/Common/Render/Text/draw_text.cpp \
@@ -308,6 +309,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
+  $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
   $(SRC)/GPU/Common/PresentationCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
@@ -315,11 +317,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ShaderId.cpp.arm \
   $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
+  $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
   $(SRC)/GPU/Common/ShaderCommon.cpp \
-  $(SRC)/GPU/Common/ShaderTranslation.cpp \
   $(SRC)/GPU/Common/StencilCommon.cpp \
   $(SRC)/GPU/Common/SplineCommon.cpp.arm \
   $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
@@ -327,6 +329,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
+  $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/Playback.cpp \
@@ -334,15 +337,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp.arm \
+  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
-  $(SRC)/GPU/GLES/StencilBufferGLES.cpp.arm \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
   $(SRC)/GPU/GLES/StateMappingGLES.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
-  $(SRC)/GPU/GLES/VertexShaderGeneratorGLES.cpp.arm \
-  $(SRC)/GPU/GLES/FragmentShaderGeneratorGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \

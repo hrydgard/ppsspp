@@ -253,7 +253,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat) {
+ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
@@ -262,14 +262,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
 		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	default:
@@ -292,19 +292,19 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_2X_ALPHA;
 			// Can't double, we need the source color to be correct.
 			// Doubling only alpha would clamp the src alpha incorrectly.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			if (bufferFormat == GE_FORMAT_565)
 				return REPLACE_BLEND_2X_ALPHA;
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+				return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -331,7 +331,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_STANDARD;
 			}
 			// Can't double, we need the source color to be correct.
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
@@ -340,7 +340,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				// Doubling will have no effect here.
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -349,7 +349,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			}
 			// Double both src (for dst alpha) and alpha (for dst factor.)
 			// But to be accurate (clamping), we need to read the dst color.
-			return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -361,7 +361,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_STANDARD;
 			}
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
@@ -375,14 +375,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_2X_ALPHA;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -393,7 +393,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -401,7 +401,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Doubling alpha is safe for the inverse, will clamp to zero either way.
@@ -412,7 +412,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
 		default:
@@ -446,14 +446,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
@@ -470,7 +470,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			return REPLACE_BLEND_STANDARD;
@@ -906,7 +906,7 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 }
 
 // Try to simulate some common logic ops.
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
 		stencilType = ReplaceAlphaWithStencilType();
@@ -956,9 +956,72 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 	}
 }
 
-// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
+	// Restrict to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
+	// This check must match the one in ConvertMaskState.
+	if (!allowFramebufferRead || !PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
+		// Don't have a choice - we'll make do but it won't always be right.
+		return false;
+	}
 
-void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
+	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
+
+	for (int i = 0; i < 4; i++) {
+		switch (colorMask & 0xFF) {
+		case 0x0:
+		case 0xFF:
+			break;
+		default:
+			return true;
+		}
+		colorMask >>= 8;
+	}
+	return false;
+}
+
+// If we can we emulate the colorMask by simply toggling the full R G B A masks offered
+// by modern hardware, we do that. This is 99.9% of the time.
+// When that's not enough, we fall back on a technique similar to shader blending,
+// we read from the framebuffer (or a copy of it).
+void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
+	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
+	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
+
+	maskState.applyFramebufferRead = false;
+	for (int i = 0; i < 4; i++) {
+		int channelMask = colorMask & 0xFF;
+		switch (channelMask) {
+		case 0x0:
+			maskState.rgba[i] = false;
+			break;
+		case 0xFF:
+			maskState.rgba[i] = true;
+			break;
+		default:
+			if (allowFramebufferRead) {
+				// Instead of just 'true', restrict shader bitmasks to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
+				// TODO: This check must match the one in IsColorWriteMaskComplex.
+				maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers;
+				maskState.rgba[i] = true;
+			} else {
+				// Use the old heuristic.
+				maskState.rgba[i] = channelMask >= 128;
+			}
+		}
+		colorMask >>= 8;
+	}
+
+	// Let's not write to alpha if stencil isn't enabled.
+	if (IsStencilTestOutputDisabled()) {
+		maskState.rgba[3] = false;
+	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+		maskState.rgba[3] = false;
+	}
+}
+
+// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -969,25 +1032,25 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 
-	blendState.applyShaderBlending = false;
-	blendState.dirtyShaderBlend = false;
+	blendState.applyFramebufferRead = false;
+	blendState.dirtyShaderBlendFixValues = false;
 	blendState.useBlendColor = false;
 	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend, gstate.FrameBufFormat());
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowFramebufferRead, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		blendState.resetShaderBlending = true;
+		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
-		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
+		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
-		blendState.applyShaderBlending = true;
-		blendState.resetShaderBlending = false;
+		blendState.applyFramebufferRead = true;
+		blendState.resetFramebufferRead = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
 		break;
 
@@ -1003,7 +1066,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	}
 
 	blendState.enabled = true;
-	blendState.resetShaderBlending = true;
+	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
@@ -1071,7 +1134,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 		glBlendFuncA = BlendFactor::ONE;
 		// Need to pull in the fixed color. TODO: If it hasn't changed, no need to dirty.
 		if (blendFuncA == GE_SRCBLEND_FIXA) {
-			blendState.dirtyShaderBlend = true;
+			blendState.dirtyShaderBlendFixValues = true;
 		}
 	}
 

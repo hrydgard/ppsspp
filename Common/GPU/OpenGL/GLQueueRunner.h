@@ -6,6 +6,7 @@
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/DataFormat.h"
+#include "Common/GPU/Shader.h"
 #include "Common/Data/Collections/TinySet.h"
 
 struct GLRViewport {
@@ -41,6 +42,7 @@ enum class GLRRenderCommand : uint8_t {
 	BLENDCOLOR,
 	LOGICOP,
 	UNIFORM4I,
+	UNIFORM4UI,
 	UNIFORM4F,
 	UNIFORMMATRIX,
 	TEXTURESAMPLER,
@@ -136,7 +138,7 @@ struct GLRRenderData {
 			int16_t scissorY;
 			int16_t scissorW;
 			int16_t scissorH;
-		} clear;
+		} clear;  // also used for invalidate
 		struct {
 			int slot;
 			GLRTexture *texture;
@@ -341,6 +343,11 @@ class GLQueueRunner {
 public:
 	GLQueueRunner() {}
 
+	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
+		errorCallback_ = callback;
+		errorCallbackUserData_ = userdata;
+	}
+
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls);
@@ -423,4 +430,7 @@ private:
 
 	bool sawOutOfMemory_ = false;
 	bool useDebugGroups_ = false;
+
+	ErrorCallbackFn errorCallback_ = nullptr;
+	void *errorCallbackUserData_ = nullptr;
 };

@@ -135,8 +135,10 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 	u32 error = 0;
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
-	if (waitID == 0 || error != 0)
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetApctl State WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
 		return;
+	}
 
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
@@ -693,6 +695,10 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
+	// FIXME: Return 0x80410180 (pspnet[_core] error code?) before successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
+	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
+		return hleLogDebug(SCENET, 0x80410180, "address not available?");
+
 	return sceWlanGetEtherAddr(addrAddr);
 }
 

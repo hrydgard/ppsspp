@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
+#include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
 #include <initguid.h>
 #include <string>
@@ -8,9 +9,7 @@
 
 struct ID3DXConstantTable;
 
-namespace DX9 {
+LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std::string *errorMessage);
 
-bool CompilePixelShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
-bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
-
-}  // namespace DX9
+bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, std::string *errorMessage);
+bool CompileVertexShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, std::string *errorMessage);

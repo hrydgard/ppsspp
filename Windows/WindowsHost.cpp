@@ -407,3 +407,7 @@ void WindowsHost::NotifyUserMessage(const std::string &message, float duration, 
 void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
 	NativeMessageReceived(message.c_str(), value.c_str());
 }
+
+void WindowsHost::NotifySwitchUMDUpdated() {
+	PostMessage(mainWindow_, MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+}

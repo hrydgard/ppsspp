@@ -25,6 +25,7 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 class D3D11Context;
 class D3D11PushBuffer;
@@ -128,8 +129,8 @@ private:
 	ID3D11Buffer *push_lights;
 	ID3D11Buffer *push_bones;
 
-	D3D11FragmentShader *lastFShader_;
-	D3D11VertexShader *lastVShader_;
+	D3D11FragmentShader *lastFShader_ = nullptr;
+	D3D11VertexShader *lastVShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

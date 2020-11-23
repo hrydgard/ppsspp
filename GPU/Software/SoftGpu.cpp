@@ -41,7 +41,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
@@ -72,11 +72,11 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
-		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
+		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_3xx : GLSL_1xx);
 		break;
 	case GPUBackend::DIRECT3D9:
 		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_DX9);
+		presentation_->SetLanguage(HLSL_D3D9);
 		break;
 	case GPUBackend::DIRECT3D11:
 		ShaderTranslationInit();

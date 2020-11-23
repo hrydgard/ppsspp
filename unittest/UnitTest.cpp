@@ -571,6 +571,7 @@ struct TestItem {
 bool TestArmEmitter();
 bool TestArm64Emitter();
 bool TestX64Emitter();
+bool TestShaderGenerators();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -593,7 +594,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
-	TEST_ITEM(MemMap),
+	TEST_ITEM(ShaderGenerators),
 };
 
 int main(int argc, const char *argv[]) {

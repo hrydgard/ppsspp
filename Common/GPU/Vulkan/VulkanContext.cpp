@@ -146,10 +146,14 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
+	// we get null pointers when running libretro. Quite strange.
+#if !defined(__LIBRETRO__)
 	if (IsInstanceExtensionAvailable(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
+#endif
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
@@ -537,9 +541,13 @@ void VulkanContext::ChooseDevice(int physical_device) {
 			break;
 		}
 	}
-	if (deviceInfo_.preferredDepthStencilFormat == VK_FORMAT_UNDEFINED) {
-		// WTF? This is bad.
-		ERROR_LOG(G3D, "Could not find a usable depth stencil format.");
+
+	_assert_msg_(deviceInfo_.preferredDepthStencilFormat != VK_FORMAT_UNDEFINED, "Could not find a usable depth stencil format.");
+	VkFormatProperties preferredProps;
+	vkGetPhysicalDeviceFormatProperties(physical_devices_[physical_device_], deviceInfo_.preferredDepthStencilFormat, &preferredProps);
+	if ((preferredProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) &&
+		(preferredProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		deviceInfo_.canBlitToPreferredDepthStencilFormat = true;
 	}
 
 	// This is as good a place as any to do this.
@@ -915,6 +923,11 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 
 bool VulkanContext::InitSwapchain() {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
+	if (res == VK_ERROR_SURFACE_LOST_KHR) {
+		// Not much to do.
+		ERROR_LOG(G3D, "VK: Surface lost in InitSwapchain");
+		return false;
+	}
 	_dbg_assert_(res == VK_SUCCESS);
 	uint32_t presentModeCount;
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
@@ -1122,24 +1135,6 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-	if (aspectMask == VK_IMAGE_ASPECT_COLOR_BIT) {
-		// Hack to disable transaction elimination on ARM Mali.
-		if (oldImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		if (newImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	}
-#endif
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_DEPTH_STENCIL
-	if (aspectMask != VK_IMAGE_ASPECT_COLOR_BIT) {
-		// Hack to disable transaction elimination on ARM Mali.
-		if (oldImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		if (newImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	}
-#endif
 	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
@@ -1182,24 +1177,43 @@ EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 
 // Compile a given string containing GLSL into SPV for use by VK
 // Return value of false means an error was encountered.
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
-	const char *pshader,
-	std::vector<unsigned int> &spirv, std::string *errorMessage) {
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant,
+			   std::vector<unsigned int> &spirv, std::string *errorMessage) {
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
-	EProfile profile = ECoreProfile;
-	int defaultVersion = 450;
 	TBuiltInResource Resources;
 	init_resources(Resources);
 
-	// Enable SPIR-V and Vulkan rules when parsing GLSL
-	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+	int defaultVersion;
+	EShMessages messages;
+	EProfile profile;
+
+	switch (variant) {
+	case GLSLVariant::VULKAN:
+		// Enable SPIR-V and Vulkan rules when parsing GLSL
+		messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+		defaultVersion = 450;
+		profile = ECoreProfile;
+		break;
+	case GLSLVariant::GL140:
+		messages = (EShMessages)(EShMsgDefault);
+		defaultVersion = 140;
+		profile = ECompatibilityProfile;
+		break;
+	case GLSLVariant::GLES300:
+		messages = (EShMessages)(EShMsgDefault);
+		defaultVersion = 300;
+		profile = EEsProfile;
+		break;
+	default:
+		return false;
+	}
 
 	EShLanguage stage = FindLanguage(shader_type);
 	glslang::TShader shader(stage);
 
-	shaderStrings[0] = pshader;
+	shaderStrings[0] = sourceCode;
 	shader.setStrings(shaderStrings, 1);
 
 	if (!shader.parse(&Resources, defaultVersion, profile, false, true, messages)) {

@@ -21,8 +21,8 @@
 #include <cstdint>
 
 #include "Common/Common.h"
-#include "GPU/Directx9/VertexShaderGeneratorDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -98,7 +98,6 @@ private:
 	inline void PSSetFloat(int creg, float value);
 	inline void PSSetFloatArray(int creg, const float *value, int count);
 
-	void VSSetMatrix4x3(int creg, const float *m4x3);
 	void VSSetMatrix4x3_3(int creg, const float *m4x3);
 	inline void VSSetColorUniform3(int creg, u32 color);
 	inline void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
@@ -118,8 +117,8 @@ private:
 
 	char *codeBuffer_;
 
-	VSShader *lastVShader_;
-	PSShader *lastPShader_;
+	VSShader *lastVShader_ = nullptr;
+	PSShader *lastPShader_ = nullptr;
 
 	typedef std::map<FShaderID, PSShader *> FSCache;
 	FSCache fsCache_;

@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,25 +17,16 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderId.h"
-#include "GPU/Common/ShaderCommon.h"
+#include <string>
 
-namespace DX9 {
+#include "Common/GPU/Shader.h"
+#include "Common/GPU/thin3d.h"
 
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
-
-#define CONST_PS_TEXENV 0
-#define CONST_PS_ALPHACOLORREF 1
-#define CONST_PS_ALPHACOLORMASK 2
-#define CONST_PS_FOGCOLOR 3
-#define CONST_PS_STENCILREPLACE 4
-#define CONST_PS_BLENDFIXA 5
-#define CONST_PS_BLENDFIXB 6
-#define CONST_PS_FBOTEXSIZE 7
-#define CONST_PS_TEXCLAMP 8
-#define CONST_PS_TEXCLAMPOFF 9
-
-// For stencil upload
-#define CONST_PS_STENCILVALUE 10
+struct TranslatedShaderMetadata {
 
 };
+
+void ShaderTranslationInit();
+void ShaderTranslationShutdown();
+
+bool TranslateShader(std::string *dst, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, ShaderStage stage, std::string *errorMessage);

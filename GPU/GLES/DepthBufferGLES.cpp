@@ -126,7 +126,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		}
 
 		shaderManagerGL_->DirtyLastShader();
-		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight, Draw::FBO_8888);
+		auto *blitFBO = GetTempFBO(TempFBO::COPY, vfb->renderWidth, vfb->renderHeight);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PackDepthbuffer");
 		render_->SetViewport({ 0, 0, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f });
 

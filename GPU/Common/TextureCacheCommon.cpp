@@ -487,9 +487,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				DeleteTexture(entryIter);
 			}
 
+			const AttachCandidate &candidate = candidates[index];
 			nextTexture_ = nullptr;
 			nextNeedsRebuild_ = false;
-			SetTextureFramebuffer(candidates[index]);
+			SetTextureFramebuffer(candidate);
 			return nullptr;
 		}
 	}
@@ -498,15 +499,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	if (!entry) {
 		VERBOSE_LOG(G3D, "No texture in cache for %08x, decoding...", texaddr);
-		TexCacheEntry *entryNew = new TexCacheEntry{};
-		cache_[cachekey].reset(entryNew);
+		entry = new TexCacheEntry{};
+		cache_[cachekey].reset(entry);
 
 		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
 			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		}
 
-		entry = entryNew;
-		if (Memory::IsKernelAddress(texaddr)) {
+		if (Memory::IsKernelAndNotVolatileAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
 		} else if (g_Config.bTextureBackoffCache) {
@@ -570,6 +570,10 @@ std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const 
 	std::vector<AttachCandidate> candidates;
 
 	FramebufferNotificationChannel channel = Memory::IsDepthTexVRAMAddress(entry.addr) ? FramebufferNotificationChannel::NOTIFY_FB_DEPTH : FramebufferNotificationChannel::NOTIFY_FB_COLOR;
+	if (channel == FramebufferNotificationChannel::NOTIFY_FB_DEPTH && !gstate_c.Supports(GPU_SUPPORTS_DEPTH_TEXTURE)) {
+		// Depth texture not supported. Don't try to match it, fall back to the memory behind..
+		return std::vector<AttachCandidate>();
+	}
 
 	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
 
@@ -851,11 +855,19 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			WARN_LOG_ONCE(diffStrides1, G3D, "Texturing from framebuffer with different strides %d != %d", entry.bufw, framebuffer->fb_stride);
 		}
 		// NOTE: This check is okay because the first texture formats are the same as the buffer formats.
-		if (entry.format != (GETextureFormat)framebuffer->format) {
-			WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with different formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
-			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+		if (IsTextureFormatBufferCompatible(entry.format)) {
+			if (TextureFormatMatchesBufferFormat(entry.format, framebuffer->format)) {
+				return FramebufferMatchInfo{ FramebufferMatch::VALID };
+			} else if (IsTextureFormat16Bit(entry.format) && IsBufferFormat16Bit(framebuffer->format)) {
+				WARN_LOG_ONCE(diffFormat1, G3D, "Texturing from framebuffer with reinterpretable format: %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
+				return FramebufferMatchInfo{ FramebufferMatch::VALID, 0, 0, true, TextureFormatToBufferFormat(entry.format) };
+			} else {
+				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with incompatible formats %s != %s", GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format));
+				return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
+			}
 		} else {
-			return FramebufferMatchInfo{ FramebufferMatch::VALID };
+			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
+			return FramebufferMatchInfo{ FramebufferMatch::NO_MATCH };
 		}
 	} else {
 		// Apply to buffered mode only.
@@ -945,6 +957,13 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
+
+	if (candidate.match.reinterpret) {
+		// TODO: Kinda ugly, maybe switch direction of the call?
+		GEBufferFormat oldFormat = candidate.fb->format;
+		candidate.fb->format = candidate.match.reinterpretTo;
+		framebufferManager_->ReinterpretFramebufferFrom(candidate.fb, oldFormat);
+	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
 

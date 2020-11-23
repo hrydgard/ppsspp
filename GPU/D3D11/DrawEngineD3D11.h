@@ -28,7 +28,6 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
 #include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 
@@ -161,7 +160,7 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);
-	void ResetShaderBlending();
+	void ResetFramebufferRead();
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 

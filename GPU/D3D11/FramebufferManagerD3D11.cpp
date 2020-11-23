@@ -36,7 +36,7 @@
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
@@ -51,7 +51,7 @@ static const char *vscode =
 	"struct VS_IN {\n"
 	"  float4 ObjPos   : POSITION;\n"
 	"  float2 Uv    : TEXCOORD0;\n"
-	"};"
+	"};\n"
 	"struct VS_OUT {\n"
 	"  float2 Uv    : TEXCOORD0;\n"
 	"  float4 ProjPos  : SV_Position;\n"
@@ -252,43 +252,6 @@ void FramebufferManagerD3D11::Bind2DShader() {
 	context_->VSSetShader(quadVertexShader_, 0, 0);
 }
 
-void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
-	if (!useBufferedRendering_ || !vfb->fbo) {
-		return;
-	}
-
-	// Technically, we should at this point re-interpret the bytes of the old format to the new.
-	// That might get tricky, and could cause unnecessary slowness in some games.
-	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
-	// (it uses 565 to write zeros to the buffer, then 4444 to actually render the shadow.)
-	//
-	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
-	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
-	// to exactly reproduce in 4444 and 8888 formats.
-	if (old == GE_FORMAT_565) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer");
-
-		context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
-		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[D3D11_COLOR_WRITE_ENABLE_ALPHA], nullptr, 0xFFFFFFFF);
-		context_->RSSetState(stockD3D11.rasterStateNoCull);
-		context_->IASetInputLayout(quadInputLayout_);
-		context_->PSSetShader(quadPixelShader_, nullptr, 0);
-		context_->VSSetShader(quadVertexShader_, nullptr, 0);
-		context_->IASetVertexBuffers(0, 1, &fsQuadBuffer_, &quadStride_, &quadOffset_);
-		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
-		context_->PSSetShaderResources(0, 1, &nullTextureView_);
-		shaderManagerD3D11_->DirtyLastShader();
-		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
-		context_->RSSetViewports(1, &vp);
-		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		context_->Draw(4, 0);
-
-		textureCache_->ForgetLastTexture();
-
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
-	}
-}
-
 static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	size_t x = 0;
 
@@ -311,45 +274,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	// Copy the remaining pixels that didn't fit in SSE.
 	for (; x < c; ++x) {
 		memcpy(dstp + x, srcp + x, 3);
-	}
-}
-
-void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (!framebuffer->fbo || !useBufferedRendering_) {
-		ID3D11ShaderResourceView *view = nullptr;
-		context_->PSSetShaderResources(stage, 1, &view);
-		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
-	}
-
-	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
-	// Let's just not bother with the copy in that case.
-	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping()) {
-		skipCopy = true;
-	}
-	// Currently rendering to this framebuffer. Need to make a copy.
-	if (!skipCopy && framebuffer == currentRenderVfb_) {
-		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
-		if (renderCopy) {
-			VirtualFramebuffer copyInfo = *framebuffer;
-			copyInfo.fbo = renderCopy;
-			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
-			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
-		} else {
-			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		}
-	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-	} else {
-		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
-		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
-		ID3D11ShaderResourceView *view = nullptr;
-		context_->PSSetShaderResources(stage, 1, &view);
-		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
 	}
 }
 
@@ -420,8 +344,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		return;
 	}
 
-	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+	float srcXFactor = src->renderScaleFactor;
+	float srcYFactor = src->renderScaleFactor;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -431,8 +355,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-	float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+	float dstXFactor = dst->renderScaleFactor;
+	float dstYFactor = dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -445,7 +369,7 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	// Direct3D doesn't support rect -> self.
 	Draw::Framebuffer *srcFBO = src->fbo;
 	if (src == dst) {
-		Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
+		Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight);
 		SimpleBlit(tempFBO, dstX1, dstY1, dstX2, dstY2, src->fbo, srcX1, srcY1, srcX2, srcY2, false);
 		srcFBO = tempFBO;
 	}
@@ -467,8 +391,4 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 }
 
 void FramebufferManagerD3D11::EndFrame() {
-}
-
-void FramebufferManagerD3D11::DeviceLost() {
-	DestroyAllFBOs();
 }

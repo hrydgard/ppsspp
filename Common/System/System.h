@@ -99,3 +99,5 @@ float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 
 std::vector<std::string> __cameraGetDeviceList();
+bool audioRecording_Available();
+bool audioRecording_State();

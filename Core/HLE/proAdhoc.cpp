@@ -21,6 +21,10 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#if defined(_WIN32)
+#include "Common/CommonWindows.h"
+#endif
+
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <netinet/tcp.h>
@@ -62,6 +66,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
 int adhocConnectionType               = ADHOC_CONNECT;
@@ -315,7 +320,7 @@ void changeBlockingMode(int fd, int nonblocking) {
 #endif
 }
 
-int countAvailableNetworks() {
+int countAvailableNetworks(const bool excludeSelf) {
 	// Network Count
 	int count = 0;
 
@@ -323,7 +328,7 @@ int countAvailableNetworks() {
 	SceNetAdhocctlScanInfo * group = networks;
 
 	// Count Groups
-	for (; group != NULL; group = group->next) count++;
+	for (; group != NULL && (!excludeSelf || !isLocalMAC(&group->bssid.mac_addr)); group = group->next) count++;
 
 	// Return Network Count
 	return count;
@@ -983,8 +988,8 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
-		// Timeout!
-		if (peer->state != 0 && (now - peer->lastping) > context->timeout) 
+		// Timeout! Apparently the latest GetGlobalTimeUsScaled (ie. now) have a possibility to be smaller than previous GetGlobalTimeUsScaled (ie. lastping) thus resulting a negative number when subtracted :(
+		if (peer->state != 0 && static_cast<s64>(now - peer->lastping) > static_cast<s64>(context->timeout)) 
 		{
 			// Spawn Timeout Event
 			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) ||
@@ -993,7 +998,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 
-				INFO_LOG(SCENET, "TimedOut Member Peer %s (%lldms)", mac2str(&peer->mac).c_str(), (context->timeout / 1000));
+				INFO_LOG(SCENET, "TimedOut Member Peer %s (%lld - %lld = %lld > %lld us)", mac2str(&peer->mac).c_str(), now, peer->lastping, (now - peer->lastping), context->timeout);
 
 				if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) 
 					sendDeathMessage(context, peer);
@@ -1165,6 +1170,7 @@ void AfterAdhocMipsCall::run(MipsCall& call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", HandlerID, EventID);
 	SetAdhocctlInCallback(false);
+	isAdhocctlBusy = false;
 	DEBUG_LOG(SCENET, "AfterAdhocMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", HandlerID, EventID, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
@@ -1334,6 +1340,10 @@ int friendFinder(){
 				if (initNetwork(&product_code) == 0) {
 					networkInited = true;
 					INFO_LOG(SCENET, "FriendFinder: Network [RE]Initialized");
+					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+					netAdhocGameModeEntered = false;
+					isAdhocctlBusy = false;
 				} 
 				else {
 					networkInited = false;
@@ -1348,7 +1358,7 @@ int friendFinder(){
 			// Ping Server
 			now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
-			if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+			if (static_cast<s64>(now - lastping) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
 				// Prepare Packet
 				uint8_t opcode = OPCODE_PING;
 
@@ -1372,7 +1382,7 @@ int friendFinder(){
 					else {
 						// Update Ping Time
 						lastping = now;
-						DEBUG_LOG(SCENET, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
+						VERBOSE_LOG(SCENET, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
 					}
 				}
 			}
@@ -1393,6 +1403,12 @@ int friendFinder(){
 					//printf("Received %d Bytes of Data from Server\n", received);
 					INFO_LOG(SCENET, "Received %d Bytes of Data from Adhoc Server", received);
 				}
+			}
+
+			// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
+			if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
+				netAdhocGameModeEntered = false;
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOC_TIMEOUT);
 			}
 
 			// Handle Packets
@@ -1419,14 +1435,14 @@ int friendFinder(){
 								}) == gameModeMacs.end()) {
 								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 								gameModeMacs.push_back(localMac);
+
+								// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
+								if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
-
-							if (gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 						else {
 							//adhocctlState = ADHOCCTL_STATE_CONNECTED;
@@ -1521,17 +1537,16 @@ int friendFinder(){
 									it = gameModeMacs.begin() + 1;
 									gameModeMacs.insert(it, packet->mac);
 								}
+
+								// From JPCSP: Join complete when all the required MACs have joined
+								if (netAdhocGameModeEntered && requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
+									// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
+									//gameModeMacs = requiredGameModeMacs;
+									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+								}
 							}
 							else
 								WARN_LOG(SCENET, "GameMode Member [%s] Already Existed!", mac2str(&packet->mac).c_str());
-
-							// From JPCSP: Join complete when all the required MACs have joined
-							if (requiredGameModeMacs.size() > 0 && gameModeMacs.size() >= requiredGameModeMacs.size()) {
-								// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
-								//gameModeMacs = requiredGameModeMacs;
-								//adhocctlState = ADHOCCTL_STATE_GAMEMODE;
-								notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-							}
 						}
 
 						// Update HUD User Count
@@ -1572,13 +1587,14 @@ int friendFinder(){
 						// Log Incoming Peer Delete Request
 						INFO_LOG(SCENET, "FriendFinder: Incoming Peer Data Delete Request...");
 
-						/*if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
-							gameModeMacs.erase(std::remove_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[peer](SceNetEtherAddr const& e) {
-									return isMacMatch(&e, &peer->mac_addr);
-								}), gameModeMacs.end());
-						}*/
+							for (auto& gma : replicaGameModeAreas)
+								if (isMacMatch(&gma.mac, &peer->mac_addr)) {
+									gma.updateTimestamp = 0;
+									break;
+								}
+						}
 
 						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
 						deleteFriendByIP(packet->ip);
@@ -1633,7 +1649,8 @@ int friendFinder(){
 							// Set group parameters
 							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
 							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							group->mode = adhocctlCurrentMode;
+							// This Mode should be a valid mode (>=0), probably should be sent by AdhocServer since there are 2 possibilities (Normal and GameMode). Air Conflicts - Aces Of World War 2 (which use GameMode) seems to relies on this Mode value.
+							group->mode = std::max(ADHOCCTL_MODE_NORMAL, adhocctlCurrentMode); // default to ADHOCCTL_MODE_NORMAL
 
 							// Link into Group List
 							newnetworks = group;
@@ -1901,6 +1918,11 @@ int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBU
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
+int setSockMSS(int sock, int size) {
+	int mss = size; // 1460;
+	return setsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, (char*)&mss, sizeof(mss));
+}
+
 int setSockTimeout(int sock, int opt, unsigned long timeout_usec) { // opt = SO_SNDTIMEO/SO_RCVTIMEO
 	if (timeout_usec > 0 && timeout_usec < minSocketTimeoutUS) timeout_usec = minSocketTimeoutUS; // Override timeout for high latency multiplayer
 #if defined(_WIN32)
@@ -1923,8 +1945,21 @@ int getSockNoDelay(int tcpsock) {
 	return opt;
 }
 
+//#define TCP_QUICKACK     0x0c
 int setSockNoDelay(int tcpsock, int flag) {
 	int opt = flag;
+	// Disable ACK Delay when supported
+#if defined(TCP_QUICKACK)
+	setsockopt(tcpsock, IPPROTO_TCP, TCP_QUICKACK, (char*)&opt, sizeof(opt));
+#elif defined(_WIN32)
+#if !defined(SIO_TCP_SET_ACK_FREQUENCY)
+	#define SIO_TCP_SET_ACK_FREQUENCY _WSAIOW(IOC_VENDOR,23)
+#endif
+	int freq = flag? 1:2; // can be 1..255, default is 2 (delayed 200ms)
+	DWORD retbytes = 0;
+	WSAIoctl(tcpsock, SIO_TCP_SET_ACK_FREQUENCY, &freq, sizeof(freq), NULL, 0, &retbytes, NULL, NULL);
+#endif
+	// Disable Nagle Algo
 	return setsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt));
 }
 
@@ -1949,6 +1984,15 @@ int setSockReuseAddrPort(int sock) {
 
 #if !defined(TCP_KEEPIDLE)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
+#endif
+// VS 2017 compatibility
+#if _MSC_VER
+#ifndef TCP_KEEPCNT
+#define TCP_KEEPCNT 16
+#endif
+#ifndef TCP_KEEPINTVL
+#define TCP_KEEPINTVL 17
+#endif
 #endif
 int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int keepcnt, const int keepidle) {
 	int optval = keepalive ? 1 : 0;
@@ -2064,7 +2108,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	parameter.channel = g_Config.iWlanAdhocChannel;
 	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
 	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
-	getLocalMac(&parameter.bssid.mac_addr);
+	//getLocalMac(&parameter.bssid.mac_addr);
 	
 	// Default ProductId
 	product_code.type = adhoc_id->type;
@@ -2072,6 +2116,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	// Don't need to connect if AdhocServer DNS was not resolved
 	if (g_adhocServerIP.in.sin_addr.s_addr == INADDR_NONE)
+		return -1;
+
+	// Don't need to connect if AdhocServer IP is the same with this instance localhost IP and having AdhocServer disabled
+	if (g_adhocServerIP.in.sin_addr.s_addr == g_localhostIP.in.sin_addr.s_addr && !g_Config.bEnableAdhocServer)
 		return -1;
 
 	// Connect to Adhoc Server

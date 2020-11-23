@@ -31,6 +31,8 @@
 
 #include <string>
 #include <vector>
+#include <cstdlib>
+
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 

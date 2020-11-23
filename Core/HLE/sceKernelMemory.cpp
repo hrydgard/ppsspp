@@ -1141,6 +1141,16 @@ static int sceKernelPrintf(const char *formatString)
 			supported = false;
 	}
 
+	// Scrub for beeps and other suspicious control characters.
+	for (size_t i = 0; i < result.size(); i++) {
+		switch (result[i]) {
+		case 7:  // BEL
+		case 8:  // Backspace
+			result[i] = ' ';
+			break;
+		}
+	}
+
 	// Just in case there were embedded strings that had \n's.
 	if (!result.empty() && result[result.size() - 1] == '\n')
 		result.resize(result.size() - 1);

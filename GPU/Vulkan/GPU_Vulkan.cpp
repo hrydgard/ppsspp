@@ -231,7 +231,11 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+
+	if (vulkan_->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
+	}
 
 	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
@@ -523,26 +527,25 @@ void GPU_Vulkan::DeviceLost() {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();
-	framebufferManagerVulkan_->DeviceLost();
 	vulkan2D_.DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
 	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
-	draw_ = nullptr;
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_Vulkan::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	InitDeviceObjects();
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	vulkan2D_.DeviceRestore(vulkan_);
 	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);

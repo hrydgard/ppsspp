@@ -496,10 +496,17 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 		int highp_int_min = gl_extensions.range[1][5][0];
 		int highp_int_max = gl_extensions.range[1][5][1];
+		int highp_float_min = gl_extensions.range[1][2][0];
+		int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
-			char highp_int_range[512];
-			snprintf(highp_int_range, sizeof(highp_int_range), "Highp int range: %d-%d", highp_int_min, highp_int_max);
-			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), highp_int_range));
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp int range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), temp));
+		}
+		if (highp_float_max != 0) {
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp float range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
@@ -538,16 +545,6 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 #endif
 
-#if 0
-	// For debugging, DO NOT translate
-	deviceSpecs->Add(new InfoItem("Resolution1",
-		StringFromFormat("dp: %dx%d px: %dx%d dpi_s: %0.1fx%0.1f",
-			dp_xres, dp_yres, pixel_xres, pixel_yres, g_dpi_scale_x, g_dpi_scale_y)));
-	deviceSpecs->Add(new InfoItem("Resolution2",
-		StringFromFormat("dpi_s_r: %0.1fx%0.1f px_in_dp: %0.1fx%0.1f",
-			g_dpi_scale_real_x, g_dpi_scale_real_y, pixel_in_dps_x, pixel_in_dps_y)));
-#endif
-
 	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
 	std::string apiVersion;
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
@@ -564,7 +561,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("API Version"), apiVersion));
 	deviceSpecs->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
 	if (moga.empty()) {
 		moga = si->T("(none detected)");

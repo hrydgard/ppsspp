@@ -75,7 +75,7 @@ private:
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt);
 	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
-	TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h);
+	static TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 

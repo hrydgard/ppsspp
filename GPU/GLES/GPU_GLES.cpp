@@ -175,7 +175,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		}
 	}
 
-	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
+	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		// This has caused problems in the past.  Let's only enable on GLES3.
 		if (features & GPU_SUPPORTS_GLSL_ES_300) {
 			features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
@@ -183,26 +183,11 @@ void GPU_GLES::CheckGPUFeatures() {
 	}
 	
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.NV_framebuffer_blit || gl_extensions.GLES3) {
-		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT | GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
 	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
 		features |= GPU_SUPPORTS_VAO;
 	}
-
-	bool useCPU = false;
-	if (!gl_extensions.IsGLES) {
-		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-		// This causes glitches in games that expect the exact values.
-		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || !gl_extensions.VersionGEThan(3, 0)) {
-			useCPU = true;
-		}
-	} else {
-		useCPU = true;
-	}
-
-	if (useCPU)
-		features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
@@ -315,21 +300,18 @@ void GPU_GLES::DeviceLost() {
 	fragmentTestCache_.DeviceLost();
 	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
-	framebufferManagerGL_->DeviceLost();
-	// Don't even try to access the lost device.
-	draw_ = nullptr;
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	INFO_LOG(G3D, "GPU_GLES: DeviceRestore");
+	GPUCommon::DeviceRestore();
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
 	shaderManagerGL_->DeviceRestore(draw_);
 	textureCacheGL_->DeviceRestore(draw_);
-	framebufferManagerGL_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
 	depalShaderCache_.DeviceRestore(draw_);
@@ -400,16 +382,6 @@ void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 
 	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerGL_->EndFrame();
-
-	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
-#if 0
-#ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && framebufferManager_->UseBufferedRendering()) {
-		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
-		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
-	}
-#endif
-#endif
 }
 
 void GPU_GLES::FinishDeferred() {

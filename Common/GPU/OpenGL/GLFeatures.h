@@ -34,11 +34,11 @@ struct GLExtensions {
 	int ver[3];
 	int gpuVendor;
 	char model[128];
+	int modelNumber;
 
 	bool IsGLES;
 	bool IsCoreContext;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
-	bool ForceGL2;
 
 	// OES
 	bool OES_depth24;
@@ -55,6 +55,7 @@ struct GLExtensions {
 	bool ARB_pixel_buffer_object;
 	bool ARB_blend_func_extended;  // dual source blending
 	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
+	bool ARB_explicit_attrib_location;
 	bool ARB_shader_image_load_store;
 	bool ARB_shading_language_420pack;
 	bool ARB_conservative_depth;
@@ -64,6 +65,8 @@ struct GLExtensions {
 	bool ARB_draw_instanced;
 	bool ARB_buffer_storage;
 	bool ARB_cull_distance;
+	bool ARB_depth_clamp;
+	bool ARB_uniform_buffer_object;
 
 	// EXT
 	bool EXT_swap_control_tear;
@@ -82,7 +85,6 @@ struct GLExtensions {
 	bool EXT_clip_cull_distance;
 
 	// NV
-	bool NV_shader_framebuffer_fetch;
 	bool NV_copy_image;
 	bool NV_framebuffer_blit;
 	bool NV_pixel_buffer_object; // GL_NV_pixel_buffer_object

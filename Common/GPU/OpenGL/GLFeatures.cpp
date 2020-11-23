@@ -77,19 +77,28 @@ bool GLExtensions::VersionGEThan(int major, int minor, int sub) {
 }
 
 int GLExtensions::GLSLVersion() {
-	// Used for shader translation and core contexts (Apple drives fail without an exact match.)
-	if (gl_extensions.VersionGEThan(3, 3)) {
-		return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
-	} else if (gl_extensions.VersionGEThan(3, 2)) {
-		return 150;
-	} else if (gl_extensions.VersionGEThan(3, 1)) {
-		return 140;
-	} else if (gl_extensions.VersionGEThan(3, 0)) {
-		return 130;
-	} else if (gl_extensions.VersionGEThan(2, 1)) {
-		return 120;
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.GLES3) {
+			// GLSL version matches ES version.
+			return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
+		} else {
+			return 100;
+		}
 	} else {
-		return 110;
+		// Used for shader translation and core contexts (Apple drives fail without an exact match.)
+		if (gl_extensions.VersionGEThan(3, 3)) {
+			return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
+		} else if (gl_extensions.VersionGEThan(3, 2)) {
+			return 150;
+		} else if (gl_extensions.VersionGEThan(3, 1)) {
+			return 140;
+		} else if (gl_extensions.VersionGEThan(3, 0)) {
+			return 130;
+		} else if (gl_extensions.VersionGEThan(2, 1)) {
+			return 120;
+		} else {
+			return 110;
+		}
 	}
 }
 
@@ -160,6 +169,7 @@ void CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_IMGTEC;
 		} else if (vendor == "Qualcomm") {
 			gl_extensions.gpuVendor = GPU_VENDOR_QUALCOMM;
+			sscanf(renderer, "Adreno (TM) %d", &gl_extensions.modelNumber);
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
@@ -354,6 +364,9 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_draw_instanced = g_set_gl_extensions.count("GL_EXT_draw_instanced") != 0;
 	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
 	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
+	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
+	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
+	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -364,7 +377,6 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_blend_minmax = g_set_gl_extensions.count("GL_EXT_blend_minmax") != 0;
 		gl_extensions.EXT_unpack_subimage = g_set_gl_extensions.count("GL_EXT_unpack_subimage") != 0;
 		gl_extensions.EXT_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_EXT_shader_framebuffer_fetch") != 0;
-		gl_extensions.NV_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
@@ -471,9 +483,11 @@ void CheckGLExtensions() {
 			}
 		}
 
-		// Now, Adreno lies. So let's override it.
-		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
-			WARN_LOG(G3D, "Detected Adreno - lowering int precision");
+		// Now, old Adreno lies about supporting full precision integers. So let's override it.
+		// The model number comparison should probably be 400 or 500. This causes us to avoid depal-in-shader.
+		// It seems though that this caused large perf regressions on Adreno 5xx, so I've bumped it up to 600.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 600) {
+			WARN_LOG(G3D, "Detected old Adreno - lowering reported int precision for safety");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}
@@ -498,14 +512,14 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(3, 1)) {
 			gl_extensions.ARB_draw_instanced = true;
-			// ARB_uniform_buffer_object = true;
+			gl_extensions.ARB_uniform_buffer_object = true;
 		}
 		if (gl_extensions.VersionGEThan(3, 2)) {
-			// ARB_depth_clamp = true;
+			gl_extensions.ARB_depth_clamp = true;
 		}
 		if (gl_extensions.VersionGEThan(3, 3)) {
 			gl_extensions.ARB_blend_func_extended = true;
-			// ARB_explicit_attrib_location = true;
+			gl_extensions.ARB_explicit_attrib_location = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 0)) {
 			// ARB_gpu_shader5 = true;
@@ -537,13 +551,6 @@ void CheckGLExtensions() {
 			gl_extensions.EXT_texture_filter_anisotropic = true;
 		}
 	}
-
-#ifdef __APPLE__
-	if (!gl_extensions.IsGLES && !gl_extensions.IsCoreContext) {
-		// Apple doesn't allow OpenGL 3.x+ in compatibility contexts.
-		gl_extensions.ForceGL2 = true;
-	}
-#endif
 
 	ProcessGPUFeatures();
 

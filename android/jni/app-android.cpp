@@ -82,6 +82,7 @@ struct JNIEnv {};
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/Host.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
@@ -678,6 +679,26 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass)
 	}
 }
 
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1SetSampleRate(JNIEnv *, jclass, jint sampleRate) {
+	AndroidAudio_Recording_SetSampleRate(g_audioState, sampleRate);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Start(JNIEnv *, jclass) {
+	AndroidAudio_Recording_Start(g_audioState);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, jclass) {
+	AndroidAudio_Recording_Stop(g_audioState);
+}
+
+bool audioRecording_Available() {
+	return true;
+}
+
+bool audioRecording_State() {
+	return AndroidAudio_Recording_State(g_audioState);
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
@@ -757,6 +778,10 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			return false;
 		}
 
+		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		}, nullptr);
+
 		if (useCPUThread) {
 			EmuThreadStart();
 		} else {
@@ -775,6 +800,11 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 			SystemToast("Graphics initialization failed. Quitting.");
 			return false;
 		}
+
+		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+			host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		}, nullptr);
+
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}

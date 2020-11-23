@@ -164,7 +164,6 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
@@ -243,13 +242,13 @@ void GPU_DX9::BuildReportingInfo() {
 
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
 	shaderManagerDX9_->ClearCache(false);
 	textureCacheDX9_->Clear(false);
-	framebufferManagerDX9_->DeviceLost();
+	GPUCommon::DeviceLost();
 }
 
 void GPU_DX9::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 

@@ -10,24 +10,37 @@ public:
 	OpenSLContext(AndroidAudioCallback cb, int framesPerBuffer, int sampleRate);
 
 	bool Init() override;
+	int AudioRecord_Start(int sampleRate) override;
+	int AudioRecord_Stop() override;
 	~OpenSLContext();
 
 private:
+	// Should be no reason to need more than two buffers, but make it clear in the code.
+	enum {
+		NUM_BUFFERS = 2,
+	};
+
 	// engine interfaces
 	SLObjectItf engineObject = nullptr;
 	SLEngineItf engineEngine = nullptr;
 	SLObjectItf outputMixObject = nullptr;
+
+	// audio recorder interfaces
+	SLObjectItf recorderObject = nullptr;
+	SLRecordItf recorderRecord = nullptr;
+	SLAndroidSimpleBufferQueueItf recorderBufferQueue = nullptr;
+
+	int recordBufferSize = 0;
+	short *recordBuffer[NUM_BUFFERS]{};
+	int activeRecordBuffer = 0;
+
+	static void bqRecorderCallback(SLAndroidSimpleBufferQueueItf bq, void *context);
 
 	// buffer queue player interfaces
 	SLObjectItf bqPlayerObject = nullptr;
 	SLPlayItf bqPlayerPlay = nullptr;
 	SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = nullptr;
 	SLVolumeItf bqPlayerVolume = nullptr;
-
-	// Should be no reason to need more than two buffers, but make it clear in the code.
-	enum {
-		NUM_BUFFERS = 2,
-	};
 
 	// Double buffering.
 	short *buffer[NUM_BUFFERS]{};

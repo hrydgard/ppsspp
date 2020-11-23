@@ -24,9 +24,11 @@
 #include <unistd.h>
 #endif
 
+#include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
 namespace net {
+
 
 void Init()
 {
@@ -45,7 +47,6 @@ void Shutdown()
 }
 
 bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type) {
-
 #if PPSSPP_PLATFORM(SWITCH)
 	// Force IPv4 lookups.
 	if (type == DNSType::IPV6) {

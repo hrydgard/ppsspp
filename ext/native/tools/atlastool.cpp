@@ -462,8 +462,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 						} else {
 							dist = -closest.find_closest(ctx, cty, 1);
 						}
-						dist = dist / supersample * distmult + 127.5;
-						dist = floor(dist + 0.5);
+						dist = dist / supersample * distmult + 127.5f;
+						dist = floor(dist + 0.5f);
 						if (dist < 0) dist = 0;
 						if (dist > 255) dist = 255;
 
@@ -564,7 +564,7 @@ struct FontDesc {
 			}
 		}
 
-		height = metrics_height / 64.0 / supersample;
+		height = metrics_height / 64.0f / supersample;
 	}
 
 	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
@@ -987,7 +987,7 @@ int main(int argc, char **argv) {
 		fwrite(&header, 1, sizeof(header), meta);
 		// For each image
 		for (int i = 0; i < (int)images.size(); i++) {
-			AtlasImage atlas_image = images[i].ToAtlasImage(dest.width(), dest.height(), results);
+			AtlasImage atlas_image = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
 			fwrite(&atlas_image, 1, sizeof(atlas_image), meta);
 		}
 		// For each font
@@ -998,7 +998,7 @@ int main(int argc, char **argv) {
 			fwrite(&font_header, 1, sizeof(font_header), meta);
 			auto ranges = font.GetRanges();
 			fwrite(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
-			auto chars = font.GetChars(dest.width(), dest.height(), results);
+			auto chars = font.GetChars((float)dest.width(), (float)dest.height(), results);
 			fwrite(chars.data(), sizeof(AtlasChar), chars.size(), meta);
 		}
 		fclose(meta);
@@ -1010,7 +1010,7 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < (int)fonts.size(); i++) {
 		FontDesc &xfont = fonts[i];
 		xfont.ComputeHeight(results, distmult);
-		xfont.OutputSelf(cpp_file, dest.width(), dest.height(), results);
+		xfont.OutputSelf(cpp_file, (float)dest.width(), (float)dest.height(), results);
 	}
 
 	if (fonts.size()) {
@@ -1024,7 +1024,7 @@ int main(int argc, char **argv) {
 	if (images.size()) {
 		fprintf(cpp_file, "const AtlasImage %s_images[%i] = {\n", atlas_name, (int)images.size());
 		for (int i = 0; i < (int)images.size(); i++) {
-			images[i].OutputSelf(cpp_file, dest.width(), dest.height(), results);
+			images[i].OutputSelf(cpp_file, (float)dest.width(), (float)dest.height(), results);
 		}
 		fprintf(cpp_file, "};\n");
 	}

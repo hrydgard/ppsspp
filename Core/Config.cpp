@@ -467,6 +467,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, false/*&DefaultEnableStateUndo*/, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
+	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, true, false),
 	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false),
 	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false),
 	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0),
@@ -986,7 +987,7 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
-	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 1, true, true),
+	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, true, true),
 	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, false, true, true),
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, true, true),
 	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),

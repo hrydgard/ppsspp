@@ -496,6 +496,12 @@ add_library(Common STATIC
 	Common/GPU/thin3d.cpp
 	Common/GPU/thin3d.h
 	Common/GPU/thin3d_create.h
+	Common/GPU/Shader.cpp
+	Common/GPU/Shader.h
+	Common/GPU/ShaderWriter.cpp
+	Common/GPU/ShaderWriter.h
+	Common/GPU/ShaderTranslation.h
+	Common/GPU/ShaderTranslation.cpp
 	Common/GPU/OpenGL/GLCommon.h
 	Common/GPU/OpenGL/GLDebugLog.cpp
 	Common/GPU/OpenGL/GLDebugLog.h
@@ -1235,8 +1241,6 @@ set(GPU_GLES
 	GPU/GLES/DepthBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
-	GPU/GLES/FragmentShaderGeneratorGLES.cpp
-	GPU/GLES/FragmentShaderGeneratorGLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
 	GPU/GLES/FragmentTestCacheGLES.h
 	GPU/GLES/FramebufferManagerGLES.cpp
@@ -1252,8 +1256,6 @@ set(GPU_GLES
 	GPU/GLES/TextureScalerGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
 	GPU/GLES/DrawEngineGLES.h
-	GPU/GLES/VertexShaderGeneratorGLES.cpp
-	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_VULKAN
@@ -1263,8 +1265,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/DebugVisVulkan.h
 	GPU/Vulkan/DrawEngineVulkan.cpp
 	GPU/Vulkan/DrawEngineVulkan.h
-	GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp
-	GPU/Vulkan/FragmentShaderGeneratorVulkan.h
 	GPU/Vulkan/FramebufferManagerVulkan.cpp
 	GPU/Vulkan/FramebufferManagerVulkan.h
 	GPU/Vulkan/GPU_Vulkan.cpp
@@ -1280,8 +1280,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/TextureCacheVulkan.h
 	GPU/Vulkan/TextureScalerVulkan.cpp
 	GPU/Vulkan/TextureScalerVulkan.h
-	GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
-	GPU/Vulkan/VertexShaderGeneratorVulkan.h
 	GPU/Vulkan/VulkanUtil.cpp
 	GPU/Vulkan/VulkanUtil.h
 )
@@ -1291,8 +1289,6 @@ set(GPU_D3D9
 	GPU/Directx9/DepalettizeShaderDX9.h
 	GPU/Directx9/DrawEngineDX9.cpp
 	GPU/Directx9/DrawEngineDX9.h
-	GPU/Directx9/PixelShaderGeneratorDX9.cpp
-	GPU/Directx9/PixelShaderGeneratorDX9.h
 	GPU/Directx9/FramebufferManagerDX9.cpp
 	GPU/Directx9/FramebufferManagerDX9.h
 	GPU/Directx9/GPU_DX9.cpp
@@ -1306,8 +1302,8 @@ set(GPU_D3D9
 	GPU/Directx9/TextureCacheDX9.h
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
-	GPU/Directx9/VertexShaderGeneratorDX9.cpp
-	GPU/Directx9/VertexShaderGeneratorDX9.h
+	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
+	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_D3D11
@@ -1315,8 +1311,6 @@ set(GPU_D3D11
 	GPU/D3D11/DepalettizeShaderD3D11.h
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
-	GPU/D3D11/FragmentShaderGeneratorD3D11.cpp
-	GPU/D3D11/FragmentShaderGeneratorD3D11.h
 	GPU/D3D11/FramebufferManagerD3D11.cpp
 	GPU/D3D11/FramebufferManagerD3D11.h
 	GPU/D3D11/GPU_D3D11.cpp
@@ -1332,8 +1326,6 @@ set(GPU_D3D11
 	GPU/D3D11/TextureCacheD3D11.h
 	GPU/D3D11/TextureScalerD3D11.cpp
 	GPU/D3D11/TextureScalerD3D11.h
-	GPU/D3D11/VertexShaderGeneratorD3D11.cpp
-	GPU/D3D11/VertexShaderGeneratorD3D11.h
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
@@ -1350,6 +1342,10 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
+	GPU/Common/FragmentShaderGenerator.cpp
+	GPU/Common/FragmentShaderGenerator.h
+	GPU/Common/VertexShaderGenerator.cpp
+	GPU/Common/VertexShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
@@ -1360,14 +1356,14 @@ set(GPU_SOURCES
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/PresentationCommon.cpp
 	GPU/Common/PresentationCommon.h
+	GPU/Common/ReinterpretFramebuffer.cpp
+	GPU/Common/ReinterpretFramebuffer.h
 	GPU/Common/ShaderId.cpp
 	GPU/Common/ShaderId.h
 	GPU/Common/ShaderUniforms.cpp
 	GPU/Common/ShaderUniforms.h
 	GPU/Common/ShaderCommon.cpp
 	GPU/Common/ShaderCommon.h
-	GPU/Common/ShaderTranslation.cpp
-	GPU/Common/ShaderTranslation.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
 	GPU/Common/StencilCommon.cpp

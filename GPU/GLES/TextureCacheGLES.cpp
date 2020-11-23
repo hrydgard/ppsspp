@@ -33,7 +33,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/GLES/DepalettizeShaderGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
@@ -347,10 +347,11 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	bool need_depalettize = IsClutFormat(texFormat);
 
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330));
 	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
 		useShaderDepal = false;
 	}
+
 	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -383,7 +384,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, 
 
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
 		render_->SetScissor(GLRect2D{ 0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight });
@@ -444,11 +445,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	// Always generate a texture name unless it's a framebuffer, we might need it if the texture is replaced later.
-	if (!entry->textureName) {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
-	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
@@ -542,7 +538,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
-	
+
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -553,10 +549,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
-	} else
+	} else {
 		LoadTextureLevel(*entry, replaced, 0, scaleFactor, dstFmt);
+	}
 
-	// Mipmapping only enable when texture scaling disable
+	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
 	bool genMips = false;
 	if (maxLevel > 0 && scaleFactor == 1) {
@@ -651,6 +648,14 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 	gpuStats.numTexturesDecoded++;
 
+	if (!entry.textureName) {
+		// TODO: Actually pass in correct size here. The size here is not yet used for anything else
+		// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
+		// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
+		// and unify BuildTexture.
+		entry.textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
+	}
+
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
@@ -715,7 +720,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-#ifndef USING_GLES2
 	GPUgstate saved;
 	if (level != 0) {
 		saved = gstate;
@@ -776,9 +780,6 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 
 	return result;
-#else
-	return false;
-#endif
 }
 
 void TextureCacheGLES::DeviceLost() {

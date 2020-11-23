@@ -46,7 +46,7 @@ void main()
 {
 	// Apply colour correction
 	vec3 screen = pow(texture2D(sampler0, v_texcoord0.xy).rgb, vec3(target_gamma));
-	screen = clamp(screen, 0.0, 1.0);
+	// screen = clamp(screen, 0.0, 1.0);
 	screen = pow(
 		mat3(r,  rg, rb,
 			  gr, g,  gb,

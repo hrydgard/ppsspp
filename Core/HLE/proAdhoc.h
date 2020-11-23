@@ -59,6 +59,7 @@
 #undef ESHUTDOWN
 #undef ECONNABORTED
 #undef ECONNRESET
+#undef ECONNREFUSED
 #undef ENOTCONN
 #undef EAGAIN
 #undef EINPROGRESS
@@ -69,6 +70,7 @@
 #define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
 #define ECONNRESET WSAECONNRESET
+#define ECONNREFUSED WSAECONNREFUSED
 #define ENOTCONN WSAENOTCONN
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
@@ -110,15 +112,22 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 
 // Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL 10000 // 12000 usec on JPCSP, but 10000 works better on BattleZone (in order to get full speed 60 FPS)
+#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+#define GAMEMODE_INIT_DELAY 10000
+#define GAMEMODE_SYNC_TIMEOUT 250000
+
+// GameMode Type
+#define ADHOCCTL_GAMETYPE_1A	1
+#define ADHOCCTL_GAMETYPE_1B	2
+#define ADHOCCTL_GAMETYPE_2A	3
 
 // psp strutcs and definitions
-#define ADHOCCTL_MODE_NONE     -1
+#define ADHOCCTL_MODE_NONE     -1 // We only use this internally as initial value before attempting to create/connect/join/scan any group
 #define ADHOCCTL_MODE_NORMAL    0 // ADHOCCTL_MODE_ADHOC
 #define ADHOCCTL_MODE_GAMEMODE  1
 
 // Event Types for Event Handler
-#define ADHOCCTL_EVENT_ERROR 0
+#define ADHOCCTL_EVENT_ERROR 0 // Used to pass error code to Adhocctl Handler?
 #define ADHOCCTL_EVENT_CONNECT 1
 #define ADHOCCTL_EVENT_DISCONNECT 2
 #define ADHOCCTL_EVENT_SCAN 3
@@ -138,7 +147,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 // ProductType ( extracted from SSID along with ProductId & GroupName, Pattern = "PSP_([AXS])(.........)_([LG])_(.*)" )
 #define PSP_ADHOCCTL_TYPE_COMMERCIAL 0
 #define PSP_ADHOCCTL_TYPE_DEBUG 1
-#define PSP_ADHOCCTL_TYPE_SYSTEM 2
+#define PSP_ADHOCCTL_TYPE_SYSTEM 2 // Used for GameSharing?
 
 // Kernel Utility Netconf Adhoc Types
 #define UTILITY_NETCONF_TYPE_CONNECT_ADHOC 2
@@ -318,6 +327,7 @@ typedef struct GameModeArea {
 	//int socket; // PDP socket?
 	u64 updateTimestamp;
 	int dataUpdated;
+	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
 } PACK GameModeArea;
@@ -390,8 +400,8 @@ typedef struct SceNetAdhocGameModeBufferStat {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-	s32_le type;
-	uint8_t data[ADHOCCTL_ADHOCID_LEN];
+	s32_le type; // Air Conflicts - Aces Of World War 2 is using 2 for GameSharing?
+	uint8_t data[ADHOCCTL_ADHOCID_LEN]; // Air Conflicts - Aces Of World War 2 is using "000000001" for GameSharing?
 	uint8_t padding[3];
 } PACK SceNetAdhocctlAdhocId; // should this be packed?
 #ifdef _MSC_VER 
@@ -557,19 +567,24 @@ typedef struct SceNetAdhocMatchingContext {
 // End of psp definitions
 
 enum {
+	// pspnet_adhoc_auth
+	ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED		= 0x80410601,
+
+	// pspnet_adhoc
 	ERROR_NET_ADHOC_INVALID_SOCKET_ID				= 0x80410701,
 	ERROR_NET_ADHOC_INVALID_ADDR					= 0x80410702,
 	ERROR_NET_ADHOC_INVALID_PORT					= 0x80410703,
+	ERROR_NET_ADHOC_INVALID_BUFLEN					= 0x80410704,
 	ERROR_NET_ADHOC_INVALID_DATALEN					= 0x80410705,
-	ERROR_NET_ADHOC_NOT_ENOUGH_SPACE				= 0x80400706,
+	ERROR_NET_ADHOC_NOT_ENOUGH_SPACE				= 0x80400706, // not a typo
 	ERROR_NET_ADHOC_SOCKET_DELETED					= 0x80410707,
 	ERROR_NET_ADHOC_SOCKET_ALERTED					= 0x80410708,
 	ERROR_NET_ADHOC_WOULD_BLOCK						= 0x80410709, //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
 	ERROR_NET_ADHOC_PORT_IN_USE						= 0x8041070a,
 	ERROR_NET_ADHOC_NOT_CONNECTED					= 0x8041070B,
 	ERROR_NET_ADHOC_DISCONNECTED					= 0x8041070c,
-	ERROR_NET_ADHOC_NOT_OPENED						= 0x8040070D,
-	ERROR_NET_ADHOC_NOT_LISTENED					= 0x8040070E,
+	ERROR_NET_ADHOC_NOT_OPENED						= 0x8040070D, // not a typo
+	ERROR_NET_ADHOC_NOT_LISTENED					= 0x8040070E, // not a typo
 	ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL				= 0x8041070F,
 	ERROR_NET_ADHOC_PORT_NOT_AVAIL					= 0x80410710,
 	ERROR_NET_ADHOC_INVALID_ARG						= 0x80410711,
@@ -585,7 +600,9 @@ enum {
 	ERROR_NET_ADHOC_NOT_IN_GAMEMODE					= 0x8041071B,
 	ERROR_NET_ADHOC_NOT_CREATED						= 0x8041071C,
 
+	// pspnet_adhoc_matching
 	ERROR_NET_ADHOC_MATCHING_INVALID_MODE			= 0x80410801,
+	ERROR_NET_ADHOC_MATCHING_INVALID_PORT			= 0x80410802,
 	ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM			= 0x80410803,
 	ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT		= 0x80410804,
 	ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN			= 0x80410805,
@@ -609,21 +626,26 @@ enum {
 	ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED		= 0x80410817,
 	ERROR_NET_ADHOC_MATCHING_DATA_BUSY				= 0x80410818,
 
+	// pspnet_adhocctl
+	ERROR_NET_ADHOCCTL_NOT_LEFT_IBSS				= 0x80410b01,
+	ERROR_NET_ADHOCCTL_ALREADY_CONNECTED			= 0x80410b02,
 	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF				= 0x80410b03,
 	ERROR_NET_ADHOCCTL_INVALID_ARG					= 0x80410B04,
+	ERROR_NET_ADHOCCTL_TIMEOUT						= 0x80410b05,
 	ERROR_NET_ADHOCCTL_ID_NOT_FOUND					= 0x80410B06,
 	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED			= 0x80410b07,
 	ERROR_NET_ADHOCCTL_NOT_INITIALIZED				= 0x80410b08,
 	ERROR_NET_ADHOCCTL_DISCONNECTED					= 0x80410b09,
+	ERROR_NET_ADHOCCTL_NO_SCAN_INFO					= 0x80410b0a,
+	ERROR_NET_ADHOCCTL_INVALID_IBSS					= 0x80410b0b,
 	ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE			= 0x80410B0C,
 	ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE		= 0x80410B0D,
+	ERROR_NET_ADHOCCTL_WLAN_BEACON_LOST				= 0x80410b0e,
+	ERROR_NET_ADHOCCTL_WLAN_SUSPENDED				= 0x80410b0f,
 	ERROR_NET_ADHOCCTL_BUSY							= 0x80410b10,
+	ERROR_NET_ADHOCCTL_CHANNEL_NOT_MATCH			= 0x80410b11,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS			= 0x80410b12,
 	ERROR_NET_ADHOCCTL_STACKSIZE_TOO_SHORT			= 0x80410B13,
-
-	ERROR_NET_WLAN_INVALID_ARG						= 0x80410D13,
-
-	ERROR_NET_NO_SPACE								= 0x80410001
 };
 
 const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
@@ -902,6 +924,7 @@ extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
 extern int adhocConnectionType;
@@ -1014,7 +1037,7 @@ void changeBlockingMode(int fd, int nonblocking);
  * Count Virtual Networks by analyzing the Friend List
  * @return Number of Virtual Networks
  */
-int countAvailableNetworks();
+int countAvailableNetworks(const bool excludeSelf = false);
 
 /*
  * Find an existing group in networks
@@ -1267,6 +1290,11 @@ int getSockBufferSize(int sock, int opt);
 * Set Socket Buffer Size (opt = SO_RCVBUF/SO_SNDBUF)
 */
 int setSockBufferSize(int sock, int opt, int size);
+
+/*
+* Set TCP Socket Maximum Segment Size (default is 1460 on 1500 MTU)
+*/
+int setSockMSS(int sock, int size);
 
 /*
 * Set Socket TimeOut (opt = SO_SNDTIMEO/SO_RCVTIMEO)

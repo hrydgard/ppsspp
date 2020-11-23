@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderCommon.h"
+#include "Common/GPU/Shader.h"
 
 struct CardboardSettings {
 	bool enabled;
@@ -100,7 +100,7 @@ public:
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
-	void CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa);
+	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa);
 
 protected:
 	void CreateDeviceObjects();
@@ -109,8 +109,8 @@ protected:
 
 	void ShowPostShaderError(const std::string &errorString);
 
-	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
-	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
+	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc);
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 	bool AllocateFramebuffer(int w, int h);
 

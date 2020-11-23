@@ -52,10 +52,10 @@ VS_OUT main(VS_IN input) {
 }
 )";
 
-DepalShaderCacheDX9::DepalShaderCacheDX9(Draw::DrawContext *draw) : vertexShader_(nullptr) {
+DepalShaderCacheDX9::DepalShaderCacheDX9(Draw::DrawContext *draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	std::string errorMessage;
-	if (!DX9::CompileVertexShader(device_, depalVShaderHLSL, &vertexShader_, nullptr, errorMessage)) {
+	if (!CompileVertexShaderD3D9(device_, depalVShaderHLSL, &vertexShader_, &errorMessage)) {
 		ERROR_LOG(G3D, "error compling depal vshader: %s", errorMessage.c_str());
 	}
 }
@@ -152,11 +152,11 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(uint32_t c
 
 	char *buffer = new char[2048];
 
-	GenerateDepalShader(buffer, pixelFormat, HLSL_DX9);
+	GenerateDepalShader(buffer, pixelFormat, HLSL_D3D9);
 
 	LPDIRECT3DPIXELSHADER9 pshader;
 	std::string errorMessage;
-	if (!CompilePixelShader(device_, buffer, &pshader, NULL, errorMessage)) {
+	if (!CompilePixelShaderD3D9(device_, buffer, &pshader, &errorMessage)) {
 		ERROR_LOG(G3D, "Failed to compile depal pixel shader: %s\n\n%s", buffer, errorMessage.c_str());
 		delete[] buffer;
 		return nullptr;

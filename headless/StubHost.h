@@ -72,6 +72,8 @@ public:
 
 	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
 
+	void NotifySwitchUMDUpdated() override {}
+
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}
 

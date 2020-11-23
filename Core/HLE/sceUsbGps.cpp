@@ -92,14 +92,16 @@ const HLEFunction sceUsbGps[] =
 	{0X268F95CA, nullptr,                                 "sceUsbGpsSetInitDataLocation",  '?', "" },
 	{0X31F95CDE, nullptr,                                 "sceUsbGpsGetPowerSaveMode",     '?', "" },
 	{0X54D26AA4, &WrapI_U<sceUsbGpsGetInitDataLocation>,  "sceUsbGpsGetInitDataLocation",  'i', "x" },
+	{0X5881C826, nullptr,                                 "sceUsbGpsGetStaticNavMode",     '?', "" },
 	{0X63D1F89D, nullptr,                                 "sceUsbGpsResetInitialPosition", '?', "" },
 	{0X69E4AAA8, nullptr,                                 "sceUsbGpsSaveInitData",         '?', "" },
 	{0X6EED4811, &WrapI_V<sceUsbGpsClose>,                "sceUsbGpsClose",                'i', "" },
-	{0X7C16AC3A, &WrapI_U<sceUsbGpsGetState>,             "sceUsbGpsGetState",             'i', "x"},
+	{0X7C16AC3A, &WrapI_U<sceUsbGpsGetState>,             "sceUsbGpsGetState",             'i', "x" },
 	{0X934EC2B2, &WrapI_UU<sceUsbGpsGetData>,             "sceUsbGpsGetData",              'i', "xx" },
 	{0X9D8F99E8, nullptr,                                 "sceUsbGpsSetPowerSaveMode",     '?', "" },
 	{0X9F267D34, &WrapI_V<sceUsbGpsOpen>,                 "sceUsbGpsOpen",                 'i', "" },
 	{0XA259CD67, nullptr,                                 "sceUsbGpsReset",                '?', "" },
+	{0XA8ED0BC2, nullptr,                                 "sceUsbGpsSetStaticNavMode",     '?', "" },
 };
 
 void Register_sceUsbGps()

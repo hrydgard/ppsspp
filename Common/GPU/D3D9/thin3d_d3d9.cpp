@@ -254,7 +254,7 @@ public:
 	}
 	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		if (stage_ == ShaderStage::FRAGMENT) {
+		if (stage_ == ShaderStage::Fragment) {
 			device->SetPixelShader(pshader_);
 		} else {
 			device->SetVertexShader(vshader_);
@@ -670,6 +670,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
 		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
 	}
+
+	shaderLanguageDesc_.Init(HLSL_D3D9);
 }
 
 D3D9Context::~D3D9Context() {
@@ -697,10 +699,10 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			delete pipeline;
 			return NULL;
 		}
-		if (iter->GetStage() == ShaderStage::FRAGMENT) {
+		if (iter->GetStage() == ShaderStage::Fragment) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
 		}
-		else if (iter->GetStage() == ShaderStage::VERTEX) {
+		else if (iter->GetStage() == ShaderStage::Vertex) {
 			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
 		}
 	}
@@ -1034,10 +1036,10 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	auto compile = [&](const char *profile) -> HRESULT {
 		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 	};
-	HRESULT hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0");
+	HRESULT hr = compile(stage_ == ShaderStage::Fragment ? "ps_2_0" : "vs_2_0");
 	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
 		// Might be a post shader.  Let's try using shader model 3.
-		hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_3_0" : "vs_3_0");
+		hr = compile(stage_ == ShaderStage::Fragment ? "ps_3_0" : "vs_3_0");
 	}
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
@@ -1055,7 +1057,7 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	}
 
 	bool success = false;
-	if (stage_ == ShaderStage::FRAGMENT) {
+	if (stage_ == ShaderStage::Fragment) {
 		HRESULT result = device->CreatePixelShader((DWORD *)codeBuffer->GetBufferPointer(), &pshader_);
 		success = SUCCEEDED(result);
 	} else {
@@ -1072,28 +1074,26 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 
 class D3D9Framebuffer : public Framebuffer {
 public:
+	D3D9Framebuffer(int width, int height) {
+		width_ = width;
+		height_ = height;
+	}
 	~D3D9Framebuffer();
-	uint32_t id;
-	LPDIRECT3DSURFACE9 surf;
-	LPDIRECT3DSURFACE9 depthstencil;
-	LPDIRECT3DTEXTURE9 tex;
-	LPDIRECT3DTEXTURE9 depthstenciltex;
 
-	int width;
-	int height;
-	FBColorDepth colorDepth;
+	uint32_t id = 0;
+	LPDIRECT3DSURFACE9 surf = nullptr;
+	LPDIRECT3DSURFACE9 depthstencil = nullptr;
+	LPDIRECT3DTEXTURE9 tex = nullptr;
+	LPDIRECT3DTEXTURE9 depthstenciltex = nullptr;
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	static uint32_t id = 0;
 
-	D3D9Framebuffer *fbo = new D3D9Framebuffer{};
-	fbo->width = desc.width;
-	fbo->height = desc.height;
-	fbo->colorDepth = desc.colorDepth;
+	D3D9Framebuffer *fbo = new D3D9Framebuffer(desc.width, desc.height);
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
 	if (FAILED(rtResult)) {
 		ERROR_LOG(G3D,  "Failed to create render target");
 		delete fbo;
@@ -1103,12 +1103,12 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 
 	HRESULT dsResult;
 	if (supportsINTZ) {
-		dsResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_DEPTHSTENCIL, FOURCC_INTZ, D3DPOOL_DEFAULT, &fbo->depthstenciltex, NULL);
+		dsResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_DEPTHSTENCIL, FOURCC_INTZ, D3DPOOL_DEFAULT, &fbo->depthstenciltex, NULL);
 		if (SUCCEEDED(dsResult)) {
 			dsResult = fbo->depthstenciltex->GetSurfaceLevel(0, &fbo->depthstencil);
 		}
 	} else {
-		dsResult = device_->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+		dsResult = device_->CreateDepthStencilSurface(desc.width, desc.height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	}
 	if (FAILED(dsResult)) {
 		ERROR_LOG(G3D,  "Failed to create depth buffer");
@@ -1210,8 +1210,8 @@ void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChan
 void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	if (fb) {
-		*w = fb->width;
-		*h = fb->height;
+		*w = fb->Width();
+		*h = fb->Height();
 	} else {
 		*w = targetWidth_;
 		*h = targetHeight_;

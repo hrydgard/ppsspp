@@ -84,7 +84,7 @@ extern u32 g_PSPModel;
 
 // UWP has such limited memory management that we need to mask
 // even in 64-bit mode. Also, when using the sanitizer, we need to mask as well.
-#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ADDRESS_SANITIZER
+#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ADDRESS_SANITIZER || PPSSPP_PLATFORM(IOS)
 #define MASKED_PSP_MEMORY
 #endif
 
@@ -261,8 +261,15 @@ inline bool IsVRAMAddress(const u32 address) {
 inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0x3FE00000) == 0x04200000) || ((address & 0x3FE00000) == 0x04600000);
 }
+
+// 0x08000000 -> 0x08800000
 inline bool IsKernelAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x08000000);
+}
+
+// 0x08000000 -> 0x08400000
+inline bool IsKernelAndNotVolatileAddress(const u32 address) {
+	return ((address & 0x3FC00000) == 0x08000000);
 }
 
 bool IsScratchpadAddress(const u32 address);

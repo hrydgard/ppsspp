@@ -24,6 +24,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -35,7 +36,7 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ZERO,
@@ -121,7 +122,7 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-inline void DrawEngineGLES::ResetShaderBlending() {
+inline void DrawEngineGLES::ResetFramebufferRead() {
 	if (fboTexBound_) {
 		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
@@ -140,23 +141,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
-	// amask is needed for both stencil and blend state so we keep it outside for now
-	bool amask = (gstate.pmska & 0xFF) < 128;
-	// Let's not write to alpha if stencil isn't enabled.
-	if (IsStencilTestOutputDisabled()) {
-		amask = false;
-	} else {
-		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-			amask = false;
-		}
-	}
-
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
 			// Color Test
@@ -167,22 +156,24 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 			// to avoid recomputing heavy stuff unnecessarily every draw call.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyShaderBlending) {
-				if (ApplyShaderBlending()) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
+					// The shader takes over the responsibility for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
-					if (fboTexNeedBind_) {
+					if (fboTexNeedsBind_) {
 						// Note that this is positions, not UVs, that we need the copy from.
-						// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
 						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 						// If we are rendering at a higher resolution, linear is probably best for the dest color.
 						renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 						fboTexBound_ = true;
-						fboTexNeedBind_ = false;
+						fboTexNeedsBind_ = false;
 
 						framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
@@ -190,49 +181,28 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					}
 				} else {
 					// Until next time, force it off.
-					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					ResetFramebufferRead();
+					gstate_c.SetAllowFramebufferRead(false);
 				}
-			} else if (blendState.resetShaderBlending) {
-				ResetShaderBlending();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else if (blendState.resetFramebufferRead) {
+				ResetFramebufferRead();
 			}
 
 			if (blendState.enabled) {
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
+					// Not quite sure how necessary this is.
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {
 					uint32_t color = blendState.blendColor;
-					const float col[4] = {
-						(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
-						(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-						(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-						(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
-					};
+					float col[4];
+					Uint8x4ToFloat4(col, color);
 					renderManager->SetBlendFactor(col);
 				}
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-			u8 abits = (gstate.pmska >> 0) & 0xFF;
-			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-			}
-			if (abits != 0 && abits != 0xFF) {
-				// The stencil part of the mask is supported.
-				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-			}
-#endif
-			int mask = (int)rmask | ((int)gmask << 1) | ((int)bmask << 2) | ((int)amask << 3);
+			int mask = (int)maskState.rgba[0] | ((int)maskState.rgba[1] << 1) | ((int)maskState.rgba[2] << 2) | ((int)maskState.rgba[3] << 3);
 			if (blendState.enabled) {
 				renderManager->SetBlendAndMask(mask, blendState.enabled,
 					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],

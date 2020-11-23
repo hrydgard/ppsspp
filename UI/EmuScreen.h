@@ -30,6 +30,7 @@
 struct AxisInput;
 
 class AsyncImageFileView;
+class OnScreenMessagesView;
 
 class EmuScreen : public UIScreen {
 public:
@@ -106,6 +107,8 @@ private:
 	UI::TextView *loadingTextView_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
+	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
+
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
 };

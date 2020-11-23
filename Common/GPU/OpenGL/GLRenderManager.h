@@ -23,13 +23,12 @@ class DrawContext;
 
 class GLRTexture {
 public:
-	~GLRTexture() {
-		if (texture) {
-			glDeleteTextures(1, &texture);
-		}
-	}
+	GLRTexture(int width, int height, int numMips);
+	~GLRTexture();
 
 	GLuint texture = 0;
+	uint16_t w;
+	uint16_t h;
 
 	// We don't trust OpenGL defaults - setting wildly off values ensures that we'll end up overwriting these parameters.
 	GLenum target = 0xFFFF;
@@ -37,6 +36,7 @@ public:
 	GLenum wrapT = 0xFFFF;
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
+	uint8_t numMips = 0;
 	bool canWrap = true;
 	float anisotropy = -100000.0f;
 	float minLod = -1000.0f;
@@ -47,7 +47,8 @@ public:
 class GLRFramebuffer {
 public:
 	GLRFramebuffer(int _width, int _height, bool z_stencil)
-		: width(_width), height(_height), z_stencil_(z_stencil) {
+		: width(_width), height(_height), z_stencil_(z_stencil),
+		  color_texture(_width, _height, 1), z_stencil_texture(_width, _height, 1) {
 	}
 
 	~GLRFramebuffer();
@@ -357,6 +358,10 @@ public:
 	GLRenderManager();
 	~GLRenderManager();
 
+	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
+		queueRunner_.SetErrorCallback(callback, userdata);
+	}
+
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
 	bool ThreadFrame();  // Returns false to request exiting the loop.
@@ -374,9 +379,11 @@ public:
 	void WaitUntilQueueIdle();
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
-	GLRTexture *CreateTexture(GLenum target) {
+	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
+	// and then we'll also need formats and stuff.
+	GLRTexture *CreateTexture(GLenum target, int width, int height, int numMips) {
 		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
-		step.create_texture.texture = new GLRTexture();
+		step.create_texture.texture = new GLRTexture(width, height, numMips);
 		step.create_texture.texture->target = target;
 		initSteps_.push_back(step);
 		return step.create_texture.texture;
@@ -649,6 +656,30 @@ public:
 		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		data.uniform4.loc = loc;
+		data.uniform4.count = 1;
+		memcpy(data.uniform4.v, &udata, sizeof(udata));
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformUI(const GLint *loc, int count, const uint32_t *udata) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+#ifdef _DEBUG
+		_dbg_assert_(curProgram_);
+#endif
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		data.uniform4.loc = loc;
+		data.uniform4.count = count;
+		memcpy(data.uniform4.v, udata, sizeof(uint32_t) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformUI1(const GLint *loc, uint32_t udata) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+#ifdef _DEBUG
+		_dbg_assert_(curProgram_);
+#endif
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(udata));

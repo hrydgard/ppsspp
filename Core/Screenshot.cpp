@@ -18,12 +18,8 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
-#ifdef USING_QT_UI
-#include <QtGui/QImage>
-#else
 #include <png.h>
 #include "ext/jpge/jpge.h"
-#endif
 
 #include "Common/ColorConv.h"
 #include "Common/File/FileUtil.h"
@@ -35,7 +31,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#ifndef USING_QT_UI
 // This is used to make non-ASCII paths work for filename.
 // Technically only needed on Windows.
 class JPEGFileStream : public jpge::output_stream
@@ -118,7 +113,6 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 		return false;
 	}
 }
-#endif
 
 static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, u8 &a, const void *buffer, int offset, bool rev) {
 	const u8 *buf8 = (const u8 *)buffer;
@@ -348,10 +342,6 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 }
 
 bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
-#ifdef USING_QT_UI
-	QImage image(bufferRGB888, w, h, QImage::Format_RGB888);
-	return image.save(filename, fmt == ScreenshotFormat::PNG ? "PNG" : "JPG");
-#else
 	if (fmt == ScreenshotFormat::PNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -374,14 +364,9 @@ bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *
 	} else {
 		return false;
 	}
-#endif
 }
 
 bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h) {
-#ifdef USING_QT_UI
-	QImage image(buffer, w, h, QImage::Format_RGBA8888);
-	return image.save(filename, "PNG");
-#else
 	png_image png;
 	memset(&png, 0, sizeof(png));
 	png.version = PNG_IMAGE_VERSION;
@@ -396,5 +381,4 @@ bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h
 		success = false;
 	}
 	return success;
-#endif
 }

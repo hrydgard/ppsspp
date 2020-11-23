@@ -129,7 +129,6 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
@@ -141,6 +140,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ANISOTROPY;
 #endif
 
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	if (draw_->GetDeviceCaps().dualSourceBlend)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
@@ -199,10 +199,12 @@ void GPU_D3D11::DeviceLost() {
 	shaderManagerD3D11_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
 	textureCacheD3D11_->Clear(false);
-	framebufferManagerD3D11_->DeviceLost();
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 

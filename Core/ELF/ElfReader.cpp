@@ -410,8 +410,10 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	for (int i = 0; i < header->e_phnum; i++) {
 		const Elf32_Phdr *p = &segments[i];
 		if (p->p_type == PT_LOAD) {
-			if (p->p_vaddr < totalStart)
+			if (p->p_vaddr < totalStart) {
 				totalStart = p->p_vaddr;
+				firstSegAlign = p->p_align;
+			}
 			if (p->p_vaddr + p->p_memsz > totalEnd)
 				totalEnd = p->p_vaddr + p->p_memsz;
 		}
@@ -607,6 +609,16 @@ u32 ElfReader::GetTotalTextSize() const {
 	for (int i = 0; i < GetNumSections(); ++i) {
 		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_STRINGS)) {
 			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
+u32 ElfReader::GetTotalTextSizeFromSeg() const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSegments(); ++i) {
+		if ((segments[i].p_flags & PF_X) != 0) {
+			total += segments[i].p_filesz;
 		}
 	}
 	return total;

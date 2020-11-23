@@ -158,7 +158,7 @@ inline float Clampf(float val, float min, float max) {
 }
 
 inline float Signf(float val) {
-	return (0.0f < val) - (val < 0.0f);
+	return (float)((0.0f < val) - (val < 0.0f));
 }
 
 inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {

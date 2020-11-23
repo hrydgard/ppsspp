@@ -11,6 +11,7 @@
     <ClCompile Include="..\Windows\CaptureDevice.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
+    <ClCompile Include="TestShaderGenerators.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

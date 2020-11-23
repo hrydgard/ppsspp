@@ -1704,6 +1704,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\libretro\CMakeLists.txt" />
+    <Text Include="..\libretro\README_WINDOWS.txt" />
     <Text Include="..\ppge_atlasscript.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

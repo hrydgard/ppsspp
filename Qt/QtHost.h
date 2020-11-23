@@ -92,6 +92,8 @@ public:
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
 
+	void NotifySwitchUMDUpdated() override {}
+
 private:
 	std::string SymbolMapFilename(std::string currentFilename);
 	MainWindow* mainWindow;

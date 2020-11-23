@@ -22,7 +22,6 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -180,7 +179,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 	}
 
 	VkPipeline pipeline = vulkan2D_->GetPipeline(rp, stencilVs_, stencilFs_, false, Vulkan2D::VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS);
-	renderManager->BindPipeline(pipeline);
+	renderManager->BindPipeline(pipeline, PIPELINE_FLAG_USES_DEPTH_STENCIL);
 	renderManager->SetViewport({ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f });
 	renderManager->SetScissor({ { 0, 0, },{ (uint32_t)w, (uint32_t)h } });
 

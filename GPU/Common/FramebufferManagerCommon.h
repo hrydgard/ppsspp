@@ -55,31 +55,32 @@ struct VirtualFramebuffer {
 	int fb_stride;
 	int z_stride;
 
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
+	GEBufferFormat format;  // virtual, in reality they are all RGBA8888 for better quality but we can reinterpret that as necessary
 
 	// width/height: The detected size of the current framebuffer, in original PSP pixels.
 	u16 width;
 	u16 height;
+
+	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than or equal to width/height.
+	// Actual physical buffer is this size times the render resolution multiplier.
+	// The buffer may be used to render a width or height from 0 to these values without being recreated.
+	u16 bufferWidth;
+	u16 bufferHeight;
 
 	// renderWidth/renderHeight: The scaled size we render at. May be scaled to render at higher resolutions.
 	// The physical buffer may be larger than renderWidth/renderHeight.
 	u16 renderWidth;
 	u16 renderHeight;
 
-	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than width/height.
-	// Actual physical buffer is this size times the render resolution multiplier.
-	// The buffer may be used to render a width or height from 0 to these values without being recreated.
-	u16 bufferWidth;
-	u16 bufferHeight;
+	float renderScaleFactor;
 
 	u16 usageFlags;
 
 	u16 newWidth;
 	u16 newHeight;
+
 	int lastFrameNewSize;
 
-	// TODO: Handle fbo and colorDepth better.
-	u8 colorDepth;
 	Draw::Framebuffer *fbo;
 
 	u16 drawnWidth;
@@ -157,6 +158,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// For another type of framebuffers that can happen together with COPY (see Outrun)
+	REINTERPRET,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -188,7 +191,7 @@ class TextureCacheCommon;
 
 class FramebufferManagerCommon {
 public:
-	explicit FramebufferManagerCommon(Draw::DrawContext *draw);
+	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
 	virtual void Init();
@@ -232,6 +235,7 @@ public:
 	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
+	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
@@ -304,7 +308,10 @@ public:
 	virtual void Resized();
 	virtual void DestroyAllFBOs();
 
-	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
+	virtual void DeviceLost();
+	virtual void DeviceRestore(Draw::DrawContext *draw);
+
+	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h);
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
@@ -315,6 +322,7 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() {
 		return vfbs_;
 	}
+	void ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -339,7 +347,6 @@ protected:
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
-	virtual void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) = 0;
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
@@ -349,11 +356,9 @@ protected:
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
-	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb);
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
-	void OptimizeDownloadRange(VirtualFramebuffer *vfb, int &x, int &y, int &w, int &h);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
 
@@ -400,9 +405,10 @@ protected:
 
 	bool gameUsesSequentialCopies_ = false;
 
-	// Sampled in BeginFrame for safety.
+	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
+	float renderScaleFactor_ = 1.0f;
 	int pixelWidth_;
 	int pixelHeight_;
 	int bloomHack_ = 0;
@@ -424,4 +430,11 @@ protected:
 		FBO_OLD_AGE = 5,
 		FBO_OLD_USAGE_FLAG = 15,
 	};
+
+	// Thin3D stuff for reinterpreting image data between the various 16-bit formats.
+	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
+	// since we don't want N different implementations.
+	Draw::Pipeline *reinterpretFromTo_[3][3]{};
+	Draw::ShaderModule *reinterpretVS_ = nullptr;
+	Draw::SamplerState *reinterpretSampler_ = nullptr;
 };

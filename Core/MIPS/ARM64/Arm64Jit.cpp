@@ -100,6 +100,10 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 		jo.enablePointerify = false;
 	}
 
+#ifdef MASKED_PSP_MEMORY
+	jo.enablePointerify = false;
+#endif
+
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();

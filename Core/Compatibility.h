@@ -72,6 +72,7 @@ struct CompatFlags {
 	bool AdhocHackStopFriendClear;
 	bool AdhocHackPhantasyStarOffset;
 	bool BlockTransferAllowCreateFB;
+	bool IntraVRAMBlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
@@ -81,6 +82,9 @@ struct CompatFlags {
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
 	bool ReportSmallMemstick;
+	bool MemstickFixedFree;
+	bool DateLimited;
+	bool ReinterpretFramebuffers;
 };
 
 class IniFile;

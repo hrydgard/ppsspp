@@ -32,6 +32,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "StringUtils.h"
 
 // The time when the game started.
@@ -40,6 +41,14 @@ static time_t start_time;
 void __KernelTimeInit()
 {
 	time(&start_time);
+	if (PSP_CoreParameter().compat.flags().DateLimited) {
+		// Car Jack Streets(NPUZ00043) requires that the date cannot exceed a certain time.
+		// 2011 year makes it work fine.
+		tm *tm;
+		tm = localtime(&start_time);
+		tm->tm_year = 111;// 2011 year.
+		start_time = mktime(tm);
+	}
 }
 
 void __KernelTimeDoState(PointerWrap &p)

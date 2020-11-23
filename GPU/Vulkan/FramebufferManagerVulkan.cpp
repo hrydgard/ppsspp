@@ -225,7 +225,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
-	renderManager->BindPipeline(cur2DPipeline_);
+	renderManager->BindPipeline(cur2DPipeline_, (PipelineFlags)0);
 	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
@@ -239,69 +239,6 @@ int FramebufferManagerVulkan::GetLineWidth() {
 		return std::max(1, (int)(renderWidth_ / 480));
 	} else {
 		return g_Config.iInternalResolution;
-	}
-}
-
-// This also binds vfb as the current render target.
-void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
-	if (!useBufferedRendering_ || !vfb->fbo) {
-		return;
-	}
-
-	// Technically, we should at this point re-interpret the bytes of the old format to the new.
-	// That might get tricky, and could cause unnecessary slowness in some games.
-	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
-	// (it uses 565 to write zeros to the buffer, then 4444 to actually render the shadow.)
-	//
-	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
-	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
-	// to exactly reproduce in 4444 and 8888 formats.
-
-	if (old == GE_FORMAT_565) {
-		// We have to bind here instead of clear, since it can be that no framebuffer is bound.
-		// The backend can sometimes directly optimize it to a clear.
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer"); 
-		// draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, 0.0f, 0);
-
-		// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
-		// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
-		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
-	}
-}
-
-VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (!framebuffer->fbo || !useBufferedRendering_) {
-		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return VK_NULL_HANDLE;
-	}
-
-	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
-	// Let's just not bother with the copy in that case.
-	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping()) {
-		skipCopy = true;
-	}
-	// Currently rendering to this framebuffer. Need to make a copy.
-	if (!skipCopy && framebuffer == currentRenderVfb_) {
-		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
-		if (renderCopy) {
-			VirtualFramebuffer copyInfo = *framebuffer;
-			copyInfo.fbo = renderCopy;
-			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
-			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
-		} else {
-			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		}
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-	} else {
-		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
-		// To do this safely in Vulkan, we need to use input attachments.
-		return VK_NULL_HANDLE;
 	}
 }
 
@@ -339,8 +276,10 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+	float srcXFactor = (float)src->renderScaleFactor;
+	float srcYFactor = (float)src->renderScaleFactor;
+
+	// Some games use wrong-format block transfers. Simulate that.
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -350,8 +289,8 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-	float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+	float dstXFactor = (float)dst->renderScaleFactor;
+	float dstYFactor = (float)dst->renderScaleFactor;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -367,15 +306,12 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	// BlitFramebuffer can clip, but CopyFramebufferImage is more restricted.
-	// In case the src goes outside, we just skip the optimization in that case.
 	const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
-	const bool sameDepth = dst->colorDepth == src->colorDepth;
 	const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
 	const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
 	const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 	const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
-	if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
+	if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 		draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, "BlitFramebuffer_Copy");
 	} else {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer_Blit");
@@ -390,15 +326,12 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	DestroyAllFBOs();
+	FramebufferManagerCommon::DeviceLost();
 	DestroyDeviceObjects();
-	presentation_->DeviceLost();
 }
 
-void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
-	vulkan_ = vulkan;
-	draw_ = draw;
-	presentation_->DeviceRestore(draw);
-
+void FramebufferManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
+	FramebufferManagerCommon::DeviceRestore(draw);
+	vulkan_ = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	InitDeviceObjects();
 }

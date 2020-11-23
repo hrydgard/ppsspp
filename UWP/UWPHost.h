@@ -40,6 +40,8 @@ public:
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
 
+	void NotifySwitchUMDUpdated() override {}
+
 	GraphicsContext *GetGraphicsContext() { return nullptr; }
 
 private:

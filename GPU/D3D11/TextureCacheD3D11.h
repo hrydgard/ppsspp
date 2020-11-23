@@ -70,7 +70,7 @@ protected:
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, DXGI_FORMAT dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
+	static TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
@@ -91,6 +91,7 @@ private:
 	SamplerCacheD3D11 samplerCache_;
 
 	ID3D11ShaderResourceView *lastBoundTexture;
+	ID3D11Buffer *depalConstants_;
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
@@ -99,6 +100,7 @@ private:
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	ShaderManagerD3D11 *shaderManager_;
+
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

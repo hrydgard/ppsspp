@@ -36,8 +36,9 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/Shader.h"
 
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -52,14 +53,12 @@
 
 extern void init_resources(TBuiltInResource &Resources);
 
-static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
+static EShLanguage GetLanguage(const ShaderStage stage) {
 	switch (stage) {
-	case Draw::ShaderStage::VERTEX: return EShLangVertex;
-	case Draw::ShaderStage::CONTROL: return EShLangTessControl;
-	case Draw::ShaderStage::EVALUATION: return EShLangTessEvaluation;
-	case Draw::ShaderStage::GEOMETRY: return EShLangGeometry;
-	case Draw::ShaderStage::FRAGMENT: return EShLangFragment;
-	case Draw::ShaderStage::COMPUTE: return EShLangCompute;
+	case ShaderStage::Vertex: return EShLangVertex;
+	case ShaderStage::Geometry: return EShLangGeometry;
+	case ShaderStage::Fragment: return EShLangFragment;
+	case ShaderStage::Compute: return EShLangCompute;
 	default: return EShLangVertex;
 	}
 }
@@ -76,7 +75,7 @@ void ShaderTranslationShutdown() {
 #endif
 }
 
-std::string Preprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage stage) {
+std::string Preprocess(std::string code, ShaderLanguage lang, ShaderStage stage) {
 	// This takes GL up to the version we need.
 	return code;
 }
@@ -125,8 +124,8 @@ float u_video : register(c5);
 // Also we need to rip out single uniforms and replace them with blocks.
 // Should probably do it in the source shader instead and then back translate to old style GLSL, but
 // SPIRV-Cross currently won't compile with the Android NDK so I can't be bothered.
-std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage stage) {
-	if (lang != HLSL_D3D11 && lang != HLSL_DX9)
+std::string Postprocess(std::string code, ShaderLanguage lang, ShaderStage stage) {
+	if (lang != HLSL_D3D11 && lang != HLSL_D3D9)
 		return code;
 
 	std::stringstream out;
@@ -134,18 +133,18 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 	// Output the uniform buffer.
 	if (lang == HLSL_D3D11)
 		out << cbufferDecl;
-	else if (lang == HLSL_DX9)
+	else if (lang == HLSL_D3D9)
 		out << d3d9RegisterDecl;
 
 	// Alright, now let's go through it line by line and zap the single uniforms.
 	std::string line;
 	std::stringstream instream(code);
 	while (std::getline(instream, line)) {
-		if (line == "uniform sampler2D sampler0;" && lang == HLSL_DX9) {
+		if (line == "uniform sampler2D sampler0;" && lang == HLSL_D3D9) {
 			out << "sampler2D sampler0 : register(s0);\n";
 			continue;
 		}
-		if (line == "uniform sampler2D sampler1;" && lang == HLSL_DX9) {
+		if (line == "uniform sampler2D sampler1;" && lang == HLSL_D3D9) {
 			out << "sampler2D sampler1 : register(s1);\n";
 			continue;
 		}
@@ -158,24 +157,24 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 	return output;
 }
 
-bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetadata, std::string src, Draw::ShaderStage stage, std::string *errorMessage) {
+bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetadata, std::string src, ShaderStage stage, std::string *errorMessage) {
 	std::stringstream out;
 
 	static struct {
-		Draw::ShaderStage stage;
+		ShaderStage stage;
 		const char *needle;
 		const char *replacement;
 	} replacements[] = {
-		{ Draw::ShaderStage::VERTEX, "attribute vec4 a_position;", "layout(location = 0) in vec4 a_position;" },
-		{ Draw::ShaderStage::VERTEX, "attribute vec2 a_texcoord0;", "layout(location = 2) in vec2 a_texcoord0;"},
-		{ Draw::ShaderStage::VERTEX, "varying vec2 v_position;", "layout(location = 0) out vec2 v_position;" },
-		{ Draw::ShaderStage::FRAGMENT, "varying vec2 v_position;", "layout(location = 0) in vec2 v_position;" },
-		{ Draw::ShaderStage::FRAGMENT, "texture2D(", "texture(" },
-		{ Draw::ShaderStage::FRAGMENT, "gl_FragColor", "fragColor0" },
+		{ ShaderStage::Vertex, "attribute vec4 a_position;", "layout(location = 0) in vec4 a_position;" },
+		{ ShaderStage::Vertex, "attribute vec2 a_texcoord0;", "layout(location = 2) in vec2 a_texcoord0;"},
+		{ ShaderStage::Vertex, "varying vec2 v_position;", "layout(location = 0) out vec2 v_position;" },
+		{ ShaderStage::Fragment, "varying vec2 v_position;", "layout(location = 0) in vec2 v_position;" },
+		{ ShaderStage::Fragment, "texture2D(", "texture(" },
+		{ ShaderStage::Fragment, "gl_FragColor", "fragColor0" },
 	};
 
 	out << vulkanPrologue;
-	if (stage == Draw::ShaderStage::FRAGMENT) {
+	if (stage == ShaderStage::Fragment) {
 		out << "layout (location = 0) out vec4 fragColor0;\n";
 	}
 	// Output the uniform buffer.
@@ -197,7 +196,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		} else if (line.find("uniform ") != std::string::npos) {
 			continue;
 		} else if (2 == sscanf(line.c_str(), "varying vec%d v_texcoord%d;", &vecSize, &num)) {
-			if (stage == Draw::ShaderStage::FRAGMENT) {
+			if (stage == ShaderStage::Fragment) {
 				line = StringFromFormat("layout(location = %d) in vec%d v_texcoord%d;", num, vecSize, num);
 			} else {
 				line = StringFromFormat("layout(location = %d) out vec%d v_texcoord%d;", num, vecSize, num);
@@ -218,11 +217,11 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	return true;
 }
 
-bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage) {
-	if (srcLang != GLSL_300 && srcLang != GLSL_140)
+bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, ShaderStage stage, std::string *errorMessage) {
+	if (srcLang != GLSL_3xx && srcLang != GLSL_1xx)
 		return false;
 
-	if ((srcLang == GLSL_140 || srcLang == GLSL_300) && destLang == GLSL_VULKAN) {
+	if ((srcLang == GLSL_1xx || srcLang == GLSL_3xx) && destLang == GLSL_VULKAN) {
 		// Let's just mess about at the string level, no need to recompile.
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
@@ -291,7 +290,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 
 	switch (destLang) {
 #ifdef _WIN32
-	case HLSL_DX9:
+	case HLSL_D3D9:
 	{
 		spirv_cross::CompilerHLSL hlsl(spirv);
 		spirv_cross::CompilerHLSL::Options options{};
@@ -326,7 +325,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		return true;
 	}
 #endif
-	case GLSL_140:
+	case GLSL_1xx:
 	{
 		spirv_cross::CompilerGLSL glsl(std::move(spirv));
 		// The SPIR-V is now parsed, and we can perform reflection on it.
@@ -351,7 +350,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		*dest = glsl.compile();
 		return true;
 	}
-	case GLSL_300:
+	case GLSL_3xx:
 	{
 		spirv_cross::CompilerGLSL glsl(std::move(spirv));
 		// The SPIR-V is now parsed, and we can perform reflection on it.

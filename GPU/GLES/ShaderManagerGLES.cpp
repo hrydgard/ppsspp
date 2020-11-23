@@ -30,6 +30,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 
@@ -101,6 +102,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
 	queries.push_back({ &u_alphacolorref, "u_alphacolorref" });
 	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
+	queries.push_back({ &u_colorWriteMask, "u_colorWriteMask" });
 	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
 	queries.push_back({ &u_testtex, "testtex" });
 
@@ -166,7 +168,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
 	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
 	queries.push_back({ &u_spline_counts, "u_spline_counts" });
-	queries.push_back({ &u_depal, "u_depal" });
+	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -264,7 +266,7 @@ static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data
 
 static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x4, m4x3);
+	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
@@ -298,7 +300,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 		// Poke in a bilinear filter flag in the top bit.
 		val |= gstate.isMagnifyFilteringEnabled() << 31;
-		render_->SetUniformI1(&u_depal, val);
+		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
 	// Update any dirty uniforms before we draw
@@ -375,6 +377,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
 		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+	}
+	if (dirty & DIRTY_COLORWRITEMASK) {
+		render_->SetUniformUI1(&u_colorWriteMask, ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF)));
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
@@ -495,7 +500,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
 			render_->SetUniformM4x4(&u_bone[i], bonetemp);
 		}
 	}
@@ -571,7 +576,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBu
 }
 
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
-		: ShaderManagerCommon(draw), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+	  : ShaderManagerCommon(draw), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
@@ -629,7 +634,9 @@ void ShaderManagerGLES::DirtyLastShader() {
 
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
-	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
+	std::string errorString;
+	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
@@ -640,7 +647,11 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	uint32_t attrMask;
 	uint64_t uniformMask;
-	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
+	std::string errorString;
+	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), &attrMask, &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
+		return nullptr;
+	}
 	std::string desc = VertexShaderDesc(VSID);
 	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
@@ -716,6 +727,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	Shader *fs = fsCache_.Get(FSID);
 	if (!fs)	{
 		// Fragment shader not in cache. Let's compile it.
+		// Can't really tell if we succeeded since the compile is on the GPU thread later.
 		fs = CompileFragmentShader(FSID);
 		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
@@ -826,7 +838,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 14
+#define CACHE_VERSION 15
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;

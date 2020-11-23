@@ -11,7 +11,6 @@
     <ClCompile Include="..\..\GPU\Common\PostShader.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderId.cpp" />
-    <ClCompile Include="..\..\GPU\Common\ShaderTranslation.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
     <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
@@ -29,7 +28,6 @@
     <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\FramebufferManagerD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\GPU_D3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp" />
@@ -37,14 +35,11 @@
     <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureScalerD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
-    <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp" />
-    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />
@@ -59,6 +54,9 @@
     <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
+    <ClCompile Include="..\..\GPU\Common\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexShaderGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -71,7 +69,6 @@
     <ClInclude Include="..\..\GPU\Common\PostShader.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderId.h" />
-    <ClInclude Include="..\..\GPU\Common\ShaderTranslation.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderUniforms.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
@@ -86,22 +83,18 @@
     <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h" />
     <ClInclude Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h" />
-    <ClInclude Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\GPU_D3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureScalerD3D11.h" />
-    <ClInclude Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
     <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
     <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
-    <ClInclude Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.h" />
-    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.h" />
     <ClInclude Include="..\..\GPU\GeDisasm.h" />
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
@@ -118,5 +111,8 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
+    <ClInclude Include="..\..\GPU\Common\FragmentShaderGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\VertexShaderGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
   </ItemGroup>
 </Project>

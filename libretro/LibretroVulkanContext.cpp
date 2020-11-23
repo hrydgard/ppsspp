@@ -31,16 +31,15 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	init_glslang();
 
 	if (!VulkanLoad()) {
-		// TODO: In the context of RetroArch, someone has already loaded the functions -
-		// we shouldn't need to load them again. On the other hand, it can't really hurt, we're gonna
-		// get the same pointers.
+		// TODO: In the context of RetroArch, someone has already loaded the functions.
+		// But grabbing the pointers for ourselves can't really be a bad thing.
 		ERROR_LOG(G3D, "RetroArch called the Vulkan entry point without Vulkan available???");
 		return false;
 	}
 
 	vk = new VulkanContext();
 
-	vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);
+   vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);
 
 	// TODO: Here we'll inject the instance and all of the stuff into the VulkanContext.
 
@@ -69,10 +68,6 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
 #endif
 
-	if (!vk->InitSwapchain()) {
-		return false;
-	}
-
 	context->gpu = vk->GetPhysicalDevice(physical_device);
 	context->device = vk->GetDevice();
 	context->queue = vk->GetGraphicsQueue();
@@ -100,11 +95,42 @@ bool LibretroVulkanContext::Init() {
 		return false;
 	}
 
-	static const struct retro_hw_render_context_negotiation_interface_vulkan iface = { RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN, RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION, GetApplicationInfo, create_device, nullptr };
+	static const struct retro_hw_render_context_negotiation_interface_vulkan iface = {
+      RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN,
+      RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION,
+      GetApplicationInfo,
+      create_device,  // Callback above.
+      nullptr,
+   };
 	Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE, (void *)&iface);
 
 	g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
 	return true;
+}
+
+void LibretroVulkanContext::ContextReset() {
+   retro_hw_render_interface *vulkan;
+   if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&vulkan) || !vulkan) {
+      ERROR_LOG(G3D, "Failed to get HW rendering interface!\n");
+      return;
+   }
+   if (vulkan->interface_version != RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION) {
+      ERROR_LOG(G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, vulkan->interface_version);
+      return;
+   }
+   vk_libretro_set_hwrender_interface(vulkan);
+
+   LibretroHWRenderContext::ContextReset();
+}
+
+void LibretroVulkanContext::CreateDrawContext() {
+   vk->ReinitSurface();
+
+   if (!vk->InitSwapchain()) {
+      return;
+   }
+
+   draw_ = Draw::T3DCreateVulkanContext(vk, false);
 }
 
 void LibretroVulkanContext::Shutdown() {
@@ -128,24 +154,3 @@ void LibretroVulkanContext::Shutdown() {
 }
 
 void *LibretroVulkanContext::GetAPIContext() { return vk; }
-
-void LibretroVulkanContext::CreateDrawContext() {
-	retro_hw_render_interface *vulkan;
-	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&vulkan) || !vulkan) {
-		ERROR_LOG(G3D, "Failed to get HW rendering interface!\n");
-		return;
-	}
-	if (vulkan->interface_version != RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION) {
-		ERROR_LOG(G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, vulkan->interface_version);
-		return;
-	}
-	vk_libretro_set_hwrender_interface(vulkan);
-
-	vk->ReinitSurface();
-
-	if (!vk->InitSwapchain()) {
-		return;
-	}
-
-	draw_ = Draw::T3DCreateVulkanContext(vk, false);
-}

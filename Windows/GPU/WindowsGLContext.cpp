@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/Host.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/OnScreenDisplay.h"
@@ -419,6 +420,10 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 		ReleaseGLContext();
 		return false;
 	}
+
+	draw_->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+	}, nullptr);
 
 	// These are auto-reset events.
 	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);

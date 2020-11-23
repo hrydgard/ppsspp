@@ -122,7 +122,7 @@ static const VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_SET,
 };
 
-void DrawEngineVulkan::ResetShaderBlending() {
+void DrawEngineVulkan::ResetFramebufferRead() {
 	boundSecondary_ = VK_NULL_HANDLE;
 }
 
@@ -135,7 +135,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;
@@ -163,21 +163,25 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
 
-			if (blendState.applyShaderBlending) {
-				if (ApplyShaderBlending()) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
+					// The shader takes over the responsibility for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
-					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					ResetFramebufferRead();
+					gstate_c.SetAllowFramebufferRead(false);
 					// Make sure we recompute the fragment shader ID to one that doesn't try to use shader blending.
-					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 				}
-			} else if (blendState.resetShaderBlending) {
-				ResetShaderBlending();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else if (blendState.resetFramebufferRead) {
+				ResetFramebufferRead();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
@@ -188,7 +192,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
 				key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
 				key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState.useBlendColor = blendState.useBlendColor;
@@ -206,38 +210,11 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.useBlendColor = false;
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-			bool amask = (gstate.pmska & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-			u8 abits = (gstate.pmska >> 0) & 0xFF;
-			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-			}
-			if (abits != 0 && abits != 0xFF) {
-				// The stencil part of the mask is supported.
-				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-			}
-#endif
-
-			// Let's not write to alpha if stencil isn't enabled.
-			if (IsStencilTestOutputDisabled()) {
-				amask = false;
-			} else {
-				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-					amask = false;
-				}
-			}
-
-			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+			key.colorWriteMask =
+				(maskState.rgba[0] ? VK_COLOR_COMPONENT_R_BIT : 0) |
+				(maskState.rgba[1] ? VK_COLOR_COMPONENT_G_BIT : 0) |
+				(maskState.rgba[2] ? VK_COLOR_COMPONENT_B_BIT : 0) |
+				(maskState.rgba[3] ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 			// Workaround proposed in #10421, for bug where the color write mask is not applied correctly on Adreno.
 			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && g_Config.bVendorBugChecksEnabled && draw_->GetBugs().Has(Draw::Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST)) {
@@ -391,20 +368,16 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 }
 
 void DrawEngineVulkan::BindShaderBlendTex() {
-	// At this point, we know if the vertices are full alpha or not.
-	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	// TODO:  At this point, we know if the vertices are full alpha or not.
+	// Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		// TODO: Test texture?
-		if (fboTexNeedBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
+		if (fboTexNeedsBind_) {
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
 			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
+			fboTexNeedsBind_ = false;
 		}
 	}
-
 }
 
 void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {

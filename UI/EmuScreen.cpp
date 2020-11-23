@@ -1094,7 +1094,7 @@ void EmuScreen::CreateViews() {
 	saveStatePreview_->SetVisibility(V_GONE);
 	saveStatePreview_->SetCanBeFocused(false);
 	root_->Add(saveStatePreview_);
-	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
+	onScreenMessagesView_ = root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
@@ -1165,11 +1165,12 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
 }
 
 void EmuScreen::update() {
-
 	UIScreen::update();
+	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? UI::Visibility::V_VISIBLE : UI::Visibility::V_GONE);
 
-	if (bootPending_)
+	if (bootPending_) {
 		bootGame(gamePath_);
+	}
 
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
@@ -1312,7 +1313,7 @@ ABI: %s
 	int x = 20;
 	int y = 50;
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 100;
+	y += 140;
 
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -1333,7 +1334,13 @@ PC: %08x)",
 			info.address,
 			info.pc);
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 120;
+		y += 180;
+	} else {
+		snprintf(statbuf, sizeof(statbuf), R"(
+BREAK
+)");
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	}
 
 	std::string kernelState = __KernelStateSummary();
@@ -1597,7 +1604,7 @@ void EmuScreen::renderUI() {
 	}
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowGpuProfile) {
-		DrawProfilerVis(ctx, gpu);
+		DrawGPUProfilerVis(ctx, gpu);
 	}
 
 #endif

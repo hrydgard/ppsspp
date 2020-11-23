@@ -450,6 +450,12 @@ void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &sou
 	MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, dest, std::min((int)destSize, size));
 }
 
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const char *source) {
+	int len = (int)strlen(source) + 1;  // include trailing zero
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source, len, NULL, 0);
+	MultiByteToWideChar(CP_UTF8, 0, source, len, dest, std::min((int)destSize, size));
+}
+
 std::wstring ConvertUTF8ToWString(const std::string &source) {
 	int len = (int)source.size();
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, NULL, 0);

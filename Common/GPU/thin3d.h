@@ -12,7 +12,8 @@
 #include <string>
 #include <vector>
 
-#include "DataFormat.h"
+#include "Common/GPU/DataFormat.h"
+#include "Common/GPU/Shader.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -161,15 +162,6 @@ enum class TextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum class ShaderStage {
-	VERTEX,
-	FRAGMENT,
-	GEOMETRY,
-	CONTROL,  // HULL
-	EVALUATION,  // DOMAIN
-	COMPUTE,
-};
-
 enum class CullMode : uint8_t {
 	NONE,
 	FRONT,
@@ -201,15 +193,6 @@ enum class TextureAddressMode {
 	REPEAT_MIRROR,
 	CLAMP_TO_EDGE,
 	CLAMP_TO_BORDER,
-};
-
-enum class ShaderLanguage {
-	GLSL_ES_200 = 1,
-	GLSL_ES_300 = 2,
-	GLSL_410 = 4,
-	GLSL_VULKAN = 8,
-	HLSL_D3D9 = 32,
-	HLSL_D3D11 = 64,
 };
 
 enum FormatSupport {
@@ -261,13 +244,6 @@ enum class NativeObject {
 	NULL_IMAGEVIEW,
 };
 
-enum FBColorDepth {
-	FBO_8888,
-	FBO_565,
-	FBO_4444,
-	FBO_5551,
-};
-
 enum FBChannel {
 	FB_COLOR_BIT = 1,
 	FB_DEPTH_BIT = 2,
@@ -309,7 +285,6 @@ struct FramebufferDesc {
 	int depth;
 	int numColorAttachments;
 	bool z_stencil;
-	FBColorDepth colorDepth;
 	const char *tag;  // For graphics debuggers
 };
 
@@ -372,6 +347,10 @@ public:
 
 class Framebuffer : public RefCountedObject {
 public:
+	int Width() { return width_; }
+	int Height() { return height_; }
+protected:
+	int width_ = -1, height_ = -1;
 };
 
 class Buffer : public RefCountedObject {
@@ -384,7 +363,7 @@ public:
 	int Height() { return height_; }
 	int Depth() { return depth_; }
 protected:
-	int width_, height_, depth_;
+	int width_ = -1, height_ = -1, depth_ = -1;
 };
 
 struct BindingDesc {
@@ -406,28 +385,7 @@ struct InputLayoutDesc {
 
 class InputLayout : public RefCountedObject { };
 
-enum class UniformType : int8_t {
-	FLOAT1,
-	FLOAT2,
-	FLOAT3,
-	FLOAT4,
-	MATRIX4X4,
-};
-
-// For emulation of uniform buffers on D3D9/GL
-struct UniformDesc {
-	const char *name;  // For GL
-	int16_t vertexReg;        // For D3D
-	int16_t fragmentReg;      // For D3D
-	UniformType type;
-	int16_t offset;
-	// TODO: Support array elements etc.
-};
-
-struct UniformBufferDesc {
-	size_t uniformBufferSize;
-	std::vector<UniformDesc> uniforms;
-};
+// Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:
@@ -521,6 +479,7 @@ struct DeviceCaps {
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	bool framebufferFetchSupported;
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
@@ -573,7 +532,14 @@ public:
 	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 
+	// Describes the primary shader language that this implementation prefers.
+	const ShaderLanguageDesc &GetShaderLanguageDesc() {
+		return shaderLanguageDesc_;
+	}
+
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
+
+	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
@@ -685,6 +651,8 @@ public:
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
+
+	ShaderLanguageDesc shaderLanguageDesc_;
 
 	int targetWidth_;
 	int targetHeight_;

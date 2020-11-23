@@ -325,6 +325,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_BLEND_CONSTANT;
 	if (key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_LINES;
+	if (dss.depthTestEnable || dss.stencilTestEnable) {
+		vulkanPipeline->flags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+	}
 	return vulkanPipeline;
 }
 
@@ -550,7 +553,7 @@ void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
 
 	// Wipe all line-drawing pipelines.
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->UsesLines()) {
+		if (value->flags & PIPELINE_FLAG_USES_LINES) {
 			if (value->pipeline)
 				vulkan_->Delete().QueueDeletePipeline(value->pipeline);
 			delete value;
@@ -619,7 +622,6 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	// Make sure the set of pipelines we write is "unique".
 	std::set<StoredVulkanPipelineKey> keys;
 
-	// TODO: Use derivative pipelines when possible, helps Mali driver pipeline creation speed at least.
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;

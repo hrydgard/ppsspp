@@ -171,13 +171,11 @@ public:
 
 VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	switch (stage) {
-	case ShaderStage::VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
-	case ShaderStage::GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
-	case ShaderStage::COMPUTE: return VK_SHADER_STAGE_COMPUTE_BIT;
-	case ShaderStage::EVALUATION: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-	case ShaderStage::CONTROL: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
+	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
 	default:
-	case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
 }
 
@@ -215,7 +213,9 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	// We'll need this to free it later.
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
-	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
+	std::string errorMessage;
+	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage)) {
+		INFO_LOG(G3D, "Shader compile to module failed: %s", errorMessage.c_str());
 		return false;
 	}
 
@@ -245,7 +245,7 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(VulkanContext *vulkan, size_t size) : vulkan_(vulkan) {
+	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : vulkan_(vulkan), flags(_flags) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
@@ -274,6 +274,8 @@ public:
 
 	VkPipeline backbufferPipeline = VK_NULL_HANDLE;
 	VkPipeline framebufferPipeline = VK_NULL_HANDLE;
+
+	PipelineFlags flags;
 	int stride[4]{};
 	int dynamicUniformSize = 0;
 
@@ -463,6 +465,8 @@ public:
 
 	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
+		case NativeObject::CONTEXT:
+			return (uint64_t)vulkan_;
 		case NativeObject::FRAMEBUFFER_RENDERPASS:
 			// Return a representative renderpass.
 			return (uint64_t)renderManager_.GetFramebufferRenderPass();
@@ -495,7 +499,6 @@ public:
 	void InvalidateCachedState() override;
 
 private:
-
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
 
@@ -758,6 +761,8 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 
 VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
+	shaderLanguageDesc_.Init(GLSL_VULKAN);
+
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.tessellationShader != 0;
@@ -778,8 +783,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
-	default:
-		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+	default: caps_.vendor = GPUVendor::VENDOR_UNKNOWN; break;
 	}
 
 	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
@@ -993,11 +997,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		if (key.imageViews_[i] && key.samplers_[i] && key.samplers_[i]->GetSampler()) {
 			imageDesc[i].imageView = key.imageViews_[i];
 			imageDesc[i].sampler = key.samplers_[i]->GetSampler();
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-#else
 			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-#endif
 			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			writes[numWrites].dstSet = descSet;
 			writes[numWrites].dstArrayElement = 0;
@@ -1018,13 +1018,24 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
 	VKRasterState *raster = (VKRasterState *)desc.raster;
-	for (int i = 0; i < (int)input->bindings.size(); i++) {
-		pipeline->stride[i] = input->bindings[i].stride;
+
+	u32 pipelineFlags = 0;
+	if (depth->info.depthTestEnable || depth->info.stencilTestEnable) {
+		pipelineFlags |= PIPELINE_FLAG_USES_DEPTH_STENCIL;
+	}
+
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float), (PipelineFlags)pipelineFlags);
+
+	if (input) {
+		for (int i = 0; i < (int)input->bindings.size(); i++) {
+			pipeline->stride[i] = input->bindings[i].stride;
+		}
+	} else {
+		pipeline->stride[0] = 0;
 	}
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
@@ -1069,6 +1080,8 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&rs);
 
+	VkPipelineVertexInputStateCreateInfo emptyVisc{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+
 	VkGraphicsPipelineCreateInfo createInfo[2]{};
 	for (auto &info : createInfo) {
 		info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1081,7 +1094,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		info.pInputAssemblyState = &inputAssembly;
 		info.pTessellationState = nullptr;
 		info.pMultisampleState = &ms;
-		info.pVertexInputState = &input->visc;
+		info.pVertexInputState = input ? &input->visc : &emptyVisc;
 		info.pRasterizationState = &rs;
 		info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 		info.layout = pipelineLayout_;
@@ -1340,9 +1353,9 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 void VKContext::BindCompatiblePipeline() {
 	VkRenderPass renderPass = renderManager_.GetCompatibleRenderPass();
 	if (renderPass == renderManager_.GetBackbufferRenderPass()) {
-		renderManager_.BindPipeline(curPipeline_->backbufferPipeline);
+		renderManager_.BindPipeline(curPipeline_->backbufferPipeline, curPipeline_->flags);
 	} else {
-		renderManager_.BindPipeline(curPipeline_->framebufferPipeline);
+		renderManager_.BindPipeline(curPipeline_->framebufferPipeline, curPipeline_->flags);
 	}
 }
 
@@ -1443,7 +1456,11 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) { _assert_msg_(fb, "Null fb in VKFramebuffer constructor"); }
+	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {
+		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
+		width_ = fb->width;
+		height_ = fb->height;
+	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
 		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
@@ -1526,7 +1543,8 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
-	// TODO: There are cases where this is okay, actually.
+	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
+	// we're not ready for this.
 	_assert_(fb != curFramebuffer_);
 
 	int aspect = 0;

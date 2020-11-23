@@ -105,7 +105,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 	needGLESRebinds_ = true;
 	CreateDeviceObjects();
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
+	presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_3xx : GLSL_1xx);
 }
 
 void FramebufferManagerGLES::Init() {
@@ -242,57 +242,6 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	}
 }
 
-void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
-	if (!useBufferedRendering_ || !vfb->fbo) {
-		return;
-	}
-
-	// Technically, we should at this point re-interpret the bytes of the old format to the new.
-	// That might get tricky, and could cause unnecessary slowness in some games.
-	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
-	// (it uses 565 to write zeros to the buffer, then 4444 to actually render the shadow.)
-	//
-	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
-	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
-	// to exactly reproduce in 4444 and 8888 formats.
-
-	if (old == GE_FORMAT_565) {
-		// Clear alpha and stencil.
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer");
-		render_->Clear(0, 0.0f, 0, GL_COLOR_BUFFER_BIT, 0x8, 0, 0, 0, 0);
-	}
-}
-
-void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (!framebuffer->fbo || !useBufferedRendering_) {
-		render_->BindTexture(stage, nullptr);
-		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
-	}
-
-	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
-	// Let's just not bother with the copy in that case.
-	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping()) {
-		skipCopy = true;
-	}
-	if (!skipCopy && framebuffer == currentRenderVfb_) {
-		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
-		if (renderCopy) {
-			VirtualFramebuffer copyInfo = *framebuffer;
-			copyInfo.fbo = renderCopy;
-
-			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
-		} else {
-			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		}
-	} else {
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-	}
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
@@ -315,8 +264,8 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
-	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
-	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
+	float srcXFactor = useBlit ? src->renderScaleFactor : 1.0f;
+	float srcYFactor = useBlit ? src->renderScaleFactor : 1.0f;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -326,8 +275,8 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
-	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
+	float dstXFactor = useBlit ? dst->renderScaleFactor : 1.0f;
+	float dstYFactor = useBlit ? dst->renderScaleFactor : 1.0f;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -347,12 +296,11 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 		// In case the src goes outside, we just skip the optimization in that case.
 		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
-		const bool sameDepth = dst->colorDepth == src->colorDepth;
 		const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
 		const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
-		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
+		if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, "BlitFramebuffer");
 			return;
 		}
@@ -361,6 +309,8 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	if (useBlit) {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer");
 	} else {
+		// TODO: Move this workaround out into thin3d, instead of dirtying up the code here.
+
 		draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
 		draw_->BindFramebufferAsTexture(src->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
@@ -377,7 +327,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
 		render_->BindProgram(draw2dprogram_);
-		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
+		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h * dstYFactor, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
 		textureCacheGL_->ForgetLastTexture();
 	}
 
@@ -388,16 +338,14 @@ void FramebufferManagerGLES::EndFrame() {
 }
 
 void FramebufferManagerGLES::DeviceLost() {
-	DestroyAllFBOs();
+	FramebufferManagerCommon::DeviceLost();
 	DestroyDeviceObjects();
-	presentation_->DeviceLost();
 }
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
-	presentation_->DeviceRestore(draw);
-	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	FramebufferManagerCommon::DeviceRestore(draw);
 	CreateDeviceObjects();
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 
 void FramebufferManagerGLES::Resized() {

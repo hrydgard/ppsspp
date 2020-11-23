@@ -22,7 +22,6 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 
@@ -133,7 +132,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	// TODO: Helper with logging?
 	if (!stencilUploadPS_) {
 		std::string errorMessage;
-		bool success = CompilePixelShader(device_, stencil_ps, &stencilUploadPS_, NULL, errorMessage);
+		bool success = CompilePixelShaderD3D9(device_, stencil_ps, &stencilUploadPS_, &errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -155,7 +154,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	}
 	if (!stencilUploadVS_) {
 		std::string errorMessage;
-		bool success = CompileVertexShader(device_, stencil_vs, &stencilUploadVS_, NULL, errorMessage);
+		bool success = CompileVertexShaderD3D9(device_, stencil_vs, &stencilUploadVS_, &errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");

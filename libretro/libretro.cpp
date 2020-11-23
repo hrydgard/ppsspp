@@ -34,6 +34,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
@@ -208,6 +209,7 @@ static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_lev
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
+static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { "off", "safe", "balanced", "aggressive" });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
 static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement", "Texture Replacement", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
@@ -241,6 +243,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_unsafe_func_replacements.GetOptions());
    vars.push_back(ppsspp_cheats.GetOptions());
    vars.push_back(ppsspp_io_timing_method.GetOptions());
+   vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back({});
 
    environ_cb = cb;
@@ -311,6 +314,7 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
    ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
+   ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
 
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
@@ -318,10 +322,8 @@ static void check_variables(CoreParameter &coreParam)
 
    if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
    {
-      coreParam.pixelWidth  = coreParam.renderWidth  = 
-         g_Config.iInternalResolution * 480;
-      coreParam.pixelHeight = coreParam.renderHeight = 
-         g_Config.iInternalResolution * 272;
+      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * 480;
+      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
 
       if (gpu)
       {
@@ -353,11 +355,12 @@ void retro_init(void)
 
    g_Config.bEnableLogging = true;
    g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
-   g_Config.bMemStickInserted = PSP_MEMORYSTICK_STATE_INSERTED;
+   g_Config.bMemStickInserted = true;
    g_Config.iGlobalVolume = VOLUME_MAX - 1;
    g_Config.iAltSpeedVolume = -1;
    g_Config.bEnableSound = true;
    g_Config.iCwCheatRefreshRate = 60;
+   g_Config.iMemStickSizeGB = 16;
 
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
@@ -421,7 +424,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->geometry.base_height  = g_Config.iInternalResolution * 272;
    info->geometry.max_width    = g_Config.iInternalResolution * 480;
    info->geometry.max_height   = g_Config.iInternalResolution * 272;
-   info->geometry.aspect_ratio = 16.0 / 9.0;
+   info->geometry.aspect_ratio = 480.0 / 272.0;  // Not 16:9! But very, very close.
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
@@ -889,6 +892,11 @@ float System_GetPropertyFloat(SystemProperty prop)
    {
       case SYSPROP_DISPLAY_REFRESH_RATE:
          return 60.f;
+      case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+      case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+      case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+      case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+         return 0.0f;
       default:
          break;
    }
@@ -904,6 +912,8 @@ void NativeResized() {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
