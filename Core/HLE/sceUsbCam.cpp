@@ -133,11 +133,21 @@ static int sceUsbCamStopMic() {
 }
 
 static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE,"sceUsbCamReadMicBlocking(%08x, %d): invalid addresses", bufAddr, size);
+		return -1;
+	}
+
 	INFO_LOG(HLE, "sceUsbCamReadMicBlocking: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr);
 }
 
 static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE, "sceUsbCamReadMic(%08x, %d): invalid addresses", bufAddr, size);
+		return -1;
+	}
+
 	INFO_LOG(HLE, "sceUsbCamReadMic: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, false);
 }

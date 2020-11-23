@@ -71,7 +71,7 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 					__KernelResumeThreadFromWait(threadID, ret);
 					waitingThreads.erase(waitingThreads.begin() + count);
-					readMicDataLength += waitingThread.needSize;
+					readMicDataLength = waitingThread.needSize;
 				} else {
 					u64 waitTimeus = (waitingThread.needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThread.sampleRate;
 					if(eventUsbMicAudioUpdate == -1)
@@ -88,7 +88,7 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 				DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 				__KernelResumeThreadFromWait(threadID, ret);
 				waitingThreads.erase(waitingThreads.begin() + count);
-				readMicDataLength += waitingThread.needSize;
+				readMicDataLength = waitingThread.needSize;
 			}
 		}
 		++count;
@@ -261,6 +261,11 @@ static int sceUsbMicPollInputEnd() {
 }
 
 static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE, "sceUsbMicInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		return -1;
+	}
+
 	INFO_LOG(HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
 		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
@@ -269,8 +274,7 @@ static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
 		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
 	}
-	curSampleRate = sampleRate;
-	curChannels = 1;
+
 	return __MicInput(maxSamples, sampleRate, bufAddr);
 }
 
@@ -279,9 +283,22 @@ static int sceUsbMicInputInitEx(u32 paramAddr) {
 	return 0;
 }
 
-static int sceUsbMicInput() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicInput");
-	return 0;
+static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE, "sceUsbMicInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		return -1;
+	}
+
+	ERROR_LOG(HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
+		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
+	}
+
+	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
+		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
+	}
+
+	return __MicInput(maxSamples, sampleRate, bufAddr, false);
 }
 static int sceUsbMicGetInputLength() {
 	int ret = Microphone::availableAudioBufSize() / 2;
@@ -393,6 +410,8 @@ void Microphone::onMicDeviceChange() {
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
+	curSampleRate = sampleRate;
+	curChannels = 1;
 	u32 size = maxSamples << 1;
 	if (!audioBuf) {
 		audioBuf = new QueueBuf(size);
@@ -402,7 +421,6 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 	if (!audioBuf)
 		return 0;
 
-	readMicDataLength = 0;
 	numNeedSamples = maxSamples;
 
 	if (!Microphone::isMicStarted()) {
@@ -418,7 +436,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 			Memory::Memcpy(bufAddr, tempbuf8, size);
 			delete[] tempbuf8;
 		}
-		readMicDataLength += size;
+		readMicDataLength = size;
 		return size;
 	}
 
@@ -439,13 +457,13 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 
 const HLEFunction sceUsbMic[] =
 {
-	{0x06128E42, &WrapI_V<sceUsbMicPollInputEnd>,    "sceUsbMicPollInputEnd",         'i', "" },
+	{0x06128E42, &WrapI_V<sceUsbMicPollInputEnd>,    "sceUsbMicPollInputEnd",         'i', ""    },
 	{0x2E6DCDCD, &WrapI_UUU<sceUsbMicInputBlocking>, "sceUsbMicInputBlocking",        'i', "xxx" },
-	{0x45310F07, &WrapI_U<sceUsbMicInputInitEx>,     "sceUsbMicInputInitEx",          'i', "x" },
-	{0x5F7F368D, &WrapI_V<sceUsbMicInput>,           "sceUsbMicInput",                'i', "" },
-	{0x63400E20, &WrapI_V<sceUsbMicGetInputLength>,  "sceUsbMicGetInputLength",       'i', "" },
+	{0x45310F07, &WrapI_U<sceUsbMicInputInitEx>,     "sceUsbMicInputInitEx",          'i', "x"   },
+	{0x5F7F368D, &WrapI_UUU<sceUsbMicInput>,         "sceUsbMicInput",                'i', "xxx" },
+	{0x63400E20, &WrapI_V<sceUsbMicGetInputLength>,  "sceUsbMicGetInputLength",       'i', ""    },
 	{0xB8E536EB, &WrapI_III<sceUsbMicInputInit>,     "sceUsbMicInputInit",            'i', "iii" },
-	{0xF899001C, &WrapI_V<sceUsbMicWaitInputEnd>,    "sceUsbMicWaitInputEnd",         'i', "" },
+	{0xF899001C, &WrapI_V<sceUsbMicWaitInputEnd>,    "sceUsbMicWaitInputEnd",         'i', ""    },
 };
 
 void Register_sceUsbMic()

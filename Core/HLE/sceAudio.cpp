@@ -473,8 +473,29 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 }
 
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE, "sceAudioInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		return -1;
+	}
+
 	INFO_LOG(HLE, "sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	return __MicInput(maxSamples, sampleRate, bufAddr);
+}
+
+static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(HLE, "sceAudioInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		return -1;
+	}
+
+	ERROR_LOG(HLE, "UNTEST sceAudioInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	return __MicInput(maxSamples, sampleRate, bufAddr, false);
+}
+
+static int sceAudioGetInputLength() {
+	int ret = Microphone::availableAudioBufSize() / 2;
+	ERROR_LOG(HLE, "UNTEST sceAudioGetInputLength(ret: %d)", ret);
+	return ret;
 }
 
 static u32 sceAudioRoutingSetMode(u32 mode) {
@@ -540,9 +561,9 @@ const HLEFunction sceAudio[] =
 	// Microphone interface
 	{0X7DE61688, nullptr,                                   "sceAudioInputInit",             '?', ""    },
 	{0XE926D3FB, nullptr,                                   "sceAudioInputInitEx",           '?', ""    },
-	{0X6D4BEC68, nullptr,                                   "sceAudioInput",                 '?', ""    },
-	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx"    },
-	{0XA708C6A6, nullptr,                                   "sceAudioGetInputLength",        '?', ""    },
+	{0X6D4BEC68, &WrapI_UUU<sceAudioInput>,                 "sceAudioInput",                 'i', "xxx" },
+	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx" },
+	{0XA708C6A6, &WrapI_V<sceAudioGetInputLength>,          "sceAudioGetInputLength",        'i', ""    },
 	{0XA633048E, nullptr,                                   "sceAudioPollInputEnd",          '?', ""    },
 	{0X87B2E651, nullptr,                                   "sceAudioWaitInputEnd",          '?', ""    },
 
