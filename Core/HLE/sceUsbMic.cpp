@@ -50,6 +50,7 @@ std::mutex wtMutex;
 bool isNeedInput;
 u32 curSampleRate;
 u32 curChannels;
+u32 readMicDataLength;
 int micState; // 0 means stopped, 1 means started, for save state.
 
 static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
@@ -72,6 +73,7 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 					__KernelResumeThreadFromWait(threadID, ret);
 					waitingThreads.erase(waitingThreads.begin() + count);
+					readMicDataLength += waitingThread.needSize;
 				} else {
 					u64 waitTimeus = (waitingThread.needSize - Microphone::availableAudioBufSize()) * 1000000 / 2 / waitingThread.sampleRate;
 					if(eventUsbMicAudioUpdate == -1)
@@ -88,6 +90,7 @@ static void __UsbMicAudioUpdate(u64 userdata, int cyclesLate) {
 				DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 				__KernelResumeThreadFromWait(threadID, ret);
 				waitingThreads.erase(waitingThreads.begin() + count);
+				readMicDataLength += waitingThread.needSize;
 			}
 		}
 		++count;
@@ -183,6 +186,8 @@ QueueBuf& QueueBuf::operator=(const QueueBuf &buf) {
 
 u32 QueueBuf::push(u8 *buf, u32 size) {
 	u32 addedSize = 0;
+	if (size > capacity)
+		resize(size);
 	// This will overwrite the old data if the size prepare to add more than remaining size.
 	std::unique_lock<std::mutex> lock(mutex);
 	while (end + size > capacity) {
@@ -331,13 +336,7 @@ bool Microphone::isHaveDevice() {
 }
 
 bool Microphone::isMicStarted() {
-#ifdef HAVE_WIN32_MICROPHONE
-	if(winMic)
-		return winMic->isStarted();
-#elif PPSSPP_PLATFORM(ANDROID)
-	return audioRecording_State();
-#endif
-	return false;
+	return micState == 1;
 }
 
 // Deprecated.
@@ -351,6 +350,10 @@ u32 Microphone::numNeedSamples() {
 
 u32 Microphone::availableAudioBufSize() {
 	return audioBuf->getAvailableSize();
+}
+
+u32 Microphone::getReadMicDataLength() {
+	return ::readMicDataLength;
 }
 
 int Microphone::addAudioData(u8 *buf, u32 size) {
@@ -400,21 +403,26 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block) {
 	if (!audioBuf)
 		return 0;
 
+	readMicDataLength = 0;
 	numNeedSamples = maxSamples;
+
 	if (!Microphone::isMicStarted()) {
 		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
 		Microphone::startMic(param);
 	}
+
 	if (!block) {
-		size = Microphone::availableAudioBufSize();
 		if (size > 0) {
 			u8 *tempbuf8 = new u8[size];
-			Microphone::getAudioData(tempbuf8, Microphone::availableAudioBufSize());
+			memset(tempbuf8, 0, size);
+			Microphone::getAudioData(tempbuf8, size);
 			Memory::Memcpy(bufAddr, tempbuf8, size);
 			delete[] tempbuf8;
 		}
+		readMicDataLength += size;
 		return size;
 	}
+
 	u64 waitTimeus = 0;
 	if (Microphone::availableAudioBufSize() < size) {
 		waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;

@@ -65,10 +65,10 @@ namespace Microphone {
 	int stopMic();
 	bool isHaveDevice();
 	bool isMicStarted();
-	// Deprecated.
-	bool isNeedInput();
 	u32 numNeedSamples();
 	u32 availableAudioBufSize();
+	u32 getReadMicDataLength();
+
 
 	int addAudioData(u8 *buf, u32 size);
 	u32 getAudioData(u8 *buf, u32 size);
@@ -76,6 +76,9 @@ namespace Microphone {
 
 	std::vector<std::string> getDeviceList();
 	void onMicDeviceChange();
+
+	// Deprecated.
+	bool isNeedInput();
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block = true);

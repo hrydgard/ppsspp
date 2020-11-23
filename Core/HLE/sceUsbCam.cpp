@@ -142,6 +142,10 @@ static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, false);
 }
 
+static int sceUsbCamGetMicDataLength() {
+	return Microphone::getReadMicDataLength();
+}
+
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupVideoParam))) {
 		Memory::ReadStruct(paramAddr, &config->videoParam);
@@ -251,7 +255,7 @@ const HLEFunction sceUsbCam[] =
 	{ 0X3DC0088E, &WrapI_UU<sceUsbCamReadMic>,                "sceUsbCamReadMic",                        'i', "xx" },
 	{ 0XB048A67D, nullptr,                                    "sceUsbCamWaitReadMicEnd",                 '?', "" },
 	{ 0XF8847F60, nullptr,                                    "sceUsbCamPollReadMicEnd",                 '?', "" },
-	{ 0X5778B452, nullptr,                                    "sceUsbCamGetMicDataLength",               '?', "" },
+	{ 0X5778B452, &WrapI_V<sceUsbCamGetMicDataLength>,        "sceUsbCamGetMicDataLength",               'i', "" },
 	{ 0X08AEE98A, nullptr,                                    "sceUsbCamSetMicGain",                     '?', "" },
 
 	{ 0X17F7B2FB, &WrapI_UUI<sceUsbCamSetupVideo>,            "sceUsbCamSetupVideo",                     'i', "xxi" },
