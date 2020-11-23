@@ -48,29 +48,58 @@ inline int Xpose(int v) {
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
 
 inline float vfpu_sin(float angle) {
-	return (float)sin((double)angle * M_PI_2);
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 0.0f || angle == 2.0f) {
+		return 0.0f;
+	} else if (angle == 1.0f) {
+		return 1.0f;
+	} else if (angle == 3.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return sinf(angle);
 }
 
 inline float vfpu_cos(float angle) {
-	return (float)cos((double)angle * M_PI_2);
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 1.0f || angle == 3.0f) {
+		return 0.0f;
+	} else if (angle == 0.0f) {
+		return 1.0f;
+	} else if (angle == 2.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return cosf(angle);
 }
 
 inline float vfpu_asin(float angle) {
 	return asinf(angle) / M_PI_2;
 }
 
-inline void vfpu_sincos(float angle_f, float &sine, float &cosine) {
-	double angle = (double)angle_f * M_PI_2;
+inline void vfpu_sincos(float angle, float &sine, float &cosine) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 0.0f) {
+		sine = 0.0f;
+		cosine = 1.0f;
+	} else if (angle == 1.0f) {
+		sine = 1.0f;
+		cosine = 0.0f;
+	} else if (angle == 2.0f) {
+		sine = 0.0f;
+		cosine = -1.0f;
+	} else if (angle == 3.0f) {
+		sine = -1.0f;
+		cosine = 0.0f;
+	} else {
+		angle *= (float)M_PI_2;
 #if defined(__linux__)
-	double d_sine;
-	double d_cosine;
-	sincos(angle, &d_sine, &d_cosine);
-	sine = (float)d_sine;
-	cosine = (float)d_cosine;
+		sincosf(angle, &sine, &cosine);
 #else
-	sine = (float)sin(angle);
-	cosine = (float)cos(angle);
+		sine = sinf(angle);
+		cosine = cosf(angle);
 #endif
+	}
 }
 
 inline float vfpu_clamp(float v, float min, float max) {
