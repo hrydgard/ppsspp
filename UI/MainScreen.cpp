@@ -988,8 +988,8 @@ void MainScreen::CreateViews() {
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		scrollAllGames->SetTag("MainScreenAllGames");
+		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT), true);
+		scrollAllGames_->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
@@ -1000,13 +1000,14 @@ void MainScreen::CreateViews() {
 			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-		scrollAllGames->Add(tabAllGames);
+		scrollAllGames_->Add(tabAllGames);
 		gameBrowsers_.push_back(tabAllGames);
 		scrollHomebrew->Add(tabHomebrew);
 		gameBrowsers_.push_back(tabHomebrew);
 
-		tabHolder_->AddTab(mm->T("Games"), scrollAllGames);
+		tabHolder_->AddTab(mm->T("Games"), scrollAllGames_);
 		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
+		scrollAllGames_->ScrollTo(g_Config.fGameListScrollPosition);
 
 		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -1202,6 +1203,7 @@ void MainScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
+	g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
 }
 
 bool MainScreen::UseVerticalLayout() const {
