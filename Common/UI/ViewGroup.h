@@ -222,8 +222,8 @@ private:
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), orientation_(orientation) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0, bool rememberPosition = false)
+		: ViewGroup(layoutParams), orientation_(orientation), rememberPosition_(rememberPosition) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -262,6 +262,7 @@ private:
 	float pull_ = 0.0f;
 	float lastViewSize_ = 0.0f;
 	bool scrollToTopOnSizeChange_ = false;
+	bool rememberPosition_;
 };
 
 class ViewPager : public ScrollView {
