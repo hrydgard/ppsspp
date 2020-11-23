@@ -895,3 +895,86 @@ float vfpu_rsqrt(float a) {
 
 	return val.f;
 }
+
+float vfpu_sin_single(float angle) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 0.0f || angle == 2.0f) {
+		return 0.0f;
+	} else if (angle == 1.0f) {
+		return 1.0f;
+	} else if (angle == 3.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return sinf(angle);
+}
+
+float vfpu_cos_single(float angle) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 1.0f || angle == 3.0f) {
+		return 0.0f;
+	} else if (angle == 0.0f) {
+		return 1.0f;
+	} else if (angle == 2.0f) {
+		return -1.0f;
+	}
+	angle *= (float)M_PI_2;
+	return cosf(angle);
+}
+
+void vfpu_sincos_single(float angle, float &sine, float &cosine) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 0.0f) {
+		sine = 0.0f;
+		cosine = 1.0f;
+	} else if (angle == 1.0f) {
+		sine = 1.0f;
+		cosine = 0.0f;
+	} else if (angle == 2.0f) {
+		sine = 0.0f;
+		cosine = -1.0f;
+	} else if (angle == 3.0f) {
+		sine = -1.0f;
+		cosine = 0.0f;
+	} else {
+		angle *= (float)M_PI_2;
+#if defined(__linux__)
+		sincosf(angle, &sine, &cosine);
+#else
+		sine = sinf(angle);
+		cosine = cosf(angle);
+#endif
+	}
+}
+
+float vfpu_sin_double(float angle) {
+	return (float)sin((double)angle * M_PI_2);
+}
+
+float vfpu_cos_double(float angle) {
+	return (float)cos((double)angle * M_PI_2);
+}
+
+void vfpu_sincos_double(float angle_f, float &sine, float &cosine) {
+	double angle = (double)angle_f * M_PI_2;
+#if defined(__linux__)
+	double d_sine;
+	double d_cosine;
+	sincos(angle, &d_sine, &d_cosine);
+	sine = (float)d_sine;
+	cosine = (float)d_cosine;
+#else
+	sine = (float)sin(angle);
+	cosine = (float)cos(angle);
+#endif
+}
+
+float (*vfpu_sin)(float);
+float (*vfpu_cos)(float);
+void (*vfpu_sincos)(float, float&, float&);
+
+void InitVFPUSinCos(bool useDoublePrecision) {
+	vfpu_sin = useDoublePrecision ? vfpu_sin_double : vfpu_sin_single;
+	vfpu_cos = useDoublePrecision ? vfpu_cos_double : vfpu_cos_single;
+	vfpu_sincos = useDoublePrecision ? vfpu_sincos_double : vfpu_sincos_single;
+}

@@ -73,6 +73,7 @@ struct CompatFlags {
 	bool MemstickFixedFree;
 	bool DateLimited;
 	bool ReinterpretFramebuffers;
+	bool DoublePrecisionSinCos;
 };
 
 class IniFile;
