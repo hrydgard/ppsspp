@@ -1507,20 +1507,20 @@ void PostPutAction::run(MipsCall &call) {
 // Program signals that it has written data to the ringbuffer and gets a callback ?
 static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int available)
 {
-	// Generally, program will call sceMpegRingbufferAvailableSize() before this func.
-	// Still need to check available?
-
-	numPackets = std::min(numPackets, available);
-	if (numPackets <= 0) {
-		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
-		return 0;
-	}
-
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		// Would have crashed before, TODO test behavior.
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut(%08x, %i, %i): invalid ringbuffer address", ringbufferAddr, numPackets, available);
 		return -1;
+	}
+
+	numPackets = std::min(numPackets, available);
+	// Generally, program will call sceMpegRingbufferAvailableSize() before this func.
+	// Seems still need to check actual available, Patapon 3 for example.
+	numPackets = std::min(numPackets, ringbuffer->packets - ringbuffer->packetsAvail);
+	if (numPackets <= 0) {
+		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
+		return 0;
 	}
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
