@@ -26,6 +26,12 @@ void __UsbMicInit();
 void __UsbMicShutdown();
 void __UsbMicDoState(PointerWrap &p);
 
+enum MICTYPE {
+	AUDIOINPUT,
+	USBMIC,
+	CAMERAMIC
+};
+
 struct MicWaitInfo {
 	SceUID threadID;
 	u32 addr;
@@ -81,4 +87,4 @@ namespace Microphone {
 	bool isNeedInput();
 }
 
-u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, bool block = true);
+u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block = true);

@@ -139,7 +139,7 @@ static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
 	}
 
 	INFO_LOG(HLE, "sceUsbCamReadMicBlocking: size: %d", size);
-	return __MicInput(size >> 1, config->micParam.frequency, bufAddr);
+	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, CAMERAMIC);
 }
 
 static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
@@ -149,7 +149,7 @@ static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
 	}
 
 	INFO_LOG(HLE, "sceUsbCamReadMic: size: %d", size);
-	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, false);
+	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, CAMERAMIC, false);
 }
 
 static int sceUsbCamGetMicDataLength() {

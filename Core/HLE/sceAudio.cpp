@@ -479,7 +479,7 @@ static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	}
 
 	INFO_LOG(HLE, "sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
-	return __MicInput(maxSamples, sampleRate, bufAddr);
+	return __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT);
 }
 
 static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
@@ -489,11 +489,11 @@ static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	}
 
 	ERROR_LOG(HLE, "UNTEST sceAudioInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
-	return __MicInput(maxSamples, sampleRate, bufAddr, false);
+	return __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT, false);
 }
 
 static int sceAudioGetInputLength() {
-	int ret = Microphone::availableAudioBufSize() / 2;
+	int ret = Microphone::getReadMicDataLength() / 2;
 	ERROR_LOG(HLE, "UNTEST sceAudioGetInputLength(ret: %d)", ret);
 	return ret;
 }
