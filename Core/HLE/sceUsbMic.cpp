@@ -120,6 +120,7 @@ void __UsbMicDoState(PointerWrap &p) {
 	if (!s) {
 		return;
 	}
+	bool isMicStartedNow = Microphone::isMicStarted();
 	Do(p, numNeedSamples);
 	Do(p, waitingThreads);
 	Do(p, isNeedInput);
@@ -143,10 +144,10 @@ void __UsbMicDoState(PointerWrap &p) {
 	}
 
 	if (micState == 0) {
-		if (Microphone::isMicStarted())
+		if (isMicStartedNow)
 			Microphone::stopMic();
 	} else if (micState == 1) {
-		if (Microphone::isMicStarted()) {
+		if (isMicStartedNow) {
 			// Ok, started.
 		} else {
 			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
