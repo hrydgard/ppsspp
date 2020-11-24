@@ -182,6 +182,7 @@ bool MpegDemux::skipPackHeader() {
 		if (read8() != 0xFF) {
 			return false;
 		}
+		--stuffing;
 	}
 	return true;
 }
