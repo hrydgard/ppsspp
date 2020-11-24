@@ -15,17 +15,12 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _THUNK_H_
-#define _THUNK_H_
+#pragma once
 
 #include <map>
 
 #include "Common.h"
-#if defined(ARM)
-#include "ArmEmitter.h"
-#else
 #include "x64Emitter.h"
-#endif
 
 // This simple class creates a wrapper around a C/C++ function that saves all fp state
 // before entering it, and restores it upon exit. This is required to be able to selectively
@@ -33,18 +28,18 @@
 // of complexity that it means to protect the generated code from this problem.
 
 // This process is called thunking.
+// Only used for X86 right now.
 
 // There will only ever be one level of thunking on the stack, plus,
 // we don't want to pollute the stack, so we store away regs somewhere global.
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
-#if defined(ARM)
-class ThunkManager : public ArmGen::ARMXCodeBlock
-#else
-class ThunkManager : public Gen::XCodeBlock
-#endif
+typedef Gen::XEmitter ThunkEmitter;
+typedef Gen::XCodeBlock ThunkCodeBlock;
+
+class ThunkManager : public ThunkCodeBlock
 {
-	std::map<void *, const u8 *> thunks;
+	std::map<const void *, const u8 *> thunks;
 
 	const u8 *save_regs;
 	const u8 *load_regs;
@@ -56,19 +51,41 @@ public:
 	~ThunkManager() {
 		Shutdown();
 	}
-	void *ProtectFunction(void *function, int num_params);
+	const void *ProtectFunction(const void *function, int num_params);
 
-	const u8 *GetSaveRegsFunction() const {
-		return save_regs;
+	template <typename Tr>
+	const void *ProtectFunction(Tr (*func)()) {
+		return ProtectFunction((const void *)func, 0);
 	}
-	const u8 *GetLoadRegsFunction() const {
-		return load_regs;
+
+	template <typename Tr, typename T1>
+	const void *ProtectFunction(Tr (*func)(T1)) {
+		return ProtectFunction((const void *)func, 1);
 	}
+
+	template <typename Tr, typename T1, typename T2>
+	const void *ProtectFunction(Tr (*func)(T1, T2)) {
+		return ProtectFunction((const void *)func, 2);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3)) {
+		return ProtectFunction((const void *)func, 3);
+	}
+
+	template <typename Tr, typename T1, typename T2, typename T3, typename T4>
+	const void *ProtectFunction(Tr (*func)(T1, T2, T3, T4)) {
+		return ProtectFunction((const void *)func, 4);
+	}
+
+	void Enter(ThunkEmitter *emit, bool withinCall = false);
+	void Leave(ThunkEmitter *emit, bool withinCall = false);
 
 private:
 	void Init();
 	void Shutdown();
 	void Reset();
-};
 
-#endif // _THUNK_H_
+	int ThunkStackOffset();
+	int ThunkBytesNeeded();
+};

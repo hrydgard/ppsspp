@@ -17,12 +17,15 @@
 
 #include <map>
 #include <vector>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMbx.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
@@ -59,18 +62,19 @@ struct NativeMbx
 
 struct Mbx : public KernelObject
 {
-	const char *GetName() {return nmb.name;}
-	const char *GetTypeName() {return "Mbx";}
+	const char *GetName() override { return nmb.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mbx"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MBXID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mbox; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Mbox; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mbox; }
 
 	void AddWaitingThread(SceUID id, u32 addr)
 	{
 		bool inserted = false;
 		if (nmb.attr & SCE_KERNEL_MBA_THPRI)
 		{
-			for (std::vector<MbxWaitingThread>::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
+			for (auto it = waitingThreads.begin(); it != waitingThreads.end(); ++it)
 			{
 				if (__KernelGetThreadPrio(id) < __KernelGetThreadPrio(it->threadID))
 				{
@@ -121,49 +125,34 @@ struct Mbx : public KernelObject
 	{
 		u32 ptr = nmb.packetListHead;
 
-		if (nmb.numMessages == 991)
+		// Check over the linked list and reset the head.
+		int c = 0;
+		while (true)
 		{
 			u32 next = Memory::Read_U32(nmb.packetListHead);
-			u32 next2 = Memory::Read_U32(next);
-			if (next2 == ptr && next != ptr)
+			if (!Memory::IsValidAddress(next))
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			if (next == ptr)
 			{
-				Memory::Write_U32(next, next);
-				nmb.packetListHead = next;
-			}
-			else
-				nmb.packetListHead = 0;
-		}
-		else
-		{
-			// Check over the linked list and reset the head.
-			int c = 0;
-			while (true)
-			{
-				u32 next = Memory::Read_U32(nmb.packetListHead);
-				if (!Memory::IsValidAddress(next))
-					return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-				if (next == ptr)
+				if (nmb.packetListHead != ptr)
 				{
-					if (nmb.packetListHead != ptr)
-					{
-						next = Memory::Read_U32(next);
-						Memory::Write_U32(next, nmb.packetListHead);
-						nmb.packetListHead = next;
-						break;
-					}
-					else
-					{
-						if (c < nmb.numMessages - 1)
-							return PSP_MBX_ERROR_DUPLICATE_MSG;
-
-						nmb.packetListHead = 0;
-						break;
-					}
+					next = Memory::Read_U32(next);
+					Memory::Write_U32(next, nmb.packetListHead);
+					nmb.packetListHead = next;
+					break;
 				}
+				else
+				{
+					if (c < nmb.numMessages - 1)
+						return PSP_MBX_ERROR_DUPLICATE_MSG;
 
-				nmb.packetListHead = next;
-				c++;
+					nmb.packetListHead = 0;
+					break;
+				}
 			}
+
+			nmb.packetListHead = next;
+			c++;
 		}
 
 		// Tell the receiver about the message.
@@ -173,16 +162,16 @@ struct Mbx : public KernelObject
 		return 0;
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Mbx", 1);
 		if (!s)
 			return;
 
-		p.Do(nmb);
+		Do(p, nmb);
 		MbxWaitingThread mwt = {0};
-		p.Do(waitingThreads, mwt);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, mwt);
+		Do(p, pausedWaits);
 	}
 
 	NativeMbx nmb;
@@ -207,7 +196,7 @@ void __KernelMbxDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(mbxWaitTimer);
+	Do(p, mbxWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
 }
 
@@ -216,7 +205,7 @@ KernelObject *__KernelMbxObject()
 	return new Mbx;
 }
 
-bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
 {
 	if (!HLEKernel::VerifyWait(th.threadID, WAITTYPE_MBX, m->GetUID()))
 		return true;
@@ -234,7 +223,7 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	return true;
 }
 
-bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
 {
 	if (m->nmb.numMessages > 0 && __KernelUnlockMbxForThread(m, waitData, error, 0, wokeThreads))
 	{
@@ -246,18 +235,18 @@ bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &er
 
 void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
+	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
@@ -268,7 +257,7 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<Mbx, WAITTYPE_MBX>(threadID);
 }
 
-void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
+static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || mbxWaitTimer == -1)
 		return;
@@ -277,7 +266,7 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 
 	// This seems to match the actual timing.
 	if (micro <= 2)
-		micro = 10;
+		micro = 20;
 	else if (micro <= 209)
 		micro = 250;
 
@@ -285,9 +274,9 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
 }
 
-std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
+static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
 {
-	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
+	_dbg_assert_msg_(!waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
 
 	std::vector<MbxWaitingThread>::iterator iter, end, best = waiting.end();
 	u32 best_prio = 0xFFFFFFFF;
@@ -301,7 +290,7 @@ std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxW
 		}
 	}
 
-	_dbg_assert_msg_(SCEKERNEL, best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
+	_dbg_assert_msg_(best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
 	return best;
 }
 
@@ -437,7 +426,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 			NativeMbxPacket p;
 			for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 			{
-				Memory::ReadStruct<NativeMbxPacket>(next, &p);
+				Memory::ReadStructUnchecked<NativeMbxPacket>(next, &p);
 				if (addPacket->priority < p.priority)
 				{
 					if (i == 0)

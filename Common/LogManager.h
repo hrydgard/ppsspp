@@ -17,36 +17,47 @@
 
 #pragma once
 
-#include "Log.h"
-#include "StringUtils.h"
-#include "FileUtil.h"
-#include "file/ini_file.h" 
+#include "ppsspp_config.h"
 
-#include <set>
-#include "StdMutex.h"
+#include <fstream>
+#include <mutex>
+#include <vector>
+
+#include "Common/Data/Format/IniFile.h"
+#include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 
 #define	MAX_MESSAGES 8000   
-#define MAX_MSGLEN  1024
 
 extern const char *hleCurrentThreadName;
+
+// Struct that listeners can output how they want. For example, on Android we don't want to add
+// timestamp or write the level as a string, those already exist.
+struct LogMessage {
+	char timestamp[16];
+	char header[64];  // Filename/thread/etc. in front.
+	LogTypes::LOG_LEVELS level;
+	const char *log;
+	std::string msg;  // The actual log message.
+};
 
 // pure virtual interface
 class LogListener {
 public:
 	virtual ~LogListener() {}
 
-	virtual void Log(LogTypes::LOG_LEVELS, const char *msg) = 0;
+	virtual void Log(const LogMessage &msg) = 0;
 };
 
 class FileLogListener : public LogListener {
 public:
 	FileLogListener(const char *filename);
 
-	void Log(LogTypes::LOG_LEVELS, const char *msg);
+	void Log(const LogMessage &msg);
 
 	bool IsValid() { if (!m_logfile) return false; else return true; }
 	bool IsEnabled() const { return m_enable; }
-	void SetEnable(bool enable) { m_enable = enable; }
+	void SetEnabled(bool enable) { m_enable = enable; }
 
 	const char* GetName() const { return "file"; }
 
@@ -56,101 +67,109 @@ private:
 	bool m_enable;
 };
 
-class DebuggerLogListener : public LogListener {
+class OutputDebugStringLogListener : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS, const char *msg);
+	void Log(const LogMessage &msg);
+};
+
+class RingbufferLogListener : public LogListener {
+public:
+	RingbufferLogListener() : curMessage_(0), count_(0), enabled_(false) {}
+	void Log(const LogMessage &msg);
+
+	bool IsEnabled() const { return enabled_; }
+	void SetEnabled(bool enable) { enabled_ = enable; }
+
+	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
+	const char *TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg.c_str(); }
+	LogTypes::LOG_LEVELS LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
+
+private:
+	enum { MAX_LOGS = 128 };
+	LogMessage messages_[MAX_LOGS];
+	int curMessage_;
+	int count_;
+	bool enabled_;
 };
 
 // TODO: A simple buffered log that can be used to display the log in-window
 // on Android etc.
 // class BufferedLogListener { ... }
 
-class LogChannel {
-public:
-	LogChannel(const char* shortName, const char* fullName, bool enable = false);
-	
-	const char* GetShortName() const { return m_shortName; }
-	const char* GetFullName() const { return m_fullName; }
-
-	void AddListener(LogListener* listener);
-	void RemoveListener(LogListener* listener);
-
-	void Trigger(LogTypes::LOG_LEVELS, const char *msg);
-
-	bool IsEnabled() const { return enable_; }
-	void SetEnable(bool enable) { enable_ = enable; }
-
-	LogTypes::LOG_LEVELS GetLevel() const { return (LogTypes::LOG_LEVELS)level_; }
-
-	void SetLevel(LogTypes::LOG_LEVELS level) {	level_ = level; }
-	bool HasListeners() const { return !m_listeners.empty(); }
-
-	// Although not elegant, easy to set with a PopupMultiChoice...
-	int level_;
-	bool enable_;
-
-private:
-	char m_fullName[128];
-	char m_shortName[32];
-	std::mutex m_listeners_lock;
-	std::set<LogListener*> m_listeners;
+struct LogChannel {
+	char m_shortName[32]{};
+	LogTypes::LOG_LEVELS level;
+	bool enabled;
 };
 
 class ConsoleListener;
 
-class LogManager : NonCopyable {
+class LogManager {
 private:
-	LogChannel* log_[LogTypes::NUMBER_OF_LOGS];
-	FileLogListener *fileLog_;
-	ConsoleListener *consoleLog_;
-	DebuggerLogListener *debuggerLog_;
-	static LogManager *logManager_;  // Singleton. Ugh.
-	std::mutex log_lock_;
-
-	LogManager();
+	LogManager(bool *enabledSetting);
 	~LogManager();
 
+	// Prevent copies.
+	LogManager(const LogManager &) = delete;
+	void operator=(const LogManager &) = delete;
+
+	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
+	FileLogListener *fileLog_ = nullptr;
+	ConsoleListener *consoleLog_ = nullptr;
+	OutputDebugStringLogListener *debuggerLog_ = nullptr;
+	RingbufferLogListener *ringLog_ = nullptr;
+	static LogManager *logManager_;  // Singleton. Ugh.
+
+	std::mutex log_lock_;
+	std::mutex listeners_lock_;
+	std::vector<LogListener*> listeners_;
+
 public:
+	void AddListener(LogListener *listener);
+	void RemoveListener(LogListener *listener);
 
 	static u32 GetMaxLevel() { return MAX_LOGLEVEL;	}
 	static int GetNumChannels() { return LogTypes::NUMBER_OF_LOGS; }
 
 	void Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 			 const char *file, int line, const char *fmt, va_list args);
+	bool IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 	LogChannel *GetLogChannel(LogTypes::LOG_TYPE type) {
-		return log_[type];
+		return &log_[type];
 	}
 
 	void SetLogLevel(LogTypes::LOG_TYPE type, LogTypes::LOG_LEVELS level) {
-		log_[type]->SetLevel(level);
+		log_[type].level = level;
 	}
 
-	void SetEnable(LogTypes::LOG_TYPE type, bool enable) {
-		log_[type]->SetEnable(enable);
+	void SetAllLogLevels(LogTypes::LOG_LEVELS level) {
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
+			log_[i].level = level;
+		}
+	}
+
+	void SetEnabled(LogTypes::LOG_TYPE type, bool enable) {
+		log_[type].enabled = enable;
 	}
 
 	LogTypes::LOG_LEVELS GetLogLevel(LogTypes::LOG_TYPE type) {
-		return log_[type]->GetLevel();
-	}
-
-	void AddListener(LogTypes::LOG_TYPE type, LogListener *listener) {
-		log_[type]->AddListener(listener);
-	}
-
-	void RemoveListener(LogTypes::LOG_TYPE type, LogListener *listener) {
-		log_[type]->RemoveListener(listener);
+		return log_[type].level;
 	}
 
 	ConsoleListener *GetConsoleListener() const {
 		return consoleLog_;
 	}
 
-	DebuggerLogListener *GetDebuggerListener() const {
+	OutputDebugStringLogListener *GetDebuggerListener() const {
 		return debuggerLog_;
 	}
 
-	static LogManager* GetInstance() {
+	RingbufferLogListener *GetRingbufferListener() const {
+		return ringLog_;
+	}
+
+	static inline LogManager* GetInstance() {
 		return logManager_;
 	}
 
@@ -158,11 +177,11 @@ public:
 		logManager_ = logManager;
 	}
 
-	static void Init();
+	static void Init(bool *enabledSetting);
 	static void Shutdown();
 
 	void ChangeFileLog(const char *filename);
 
-  void SaveConfig(IniFile::Section *section);
-  void LoadConfig(IniFile::Section *section);
+	void SaveConfig(Section *section);
+	void LoadConfig(Section *section, bool debugDefaults);
 };

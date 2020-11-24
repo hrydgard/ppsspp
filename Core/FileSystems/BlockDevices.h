@@ -23,47 +23,73 @@
 // The ISOFileSystemReader reads from a BlockDevice, so it automatically works
 // with CISO images.
 
-#include "../../Globals.h"
+#include <mutex>
+
+#include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
 
-class BlockDevice
-{
+class FileLoader;
+
+class BlockDevice {
 public:
 	virtual ~BlockDevice() {}
-	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
+	virtual bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) = 0;
+	virtual bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+		for (int b = 0; b < count; ++b) {
+			if (!ReadBlock(minBlock + b, outPtr)) {
+				return false;
+			}
+			outPtr += GetBlockSize();
+		}
+		return true;
+	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
+	virtual bool IsDisc() = 0;
+
+	u32 CalculateCRC();
+	void NotifyReadError();
+
+protected:
+	bool reportedError_ = false;
 };
 
-
-class CISOFileBlockDevice : public BlockDevice
-{
+class CISOFileBlockDevice : public BlockDevice {
 public:
-	CISOFileBlockDevice(FILE *file);
+	CISOFileBlockDevice(FileLoader *fileLoader);
 	~CISOFileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() { return numBlocks;}
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() override { return numBlocks; }
+	bool IsDisc() override { return true; }
 
 private:
-	FILE *f;
+	FileLoader *fileLoader_;
 	u32 *index;
-	int indexShift;
-	u32 blockSize;
+	u8 *readBuffer;
+	u8 *zlibBuffer;
+	u32 zlibBufferFrame;
+	u8 indexShift;
+	u8 blockShift;
+	u32 frameSize;
 	u32 numBlocks;
+	u32 numFrames;
+	int ver_;
 };
 
 
-class FileBlockDevice : public BlockDevice
-{
+class FileBlockDevice : public BlockDevice {
 public:
-	FileBlockDevice(FILE *file);
+	FileBlockDevice(FileLoader *fileLoader);
 	~FileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() override {return (u32)(filesize_ / GetBlockSize());}
+	bool IsDisc() override { return true; }
 
 private:
-	FILE *f;
-	size_t filesize;
+	FileLoader *fileLoader_;
+	u64 filesize_;
 };
 
 
@@ -77,17 +103,18 @@ struct table_info {
 	int unk_1c;
 };
 
-class NPDRMDemoBlockDevice : public BlockDevice
-{
+class NPDRMDemoBlockDevice : public BlockDevice {
 public:
-	NPDRMDemoBlockDevice(FILE *file);
+	NPDRMDemoBlockDevice(FileLoader *fileLoader);
 	~NPDRMDemoBlockDevice();
 
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)lbaSize;}
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	u32 GetNumBlocks() override {return (u32)lbaSize;}
+	bool IsDisc() override { return false; }
 
 private:
-	FILE *f;
+	FileLoader *fileLoader_;
+	static std::mutex mutex_;
 	u32 lbaSize;
 
 	u32 psarOffset;
@@ -105,4 +132,4 @@ private:
 };
 
 
-BlockDevice *constructBlockDevice(const char *filename);
+BlockDevice *constructBlockDevice(FileLoader *fileLoader);

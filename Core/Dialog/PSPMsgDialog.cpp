@@ -15,16 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPMsgDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "../Core/MemMap.h"
+#include <algorithm>
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
+#include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 
-const float FONT_SCALE = 0.65f;
+static const float FONT_SCALE = 0.65f;
+
+// These are rough, it seems to take a long time to init, and probably depends on threads.
+// TODO: This takes like 700ms on a PSP but that's annoyingly long.
+const static int MSG_INIT_DELAY_US = 300000;
+const static int MSG_SHUTDOWN_DELAY_US = 26000;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -35,12 +44,11 @@ PSPMsgDialog::PSPMsgDialog()
 PSPMsgDialog::~PSPMsgDialog() {
 }
 
-int PSPMsgDialog::Init(unsigned int paramAddr)
-{
+int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-	{
-		return 0;
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	messageDialogAddr = paramAddr;
@@ -54,13 +62,16 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	Memory::Memcpy(&messageDialog,paramAddr,size);
 
 	// debug info
-	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
+	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
 		ERROR_LOG_REPORT(SCEUTILITY, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;
+	scrollPos_ = 0.0f;
+	framesUpHeld_ = 0;
+	framesDownHeld_ = 0;
 
 	// Check request invalidity
 	if(messageDialog.type == 0 && !(messageDialog.errorNum & 0x80000000))
@@ -70,7 +81,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	}
 	else if(size == SCE_UTILITY_MSGDIALOG_SIZE_V2 && messageDialog.type == 1)
 	{
-		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXT |
+		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXTSOUND |
 				SCE_UTILITY_MSGDIALOG_OPTION_YESNO |
 				SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO;
 		if (((messageDialog.options | validOp) ^ validOp) != 0)
@@ -83,6 +94,11 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	{
 		if((messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO) &&
 				!(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_YESNO))
+		{
+			flag |= DS_ERROR;
+			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+		}
+		if (messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED)
 		{
 			flag |= DS_ERROR;
 			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
@@ -119,116 +135,166 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	}
 
 	if (flag & DS_ERRORMSG) {
-		snprintf(msgText, 512, "Error code: %08x", messageDialog.errorNum);
+		FormatErrorCode(messageDialog.errorNum);
 	} else {
-		strncpy(msgText, messageDialog.string, 512);
+		truncate_cpy(msgText, messageDialog.string);
 	}
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatusInit(MSG_INIT_DELAY_US);
 
-	lastButtons = __CtrlPeekButtons();
+	UpdateButtons();
 	StartFade(true);
 	return 0;
 }
 
-void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
-{
-	float WRAP_WIDTH = 300.0f;
-	if (UTF8StringNonASCIICount(text.c_str()) > 3)
-		WRAP_WIDTH = 372.0f;
-	
-	float y = 140.0f;
-	float h, sy ,ey;
-	int n;
-	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float h2 = h * n / 2.0f;
-	ey = y + h2 + 20.0f;
 
-	if (hasYesNo)
-	{
-		I18NCategory *d = GetI18NCategory("Dialog");
-		const char *choiceText;
-		u32 yesColor, noColor;
-		float x, w;
+void PSPMsgDialog::FormatErrorCode(uint32_t code) {
+	auto di = GetI18NCategory("Dialog");
+
+	switch (code) {
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataDataBroken", "Save data was corrupt."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK:
+	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataNoMS", "Memory stick not inserted."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataNoData", "Warning: no save data was found."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL:
+	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataMSFull", "Memory stick full.  Check your storage space."), code);
+		break;
+
+	default:
+		snprintf(msgText, 512, "%s %08x", di->T("MsgErrorCode", "Error code:"), code);
+	}
+}
+
+void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
+	auto di = GetI18NCategory("Dialog");
+
+	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
+	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
+
+	// Without the scrollbar, we have 390 total pixels.
+	float WRAP_WIDTH = 340.0f;
+	if (UTF8StringNonASCIICount(text.c_str()) >= text.size() / 4) {
+		WRAP_WIDTH = 376.0f;
+		if (text.size() > 12) {
+			messageStyle.scale = 0.6f;
+		}
+	}
+
+	float totalHeight = 0.0f;
+	PPGeMeasureText(nullptr, &totalHeight, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	// The PSP normally only shows about 8 lines at a time.
+	// For improved UX, we intentionally show part of the next line.
+	float visibleHeight = std::min(totalHeight, 175.0f);
+	float h2 = visibleHeight / 2.0f;
+
+	float centerY = 135.0f;
+	float sy = centerY - h2 - 15.0f;
+	float ey = centerY + h2 + 20.0f;
+	float buttonY = centerY + h2 + 5.0f;
+
+	auto drawSelectionBoxAndAdjust = [&](float x) {
+		// Box has a fixed size.
+		float w = 15.0f;
+		float h = 8.0f;
+		PPGeDrawRect(x - w, buttonY - h, x + w, buttonY + h, CalcFadedColor(0x6DCFCFCF));
+
+		centerY -= h + 5.0f;
+		sy -= h + 5.0f;
+		ey = buttonY + h * 2.0f + 5.0f;
+	};
+
+	if (hasYesNo) {
 		if (yesnoChoice == 1) {
-			choiceText = d->T("Yes");
-			x = 204.0f;
-			yesColor = 0xFFFFFFFF;
-			noColor  = 0xFFFFFFFF;
+			drawSelectionBoxAndAdjust(204.0f);
+		} else {
+			drawSelectionBoxAndAdjust(273.0f);
 		}
-		else {
-			choiceText = d->T("No");
-			x = 273.0f;
-			yesColor = 0xFFFFFFFF;
-			noColor  = 0xFFFFFFFF;
-		}
-		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
-		w = 15.0f;
-		h = 8.0f;
-		float y2 = y + h2 + 8.0f;
-		h2 += h + 5.0f;
-		y = 135.0f - h;
-		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("Yes"), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+
+		PPGeDrawText(di->T("Yes"), 203.0f, buttonY - 1.0f, buttonStyle);
+		PPGeDrawText(di->T("No"), 272.0f, buttonY - 1.0f, buttonStyle);
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
-		}
-		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
+		} else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
 			yesnoChoice = 0;
 		}
-		ey = y2 + 25.0f;
+		buttonY += 8.0f + 5.0f;
 	} 
 	
 	if (hasOK) {
-		I18NCategory *d = GetI18NCategory("Dialog");
-		float x, w;
-		x = 240.0f;
-		w = 15.0f;
-		h = 8.0f;
-		float y2 = y + h2 + 8.0f;
-		h2 += h + 5.0f;
-		y = 135.0f - h;
-		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("OK"), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("OK"), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-		ey = y2 + 25.0f;
+		drawSelectionBoxAndAdjust(240.0f);
+
+		PPGeDrawText(di->T("OK"), 239.0f, buttonY - 1.0f, buttonStyle);
+		buttonY += 8.0f + 5.0f;
 	}
 
-	PPGeDrawTextWrapped(text.c_str(), 241.0f, y+2, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-	sy = 125.0f - h2;
+	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
+	PPGeDrawTextWrapped(text.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
+	PPGeScissorReset();
+
+	// Do we need a scrollbar?
+	if (visibleHeight < totalHeight) {
+		float scrollSpeed = 5.0f;
+		float scrollMax = totalHeight - visibleHeight;
+
+		float bobHeight = (visibleHeight / totalHeight) * visibleHeight;
+		float bobOffset = (scrollPos_ / scrollMax) * (visibleHeight - bobHeight);
+		float bobY1 = centerY - h2 + bobOffset;
+		PPGeDrawRect(435.0f, bobY1, 440.0f, bobY1 + bobHeight, CalcFadedColor(0xFFCCCCCC));
+
+		auto buttonDown = [this](int btn, int &held) {
+			if (IsButtonPressed(btn)) {
+				held = 0;
+				return true;
+			}
+			return IsButtonHeld(btn, held, 1, 1);
+		};
+		if (buttonDown(CTRL_DOWN, framesDownHeld_) && scrollPos_ < scrollMax) {
+			scrollPos_ = std::min(scrollMax, scrollPos_ + scrollSpeed);
+		}
+		if (buttonDown(CTRL_UP, framesUpHeld_) && scrollPos_ > 0.0f) {
+			scrollPos_ = std::max(0.0f, scrollPos_ - scrollSpeed);
+		}
+	}
+
 	PPGeDrawRect(40.0f, sy, 440.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPMsgDialog::Update(int animSpeed)
-{
-	if (status != SCE_UTILITY_STATUS_RUNNING)
-	{
-		return 0;
+int PSPMsgDialog::Update(int animSpeed) {
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if ((flag & DS_ERROR))
-	{
-		status = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else
-	{
+	if (flag & (DS_ERROR | DS_ABORT)) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	} else {
+		UpdateButtons();
 		UpdateFade(animSpeed);
 
-		buttons = __CtrlPeekButtons();
-
-		okButtonImg = I_CIRCLE;
-		cancelButtonImg = I_CROSS;
+		okButtonImg = ImageID("I_CIRCLE");
+		cancelButtonImg = ImageID("I_CROSS");
 		okButtonFlag = CTRL_CIRCLE;
 		cancelButtonFlag = CTRL_CROSS;
 		if (messageDialog.common.buttonSwap == 1)
 		{
-			okButtonImg = I_CROSS;
-			cancelButtonImg = I_CIRCLE;
+			okButtonImg = ImageID("I_CROSS");
+			cancelButtonImg = ImageID("I_CIRCLE");
 			okButtonFlag = CTRL_CROSS;
 			cancelButtonFlag = CTRL_CIRCLE;
 		}
@@ -245,10 +311,10 @@ int PSPMsgDialog::Update(int animSpeed)
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayButtons(DS_BUTTON_OK);
+			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : NULL);
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayButtons(DS_BUTTON_CANCEL);
+			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : NULL);
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
@@ -275,22 +341,34 @@ int PSPMsgDialog::Update(int animSpeed)
 
 		EndDraw();
 
-		lastButtons = buttons;
+		messageDialog.result = 0;
 	}
 
-	Memory::Memcpy(messageDialogAddr,&messageDialog,messageDialog.common.size);
+	Memory::Memcpy(messageDialogAddr, &messageDialog ,messageDialog.common.size);
 	return 0;
 }
 
-int PSPMsgDialog::Abort()
-{
-	// TODO: Probably not exactly the same?
-	return PSPDialog::Shutdown();
+int PSPMsgDialog::Abort() {
+	// Katekyoushi Hitman Reborn! Battle Arena expects this to fail when not running.
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	} else {
+		// Status is not actually changed until Update().
+		flag |= DS_ABORT;
+		return 0;
+	}
 }
 
-int PSPMsgDialog::Shutdown(bool force)
-{
-	return PSPDialog::Shutdown();
+int PSPMsgDialog::Shutdown(bool force) {
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(MSG_SHUTDOWN_DELAY_US);
+	}
+
+	return 0;
 }
 
 void PSPMsgDialog::DoState(PointerWrap &p)
@@ -301,11 +379,18 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(flag);
-	p.Do(messageDialog);
-	p.Do(messageDialogAddr);
-	p.DoArray(msgText, sizeof(msgText));
-	p.Do(yesnoChoice);
+	Do(p, flag);
+	Do(p, messageDialog);
+	Do(p, messageDialogAddr);
+	DoArray(p, msgText, sizeof(msgText));
+	Do(p, yesnoChoice);
+
+	// We don't save state this, you'll just have to scroll down again.
+	if (p.mode == p.MODE_READ) {
+		scrollPos_ = 0.0f;
+		framesUpHeld_ = 0;
+		framesDownHeld_ = 0;
+	}
 }
 
 pspUtilityDialogCommon *PSPMsgDialog::GetCommonParam()

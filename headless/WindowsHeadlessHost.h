@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "StubHost.h"
+#include "headless/StubHost.h"
+#include <thread>
 
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS WindowsHeadlessHost
@@ -28,22 +29,29 @@
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
-	virtual bool InitGL(std::string *error_message);
-	virtual void ShutdownGL();
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
+	void ShutdownGraphics() override;
 
-	virtual void SwapBuffers();
+	void SwapBuffers() override;
 
-	virtual void SendDebugOutput(const std::string &output);
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
-	virtual void SetComparisonScreenshot(const std::string &filename);
+	void SendDebugOutput(const std::string &output) override;
 
-private:
-	bool ResizeGL();
+protected:
 	void LoadNativeAssets();
-	void SendOrCollectDebugOutput(const std::string &output);
+
+	enum class RenderThreadState {
+		IDLE,
+		START_REQUESTED,
+		STARTING,
+		START_FAILED,
+		STARTED,
+		STOP_REQUESTED,
+		STOPPING,
+		STOPPED,
+	};
 
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
-	std::string comparisonScreenshot;
+	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
 };

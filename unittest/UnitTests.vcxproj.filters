@@ -1,6 +1,26 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="UnitTest.cpp" />
+    <ClCompile Include="JitHarness.cpp" />
+    <ClCompile Include="TestArmEmitter.cpp" />
+    <ClCompile Include="TestX64Emitter.cpp" />
+    <ClCompile Include="TestArm64Emitter.cpp" />
+    <ClCompile Include="TestVertexJit.cpp" />
+    <ClCompile Include="..\ext\glew\glew.c" />
+    <ClCompile Include="..\Windows\CaptureDevice.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="TestShaderGenerators.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="JitHarness.h" />
+    <ClInclude Include="UnitTest.h" />
+    <ClInclude Include="TestVertexJit.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{584f25d4-e7a1-461f-ba21-7588497a83f1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

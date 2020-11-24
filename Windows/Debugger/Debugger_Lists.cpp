@@ -8,11 +8,12 @@
 #include "Windows/main.h"
 #include "BreakpointWindow.h"
 #include "../../Core/HLE/sceKernelThread.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
-enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
+enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
+enum { ML_NAME, ML_ADDRESS, ML_SIZE, ML_ACTIVE, ML_COLUMNCOUNT };
 
 GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ L"Name",			0.20f },
@@ -23,14 +24,22 @@ GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ L"Wait type",		0.20f }
 };
 
+GenericListViewDef threadListDef = {
+	threadColumns,	ARRAY_SIZE(threadColumns),	NULL,	false
+};
+
 GenericListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
-	{ L"Type",			0.12f },
+	{ L"",				0.03f },	// enabled
+	{ L"Type",			0.15f },
 	{ L"Offset",		0.12f },
-	{ L"Size/Label",	0.18f },
+	{ L"Size/Label",	0.20f },
 	{ L"Opcode",		0.28f },
 	{ L"Condition",		0.17f },
 	{ L"Hits",			0.05f },
-	{ L"Enabled",		0.08f }
+};
+
+GenericListViewDef breakpointListDef = {
+	breakpointColumns,	ARRAY_SIZE(breakpointColumns),	NULL,	true
 };
 
 GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
@@ -42,6 +51,21 @@ GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ L"Frame Size",	0.12f }
 };
 
+GenericListViewDef stackTraceListDef = {
+	stackTraceColumns,	ARRAY_SIZE(stackTraceColumns),	NULL,	false
+};
+
+GenericListViewColumn moduleListColumns[ML_COLUMNCOUNT] = {
+	{ L"Name",			0.25f },
+	{ L"Address",		0.25f },
+	{ L"Size",			0.25f },
+	{ L"Active",		0.25f },
+};
+
+GenericListViewDef moduleListDef = {
+	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
+};
+
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
 const int POPUP_SUBMENU_ID_THREADLIST = 6;
 const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
@@ -50,7 +74,7 @@ const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
 // CtrlThreadList
 //
 
-CtrlThreadList::CtrlThreadList(HWND hwnd): GenericListControl(hwnd,threadColumns,TL_COLUMNCOUNT)
+CtrlThreadList::CtrlThreadList(HWND hwnd): GenericListControl(hwnd,threadListDef)
 {
 	Update();
 }
@@ -235,7 +259,7 @@ const char* CtrlThreadList::getCurrentThreadName()
 //
 
 CtrlBreakpointList::CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
-	: GenericListControl(hwnd,breakpointColumns,BPL_COLUMNCOUNT),cpu(cpu),disasm(disasm)
+	: GenericListControl(hwnd,breakpointListDef),cpu(cpu),disasm(disasm)
 {
 	SetSendInvalidRows(true);
 	Update();
@@ -289,6 +313,19 @@ void CtrlBreakpointList::reloadBreakpoints()
 	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
 	displayedMemChecks_= CBreakPoints::GetMemChecks();
 	Update();
+
+	for (int i = 0; i < GetRowCount(); i++)
+	{
+		bool isMemory;
+		int index = getBreakpointIndex(i, isMemory);
+		if (index < 0)
+			continue;
+
+		if (isMemory)
+			SetCheckState(i, displayedMemChecks_[index].IsEnabled());
+		else
+			SetCheckState(i, displayedBreakPoints_[index].IsEnabled());
+	}
 }
 
 void CtrlBreakpointList::editBreakpoint(int itemIndex)
@@ -326,32 +363,28 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+		CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 	}
 }
 
 void CtrlBreakpointList::gotoBreakpointAddress(int itemIndex)
 {
 	bool isMemory;
-	int index = getBreakpointIndex(itemIndex,isMemory);
-	if (index == -1) return;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1)
+		return;
 
-	if (isMemory)
-	{
+	if (isMemory) {
 		u32 address = displayedMemChecks_[index].start;
-			
-		for (int i=0; i<numCPUs; i++)
-			if (memoryWindow[i])
-				memoryWindow[i]->Goto(address);
+		if (memoryWindow)
+			memoryWindow->Goto(address);
 	} else {
 		u32 address = displayedBreakPoints_[index].addr;
-		
-		for (int i=0; i<numCPUs; i++)
-			if (disasmWindow[i])
-				disasmWindow[i]->Goto(address);
+		if (disasmWindow)
+			disasmWindow->Goto(address);
 	}
 }
 
@@ -374,8 +407,7 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 int CtrlBreakpointList::getTotalBreakpointCount()
 {
 	int count = (int)CBreakPoints::GetMemChecks().size();
-	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++)
-	{
+	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++) {
 		if (!displayedBreakPoints_[i].temporary) count++;
 	}
 
@@ -418,6 +450,9 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 
 void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
 	bool isMemory;
 	int index = getBreakpointIndex(row,isMemory);
 	if (index == -1) return;
@@ -427,7 +462,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 	case BPL_TYPE:
 		{
 			if (isMemory) {
-				switch (displayedMemChecks_[index].cond) {
+				switch ((int)displayedMemChecks_[index].cond) {
 				case MEMCHECK_READ:
 					wcscpy(dest,L"Read");
 					break;
@@ -436,6 +471,12 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 					break;
 				case MEMCHECK_READWRITE:
 					wcscpy(dest,L"Read/Write");
+					break;
+				case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE:
+					wcscpy(dest,L"Write Change");
+					break;
+				case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE:
+					wcscpy(dest,L"Read/Write Change");
 					break;
 				}
 			} else {
@@ -461,8 +502,8 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				else
 					wsprintf(dest,L"0x%08X",mc.end-mc.start);
 			} else {
-				const char* sym = symbolMap.GetLabelName(displayedBreakPoints_[index].addr);
-				if (sym != NULL)
+				const std::string sym = g_symbolMap->GetLabelString(displayedBreakPoints_[index].addr);
+				if (!sym.empty())
 				{
 					std::wstring s = ConvertUTF8ToWString(sym);
 					wcscpy(dest,s.c_str());
@@ -478,7 +519,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				wcscpy(dest,L"-");
 			} else {
 				char temp[256];
-				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp);
+				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp, sizeof(temp));
 				std::wstring s = ConvertUTF8ToWString(temp);
 				wcscpy(dest,s.c_str());
 			}
@@ -505,11 +546,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case BPL_ENABLED:
 		{
-			if (isMemory) {
-				wsprintf(dest,displayedMemChecks_[index].result & MEMCHECK_BREAK ? L"True" : L"False");
-			} else {
-				wsprintf(dest,displayedBreakPoints_[index].enabled ? L"True" : L"False");
-			}
+			wsprintf(dest,L"\xFFFE");
 		}
 		break;
 	}
@@ -523,6 +560,11 @@ void CtrlBreakpointList::OnDoubleClick(int itemIndex, int column)
 void CtrlBreakpointList::OnRightClick(int itemIndex, int column, const POINT& point)
 {
 	showBreakpointMenu(itemIndex,point);
+}
+
+void CtrlBreakpointList::OnToggle(int item, bool newValue)
+{
+	toggleEnabled(item);
 }
 
 void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
@@ -556,18 +598,18 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 
 		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
 		if (isMemory) {
-			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		} else {
-			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
 			if (isMemory) {
-				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 			} else {
-				CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+				CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
@@ -588,7 +630,7 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 //
 
 CtrlStackTraceView::CtrlStackTraceView(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
-	: GenericListControl(hwnd,stackTraceColumns,SF_COLUMNCOUNT),cpu(cpu),disasm(disasm)
+	: GenericListControl(hwnd,stackTraceListDef),cpu(cpu),disasm(disasm)
 {
 	Update();
 }
@@ -633,8 +675,8 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case SF_ENTRYNAME:
 		{
-			const char* sym = symbolMap.GetLabelName(frames[row].entry);
-			if (sym != NULL) {
+			const std::string sym = g_symbolMap->GetLabelString(frames[row].entry);
+			if (!sym.empty()) {
 				wcscpy(dest, ConvertUTF8ToWString(sym).c_str());
 			} else {
 				wcscpy(dest,L"-");
@@ -647,7 +689,7 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 	case SF_CUROPCODE:
 		{
 			char temp[512];
-			disasm->getOpcodeText(frames[row].pc,temp);
+			disasm->getOpcodeText(frames[row].pc, temp, sizeof(temp));
 			wcscpy(dest, ConvertUTF8ToWString(temp).c_str());
 		}
 		break;
@@ -684,6 +726,81 @@ void CtrlStackTraceView::loadStackTrace()
 		frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
 	} else {
 		frames.clear();
+	}
+	Update();
+}
+
+//
+// CtrlModuleList
+//
+
+CtrlModuleList::CtrlModuleList(HWND hwnd, DebugInterface* cpu)
+	: GenericListControl(hwnd,moduleListDef),cpu(cpu)
+{
+	Update();
+}
+
+bool CtrlModuleList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue)
+{
+	switch(msg)
+	{
+	case WM_KEYDOWN:
+		if (wParam == VK_TAB)
+		{
+			returnValue = 0;
+			SendMessage(GetParent(GetHandle()),WM_DEB_TABPRESSED,0,0);
+			return true;
+		}
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_TAB || wParam == VK_RETURN)
+			{
+				returnValue = DLGC_WANTMESSAGE;
+				return true;
+			}
+		}
+		break;
+	}
+
+	return false;
+}
+
+void CtrlModuleList::GetColumnText(wchar_t* dest, int row, int col)
+{
+	if (row < 0 || row >= (int)modules.size()) {
+		return;
+	}
+
+	switch (col)
+	{
+	case ML_NAME:
+		wcscpy(dest,ConvertUTF8ToWString(modules[row].name).c_str());
+		break;
+	case ML_ADDRESS:
+		wsprintf(dest,L"%08X",modules[row].address);
+		break;
+	case ML_SIZE:
+		wsprintf(dest,L"%08X",modules[row].size);
+		break;
+	case ML_ACTIVE:
+		wcscpy(dest,modules[row].active ? L"true" : L"false");
+		break;
+	}
+}
+
+void CtrlModuleList::OnDoubleClick(int itemIndex, int column)
+{
+	SendMessage(GetParent(GetHandle()),WM_DEB_GOTOWPARAM,modules[itemIndex].address,0);
+}
+
+void CtrlModuleList::loadModules()
+{
+	if (g_symbolMap) {
+		modules = g_symbolMap->getAllModules();
+	} else {
+		modules.clear();
 	}
 	Update();
 }

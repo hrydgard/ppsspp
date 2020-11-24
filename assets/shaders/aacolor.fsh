@@ -64,5 +64,6 @@ void main()
   color.g = pow(color.g+0.001,a);
   color.b = pow(color.b+0.001,a);
 
-  gl_FragColor.xyz = contrast4(x)*normalize(color*c_ch)*b;
+  gl_FragColor.rgb = contrast4(x)*normalize(color*c_ch)*b;
+  gl_FragColor.a = 1.0;
 }

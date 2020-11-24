@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <string>
+
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMap.h"
 #include "Common/CommonTypes.h"
@@ -27,17 +30,17 @@
 */
 enum SceUtilityOskInputLanguage
 {
-	PSP_UTILITY_OSK_LANGUAGE_DEFAULT =		0x00,
-	PSP_UTILITY_OSK_LANGUAGE_JAPANESE =		0x01,
-	PSP_UTILITY_OSK_LANGUAGE_ENGLISH =		0x02,
-	PSP_UTILITY_OSK_LANGUAGE_FRENCH =		0x03,
-	PSP_UTILITY_OSK_LANGUAGE_SPANISH =		0x04,
-	PSP_UTILITY_OSK_LANGUAGE_GERMAN =		0x05,
-	PSP_UTILITY_OSK_LANGUAGE_ITALIAN =		0x06,
-	PSP_UTILITY_OSK_LANGUAGE_DUTCH =		0x07,
-	PSP_UTILITY_OSK_LANGUAGE_PORTUGESE =	0x08,
-	PSP_UTILITY_OSK_LANGUAGE_RUSSIAN =		0x09,
-	PSP_UTILITY_OSK_LANGUAGE_KOREAN =		0x0a
+	PSP_UTILITY_OSK_LANGUAGE_DEFAULT   = 0x00,
+	PSP_UTILITY_OSK_LANGUAGE_JAPANESE  = 0x01,
+	PSP_UTILITY_OSK_LANGUAGE_ENGLISH   = 0x02,
+	PSP_UTILITY_OSK_LANGUAGE_FRENCH    = 0x03,
+	PSP_UTILITY_OSK_LANGUAGE_SPANISH   = 0x04,
+	PSP_UTILITY_OSK_LANGUAGE_GERMAN    = 0x05,
+	PSP_UTILITY_OSK_LANGUAGE_ITALIAN   = 0x06,
+	PSP_UTILITY_OSK_LANGUAGE_DUTCH     = 0x07,
+	PSP_UTILITY_OSK_LANGUAGE_PORTUGESE = 0x08,
+	PSP_UTILITY_OSK_LANGUAGE_RUSSIAN   = 0x09,
+	PSP_UTILITY_OSK_LANGUAGE_KOREAN    = 0x0a
 };
 
 /**
@@ -45,12 +48,12 @@ enum SceUtilityOskInputLanguage
 */
 enum SceUtilityOskState
 {
-	PSP_UTILITY_OSK_DIALOG_NONE = 0,	/**< No OSK is currently active */
-	PSP_UTILITY_OSK_DIALOG_INITING,		/**< The OSK is currently being initialized */
-	PSP_UTILITY_OSK_DIALOG_INITED,		/**< The OSK is initialised */
-	PSP_UTILITY_OSK_DIALOG_VISIBLE,		/**< The OSK is visible and ready for use */
-	PSP_UTILITY_OSK_DIALOG_QUIT,		/**< The OSK has been cancelled and should be shut down */
-	PSP_UTILITY_OSK_DIALOG_FINISHED		/**< The OSK has successfully shut down */	
+	PSP_UTILITY_OSK_DIALOG_NONE     = 0, /**< No OSK is currently active */
+	PSP_UTILITY_OSK_DIALOG_INITING  = 1, /**< The OSK is currently being initialized */
+	PSP_UTILITY_OSK_DIALOG_INITED   = 2, /**< The OSK is initialised */
+	PSP_UTILITY_OSK_DIALOG_VISIBLE  = 3, /**< The OSK is visible and ready for use */
+	PSP_UTILITY_OSK_DIALOG_QUIT     = 4, /**< The OSK has been cancelled and should be shut down */
+	PSP_UTILITY_OSK_DIALOG_FINISHED = 5  /**< The OSK has successfully shut down */	
 };
 
 /**
@@ -58,9 +61,9 @@ enum SceUtilityOskState
 */
 enum SceUtilityOskResult
 {
-	PSP_UTILITY_OSK_RESULT_UNCHANGED =	0,
-	PSP_UTILITY_OSK_RESULT_CANCELLED,
-	PSP_UTILITY_OSK_RESULT_CHANGED
+	PSP_UTILITY_OSK_RESULT_UNCHANGED = 0,
+	PSP_UTILITY_OSK_RESULT_CANCELLED = 1,
+	PSP_UTILITY_OSK_RESULT_CHANGED   = 2
 };
 
 /**
@@ -68,27 +71,27 @@ enum SceUtilityOskResult
 */
 enum SceUtilityOskInputType
 {
-	PSP_UTILITY_OSK_INPUTTYPE_ALL =						0x00000000,
-	PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT =				0x00000001,
-	PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL =			0x00000002,
-	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE =			0x00000004,
-	PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE =			0x00000008,
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_DIGIT =			0x00000100,
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL =			0x00000200,
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE =		0x00000400,
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE =		0x00000800,
+	PSP_UTILITY_OSK_INPUTTYPE_ALL                    = 0x00000000,
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT            = 0x00000001,
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL           = 0x00000002,
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE        = 0x00000004,
+	PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE        = 0x00000008,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_DIGIT         = 0x00000100,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL        = 0x00000200,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE     = 0x00000400,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE     = 0x00000800,
 	// http://en.wikipedia.org/wiki/Hiragana
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA =		0x00001000,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA      = 0x00001000,
 	// http://en.wikipedia.org/wiki/Katakana
 	// Half-width Katakana
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HALF_KATAKANA =	0x00002000,
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_KATAKANA =		0x00004000,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HALF_KATAKANA = 0x00002000,
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_KATAKANA      = 0x00004000,
 	// http://en.wikipedia.org/wiki/Kanji
-	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_KANJI =			0x00008000,
-	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_LOWERCASE =		0x00010000,
-	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_UPPERCASE =		0x00020000,
-	PSP_UTILITY_OSK_INPUTTYPE_KOREAN =					0x00040000,
-	PSP_UTILITY_OSK_INPUTTYPE_URL =						0x00080000
+	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_KANJI         = 0x00008000,
+	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_LOWERCASE      = 0x00010000,
+	PSP_UTILITY_OSK_INPUTTYPE_RUSSIAN_UPPERCASE      = 0x00020000,
+	PSP_UTILITY_OSK_INPUTTYPE_KOREAN                 = 0x00040000,
+	PSP_UTILITY_OSK_INPUTTYPE_URL                    = 0x00080000
 };
 
 #if COMMON_LITTLE_ENDIAN
@@ -171,15 +174,15 @@ enum OskKeyboardLanguage
 	OSK_LANGUAGE_JAPANESE,
 	OSK_LANGUAGE_KOREAN,
 	OSK_LANGUAGE_RUSSIAN,
-	OSK_LANGUAGE_ENGLISH_FW, //English full-width(mostly used in Japanese games)
+	OSK_LANGUAGE_ENGLISH_FW, //English full-width (mostly used in Japanese games)
 	OSK_LANGUAGE_COUNT
 };
 
 // Internal enum, not from PSP.
 enum
-{ 
-	LOWERCASE, 
-	UPPERCASE 
+{
+	LOWERCASE,
+	UPPERCASE
 };
 
 const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
@@ -200,29 +203,40 @@ static const std::string OskKeyboardNames[] =
 	"English Full-width",
 };
 
+enum class PSPOskNativeStatus {
+	IDLE,
+	DONE,
+	WAITING,
+	SUCCESS,
+	FAILURE,
+};
+
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog();
 	virtual ~PSPOskDialog();
 
 	virtual int Init(u32 oskPtr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
+
+protected:
+	virtual bool UseAutoStatus() override {
+		return false;
+	}
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
+	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
-#ifdef _WIN32
 	int NativeKeyboard();
-#endif
 
-	std::wstring CombinationString(bool isInput); // for Japanese, Korean
-	std::wstring CombinationKorean(bool isInput); // for Korea
+	std::u16string CombinationString(bool isInput); // for Japanese, Korean
+	std::u16string CombinationKorean(bool isInput); // for Korea
 	void RemoveKorean(); // for Korean character removal
-	
+
 	u32 FieldMaxLength();
 	int GetIndex(const wchar_t* src, wchar_t ch);
 
@@ -232,10 +246,14 @@ private:
 	std::string oskOuttext;
 
 	int selectedChar;
-	std::wstring inputChars;
+	std::u16string inputChars;
 	OskKeyboardDisplay currentKeyboard;
 	OskKeyboardLanguage currentKeyboardLanguage;
 	bool isCombinated;
+
+	std::mutex nativeMutex_;
+	PSPOskNativeStatus nativeStatus_ = PSPOskNativeStatus::IDLE;
+	std::string nativeValue_;
 
 	int i_level; // for Korean Keyboard support
 	int i_value[3]; // for Korean Keyboard support

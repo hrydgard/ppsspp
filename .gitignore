@@ -19,12 +19,36 @@
 *.exp
 *.qdact
 controls.ini
+desktop.ini
 Debug
 Release
+Windows/.vs
 Windows/x64
+Windows/ARM
+Windows/ARM64
 Windows/ipch
-ui_atlas.zim.png
+Windows/bin-release
+Windows/win-version.h
+Windows/win-version-*.tmp
 android/assets
+ext/_Output
+android/lint.xml
+PPSSPPWindows64.exe.manifest
+PPSSPPWindows.exe.manifest
+PPSSPPWindowsARM64.exe.manifest
+PPSSPPWindowsARM.exe.manifest
+PPSSPPDebug64.exe.manifest
+PPSSPPDebug.exe.manifest
+PPSSPPDebugARM64.exe.manifest
+PPSSPPDebugARM.exe.manifest
+assets/flash0
+UWP/icph
+UWP/Content/*
+!UWP/Content/.empty
+UWP/.vs
+.vs
+.vscode
+
 # For Mac
 .DS_Store
 
@@ -35,17 +59,27 @@ PPSSPPControls.dat
 # Qt Linguist files
 *.qm
 
+# Gradle/Android Studio
+.gradle
+.idea
+*.iml
+build
+build.ios
+versionname.txt
+versioncode.txt
+build*/
+android/.cxx
+
+# Temp file used by jenkins windows build (TODO: remove)
+desc.txt
+
 Logs
 Memstick
-memstick
+memstick*
 Cheats
 
-bin
-gen
-libs
-obj
-build*/
 /git-version.cpp
+/git-version-*.tmp
 
 .pspsh.hist
 __testoutput.txt
@@ -54,17 +88,34 @@ __testfinish.txt
 __testfailure.bmp
 GameLogNotes.txt
 screenshots
-android/ui_atlas.zim
 android/assets/lang
 android/assets/flash0
+ui_atlas.zim.png
 ppge_atlas.zim.png
 local.properties
+r.sh
 
 # For vim
 *.swp
 tags
 
-libat3plusdecoder.dylib
-libat3plusdecoder.so
-at3plusdecoder.dll
-at3plusdecoder64.dll
+# Other VCS
+.bzr/
+.bzrignore
+
+# Debian build
+debian/files
+debian/ppsspp.substvars
+debian/ppsspp/
+
+# Libretro build
+*.o
+
+# YouCompleteMe file
+.ycm_extra_conf.pyc
+
+# RenderDoc
+*.rdc
+
+# bad output from libretro. don't want to accidentally add it
+nul

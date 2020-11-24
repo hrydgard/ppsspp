@@ -20,6 +20,8 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+
+#include "Common/CommonTypes.h"
 #include "Core/HLE/sceKernelThread.h"
 
 namespace HLEKernel
@@ -42,10 +44,11 @@ inline void WaitExecTimeout(SceUID threadID) {
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+		__KernelReSchedule("wait timed out");
 	}
 }
 
-// Move a thead from the waiting thread list to the paused thread list.
+// Move a thread from the waiting thread list to the paused thread list.
 // This version is for vectors which contain structs, which must have SceUID threadID and u64 pausedTimeout.
 // Should not be called directly.
 template <typename WaitInfoType, typename PauseType>

@@ -15,13 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "HLETables.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/HLE/FunctionWrappers.h"
 
 #include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceAudiocodec.h"
+#include "sceAudioRouting.h"
 #include "sceCcc.h"
 #include "sceChnnlsv.h"
 #include "sceCtrl.h"
@@ -39,6 +40,7 @@
 #include "sceJpeg.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
+#include "sceKernelHeap.h"
 #include "sceKernelMemory.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelModule.h"
@@ -65,8 +67,18 @@
 #include "sceSsl.h"
 #include "sceUmd.h"
 #include "sceUsb.h"
+#include "sceUsbAcc.h"
+#include "sceUsbCam.h"
+#include "sceUsbGps.h"
+#include "sceUsbMic.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceMt19937.h"
+#include "sceSha256.h"
+#include "sceAdler.h"
+#include "sceSfmt19937.h"
+#include "sceG729.h"
+#include "KUBridge.h"
 
 #define N(s) s
 
@@ -78,166 +90,117 @@
 //sound
 //zlibdec
 const HLEFunction FakeSysCalls[] = {
-	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
-	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
-	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
-	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
-	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
-	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
+	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread", 'x', ""},
+	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall", 'x', ""},
+	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt", 'x', ""},
+	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack", 'x', ""},
+	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc", 'x', ""},
+	{NID_IDLE, __KernelIdle, "_sceKernelIdle", 'x', ""},
+	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay", 'x', ""},
+	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall", 'x', ""},
 };
 
 const HLEFunction UtilsForUser[] = 
 {
-	{0x91E4F6A7, WrapU_V<sceKernelLibcClock>, "sceKernelLibcClock"},
-	{0x27CC57F0, WrapU_U<sceKernelLibcTime>, "sceKernelLibcTime"},
-	{0x71EC4271, WrapU_UU<sceKernelLibcGettimeofday>, "sceKernelLibcGettimeofday"},
-	{0xBFA98062, WrapI_UI<sceKernelDcacheInvalidateRange>, "sceKernelDcacheInvalidateRange"},
-	{0xC8186A58, WrapI_UIU<sceKernelUtilsMd5Digest>, "sceKernelUtilsMd5Digest"},
-	{0x9E5C5086, WrapI_U<sceKernelUtilsMd5BlockInit>, "sceKernelUtilsMd5BlockInit"},
-	{0x61E1E525, WrapI_UUI<sceKernelUtilsMd5BlockUpdate>, "sceKernelUtilsMd5BlockUpdate"},
-	{0xB8D24E78, WrapI_UU<sceKernelUtilsMd5BlockResult>, "sceKernelUtilsMd5BlockResult"},
-	{0x840259F1, WrapI_UIU<sceKernelUtilsSha1Digest>, "sceKernelUtilsSha1Digest"},
-	{0xF8FCD5BA, WrapI_U<sceKernelUtilsSha1BlockInit>, "sceKernelUtilsSha1BlockInit"},
-	{0x346F6DA8, WrapI_UUI<sceKernelUtilsSha1BlockUpdate>, "sceKernelUtilsSha1BlockUpdate"},
-	{0x585F1C09, WrapI_UU<sceKernelUtilsSha1BlockResult>, "sceKernelUtilsSha1BlockResult"},
-	{0xE860E75E, WrapU_UU<sceKernelUtilsMt19937Init>, "sceKernelUtilsMt19937Init"},
-	{0x06FB8A63, WrapU_U<sceKernelUtilsMt19937UInt>, "sceKernelUtilsMt19937UInt"},
-	{0x37FB5C42, WrapU_V<sceKernelGetGPI>, "sceKernelGetGPI"},
-	{0x6AD345D7, WrapV_U<sceKernelSetGPO>, "sceKernelSetGPO"},
-	{0x79D1C3FA, WrapI_V<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},
-	{0xB435DEC5, WrapI_V<sceKernelDcacheWritebackInvalidateAll>, "sceKernelDcacheWritebackInvalidateAll"},
-	{0x3EE30821, WrapI_UI<sceKernelDcacheWritebackRange>, "sceKernelDcacheWritebackRange"},
-	{0x34B9FA9E, WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange"},
-	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>, "sceKernelIcacheInvalidateRange"},
-	{0x80001C4C, 0, "sceKernelDcacheProbe"},
-	{0x16641D70, 0, "sceKernelDcacheReadTag"},
-	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},
-	{0xFB05FAD0, 0, "sceKernelIcacheReadTag"},
-	{0x920f104a, WrapU_V<sceKernelIcacheInvalidateAll>, "sceKernelIcacheInvalidateAll"}
+	{0X91E4F6A7, &WrapU_V<sceKernelLibcClock>,                       "sceKernelLibcClock",                      'x', ""   },
+	{0X27CC57F0, &WrapU_U<sceKernelLibcTime>,                        "sceKernelLibcTime",                       'x', "x"  },
+	{0X71EC4271, &WrapU_UU<sceKernelLibcGettimeofday>,               "sceKernelLibcGettimeofday",               'x', "xx" },
+	{0XBFA98062, &WrapI_UI<sceKernelDcacheInvalidateRange>,          "sceKernelDcacheInvalidateRange",          'i', "xi" },
+	{0XC8186A58, &WrapI_UIU<sceKernelUtilsMd5Digest>,                "sceKernelUtilsMd5Digest",                 'i', "xix"},
+	{0X9E5C5086, &WrapI_U<sceKernelUtilsMd5BlockInit>,               "sceKernelUtilsMd5BlockInit",              'i', "x"  },
+	{0X61E1E525, &WrapI_UUI<sceKernelUtilsMd5BlockUpdate>,           "sceKernelUtilsMd5BlockUpdate",            'i', "xxi"},
+	{0XB8D24E78, &WrapI_UU<sceKernelUtilsMd5BlockResult>,            "sceKernelUtilsMd5BlockResult",            'i', "xx" },
+	{0X840259F1, &WrapI_UIU<sceKernelUtilsSha1Digest>,               "sceKernelUtilsSha1Digest",                'i', "xix"},
+	{0XF8FCD5BA, &WrapI_U<sceKernelUtilsSha1BlockInit>,              "sceKernelUtilsSha1BlockInit",             'i', "x"  },
+	{0X346F6DA8, &WrapI_UUI<sceKernelUtilsSha1BlockUpdate>,          "sceKernelUtilsSha1BlockUpdate",           'i', "xxi"},
+	{0X585F1C09, &WrapI_UU<sceKernelUtilsSha1BlockResult>,           "sceKernelUtilsSha1BlockResult",           'i', "xx" },
+	{0XE860E75E, &WrapU_UU<sceKernelUtilsMt19937Init>,               "sceKernelUtilsMt19937Init",               'x', "xx" },
+	{0X06FB8A63, &WrapU_U<sceKernelUtilsMt19937UInt>,                "sceKernelUtilsMt19937UInt",               'x', "x"  },
+	{0X37FB5C42, &WrapU_V<sceKernelGetGPI>,                          "sceKernelGetGPI",                         'x', ""   },
+	{0X6AD345D7, &WrapV_U<sceKernelSetGPO>,                          "sceKernelSetGPO",                         'v', "x"  },
+	{0X79D1C3FA, &WrapI_V<sceKernelDcacheWritebackAll>,              "sceKernelDcacheWritebackAll",             'i', ""   },
+	{0XB435DEC5, &WrapI_V<sceKernelDcacheWritebackInvalidateAll>,    "sceKernelDcacheWritebackInvalidateAll",   'i', ""   },
+	{0X3EE30821, &WrapI_UI<sceKernelDcacheWritebackRange>,           "sceKernelDcacheWritebackRange",           'i', "xi" },
+	{0X34B9FA9E, &WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange", 'i', "xi" },
+	{0XC2DF770E, &WrapI_UI<sceKernelIcacheInvalidateRange>,          "sceKernelIcacheInvalidateRange",          'i', "xi" },
+	{0X80001C4C, nullptr,                                            "sceKernelDcacheProbe",                    '?', ""   },
+	{0X16641D70, nullptr,                                            "sceKernelDcacheReadTag",                  '?', ""   },
+	{0X4FD31C9D, nullptr,                                            "sceKernelIcacheProbe",                    '?', ""   },
+	{0XFB05FAD0, nullptr,                                            "sceKernelIcacheReadTag",                  '?', ""   },
+	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",            'x', ""   }
 };				   
 
-
-const HLEFunction IoFileMgrForKernel[] =
-{
-	{0xa905b705, 0, "sceIoCloseAll"},
-	{0x411106BA, 0, "sceIoGetThreadCwd"},
-	{0xCB0A151F, 0, "sceIoChangeThreadCwd"},
-	{0x8E982A74, 0, "sceIoAddDrv"},
-	{0xC7F35804, 0, "sceIoDelDrv"},
-	{0x3C54E908, 0, "sceIoReopen"},
-	{0xb29ddf9c, 0, "sceIoDopen"},
-	{0xe3eb004c, 0, "sceIoDread"},
-	{0xeb092469, 0, "sceIoDclose"},
-	{0x109f50bc, 0, "sceIoOpen"},
-	{0x6a638d83, 0, "sceIoRead"},
-	{0x42ec03ac, 0, "sceIoWrite"},
-	{0x68963324, 0, "sceIoLseek32"},
-	{0x27eb27b8, 0, "sceIoLseek"},
-	{0x810c4bc3, 0, "sceIoClose"},
-	{0x779103a0, 0, "sceIoRename"},
-	{0xf27a9c51, 0, "sceIoRemove"},
-	{0x55f4717d, 0, "sceIoChdir"},
-	{0x06a70004, 0, "sceIoMkdir"},
-	{0x1117c65f, 0, "sceIoRmdir"},
-	{0x54f5fb11, 0, "sceIoDevctl"},
-	{0x63632449, 0, "sceIoIoctl"},
-	{0xab96437f, 0, "sceIoSync"},
-	{0xb2a628c1, 0, "sceIoAssign"},
-	{0x6d08a871, 0, "sceIoUnassign"},
-	{0xace946e8, 0, "sceIoGetstat"},
-	{0xb8a740f4, 0, "sceIoChstat"},
-	{0xa0b5a7c2, 0, "sceIoReadAsync"},
-	{0x3251ea56, 0, "sceIoPollAsync"},
-	{0xe23eec33, 0, "sceIoWaitAsync"},
-	{0x35dbd746, 0, "sceIoWaitAsyncCB"},
-	{0xbd17474f, 0, "IoFileMgrForKernel_BD17474F"},
-	{0x76da16e3, 0, "IoFileMgrForKernel_76DA16E3"},
-};
-const HLEFunction StdioForKernel[] = 
-{
-	{0x98220F3E, 0, "sceKernelStdoutReopen"},
-	{0xFB5380C5, 0, "sceKernelStderrReopen"},
-	{0xcab439df, 0, "printf"},
-	{0x2CCF071A, 0, "fdprintf"},
-	{0xd97c8cb9, 0, "puts"},
-	{0x172D316E, 0, "sceKernelStdin"},
-	{0xA6BAB2E9, 0, "sceKernelStdout"},
-	{0xF78BA90A, 0, "sceKernelStderr"},
-};
 const HLEFunction LoadCoreForKernel[] = 
 {
-	{0xACE23476, 0, "sceKernelCheckPspConfig"},
-	{0x7BE1421C, 0, "sceKernelCheckExecFile"},
-	{0xBF983EF2, 0, "sceKernelProbeExecutableObject"},
-	{0x7068E6BA, 0, "sceKernelLoadExecutableObject"},
-	{0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
-	{0x54AB2675, 0, "sceKernelApplyPspRelSection"},
-	{0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
-	{0xD8779AC6, WrapU_V<sceKernelIcacheClearAll>, "sceKernelIcacheClearAll"},
-	{0x99A695F0, 0, "sceKernelRegisterLibrary"},
-	{0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
-	{0x0B464512, 0, "sceKernelReleaseLibrary"},
-	{0x9BAF90F6, 0, "sceKernelCanReleaseLibrary"},
-	{0x0E760DBA, 0, "sceKernelLinkLibraryEntries"},
-	{0x0DE1F600, 0, "sceKernelLinkLibraryEntriesForUser"},
-	{0xDA1B09AA, 0, "sceKernelUnLinkLibraryEntries"},
-	{0xC99DD47A, 0, "sceKernelQueryLoadCoreCB"},
-	{0x616FCCCD, 0, "sceKernelSetBootCallbackLevel"},
-	{0xF32A2940, 0, "sceKernelModuleFromUID"},
-	{0xCD0F3BAC, 0, "sceKernelCreateModule"},
-	{0x6B2371C2, 0, "sceKernelDeleteModule"},
-	{0x7320D964, 0, "sceKernelModuleAssign"},
-	{0x44B292AB, 0, "sceKernelAllocModule"},
-	{0xBD61D4D5, 0, "sceKernelFreeModule"},
-	{0xAE7C6E76, 0, "sceKernelRegisterModule"},
-	{0x74CF001A, 0, "sceKernelReleaseModule"},
-	{0xFB8AE27D, 0, "sceKernelFindModuleByAddress"},
-	{0xCCE4A157, 0, "sceKernelFindModuleByUID"},
-	{0x82CE54ED, 0, "sceKernelModuleCount"},
-	{0xC0584F0C, 0, "sceKernelGetModuleList"},
-	{0xCF8A41B1, WrapU_C<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
-	{0xb95fa50d, 0, "LoadCoreForKernel_B95FA50D"},
+	{0XACE23476, nullptr,                                            "sceKernelCheckPspConfig",                 '?', ""   },
+	{0X7BE1421C, nullptr,                                            "sceKernelCheckExecFile",                  '?', ""   },
+	{0XBF983EF2, nullptr,                                            "sceKernelProbeExecutableObject",          '?', ""   },
+	{0X7068E6BA, nullptr,                                            "sceKernelLoadExecutableObject",           '?', ""   },
+	{0XB4D6FECC, nullptr,                                            "sceKernelApplyElfRelSection",             '?', ""   },
+	{0X54AB2675, nullptr,                                            "sceKernelApplyPspRelSection",             '?', ""   },
+	{0X2952F5AC, nullptr,                                            "sceKernelDcacheWBinvAll",                 '?', ""   },
+	{0xD8779AC6, &WrapU_V<sceKernelIcacheClearAll>,                  "sceKernelIcacheClearAll",                 'x', "",       HLE_KERNEL_SYSCALL },
+	{0X99A695F0, nullptr,                                            "sceKernelRegisterLibrary",                '?', ""   },
+	{0X5873A31F, nullptr,                                            "sceKernelRegisterLibraryForUser",         '?', ""   },
+	{0X0B464512, nullptr,                                            "sceKernelReleaseLibrary",                 '?', ""   },
+	{0X9BAF90F6, nullptr,                                            "sceKernelCanReleaseLibrary",              '?', ""   },
+	{0X0E760DBA, nullptr,                                            "sceKernelLinkLibraryEntries",             '?', ""   },
+	{0X0DE1F600, nullptr,                                            "sceKernelLinkLibraryEntriesForUser",      '?', ""   },
+	{0XDA1B09AA, nullptr,                                            "sceKernelUnLinkLibraryEntries",           '?', ""   },
+	{0XC99DD47A, nullptr,                                            "sceKernelQueryLoadCoreCB",                '?', ""   },
+	{0X616FCCCD, nullptr,                                            "sceKernelSetBootCallbackLevel",           '?', ""   },
+	{0XF32A2940, nullptr,                                            "sceKernelModuleFromUID",                  '?', ""   },
+	{0XCD0F3BAC, nullptr,                                            "sceKernelCreateModule",                   '?', ""   },
+	{0X6B2371C2, nullptr,                                            "sceKernelDeleteModule",                   '?', ""   },
+	{0X7320D964, nullptr,                                            "sceKernelModuleAssign",                   '?', ""   },
+	{0X44B292AB, nullptr,                                            "sceKernelAllocModule",                    '?', ""   },
+	{0XBD61D4D5, nullptr,                                            "sceKernelFreeModule",                     '?', ""   },
+	{0XAE7C6E76, nullptr,                                            "sceKernelRegisterModule",                 '?', ""   },
+	{0X74CF001A, nullptr,                                            "sceKernelReleaseModule",                  '?', ""   },
+	{0XFB8AE27D, nullptr,                                            "sceKernelFindModuleByAddress",            '?', ""   },
+	{0XCCE4A157, &WrapU_U<sceKernelFindModuleByUID>,                 "sceKernelFindModuleByUID",                'x', "x" ,     HLE_KERNEL_SYSCALL },
+	{0X82CE54ED, nullptr,                                            "sceKernelModuleCount",                    '?', ""   },
+	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
+	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
+	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
 
 const HLEFunction KDebugForKernel[] = 
 {
-	{0xE7A3874D, 0, "sceKernelRegisterAssertHandler"},
-	{0x2FF4E9F9, 0, "sceKernelAssert"},
-	{0x9B868276, 0, "sceKernelGetDebugPutchar"},
-	{0xE146606D, 0, "sceKernelRegisterDebugPutchar"},
-	{0x7CEB2C09, WrapU_V<sceKernelRegisterKprintfHandler>, "sceKernelRegisterKprintfHandler"},
-	{0x84F370BC, 0, "Kprintf"},
-	{0x5CE9838B, 0, "sceKernelDebugWrite"},
-	{0x66253C4E, 0, "sceKernelRegisterDebugWrite"},
-	{0xDBB5597F, 0, "sceKernelDebugRead"},
-	{0xE6554FDA, 0, "sceKernelRegisterDebugRead"},
-	{0xB9C643C9, 0, "sceKernelDebugEcho"},
-	{0x7D1C74F0, 0, "sceKernelDebugEchoSet"},
-	{0x24C32559, 0, "sceKernelDipsw"},
-	{0xD636B827, 0, "sceKernelRemoveByDebugSection"},
-	{0x5282DD5E, 0, "sceKernelDipswSet"},
-	{0x9F8703E4, 0, "KDebugForKernel_9F8703E4"},
-	{0x333DCEC7, 0, "KDebugForKernel_333DCEC7"},
-	{0xE892D9A1, 0, "KDebugForKernel_E892D9A1"},
-	{0xA126F497, 0, "KDebugForKernel_A126F497"},
-	{0xB7251823, 0, "sceKernelAcceptMbogoSig"},
+	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
+	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
+	{0X9B868276, nullptr,                                            "sceKernelGetDebugPutchar",                '?', ""   },
+	{0XE146606D, nullptr,                                            "sceKernelRegisterDebugPutchar",           '?', ""   },
+	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', "",       HLE_KERNEL_SYSCALL },
+	{0X84F370BC, nullptr,                                            "Kprintf",                                 '?', ""   },
+	{0X5CE9838B, nullptr,                                            "sceKernelDebugWrite",                     '?', ""   },
+	{0X66253C4E, nullptr,                                            "sceKernelRegisterDebugWrite",             '?', ""   },
+	{0XDBB5597F, nullptr,                                            "sceKernelDebugRead",                      '?', ""   },
+	{0XE6554FDA, nullptr,                                            "sceKernelRegisterDebugRead",              '?', ""   },
+	{0XB9C643C9, nullptr,                                            "sceKernelDebugEcho",                      '?', ""   },
+	{0X7D1C74F0, nullptr,                                            "sceKernelDebugEchoSet",                   '?', ""   },
+	{0X24C32559, nullptr,                                            "sceKernelDipsw",                          '?', ""   },
+	{0XD636B827, nullptr,                                            "sceKernelRemoveByDebugSection",           '?', ""   },
+	{0X5282DD5E, nullptr,                                            "sceKernelDipswSet",                       '?', ""   },
+	{0X9F8703E4, nullptr,                                            "KDebugForKernel_9F8703E4",                '?', ""   },
+	{0X333DCEC7, nullptr,                                            "KDebugForKernel_333DCEC7",                '?', ""   },
+	{0XE892D9A1, nullptr,                                            "KDebugForKernel_E892D9A1",                '?', ""   },
+	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
+	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
-
-
-#define SZ(a) sizeof(a)/sizeof(HLEFunction)
 
 const HLEFunction pspeDebug[] = 
 {
-	{0xDEADBEAF, 0, "pspeDebugWrite"},
+	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
 };
 
 
 const HLEModule moduleList[] = 
 {
-	{"FakeSysCalls", SZ(FakeSysCalls), FakeSysCalls},
-	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
-	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
+	{"FakeSysCalls", ARRAY_SIZE(FakeSysCalls), FakeSysCalls},
+	{"UtilsForUser", ARRAY_SIZE(UtilsForUser), UtilsForUser},
+	{"KDebugForKernel", ARRAY_SIZE(KDebugForKernel), KDebugForKernel},
 	{"sceSAScore"},
 	{"SceBase64_Library"},
 	{"sceCert_Loader"},
@@ -246,13 +209,10 @@ const HLEModule moduleList[] =
 	{"sceSIRCS_IrDA_Driver"},
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
-	{"pspeDebug", SZ(pspeDebug), pspeDebug},
-	{"StdioForKernel", SZ(StdioForKernel), StdioForKernel},
-	{"LoadCoreForKernel", SZ(LoadCoreForKernel), LoadCoreForKernel},
-	{"IoFileMgrForKernel", SZ(IoFileMgrForKernel), IoFileMgrForKernel},
+	{"pspeDebug", ARRAY_SIZE(pspeDebug), pspeDebug},
 };
 
-static const int numModules = sizeof(moduleList)/sizeof(HLEModule);
+static const int numModules = ARRAY_SIZE(moduleList);
 
 void RegisterAllModules() {
 	Register_Kernel_Library();
@@ -313,9 +273,37 @@ void RegisterAllModules() {
 	Register_sceAudiocodec();
 	Register_sceHeap();
 
-	for (int i = 0; i < numModules; i++)
-	{
+	for (int i = 0; i < numModules; i++) {
 		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
+
+	// IMPORTANT: New modules have to be added at the end, or they will break savestates.
+
+	Register_StdioForKernel();
+	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
+	Register_IoFileMgrForKernel();
+	Register_LoadExecForKernel();
+	Register_SysMemForKernel();
+	Register_sceMt19937();
+	Register_SysclibForKernel();
+	Register_sceCtrl_driver();
+	Register_sceDisplay_driver();
+	Register_sceMpegbase();
+	Register_sceUsbGps();
+	Register_sceLibFttt();
+	Register_sceSha256();
+	Register_sceAdler();
+	Register_sceSfmt19937();
+	Register_sceAudioRouting();
+	Register_sceUsbCam();
+	Register_sceG729();
+	Register_sceNetUpnp();
+	Register_sceNetIfhandle();
+	Register_KUBridge();
+	Register_sceUsbAcc();
+	Register_sceUsbMic();
+	Register_sceOpenPSID_driver();
+	Register_semaphore();
+	// add new modules here.
 }
 

@@ -17,13 +17,13 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 #define NID_THREADRETURN 0xc0debabe
 #define NID_CALLBACKRETURN 0xbadc0fee
 #define NID_INTERRUPTRETURN 0xbadd00d5
 #define NID_EXTENDRETURN 0xbad0b0c9
 #define NID_MODULERETURN 0xbad0d318
+#define NID_HLECALLRETURN 0xbad0259b
 #define NID_IDLE 0x1d7e1d7e
+#define NID_GPUREPLAY 0x9e45bd95
 
 void RegisterAllModules();

@@ -1,26 +1,28 @@
-﻿// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
+// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Windows/W32Util/Misc.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/W32Util/ShellUtil.h"
+#include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
+#include "Common/StringUtils.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Globals.h"
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "ext/xxhash.h"
+#include "Common/System/Display.h"
 
 #include <CommDlg.h>
 #include <tchar.h>
@@ -149,25 +151,26 @@ CtrlDisAsmView *CtrlDisAsmView::getFrom(HWND hwnd)
 	return (CtrlDisAsmView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-
-
-
 CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 {
 	wnd=_wnd;
-	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
+	SetScrollRange(wnd, SB_VERT, -1, 1, TRUE);
 
-	charWidth = g_Config.iFontWidth;
-	rowHeight = g_Config.iFontHeight+2;
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	charWidth = g_Config.iFontWidth * fontScale;
+	rowHeight = (g_Config.iFontHeight + 2) * fontScale;
+	int scaledFontHeight = g_Config.iFontHeight * fontScale;
+	font = CreateFont(scaledFontHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
+	boldfont = CreateFont(scaledFontHeight, charWidth, 0, 0,
+		FW_DEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
 
-	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		L"Lucida Console");
-	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		L"Lucida Console");
-	curAddress=0;
-	showHex=false;
+	curAddress = 0;
+	showHex = false;
 	hasFocus = false;
 	dontRedraw = false;
 	keyTaken = false;
@@ -186,6 +189,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 {
 	DeleteObject(font);
 	DeleteObject(boldfont);
+	manager.clear();
 }
 
 COLORREF scaleColor(COLORREF color, float factor)
@@ -203,10 +207,13 @@ COLORREF scaleColor(COLORREF color, float factor)
 
 bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData)
 {
+	if (!PSP_IsInited())
+		return false;
+
 	if (displaySymbols)
 	{
-		const char* addressSymbol = symbolMap.GetLabelName(address);
-		if (addressSymbol != NULL)
+		const std::string addressSymbol = g_symbolMap->GetLabelString(address);
+		if (!addressSymbol.empty())
 		{
 			for (int k = 0; addressSymbol[k] != 0; k++)
 			{
@@ -226,10 +233,12 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		if (showData)
-			sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
-		else
-			sprintf(dest,"%08X",address);
+		if (showData) {
+			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
+			sprintf(dest, "%08X %08X", address, encoding);
+		} else {
+			sprintf(dest, "%08X", address);
+		}
 		return false;
 	}
 }
@@ -254,8 +263,7 @@ std::string trimString(std::string input)
 
 void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
-	u32 encoded;
-
+	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -292,13 +300,9 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
 	if (result == true)
 	{
-		Memory::Write_U32(encoded, address);
-		// In case this is a delay slot or combined instruction, clear cache above it too.
-		if (MIPSComp::jit)
-			MIPSComp::jit->ClearCacheAt(address - 4, 8);
 		scanFunctions();
 
 		if (address == curAddress)
@@ -306,7 +310,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 
 		redraw();
 	} else {
-		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
+		std::wstring error = MIPSAsm::GetAssembleError();
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
@@ -406,8 +410,71 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int>& addressPositions
 	DeleteObject(pen);
 }
 
+std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
+	std::set<std::string> args;
+
+	DisassemblyLineInfo line;
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		manager.getLine(addr, displaySymbols, line);
+		size_t p = 0, nextp = line.params.find(',');
+		while (nextp != line.params.npos) {
+			args.insert(line.params.substr(p, nextp - p));
+			p = nextp + 1;
+			nextp = line.params.find(',', p);
+		}
+		if (p < line.params.size()) {
+			args.insert(line.params.substr(p));
+		}
+	}
+
+	return args;
+}
+
+void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments) {
+	if (line.params.empty()) {
+		return;
+	}
+	// Don't highlight the selected lines.
+	if (isInInterval(selectRangeStart, selectRangeEnd - selectRangeStart, line.info.opcodeAddress)) {
+		TextOutA(hdc, x, y, line.params.c_str(), (int)line.params.size());
+		return;
+	}
+
+	int highlightedColor = 0xaabb00;
+	if (textColor == 0x0000ff) {
+		highlightedColor = 0xaabb77;
+	}
+
+	UINT prevAlign = SetTextAlign(hdc, TA_UPDATECP);
+	MoveToEx(hdc, x, y, NULL);
+
+	size_t p = 0, nextp = line.params.find(',');
+	while (nextp != line.params.npos) {
+		const std::string arg = line.params.substr(p, nextp - p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+		p = nextp + 1;
+		nextp = line.params.find(',', p);
+		TextOutA(hdc, 0, 0, ",", 1);
+	}
+	if (p < line.params.size()) {
+		const std::string arg = line.params.substr(p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			SetTextColor(hdc, highlightedColor);
+		}
+		TextOutA(hdc, 0, 0, arg.c_str(), (int)arg.size());
+		SetTextColor(hdc,textColor);
+	}
+
+	SetTextAlign(hdc, prevAlign);
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
+	auto memLock = Memory::Lock();
 	if (!debugger->isAlive()) return;
 
 	PAINTSTRUCT ps;
@@ -420,7 +487,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 	HPEN nullPen=CreatePen(0,0,0xffffff);
 	HBRUSH nullBrush=CreateSolidBrush(0xffffff);
-	HBRUSH currentBrush=CreateSolidBrush(0xFFEfE8);
+	HBRUSH currentBrush=CreateSolidBrush(0xffefe8);
 
 	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
 	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
@@ -431,6 +498,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	unsigned int address = windowStart;
 	std::map<u32,int> addressPositions;
 
+	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
@@ -466,7 +534,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,backgroundBrush);
 		SelectObject(hdc,backgroundPen);
 		Rectangle(hdc,0,rowY1,rect.right,rowY1+rowHeight);
-		
+
 		SelectObject(hdc,currentBrush);
 		SelectObject(hdc,nullPen);
 
@@ -490,7 +558,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		
 		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
-			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
+			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"\x25A0",1);
 		}
 
 		// display whether the condition of a branch is met
@@ -499,8 +567,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		if (line.params.size() != 0)
-			TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,line.params.c_str(),(int)line.params.size());
+		drawArguments(hdc, line, pixelPositions.argumentsStart, rowY1 + 2, textColor, currentArguments);
 			
 		SelectObject(hdc,boldfont);
 		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,line.name.c_str(),(int)line.name.size());
@@ -575,7 +642,7 @@ void CtrlDisAsmView::followBranch()
 		} else if (line.info.hasRelevantAddress)
 		{
 			// well, not  exactly a branch, but we can do something anyway
-			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.relevantAddress,0);
 			SetFocus(wnd);
 		}
 	} else if (line.type == DISTYPE_DATA)
@@ -775,22 +842,18 @@ void CtrlDisAsmView::redraw()
 void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 {
 	bool enabled;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress,&enabled))
-	{
-		if (!enabled)
-		{
+	if (CBreakPoints::IsAddressBreakPoint(curAddress, &enabled)) {
+		if (!enabled) {
 			// enable disabled breakpoints
-			CBreakPoints::ChangeBreakPoint(curAddress,true);
-		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
-		{
+			CBreakPoints::ChangeBreakPoint(curAddress, true);
+		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != nullptr) {
 			// don't just delete a breakpoint with a custom condition
 			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
 			if (ret == IDYES)
 				CBreakPoints::RemoveBreakPoint(curAddress);
-		} else if (toggleEnabled)
-		{
+		} else if (toggleEnabled) {
 			// disable breakpoint
-			CBreakPoints::ChangeBreakPoint(curAddress,false);
+			CBreakPoints::ChangeBreakPoint(curAddress, false);
 		} else {
 			// otherwise just remove breakpoint
 			CBreakPoints::RemoveBreakPoint(curAddress);
@@ -837,12 +900,12 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *temp = new char[space];
 
 		char *p = temp, *end = temp + space;
-		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
 			// Don't leave a trailing newline.
-			if (pos + instructionSize < endAddr)
+			if (pos + instructionSize < endAddr && p < end)
 				p += snprintf(p, end - p, "\r\n");
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);
@@ -910,15 +973,18 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_RENAMEFUNCTION:
 			{
-				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
 				if (funcBegin != -1)
 				{
 					char name[256];
 					std::string newname;
-					strncpy_s(name, symbolMap.GetLabelName(funcBegin),_TRUNCATE);
-					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname))
-					{
-						symbolMap.SetLabelName(newname.c_str(),funcBegin);
+					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
+					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
+						g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
+						u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
+						MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
+						MIPSAnalyst::UpdateHashMap();
+						MIPSAnalyst::ApplyHashMap();
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
 						redraw();
 					}
@@ -932,18 +998,18 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_REMOVEFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+				u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
 				if (funcBegin != -1)
 				{
-					u32 prevBegin = symbolMap.GetFunctionStart(funcBegin-1);
+					u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin-1);
 					if (prevBegin != -1)
 					{
-						u32 expandedSize = symbolMap.GetFunctionSize(prevBegin)+symbolMap.GetFunctionSize(funcBegin);
-						symbolMap.SetFunctionSize(prevBegin,expandedSize);
+						u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + g_symbolMap->GetFunctionSize(funcBegin);
+						g_symbolMap->SetFunctionSize(prevBegin,expandedSize);
 					}
 					
-					symbolMap.RemoveFunction(funcBegin,true);
-					symbolMap.SortSymbols();
+					g_symbolMap->RemoveFunction(funcBegin,true);
+					g_symbolMap->SortSymbols();
 					manager.clear();
 
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
@@ -959,7 +1025,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_ADDFUNCTION:
 			{
 				char statusBarTextBuff[256];
-				u32 prevBegin = symbolMap.GetFunctionStart(curAddress);
+				u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress);
 				if (prevBegin != -1)
 				{
 					if (prevBegin == curAddress)
@@ -970,14 +1036,14 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					else
 					{
 						char symname[128];
-						u32 prevSize = symbolMap.GetFunctionSize(prevBegin);
+						u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
 						u32 newSize = curAddress-prevBegin;
-						symbolMap.SetFunctionSize(prevBegin,newSize);
+						g_symbolMap->SetFunctionSize(prevBegin,newSize);
 
 						newSize = prevSize-newSize;
 						snprintf(symname,128,"u_un_%08X",curAddress);
-						symbolMap.AddFunction(symname,curAddress,newSize);
-						symbolMap.SortSymbols();
+						g_symbolMap->AddFunction(symname,curAddress,newSize);
+						g_symbolMap->SortSymbols();
 						manager.clear();
 
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
@@ -988,8 +1054,8 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					char symname[128];
 					int newSize = selectRangeEnd - selectRangeStart;
 					snprintf(symname, 128, "u_un_%08X", selectRangeStart);
-					symbolMap.AddFunction(symname, selectRangeStart, newSize);
-					symbolMap.SortSymbols();
+					g_symbolMap->AddFunction(symname, selectRangeStart, newSize);
+					g_symbolMap->SortSymbols();
 
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
@@ -1020,6 +1086,10 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::updateStatusBarText()
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	char text[512];
 	DisassemblyLineInfo line;
 	manager.getLine(curAddress,true,line);
@@ -1031,26 +1101,26 @@ void CtrlDisAsmView::updateStatusBarText()
 		{
 			if (!Memory::IsValidAddress(line.info.dataAddress))
 			{
-				sprintf(text,"Invalid address %08X",line.info.dataAddress);
+				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
 			} else {
 				switch (line.info.dataSize)
 				{
 				case 1:
-					sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 					break;
 				case 2:
-					sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 					break;
 				case 4:
 					// TODO: Could also be a float...
 					{
 						u32 data = Memory::Read_U32(line.info.dataAddress);
-						const char* addressSymbol = symbolMap.GetLabelName(data);
-						if (addressSymbol)
+						const std::string addressSymbol = g_symbolMap->GetLabelString(data);
+						if (!addressSymbol.empty())
 						{
-							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol,data);
+							snprintf(text, sizeof(text), "[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
 						} else {
-							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+							snprintf(text, sizeof(text), "[%08X] = %08X",line.info.dataAddress,data);
 						}
 						break;
 					}
@@ -1063,38 +1133,41 @@ void CtrlDisAsmView::updateStatusBarText()
 
 		if (line.info.isBranch)
 		{
-			const char* addressSymbol = symbolMap.GetLabelName(line.info.branchTarget);
-			if (addressSymbol == NULL)
+			const std::string addressSymbol = g_symbolMap->GetLabelString(line.info.branchTarget);
+			if (addressSymbol.empty())
 			{
-				sprintf(text,"%08X",line.info.branchTarget);
+				snprintf(text, sizeof(text), "%08X", line.info.branchTarget);
 			} else {
-				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol);
+				snprintf(text, sizeof(text), "%08X = %s",line.info.branchTarget,addressSymbol.c_str());
 			}
 		}
-	} else if (line.type == DISTYPE_DATA)
-	{
-		u32 start = symbolMap.GetDataStart(curAddress);
+	} else if (line.type == DISTYPE_DATA) {
+		u32 start = g_symbolMap->GetDataStart(curAddress);
 		if (start == -1)
 			start = curAddress;
 
 		u32 diff = curAddress-start;
-		const char* label = symbolMap.GetLabelName(start);
+		const std::string label = g_symbolMap->GetLabelString(start);
 
-		if (label != NULL)
-		{
+		if (!label.empty()) {
 			if (diff != 0)
-				sprintf(text,"%08X (%s) + %08X",start,label,diff);
+				snprintf(text, sizeof(text), "%08X (%s) + %08X",start,label.c_str(),diff);
 			else
-				sprintf(text,"%08X (%s)",start,label);
+				snprintf(text, sizeof(text), "%08X (%s)",start,label.c_str());
 		} else {
 			if (diff != 0)
-				sprintf(text,"%08X + %08X",start,diff);
+				snprintf(text, sizeof(text), "%08X + %08X",start,diff);
 			else
-				sprintf(text,"%08X",start);
+				snprintf(text, sizeof(text), "%08X",start);
 		}
 	}
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+
+	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	if (!label.empty()) {
+		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
+	}
 }
 
 u32 CtrlDisAsmView::yToAddress(int y)
@@ -1113,6 +1186,7 @@ void CtrlDisAsmView::calculatePixelPositions()
 
 void CtrlDisAsmView::search(bool continueSearch)
 {
+	auto memLock = Memory::Lock();
 	u32 searchAddress;
 
 	if (continueSearch == false || searchQuery[0] == 0)
@@ -1193,6 +1267,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 {
+	auto memLock = Memory::Lock();
 	std::string result;
 
 	// gather all branch targets without labels
@@ -1201,7 +1276,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,start+i);
 
-		if (info.isBranch && symbolMap.GetLabelName(info.branchTarget) == NULL)
+		if (info.isBranch && g_symbolMap->GetLabelString(info.branchTarget).empty())
 		{
 			if (branchAddresses.find(info.branchTarget) == branchAddresses.end())
 			{
@@ -1233,7 +1308,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 		}
 
 		if (line.info.isBranch && !line.info.isBranchToRegister
-			&& symbolMap.GetLabelName(line.info.branchTarget) == NULL
+			&& g_symbolMap->GetLabelString(line.info.branchTarget).empty()
 			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
 		{
 			sprintf(buffer,"pos_%08X",line.info.branchTarget);
@@ -1249,55 +1324,39 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	return result;
 }
 
-void CtrlDisAsmView::disassembleToFile()
-{
-	wchar_t fileName[MAX_PATH];
-	u32 size;
-
+void CtrlDisAsmView::disassembleToFile() {
 	// get size
-	if (executeExpressionWindow(wnd,debugger,size) == false) return;
-	if (size == 0 || size > 10*1024*1024)
-	{
+	u32 size;
+	if (executeExpressionWindow(wnd,debugger,size) == false)
+		return;
+	if (size == 0 || size > 10*1024*1024) {
 		MessageBox(wnd,L"Invalid size!",L"Error",MB_OK);
 		return;
 	}
 
-	// get file name
-	OPENFILENAME ofn;
-	ZeroMemory( &ofn , sizeof( ofn));
-	ofn.lStructSize = sizeof ( ofn );
-	ofn.hwndOwner = NULL ;
-	ofn.lpstrFile = fileName ;
-	ofn.lpstrFile[0] = '\0';
-	ofn.nMaxFile = sizeof( fileName );
-	ofn.lpstrFilter = L"All files";
-	ofn.nFilterIndex = 1;
-	ofn.lpstrFileTitle = NULL ;
-	ofn.nMaxFileTitle = 0 ;
-	ofn.lpstrInitialDir = NULL ;
-	ofn.Flags = OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST|OFN_OVERWRITEPROMPT;
+	std::string filename;
+	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
+		std::wstring fileName = ConvertUTF8ToWString(filename);
+		FILE *output = _wfopen(fileName.c_str(), L"wb");
+		if (output == nullptr) {
+			MessageBox(wnd, L"Could not open file!", L"Error", MB_OK);
+			return;
+		}
 
-	if (GetSaveFileName(&ofn) == false) return;
+		std::string disassembly = disassembleRange(curAddress, size);
+		fprintf(output, "%s", disassembly.c_str());
 
-	FILE* output = _wfopen(fileName, L"wb");
-	if (output == NULL) {
-		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
-		return;
+		fclose(output);
+		MessageBox(wnd, L"Finished!", L"Done", MB_OK);
 	}
-
-	std::string disassembly = disassembleRange(curAddress,size);
-	fprintf(output,"%s",disassembly.c_str());
-
-	fclose(output);
-	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
 }
 
-void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
+void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
 	manager.getLine(address,displaySymbols,line);
-	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
+	snprintf(dest, bufsize, "%s  %s",line.name.c_str(),line.params.c_str());
 }
 
 void CtrlDisAsmView::scrollStepping(u32 newPc)

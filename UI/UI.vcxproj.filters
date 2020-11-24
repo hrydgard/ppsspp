@@ -1,11 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
-    <ClCompile Include="ui_atlas.cpp" />
-    <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
       <Filter>Screens</Filter>
@@ -40,12 +38,48 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TiltEventProcessor.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="InstallZipScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="Store.cpp" />
+    <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="ReportScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="PauseScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="SavedataScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ProfilerDraw.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ComboKeyMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayLayoutEditor.cpp" />
+    <ClCompile Include="RemoteISOScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureUtil.cpp" />
+    <ClCompile Include="DiscordIntegration.cpp" />
+    <ClCompile Include="GPUDriverTestScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ChatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
-    <ClInclude Include="ui_atlas.h" />
-    <ClInclude Include="UIShader.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
@@ -78,6 +112,45 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TiltAnalogSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltEventProcessor.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="InstallZipScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Store.h" />
+    <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="ReportScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="PauseScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SavedataScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ProfilerDraw.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ComboKeyMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DisplayLayoutEditor.h" />
+    <ClInclude Include="HostTypes.h" />
+    <ClInclude Include="RemoteISOScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureUtil.h" />
+    <ClInclude Include="DiscordIntegration.h" />
+    <ClInclude Include="GPUDriverTestScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ChatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

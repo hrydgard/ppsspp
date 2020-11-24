@@ -15,13 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #pragma once
 
+#include <string>
 #include <map>
+#include <vector>
 
 #include "Common/CommonTypes.h"
-#include "../Globals.h"
+#include "Common/Log.h"
 
 class ParamSFOData
 {
@@ -34,10 +35,29 @@ public:
 	std::string GetValueString(std::string key);
 	u8* GetValueData(std::string key, unsigned int *size);
 
+	std::vector<std::string> GetKeys();
+	std::string GenerateFakeID(std::string filename = "");
+
+	std::string GetDiscID() {
+		const std::string discID = GetValueString("DISC_ID");
+		if (discID.empty()) {
+			std::string fakeID = GenerateFakeID();
+			WARN_LOG(LOADER, "No DiscID found - generating a fake one: %s", fakeID.c_str());
+			return fakeID;
+		}
+		return discID;
+	}
+
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
 
+	bool ReadSFO(const std::vector<u8> &paramsfo) {
+		return ReadSFO(&paramsfo[0], paramsfo.size());
+	}
+
 	int GetDataOffset(const u8 *paramsfo, std::string dataName);
+
+	void Clear();
 
 private:
 	enum ValueType
@@ -50,41 +70,18 @@ private:
 	class ValueData
 	{
 	public:
-		ValueType type;
-		int max_size;
+		ValueType type = VT_INT;
+		int max_size = 0;
 		std::string s_value;
-		int i_value;
+		int i_value = 0;
 
-		u8* u_value;
-		unsigned int u_size;
+		u8* u_value = nullptr;
+		unsigned int u_size = 0;
 
-		void SetData(const u8* data, int size)
-		{
-			if(u_value)
-			{
-				delete[] u_value;
-				u_value = 0;
-			}
-			if(size > 0)
-			{
-				u_value = new u8[size];
-				memcpy(u_value, data, size);
-			}
-			u_size = size;
-		}
+		void SetData(const u8* data, int size);
 
-		ValueData()
-		{
-			u_value = 0;
-			u_size = 0;
-			type = VT_INT;
-			max_size = 0;
-			i_value = 0;
-		}
-
-		~ValueData()
-		{
-			if(u_value)
+		~ValueData() {
+			if (u_value)
 				delete[] u_value;
 		}
 	};

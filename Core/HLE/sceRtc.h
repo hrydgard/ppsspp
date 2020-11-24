@@ -17,12 +17,18 @@
 
 #pragma once
 
+#include "Common/Common.h"
+
+class PointerWrap;
+
 struct PSPTimeval {
 	s32_le tv_sec;
 	s32_le tv_usec;
 };
 
 void __RtcTimeOfDay(PSPTimeval *tv);
+int32_t RtcBaseTime(int32_t *micro = nullptr);
+void RtcSetBaseTime(int32_t seconds, int32_t micro = 0);
 
 void Register_sceRtc();
 void __RtcInit();

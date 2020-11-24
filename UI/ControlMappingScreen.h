@@ -17,43 +17,124 @@
 
 #pragma once
 
-#include "base/functional.h"
-#include "ui/view.h"
-#include "ui/ui_screen.h"
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <vector>
 
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
+
+#include "Common/Data/Text/I18n.h"
 #include "UI/MiscScreens.h"
+
+class ControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
 	ControlMappingScreen() {}
-protected:
-	virtual void CreateViews();
-	virtual void sendMessage(const char *message, const char *value);
+	void KeyMapped(int pspkey);  // Notification to let us refocus the same one after recreating views.
+	std::string tag() const override { return "control mapping"; }
 
+protected:
+	virtual void CreateViews() override;
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
+	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
+	UI::EventReturn OnTestAnalogs(UI::EventParams &params);
+
+	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+
+	UI::ScrollView *rightScroll_;
+	std::vector<ControlMapper *> mappers_;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback)
-		: PopupScreen("Map Key", "Cancel", ""), callback_(callback) {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
+		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
 
-	void key(const KeyInput &key);
-	void axis(const AxisInput &axis);
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
 
 protected:
-	void CreatePopupContents(UI::ViewGroup *parent);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	virtual bool FillVertical() const { return false; }
-	virtual bool ShowButtons() const { return true; }
-	virtual void OnCompleted(DialogResult result) {}
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
-	bool replace_;
 	std::function<void(KeyDef)> callback_;
+	bool mapped_;  // Prevent double registrations
+};
+
+class KeyMappingNewMouseKeyDialog : public PopupScreen {
+public:
+	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
+		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
+		pspBtn_ = btn;
+	}
+
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void OnCompleted(DialogResult result) override {}
+
+private:
+	int pspBtn_;
+	std::function<void(KeyDef)> callback_;
+	bool mapped_;  // Prevent double registrations
+};
+
+class AnalogTestScreen : public UIDialogScreenWithBackground {
+public:
+	AnalogTestScreen() {}
+
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
+
+protected:
+	virtual void CreateViews() override;
+
+	UI::TextView *lastKeyEvent_ = nullptr;
+	UI::TextView *lastLastKeyEvent_ = nullptr;
+};
+
+class TouchTestScreen : public UIDialogScreenWithBackground {
+public:
+	TouchTestScreen() {
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			touches_[i].id = -1;
+		}
+	}
+
+	bool touch(const TouchInput &touch) override;
+	void render() override;
+
+protected:
+	struct TrackedTouch {
+		int id;
+		float x;
+		float y;
+	};
+	enum {
+		MAX_TOUCH_POINTS = 10,
+	};
+	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	void CreateViews() override;
+
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
 };

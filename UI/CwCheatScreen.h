@@ -15,70 +15,47 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/functional.h"
-#include "ui/view.h"
-#include "ui/ui_screen.h"
-#include "ui/ui_context.h"
-#include "../Core/CwCheat.h"
+#include <cstdint>
+#include <functional>
+
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/Context.h"
 #include "UI/MiscScreens.h"
-#include "UI/GameSettingsScreen.h"
-using namespace UI;
-extern std::string activeCheatFile;
-extern std::string gameTitle;
+
+struct CheatFileInfo;
+class CWCheatEngine;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
-	CwCheatScreen() {}
-	std::vector<std::string> CreateCodeList();
-	std::ifstream is;
-	std::ofstream os;
-	void processFileOn(std::string activatedCheat);
-	void processFileOff(std::string deactivatedCheat);
-	const char * name;
-	std::string activatedCheat, deactivatedCheat;
-	UI::EventReturn OnBack(UI::EventParams &params);
+	CwCheatScreen(const std::string &gamePath);
+	~CwCheatScreen();
+
+	void LoadCheatInfo();
+
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
+	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
-	virtual void onFinish(DialogResult result);
+	void update() override;
+	void onFinish(DialogResult result) override;
+
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 
 private:
-	UI::EventReturn OnCheckBox(UI::EventParams &params);
-	std::vector<std::string> formattedList_;
-	bool anythingChanged_;
-};
+	UI::EventReturn OnCheckBox(int index);
 
-// TODO: Instead just hook the OnClick event on a regular checkbox.
-class CheatCheckBox : public ClickableItem, public CwCheatScreen {
-public:
-	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), toggle_(toggle), text_(text) {
-			OnClick.Handle(this, &CheatCheckBox::OnClicked);
-	}
+	enum { INDEX_ALL = -1 };
+	bool RebuildCheatFile(int index);
 
-	virtual void Draw(UIContext &dc);
-
-	EventReturn OnClicked(EventParams &e) {
-		if (toggle_) {
-			*toggle_ = !(*toggle_);
-		}
-		bool temp;
-		temp = *toggle_;
-		if (temp) {
-			activatedCheat = text_;
-			processFileOn(activatedCheat);
-		} else {
-			deactivatedCheat = text_;
-			processFileOff(deactivatedCheat);
-		}
-		return EVENT_DONE;
-	}
-
-private:
-	bool *toggle_;
-	std::string text_;
-	std::string smallText_;
+	UI::ScrollView *rightScroll_ = nullptr;
+	CWCheatEngine *engine_ = nullptr;
+	std::vector<CheatFileInfo> fileInfo_;
+	std::string gamePath_;
+	std::string gameID_;
+	int fileCheckCounter_ = 0;
+	uint64_t fileCheckHash_;
+	bool enableAllFlag_ = false;
 };

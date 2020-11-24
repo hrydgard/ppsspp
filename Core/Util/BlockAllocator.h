@@ -17,11 +17,9 @@
 
 #pragma once
 
-#include "../../Globals.h"
-
 class PointerWrap;
 
-// Generic allocator thingy. Allocates blocks from a range.
+#include "Common/CommonTypes.h"
 
 class BlockAllocator
 {
@@ -54,6 +52,8 @@ public:
 	u32 GetLargestFreeBlockSize() const;
 	u32 GetTotalFreeBytes() const;
 
+	const char *GetBlockTag(u32 addr) const;
+
 	void DoState(PointerWrap &p);
 
 private:
@@ -61,18 +61,8 @@ private:
 
 	struct Block
 	{
-		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
-			: start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
-		{
-			strcpy(tag, "(untitled)");
-		}
-		void SetTag(const char *_tag) {
-			if (_tag)
-				strncpy(tag, _tag, 32);
-			else
-				strncpy(tag, "---", 32);
-			tag[31] = 0;
-		}
+		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
+		void SetTag(const char *_tag);
 		void DoState(PointerWrap &p);
 		u32 start;
 		u32 size;
@@ -92,6 +82,6 @@ private:
 	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);
 	const Block *GetBlockFromAddress(u32 addr) const;
-	Block *InsertFreeBefore(Block *b, u32 start, u32 size);
-	Block *InsertFreeAfter(Block *b, u32 start, u32 size);
+	Block *InsertFreeBefore(Block *b, u32 size);
+	Block *InsertFreeAfter(Block *b, u32 size);
 };

@@ -15,13 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
+#include <cstring>
+
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/MIPSTables.h"
 
 using namespace ArmGen;
+using namespace ArmJitConstants;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), js_(js), jo_(jo), vr(mr + 32), initialReady(false) {
 	if (cpu_info.bNEON) {
 		numARMFpuReg_ = 32;
 	} else {
@@ -29,36 +35,57 @@ ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
 	}
 }
 
-void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
-	emit_ = emitter;
+void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+	if (!initialReady) {
+		SetupInitialRegs();
+		initialReady = true;
+	}
+
+	memcpy(ar, arInitial, sizeof(ar));
+	memcpy(mr, mrInitial, sizeof(mr));
+	pendingFlush = false;
 }
 
-void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+void ArmRegCacheFPU::SetupInitialRegs() {
 	for (int i = 0; i < numARMFpuReg_; i++) {
-		ar[i].mipsReg = -1;
-		ar[i].isDirty = false;
+		arInitial[i].mipsReg = -1;
+		arInitial[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		mr[i].loc = ML_MEM;
-		mr[i].reg = INVALID_REG;
-		mr[i].spillLock = false;
-		mr[i].tempLock = false;
+		mrInitial[i].loc = ML_MEM;
+		mrInitial[i].reg = INVALID_REG;
+		mrInitial[i].spillLock = false;
+		mrInitial[i].tempLock = false;
+	}
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		qr[i].isDirty = false;
+		qr[i].mipsVec = -1;
+		qr[i].sz = V_Invalid;
+		qr[i].spillLock = false;
+		qr[i].isTemp = false;
+		memset(qr[i].vregs, 0xff, 4);
 	}
 }
 
-static const ARMReg *GetMIPSAllocationOrder(int &count) {
+const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
-							S2,  S3,
+		          S2,  S3,
 		S4,  S5,  S6,  S7,
 		S8,  S9,  S10, S11,
 		S12, S13, S14, S15
 	};
 
-	// With NEON, we have many more.
-	// In the future I plan to use S0-S7 (Q0-Q1) for FPU and S8 forwards (Q2-Q15, yes, 15) for VFPU.
-	// VFPU will use NEON to do SIMD and it will be awkward to mix with FPU.
+	// VFP mapping
+	// VFPU registers and regular FP registers are mapped interchangably on top of the standard
+	// 16 FPU registers.
 
+	// NEON mapping
+	// We map FPU and VFPU registers entirely separately. FPU is mapped to 12 of the bottom 16 S registers.
+	// VFPU is mapped to the upper 48 regs, 32 of which can only be reached through NEON
+	// (or D16-D31 as doubles, but not relevant).
+	// Might consider shifting the split in the future, giving more regs to NEON allowing it to map more quads.
+	
 	// We should attempt to map scalars to low Q registers and wider things to high registers,
 	// as the NEON instructions are all 2-vector or 4-vector, they don't do scalar, we want to be
 	// able to use regular VFP instructions too.
@@ -75,16 +102,41 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 		// Q8-Q15 free for NEON tricks
 	};
 
-	if (cpu_info.bNEON) {
-		count = sizeof(allocationOrderNEON) / sizeof(const int);
+	static const ARMReg allocationOrderNEONVFPU[] = {
+		// Reserve four temp registers. Useful when building quads until we really figure out
+		// how to do that best.
+		S4,  S5,  S6,  S7,   // Q1
+		S8,  S9,  S10, S11,  // Q2
+		S12, S13, S14, S15,  // Q3
+		// Q4-Q15 free for VFPU
+	};
+
+	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
+	// They are used by a few instructions, like vh2f.
+	if (jo_->useNEONVFPU) {
+		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
+		return allocationOrderNEONVFPU;
+	} else if (cpu_info.bNEON) {
+		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
 		return allocationOrderNEON;
 	} else {
-		count = sizeof(allocationOrder) / sizeof(const int);
+		count = sizeof(allocationOrder) / sizeof(const ARMReg);
 		return allocationOrder;
 	}
 }
 
+bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
+	return mr[r].loc == ML_ARMREG;
+}
+
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
+	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
+	if (jo_->useNEONVFPU && mipsReg >= 32) {
+		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
+		return S0;
+	}
+
+	pendingFlush = true;
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -111,7 +163,7 @@ allocate:
 		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-			if (!(mapFlags & MAP_NOINIT)) {
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 				if (mr[mipsReg].loc == ML_MEM && mipsReg < TEMP0) {
 					emit_->VLDR((ARMReg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
 				}
@@ -143,7 +195,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", js_->compilerPC);
 	return INVALID_REG;
 }
 
@@ -157,8 +209,8 @@ void ArmRegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 
 void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
-	bool overlap = avoidLoad && rd == rs;
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	bool load = !avoidLoad || rd == rs;
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
 	ReleaseSpillLock(rs);
@@ -166,8 +218,8 @@ void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 
 void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
-	bool overlap = avoidLoad && (rd == rs || rd == rt);
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	bool load = !avoidLoad || (rd == rs || rd == rt);
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
@@ -226,21 +278,21 @@ void ArmRegCacheFPU::MapInInV(int vs, int vt) {
 }
 
 void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
-	bool overlap = avoidLoad && (vd == vs);
+	bool load = !avoidLoad || (vd == vs);
 	SpillLockV(vd);
 	SpillLockV(vs);
-	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	ReleaseSpillLockV(vd);
 	ReleaseSpillLockV(vs);
 }
 
 void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
-	bool overlap = avoidLoad && ((vd == vs) || (vd == vt));
+	bool load = !avoidLoad || (vd == vs || vd == vt);
 	SpillLockV(vd);
 	SpillLockV(vs);
 	SpillLockV(vt);
-	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	MapRegV(vt);
 	ReleaseSpillLockV(vd);
@@ -249,26 +301,65 @@ void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 }
 
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
-	int reg = r - S0;
-	if (ar[reg].mipsReg == -1) {
-		// Nothing to do, reg not mapped.
-		return;
-	}
-	if (ar[reg].mipsReg != -1) {
-		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-		{
-			//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
-			emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+	if (r >= S0 && r <= S31) {
+		int reg = r - S0;
+		if (ar[reg].mipsReg == -1) {
+			// Nothing to do, reg not mapped.
+			return;
 		}
-		// IMMs won't be in an ARM reg.
-		mr[ar[reg].mipsReg].loc = ML_MEM;
-		mr[ar[reg].mipsReg].reg = INVALID_REG;
-	} else {
-		ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		if (ar[reg].mipsReg != -1) {
+			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
+			{
+				//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
+				emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+			}
+			// IMMs won't be in an ARM reg.
+			mr[ar[reg].mipsReg].loc = ML_MEM;
+			mr[ar[reg].mipsReg].reg = INVALID_REG;
+		} else {
+			ERROR_LOG(JIT, "Dirty but no mipsreg?");
+		}
+		ar[reg].isDirty = false;
+		ar[reg].mipsReg = -1;
+	} else if (r >= D0 && r <= D31) {
+		// TODO: Convert to S regs and flush them individually.
+	} else if (r >= Q0 && r <= Q15) {
+		int quad = r - Q0;
+		QFlush(r);
 	}
-	ar[reg].isDirty = false;
-	ar[reg].mipsReg = -1;
 }
+
+void ArmRegCacheFPU::FlushV(MIPSReg r) {
+	FlushR(r + 32);
+}
+
+/*
+void ArmRegCacheFPU::FlushQWithV(MIPSReg r) {
+	// Look for it in all the quads. If it's in any, flush that quad clean.
+	int flushCount = 0;
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		if (qr[i].sz == V_Invalid)
+			continue;
+
+		int n = qr[i].sz;
+		bool flushThis = false;
+		for (int j = 0; j < n; j++) {
+			if (qr[i].vregs[j] == r) {
+				flushThis = true;
+			}
+		}
+
+		if (flushThis) {
+			QFlush(i);
+			flushCount++;
+		}
+	}
+
+	if (flushCount > 1) {
+		WARN_LOG(JIT, "ERROR: More than one quad was flushed to flush reg %i", r);
+	}
+}
+*/
 
 void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
@@ -279,15 +370,27 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 		break;
 
 	case ML_ARMREG:
-		if (mr[r].reg == (int)INVALID_REG) {
+		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
 		}
-		if (ar[mr[r].reg].isDirty) {
-			//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
-			emit_->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
-			ar[mr[r].reg].isDirty = false;
+
+		if (mr[r].reg >= Q0 && mr[r].reg <= Q15) {
+			// This should happen rarely, but occasionally we need to flush a single stray
+			// mipsreg that's been part of a quad.
+			int quad = mr[r].reg - Q0;
+			if (qr[quad].isDirty) {
+				WARN_LOG(JIT, "FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(r), R1);
+				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
+			}
+		} else {
+			if (ar[mr[r].reg].isDirty) {
+				//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
+				emit_->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
+				ar[mr[r].reg].isDirty = false;
+			}
+			ar[mr[r].reg].mipsReg = -1;
 		}
-		ar[mr[r].reg].mipsReg = -1;
 		break;
 
 	case ML_MEM:
@@ -302,6 +405,112 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+int ArmRegCacheFPU::GetNumARMFPURegs() {
+	if (cpu_info.bNEON)
+		return 32;
+	else
+		return 16;
+}
+
+// Scalar only. Need a similar one for sequential Q vectors.
+int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
+	int c = 1;
+	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+	a++;
+	while (a < maxArmReg) {
+		if (!ar[a].isDirty || ar[a].mipsReg == -1)
+			break;
+		int mipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+		if (mipsOffset != lastMipsOffset + 4) {
+			break;
+		}
+
+		lastMipsOffset = mipsOffset;
+		a++;
+		c++;
+	}
+	return c;
+}
+
+void ArmRegCacheFPU::FlushAll() {
+	if (!pendingFlush) {
+		// Nothing allocated.  FPU regs are not nearly as common as GPR.
+		return;
+	}
+
+	// Discard temps!
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
+		DiscardR(i);
+	}
+
+	// Flush quads!
+	// These could also use sequential detection.
+	for (int i = 4; i < MAX_ARMQUADS; i++) {
+		QFlush(i);
+	}
+
+	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
+	// sequential. This is necessary because we store VFPU registers in a staggered order to get
+	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
+	
+	int numArmRegs;
+	// We rely on the allocation order being sequential.
+	const ARMReg baseReg = GetMIPSAllocationOrder(numArmRegs)[0];
+
+	for (int i = 0; i < numArmRegs; i++) {
+		int a = (baseReg - S0) + i;
+		int m = ar[a].mipsReg;
+
+		if (ar[a].isDirty) {
+			if (m == -1) {
+				INFO_LOG(JIT, "ARM reg %i is dirty but has no mipsreg", a);
+				continue;
+			}
+
+			int c = FlushGetSequential(a, GetNumARMFPURegs());
+			if (c == 1) {
+				// INFO_LOG(JIT, "Got single register: %i (%i)", a, m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
+			} else if (c == 2) {
+				// Probably not worth using VSTMIA for two.
+				int offset = GetMipsRegOffset(m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, offset);
+				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
+			} else {
+				// INFO_LOG(JIT, "Got sequence: %i at %i (%i)", c, a, m);
+				emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
+				// INFO_LOG(JIT, "VSTMIA R0, %i, %i", a, c);
+				emit_->VSTMIA(SCRATCHREG1, false, (ARMReg)(S0 + a), c);
+			}
+
+			// Skip past, and mark as non-dirty.
+			for (int j = 0; j < c; j++) {
+				int b = a + j;
+				mr[ar[b].mipsReg].loc = ML_MEM;
+				mr[ar[b].mipsReg].reg = (int)INVALID_REG;
+				ar[a + j].mipsReg = -1;
+				ar[a + j].isDirty = false;
+			}
+			i += c - 1;
+		} else {
+			if (m != -1) {
+				mr[m].loc = ML_MEM;
+				mr[m].reg = (int)INVALID_REG;
+			}
+			ar[a].mipsReg = -1;
+			// already not dirty
+		}
+	}
+
+	// Sanity check
+	for (int i = 0; i < numARMFpuReg_; i++) {
+		if (ar[i].mipsReg != -1) {
+			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+		}
+	}
+	pendingFlush = false;
+}
+
 void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
@@ -311,12 +520,13 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 		break;
 		 
 	case ML_ARMREG:
-		if (mr[r].reg == (int)INVALID_REG) {
+		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
+		} else {
+			// Note that we DO NOT write it back here. That's the whole point of Discard.
+			ar[mr[r].reg].isDirty = false;
+			ar[mr[r].reg].mipsReg = -1;
 		}
-		// Note that we DO NOT write it back here. That's the whole point of Discard.
-		ar[mr[r].reg].isDirty = false;
-		ar[mr[r].reg].mipsReg = -1;
 		break;
 
 	case ML_MEM:
@@ -333,12 +543,16 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	mr[r].spillLock = false;
 }
 
-
 bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
 	return ar[r - S0].mipsReg >= TEMP0;
 }
 
 int ArmRegCacheFPU::GetTempR() {
+	if (jo_->useNEONVFPU) {
+		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
+		return 0;
+	}
+	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
 			mr[r].tempLock = true;
@@ -347,25 +561,8 @@ int ArmRegCacheFPU::GetTempR() {
 	}
 
 	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
-	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	_assert_msg_(false, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
-}
-
-
-void ArmRegCacheFPU::FlushAll() {
-	// Discard temps!
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
-		DiscardR(i);
-	}
-	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		FlushR(i);
-	} 
-	// Sanity check
-	for (int i = 0; i < numARMFpuReg_; i++) {
-		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
-		}
-	}
 }
 
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
@@ -375,7 +572,7 @@ int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 		return 0;  // or what?
 	}
 
-	if (r < 32 || r > 32 + 128) {
+	if (r < 32 || r >= 32 + 128) {
 		return (32 + r) << 2;
 	} else {
 		// r is between 32 and 128 + 32
@@ -392,10 +589,19 @@ void ArmRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 
 // This is actually pretty slow with all the 160 regs...
 void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
-	for (int i = 0; i < NUM_MIPSFPUREG; i++)
+	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		mr[i].spillLock = false;
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+	}
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
 		DiscardR(i);
+	}
+	for (int i = 0; i < MAX_ARMQUADS; i++) {
+		qr[i].spillLock = false;
+		if (qr[i].isTemp) {
+			qr[i].isTemp = false;
+			qr[i].sz = V_Invalid;
+		}
+	}
 }
 
 ARMReg ArmRegCacheFPU::R(int mipsReg) {
@@ -403,12 +609,402 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
 		}
 		return INVALID_REG;  // BAAAD
 	}
 }
+
+inline ARMReg QuadAsD(int quad) {
+	return (ARMReg)(D0 + quad * 2);
+}
+
+inline ARMReg QuadAsQ(int quad) {
+	return (ARMReg)(Q0 + quad);
+}
+
+bool MappableQ(int quad) {
+	return quad >= 4;
+}
+
+void ArmRegCacheFPU::QLoad4x4(MIPSGPReg regPtr, int vquads[4]) {
+	ERROR_LOG(JIT, "QLoad4x4 not implemented");
+	// TODO	
+}
+
+void ArmRegCacheFPU::QFlush(int quad) {
+	if (!MappableQ(quad)) {
+		ERROR_LOG(JIT, "Cannot flush non-mappable quad %i", quad);
+		return;
+	}
+
+	if (qr[quad].isDirty && !qr[quad].isTemp) {
+		INFO_LOG(JIT, "Flushing Q%i (%s)", quad, GetVectorNotation(qr[quad].mipsVec, qr[quad].sz));
+
+		ARMReg q = QuadAsQ(quad);
+		// Unlike reads, when writing to the register file we need to be careful to write the correct
+		// number of floats.
+
+		switch (qr[quad].sz) {
+		case V_Single:
+			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+			emit_->VST1_lane(F_32, q, R0, 0, true);
+			// WARN_LOG(JIT, "S: Falling back to individual flush: pc=%08x", js_->compilerPC);
+			break;
+		case V_Pair:
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1])) {
+				// Can combine, it's a column!
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, q, R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				// WARN_LOG(JIT, "P: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
+			}
+			break;
+		case V_Triple:
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1], qr[quad].vregs[2])) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
+				emit_->VST1_lane(F_32, q, R0, 2, true);
+			} else {
+				// WARN_LOG(JIT, "T: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
+				emit_->VST1_lane(F_32, q, R0, 2, true);
+			}
+			break;
+		case V_Quad:
+			if (Consecutive(qr[quad].vregs[0], qr[quad].vregs[1], qr[quad].vregs[2], qr[quad].vregs[3])) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				// WARN_LOG(JIT, "Q: Falling back to individual flush: pc=%08x", js_->compilerPC);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[0]), R1);
+				emit_->VST1_lane(F_32, q, R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[1]), R1);
+				emit_->VST1_lane(F_32, q, R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[2]), R1);
+				emit_->VST1_lane(F_32, q, R0, 2, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(qr[quad].vregs[3]), R1);
+				emit_->VST1_lane(F_32, q, R0, 3, true);
+			}
+			break;
+		default:
+			ERROR_LOG(JIT, "Unknown quad size %i", qr[quad].sz);
+			break;
+		}
+
+		qr[quad].isDirty = false;
+
+		int n = GetNumVectorElements(qr[quad].sz);
+		for (int i = 0; i < n; i++) {
+			int vr = qr[quad].vregs[i];
+			if (vr < 0 || vr > 128) {
+				ERROR_LOG(JIT, "Bad vr %i", vr);
+			}
+			FPURegMIPS &m = mr[32 + vr];
+			m.loc = ML_MEM;
+			m.lane = -1;
+			m.reg = -1;
+		}
+
+	} else {
+		if (qr[quad].isTemp) {
+			WARN_LOG(JIT, "Not flushing quad %i; dirty = %i, isTemp = %i", quad, qr[quad].isDirty, qr[quad].isTemp);
+		}
+	}
+
+	qr[quad].isTemp = false;
+	qr[quad].mipsVec = -1;
+	qr[quad].sz = V_Invalid;
+	memset(qr[quad].vregs, 0xFF, 4);
+}
+
+int ArmRegCacheFPU::QGetFreeQuad(int start, int count, const char *reason) {
+	// Search for a free quad. A quad is free if the first register in it is free.
+	int quad = -1;
+	
+	for (int i = 0; i < count; i++) {
+		int q = (i + start) & 15;
+
+		if (!MappableQ(q))
+			continue;
+
+		// Don't steal temp quads!
+		if (qr[q].mipsVec == (int)INVALID_REG && !qr[q].isTemp) {
+			// INFO_LOG(JIT, "Free quad: %i", q);
+			// Oh yeah! Free quad!
+			return q;
+		}
+	}
+
+	// Okay, find the "best scoring" reg to replace. Scoring algorithm TBD but may include some
+	// sort of age.
+	int bestQuad = -1;
+	int bestScore = -1;
+	for (int i = 0; i < count; i++) {
+		int q = (i + start) & 15;
+
+		if (!MappableQ(q))
+			continue;
+		if (qr[q].spillLock)
+			continue;
+		if (qr[q].isTemp)
+			continue;
+
+		int score = 0;
+		if (!qr[q].isDirty) {
+			score += 5;
+		}
+
+		if (score > bestScore) {
+			bestQuad = q;
+			bestScore = score;
+		}
+	}
+
+	if (bestQuad == -1) {
+		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
+		return -1;
+	} else {
+		INFO_LOG(JIT, "No register found in %i and the next %i, kicked out #%i (%s)", start, count, bestQuad, reason ? reason : "no reason");
+		QFlush(bestQuad);
+		return bestQuad;
+	}
+}
+
+ARMReg ArmRegCacheFPU::QAllocTemp(VectorSize sz) {
+	int q = QGetFreeQuad(8, 16, "allocating temporary");  // Prefer high quads as temps
+	if (q < 0) {
+		ERROR_LOG(JIT, "Failed to allocate temp quad");
+		q = 0;
+	}
+	qr[q].spillLock = true;
+	qr[q].isTemp = true;
+	qr[q].sz = sz;
+	qr[q].isDirty = false;  // doesn't matter
+
+	INFO_LOG(JIT, "Allocated temp quad %i", q);
+
+	if (sz == V_Single || sz == V_Pair) {
+		return D_0(ARMReg(Q0 + q));
+	} else {
+		return ARMReg(Q0 + q);
+	}
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2) const {
+	return (voffset[v1] + 1) == voffset[v2];
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3) const {
+	return Consecutive(v1, v2) && Consecutive(v2, v3);
+}
+
+bool ArmRegCacheFPU::Consecutive(int v1, int v2, int v3, int v4) const {
+	return Consecutive(v1, v2) && Consecutive(v2, v3) && Consecutive(v3, v4);
+}
+
+void ArmRegCacheFPU::QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags) {
+	u8 vregs[4];
+	if (flags & MAP_MTX_TRANSPOSED) {
+		GetMatrixRows(matrix, mz, vregs);
+	} else {
+		GetMatrixColumns(matrix, mz, vregs);
+	}
+
+	// TODO: Zap existing mappings, reserve 4 consecutive regs, then do a fast load.
+	int n = GetMatrixSide(mz);
+	VectorSize vsz = GetVectorSize(mz);
+	for (int i = 0; i < n; i++) {
+		regs[i] = QMapReg(vregs[i], vsz, flags);
+	}
+}
+
+ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
+	qTime_++;
+
+	int n = GetNumVectorElements(sz);
+	u8 vregs[4];
+	GetVectorRegs(vregs, sz, vreg);
+
+	// Range of registers to consider
+	int start = 0;
+	int count = 16;
+
+	if (flags & MAP_PREFER_HIGH) {
+		start = 8;
+	} else if (flags & MAP_PREFER_LOW) {
+		start = 4;
+	} else if (flags & MAP_FORCE_LOW) {
+		start = 4;
+		count = 4;
+	} else if (flags & MAP_FORCE_HIGH) {
+		start = 8;
+		count = 8;
+	}
+
+	// Let's check if they are all mapped in a quad somewhere.
+	// At the same time, check for the quad already being mapped.
+	// Later we can check for possible transposes as well.
+
+	// First just loop over all registers. If it's here and not in range, or overlapped, kick.
+	std::vector<int> quadsToFlush;
+	for (int i = 0; i < 16; i++) {
+		int q = (i + start) & 15;
+		if (!MappableQ(q))
+			continue;
+
+		// Skip unmapped quads.
+		if (qr[q].sz == V_Invalid)
+			continue;
+
+		// Check if completely there already. If so, set spill-lock, transfer dirty flag and exit.
+		if (vreg == qr[q].mipsVec && sz == qr[q].sz) {
+			if (i < count) {
+				INFO_LOG(JIT, "Quad already mapped: %i : %i (size %i)", q, vreg, sz);
+				qr[q].isDirty = qr[q].isDirty || (flags & MAP_DIRTY);
+				qr[q].spillLock = true;
+
+				// Sanity check vregs
+				for (int i = 0; i < n; i++) {
+					if (vregs[i] != qr[q].vregs[i]) {
+						ERROR_LOG(JIT, "Sanity check failed: %i vs %i", vregs[i], qr[q].vregs[i]);
+					}
+				}
+
+				return (ARMReg)(Q0 + q);
+			} else {
+				INFO_LOG(JIT, "Quad already mapped at %i which is out of requested range [%i-%i) (count = %i), needs moving. For now we flush.", q, start, start+count, count);
+				quadsToFlush.push_back(q);
+				continue;
+			}
+		}
+
+		// Check for any overlap. Overlap == flush.
+		int origN = GetNumVectorElements(qr[q].sz);
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < origN; b++) {
+				if (vregs[a] == qr[q].vregs[b]) {
+					quadsToFlush.push_back(q);
+					goto doubleBreak;
+				}
+			}
+		}
+	doubleBreak:
+		;
+	}
+
+	// We didn't find the extra register, but we got a list of regs to flush. Flush 'em.
+	// Here we can check for opportunities to do a "transpose-flush" of row vectors, etc.
+	if (!quadsToFlush.empty()) {
+		INFO_LOG(JIT, "New mapping %s collided with %d quads, flushing them.", GetVectorNotation(vreg, sz), (int)quadsToFlush.size());
+	}
+	for (size_t i = 0; i < quadsToFlush.size(); i++) {
+		QFlush(quadsToFlush[i]);
+	}
+
+	// Find where we want to map it, obeying the constraints we gave.
+	int quad = QGetFreeQuad(start, count, "mapping");
+	if (quad < 0)
+		return INVALID_REG;
+
+	// If parts of our register are elsewhere, and we are dirty, we need to flush them
+	// before we reload in a new location.
+	// This may be problematic if inputs overlap irregularly with output, say:
+	// vdot S700, R000, C000
+	// It might still work by accident...
+	if (flags & MAP_DIRTY) {
+		for (int i = 0; i < n; i++) {
+			FlushV(vregs[i]);
+		}
+	}
+
+	qr[quad].sz = sz;
+	qr[quad].mipsVec = vreg;
+
+	if ((flags & MAP_NOINIT) != MAP_NOINIT) {
+		// Okay, now we will try to load the whole thing in one go. This is possible
+		// if it's a row and easy if it's a single.
+		// Rows are rare, columns are common - but thanks to our register reordering,
+		// columns are actually in-order in memory.
+		switch (sz) {
+		case V_Single:
+			emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+			emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+			break;
+		case V_Pair:
+			if (Consecutive(vregs[0], vregs[1])) {
+				// Can combine, it's a column!
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+			}
+			break;
+		case V_Triple:
+			if (Consecutive(vregs[0], vregs[1], vregs[2])) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 1, ALIGN_NONE, REG_UPDATE);  // TODO: Allow ALIGN_64 when applicable
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[2]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+			}
+			break;
+		case V_Quad:
+			if (Consecutive(vregs[0], vregs[1], vregs[2], vregs[3])) {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1(F_32, QuadAsD(quad), R0, 2, ALIGN_NONE);  // TODO: Allow ALIGN_64 when applicable
+			} else {
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[0]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 0, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[1]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 1, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[2]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 2, true);
+				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffsetV(vregs[3]), R1);
+				emit_->VLD1_lane(F_32, QuadAsQ(quad), R0, 3, true);
+			}
+			break;
+		default:
+			;
+		}
+	}
+
+	// OK, let's fill out the arrays to confirm that we have grabbed these registers.
+	for (int i = 0; i < n; i++) {
+		int mipsReg = 32 + vregs[i];
+		mr[mipsReg].loc = ML_ARMREG;
+		mr[mipsReg].reg = QuadAsQ(quad);
+		mr[mipsReg].lane = i;
+		qr[quad].vregs[i] = vregs[i];
+	}
+	qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
+	qr[quad].spillLock = true;
+
+	INFO_LOG(JIT, "Mapped Q%i to vfpu %i (%s), sz=%i, dirty=%i", quad, vreg, GetVectorNotation(vreg, sz), (int)sz, qr[quad].isDirty);
+	if (sz == V_Single || sz == V_Pair) {
+		return D_0(QuadAsQ(quad));
+	} else {
+		return QuadAsQ(quad);
+	}
+}
+

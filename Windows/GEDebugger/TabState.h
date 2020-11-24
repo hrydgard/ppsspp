@@ -26,12 +26,20 @@ class CtrlStateValues: public GenericListControl {
 public:
 	CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd);
 
+	// Used by watch.
+	void UpdateRows(const TabStateRow *rows, int rowCount) {
+		rows_ = rows;
+		rowCount_ = rowCount;
+	}
+
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
-	virtual void GetColumnText(wchar_t* dest, int row, int col);
-	virtual int GetRowCount() { return rowCount_; }
-	virtual void OnDoubleClick(int row, int column);
-	virtual void OnRightClick(int row, int column, const POINT& point);
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) override {
+		return false;
+	}
+	void GetColumnText(wchar_t* dest, int row, int col) override;
+	int GetRowCount() override { return rowCount_; }
+	void OnDoubleClick(int row, int column) override;
+	void OnRightClick(int row, int column, const POINT& point) override;
 
 private:
 	void SetCmdValue(u32 op);
@@ -52,10 +60,10 @@ public:
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
+	CtrlStateValues *values;
+
 private:
 	void UpdateSize(WORD width, WORD height);
-
-	CtrlStateValues *values;
 };
 
 class TabStateFlags : public TabStateValues {
@@ -76,4 +84,11 @@ public:
 class TabStateTexture : public TabStateValues {
 public:
 	TabStateTexture(HINSTANCE _hInstance, HWND _hParent);
+};
+
+class TabStateWatch : public TabStateValues {
+public:
+	TabStateWatch(HINSTANCE _hInstance, HWND _hParent);
+
+	void Update() override;
 };

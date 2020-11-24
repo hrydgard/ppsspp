@@ -15,14 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "sceParseHttp.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceParseHttp.h"
 
 const HLEFunction sceParseHttp [] = 
 {
-	{0x8077A433, 0, "sceParseHttpStatusLine"},
-	{0xAD7BFDEF, 0, "sceParseHttpResponseHeader"},
+	{0X8077A433, nullptr,                            "sceParseHttpStatusLine",     '?', ""},
+	{0XAD7BFDEF, nullptr,                            "sceParseHttpResponseHeader", '?', ""},
 };
 
 void Register_sceParseHttp()

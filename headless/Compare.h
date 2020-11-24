@@ -16,8 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include <vector>
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
+
+struct GPUDebugBuffer;
 
 extern bool teamCityMode;
 extern std::string teamCityName;
@@ -28,4 +31,5 @@ std::string ExpectedScreenshotFromFilename(const std::string &bootFilename);
 std::string GetTestName(const std::string &bootFilename);
 
 bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose);
-double CompareScreenshot(const u8 *pixels, int w, int h, int stride, const std::string screenshotFilename, std::string &error);
+std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h);
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error);

@@ -15,15 +15,27 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Null/NullGpu.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceGe.h"
 
-#include "NullGpu.h"
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "../../Core/MemMap.h"
-#include "../../Core/HLE/sceKernelInterrupt.h"
-#include "../../Core/HLE/sceGe.h"
+class NullDrawEngine : public DrawEngineCommon {
+public:
+	void DispatchFlush() override {
+	}
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override {
+	}
+};
 
-NullGPU::NullGPU() { }
+NullGPU::NullGPU() : GPUCommon(nullptr, nullptr) {
+	drawEngineCommon_ = new NullDrawEngine();
+}
 NullGPU::~NullGPU() { }
 
 void NullGPU::FastRunLoop(DisplayList &list) {
@@ -75,7 +87,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
 			int bz_ucount = data & 0xFF;
@@ -90,16 +101,18 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			//drawSpline(sp_ucount, sp_vcount, sp_utype, sp_vtype);
 			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		if (data != 0)
+		if (data != 0) {
 			DEBUG_LOG(G3D, "Unsupported bounding box: %06x", data);
-		// bounding box test. Let's assume the box was within the drawing region.
-		currentList->bboxResult = true;
+			// Bounding box test. Let's assume the box was within the drawing region.
+			currentList->bboxResult = true;
+		} else {
+			currentList->bboxResult = false;
+		}
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -124,8 +137,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
-	case GE_CMD_CLIPENABLE:
-		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
+	case GE_CMD_DEPTHCLAMPENABLE:
+		DEBUG_LOG(G3D, "DL Depth Clamp Enable: %i   (ignoring)", data);
 		//we always clip, this is opengl
 		break;
 
@@ -214,7 +227,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged=true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -226,7 +239,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged=true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -306,15 +319,41 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. If not, this should just be a block transfer within
-			// GPU memory which could be implemented by a copy loop.
+			u32 srcBasePtr = gstate.getTransferSrcAddress();
+			u32 srcStride = gstate.getTransferSrcStride();
+
+			u32 dstBasePtr = gstate.getTransferDstAddress();
+			u32 dstStride = gstate.getTransferDstStride();
+
+			int srcX = gstate.getTransferSrcX();
+			int srcY = gstate.getTransferSrcY();
+
+			int dstX = gstate.getTransferDstX();
+			int dstY = gstate.getTransferDstY();
+
+			int width = gstate.getTransferWidth();
+			int height = gstate.getTransferHeight();
+
+			int bpp = gstate.getTransferBpp();
+
+			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+
+			for (int y = 0; y < height; y++) {
+				const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+				memcpy(dst, src, width * bpp);
+			}
+
+			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+
+			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+			cyclesExecuted += ((height * width * bpp) * 16) / 10;
 			break;
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged=true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -385,7 +424,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate_c.lightpos[l][c] = val;
 		}
 		break;
 
@@ -399,7 +437,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate_c.lightdir[l][c] = val;
 		}
 		break;
 
@@ -413,7 +450,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate_c.lightatt[l][c] = val;
 		}
 		break;
 
@@ -428,19 +464,17 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l][0] = r;
-			gstate_c.lightColor[t][l][1] = g;
-			gstate_c.lightColor[t][l][2] = b;
-		}
+			// DEBUG_LOG(G3D, "DL Light color %i %c att: %f", l, c + 'X', val);
+	}
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ2:
-		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZCENTER:
+		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTXSCALE, getFloat24(data));
 		break;
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
@@ -651,18 +685,46 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void NullGPU::UpdateStats() {
-	gpuStats.numVertexShaders = 0;
-	gpuStats.numFragmentShaders = 0;
-	gpuStats.numShaders = 0;
-	gpuStats.numTextures = 0;
+void NullGPU::GetStats(char *buffer, size_t bufsize) {
+	snprintf(buffer, bufsize, "NullGPU: (N/A)");
 }
 
 void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
-void NullGPU::UpdateMemory(u32 dest, u32 src, int size) {
+void NullGPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	// Nothing to do.
+}
+
+bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryDownload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformStencilUpload(u32 dest, int size) {
+	return false;
+}
+
+bool NullGPU::FramebufferReallyDirty() {
+	return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
 }

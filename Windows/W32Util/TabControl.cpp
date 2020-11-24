@@ -1,6 +1,6 @@
 #include "TabControl.h"
 #include "DialogManager.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include <windowsx.h>
 #include <commctrl.h>
 
@@ -15,7 +15,7 @@ TabControl::TabControl(HWND handle, bool noDisplayArea)
 	hasButtons = (GetWindowLong(handle,GWL_STYLE) & TCS_BUTTONS) != 0;
 }
 
-HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
+HWND TabControl::AddTabWindow(const wchar_t* className, const wchar_t *title, DWORD style)
 {
 	TabInfo info;
 	info.hasBorder = (style & WS_BORDER) != 0;
@@ -43,20 +43,20 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 
 	info.lastFocus = tabHandle;
 	info.pageHandle = tabHandle;
-	wcscpy(info.title,title);
+	wcscpy_s(info.title,title);
 	tabs.push_back(info);
 
 	ShowTab(index);
 	return tabHandle;
 }
 
-void TabControl::AddTabDialog(Dialog* dialog, wchar_t* title)
+void TabControl::AddTabDialog(Dialog* dialog, const wchar_t* title)
 {
 	HWND handle = dialog->GetDlgHandle();
 	AddTab(handle,title);
 }
 
-void TabControl::AddTab(HWND handle, wchar_t* title)
+void TabControl::AddTab(HWND handle, const wchar_t* title)
 {
 	if (showTabTitles)
 		AppendPageToControl(title);
@@ -87,19 +87,19 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 
 	info.lastFocus = handle;
 	info.pageHandle = handle;
-	wcscpy(info.title,title);
+	wcscpy_s(info.title,title);
 	tabs.push_back(info);
 
 	ShowTab(index);
 }
 
-int TabControl::AppendPageToControl(wchar_t* title)
+int TabControl::AppendPageToControl(const wchar_t *title)
 {
 	TCITEM tcItem;
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
+	tcItem.pszText		= (LPTSTR)title;
 	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 

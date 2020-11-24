@@ -20,11 +20,14 @@
 #include "../Util/BlockAllocator.h"
 #include "sceKernel.h"
 
-
-//todo: "real" memory block allocator, 
-// have elf loader grab its memory block first to avoid overwriting,
-// etc
-
+enum MemblockType
+{
+	PSP_SMEM_Low = 0,
+	PSP_SMEM_High = 1,
+	PSP_SMEM_Addr = 2,
+	PSP_SMEM_LowAligned = 3,
+	PSP_SMEM_HighAligned = 4,
+};
 
 extern BlockAllocator userMemory;
 extern BlockAllocator kernelMemory;
@@ -35,7 +38,7 @@ void __KernelMemoryShutdown();
 KernelObject *__KernelMemoryFPLObject();
 KernelObject *__KernelMemoryVPLObject();
 KernelObject *__KernelMemoryPMBObject();
-KernelObject *__KernelTlsObject();
+KernelObject *__KernelTlsplObject();
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
 int sceKernelDeleteVpl(SceUID uid);
@@ -57,10 +60,14 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
 int sceKernelGetCompiledSdkVersion();
 
-SceUID sceKernelCreateTls(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
-int sceKernelDeleteTls(SceUID uid);
-int sceKernelAllocateTls(SceUID uid);
-int sceKernelFreeTls(SceUID uid);
-int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr);
+SceUID sceKernelCreateTlspl(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
+int sceKernelDeleteTlspl(SceUID uid);
+int sceKernelGetTlsAddr(SceUID uid);
+int sceKernelFreeTlspl(SceUID uid);
+int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr);
 
 void Register_SysMemUserForUser();
+
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr);
+int sceKernelFreePartitionMemory(SceUID id);
+u32 sceKernelGetBlockHeadAddr(SceUID id);

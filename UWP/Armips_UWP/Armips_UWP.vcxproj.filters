@@ -1,0 +1,317 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\Arm.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmElfRelocator.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmExpressionFunctions.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmOpcodes.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmParser.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\CArmInstruction.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\CThumbInstruction.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\Pool.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ThumbOpcodes.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\CMipsInstruction.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\Mips.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsElfFile.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsElfRelocator.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsExpressionFunctions.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsMacros.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsParser.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Archs\Architecture.cpp">
+      <Filter>Archs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\ELF\ElfFile.cpp">
+      <Filter>Core\ELF</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\ELF\ElfRelocator.cpp">
+      <Filter>Core\ELF</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\Assembler.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\Common.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\Expression.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\ExpressionFunctions.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\FileManager.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\Misc.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\SymbolData.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Core\SymbolTable.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CAssemblerCommand.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CAssemblerLabel.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveArea.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveConditional.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveData.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveFile.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveMessage.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Commands\CommandSequence.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Parser\DirectivesParser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Parser\ExpressionParser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Parser\Parser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Parser\Tokenizer.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Util\ByteArray.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Util\CRC.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Util\EncodingTable.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Util\FileClasses.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\Util\Util.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\armips\stdafx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\Arm.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmElfRelocator.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmExpressionFunctions.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmOpcodes.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmParser.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\CArmInstruction.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\CThumbInstruction.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\Pool.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ThumbOpcodes.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\CMipsInstruction.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\Mips.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsElfFile.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsElfRelocator.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsExpressionFunctions.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsMacros.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsParser.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Archs\Architecture.h">
+      <Filter>Archs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfFile.h">
+      <Filter>Core\ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfRelocator.h">
+      <Filter>Core\ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfTypes.h">
+      <Filter>Core\ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\Assembler.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\Common.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\Expression.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\ExpressionFunctions.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\FileManager.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\Misc.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\SymbolData.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Core\SymbolTable.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CAssemblerCommand.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CAssemblerLabel.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveArea.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveConditional.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveData.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveFile.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveMessage.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Commands\CommandSequence.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Parser\DirectivesParser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Parser\ExpressionParser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Parser\Parser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Parser\Tokenizer.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Util\ByteArray.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Util\CRC.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Util\EncodingTable.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Util\FileClasses.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\Util\Util.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\armips\stdafx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Archs">
+      <UniqueIdentifier>{bb50e347-768c-4786-84ed-552556adbe31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archs\ARM">
+      <UniqueIdentifier>{1b78b12e-91fd-4345-977d-a834b2aaaa0e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archs\MIPS">
+      <UniqueIdentifier>{bef7b4a2-b049-4d00-810c-6d8d6605c2a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{2ce1016b-f93c-48b9-abe5-d3fbbcd24780}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\ELF">
+      <UniqueIdentifier>{350e6968-15a4-41a0-8db6-0c0c4167ece2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Commands">
+      <UniqueIdentifier>{1f209da4-5400-4997-bcd1-729c3e8efc7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Parser">
+      <UniqueIdentifier>{51922c53-0a94-4ccf-bc91-01c49e1ab80a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{019ffa9d-12b6-420e-9af3-2c02795d73c8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

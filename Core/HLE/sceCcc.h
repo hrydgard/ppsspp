@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "HLE.h"
-
 class PointerWrap;
 
 void Register_sceCcc();

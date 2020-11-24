@@ -1,238 +1,196 @@
-#include "native/thread/threadutil.h"
 #include "Common/CommonWindows.h"
+#include <MMReg.h>
+#include <process.h>
+
+#ifdef __MINGW32__
+#define __null
+#endif
 #include <dsound.h>
+#ifdef __MINGW32__
+#undef __null
+#endif
 
-#include "dsoundstream.h"	
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Log.h"
+#include "Common/OSVersion.h"
+#include "Core/ConfigValues.h"
+#include "Core/Reporting.h"
+#include "Core/Util/AudioFormat.h"
+#include "Windows/W32Util/Misc.h"
 
-namespace DSound
-{
-#define BUFSIZE 0x4000
-#define MAXWAIT 20   //ms
+#include "DSoundStream.h"
 
-	CRITICAL_SECTION soundCriticalSection;
-	HANDLE soundSyncEvent = NULL;
-	HANDLE hThread = NULL;
+// TODO: Get rid of this
+static DSoundAudioBackend *g_dsound;
 
-	StreamCallback callback;
+inline int RoundDown128(int x) {
+	return x & (~127);
+}
 
-	IDirectSound8 *ds = NULL;
-	IDirectSoundBuffer *dsBuffer = NULL;
+unsigned int WINAPI DSoundAudioBackend::soundThread(void *param) {
+	DSoundAudioBackend *dsound = (DSoundAudioBackend *)param;
+	return dsound->RunThread();
+}
 
-	int bufferSize; // bytes
-	int totalRenderedBytes;
-	int sampleRate;
-
-	volatile int threadData;
-
-	inline int RoundDown128(int x)   
-	{
-		return x & (~127);
-	}
-
-	int DSound_GetSampleRate()
-	{
-		return sampleRate;
-	}
-
-	bool createBuffer()
-	{
-		PCMWAVEFORMAT pcmwf; 
-		DSBUFFERDESC dsbdesc; 
-
-		memset(&pcmwf, 0, sizeof(PCMWAVEFORMAT)); 
-		memset(&dsbdesc, 0, sizeof(DSBUFFERDESC)); 
-
-		pcmwf.wf.wFormatTag = WAVE_FORMAT_PCM; 
-		pcmwf.wf.nChannels = 2; 
-		pcmwf.wf.nSamplesPerSec = sampleRate = 44100; 
-		pcmwf.wf.nBlockAlign = 4; 
-		pcmwf.wf.nAvgBytesPerSec = pcmwf.wf.nSamplesPerSec * pcmwf.wf.nBlockAlign; 
-		pcmwf.wBitsPerSample = 16; 
-
-		dsbdesc.dwSize = sizeof(DSBUFFERDESC); 
-		dsbdesc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS; // //DSBCAPS_CTRLPAN | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLFREQUENCY; 
-		dsbdesc.dwBufferBytes = bufferSize = BUFSIZE;  //FIX32(pcmwf.wf.nAvgBytesPerSec);   //change to set buffer size
-		dsbdesc.lpwfxFormat = (WAVEFORMATEX *)&pcmwf; 
-
-		if (SUCCEEDED(ds->CreateSoundBuffer(&dsbdesc, &dsBuffer, NULL)))
-		{ 
-			dsBuffer->SetCurrentPosition(0);
-			return true; 
-		} 
-		else 
-		{ 
-			dsBuffer = NULL; 
-			return false; 
-		} 
-	}
-
-
-	bool writeDataToBuffer(DWORD dwOffset, // Our own write cursor.
-												 char* soundData, // Start of our data.
-												 DWORD dwSoundBytes) // Size of block to copy.
-	{ 
-		void *ptr1, *ptr2;
-		DWORD numBytes1, numBytes2; 
-		// Obtain memory address of write block. This will be in two parts if the block wraps around.
-		HRESULT hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
-
-		// If the buffer was lost, restore and retry lock. 
-		/*
-		if (DSERR_BUFFERLOST == hr) { 
-		dsBuffer->Restore(); 
-		hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0); 
-		} */
-		if (SUCCEEDED(hr))
-		{ 
-			memcpy(ptr1, soundData, numBytes1); 
-			if (ptr2!=0) 
-				memcpy(ptr2, soundData+numBytes1, numBytes2); 
-
-			// Release the data back to DirectSound. 
-			dsBuffer->Unlock(ptr1, numBytes1, ptr2, numBytes2); 
-			return true; 
-		}/* 
-		 else
-		 {
-		 char temp[8];
-		 sprintf(temp,"%i\n",hr);
-		 OutputDebugStringUTF8(temp);
-		 }*/
-		return false; 
-	} 
-
-
-	inline int ModBufferSize(int x)
-	{
-		return (x+bufferSize)%bufferSize;
-	}
-
-	int currentPos;
-	int lastPos;
-	short realtimeBuffer[BUFSIZE * 2];
-
-	unsigned int WINAPI soundThread(void *)
-	{
-		setCurrentThreadName("DSoundThread");
-		currentPos = 0;
-		lastPos = 0;
-		//writeDataToBuffer(0,realtimeBuffer,bufferSize);
-		//  dsBuffer->Lock(0, bufferSize, (void **)&p1, &num1, (void **)&p2, &num2, 0); 
-
-		dsBuffer->Play(0,0,DSBPLAY_LOOPING);
-
-		while (!threadData)
-		{
-			EnterCriticalSection(&soundCriticalSection);
-
-			dsBuffer->GetCurrentPosition((DWORD *)&currentPos, 0);
-			int numBytesToRender = RoundDown128(ModBufferSize(currentPos - lastPos)); 
-
-			if (numBytesToRender >= 256)
-			{
-				int numBytesRendered = 4 * (*callback)(realtimeBuffer, numBytesToRender >> 2, 16, 44100, 2);
-				//We need to copy the full buffer, regardless of what the mixer claims to have filled
-				//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
-				numBytesRendered = numBytesToRender;
-				writeDataToBuffer(lastPos, (char *) realtimeBuffer, numBytesRendered);
-
-				currentPos = ModBufferSize(lastPos + numBytesRendered);
-				totalRenderedBytes += numBytesRendered;
-
-				lastPos = currentPos;
-			}
-
-			LeaveCriticalSection(&soundCriticalSection);
-			WaitForSingleObject(soundSyncEvent, MAXWAIT);
-		}
-		dsBuffer->Stop();
-
-		threadData = 2;
-		return 0;
-	}
-
-	bool DSound_StartSound(HWND window, StreamCallback _callback)
-	{
-		callback = _callback;
-		threadData=0;
-
-		soundSyncEvent=CreateEvent(0,false,false,0);  
-		InitializeCriticalSection(&soundCriticalSection);
-
-		if (FAILED(DirectSoundCreate8(0,&ds,0)))
-			return false;
-
-		ds->SetCooperativeLevel(window,DSSCL_PRIORITY);
-		if (!createBuffer())
-			return false;
-
-		DWORD num1;
-		short *p1; 
-
-		dsBuffer->Lock(0, bufferSize, (void **)&p1, &num1, 0, 0, 0); 
-
-		memset(p1,0,num1);
-		dsBuffer->Unlock(p1,num1,0,0);
-		totalRenderedBytes = -bufferSize;
-		hThread = (HANDLE)_beginthreadex(0, 0, soundThread, 0, 0, 0);
-		SetThreadPriority(hThread, THREAD_PRIORITY_ABOVE_NORMAL);
+bool DSoundAudioBackend::WriteDataToBuffer(DWORD offset, // Our own write cursor.
+																		char* soundData, // Start of our data.
+																		DWORD soundBytes) { // Size of block to copy.
+	void *ptr1, *ptr2;
+	DWORD numBytes1, numBytes2;
+	// Obtain memory address of write block. This will be in two parts if the block wraps around.
+	HRESULT hr = dsBuffer_->Lock(offset, soundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
+	// If the buffer was lost, restore and retry lock.
+	/*
+	if (DSERR_BUFFERLOST == hr) {
+	dsBuffer->Restore();
+	hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
+	} */
+	if (SUCCEEDED(hr)) { 
+		memcpy(ptr1, soundData, numBytes1);
+		if (ptr2)
+			memcpy(ptr2, soundData+numBytes1, numBytes2);
+		// Release the data back to DirectSound.
+		dsBuffer_->Unlock(ptr1, numBytes1, ptr2, numBytes2);
 		return true;
 	}
+	return false;
+}
 
+bool DSoundAudioBackend::CreateBuffer() {
+	PCMWAVEFORMAT pcmwf;
+	DSBUFFERDESC dsbdesc;
 
-	void DSound_UpdateSound()
-	{
-		if (soundSyncEvent != NULL)
-			SetEvent(soundSyncEvent);
+	memset(&pcmwf, 0, sizeof(PCMWAVEFORMAT));
+	memset(&dsbdesc, 0, sizeof(DSBUFFERDESC));
+
+	bufferSize_ = BUFSIZE;
+
+	pcmwf.wf.wFormatTag = WAVE_FORMAT_PCM;
+	pcmwf.wf.nChannels = 2;
+	pcmwf.wf.nSamplesPerSec = sampleRate_;
+	pcmwf.wf.nBlockAlign = 4;
+	pcmwf.wf.nAvgBytesPerSec = pcmwf.wf.nSamplesPerSec * pcmwf.wf.nBlockAlign;
+	pcmwf.wBitsPerSample = 16;
+
+	dsbdesc.dwSize = sizeof(DSBUFFERDESC);
+	dsbdesc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS; // //DSBCAPS_CTRLPAN | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLFREQUENCY; 
+	dsbdesc.dwBufferBytes = bufferSize_;  //FIX32(pcmwf.wf.nAvgBytesPerSec);   //change to set buffer size
+	dsbdesc.lpwfxFormat = (WAVEFORMATEX *)&pcmwf;
+
+	if (SUCCEEDED(ds_->CreateSoundBuffer(&dsbdesc, &dsBuffer_, NULL))) {
+		dsBuffer_->SetCurrentPosition(0);
+		return true;
+	} else {
+		dsBuffer_ = NULL;
+		return false;
+	}
+}
+
+int DSoundAudioBackend::RunThread() {
+	if (FAILED(DirectSoundCreate8(0, &ds_, 0))) {
+		ds_ = NULL;
+		threadData_ = 2;
+		return 1;
 	}
 
+	ds_->SetCooperativeLevel(window_, DSSCL_PRIORITY);
+	if (!CreateBuffer()) {
+		ds_->Release();
+		ds_ = NULL;
+		threadData_ = 2;
+		return 1;
+	}
 
-	void DSound_StopSound()
-	{
-		if (!dsBuffer)
-			return;
+	soundSyncEvent_ = CreateEvent(0, false, false, 0);
+	InitializeCriticalSection(&soundCriticalSection);
 
+	DWORD num1;
+	int16_t *p1;
+
+	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, 0, 0, 0);
+
+	memset(p1, 0, num1);
+	dsBuffer_->Unlock(p1, num1, 0, 0);
+	totalRenderedBytes_ = -bufferSize_;
+
+	setCurrentThreadName("DSound");
+	currentPos_ = 0;
+	lastPos_ = 0;
+
+	dsBuffer_->Play(0, 0, DSBPLAY_LOOPING);
+
+	while (!threadData_) {
 		EnterCriticalSection(&soundCriticalSection);
 
-		if (threadData == 0)
-			threadData = 1;
+		dsBuffer_->GetCurrentPosition((DWORD *)&currentPos_, 0);
+		int numBytesToRender = RoundDown128(ModBufferSize(currentPos_ - lastPos_)); 
 
-		if (hThread != NULL)
-		{
-			WaitForSingleObject(hThread, 1000);
-			CloseHandle(hThread);
-			hThread = NULL;
+		if (numBytesToRender >= 256) {
+			int numBytesRendered = 4 * (*callback_)(realtimeBuffer_, numBytesToRender >> 2, 16, 44100, 2);
+			//We need to copy the full buffer, regardless of what the mixer claims to have filled
+			//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
+			numBytesRendered = numBytesToRender;
+			WriteDataToBuffer(lastPos_, (char *) realtimeBuffer_, numBytesRendered);
+
+			currentPos_ = ModBufferSize(lastPos_ + numBytesRendered);
+			totalRenderedBytes_ += numBytesRendered;
+
+			lastPos_ = currentPos_;
 		}
 
-		if (threadData == 2)
-		{
-			if (dsBuffer != NULL)
-				dsBuffer->Release();
-			dsBuffer = NULL;
-			if (ds != NULL)
-				ds->Release();
-			ds = NULL;
-		}
-
-		if (soundSyncEvent != NULL)
-			CloseHandle(soundSyncEvent);
-		soundSyncEvent = NULL;
 		LeaveCriticalSection(&soundCriticalSection);
+		WaitForSingleObject(soundSyncEvent_, MAXWAIT);
+	}
+	dsBuffer_->Stop();
+
+	dsBuffer_->Release();
+	ds_->Release();
+
+	threadData_ = 2;
+	return 0;
+}
+
+DSoundAudioBackend::DSoundAudioBackend() : threadData_(0), ds_(nullptr) {
+}
+
+DSoundAudioBackend::~DSoundAudioBackend() {
+	if (!ds_)
+		return;
+
+	if (!dsBuffer_)
+		return;
+
+	EnterCriticalSection(&soundCriticalSection);
+
+	if (threadData_ == 0) {
+		threadData_ = 1;
 	}
 
-
-	int DSound_GetCurSample()
-	{
-		EnterCriticalSection(&soundCriticalSection);
-		int playCursor;
-		dsBuffer->GetCurrentPosition((DWORD *)&playCursor,0);
-		playCursor = ModBufferSize(playCursor-lastPos)+totalRenderedBytes;
-		LeaveCriticalSection(&soundCriticalSection);
-		return playCursor;
+	if (hThread_ != NULL) {
+		WaitForSingleObject(hThread_, 1000);
+		CloseHandle(hThread_);
+		hThread_ = NULL;
 	}
 
-	float DSound_GetTimer()
-	{
-		return (float)DSound_GetCurSample()*(1.0f/(4.0f*44100.0f));
+	if (soundSyncEvent_ != NULL) {
+		CloseHandle(soundSyncEvent_);
 	}
+	soundSyncEvent_ = NULL;
+	LeaveCriticalSection(&soundCriticalSection);
+	DeleteCriticalSection(&soundCriticalSection);
+}
+
+bool DSoundAudioBackend::Init(HWND window, StreamCallback _callback, int sampleRate) {
+	window_ = window;
+	callback_ = _callback;
+	sampleRate_ = sampleRate;
+	threadData_ = 0;
+	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
+	return true;
+}
+
+void DSoundAudioBackend::Update() {
+	if (soundSyncEvent_ != NULL)
+		SetEvent(soundSyncEvent_);
 }

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 
 // For shell links
@@ -24,212 +26,266 @@
 #include "objbase.h"
 #include "objidl.h"
 #include "shlguid.h"
+#pragma warning(push)
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "shlobj.h"
+#pragma warning(pop)
 
 // native stuff
-#include "base/NativeApp.h"
-#include "file/file_util.h"
-#include "input/input_state.h"
-#include "input/keycodes.h"
-#include "util/text/utf8.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/DirListing.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "EmuThread.h"
-#include "DSoundStream.h"
-#include "WindowsHost.h"
-#include "WndMainWindow.h"
-#include "OpenGLBase.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Instance.h"
+
+#include "Windows/EmuThread.h"
+#include "Windows/WindowsAudio.h"
+#include "Windows/WindowsHost.h"
+#include "Windows/MainWindow.h"
+
+#if PPSSPP_API(ANY_GL)
+#include "Windows/GPU/WindowsGLContext.h"
+#endif
+#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/D3D11Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
-#include "Windows/InputBox.h"
 
+#ifndef _M_ARM
 #include "Windows/DinputDevice.h"
+#endif
 #include "Windows/XinputDevice.h"
-#include "Windows/KeyboardDevice.h"
 
-#include "Core/Debugger/SymbolMap.h"
+#include "Windows/main.h"
+#include "UI/OnScreenDisplay.h"
 
-#include "Common/StringUtils.h"
-#include "main.h"
+float g_mouseDeltaX = 0;
+float g_mouseDeltaY = 0;
 
-static PMixer *curMixer;
-
-float mouseDeltaX = 0;
-float mouseDeltaY = 0;
-
-int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
-{
-	if (curMixer && !Core_IsStepping())
-		return curMixer->Mix(buffer, numSamples);
-	else
-	{
-		memset(buffer,0,numSamples*sizeof(short)*2);
-		return numSamples;
-	}
-}
-
-static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
-{
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
+WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
+	: hInstance_(hInstance),
+		mainWindow_(mainWindow),
+		displayWindow_(displayWindow)
 {
-	mainWindow_ = mainWindow;
-	displayWindow_ = displayWindow;
-	mouseDeltaX = 0;
-	mouseDeltaY = 0;
+	g_mouseDeltaX = 0;
+	g_mouseDeltaY = 0;
 
-#define PUSH_BACK(Cls) do { list.push_back(std::shared_ptr<InputDevice>(new Cls())); } while (0)
-
-	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
-	input.push_back(std::shared_ptr<InputDevice>(new DinputDevice()));
-	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
-	input.push_back(keyboard);
-
+	//add first XInput device to respond
+	input.push_back(std::make_unique<XinputDevice>());
+#ifndef _M_ARM
+	//find all connected DInput devices of class GamePad
+	numDinputDevices_ = DinputDevice::getNumPads();
+	for (size_t i = 0; i < numDinputDevices_; i++) {
+		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
+	}
+#endif
 	SetConsolePosition();
 }
 
-bool WindowsHost::InitGL(std::string *error_message)
-{
-	return GL_Init(MainWindow::GetDisplayHWND(), error_message);
+void WindowsHost::SetConsolePosition() {
+	HWND console = GetConsoleWindow();
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 }
 
-void WindowsHost::ShutdownGL()
-{
-	GL_Shutdown();
+void WindowsHost::UpdateConsolePosition() {
+	RECT rc;
+	HWND console = GetConsoleWindow();
+	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console)) {
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
 }
 
-void WindowsHost::SetWindowTitle(const char *message)
-{
-	std::wstring winTitle = ConvertUTF8ToWString(std::string("PPSSPP ") + PPSSPP_GIT_VERSION);
-	if(message != nullptr) {
+bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+	WindowsGraphicsContext *graphicsContext = nullptr;
+	switch (g_Config.iGPUBackend) {
+#if PPSSPP_API(ANY_GL)
+	case (int)GPUBackend::OPENGL:
+		graphicsContext = new WindowsGLContext();
+		break;
+#endif
+	case (int)GPUBackend::DIRECT3D9:
+		graphicsContext = new D3D9Context();
+		break;
+	case (int)GPUBackend::DIRECT3D11:
+		graphicsContext = new D3D11Context();
+		break;
+	case (int)GPUBackend::VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
+	default:
+		return false;
+	}
+
+	if (graphicsContext->Init(hInstance_, displayWindow_, error_message)) {
+		*ctx = graphicsContext;
+		gfx_ = graphicsContext;
+		return true;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		gfx_ = nullptr;
+		return false;
+	}
+}
+
+void WindowsHost::ShutdownGraphics() {
+	gfx_->Shutdown();
+	delete gfx_;
+	gfx_ = nullptr;
+}
+
+void WindowsHost::SetWindowTitle(const char *message) {
+#ifdef GOLD
+	const char *name = "PPSSPP Gold ";
+#else
+	const char *name = "PPSSPP ";
+#endif
+	std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
+	if (message != nullptr) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
 		winTitle.append(ConvertUTF8ToWString(message));
 	}
+#ifdef _DEBUG
+	winTitle.append(L" (debug)");
+#endif
+	lastTitle_ = winTitle;
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound(PMixer *mixer)
-{
-	curMixer = mixer;
-	DSound::DSound_StartSound(MainWindow::GetHWND(), MyMix);
+void WindowsHost::InitSound() {
 }
 
-void WindowsHost::UpdateSound()
-{
-	DSound::DSound_UpdateSound();
+// UGLY!
+extern WindowsAudioBackend *winAudioBackend;
+
+void WindowsHost::UpdateSound() {
+	if (winAudioBackend)
+		winAudioBackend->Update();
 }
 
-void WindowsHost::ShutdownSound()
-{
-	DSound::DSound_StopSound();
-	if (curMixer != NULL)
-		delete curMixer;
-	curMixer = 0;
+void WindowsHost::ShutdownSound() {
 }
 
-void WindowsHost::UpdateUI()
-{
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
-}
+void WindowsHost::UpdateUI() {
+	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
 
-void WindowsHost::UpdateScreen()
-{
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
-}
-
-void WindowsHost::UpdateMemView() 
-{
-	for (int i=0; i<numCPUs; i++)
-		if (memoryWindow[i])
-			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
-}
-
-void WindowsHost::UpdateDisassembly()
-{
-	for (int i=0; i<numCPUs; i++)
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
-}
-
-void WindowsHost::SetDebugMode(bool mode)
-{
-	for (int i = 0; i < numCPUs; i++)
-	{
-		if (disasmWindow[i])
-			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+	int peers = GetInstancePeerCount();
+	if (PPSSPP_ID >= 1 && peers != lastNumInstances_) {
+		lastNumInstances_ = peers;
+		PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 	}
 }
 
-void WindowsHost::PollControllers(InputState &input_state)
-{
-	bool doPad = true;
-	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-	{
-		auto device = *iter;
-		if (!doPad && device->IsPad())
-			continue;
-		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
-			doPad = false;
-	}
-
-	mouseDeltaX *= 0.9f;
-	mouseDeltaY *= 0.9f;
-
-	// TODO: Tweak!
-	float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX * 0.01f));
-	float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY * 0.01f));
-	AxisInput axisX, axisY;
-	axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-	axisX.deviceId = DEVICE_ID_MOUSE;
-	axisX.value = mx;
-	axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-	axisY.deviceId = DEVICE_ID_MOUSE;
-	axisY.value = my;
-
-	// Disabled for now as it makes the mapping dialog unusable!
-	//if (fabsf(mx) > 0.1f) NativeAxis(axisX);
-	//if (fabsf(my) > 0.1f) NativeAxis(axisY);
+void WindowsHost::UpdateMemView() {
+	if (memoryWindow)
+		PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
 }
 
-void WindowsHost::BootDone()
-{
-	symbolMap.SortSymbols();
-	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+void WindowsHost::UpdateDisassembly() {
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
+}
+
+void WindowsHost::SetDebugMode(bool mode) {
+	if (disasmWindow)
+		PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
+}
+
+void WindowsHost::PollControllers() {
+	static int checkCounter = 0;
+	static const int CHECK_FREQUENCY = 71;
+	if (checkCounter++ > CHECK_FREQUENCY) {
+#ifndef _M_ARM
+		size_t newCount = DinputDevice::getNumPads();
+		if (newCount > numDinputDevices_) {
+			INFO_LOG(SYSTEM, "New controller device detected");
+			for (size_t i = numDinputDevices_; i < newCount; i++) {
+				input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
+			}
+			numDinputDevices_ = newCount;
+		}
+#endif
+		checkCounter = 0;
+	}
+
+	for (const auto &device : input) {
+		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+			break;
+	}
+
+	// Disabled by default, needs a workaround to map to psp keys.
+	if (g_Config.bMouseControl) {
+		float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+		float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
+		float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
+		AxisInput axisX, axisY;
+		axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+		axisX.deviceId = DEVICE_ID_MOUSE;
+		axisX.value = mx;
+		axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+		axisY.deviceId = DEVICE_ID_MOUSE;
+		axisY.value = my;
+
+		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+			NativeAxis(axisX);
+			NativeAxis(axisY);
+		}
+	}
+
+	g_mouseDeltaX *= g_Config.fMouseSmoothing;
+	g_mouseDeltaY *= g_Config.fMouseSmoothing;
+}
+
+void WindowsHost::BootDone() {
+	g_symbolMap->SortSymbols();
+	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
-	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename, char* ext)
-{
+static std::string SymbolMapFilename(const char *currentFilename, const char* ext) {
 	FileInfo info;
 
 	std::string result = currentFilename;
 
 	// can't fail, definitely exists if it gets this far
 	getFileInfo(currentFilename, &info);
-	if (info.isDirectory)
-	{
+	if (info.isDirectory) {
 #ifdef _WIN32
-		char* slash = "\\";
+		const char* slash = "\\";
 #else
-		char* slash = "/";
+		const char* slash = "/";
 #endif
 		if (!endsWith(result,slash))
 			result += slash;
 
 		return result + ".ppsspp-symbols" + ext;
 	} else {
-		size_t dot = result.rfind('.');
+		const size_t dot = result.rfind('.');
 		if (dot == result.npos)
 			return result + ext;
 
@@ -238,20 +294,25 @@ static std::string SymbolMapFilename(const char *currentFilename, char* ext)
 	}
 }
 
-bool WindowsHost::AttemptLoadSymbolMap()
-{
-	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
-	bool result2 = symbolMap.LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
+bool WindowsHost::AttemptLoadSymbolMap() {
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	// Load the old-style map file.
+	if (!result1)
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
 	return result1 || result2;
 }
 
-void WindowsHost::SaveSymbolMap()
-{
-	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+void WindowsHost::SaveSymbolMap() {
+	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
-bool WindowsHost::IsDebuggingEnabled()
-{
+void WindowsHost::NotifySymbolMapUpdated() {
+	g_symbolMap->SortSymbols();
+	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
+}
+
+bool WindowsHost::IsDebuggingEnabled() {
 #ifdef _DEBUG
 	return true;
 #else
@@ -259,50 +320,11 @@ bool WindowsHost::IsDebuggingEnabled()
 #endif
 }
 
-void WindowsHost::SetConsolePosition()
-{
-	HWND console = GetConsoleWindow();
-	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
-		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-}
-
-void WindowsHost::UpdateConsolePosition()
-{
-	RECT rc;
-	HWND console = GetConsoleWindow();
-	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console))
-	{
-		g_Config.iConsoleWindowX = rc.left;
-		g_Config.iConsoleWindowY = rc.top;
-	}
-}
-
-bool WindowsHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
-	std::string out;
-	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		strcpy(outValue, out.c_str());
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool WindowsHost::InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue)
-{
-	if (InputBox_GetWString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultvalue, outvalue)) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 
 	IShellLink* psl; 
-	CoInitialize(0);
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.
@@ -331,20 +353,25 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	return hres; 
 }
 
+bool WindowsHost::CanCreateShortcut() { 
+	return false;  // Turn on when below function fixed
+}
+
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
 	// TODO: not working correctly
 	return false;
 
 
 	// Get the desktop folder
+	// TODO: Not long path safe.
 	wchar_t *pathbuf = new wchar_t[MAX_PATH + gameTitle.size() + 100];
 	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
 	
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
-		for (size_t c = 0; c < strlen(bannedChars); c++) {
-			if (gameTitle[i] == bannedChars[c]) {
+		for (char c : bannedChars) {
+			if (gameTitle[i] == c) {
 				gameTitle[i] = '_';
 				break;
 			}
@@ -354,22 +381,33 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	wcscat(pathbuf, L"\\");
 	wcscat(pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
 
-	wchar_t module[MAX_PATH];
-	GetModuleFileName(NULL, module, MAX_PATH);
+	std::wstring moduleFilename;
+	size_t sz;
+	do {
+		moduleFilename.resize(moduleFilename.size() + MAX_PATH);
+		// On failure, this will return the same value as passed in, but success will always be one lower.
+		sz = GetModuleFileName(nullptr, &moduleFilename[0], (DWORD)moduleFilename.size());
+	} while (sz >= moduleFilename.size());
+	moduleFilename.resize(sz);
 
-	CreateLink(module, ConvertUTF8ToWString(argumentPath).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
+	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(argumentPath).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
 
 	delete [] pathbuf;
 	return false;
 }
 
-void WindowsHost::GoFullscreen(bool viewFullscreen) {
-	if (viewFullscreen)
-		MainWindow::_ViewFullScreen(MainWindow::GetHWND());
-	else
-		MainWindow::_ViewNormal(MainWindow::GetHWND());
-}
-
 void WindowsHost::ToggleDebugConsoleVisibility() {
 	MainWindow::ToggleDebugConsoleVisibility();
+}
+
+void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
+	osm.Show(message, duration, color, -1, true, id);
+}
+
+void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
+	NativeMessageReceived(message.c_str(), value.c_str());
+}
+
+void WindowsHost::NotifySwitchUMDUpdated() {
+	PostMessage(mainWindow_, MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
 }

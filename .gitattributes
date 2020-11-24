@@ -1,0 +1,14 @@
+*.cpp            text diff=cpp
+*.h              text diff=cpp
+*.mm             text diff=objc
+*.m              text diff=objc
+*.java           text diff=java
+*.sh             text eol=lf
+*.vcproj         text eol=crlf
+*.vcproj.filters text eol=crlf
+*.sln            text eol=crlf
+*.properties     text
+*.xml            text
+
+# To avoid mucking up the utf-8 characters.
+Core/Dialog/PSPOskDialog.cpp binary

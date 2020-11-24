@@ -15,27 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-// Optimization ideas:
-//
-// It's common to see sequences of stores writing or reading to a contiguous set of
-// addresses in function prologues/epilogues:
-//  sw s5, 104(sp)
-//  sw s4, 100(sp)
-//  sw s3, 96(sp)
-//  sw s2, 92(sp)
-//  sw s1, 88(sp)
-//  sw s0, 84(sp)
-//  sw ra, 108(sp)
-//  mov s4, a0
-//  mov s3, a1
-//  ...
-// Such sequences could easily be detected and turned into nice contiguous
-// sequences of ARM stores instead of the current 3 instructions per sw/lw.
-//
-// Also, if we kept track of the likely register content of a cached register,
-// (pointer or data), we could avoid many BIC instructions.
-
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -61,12 +42,15 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
-	void Jit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
+
+	void ArmJit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
 			bool negated;
@@ -91,7 +75,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
+	void ArmJit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
 		SetR0ToEffectiveAddress(rs, offset);
 
 		// There are three valid ranges.  Each one gets a bit.
@@ -126,17 +110,19 @@ namespace MIPSComp
 		SetCC(reverse ? CC_EQ : CC_GT);
 	}
 
-	void Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
-		CONDITIONAL_DISABLE;
+	void ArmJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
+		CONDITIONAL_DISABLE(LSU);
+		CheckMemoryBreakpoint();
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
 
-		if (!js.inDelaySlot) {
+		if (!js.inDelaySlot && !jo.Disabled(JitDisable::LSU_UNALIGNED)) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
-			MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+			CheckMemoryBreakpoint(1);
+			MIPSOpcode nextOp = GetOffsetInstruction(1);
 			// Find a matching shift in opposite direction with opposite offset.
 			if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
 				                  : (op.encoding - (4<<26) + 3)))
@@ -154,8 +140,9 @@ namespace MIPSComp
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
 			u32 addr = iaddr & 0x3FFFFFFF;
-			// Must be OK even if rs == rt since we have the value from imm already.
-			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+			// Need to initialize since this only loads part of the register.
+			// But rs no longer matters (even if rs == rt) since we have the address.
+			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
 			gpr.SetRegImm(R0, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
@@ -163,40 +150,49 @@ namespace MIPSComp
 			switch (o) {
 			case 34: // lwl
 				LDR(R0, MEMBASEREG, R0);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, R1);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, SCRATCHREG2);
 				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
 				break;
 
 			case 38: // lwr
 				LDR(R0, MEMBASEREG, R0);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), R1);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), SCRATCHREG2);
 				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
 				break;
 
 			case 42: // swl
-				LDR(R1, MEMBASEREG, R0);
+				LDR(SCRATCHREG2, MEMBASEREG, R0);
 				// Don't worry, can't use temporary.
-				ANDI2R(R1, R1, 0xffffff00 << shift, R0);
-				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
-				STR(R1, MEMBASEREG, R0);
+				ANDI2R(SCRATCHREG2, SCRATCHREG2, 0xffffff00 << shift, R0);
+				ORR(SCRATCHREG2, SCRATCHREG2, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+				STR(SCRATCHREG2, MEMBASEREG, R0);
 				break;
 
 			case 46: // swr
-				LDR(R1, MEMBASEREG, R0);
+				LDR(SCRATCHREG2, MEMBASEREG, R0);
 				// Don't worry, can't use temporary.
-				ANDI2R(R1, R1, 0x00ffffff >> (24 - shift), R0);
-				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
-				STR(R1, MEMBASEREG, R0);
+				ANDI2R(SCRATCHREG2, SCRATCHREG2, 0x00ffffff >> (24 - shift), R0);
+				ORR(SCRATCHREG2, SCRATCHREG2, Operand2(gpr.R(rt), ST_LSL, shift));
+				STR(SCRATCHREG2, MEMBASEREG, R0);
 				break;
 			}
 			return;
 		}
 
-		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-		load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+		// This gets hit in a few games, as a result of never-taken delay slots (some branch types
+		// conditionally execute the delay slot instructions). Ignore in those cases.
+		if (!js.inDelaySlot) {
+			_dbg_assert_msg_(!gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
+		}
+
+		if (load) {
+			gpr.MapDirtyIn(rt, rs, false);
+		} else {
+			gpr.MapInIn(rt, rs);
+		}
 
 		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-			SetCCAndR0ForSafeAddress(rs, offset, R1, true);
+			SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2, true);
 			doCheck = true;
 		} else {
 			SetR0ToEffectiveAddress(rs, offset);
@@ -207,61 +203,63 @@ namespace MIPSComp
 		SetCC(CC_AL);
 
 		// Need temp regs.  TODO: Get from the regcache?
+		static const ARMReg LR_SCRATCHREG3 = R9;
+		static const ARMReg LR_SCRATCHREG4 = R10;
 		if (load) {
-			PUSH(1, R10);
+			PUSH(1, LR_SCRATCHREG3);
 		} else {
-			PUSH(2, R9, R10);
+			PUSH(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
 		}
 
 		// Here's our shift amount.
-		AND(R1, R0, 3);
-		LSL(R1, R1, 3);
+		AND(SCRATCHREG2, R0, 3);
+		LSL(SCRATCHREG2, SCRATCHREG2, 3);
 
 		// Now align the address for the actual read.
 		BIC(R0, R0, 3);
 
 		switch (o) {
 		case 34: // lwl
-			MOVI2R(R10, 0x00ffffff);
+			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
 			LDR(R0, MEMBASEREG, R0);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(R10, ST_LSR, R1));
-			RSB(R1, R1, 24);
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, R1));
+			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, SCRATCHREG2));
 			break;
 
 		case 38: // lwr
-			MOVI2R(R10, 0xffffff00);
+			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
 			LDR(R0, MEMBASEREG, R0);
-			LSR(R0, R0, R1);
-			RSB(R1, R1, 24);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(R10, ST_LSL, R1));
+			LSR(R0, R0, SCRATCHREG2);
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
 			ORR(gpr.R(rt), gpr.R(rt), R0);
 			break;
 
 		case 42: // swl
-			MOVI2R(R10, 0xffffff00);
-			LDR(R9, MEMBASEREG, R0);
-			AND(R9, R9, Operand2(R10, ST_LSL, R1));
-			RSB(R1, R1, 24);
-			ORR(R9, R9, Operand2(gpr.R(rt), ST_LSR, R1));
-			STR(R9, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
+			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSR, SCRATCHREG2));
+			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
 			break;
 
 		case 46: // swr
-			MOVI2R(R10, 0x00ffffff);
-			LDR(R9, MEMBASEREG, R0);
-			RSB(R1, R1, 24);
-			AND(R9, R9, Operand2(R10, ST_LSR, R1));
-			RSB(R1, R1, 24);
-			ORR(R9, R9, Operand2(gpr.R(rt), ST_LSL, R1));
-			STR(R9, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
+			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSL, SCRATCHREG2));
+			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
 			break;
 		}
 
 		if (load) {
-			POP(1, R10);
+			POP(1, LR_SCRATCHREG3);
 		} else {
-			POP(2, R9, R10);
+			POP(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
 		}
 
 		if (doCheck) {
@@ -269,9 +267,10 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_ITypeMem(MIPSOpcode op)
+	void ArmJit::Comp_ITypeMem(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
+		CheckMemoryBreakpoint();
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
 		MIPSGPReg rt = _RT;
@@ -306,7 +305,7 @@ namespace MIPSComp
 				if (!gpr.IsImm(rs) && rs != rt && (offset <= offsetRange) && offset >= -offsetRange) {
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
-					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
+					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 					switch (o) {
 					case 35: LDR  (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
 					case 37: LDRH (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
@@ -328,21 +327,23 @@ namespace MIPSComp
 
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
-				// Still flush it, since often these will be in a row.
-				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+
 				if (addr == iaddr && offset == 0) {
 					// It was already safe.  Let's shove it into a reg and use it directly.
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					addrReg = gpr.R(rs);
 				} else {
+					// In this case, only map rt. rs+offset will be in R0.
+					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 					gpr.SetRegImm(R0, addr);
 					addrReg = R0;
 				}
 			} else {
-				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+				_dbg_assert_msg_(!gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-					SetCCAndR0ForSafeAddress(rs, offset, R1);
+					SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 					doCheck = true;
 				} else {
 					SetR0ToEffectiveAddress(rs, offset);
@@ -384,9 +385,22 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Cache(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
-		// TODO: Could use this as a hint, and technically required to handle icache, etc.
-		// But right now Int_Cache does nothing, so let's not even call it.
+	void ArmJit::Comp_Cache(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(LSU);
+
+		int func = (op >> 16) & 0x1F;
+
+		// See Int_Cache for the definitions.
+		switch (func) {
+		case 24: break;
+		case 25: break;
+		case 27: break;
+		case 30: break;
+		default:
+			// Fall back to the interpreter.
+			DISABLE;
+		}
 	}
 }
+
+#endif // PPSSPP_ARCH(ARM)

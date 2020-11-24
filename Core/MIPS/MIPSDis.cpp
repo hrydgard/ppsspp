@@ -15,22 +15,22 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../HLE/HLE.h"
-#include "MIPS.h"
-#include "MIPSDis.h"
-#include "MIPSTables.h"
-#include "MIPSDebugInterface.h"
+#include <cstring>
+#include "Core/HLE/HLE.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDis.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
-#include "JitCommon/JitCommon.h"
-
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
+#define _RD   ((op>>11) & 0x1F)
+#define _FS   ((op>>11) & 0x1F)
+#define _FT   ((op>>16) & 0x1F)
+#define _FD   ((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
 
 #define RN(i) currentDebugMIPS->GetRegName(0,i)
 #define FN(i) currentDebugMIPS->GetRegName(1,i)
@@ -59,6 +59,14 @@ namespace MIPSDis
 	void Dis_Generic(MIPSOpcode op, char *out)
 	{
 		sprintf(out, "%s\t --- unknown ---", MIPSGetName(op));
+	}
+
+	void Dis_Cache(MIPSOpcode op, char *out)
+	{
+		int imm = (s16)(op & 0xFFFF);
+		int rs = _RS;
+		int func = (op >> 16) & 0x1F;
+		sprintf(out, "%s\tfunc=%i, %s(%s)", MIPSGetName(op), func, RN(rs), SignedHex(imm));
 	}
 
 	void Dis_mxc1(MIPSOpcode op, char *out)
@@ -119,7 +127,7 @@ namespace MIPSDis
 		off += imm + 4;
 
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, ->$%08x",name,RN(rs),off);
+		sprintf(out, "%s\t%s, ->$%08x", name, RN(rs), off);
 	}
 
 	void Dis_Syscall(MIPSOpcode op, char *out)
@@ -154,11 +162,11 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int o = op>>26;
 		if (o==4 && rs == rt)//beq
-			sprintf(out,"b\t->$%08x",off);
+			sprintf(out, "b\t->$%08x", off);
 		else if (o==20 && rs == rt)//beql
-			sprintf(out,"bl\t->$%08x",off);
+			sprintf(out, "bl\t->$%08x", off);
 		else
-			sprintf(out, "%s\t%s, %s, ->$%08x",name,RN(rt),RN(rs),off);
+			sprintf(out, "%s\t%s, %s, ->$%08x", name, RN(rs), RN(rt), off);
 	}
 
 	void Dis_IType(MIPSOpcode op, char *out)
@@ -187,7 +195,6 @@ namespace MIPSDis
 	}
 	void Dis_ori(MIPSOpcode op, char *out)
 	{
-		s32 simm = (s32)(s16)(op & 0xFFFF);
 		u32 uimm = (u32)(u16)(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -326,6 +333,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t->$%08x",name,addr);
 	}
+
 	void Dis_JumpRegType(MIPSOpcode op, char *out)
 	{
 		int rs = _RS;
@@ -355,11 +363,25 @@ namespace MIPSDis
 
 	void Dis_Emuhack(MIPSOpcode op, char *out)
 	{
-		//const char *name = MIPSGetName(op);
-		//sprintf(out,"%s\t-",name);
-		out[0]='*';
-		out[1]=0;
-		// MIPSDisAsm(MIPSComp::GetOriginalOp(op), currentDebugMIPS->GetPC(), out+1);
+		auto resolved = Memory::Read_Instruction(disPC, true);
+		char disasm[256];
+		if (MIPS_IS_EMUHACK(resolved)) {
+			strcpy(disasm, "(invalid emuhack)");
+		} else {
+			MIPSDisAsm(resolved, disPC, disasm, true);
+		}
+
+		switch (op.encoding >> 24) {
+		case 0x68:
+			snprintf(out, 256, "* jitblock: %s", disasm);
+			break;
+		case 0x6a:
+			snprintf(out, 256, "* replacement: %s", disasm);
+			break;
+		default:
+			snprintf(out, 256, "* (invalid): %s", disasm);
+			break;
+		}
 	}
 
 

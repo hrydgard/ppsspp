@@ -17,36 +17,28 @@
 
 #pragma once
 
+#include "CommonTypes.h"
 
-#if defined(IOS) || defined(MIPS)
-#include <signal.h>
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #endif
 
-template <bool> struct CompileTimeAssert;
-template<> struct CompileTimeAssert<true> {};
-
-#ifndef _WIN32
+#if !defined(_WIN32)
 
 #include <unistd.h>
 #include <errno.h>
 
-// go to debugger mode
-#ifdef GEKKO
-	#define Crash()
+#if defined(_M_IX86) || defined(_M_X86)
+#define Crash() {asm ("int $3");}
 #else
-// Assume !ARM && !MIPS = x86
-#if !defined(ARM) && !defined(MIPS)
-	#define Crash() {asm ("int $3");}
-#else
-  #define Crash() {kill( getpid(), SIGINT ) ; }
+#include <signal.h>
+#define Crash() {kill(getpid(), SIGINT);}
 #endif
-#endif
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
 inline u32 __rotl(u32 x, int shift) {
-    shift &= 31;
-    if (!shift) return x;
-    return (x << shift) | (x >> (32 - shift));
+	shift &= 31;
+	if (!shift) return x;
+	return (x << shift) | (x >> (32 - shift));
 }
 
 inline u64 __rotl64(u64 x, unsigned int shift){
@@ -66,38 +58,23 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 }
 
 #else // WIN32
+
 // Function Cross-Compatibility
+#ifndef __MINGW32__
 	#define strcasecmp _stricmp
 	#define strncasecmp _strnicmp
+#endif
 	#define unlink _unlink
-	#define snprintf _snprintf
-	#define vscprintf _vscprintf
 	#define __rotl _rotl
 	#define __rotl64 _rotl64
 	#define __rotr _rotr
 	#define __rotr64 _rotr64
 
 // 64 bit offsets for windows
+#ifndef __MINGW32__
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
-	#define stat64 _stat64
-	#define fstat64 _fstat64
-	#define fileno _fileno
-
-	#if _M_IX86
-		#define Crash() {__asm int 3}
-	#else
-extern "C" {
-	__declspec(dllimport) void __stdcall DebugBreak(void);
-}
-		#define Crash() {DebugBreak();}
-	#endif // M_IX86
+#endif
+	#define Crash() {__debugbreak();}
 #endif // WIN32 ndef
-
-// Generic function to get last error message.
-// Call directly after the command or use the error num.
-// This function might change the error code.
-// Defined in Misc.cpp.
-const char* GetLastErrorMsg();
-

@@ -17,16 +17,14 @@
 
 #pragma once
 
-#include "../Globals.h"
-#include "Core/MemMap.h"
-#include "Core/Host.h"
-#include "Core/FileSystems/MetaFileSystem.h"
+#include "Common/CommonTypes.h"
 #include "Core/CoreParameter.h"
-#include "Core/ELF/ParamSFO.h"
+
+class MetaFileSystem;
+class ParamSFOData;
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
-
 
 // To synchronize the two UIs, we need to know which state we're in.
 enum GlobalUIState {
@@ -44,28 +42,58 @@ enum PSPDirectories {
 	DIRECTORY_GAME,
 	DIRECTORY_SAVEDATA,
 	DIRECTORY_PAUTH,
+	DIRECTORY_DUMP,
+	DIRECTORY_SAVESTATE,
+	DIRECTORY_CACHE,
+	DIRECTORY_TEXTURES,
+	DIRECTORY_PLUGINS,
+	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
+	DIRECTORY_VIDEO,
+	DIRECTORY_AUDIO
 };
 
-extern GlobalUIState globalUIState;
+class GraphicsContext;
+enum class GPUBackend;
 
-inline static void UpdateUIState(GlobalUIState newState) {
-	// Never leave the EXIT state.
-	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
-		globalUIState = newState;
-		host->UpdateDisassembly();
-	}
-}
+void ResetUIState();
+void UpdateUIState(GlobalUIState newState);
+GlobalUIState GetUIState();
+
+void SetGPUBackend(GPUBackend type, const std::string &device = "");
+GPUBackend GetGPUBackend();
+std::string GetGPUBackendDevice();
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
+bool PSP_InitUpdate(std::string *error_string);
+bool PSP_IsIniting();
 bool PSP_IsInited();
+bool PSP_IsQuitting();
 void PSP_Shutdown();
+
+void PSP_BeginHostFrame();
+void PSP_EndHostFrame();
+void PSP_RunLoopWhileState();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 
-void Audio_Init();
+void PSP_SetLoading(const std::string &reason);
+std::string PSP_GetLoading();
 
-bool IsOnSeparateCPUThread();
+// Used to wait for background loading thread.
+struct PSP_LoadingLock {
+	PSP_LoadingLock();
+	~PSP_LoadingLock();
+};
+
+// Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
+void Core_UpdateDebugStats(bool collectStats);
+
+void Audio_Init();
+void Audio_Shutdown();
 bool IsAudioInitialised();
+
+void UpdateLoadedFile(FileLoader *fileLoader);
 
 std::string GetSysDirectory(PSPDirectories directoryType);
 #ifdef _WIN32
@@ -73,15 +101,24 @@ void InitSysDirectories();
 #endif
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
-enum CoreState
-{
+enum CoreState {
+	// Emulation is running normally.
 	CORE_RUNNING = 0,
+	// Emulation was running normally, just reached the end of a frame.
 	CORE_NEXTFRAME = 1,
-	CORE_STEPPING,
+	// Emulation is paused, CPU thread is sleeping.
+	CORE_STEPPING,  // Can be used for recoverable runtime errors (ignored memory exceptions)
+	// Core is being powered up.
 	CORE_POWERUP,
+	// Core is being powered down.
 	CORE_POWERDOWN,
-	CORE_ERROR,
+	// An error happened at boot.
+	CORE_BOOT_ERROR,
+	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
+	CORE_RUNTIME_ERROR,
 };
+
+extern bool coreCollectDebugStats;
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;

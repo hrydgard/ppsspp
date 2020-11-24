@@ -40,7 +40,7 @@ class Command(object):
   def run(self, timeout):
     def target():
       self.process = subprocess.Popen(self.cmd, bufsize=1, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
-      self.process.stdin.write(self.data)
+      self.process.stdin.write(self.data.encode('utf-8'))
       self.process.stdin.close()
       self.process.communicate()
 
@@ -60,12 +60,12 @@ class Command(object):
 # These have worked and should keep working always - regression tests.
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
-  "cpu/vfpu/vector",
-  "cpu/vfpu/matrix",
-  "cpu/vfpu/convert",
-  "cpu/vfpu/prefixes",
   "cpu/vfpu/colors",
+  "cpu/vfpu/convert",
   "cpu/vfpu/gum",
+  "cpu/vfpu/matrix",
+  "cpu/vfpu/prefixes",
+  "cpu/vfpu/vector",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
@@ -74,16 +74,35 @@ tests_good = [
   "audio/atrac/setdata",
   "audio/mp3/mp3test",
   "audio/sascore/sascore",
+  "audio/sascore/adsrcurve",
+  "audio/sascore/getheight",
+  "audio/sascore/keyoff",
+  "audio/sascore/keyon",
+  "audio/sascore/noise",
+  "audio/sascore/outputmode",
+  "audio/sascore/pause",
+  "audio/sascore/pcm",
+  "audio/sascore/pitch",
+  "audio/sascore/vag",
   "ctrl/ctrl",
   "ctrl/idle/idle",
   "ctrl/sampling/sampling",
   "ctrl/sampling2/sampling2",
+  "ctrl/vblank",
   "display/display",
   "display/vblankmulti",
   "dmac/dmactest",
+  "font/charimagerect",
+  "font/find",
+  "font/fontinfo",
+  "font/fontinfobyindex",
+  "font/fontlist",
+  "font/optimum",
+  "font/shadowimagerect",
   "gpu/callbacks/ge_callbacks",
-  "gpu/ge/edram",
+  "gpu/commands/blocktransfer",
   "gpu/ge/context",
+  "gpu/ge/edram",
   "gpu/ge/queue",
   "hash/hash",
   "hle/check_not_used_uids",
@@ -93,15 +112,17 @@ tests_good = [
   "io/cwd/cwd",
   "loader/bss/bss",
   "malloc/malloc",
-  "misc/testgp",
-  "misc/libc",
-  "misc/deadbeef",
   "misc/dcache",
+  "misc/deadbeef",
+  "misc/libc",
+  "misc/sdkver",
+  "misc/testgp",
   "misc/timeconv",
   "mstick/mstick",
   "rtc/rtc",
   "string/string",
   "sysmem/freesize",
+  "sysmem/memblock",
   "sysmem/sysmem",
   "threads/alarm/alarm",
   "threads/alarm/cancel/cancel",
@@ -111,6 +132,7 @@ tests_good = [
   "threads/callbacks/check",
   "threads/callbacks/create",
   "threads/callbacks/delete",
+  "threads/callbacks/exit",
   "threads/callbacks/refer",
   "threads/events/events",
   "threads/events/cancel/cancel",
@@ -127,6 +149,7 @@ tests_good = [
   "threads/fpl/create",
   "threads/fpl/delete",
   "threads/fpl/free",
+  "threads/fpl/refer",
   "threads/fpl/priority",
   "threads/fpl/tryallocate",
   "threads/k0/k0",
@@ -170,12 +193,14 @@ tests_good = [
   "threads/semaphores/cancel",
   "threads/semaphores/create",
   "threads/semaphores/delete",
+  "threads/semaphores/fifo",
   "threads/semaphores/poll",
   "threads/semaphores/priority",
   "threads/semaphores/refer",
   "threads/semaphores/signal",
   "threads/semaphores/wait",
   "threads/threads/change",
+  "threads/threads/exitstatus",
   "threads/threads/extend",
   "threads/threads/refer",
   "threads/threads/release",
@@ -184,12 +209,16 @@ tests_good = [
   "threads/threads/start",
   "threads/threads/suspend",
   "threads/threads/threadend",
+  "threads/threads/threadmanidlist",
+  "threads/threads/threadmanidtype",
   "threads/threads/threads",
   "threads/wakeup/wakeup",
   "threads/vpl/allocate",
   "threads/vpl/cancel",
   "threads/vpl/delete",
+  "threads/vpl/fifo",
   "threads/vpl/free",
+  "threads/vpl/order",
   "threads/vpl/priority",
   "threads/vpl/refer",
   "threads/vpl/try",
@@ -202,6 +231,7 @@ tests_good = [
   "threads/vtimers/gettime",
   "threads/vtimers/interrupt",
   "threads/vtimers/refer",
+  "threads/vtimers/sethandler",
   "threads/vtimers/settime",
   "threads/vtimers/start",
   "threads/vtimers/stop",
@@ -213,9 +243,14 @@ tests_good = [
   "power/volatile/lock",
   "power/volatile/trylock",
   "power/volatile/unlock",
+  "umd/register",
   "umd/callbacks/umd",
-  "umd/wait/wait",
   "io/directory/directory",
+  "video/mpeg/ringbuffer/construct",
+  "video/mpeg/ringbuffer/destruct",
+  "video/mpeg/ringbuffer/memsize",
+  "video/mpeg/ringbuffer/packnum",
+  "video/psmfplayer/getvideodata",
 ]
 
 tests_next = [
@@ -228,7 +263,7 @@ tests_next = [
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",
   "audio/sceaudio/reserve",
-  "ctrl/vblank",
+  "audio/sascore/setadsr",
   "display/hcount",
   "intr/waits",
   "threads/callbacks/cancel",
@@ -238,43 +273,65 @@ tests_next = [
   "threads/scheduling/scheduling",
   "threads/threads/create",
   "threads/threads/terminate",
-  "threads/vtimers/sethandler",
   "threads/vpl/create",
   "utility/savedata/getsize",
   "utility/savedata/idlist",
   "utility/savedata/sizes",
+  "utility/msgdialog/abort",
+  "utility/msgdialog/dialog",
   "gpu/commands/basic",
+  "gpu/commands/blend",
   "gpu/commands/material",
   "gpu/complex/complex",
   "gpu/displaylist/state",
-  "gpu/ge/get",
   "gpu/ge/break",
+  "gpu/ge/get",
   "gpu/reflection/reflection",
   "gpu/rendertarget/rendertarget",
+  "gpu/signals/continue",
   "gpu/signals/jumps",
+  "gpu/signals/pause",
   "gpu/signals/simple",
+  "gpu/signals/suspend",
+  "gpu/signals/sync",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
   "font/fonttest",
+  "font/altcharcode",
+  "font/charglyphimage",
+  "font/charglyphimageclip",
+  "font/charinfo",
+  "font/newlib",
+  "font/open",
+  "font/openfile",
+  "font/openmem",
+  "font/resolution",
+  "font/shadowglyphimage",
+  "font/shadowglyphimageclip",
+  "font/shadowinfo",
   "io/file/file",
   "io/file/rename",
   "io/io/io",
   "io/iodrv/iodrv",
-  "modules/loadexec/loader",
+  # Doesn't work on a PSP for security reasons, hangs in PPSSPP currently.
+  # Commented out to make tests run much faster.
+  #"modules/loadexec/loader",
+  "net/http/http",
+  "net/primary/ether",
+  "power/cpu",
+  "power/freq",
   "rtc/arithmetic",
   "rtc/convert",
   "rtc/lookup",
   "sysmem/partition",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
+  "umd/wait/wait",
   "video/mpeg/basic",
+  "video/mpeg/ringbuffer/avail",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",
   "video/psmfplayer/basic",
-]
-
-# These don't even run (or run correctly) on the real PSP
-test_broken = [
 ]
 
 
@@ -282,8 +339,6 @@ test_broken = [
 tests_ignored = [
   "kirk/kirk",
   "me/me",
-
-  "umd/umd", # mostly fixed but output seems broken? (first retval of unregister...)
 ]
 
 
@@ -311,7 +366,7 @@ def init():
     PPSSPP_EXE = None
 
   if not PPSSPP_EXE:
-    print("PPSSPP executable missing, please build one.")
+    print("PPSSPPHeadless executable missing, please build one.")
     sys.exit(1)
 
 def tcprint(arg):
@@ -336,13 +391,13 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--compare', '--timeout=' + str(TIMEOUT), '@-']
-    cmdline.extend([i for i in args if i not in ['-g']])
+    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout=' + str(TIMEOUT), '@-']
+    cmdline.extend([i for i in args if i not in ['-g', '-m']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
     c.run(TIMEOUT * len(test_filenames))
 
-    print("Ran " + PPSSPP_EXE)
+    print("Ran " + ' '.join(cmdline))
 
 
 def main():
@@ -364,6 +419,10 @@ def main():
       tests = tests_good
     else:
       tests = tests_next + tests_good
+  elif '-m' in args and '-g' in args:
+    tests = [i for i in tests_good if i.startswith(tests[0])]
+  elif '-m' in args:
+    tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
   run_tests(tests, args)
 

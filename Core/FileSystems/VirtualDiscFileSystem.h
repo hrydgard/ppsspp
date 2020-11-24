@@ -29,26 +29,33 @@ public:
 	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
 	~VirtualDiscFileSystem();
 
-	void DoState(PointerWrap &p);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	void     CloseFile(u32 handle);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle);
-	bool GetHostPath(const std::string &inpath, std::string &outpath);
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
+	void DoState(PointerWrap &p) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
+	void     CloseFile(u32 handle) override;
+	PSPFileInfo GetFileInfo(std::string filename) override;
+	bool     OwnsHandle(u32 handle) override;
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
+	PSPDevType DevType(u32 handle) override;
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	FileSystemFlags Flags() override { return FileSystemFlags::UMD; }
+	u64  FreeSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations
-	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size);
-	bool MkDir(const std::string &dirname);
-	bool RmDir(const std::string &dirname);
-	int  RenameFile(const std::string &from, const std::string &to);
-	bool RemoveFile(const std::string &filename);
+	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+	bool MkDir(const std::string &dirname) override;
+	bool RmDir(const std::string &dirname) override;
+	int  RenameFile(const std::string &from, const std::string &to) override;
+	bool RemoveFile(const std::string &filename) override;
 
 private:
 	void LoadFileListIndex();
-	int getFileListIndex(std::string& fileName);
+	// Warning: modifies input string.
+	int getFileListIndex(std::string &fileName);
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
 	std::string GetLocalPath(std::string localpath);
 
@@ -80,7 +87,7 @@ private:
 		ReadFunc Read;
 		CloseFunc Close;
 
-		bool IsValid() { return library != NULL; }
+		bool IsValid() const { return library != NULL; }
 	};
 
 	struct HandlerFileHandle {
@@ -120,7 +127,7 @@ private:
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile;
+		DirectoryFileHandle hFile = DirectoryFileHandle::SKIP_REPLAY;
 		HandlerFileHandle handler;
 		VirtualFileType type;
 		u32 fileIndex;
@@ -129,10 +136,12 @@ private:
 		u64 size;			// only used by lbn files
 
 		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
+			// Ignored, we're read only.
+			u32 err;
 			if (handler.IsValid()) {
 				return handler.Open(basePath, fileName, access);
 			} else {
-				return hFile.Open(basePath, fileName, access);
+				return hFile.Open(basePath, fileName, access, err);
 			}
 		}
 		size_t Read(u8 *data, s64 size) {
@@ -172,6 +181,7 @@ private:
 
 	std::vector<FileListEntry> fileList;
 	u32 currentBlockIndex;
+	u32 lastReadBlock_;
 
 	std::map<std::string, Handler *> handlers;
 };

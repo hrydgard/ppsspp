@@ -19,6 +19,16 @@
 
 #include "../../Core/Debugger/DebugInterface.h"
 
+enum OffsetSpacing {
+	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
+	offsetLine  = 1, // the line on which the offsets should be written
+};
+
+enum CommonToggles {
+	On,
+	Off,
+};
+
 class CtrlMemView
 {
 	HWND wnd;
@@ -30,6 +40,7 @@ class CtrlMemView
 	unsigned int windowStart;
 	int rowHeight;
 	int rowSize;
+	int offsetPositionY;
 
 	int addressStart;
 	int charWidth;
@@ -38,11 +49,16 @@ class CtrlMemView
 	bool asciiSelected;
 	int selectedNibble;
 
+	bool displayOffsetScale = false;
+
 	int visibleRows;
 	
 	std::string searchQuery;
+	
+
 	int matchAddress;
 	bool searching;
+	bool searchStringValue;
 
 	bool hasFocus;
 	static wchar_t szClassName[];
@@ -65,7 +81,7 @@ public:
 	{
 		return debugger;
 	}
-
+	std::vector<u32> searchString(std::string searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -79,4 +95,8 @@ public:
 	void gotoAddr(unsigned int addr);
 	void scrollWindow(int lines);
 	void scrollCursor(int bytes);
+
+	void drawOffsetScale(HDC hdc);
+	void toggleOffsetScale(CommonToggles toggle);
+	void toggleStringSearch(CommonToggles toggle);
 };

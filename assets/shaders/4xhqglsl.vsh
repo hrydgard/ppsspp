@@ -1,6 +1,7 @@
 attribute vec4 a_position;
 attribute vec2 a_texcoord0;
 uniform vec2 u_texelDelta;
+uniform vec2 u_pixelDelta;
 
 varying vec4 v_texcoord0;
 varying vec4 v_texcoord1;
@@ -10,12 +11,10 @@ varying vec4 v_texcoord4;
 varying vec4 v_texcoord5;
 varying vec4 v_texcoord6;
 
-float scaleoffset = 0.8;
-
 void main()
 {
-  float x = u_texelDelta.x*scaleoffset;
-  float y = u_texelDelta.y*scaleoffset;
+  float x = u_pixelDelta.x*((u_texelDelta.x/u_pixelDelta.x)/2.0);
+  float y = u_pixelDelta.y*((u_texelDelta.y/u_pixelDelta.y)/2.0);
   vec2 dg1 = vec2( x,y);
   vec2 dg2 = vec2(-x,y);
   vec2 sd1 = dg1*0.5;

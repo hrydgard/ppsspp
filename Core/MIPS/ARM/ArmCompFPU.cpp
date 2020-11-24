@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -39,16 +43,18 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
-void Jit::Comp_FPU3op(MIPSOpcode op)
+void ArmJit::Comp_FPU3op(MIPSOpcode op)
 { 
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 
 	int ft = _FT;
 	int fs = _FS;
@@ -60,7 +66,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op)
 	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
-		MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+		MIPSOpcode nextOp = GetOffsetInstruction(1);
 		// Optimization possible if destination is the same
 		if (fd == (int)((nextOp>>6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
@@ -84,9 +90,10 @@ void Jit::Comp_FPU3op(MIPSOpcode op)
 
 extern int logBlocks;
 
-void Jit::Comp_FPULS(MIPSOpcode op)
+void ArmJit::Comp_FPULS(MIPSOpcode op)
 {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(LSU_FPU);
+	CheckMemoryBreakpoint();
 
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
@@ -114,7 +121,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetR0ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 				doCheck = true;
 			}
 			ADD(R0, R0, MEMBASEREG);
@@ -127,7 +134,6 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 		VLDR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetJumpTarget(skip);
-			SetCC(CC_AL);
 		}
 #else
 		VLDR(fpr.R(ft), R0, 0);
@@ -158,7 +164,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetR0ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 				doCheck = true;
 			}
 			ADD(R0, R0, MEMBASEREG);
@@ -171,7 +177,6 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 		VSTR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetJumpTarget(skip2);
-			SetCC(CC_AL);
 		}
 #else
 		VSTR(fpr.R(ft), R0, 0);
@@ -187,8 +192,9 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_FPUComp(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+void ArmJit::Comp_FPUComp(MIPSOpcode op) {
+	CONDITIONAL_DISABLE(FPU_COMP);
+
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
@@ -251,8 +257,8 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	SetCC(CC_AL);
 }
 
-void Jit::Comp_FPU2op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+void ArmJit::Comp_FPU2op(MIPSOpcode op) {
+	CONDITIONAL_DISABLE(FPU);
 
 	int fs = _FS;
 	int fd = _FD;
@@ -275,47 +281,66 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VNEG(fpr.R(fd), fpr.R(fs));
 		break;
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
+		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
+	{
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, R0);
-		VADD(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-nearest mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
+	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
+	{
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, R0);
-		VSUB(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-nearest mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
+	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
-		LDR(R0, CTXREG, offsetof(MIPSState, fcr31));
-		AND(R0, R0, Operand2(3));
-		// MIPS Rounding Mode:
-		//	 0: Round nearest
-		//	 1: Round to zero
-		//	 2: Round up (ceil)
-		//	 3: Round down (floor)
-		CMP(R0, Operand2(2));
-		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, R1);
-		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
-		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
-		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
-		SetCC(CC_AL);
-		CMP(R0, Operand2(1));
-		SetCC(CC_EQ); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO); /* 1 */
-		SetCC(CC_LT); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED); /* 0 */
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
 		break;
 	default:
@@ -323,9 +348,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
-void Jit::Comp_mxc1(MIPSOpcode op)
+void ArmJit::Comp_mxc1(MIPSOpcode op)
 {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_XFER);
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;
@@ -333,22 +358,41 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	switch ((op >> 21) & 0x1f)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		fpr.MapReg(fs);
+		if (rt == MIPS_REG_ZERO) {
+			return;
+		}
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-		VMOV(gpr.R(rt), fpr.R(fs));
+		if (fpr.IsMapped(fs)) {
+			VMOV(gpr.R(rt), fpr.R(fs));
+		} else {
+			LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		}
 		return;
 
 	case 2: //cfc1
+		if (rt == MIPS_REG_ZERO) {
+			return;
+		}
 		if (fs == 31) {
-			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
-			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-#ifdef HAVE_ARMV7
-			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+			if (gpr.IsImm(MIPS_REG_FPCOND)) {
+				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
+					ORI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCHREG2);
+				} else {
+					ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);
+				}
+			} else {
+				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+#if PPSSPP_ARCH(ARMV7)
+				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 #else
-			AND(R0, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
-			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+				AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
 #endif
+			}
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
 		} else {
@@ -358,44 +402,52 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.MapReg(rt);
-		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
-		VMOV(fpr.R(fs), gpr.R(rt));
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+			fpr.MapReg(fs, MAP_NOINIT);
+			MOVI2F(fpr.R(fs), 0.0f, R0);
+		} else {
+			gpr.MapReg(rt);
+			fpr.MapReg(fs, MAP_NOINIT);
+			VMOV(fpr.R(fs), gpr.R(rt));
+		}
 		return;
 
 	case 6: //ctc1
-		if (fs == 31)
-		{
-			gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
-			// Hardware rounding method.
-			// Left here in case it is faster than conditional method.
-			/*
-			AND(R0, gpr.R(rt), Operand2(3));
-			// MIPS Rounding Mode <-> ARM Rounding Mode
-			//         0, 1, 2, 3 <->  0, 3, 1, 2
-			CMP(R0, Operand2(1));
-			SetCC(CC_EQ); ADD(R0, R0, Operand2(2));
-			SetCC(CC_GT); SUB(R0, R0, Operand2(1));
-			SetCC(CC_AL);
+		if (fs == 31) {
+			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
+			RestoreRoundingMode();
+			bool wasImm = gpr.IsImm(rt);
+			u32 immVal = -1;
+			if (wasImm) {
+				immVal = gpr.GetImm(rt);
+				gpr.SetImm(MIPS_REG_FPCOND, (immVal >> 23) & 1);
+				gpr.MapReg(rt);
+			} else {
+				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+			}
 
-			// Load and Store RM to FPSCR
-			VMRS(R1);
-			BIC(R1, R1, Operand2(0x3 << 22));
-			ORR(R1, R1, Operand2(R0, ST_LSL, 22));
-			VMSR(R1);
-			*/
 			// Update MIPS state
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-#ifdef HAVE_ARMV7
-			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+			if (!wasImm) {
+#if PPSSPP_ARCH(ARMV7)
+				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 #else
-			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
-			AND(gpr.R(MIPS_REG_FPCOND), R0, Operand2(1));
+				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
+				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
+				UpdateRoundingMode();
+			} else {
+				UpdateRoundingMode(immVal);
+			}
+			ApplyRoundingMode();
+		} else {
+			Comp_Generic(op);
 		}
 		return;
 	}
 }
 
 }	// namespace MIPSComp
+
+#endif // PPSSPP_ARCH(ARM)

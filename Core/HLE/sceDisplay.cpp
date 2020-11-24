@@ -20,52 +20,61 @@
 #include <cmath>
 #include <algorithm>
 
-// TODO: Move the relevant parts into common. Don't want the core
-// to be dependent on "native", I think. Or maybe should get rid of common
-// and move everything into native...
-#include "base/logging.h"
-#include "base/timeutil.h"
-
-#ifndef _XBOX
-#include "gfx_es2/gl_state.h"
+// TODO: Move this somewhere else, cleanup.
+#ifndef _WIN32
+#include <unistd.h>
+#include <sys/time.h>
 #endif
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/System.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/TimeUtil.h"
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/Util/PPGeDraw.h"
 
+#include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PostShader.h"
+#include "GPU/Debugger/Record.h"
 
 struct FrameBufferState {
 	u32 topaddr;
-	GEBufferFormat pspFramebufFormat;
-	int pspFramebufLinesize;
+	GEBufferFormat fmt;
+	int stride;
 };
 
-struct WaitVBlankInfo
-{
+struct WaitVBlankInfo {
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(1) {}
 	WaitVBlankInfo(u32 tid, int vcount) : threadID(tid), vcountUnblock(vcount) {}
 	SceUID threadID;
 	// Number of vcounts to block for.
 	int vcountUnblock;
 
-	void DoState(PointerWrap &p)
-	{
+	void DoState(PointerWrap &p) {
 		auto s = p.Section("WaitVBlankInfo", 1);
 		if (!s)
 			return;
 
-		p.Do(threadID);
-		p.Do(vcountUnblock);
+		Do(p, threadID);
+		Do(p, vcountUnblock);
 	}
 };
 
@@ -77,6 +86,10 @@ static bool framebufIsLatched;
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 static int afterFlipEvent = -1;
+static int lagSyncEvent = -1;
+
+static double lastLagSync = 0.0;
+static bool lagSyncScheduled = false;
 
 // hCount is computed now.
 static int vCount;
@@ -87,17 +100,27 @@ static int numSkippedFrames;
 static bool hasSetMode;
 static int resumeMode;
 static int holdMode;
+static int brightnessLevel;
 static int mode;
 static int width;
 static int height;
+static bool wasPaused;
+static bool flippedThisFrame;
+
+// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
+static const double timePerVblank = 1.001f / 60.0f;
+
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
+static double lastFrameTime;
 static double nextFrameTime;
+static int numVBlanks;
 static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
 const int hCountPerVblank = 286;
 
+const int PSP_DISPLAY_MODE_LCD = 0;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 // Key is the callback id it was for, or if no callback, the thread id.
@@ -111,6 +134,9 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
+// These are guesses based on tests.
+const double vsyncStartMs = 0.5925;
+const double vsyncEndMs = 0.7265;
 const double frameMs = 1001.0 / 60.0;
 
 enum {
@@ -122,51 +148,89 @@ static int lastFpsFrame = 0;
 static double lastFpsTime = 0.0;
 static double fps = 0.0;
 static double fpsHistory[120];
-static size_t fpsHistoryPos = 0;
-static size_t fpsHistoryValid = 0;
+static int fpsHistorySize = (int)ARRAY_SIZE(fpsHistory);
+static int fpsHistoryPos = 0;
+static int fpsHistoryValid = 0;
+static double frameTimeHistory[600];
+static double frameSleepHistory[600];
+static const int frameTimeHistorySize = (int)ARRAY_SIZE(frameTimeHistory);
+static int frameTimeHistoryPos = 0;
+static int frameTimeHistoryValid = 0;
+static double lastFrameTimeHistory = 0.0;
+static double monitorFpsUntil = 0.0;
 static int lastNumFlips = 0;
 static float flips = 0.0f;
 static int actualFlips = 0;  // taking frameskip into account
 static int lastActualFlips = 0;
 static float actualFps = 0;
-static u64 lastFlipCycles = 0;
 // For the "max 60 fps" setting.
 static int lastFlipsTooFrequent = 0;
+static u64 lastFlipCycles = 0;
+static u64 nextFlipCycles = 0;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
+void hleLagSync(u64 userdata, int cyclesLate);
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
+int __DisplayGetFlipCount() { return actualFlips; }
+int __DisplayGetVCount() { return vCount; }
+int __DisplayGetNumVblanks() { return numVBlanks; }
+
+void __DisplayFlip(int cyclesLate);
+
+static void ScheduleLagSync(int over = 0) {
+	lagSyncScheduled = g_Config.bForceLagSync;
+	if (lagSyncScheduled) {
+		// Reset over if it became too high, such as after pausing or initial loading.
+		// There's no real sense in it being more than 1/60th of a second.
+		if (over > 1000000 / 60) {
+			over = 0;
+		}
+		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
+		lastLagSync = time_now_d();
+	}
+}
 
 void __DisplayInit() {
-	gpuStats.Reset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
 	holdMode = 0;
+	brightnessLevel = 84;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
+	numVBlanks = 0;
 	numVBlanksSinceFlip = 0;
+	flippedThisFrame = false;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
-	framebuf.pspFramebufFormat = GE_FORMAT_8888;
-	framebuf.pspFramebufLinesize = 480; // ??
-	lastFlipCycles = 0;
+	framebuf.fmt = GE_FORMAT_8888;
+	framebuf.stride = 512;
+	memcpy(&latchedFramebuf, &framebuf, sizeof(latchedFramebuf));
 	lastFlipsTooFrequent = 0;
+	lastFlipCycles = 0;
+	nextFlipCycles = 0;
+	wasPaused = false;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
 	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
 
+	lagSyncEvent = CoreTiming::RegisterEvent("LagSync", &hleLagSync);
+	ScheduleLagSync();
+
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
+	frameStartTicks = 0;
 	vCount = 0;
 	hCountBase = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
+	lastFrameTime = 0.0;
 
 	flips = 0;
 	fps = 0.0;
@@ -175,81 +239,119 @@ void __DisplayInit() {
 	lastNumFlips = 0;
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
-	fpsHistoryValid = 0;
-
-	InitGfxState();
+	frameTimeHistoryValid = 0;
+	frameTimeHistoryPos = 0;
+	lastFrameTimeHistory = 0.0;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
 
+struct GPUStatistics_v0 {
+	int firstInts[11];
+	double msProcessingDisplayLists;
+	int moreInts[15];
+};
+
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 3);
+	auto s = p.Section("sceDisplay", 1, 7);
 	if (!s)
 		return;
 
-	p.Do(framebuf);
-	p.Do(latchedFramebuf);
-	p.Do(framebufIsLatched);
-	p.Do(frameStartTicks);
-	p.Do(vCount);
+	Do(p, framebuf);
+	Do(p, latchedFramebuf);
+	Do(p, framebufIsLatched);
+	Do(p, frameStartTicks);
+	Do(p, vCount);
 	if (s <= 2) {
 		double oldHCountBase;
-		p.Do(oldHCountBase);
+		Do(p, oldHCountBase);
 		hCountBase = (int) oldHCountBase;
 	} else {
-		p.Do(hCountBase);
+		Do(p, hCountBase);
 	}
-	p.Do(isVblank);
-	p.Do(hasSetMode);
-	p.Do(mode);
-	p.Do(resumeMode);
-	p.Do(holdMode);
-	p.Do(width);
-	p.Do(height);
+	Do(p, isVblank);
+	Do(p, hasSetMode);
+	Do(p, mode);
+	Do(p, resumeMode);
+	Do(p, holdMode);
+	if (s >= 4) {
+		Do(p, brightnessLevel);
+	}
+	Do(p, width);
+	Do(p, height);
 	WaitVBlankInfo wvi(0);
-	p.Do(vblankWaitingThreads, wvi);
-	p.Do(vblankPausedWaits);
+	Do(p, vblankWaitingThreads, wvi);
+	Do(p, vblankPausedWaits);
 
-	p.Do(enterVblankEvent);
+	Do(p, enterVblankEvent);
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
-	p.Do(leaveVblankEvent);
+	Do(p, leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
-	p.Do(afterFlipEvent);
+	Do(p, afterFlipEvent);
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
-	p.Do(gstate);
-	p.Do(gstate_c);
-#ifndef _XBOX
+	if (s >= 5) {
+		Do(p, lagSyncEvent);
+		Do(p, lagSyncScheduled);
+		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
+		lastLagSync = time_now_d();
+		if (lagSyncScheduled != g_Config.bForceLagSync) {
+			ScheduleLagSync();
+		}
+	} else {
+		lagSyncEvent = CoreTiming::RegisterEvent("LagSync", &hleLagSync);
+		ScheduleLagSync();
+	}
+
+	Do(p, gstate);
+
+	// TODO: GPU stuff is really not the responsibility of sceDisplay.
+	// Display just displays the buffers the GPU has drawn, they are really completely distinct.
+	// Maybe a bit tricky to move at this point, though...
+
+	gstate_c.DoState(p);
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
 		// It's unlikely to overlap with the first value in gpuStats.
-		p.ExpectVoid(&gl_extensions.gpuVendor, sizeof(gl_extensions.gpuVendor));
+		int gpuVendorTemp = 0;
+		p.ExpectVoid(&gpuVendorTemp, sizeof(gpuVendorTemp));
 	}
-#endif
-	p.Do(gpuStats);
+	if (s < 6) {
+		GPUStatistics_v0 oldStats;
+		Do(p, oldStats);
+	}
+
+	if (s < 7) {
+		u64 now = CoreTiming::GetTicks();
+		lastFlipCycles = now;
+		nextFlipCycles = now;
+	} else {
+		Do(p, lastFlipCycles);
+		Do(p, nextFlipCycles);
+	}
+
 	gpu->DoState(p);
 
-	ReapplyGfxState();
-
 	if (p.mode == p.MODE_READ) {
+		gpu->ReapplyGfxState();
+
 		if (hasSetMode) {
 			gpu->InitClear();
 		}
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 	}
 }
 
 void __DisplayShutdown() {
 	vblankListeners.clear();
 	vblankWaitingThreads.clear();
-	ShutdownGfxState();
 }
 
 void __DisplayListenVblank(VblankCallback callback) {
 	vblankListeners.push_back(callback);
 }
 
-void __DisplayFireVblank() {
+static void __DisplayFireVblank() {
 	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter) {
 		VblankCallback cb = *iter;
 		cb();
@@ -268,22 +370,20 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	WaitVBlankInfo waitData(0);
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		WaitVBlankInfo *t = &vblankWaitingThreads[i];
-		if (t->threadID == threadID)
-		{
+		if (t->threadID == threadID) {
 			waitData = *t;
 			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i);
 			break;
 		}
 	}
 
-	if (waitData.threadID != threadID)
-	{
+	if (waitData.threadID != threadID) {
 		WARN_LOG_REPORT(SCEDISPLAY, "sceDisplayWaitVblankCB: could not find waiting thread info.");
 		return;
 	}
 
 	vblankPausedWaits[pauseKey] = vCount + waitData.vcountUnblock;
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback")
+	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
 }
 
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -296,6 +396,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	int vcountUnblock = vblankPausedWaits[pauseKey];
+	vblankPausedWaits.erase(pauseKey);
 	if (vcountUnblock <= vCount) {
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -303,7 +404,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 	// Still have to wait a bit longer.
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - vCount));
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback")
+	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
 }
 
 // TODO: Also average actualFps
@@ -320,10 +421,7 @@ void __DisplayGetVPS(float *out_vps) {
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	float avg = 0.0;
 	if (fpsHistoryValid > 0) {
-		if (fpsHistoryValid > ARRAY_SIZE(fpsHistory)) {
-			fpsHistoryValid = ARRAY_SIZE(fpsHistory);
-		}
-		for (size_t i = 0; i < fpsHistoryValid; ++i) {
+		for (int i = 0; i < fpsHistoryValid; ++i) {
 			avg += fpsHistory[i];
 		}
 		avg /= (double) fpsHistoryValid;
@@ -332,164 +430,259 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	*out_vps = *out_fps = avg;
 }
 
-void CalculateFPS() {
-	time_update();
+static bool IsRunningSlow() {
+	// Allow for some startup turbulence for 8 seconds before assuming things are bad.
+	if (fpsHistoryValid >= 8) {
+		// Look at only the last 15 samples (starting at the 14th sample behind current.)
+		int rangeStart = fpsHistoryPos - std::min(fpsHistoryValid, 14);
+
+		double best = 0.0;
+		for (int i = rangeStart; i <= fpsHistoryPos; ++i) {
+			// rangeStart may have been negative if near a wrap around.
+			int index = (fpsHistorySize + i) % fpsHistorySize;
+			best = std::max(fpsHistory[index], best);
+		}
+
+		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.999;
+	}
+
+	return false;
+}
+
+static void CalculateFPS() {
 	double now = time_now_d();
 
 	if (now >= lastFpsTime + 1.0) {
-		double frames = (gpuStats.numVBlanks - lastFpsFrame);
+		double frames = (numVBlanks - lastFpsFrame);
 		actualFps = (actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
 		flips = 60.0 * (double) (gpuStats.numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numVBlanks;
+		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
 		lastActualFlips = actualFlips;
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
-		fpsHistoryPos = fpsHistoryPos % ARRAY_SIZE(fpsHistory);
-		++fpsHistoryValid;
+		fpsHistoryPos = fpsHistoryPos % fpsHistorySize;
+		if (fpsHistoryValid < fpsHistorySize) {
+			++fpsHistoryValid;
+		}
+	}
+
+	if (g_Config.bDrawFrameGraph) {
+		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
+		lastFrameTimeHistory = now;
+		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
+		if (frameTimeHistoryValid < frameTimeHistorySize) {
+			++frameTimeHistoryValid;
+		}
+		frameSleepHistory[frameTimeHistoryPos] = 0.0;
 	}
 }
 
-void __DisplayGetDebugStats(char stats[2048]) {
-	gpu->UpdateStats();
+double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep) {
+	*out_valid = frameTimeHistoryValid;
+	*out_pos = frameTimeHistoryPos;
+	*out_sleep = frameSleepHistory;
+	return frameTimeHistory;
+}
 
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+void __DisplayGetDebugStats(char *stats, size_t bufsize) {
+	char statbuf[4096];
+	gpu->GetStats(statbuf, sizeof(statbuf));
 
-	sprintf(stats,
-		"Frames: %i\n"
-		"DL processing time: %0.2f ms\n"
+	snprintf(stats, bufsize,
 		"Kernel processing time: %0.2f ms\n"
 		"Slowest syscall: %s : %0.2f ms\n"
-		"Most active syscall: %s : %0.2f ms\n"
-		"Draw calls: %i, flushes %i\n"
-		"Cached Draw calls: %i\n"
-		"Alpha Tested draws: %i\n"
-		"Non Alpha Tested draws: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"Cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices Submitted: %i\n"
-		"Cached Vertices Drawn: %i\n"
-		"Uncached Vertices Drawn: %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i\n"
-		"Texture invalidations: %i\n"
-		"Vertex shaders loaded: %i\n"
-		"Fragment shaders loaded: %i\n"
-		"Combined shaders loaded: %i\n",
-		gpuStats.numVBlanks,
-		gpuStats.msProcessingDisplayLists * 1000.0f,
+		"Most active syscall: %s : %0.2f ms\n%s",
 		kernelStats.msInSyscalls * 1000.0f,
 		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
 		kernelStats.slowestSyscallTime * 1000.0f,
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
 		kernelStats.summedSlowestSyscallTime * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numAlphaTestedDraws,
-		gpuStats.numNonAlphaTestedDraws,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0],gpuStats.gpuCommandsAtCallLevel[1],gpuStats.gpuCommandsAtCallLevel[2],gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		gpuStats.numFBOs,
-		gpuStats.numTextures,
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numVertexShaders,
-		gpuStats.numFragmentShaders,
-		gpuStats.numShaders
-		);
-
-	gpuStats.ResetFrame();
-	kernelStats.ResetFrame();
+		statbuf);
 }
 
-enum {
-	FPS_LIMIT_NORMAL = 0,
-	FPS_LIMIT_CUSTOM = 1,
-};
+
+
+void __DisplaySetWasPaused() {
+	wasPaused = true;
+}
+
+static bool FrameTimingThrottled() {
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 == 0) {
+		return false;
+	}
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 == 0) {
+		return false;
+	}
+	return !PSP_CoreParameter().unthrottle;
+}
+
+static void DoFrameDropLogging(float scaledTimestep) {
+	if (lastFrameTime != 0.0 && !wasPaused && lastFrameTime + scaledTimestep < curFrameTime) {
+		const double actualTimestep = curFrameTime - lastFrameTime;
+
+		char stats[4096];
+		__DisplayGetDebugStats(stats, sizeof(stats));
+		NOTICE_LOG(SCEDISPLAY, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
+	}
+}
+
+static int CalculateFrameSkip() {
+	int frameSkipNum;
+	if (g_Config.iFrameSkipType == 1) {
+		// Calculate the frames to skip dynamically using the set percentage of the current fps
+		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) );
+	} else {
+		// Use the set number of frames to skip
+		frameSkipNum = g_Config.iFrameSkip;
+	}
+	return frameSkipNum;
+}
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
-	int fpsLimiter = PSP_CoreParameter().fpsLimit;
-	throttle = !PSP_CoreParameter().unthrottle;
-	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0)
-		throttle = false;
+static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+	PROFILE_THIS_SCOPE("timing");
+	FPSLimit fpsLimiter = PSP_CoreParameter().fpsLimit;
+	int fpsLimit = 60;
+	if (fpsLimiter != FPSLimit::NORMAL)
+		fpsLimit = fpsLimiter == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
+	throttle = FrameTimingThrottled();
 	skipFrame = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
 
-	
-
-	if (!throttle && g_Config.bFrameSkipUnthrottle) {
+	bool unthrottleNeedsSkip = g_Config.iUnthrottleMode == (int)UnthrottleMode::SKIP_DRAW;
+	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
+		// Vulkan doesn't support the interval setting, so we force frameskip.
+		unthrottleNeedsSkip = true;
+		// If it's not a clean multiple of 60, we may need frameskip to achieve it.
+		if (fpsLimit == 0 || (fpsLimit >= 0 && fpsLimit != 15 && fpsLimit != 30 && fpsLimit != 60)) {
+			doFrameSkip = true;
+		}
+	}
+	if (!throttle && unthrottleNeedsSkip) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 7) {
 			skipFrame = false;
 		}
-		return;	
+		return;
 	}
-
 
 	if (!throttle && !doFrameSkip)
 		return;
-	
-	time_update();
-	
+
+	float scaledTimestep = timestep;
+	if (fpsLimit > 0 && fpsLimit != 60) {
+		scaledTimestep *= 60.0f / fpsLimit;
+	}
+
+	if (lastFrameTime == 0.0 || wasPaused) {
+		nextFrameTime = time_now_d() + scaledTimestep;
+	} else {
+		// Advance lastFrameTime by a constant amount each frame,
+		// but don't let it get too far behind as things can get very jumpy.
+		const double maxFallBehindFrames = 5.5;
+
+		nextFrameTime = std::max(lastFrameTime + scaledTimestep, time_now_d() - maxFallBehindFrames * scaledTimestep);
+	}
 	curFrameTime = time_now_d();
-	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + timestep;
-	
-	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
+
+	if (g_Config.bLogFrameDrops) {
+		DoFrameDropLogging(scaledTimestep);
+	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
-		// 1 == autoframeskip
+	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	bool forceFrameskip = fpsLimit > 60 && unthrottleNeedsSkip;
+	int frameSkipNum = CalculateFrameSkip();
+	if (g_Config.bAutoFrameSkip || forceFrameskip) {
+		// autoframeskip
+		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
+			if (forceFrameskip) {
+				throttle = false;
+			}
 		}
-	}	else if (g_Config.iFrameSkip > 1)	{
-		// Other values = fixed frameskip
-		if (numSkippedFrames >= g_Config.iFrameSkip - 1)
+	} else if (frameSkipNum >= 1) {
+		// fixed frameskip
+		if (numSkippedFrames >= frameSkipNum)
 			skipFrame = false;
 		else
 			skipFrame = true;
 	}
 
+	// TODO: This is NOT where we should wait, really! We should mark each outgoing frame with the desired
+	// timestamp to push it to display, and sleep in the render thread to achieve that.
+
 	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody unthrottled)
-		if ((nextFrameTime - curFrameTime > 2*timestep) && fpsLimiter == FPS_LIMIT_NORMAL) {
-			nextFrameTime = curFrameTime + timestep;
+		if (nextFrameTime - curFrameTime > 2*scaledTimestep) {
+			nextFrameTime = curFrameTime;
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
+#ifdef _WIN32
 				sleep_ms(1); // Sleep for 1ms on this thread
-				time_update();
+#else
+				const double left = nextFrameTime - curFrameTime;
+				usleep((long)(left * 1000000));
+#endif
 			}
 		}
 		curFrameTime = time_now_d();
 	}
-	// Advance lastFrameTime by a constant amount each frame,
-	// but don't let it get too far behind as things can get very jumpy.
-	const double maxFallBehindFrames = 5.5;
 
-	// 3 states of fps limiter
-	if (fpsLimiter == FPS_LIMIT_NORMAL) {
-		nextFrameTime = std::max(nextFrameTime + timestep, time_now_d() - maxFallBehindFrames * timestep);
-	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
-		double customLimiter = (g_Config.iFpsLimit / 60.0f) / timestep;
-		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
+	lastFrameTime = nextFrameTime;
+	wasPaused = false;
+}
+
+static void DoFrameIdleTiming() {
+	PROFILE_THIS_SCOPE("timing");
+	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
+		return;
+	}
+
+	double before = time_now_d();
+	double dist = before - lastFrameTime;
+	// Ignore if the distance is just crazy.  May mean wrap or pause.
+	if (dist < 0.0 || dist >= 15 * timePerVblank) {
+		return;
+	}
+
+	float scaledVblank = timePerVblank;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
+		// 0 is handled in FrameTimingThrottled().
+		scaledVblank *= 60.0f / g_Config.iFpsLimit1;
+	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
+		scaledVblank *= 60.0f / g_Config.iFpsLimit2;
+	}
+
+	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
+	// This prevents fast forward during loading screens.
+	// Give a little extra wiggle room in case the next vblank does more work.
+	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
+	if (numVBlanksSinceFlip >= 2 && before < goal) {
+		double cur_time;
+		while ((cur_time = time_now_d()) < goal) {
+#ifdef _WIN32
+			sleep_ms(1);
+#else
+			const double left = goal - cur_time;
+			usleep((long)(left * 1000000));
+#endif
+		}
+
+		if (g_Config.bDrawFrameGraph) {
+			frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
+		}
 	}
 }
 
@@ -497,7 +690,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
-	DEBUG_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
+	VERBOSE_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
 	vCount++; // vCount increases at each VBLANK.
@@ -507,26 +700,30 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 	frameStartTicks = CoreTiming::GetTicks();
 
+	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
+
+	// Trigger VBlank interrupt handlers.
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
+
 	// Wake up threads waiting for VBlank
 	u32 error;
+	bool wokeThreads = false;
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		if (--vblankWaitingThreads[i].vcountUnblock == 0) {
 			// Only wake it if it wasn't already released by someone else.
 			SceUID waitID = __KernelGetWaitID(vblankWaitingThreads[i].threadID, WAITTYPE_VBLANK, error);
 			if (waitID == 1) {
 				__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+				wokeThreads = true;
 			}
 			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i--);
 		}
 	}
+	if (wokeThreads) {
+		__KernelReSchedule("entered vblank");
+	}
 
-	// Trigger VBlank interrupt handlers.
-	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
-
-	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
-
-	gpuStats.numVBlanks++;
-
+	numVBlanks++;
 	numVBlanksSinceFlip++;
 
 	// TODO: Should this be done here or in hleLeaveVblank?
@@ -534,36 +731,97 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		DEBUG_LOG(SCEDISPLAY, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		__DisplayFlip(cyclesLate);
+	} else if (!flippedThisFrame) {
+		// Gotta flip even if sceDisplaySetFramebuf was not called.
+		__DisplayFlip(cyclesLate);
 	}
+}
+
+void __DisplayFlip(int cyclesLate) {
+	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
-	if (gpu->FramebufferDirty()) {
-		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
-			CalculateFPS();
+	// But, let's flip at least once every 10 vblanks, to update fps, etc.
+	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
+	// Also let's always flip for animated shaders.
+	bool postEffectRequiresFlip = false;
+
+	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
+
+	bool unthrottleNeedsSkip = g_Config.iUnthrottleMode != (int)UnthrottleMode::CONTINUOUS;
+	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
+		// Vulkan doesn't support the interval setting, so we force frameskip.
+		unthrottleNeedsSkip = true;
+	}
+
+	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(unthrottleNeedsSkip && !FrameTimingThrottled())) {
+		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
+	}
+
+	const bool fbDirty = gpu->FramebufferDirty();
+
+	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
+		int frameSleepPos = frameTimeHistoryPos;
+		CalculateFPS();
+
+		// Let the user know if we're running slow, so they know to adjust settings.
+		// Sometimes users just think the sound emulation is broken.
+		static bool hasNotifiedSlow = false;
+		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && IsRunningSlow()) {
+#ifndef _DEBUG
+			auto err = GetI18NCategory("Error");
+			if (g_Config.bSoftwareRendering) {
+				host->NotifyUserMessage(err->T("Running slow: Try turning off Software Rendering"), 6.0f, 0xFF30D0D0);
+			} else {
+				host->NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF30D0D0);
+			}
+#endif
+			hasNotifiedSlow = true;
 		}
 
-		// Setting CORE_NEXTFRAME causes a swap.
-		// Check first though, might've just quit / been paused.
-		if (gpu->FramebufferReallyDirty()) {
-			if (coreState == CORE_RUNNING) {
-				coreState = CORE_NEXTFRAME;
-				gpu->CopyDisplayToOutput();
-				actualFlips++;
+		bool forceNoFlip = false;
+		// Alternative to frameskip unthrottle, where we draw everything.
+		// Useful if skipping a frame breaks graphics or for checking drawing speed.
+		if (g_Config.iUnthrottleMode == (int)UnthrottleMode::SKIP_FLIP && !FrameTimingThrottled()) {
+			static double lastFlip = 0;
+			double now = time_now_d();
+			if ((now - lastFlip) < 1.0f / System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE)) {
+				forceNoFlip = true;
+			} else {
+				lastFlip = now;
 			}
 		}
 
-		gpuStats.numFlips++;
+		// Setting CORE_NEXTFRAME causes a swap.
+		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
+		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
+			// Check first though, might've just quit / been paused.
+			if (!forceNoFlip && Core_NextFrame()) {
+				gpu->CopyDisplayToOutput(fbReallyDirty);
+				if (fbReallyDirty) {
+					actualFlips++;
+				}
+			}
+		}
+
+		if (fbDirty) {
+			gpuStats.numFlips++;
+		}
 
 		bool throttle, skipFrame;
-		// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.001f / 60.0f));
+		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
 
-		// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
-		// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
-		int maxFrameskip = throttle ? g_Config.iFrameSkip : 8;
-		if (numSkippedFrames >= maxFrameskip) {
+		int maxFrameskip = 8;
+		int frameSkipNum = CalculateFrameSkip();
+		if (throttle) {
+			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
+			maxFrameskip = frameSkipNum;
+		}
+		if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
 			skipFrame = false;
 		}
 
@@ -578,32 +836,111 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 		// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 		// place to do housekeeping.
+
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
+
+		if (g_Config.bDrawFrameGraph) {
+			// Track how long we sleep (whether vsync or sleep_ms.)
+			frameSleepHistory[frameSleepPos] += time_now_d() - lastFrameTimeHistory;
+		}
+	} else {
+		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
+		DoFrameIdleTiming();
 	}
 }
 
-void hleAfterFlip(u64 userdata, int cyclesLate)
-{
+void hleAfterFlip(u64 userdata, int cyclesLate) {
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
+	PPGeNotifyFrame();
+
+	// This seems like as good a time as any to check if the config changed.
+	if (lagSyncScheduled != g_Config.bForceLagSync) {
+		ScheduleLagSync();
+	}
 }
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
-	DEBUG_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
+	flippedThisFrame = false;
+	VERBOSE_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
 	__DisplayFireVblank();
 }
 
-u32 sceDisplayIsVblank() {
-	DEBUG_LOG(SCEDISPLAY,"%i=sceDisplayIsVblank()",isVblank);
-	return isVblank;
+void hleLagSync(u64 userdata, int cyclesLate) {
+	// The goal here is to prevent network, audio, and input lag from the real world.
+	// Our normal timing is very "stop and go".  This is efficient, but causes real world lag.
+	// This event (optionally) runs every 1ms to sync with the real world.
+	PROFILE_THIS_SCOPE("timing");
+
+	if (!FrameTimingThrottled()) {
+		lagSyncScheduled = false;
+		return;
+	}
+
+	float scale = 1.0f;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
+		// 0 is handled in FrameTimingThrottled().
+		scale = 60.0f / g_Config.iFpsLimit1;
+	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
+		scale = 60.0f / g_Config.iFpsLimit2;
+	}
+
+	const double goal = lastLagSync + (scale / 1000.0f);
+	double before = time_now_d();
+	// Don't lag too long ever, if they leave it paused.
+	double now = before;
+	while (now < goal && goal < now + 0.01) {
+		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
+#ifndef _WIN32
+		const double left = goal - now;
+		usleep((long)(left * 1000000.0));
+#endif
+		now = time_now_d();
+	}
+
+	const int emuOver = (int)cyclesToUs(cyclesLate);
+	const int over = (int)((now - goal) * 1000000);
+	ScheduleLagSync(over - emuOver);
+
+	if (g_Config.bDrawFrameGraph) {
+		frameSleepHistory[frameTimeHistoryPos] += now - before;
+	}
 }
 
-u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+static u32 sceDisplayIsVblank() {
+	return hleLogSuccessI(SCEDISPLAY, isVblank);
+}
+
+static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
+
+	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
+	// At least, on real firmware a wait >= 16500 into the frame will wait two.
+	if (cyclesToNextVblank <= usToCycles(115)) {
+		++vblanks;
+	}
+
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
+
+	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
+}
+
+static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
+	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
+		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
+	}
+	if (displayMode != PSP_DISPLAY_MODE_LCD) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
+	}
+	if (displayWidth != 480 || displayHeight != 272) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
+	}
 
 	if (!hasSetMode) {
 		gpu->InitClear();
@@ -612,196 +949,222 @@ u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	mode = displayMode;
 	width = displayWidth;
 	height = displayHeight;
-	return 0;
+
+	hleLogSuccessI(SCEDISPLAY, 0);
+	// On success, this implicitly waits for a vblank start.
+	return DisplayWaitForVblanks("display mode", 1);
+}
+
+void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) {
+	FrameBufferState fbstate = {0};
+	fbstate.topaddr = topaddr;
+	fbstate.fmt = (GEBufferFormat)pixelFormat;
+	fbstate.stride = linesize;
+
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
+		// Write immediately to the current framebuffer parameters.
+		framebuf = fbstate;
+		// Also update latchedFramebuf for any sceDisplayGetFramebuf() after this.
+		latchedFramebuf = fbstate;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
+		// Doing it in non-buffered though creates problems (black screen) on occasion though
+		// so let's not.
+		if (!flippedThisFrame && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
+			__DisplayFlip(0);
+	} else {
+		// Delay the write until vblank
+		latchedFramebuf = fbstate;
+		framebufIsLatched = true;
+
+		// If we update the format or stride, this affects the current framebuf immediately.
+		framebuf.fmt = latchedFramebuf.fmt;
+		framebuf.stride = latchedFramebuf.stride;
+	}
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
-	FrameBufferState fbstate;
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
-	if (topaddr == 0) {
-		DEBUG_LOG(SCEDISPLAY,"- screen off");
-	} else {
-		fbstate.topaddr = topaddr;
-		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
-		fbstate.pspFramebufLinesize = linesize;
+	if (sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
 	}
-
-	s64 delayCycles = 0;
-	if (topaddr != framebuf.topaddr && g_Config.iForceMaxEmulatedFPS > 0) {
-		// Sometimes we get a small number, there's probably no need to delay the thread for this.
-		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
-		const int FLIP_DELAY_CYCLES_MIN = 10;
-		// Some games (like Final Fantasy 4) only call this too much in spurts.
-		// The goal is to fix games where this would result in a consistent overhead.
-		const int FLIP_DELAY_MIN_FLIPS = 30;
-
-		u64 now = CoreTiming::GetTicks();
-		u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
-		u64 actual = now - lastFlipCycles;
-		if (actual < expected - FLIP_DELAY_CYCLES_MIN) {
-			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
-				delayCycles = expected - actual;
-			} else {
-				++lastFlipsTooFrequent;
-			}
-		} else {
-			--lastFlipsTooFrequent;
-		}
-		lastFlipCycles = CoreTiming::GetTicks();
+	if (topaddr != 0 && !Memory::IsRAMAddress(topaddr) && !Memory::IsVRAMAddress(topaddr)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
+	}
+	if ((topaddr & 0xF) != 0) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
+	}
+	if ((linesize & 0x3F) != 0 || (linesize == 0 && topaddr != 0)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
+	}
+	if (pixelformat < 0 || pixelformat > GE_FORMAT_8888) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
 	}
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		// Write immediately to the current framebuffer parameters
-		if (topaddr != 0) {
-			framebuf = fbstate;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		} else {
-			WARN_LOG(SCEDISPLAY, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
+		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
+			return hleReportError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
 		}
-	} else if (topaddr != 0) {
-		// Delay the write until vblank
-		latchedFramebuf = fbstate;
-		framebufIsLatched = true;
 	}
 
-	if (delayCycles > 0) {
+	hleEatCycles(290);
+
+	s64 delayCycles = 0;
+	// Don't count transitions between display off and display on.
+	if (topaddr != 0 && topaddr != framebuf.topaddr && framebuf.topaddr != 0 && PSP_CoreParameter().compat.flags().ForceMax60FPS) {
+		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
+		// So let's only delay when it's more than 1ms.
+		const s64 FLIP_DELAY_CYCLES_MIN = usToCycles(1000);
+		// Some games (like Final Fantasy 4) only call this too much in spurts.
+		// The goal is to fix games where this would result in a consistent overhead.
+		const int FLIP_DELAY_MIN_FLIPS = 30;
+		// Since we move nextFlipCycles forward a whole frame each time, we allow it to be a little ahead.
+		// Otherwise it'll always be ahead if the game messes up even once.
+		const s64 LEEWAY_CYCLES_PER_FLIP = usToCycles(10);
+
+		u64 now = CoreTiming::GetTicks();
+		s64 cyclesAhead = nextFlipCycles - now;
+		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
+			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
+				delayCycles = cyclesAhead;
+			} else {
+				++lastFlipsTooFrequent;
+			}
+		} else if (-lastFlipsTooFrequent < FLIP_DELAY_MIN_FLIPS) {
+			--lastFlipsTooFrequent;
+		}
+
+		// 1001 to account for NTSC timing (59.94 fps.)
+		u64 expected = msToCycles(1001) / 60 - LEEWAY_CYCLES_PER_FLIP;
+		lastFlipCycles = now;
+		nextFlipCycles = std::max(lastFlipCycles, nextFlipCycles) + expected;
+	}
+
+	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
+
+	// No delaying while inside an interrupt.  It'll cause idle threads to starve.
+	if (delayCycles > 0 && !__IsInInterrupt()) {
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
 		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
 		// So, instead, we delay this HLE thread only (a small deviation from correct behavior.)
-		return hleDelayResult(0, "set framebuf", cyclesToUs(delayCycles));
+		return hleDelayResult(hleLogSuccessI(SCEDISPLAY, 0, "delaying frame thread"), "set framebuf", cyclesToUs(delayCycles));
 	} else {
-		return 0;
+		if (topaddr == 0) {
+			return hleLogSuccessI(SCEDISPLAY, 0, "disabling display");
+		} else {
+			return hleLogSuccessI(SCEDISPLAY, 0);
+		}
 	}
 }
 
-bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
-	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
-	if (topaddr != NULL)
-		*topaddr = Memory::GetPointer(fbState.topaddr);
-	if (linesize != NULL)
-		*linesize = fbState.pspFramebufLinesize;
-	if (pixelFormat != NULL)
-		*pixelFormat = fbState.pspFramebufFormat;
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
+	if (topaddr != nullptr)
+		(*topaddr).ptr = fbState.topaddr;
+	if (linesize != nullptr)
+		*linesize = fbState.stride;
+	if (pixelFormat != nullptr)
+		*pixelFormat = fbState.fmt;
 
 	return true;
 }
 
-u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
-	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
-	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
 	if (Memory::IsValidAddress(linesizePtr))
-		Memory::Write_U32(fbState.pspFramebufLinesize, linesizePtr);
+		Memory::Write_U32(fbState.stride, linesizePtr);
 	if (Memory::IsValidAddress(pixelFormatPtr))
-		Memory::Write_U32(fbState.pspFramebufFormat, pixelFormatPtr);
+		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
 
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
-u32 sceDisplayWaitVblankStart() {
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStart()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start waited");
-	return 0;
+static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
+	return DisplayWaitForVblanks(reason, vblanks, true);
 }
 
-u32 sceDisplayWaitVblank() {
+static u32 sceDisplayWaitVblankStart() {
+	return DisplayWaitForVblanks("vblank start waited", 1);
+}
+
+static u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
-		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblank()");
-		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank waited");
-		return 0;
+		return DisplayWaitForVblanks("vblank waited", 1);
 	} else {
-		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblank() - not waiting since in vBlank");
 		hleEatCycles(1110);
-		return 1;
+		hleReSchedule("vblank wait skipped");
+		return hleLogSuccessI(SCEDISPLAY, 1, "not waiting since in vblank");
 	}
 }
 
-u32 sceDisplayWaitVblankStartMulti(int vblanks) {
+static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (vblanks <= 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
-	VERBOSE_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMulti(%d)", vblanks);
 	if (!__KernelIsDispatchEnabled())
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start multi waited");
-	return 0;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+
+	return DisplayWaitForVblanks("vblank start multi waited", vblanks);
 }
 
-u32 sceDisplayWaitVblankCB() {
+static u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
-		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB()");
-		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank waited");
-		return 0;
+		return DisplayWaitForVblanksCB("vblank waited", 1);
 	} else {
-		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblank() - not waiting since in vBlank");
 		hleEatCycles(1110);
-		return 1;
+		hleReSchedule("vblank wait skipped");
+		return hleLogSuccessI(SCEDISPLAY, 1, "not waiting since in vblank");
 	}
 }
 
-u32 sceDisplayWaitVblankStartCB() {
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartCB()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start waited");
-	return 0;
+static u32 sceDisplayWaitVblankStartCB() {
+	return DisplayWaitForVblanksCB("vblank start waited", 1);
 }
 
-u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
+static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (vblanks <= 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartMultiCB(%d)", vblanks);
 	if (!__KernelIsDispatchEnabled())
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start multi waited");
-	return 0;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+
+	return DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
 }
 
-u32 sceDisplayGetVcount() {
-	VERBOSE_LOG(SCEDISPLAY,"%i=sceDisplayGetVcount()", vCount);
-
+static u32 sceDisplayGetVcount() {
 	hleEatCycles(150);
-	return vCount;
+	hleReSchedule("get vcount");
+	return hleLogSuccessVerboseI(SCEDISPLAY, vCount);
 }
 
-u32 __DisplayGetCurrentHcount() {
-	const static int ticksPerVblank333 = 333 * 1000000 / 60 / hCountPerVblank;
+static u32 __DisplayGetCurrentHcount() {
 	const int ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const int ticksPerVblank = CoreTiming::GetClockFrequencyHz() / 60 / hCountPerVblank;
 	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
-	return 1 + (ticksIntoFrame / (CoreTiming::GetClockFrequencyMHz() * ticksPerVblank333 / 333));
+	return 1 + (ticksIntoFrame / ticksPerVblank);
 }
 
-u32 __DisplayGetAccumulatedHcount() {
+static u32 __DisplayGetAccumulatedHcount() {
 	// The hCount is always a positive int, and wraps from 0x7FFFFFFF -> 0.
 	int value = hCountBase + __DisplayGetCurrentHcount();
 	return value & 0x7FFFFFFF;
 }
 
-u32 sceDisplayGetCurrentHcount() {
-	u32 currentHCount = __DisplayGetCurrentHcount();
-	DEBUG_LOG(SCEDISPLAY, "%i=sceDisplayGetCurrentHcount()", currentHCount);
+static u32 sceDisplayGetCurrentHcount() {
 	hleEatCycles(275);
-	return currentHCount;
+	return hleLogSuccessI(SCEDISPLAY, __DisplayGetCurrentHcount());
 }
 
-int sceDisplayAdjustAccumulatedHcount(int value) {
+static int sceDisplayAdjustAccumulatedHcount(int value) {
 	if (value < 0) {
-		ERROR_LOG_REPORT(SCEDISPLAY, "sceDisplayAdjustAccumulatedHcount(%d): invalid value", value);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
 	}
 
 	// Since it includes the current hCount, find the difference to apply to the base.
@@ -809,96 +1172,111 @@ int sceDisplayAdjustAccumulatedHcount(int value) {
 	int diff = value - accumHCount;
 	hCountBase += diff;
 
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayAdjustAccumulatedHcount(%d)", value);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
-int sceDisplayGetAccumulatedHcount() {
+static int sceDisplayGetAccumulatedHcount() {
 	u32 accumHCount = __DisplayGetAccumulatedHcount();
-	DEBUG_LOG(SCEDISPLAY, "%d=sceDisplayGetAccumulatedHcount()", accumHCount);
 	hleEatCycles(235);
-	return accumHCount;
+	return hleLogSuccessI(SCEDISPLAY, accumHCount);
 }
 
-float sceDisplayGetFramePerSec() {
+static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	DEBUG_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	VERBOSE_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 
-u32 sceDisplayIsForeground() {
-  	DEBUG_LOG(SCEDISPLAY,"IMPL sceDisplayIsForeground()");	
-	if (!hasSetMode || framebuf.topaddr == 0)
-		return 0;
-	else
-  		return 1;   // return value according to JPCSP comment
+static u32 sceDisplayIsForeground() {
+	int result = hasSetMode && framebuf.topaddr != 0 ? 1 : 0;
+	return hleLogSuccessI(SCEDISPLAY, result);
 }
 
-u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
-	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetMode(%08x, %08x, %08x)", modeAddr, widthAddr, heightAddr);
+static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 	if (Memory::IsValidAddress(modeAddr))
 		Memory::Write_U32(mode, modeAddr);
 	if (Memory::IsValidAddress(widthAddr))
 		Memory::Write_U32(width, widthAddr);
 	if (Memory::IsValidAddress(heightAddr))
 		Memory::Write_U32(height, heightAddr);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
-u32 sceDisplayIsVsync() {
-	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayIsVsync()");
-	return 0;
+static u32 sceDisplayIsVsync() {
+	u64 now = CoreTiming::GetTicks();
+	u64 start = frameStartTicks + msToCycles(vsyncStartMs);
+	u64 end = frameStartTicks + msToCycles(vsyncEndMs);
+
+	return hleLogSuccessI(SCEDISPLAY, now >= start && now <= end ? 1 : 0);
 }
 
-u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplayGetResumeMode(%08x)", resumeModeAddr);
+static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
 	if (Memory::IsValidAddress(resumeModeAddr))
 		Memory::Write_U32(resumeMode, resumeModeAddr);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
-u32 sceDisplaySetResumeMode(u32 rMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetResumeMode(%08x)", rMode);
+static u32 sceDisplaySetResumeMode(u32 rMode) {
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	resumeMode = rMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
-u32 sceDisplayGetBrightness(u32 levelAddr) {
-	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayGetBrightness(%08x)", levelAddr);
-	return 0;
+static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
+	// Standard levels on a PSP: 44, 60, 72, 84 (AC only)
+
+	if (Memory::IsValidAddress(levelAddr)) {
+		Memory::Write_U32(brightnessLevel, levelAddr);
+	}
+	// Always seems to write zero?
+	if (Memory::IsValidAddress(otherAddr)) {
+		Memory::Write_U32(0, otherAddr);
+	}
+	return hleLogWarning(SCEDISPLAY, 0);
 }
 
-u32 sceDisplaySetHoldMode(u32 hMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetHoldMode(%08x)", hMode);
+static u32 sceDisplaySetBrightness(int level, int other) {
+	// Note: Only usable in kernel mode.
+	brightnessLevel = level;
+	return hleLogWarning(SCEDISPLAY, 0);
+}
+
+static u32 sceDisplaySetHoldMode(u32 hMode) {
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	holdMode = hMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
 const HLEFunction sceDisplay[] = {
-	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFrameBuf"},
-	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
-	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
-	{0x40f1469c,WrapU_I<sceDisplayWaitVblankStartMulti>, "sceDisplayWaitVblankStartMulti"},
-	{0x8EB9EC49,WrapU_V<sceDisplayWaitVblankCB>, "sceDisplayWaitVblankCB", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x46F186C3,WrapU_V<sceDisplayWaitVblankStartCB>, "sceDisplayWaitVblankStartCB", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
-	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
-	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
-	{0x773dd3a3,WrapU_V<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,WrapI_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
-	{0xA83EF139,WrapI_I<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
-	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
-	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
-	{0x7ED59BC4,WrapU_U<sceDisplaySetHoldMode>,"sceDisplaySetHoldMode"},
-	{0xA544C486,WrapU_U<sceDisplaySetResumeMode>,"sceDisplaySetResumeMode"},
-	{0xBF79F646,WrapU_U<sceDisplayGetResumeMode>,"sceDisplayGetResumeMode"},
-	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
-	{0x31C4BAA8,WrapU_U<sceDisplayGetBrightness>,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
-	{0x21038913,WrapU_V<sceDisplayIsVsync>,"sceDisplayIsVsync"},
+	{0X0E20F177, &WrapU_III<sceDisplaySetMode>,               "sceDisplaySetMode",                 'x', "iii" },
+	{0X289D82FE, &WrapU_UIII<sceDisplaySetFramebuf>,          "sceDisplaySetFrameBuf",             'x', "xiii"},
+	{0XEEDA2E54, &WrapU_UUUI<sceDisplayGetFramebuf>,          "sceDisplayGetFrameBuf",             'x', "pppi"},
+	{0X36CDFADE, &WrapU_V<sceDisplayWaitVblank>,              "sceDisplayWaitVblank",              'x', "",   HLE_NOT_DISPATCH_SUSPENDED },
+	{0X984C27E7, &WrapU_V<sceDisplayWaitVblankStart>,         "sceDisplayWaitVblankStart",         'x', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X40F1469C, &WrapU_I<sceDisplayWaitVblankStartMulti>,    "sceDisplayWaitVblankStartMulti",    'x', "i"   },
+	{0X8EB9EC49, &WrapU_V<sceDisplayWaitVblankCB>,            "sceDisplayWaitVblankCB",            'x', "",   HLE_NOT_DISPATCH_SUSPENDED },
+	{0X46F186C3, &WrapU_V<sceDisplayWaitVblankStartCB>,       "sceDisplayWaitVblankStartCB",       'x', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X77ED8B3A, &WrapU_I<sceDisplayWaitVblankStartMultiCB>,  "sceDisplayWaitVblankStartMultiCB",  'x', "i"   },
+	{0XDBA6C4C4, &WrapF_V<sceDisplayGetFramePerSec>,          "sceDisplayGetFramePerSec",          'f', ""    },
+	{0X773DD3A3, &WrapU_V<sceDisplayGetCurrentHcount>,        "sceDisplayGetCurrentHcount",        'x', ""    },
+	{0X210EAB3A, &WrapI_V<sceDisplayGetAccumulatedHcount>,    "sceDisplayGetAccumulatedHcount",    'i', ""    },
+	{0XA83EF139, &WrapI_I<sceDisplayAdjustAccumulatedHcount>, "sceDisplayAdjustAccumulatedHcount", 'i', "i"   },
+	{0X9C6EAAD7, &WrapU_V<sceDisplayGetVcount>,               "sceDisplayGetVcount",               'x', ""    },
+	{0XDEA197D4, &WrapU_UUU<sceDisplayGetMode>,               "sceDisplayGetMode",                 'x', "ppp" },
+	{0X7ED59BC4, &WrapU_U<sceDisplaySetHoldMode>,             "sceDisplaySetHoldMode",             'x', "x"   },
+	{0XA544C486, &WrapU_U<sceDisplaySetResumeMode>,           "sceDisplaySetResumeMode",           'x', "x"   },
+	{0XBF79F646, &WrapU_U<sceDisplayGetResumeMode>,           "sceDisplayGetResumeMode",           'x', "p"   },
+	{0XB4F378FA, &WrapU_V<sceDisplayIsForeground>,            "sceDisplayIsForeground",            'x', ""    },
+	{0X31C4BAA8, &WrapU_UU<sceDisplayGetBrightness>,          "sceDisplayGetBrightness",           'x', "pp"  },
+	{0X9E3C6DC6, &WrapU_II<sceDisplaySetBrightness>,          "sceDisplaySetBrightness",           'x', "ii"  },
+	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
+	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
 };
 
 void Register_sceDisplay() {
 	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
+}
+
+void Register_sceDisplay_driver() {
+	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }

@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "CommonWindows.h"
+
 class Dialog;
 
 class TabControl
@@ -9,9 +11,9 @@ class TabControl
 public:
 	TabControl(HWND handle, bool noDisplayArea = false);
 	void HandleNotify(LPARAM lParam);
-	HWND AddTabWindow(wchar_t* className, wchar_t* title, DWORD style = 0);
-	void AddTabDialog(Dialog* dialog, wchar_t* title);
-	void AddTab(HWND hwnd, wchar_t* title);
+	HWND AddTabWindow(const wchar_t* className, const wchar_t* title, DWORD style = 0);
+	void AddTabDialog(Dialog* dialog, const wchar_t* title);
+	void AddTab(HWND hwnd, const wchar_t* title);
 	void ShowTab(int index, bool setControlIndex = true);
 	void ShowTab(HWND pageHandle);
 	void NextTab(bool cycle);
@@ -31,7 +33,7 @@ public:
 private:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void OnResize();
-	int AppendPageToControl(wchar_t* title);
+	int AppendPageToControl(const wchar_t* title);
 
 	struct TabInfo
 	{

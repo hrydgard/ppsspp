@@ -17,10 +17,14 @@
 
 #pragma once
 
-#include "../Globals.h"
+#include <string>
 
-#include "MemMap.h"
+class FileLoader;
 
-bool Load_PSP_ISO(const char *filename, std::string *error_string);
-bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string);
-void InitMemoryForGameISO(std::string fileToStart);
+bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string);
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string);
+bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string);
+void InitMemoryForGameISO(FileLoader *fileLoader);
+bool ReInitMemoryForGameISO(FileLoader *fileLoader);
+void InitMemoryForGamePBP(FileLoader *fileLoader);
+void PSPLoaders_Shutdown();

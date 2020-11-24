@@ -17,38 +17,38 @@
 
 #pragma once
 
-#include "../Core/Host.h"
-
-#define HEADLESSHOST_CLASS HeadlessHost
+#include "Core/CoreParameter.h"
+#include "Core/Host.h"
+#include "Core/Debugger/SymbolMap.h"
 
 // TODO: Get rid of this junk
-class HeadlessHost : public Host
-{
+class HeadlessHost : public Host {
 public:
-	// virtual void StartThread()
-	virtual void UpdateUI() {}
+	void UpdateUI() override {}
 
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
+	void UpdateMemView() override {}
+	void UpdateDisassembly() override {}
 
-	virtual void SetDebugMode(bool mode) { }
+	void SetDebugMode(bool mode) override { }
 
-	virtual bool InitGL(std::string *error_message) {return false;}
-	virtual void ShutdownGL() {}
+	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
+	void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer) {}
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound() {}
+	void InitSound() override {}
+	void UpdateSound() override {}
+	void ShutdownSound() override {}
 
 	// this is sent from EMU thread! Make sure that Host handles it properly
-	virtual void BootDone() {}
+	void BootDone() override {}
 
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
+	bool IsDebuggingEnabled() override { return false; }
+	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
+	void NotifySymbolMapUpdated() override {}
 
-	virtual bool ShouldSkipUI() { return true; }
+	bool ShouldSkipUI() override { return true; }
 
-	virtual void SendDebugOutput(const std::string &output) {
+	void SendDebugOutput(const std::string &output) override {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();
 			fwrite(output.data(), sizeof(char), output.length(), stdout);
@@ -65,12 +65,23 @@ public:
 			debugOutputBuffer_.clear();
 		}
 	}
-	virtual void SetComparisonScreenshot(const std::string &filename) {}
 
+	virtual void SetComparisonScreenshot(const std::string &filename) {
+		comparisonScreenshot_ = filename;
+	}
+
+	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
+
+	void NotifySwitchUMDUpdated() override {}
 
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}
 
 protected:
+	void SendOrCollectDebugOutput(const std::string &output);
+
+	std::string comparisonScreenshot_;
 	std::string debugOutputBuffer_;
+	GPUCore gpuCore_;
+	GraphicsContext *gfx_ = nullptr;
 };

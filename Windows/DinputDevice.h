@@ -16,25 +16,50 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include <vector>
 #include <InitGuid.h>
 #define DIRECTINPUT_VERSION 0x0800
 #define DIRECTINPUT_RGBBUTTONS_MAX 128
 #include "InputDevice.h"
 #include "dinput.h"
 
-class DinputDevice :
+class DinputDevice final :
 	public InputDevice
 {
 public:
-	DinputDevice();
+	//instantiates device number devnum as explored by the first call to
+	//getDevices(), enumerates all devices if not done yet
+	DinputDevice(int devnum);
 	~DinputDevice();
-	virtual int UpdateState(InputState &input_state);
-	virtual bool IsPad() { return true; }
+	virtual int UpdateState() override;
+	static size_t getNumPads();
+	static void CheckDevices() {
+		needsCheck_ = true;
+	}
+
 private:
-	void ApplyButtons(DIJOYSTATE2 &state, InputState &input_state);
-	LPDIRECTINPUT8			pDI;
+	void ApplyButtons(DIJOYSTATE2 &state);
+	//unfortunate and unclean way to keep only one DirectInput instance around
+	static LPDIRECTINPUT8 getPDI();
+	//unfortunate and unclean way to keep track of the number of devices and the
+	//GUIDs of the plugged in devices. This function will only search for devices
+	//if none have been found yet and will only list plugged in devices
+	//also, it excludes the devices that are compatible with XInput
+	static void getDevices(bool refresh);
+	//callback for the WinAPI to call
+	static BOOL CALLBACK DevicesCallback(
+	                LPCDIDEVICEINSTANCE lpddi,
+	                LPVOID pvRef
+	            );
+	static unsigned int     pInstances;
+	static std::vector<DIDEVICEINSTANCE> devices;
+	static LPDIRECTINPUT8   pDI;
+	static bool needsCheck_;
+	int                     pDevNum;
 	LPDIRECTINPUTDEVICE8    pJoystick;
-	bool					analog;
+	DIJOYSTATE2             pPrevState;
+	bool                    analog;
 	BYTE                    lastButtons_[128];
 	WORD                    lastPOV_[4];
 	short                   last_lX_;

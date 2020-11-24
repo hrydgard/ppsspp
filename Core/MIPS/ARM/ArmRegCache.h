@@ -21,26 +21,17 @@
 #include "../MIPSAnalyst.h"
 #include "ArmEmitter.h"
 
-using namespace ArmGen;
+namespace ArmJitConstants {
 
-#define CTXREG (R10)
-#define MEMBASEREG (R11)
-#define DOWNCOUNTREG (R7)
-
-// R2 to R8: mapped MIPS regs
-// R9 = code pointers
-// R10 = MIPS context
-// R11 = base pointer
+const ArmGen::ARMReg JITBASEREG = ArmGen::R9;
+const ArmGen::ARMReg CTXREG = ArmGen::R10;
+const ArmGen::ARMReg MEMBASEREG = ArmGen::R11;
+const ArmGen::ARMReg SCRATCHREG1 = ArmGen::R0;
+const ArmGen::ARMReg SCRATCHREG2 = ArmGen::R14;
+const ArmGen::ARMReg DOWNCOUNTREG = ArmGen::R7;
 
 enum {
 	TOTAL_MAPPABLE_MIPSREGS = 36,
-};
-
-typedef int MIPSReg;
-
-struct RegARM {
-	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
-	bool isDirty;  // Should the register be written back?
 };
 
 enum RegMIPSLoc {
@@ -53,34 +44,50 @@ enum RegMIPSLoc {
 	ML_MEM,
 };
 
+// Initing is the default so the flag is reversed.
+enum {
+	MAP_DIRTY = 1,
+	MAP_NOINIT = 2 | MAP_DIRTY,
+};
+
+}
+
+// R1 to R6: mapped MIPS regs
+// R8 = flags (maybe we could do better here?)
+// R9 = code pointers
+// R10 = MIPS context
+// R11 = base pointer
+// R14 = scratch (actually LR)
+
+
+typedef int MIPSReg;
+
+struct RegARM {
+	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
+	bool isDirty;  // Should the register be written back?
+};
+
 struct RegMIPS {
 	// Where is this MIPS register?
-	RegMIPSLoc loc;
-	// Data (only one of these is used, depending on loc. Could make a union).
+	ArmJitConstants::RegMIPSLoc loc;
+	// Data (both or only one may be used, depending on loc.)
 	u32 imm;
-	ARMReg reg;  // reg index
+	ArmGen::ARMReg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
-#undef MAP_DIRTY
-#undef MAP_NOINIT
-// Initing is the default so the flag is reversed.
-enum {
-	MAP_DIRTY = 1,
-	MAP_NOINIT = 2,
-};
-
 namespace MIPSComp {
-	struct ArmJitOptions;
+	struct JitOptions;
+	struct JitState;
 }
 
 class ArmRegCache {
 public:
-	ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options);
+	ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~ArmRegCache() {}
 
-	void Init(ARMXEmitter *emitter);
+	void Init(ArmGen::ARMXEmitter *emitter);
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
@@ -93,12 +100,13 @@ public:
 	bool IsImm(MIPSGPReg reg) const;
 	u32 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
-	void SetRegImm(ARMReg reg, u32 imm);
+	void SetRegImm(ArmGen::ARMReg reg, u32 imm);
 
 	// Returns an ARM register containing the requested MIPS register.
-	ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);
-	ARMReg MapRegAsPointer(MIPSGPReg reg);  // read-only, non-dirty.
+	ArmGen::ARMReg MapReg(MIPSGPReg reg, int mapFlags = 0);
+	ArmGen::ARMReg MapRegAsPointer(MIPSGPReg reg);  // read-only, non-dirty.
 
+	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
@@ -106,16 +114,16 @@ public:
 	void MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
 	void MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad = true);
 	void MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
-	void FlushArmReg(ARMReg r);
+	void FlushArmReg(ArmGen::ARMReg r);
 	void FlushR(MIPSGPReg r);
 	void FlushBeforeCall();
 	void FlushAll();
 	void DiscardR(MIPSGPReg r);
 
-	ARMReg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
-	ARMReg RPtr(MIPSGPReg preg); // Returns a cached register, while checking that it's mapped as a pointer
+	ArmGen::ARMReg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	ArmGen::ARMReg RPtr(MIPSGPReg preg); // Returns a cached register, while checking that it's mapped as a pointer
 
-	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
+	void SetEmitter(ArmGen::ARMXEmitter *emitter) { emit_ = emitter; }
 
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
@@ -123,19 +131,20 @@ public:
 	int GetMipsRegOffset(MIPSGPReg r);
 
 private:
-	const ARMReg *GetMIPSAllocationOrder(int &count);
-	void MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
+	const ArmGen::ARMReg *GetMIPSAllocationOrder(int &count);
+	void MapRegTo(ArmGen::ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
 	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
-	ARMReg FindBestToSpill(bool unusedOnly);
+	ArmGen::ARMReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 		
 	MIPSState *mips_;
-	MIPSComp::ArmJitOptions *options_;
-	ARMXEmitter *emit_;
+	ArmGen::ARMXEmitter *emit_;
+	MIPSComp::JitState *js_;
+	MIPSComp::JitOptions *jo_;
 	u32 compilerPC_;
 
 	enum {
 		NUM_ARMREG = 16,
-		NUM_MIPSREG = TOTAL_MAPPABLE_MIPSREGS,
+		NUM_MIPSREG = ArmJitConstants::TOTAL_MAPPABLE_MIPSREGS,
 	};
 
 	RegARM ar[NUM_ARMREG];

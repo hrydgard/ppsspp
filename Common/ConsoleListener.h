@@ -15,8 +15,9 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _CONSOLELISTENER_H
-#define _CONSOLELISTENER_H
+#pragma once
+
+#include <atomic>
 
 #include "LogManager.h"
 
@@ -24,8 +25,7 @@
 #include "CommonWindows.h"
 #endif
 
-class ConsoleListener : public LogListener
-{
+class ConsoleListener : public LogListener {
 public:
 	ConsoleListener();
 	~ConsoleListener();
@@ -38,17 +38,18 @@ public:
 	void LetterSpace(int Width, int Height);
 	void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
 	void PixelSpace(int Left, int Top, int Width, int Height, bool);
-#ifdef _WIN32
+#if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
-	void Log(LogTypes::LOG_LEVELS, const char *Text);
+	void Log(const LogMessage &message);
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);
 	bool Hidden() const { return bHidden; }
+
 private:
-#ifdef _WIN32
-	HWND GetHwnd(void);
+#if defined(USING_WIN_UI)
+	HWND hWnd;
 	HANDLE hConsole;
 
 	static unsigned int WINAPI RunThread(void *lpParam);
@@ -62,8 +63,8 @@ private:
 	static CRITICAL_SECTION criticalSection;
 
 	static char *logPending;
-	static volatile u32 logPendingReadPos;
-	static volatile u32 logPendingWritePos;
+	static std::atomic<uint32_t> logPendingReadPos;
+	static std::atomic<uint32_t> logPendingWritePos;
 
 	int openWidth_;
 	int openHeight_;
@@ -72,5 +73,3 @@ private:
 	bool bHidden;
 	bool bUseColor;
 };
-
-#endif  // _CONSOLELISTENER_H

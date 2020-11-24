@@ -1,0 +1,11 @@
+# We copy other files on top of these at build time, depending on configuration (Normal/Gold)
+
+Package.appxmanifest
+Assets
+AppPackages
+x64
+ARM
+ARM64
+*.VC.db
+*.VC.VC.opendb
+ipch

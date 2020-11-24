@@ -15,13 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "sceKernel.h"
-#include "sceKernelAlarm.h"
-#include "sceKernelInterrupt.h"
-#include "HLE.h"
-#include "Core/CoreTiming.h"
-#include "ChunkFile.h"
 #include <list>
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelAlarm.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/HLE.h"
+#include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 
 const int NATIVEALARM_SIZE = 20;
 
@@ -30,44 +33,44 @@ std::list<SceUID> triggeredAlarm;
 struct NativeAlarm
 {
 	SceSize_le size;
+	u32_le pad;
 	u64_le schedule;
 	u32_le handlerPtr;
 	u32_le commonPtr;
 };
 
-struct Alarm : public KernelObject
-{
-	const char *GetName() {return "[Alarm]";}
-	const char *GetTypeName() {return "Alarm";}
+struct PSPAlarm : public KernelObject {
+	const char *GetName() override {return "[Alarm]";}
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Alarm"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Alarm; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Alarm; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Alarm; }
 
-	virtual void DoState(PointerWrap &p)
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("Alarm", 1);
 		if (!s)
 			return;
 
-		p.Do(alm);
+		Do(p, alm);
 	}
 
 	NativeAlarm alm;
 };
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 ticks);
+void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro);
 
 class AlarmIntrHandler : public IntrHandler
 {
 public:
 	AlarmIntrHandler() : IntrHandler(PSP_SYSTIMER0_INTR) {}
 
-	virtual bool run(PendingInterrupt& pend)
+	bool run(PendingInterrupt& pend) override
 	{
 		u32 error;
 		int alarmID = triggeredAlarm.front();
 
-		Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
+		PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 		if (error)
 		{
 			WARN_LOG(SCEKERNEL, "Ignoring deleted alarm %08x", alarmID);
@@ -81,7 +84,7 @@ public:
 		return true;
 	}
 
-	virtual void handleResult(PendingInterrupt& pend)
+	void handleResult(PendingInterrupt& pend) override
 	{
 		int result = currentMIPS->r[MIPS_REG_V0];
 
@@ -93,8 +96,8 @@ public:
 		{
 			DEBUG_LOG(SCEKERNEL, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
-			Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
-			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
+			PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
+			__KernelScheduleAlarm(alarm, result);
 		}
 		else
 		{
@@ -104,21 +107,19 @@ public:
 			DEBUG_LOG(SCEKERNEL, "Finished alarm %08x", alarmID);
 
 			// Delete the alarm if it's not rescheduled.
-			kernelObjects.Destroy<Alarm>(alarmID);
+			kernelObjects.Destroy<PSPAlarm>(alarmID);
 		}
 	}
 };
 
 static int alarmTimer = -1;
 
-void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
-{
+static void __KernelTriggerAlarm(u64 userdata, int cyclesLate) {
 	int uid = (int) userdata;
 
 	u32 error;
-	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
-	if (alarm)
-	{
+	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
+	if (alarm) {
 		triggeredAlarm.push_back(uid);
 		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR);
 	}
@@ -137,43 +138,41 @@ void __KernelAlarmDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(alarmTimer);
-	p.Do(triggeredAlarm);
+	Do(p, alarmTimer);
+	Do(p, triggeredAlarm);
 	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
 }
 
-KernelObject *__KernelAlarmObject()
-{
+KernelObject *__KernelAlarmObject() {
 	// Default object to load from state.
-	return new Alarm;
+	return new PSPAlarm;
 }
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
-{
-	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + ticks / (u64) CoreTiming::GetClockFrequencyMHz();
-	CoreTiming::ScheduleEvent((int) ticks, alarmTimer, alarm->GetUID());
+void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro) {
+	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
+	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
 }
 
-SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
+static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 {
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
-	Alarm *alarm = new Alarm;
+	PSPAlarm *alarm = new PSPAlarm();
 	SceUID uid = kernelObjects.Create(alarm);
 
 	alarm->alm.size = NATIVEALARM_SIZE;
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	__KernelScheduleAlarm(alarm, ticks);
+	__KernelScheduleAlarm(alarm, micro);
 	return uid;
 }
 
 SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(usToCycles((u64) micro), handlerPtr, commonPtr);
+	return __KernelSetAlarm((u64) micro, handlerPtr, commonPtr);
 }
 
 SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
@@ -186,7 +185,7 @@ SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 		return -1;
 
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetSysClockAlarm(%lld, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(usToCycles(micro), handlerPtr, commonPtr);
+	return __KernelSetAlarm(micro, handlerPtr, commonPtr);
 }
 
 int sceKernelCancelAlarm(SceUID uid)
@@ -195,13 +194,13 @@ int sceKernelCancelAlarm(SceUID uid)
 
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
 
-	return kernelObjects.Destroy<Alarm>(uid);
+	return kernelObjects.Destroy<PSPAlarm>(uid);
 }
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
 	u32 error;
-	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
+	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
 	if (!alarm)
 	{
 		ERROR_LOG(SCEKERNEL, "sceKernelReferAlarmStatus(%08x, %08x): invalid alarm", uid, infoPtr);

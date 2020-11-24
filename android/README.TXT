@@ -3,6 +3,7 @@ First, build the C++ static library:
 > ./ab.sh
 
 Start Eclipse, import the android directory as an existing project
+You need to also load the "native" project into your eclipse workspace
 Build and run. 
 
 If you modify the C++ code, you need to rebuild the static library, of

@@ -9,21 +9,23 @@ class DumpMemoryWindow
 
 	HWND parentHwnd;
 	DebugInterface* cpu;
-	bool filenameChosen;
+	bool filenameChosen_;
 	Mode selectedMode;
 
 	u32 start;
 	u32 size;
-	char fileName[MAX_PATH];
+	std::wstring fileName_;
 
 	static DumpMemoryWindow* bp;
 	void changeMode(HWND hwnd, Mode newMode);
 	bool fetchDialogData(HWND hwnd);
+	void HandleBrowseClick(HWND hwnd);
+
 public:
 	DumpMemoryWindow(HWND parent, DebugInterface* cpu): cpu(cpu)
 	{
 		parentHwnd = parent;
-		filenameChosen = false;
+		filenameChosen_ = false;
 		selectedMode = MODE_RAM;
 	};
 

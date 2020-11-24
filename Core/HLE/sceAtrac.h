@@ -26,32 +26,54 @@ void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
 
+enum AtracStatus : u8 {
+	ATRAC_STATUS_NO_DATA = 1,
+	ATRAC_STATUS_ALL_DATA_LOADED = 2,
+	ATRAC_STATUS_HALFWAY_BUFFER = 3,
+	ATRAC_STATUS_STREAMED_WITHOUT_LOOP = 4,
+	ATRAC_STATUS_STREAMED_LOOP_FROM_END = 5,
+	// This means there's additional audio after the loop.
+	// i.e. ~~before loop~~ [ ~~this part loops~~ ] ~~after loop~~
+	// The "fork in the road" means a second buffer is needed for the second path.
+	ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER = 6,
+	ATRAC_STATUS_LOW_LEVEL = 8,
+	ATRAC_STATUS_FOR_SCESAS = 16,
+
+	ATRAC_STATUS_STREAMED_MASK = 4,
+};
+
+#if COMMON_LITTLE_ENDIAN
+typedef AtracStatus AtracStatus_le;
+#else
+typedef swap_struct_t<AtracStatus, swap_32_t<AtracStatus> > AtracStatus_le;
+#endif
+
 typedef struct
 {
-    u32 decodePos; // 0
-    u32 endSample; // 4
-    u32 loopStart; // 8
-    u32 loopEnd; // 12
-    int samplesPerChan; // 16
+    u32_le decodePos; // 0
+    u32_le endSample; // 4
+    u32_le loopStart; // 8
+    u32_le loopEnd; // 12
+    s32_le samplesPerChan; // 16
     char numFrame; // 20
     // 2: all the stream data on the buffer
     // 6: looping -> second buffer needed
-    char state; // 21
+    AtracStatus_le state; // 21
     char unk22;
     char numChan; // 23
-    u16 sampleSize; // 24
-    u16 codec; // 26
-    u32 dataOff; // 28
-    u32 curOff; // 32
-    u32 dataEnd; // 36
-    int loopNum; // 40
-    u32 streamDataByte; // 44
-    u32 unk48;
-    u32 unk52;
-    u32 buffer; // 56
-    u32 secondBuffer; // 60
-    u32 bufferByte; // 64
-    u32 secondBufferByte; // 68
+    u16_le sampleSize; // 24
+    u16_le codec; // 26
+    u32_le dataOff; // 28
+    u32_le curOff; // 32
+    u32_le dataEnd; // 36
+    s32_le loopNum; // 40
+    u32_le streamDataByte; // 44
+    u32_le unk48;
+    u32_le unk52;
+    u32_le buffer; // 56
+    u32_le secondBuffer; // 60
+    u32_le bufferByte; // 64
+    u32_le secondBufferByte; // 68
     // make sure the size is 128
 	u8 unk[56];
 } SceAtracIdInfo;
@@ -66,6 +88,6 @@ typedef struct
 
 // provide some decoder interface
 
-u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd);
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains);
+u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
+u32 _AtracDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
 int _AtracGetIDByContext(u32 contextAddr);

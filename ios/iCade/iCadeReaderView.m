@@ -49,7 +49,6 @@ static const char *OFF_STATES = "eczqtrfnmpgv";
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
-    [super dealloc];
 }
 
 - (void)didEnterBackground {
@@ -85,12 +84,12 @@ static const char *OFF_STATES = "eczqtrfnmpgv";
     _delegate = delegate;
     if (!_delegate) return;
     
-    _delegateFlags.stateChanged = [_delegate respondsToSelector:@selector(stateChanged:)];
+    /*_delegateFlags.stateChanged = [_delegate respondsToSelector:@selector(stateChanged:)];
     _delegateFlags.buttonDown = [_delegate respondsToSelector:@selector(buttonDown:)];
-    _delegateFlags.buttonUp = [_delegate respondsToSelector:@selector(buttonUp:)];
+    _delegateFlags.buttonUp = [_delegate respondsToSelector:@selector(buttonUp:)];*/
 }
 
-#pragma mark -
+/*#pragma mark -
 #pragma mark UIKeyInput Protocol Methods
 
 - (BOOL)hasText {
@@ -136,6 +135,6 @@ static const char *OFF_STATES = "eczqtrfnmpgv";
 
 - (void)deleteBackward {
     // This space intentionally left blank to complete protocol
-}
+}*/
 
 @end

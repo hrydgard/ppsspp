@@ -15,61 +15,127 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "ChunkFile.h"
-#include "sceUsb.h"
+#include "Core/HLE/sceUsb.h"
 
+// TODO: Map by driver name
+bool usbStarted = false;
+// TODO: Check actual status
+bool usbConnected = true;
+// TODO: Activation by product id
 bool usbActivated = false;
+
+enum UsbStatus {
+	USB_STATUS_STOPPED      = 0x001,
+	USB_STATUS_STARTED      = 0x002,
+	USB_STATUS_DISCONNECTED = 0x010,
+	USB_STATUS_CONNECTED    = 0x020,
+	USB_STATUS_DEACTIVATED  = 0x100,
+	USB_STATUS_ACTIVATED    = 0x200,
+};
 
 void __UsbInit()
 {
+	usbStarted = false;
+	usbConnected = true;
 	usbActivated = false;
 }
 
 void __UsbDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUsb", 1);
+	auto s = p.Section("sceUsb", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(usbActivated);
+	if (s >= 2) {
+		Do(p, usbStarted);
+		Do(p, usbConnected);
+	} else {
+		usbStarted = false;
+		usbConnected = true;
+	}
+	Do(p, usbActivated);
 }
 
-u32 sceUsbActivate() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbActivate");
+static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
+	INFO_LOG(HLE, "sceUsbStart(%s, %i, %08x)", driverName, argsSize, argsPtr);
+	usbStarted = true;
+	return 0;
+}
+
+static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
+	INFO_LOG(HLE, "sceUsbStop(%s, %i, %08x)", driverName, argsSize, argsPtr);
+	usbStarted = false;
+	return 0;
+}
+
+static int sceUsbGetState() {
+	int state = 0;
+	if (!usbStarted) {
+		state = 0x80243007;
+	} else {
+		state = USB_STATUS_STARTED
+			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
+			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
+	}
+	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
+	return state;
+}
+
+static int sceUsbActivate(u32 pid) {
+	INFO_LOG(HLE, "sceUsbActivate(%i)", pid);
 	usbActivated = true;
+	return 0;
+}
+
+static int sceUsbDeactivate(u32 pid) {
+	INFO_LOG(HLE, "sceUsbDeactivate(%i)", pid);
+	usbActivated = false;
+	return 0;
+}
+
+static int sceUsbWaitState(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStat(%i, %i, %08x)", state, waitMode, timeoutAddr);
+	return sceUsbGetState();
+}
+
+static int sceUsbWaitStateCB(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutAddr);
 	return 0;
 }
 
 const HLEFunction sceUsb[] =
 {
-	{0xae5de6af, 0, "sceUsbStart"},
-	{0xc2464fa0, 0, "sceUsbStop"},
-	{0xc21645a4, 0, "sceUsbGetState"},
-	{0x4e537366, 0, "sceUsbGetDrvList"},
-	{0x112cc951, 0, "sceUsbGetDrvState"},
-	{0x586db82c, WrapU_V<sceUsbActivate>, "sceUsbActivate"},
-	{0xc572a9c8, 0, "sceUsbDeactivate"},
-	{0x5be0e002, 0, "sceUsbWaitState"},
-	{0x616f2b61, 0, "sceUsbWaitStateCB"},
-	{0x1c360735, 0, "sceUsbWaitCancel"},
+	{0XAE5DE6AF, &WrapI_CUU<sceUsbStart>,            "sceUsbStart",                             'i', "sxx"},
+	{0XC2464FA0, &WrapI_CUU<sceUsbStop>,             "sceUsbStop",                              'i', "sxx"},
+	{0XC21645A4, &WrapI_V<sceUsbGetState>,           "sceUsbGetState",                          'i', ""   },
+	{0X4E537366, nullptr,                            "sceUsbGetDrvList",                        '?', ""   },
+	{0X112CC951, nullptr,                            "sceUsbGetDrvState",                       '?', ""   },
+	{0X586DB82C, &WrapI_U<sceUsbActivate>,           "sceUsbActivate",                          'i', "x"  },
+	{0XC572A9C8, &WrapI_U<sceUsbDeactivate>,         "sceUsbDeactivate",                        'i', "x"  },
+	{0X5BE0E002, &WrapI_IIU<sceUsbWaitState>,        "sceUsbWaitState",                         '?', "xxx"},
+	{0X616F2B61, &WrapI_IIU<sceUsbWaitStateCB>,      "sceUsbWaitStateCB",                       '?', "xxx"},
+	{0X1C360735, nullptr,                            "sceUsbWaitCancel",                        '?', ""   },
 };
 
 const HLEFunction sceUsbstor[] =
 {
-	{0x60066CFE, 0, "sceUsbstorGetStatus"},
+	{0X60066CFE, nullptr,                            "sceUsbstorGetStatus",                     '?', ""   },
 };
 
 const HLEFunction sceUsbstorBoot[] =
 {
-	{0xE58818A8, 0, "sceUsbstorBootSetCapacity"},
-	{0x594BBF95, 0, "sceUsbstorBootSetLoadAddr"},
-	{0x6D865ECD, 0, "sceUsbstorBootGetDataSize"},
-	{0xA1119F0D, 0, "sceUsbstorBootSetStatus"},
-	{0x1F080078, 0, "sceUsbstorBootRegisterNotify"},
-	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
+	{0XE58818A8, nullptr,                            "sceUsbstorBootSetCapacity",               '?', ""   },
+	{0X594BBF95, nullptr,                            "sceUsbstorBootSetLoadAddr",               '?', ""   },
+	{0X6D865ECD, nullptr,                            "sceUsbstorBootGetDataSize",               '?', ""   },
+	{0XA1119F0D, nullptr,                            "sceUsbstorBootSetStatus",                 '?', ""   },
+	{0X1F080078, nullptr,                            "sceUsbstorBootRegisterNotify",            '?', ""   },
+	{0XA55C9E16, nullptr,                            "sceUsbstorBootUnregisterNotify",          '?', ""   },
 };
 
 void Register_sceUsb()

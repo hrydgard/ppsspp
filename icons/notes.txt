@@ -1,0 +1,1 @@
+Needs to improve make install of ppsspp, does not delete hicolor folder until it. Debian package use it.

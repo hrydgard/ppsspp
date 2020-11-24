@@ -16,12 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <WindowsX.h>
-#include "math/lin/matrix4x4.h"
-#include "gfx_es2/glsl_program.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Common.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
-const PTCHAR SimpleGLWindow::windowClass = _T("SimpleGLWindow");
+const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
+
+using namespace Lin;
 
 void SimpleGLWindow::RegisterClass() {
 	WNDCLASSEX wndClass;
@@ -54,9 +57,7 @@ static const char tex_fs[] =
 	"}\n";
 
 static const char basic_vs[] =
-#ifndef USING_GLES2
 	"#version 120\n"
-#endif
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"uniform mat4 u_viewproj;\n"
@@ -67,19 +68,22 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0), zoom_(false),
-	  dragging_(false), offsetX_(0), offsetY_(0) {
-	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
+	: hWnd_(wnd) {
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
 
 SimpleGLWindow::~SimpleGLWindow() {
-	if (drawProgram_ != NULL) {
+	if (vao_ != 0) {
+		glDeleteVertexArrays(1, &vao_);
+	}
+	if (drawProgram_ != nullptr) {
 		glsl_destroy(drawProgram_);
 	}
 	if (tex_) {
 		glDeleteTextures(1, &tex_);
 		glDeleteTextures(1, &checker_);
 	}
+	delete [] reformatBuf_;
 };
 
 void SimpleGLWindow::Initialize(u32 flags) {
@@ -151,6 +155,22 @@ void SimpleGLWindow::CreateProgram() {
 	glUniform1i(drawProgram_->sampler0, 0);
 	glsl_unbind();
 
+	if (gl_extensions.ARB_vertex_array_object) {
+		glGenVertexArrays(1, &vao_);
+		glBindVertexArray(vao_);
+
+		glGenBuffers(1, &ibuf_);
+		glGenBuffers(1, &vbuf_);
+
+		const GLubyte indices[4] = {0, 1, 3, 2};
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+	} else {
+		vao_ = 0;
+	}
+
 	glEnableVertexAttribArray(drawProgram_->a_position);
 	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
 }
@@ -198,23 +218,54 @@ void SimpleGLWindow::DrawChecker() {
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoords), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoords), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
+void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt) {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	GLint components = GL_RGBA;
+	GLint memComponents = 0;
 	GLenum glfmt;
+	const u8 *finalData = data;
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		glfmt = GL_UNSIGNED_BYTE;
+	} else if (fmt == FORMAT_8888_BGRA) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glfmt = GL_UNSIGNED_BYTE;
+		memComponents = GL_BGRA;
 	} else if (fmt == FORMAT_FLOAT) {
 		glfmt = GL_FLOAT;
 		components = GL_RED;
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24BIT_8X) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24X_8BIT) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glfmt = GL_UNSIGNED_BYTE;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
 	} else {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 		if (fmt == FORMAT_4444) {
@@ -231,19 +282,30 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565_REV) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5_REV;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_5551_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+			memComponents = GL_BGRA;
+		} else if (fmt == FORMAT_4444_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+			memComponents = GL_BGRA;
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
 		} else if (fmt == FORMAT_8BIT) {
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 			glfmt = GL_UNSIGNED_BYTE;
 			components = GL_RED;
 		} else {
-			_dbg_assert_msg_(COMMON, false, "Invalid SimpleGLWindow format.");
+			_dbg_assert_msg_(false, "Invalid SimpleGLWindow format.");
 		}
 	}
 
+	if (memComponents == 0) {
+		memComponents = components;
+	}
+
 	glBindTexture(GL_TEXTURE_2D, tex_);
-	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, glfmt, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, memComponents, glfmt, finalData);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -267,7 +329,7 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 	x = 0.0f;
 	y = 0.0f;
 
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
+	if ((flags_ & RESIZE_SHRINK_FIT) != 0 && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -275,6 +337,17 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 			fw = (float)w_;
 			fh /= wscale;
 		} else if (hscale > 1.0f) {
+			fw /= hscale;
+			fh = (float)h_;
+		}
+	}
+	if ((flags_ & RESIZE_GROW_FIT) != 0 && !zoom_) {
+		float wscale = fw / w_, hscale = fh / h_;
+
+		if (wscale > hscale && wscale < 1.0f) {
+			fw = (float)w_;
+			fh /= wscale;
+		} else if (hscale > wscale && hscale < 1.0f) {
 			fw /= hscale;
 			fh = (float)h_;
 		}
@@ -291,10 +364,23 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 void SimpleGLWindow::Redraw(bool andSwap) {
 	DrawChecker();
 
-	if (tw_ == 0 && th_ == 0) {
+	auto swapWithCallback = [andSwap, this]() {
 		if (andSwap) {
-			Swap();
+			swapped_ = false;
+			if (redrawCallback_ && !inRedrawCallback_) {
+				inRedrawCallback_ = true;
+				redrawCallback_();
+				inRedrawCallback_ = false;
+			}
+			// In case the callback swaps, don't do it twice.
+			if (!swapped_) {
+				Swap();
+			}
 		}
+	};
+
+	if (tw_ == 0 && th_ == 0) {
+		swapWithCallback();
 		return;
 	}
 
@@ -316,20 +402,29 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	GetContentSize(x, y, fw, fh);
 
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
-	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
+	static const float texCoordsNormal[8] = {0,0, 1,0, 1,1, 0,1};
 	static const float texCoordsFlipped[8] = {0,1, 1,1, 1,0, 0,0};
 	static const GLubyte indices[4] = {0,1,3,2};
+	const float *texCoords = tflipped_ ? texCoordsFlipped : texCoordsNormal;
 
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, tflipped_ ? texCoordsFlipped : texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoordsNormal), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoordsNormal), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 
 	if (andSwap) {
-		Swap();
+		swapWithCallback();
 	}
 }
 
@@ -340,15 +435,29 @@ void SimpleGLWindow::Clear() {
 }
 
 void SimpleGLWindow::Begin() {
-	Redraw(false);
+	if (!inRedrawCallback_) {
+		Redraw(false);
+	}
 
-	glDisableVertexAttribArray(drawProgram_->a_position);
-	glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	} else {
+		glDisableVertexAttribArray(drawProgram_->a_position);
+		glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 }
 
 void SimpleGLWindow::End() {
-	glEnableVertexAttribArray(drawProgram_->a_position);
-	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(vao_);
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+	} else {
+		glEnableVertexAttribArray(drawProgram_->a_position);
+		glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 
 	Swap();
 }
@@ -407,6 +516,97 @@ bool SimpleGLWindow::ToggleZoom() {
 	return true;
 }
 
+bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	float fw, fh;
+	float x, y;
+	GetContentSize(x, y, fw, fh);
+
+	if (mouseX < x || mouseX >= x + fw || mouseY < y || mouseY >= y + fh) {
+		// Outside of bounds.
+		hoverCallback_(-1, -1);
+		return true;
+	}
+
+	float tx = (mouseX - x) * (tw_ / fw);
+	float ty = (mouseY - y) * (th_ / fh);
+
+	hoverCallback_((int)tx, (int)ty);
+
+	// Find out when they are done.
+	TRACKMOUSEEVENT tracking = {0};
+	tracking.cbSize = sizeof(tracking);
+	tracking.dwFlags = TME_LEAVE;
+	tracking.hwndTrack = hWnd_;
+	TrackMouseEvent(&tracking);
+
+	return true;
+}
+
+bool SimpleGLWindow::Leave() {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	hoverCallback_(-1, -1);
+	return true;
+}
+
+bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
+	if (rightClickCallback_ == nullptr) {
+		return false;
+	}
+
+	POINT pt{mouseX, mouseY};
+	ClientToScreen(hWnd_, &pt);
+
+	rightClickCallback_(0);
+	int result = TrackPopupMenuEx(rightClickMenu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hWnd_, 0);
+	if (result != 0) {
+		rightClickCallback_(result);
+	}
+
+	return true;
+}
+
+const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
+	if (!reformatBuf_ || reformatBufSize_ < numPixels) {
+		delete [] reformatBuf_;
+		reformatBuf_ = new u32[numPixels];
+		reformatBufSize_ = numPixels;
+	}
+
+	const u32 *data32 = (const u32 *)data;
+	if (fmt == FORMAT_24BIT_8X) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			reformatBuf_[i] = (data32[i] << 8) | ((data32[i] >> 16) & 0xFF);
+		}
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			int z24 = data32[i] & 0x00FFFFFF;
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
+		}
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			double z = *(float *)&data32[i];
+			int z24 = (int)(z * 16777215.0);
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
+		}
+	} else if (fmt == FORMAT_24X_8BIT) {
+		u8 *buf8 = (u8 *)reformatBuf_;
+		for (u32 i = 0; i < numPixels; ++i) {
+			u32 v = (data32[i] >> 24) & 0xFF;
+			buf8[i] = v;
+		}
+	}
+	return (const u8 *)reformatBuf_;
+}
+
 SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
 	return (SimpleGLWindow*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
@@ -414,13 +614,25 @@ SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
 LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	SimpleGLWindow *win = SimpleGLWindow::GetFrom(hwnd);
 
-	switch(msg)
-	{
+	int mouseX = 0, mouseY = 0;
+	switch (msg) {
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONUP:
+	case WM_MOUSEMOVE:
+		mouseX = GET_X_LPARAM(lParam);
+		mouseY = GET_Y_LPARAM(lParam);
+		break;
+	default:
+		break;
+	}
+
+	switch (msg) {
 	case WM_NCCREATE:
 		win = new SimpleGLWindow(hwnd);
 		
 		// Continue with window creation.
-		return win != NULL ? TRUE : FALSE;
+		return win != nullptr ? TRUE : FALSE;
 
 	case WM_NCDESTROY:
 		delete win;
@@ -433,19 +645,34 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (win->DragStart(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragStart(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_LBUTTONUP:
-		if (win->DragEnd(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragEnd(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_MOUSEMOVE:
-		if (win->DragContinue(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragContinue(mouseX, mouseY)) {
+			return 0;
+		}
+		if (win->Hover(mouseX, mouseY)) {
+			return 0;
+		}
+		break;
+
+	case WM_RBUTTONUP:
+		if (win->RightClick(mouseX, mouseY)) {
+			return 0;
+		}
+		break;
+
+	case WM_MOUSELEAVE:
+		if (win->Leave()) {
 			return 0;
 		}
 		break;

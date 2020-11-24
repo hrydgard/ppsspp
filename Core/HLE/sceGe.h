@@ -17,15 +17,17 @@
 
 #pragma once
 
-#include "Core/HLE/sceKernelThread.h"
+#include "GPU/GPUInterface.h"
+#include "Core/MemMap.h"
 
-#define SCE_GE_LIST_COMPLETED		0
-#define SCE_GE_LIST_QUEUED			1
-#define SCE_GE_LIST_DRAWING			2
-#define SCE_GE_LIST_STALLING		3
-#define SCE_GE_LIST_PAUSED			4
+#define SCE_GE_LIST_COMPLETED  0
+#define SCE_GE_LIST_QUEUED     1
+#define SCE_GE_LIST_DRAWING    2
+#define SCE_GE_LIST_STALLING   3
+#define SCE_GE_LIST_PAUSED     4
 
-
+typedef int SceUID;
+typedef u32_le SceSize_le;
 // typedef void (*PspGeCallback)(int id, void *arg);
 
 struct PspGeCallbackData
@@ -41,7 +43,7 @@ struct PspGeListArgs
 	SceSize_le size;
 	PSPPointer<u32_le> context;
 	u32_le numStacks;
-	u32_le unknown1;
+	u32_le stackAddr;
 };
 
 void Register_sceGe_user();
@@ -49,11 +51,10 @@ void Register_sceGe_user();
 void __GeInit();
 void __GeDoState(PointerWrap &p);
 void __GeShutdown();
-bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks);
+bool __GeTriggerSync(GPUSyncType waitType, int id, u64 atTicks);
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks);
-void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason);
-bool __GeTriggerWait(WaitType type, SceUID waitId);
-bool __GeHasPendingInterrupt();
+void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason);
+bool __GeTriggerWait(GPUSyncType type, SceUID waitId);
 
 
 // Export functions for use by Util/PPGe

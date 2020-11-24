@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "Common/CommonWindows.h"
 #include "Common/CommonTypes.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -17,11 +18,14 @@ class BreakpointWindow
 	bool onChange;
 	u32 address;
 	u32 size;
-	char condition[128];
+	std::string condition;
+	std::string logFormat;
 	PostfixExpression compiledCondition;
 
 	static BreakpointWindow* bp;
 	bool fetchDialogData(HWND hwnd);
+	bool GetCheckState(HWND hwnd, int dlgItem);
+
 public:
 	BreakpointWindow(HWND parent, DebugInterface* cpu): cpu(cpu)
 	{
@@ -32,7 +36,6 @@ public:
 		enabled = log = true;
 		address = -1;
 		size = 1;
-		condition[0] = 0;
 	};
 
 

@@ -15,16 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "sceParseUri.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceParseUri.h"
 
 const HLEFunction sceParseUri[] =
 {
-	{0x49E950EC, 0, "sceUriEscape"},
-	{0x062BB07E, 0, "sceUriUnescape"},
-	{0x568518C9, 0, "sceUriParse"},
-	{0x7EE318AF, 0, "sceUriBuild"},
+	{0X49E950EC, nullptr,                            "sceUriEscape",   '?', ""},
+	{0X062BB07E, nullptr,                            "sceUriUnescape", '?', ""},
+	{0X568518C9, nullptr,                            "sceUriParse",    '?', ""},
+	{0X7EE318AF, nullptr,                            "sceUriBuild",    '?', ""},
 };
 
 void Register_sceParseUri()

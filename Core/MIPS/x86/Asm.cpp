@@ -15,7 +15,10 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "math/math_util.h"
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
+#include "Common/Math/math_util.h"
 
 #include "ABI.h"
 #include "x64Emitter.h"
@@ -28,14 +31,20 @@
 #include "Common/MemoryUtil.h"
 
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/x86/Asm.h"
 #include "Core/MIPS/x86/Jit.h"
 
 using namespace Gen;
+using namespace X64JitConstants;
+
+extern volatile CoreState coreState;
+
+namespace MIPSComp
+{
 
 //TODO - make an option
 //#if _DEBUG
-static bool enableDebug = false; 
+static bool enableDebug = false;
+
 //#else
 //		bool enableDebug = false; 
 //#endif
@@ -44,41 +53,81 @@ static bool enableDebug = false;
 
 //GLOBAL STATIC ALLOCATIONS x86
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
+//EBP - Pointer to fpr/gpr regs
 
 //GLOBAL STATIC ALLOCATIONS x64
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
 //RBX - Base pointer of memory
-//R15 - Pointer to array of block pointers 
+//R14 - Pointer to fpr/gpr regs
+//R15 - Pointer to array of block pointers
 
-extern volatile CoreState coreState;
-
-void Jit()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
-// IDEA, NOT IMPLEMENTED: no more block numbers - hack opcodes just contain offset within
-// dynarec buffer, gets rid of lookup into block buffer
-// At this offset - 4, there is an int specifying the block number if needed.
-
-void ImHere()
-{
+void ImHere() {
 	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
-{
-	enterCode = AlignCode16();
+void Jit::GenerateFixedCode(JitOptions &jo) {
+	const u8 *start = AlignCodePage();
+	BeginWrite();
+
+	restoreRoundingMode = AlignCode16(); {
+		STMXCSR(MIPSSTATE_VAR(temp));
+		// Clear the rounding mode and flush-to-zero bits back to 0.
+		AND(32, MIPSSTATE_VAR(temp), Imm32(~(7 << 13)));
+		LDMXCSR(MIPSSTATE_VAR(temp));
+		RET();
+	}
+
+	applyRoundingMode = AlignCode16(); {
+		MOV(32, R(EAX), MIPSSTATE_VAR(fcr31));
+		AND(32, R(EAX), Imm32(0x01000003));
+
+		// If it's 0 (nearest + no flush0), we don't actually bother setting - we cleared the rounding
+		// mode out in restoreRoundingMode anyway. This is the most common.
+		FixupBranch skip = J_CC(CC_Z);
+		STMXCSR(MIPSSTATE_VAR(temp));
+
+		// The MIPS bits don't correspond exactly, so we have to adjust.
+		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
+		TEST(8, R(AL), Imm8(1));
+		FixupBranch skip2 = J_CC(CC_Z);
+		XOR(32, R(EAX), Imm8(2));
+		SetJumpTarget(skip2);
+
+		// Adjustment complete, now reconstruct MXCSR
+		SHL(32, R(EAX), Imm8(13));
+		// Before setting new bits, we must clear the old ones.
+		AND(32, MIPSSTATE_VAR(temp), Imm32(~(7 << 13)));   // Clearing bits 13-14 (rounding mode) and 15 (flush to zero)
+		OR(32, MIPSSTATE_VAR(temp), R(EAX));
+
+		TEST(32, MIPSSTATE_VAR(fcr31), Imm32(1 << 24));
+		FixupBranch skip3 = J_CC(CC_Z);
+		OR(32, MIPSSTATE_VAR(temp), Imm32(1 << 15));
+		SetJumpTarget(skip3);
+
+		LDMXCSR(MIPSSTATE_VAR(temp));
+		SetJumpTarget(skip);
+		RET();
+	}
+
+	enterDispatcher = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
-	MOV(64, R(RBX), Imm64((u64)Memory::base));
-	MOV(64, R(R15), Imm64((u64)jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	uintptr_t jitbase = (uintptr_t)GetBasePtr();
+	if (jitbase > 0x7FFFFFFFULL) {
+		MOV(64, R(JITBASEREG), ImmPtr(GetBasePtr()));
+		jo.reserveR15ForAsm = true;
+	}
 #endif
+	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips_->f[0]));
 
 	outerLoop = GetCodePtr();
+		RestoreRoundingMode(true);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
-		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
+		ApplyRoundingMode(true);
+		FixupBranch skipToCoreStateCheck = J();  //skip the downcount check
 
 		dispatcherCheckCoreState = GetCodePtr();
 
@@ -86,7 +135,13 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = J_CC(CC_S, true);
 
-		CMP(32, M((void*)&coreState), Imm32(0));
+		SetJumpTarget(skipToCoreStateCheck);
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
@@ -96,53 +151,81 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = J_CC(CC_S, true);
 
-			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
 
-			MOV(32, R(EAX), M(&mips->pc));
-#ifdef _M_IX86
+			MOV(32, R(EAX), MIPSSTATE_VAR(pc));
+			dispatcherInEAXNoCheck = GetCodePtr();
+
+#ifdef MASKED_PSP_MEMORY
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
+#endif
+
+#ifdef _M_IX86
+			_assert_msg_( Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64
-			MOV(32, R(EAX), MComplex(RBX, RAX, SCALE_1, 0));
+			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
-			AND(32, R(EDX), Imm32(MIPS_EMUHACK_MASK));
-			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
-			FixupBranch notfound = J_CC(CC_NZ);
-				// IDEA - we have 24 bits, why not just use offsets from base of code?
-				if (enableDebug)
-				{
-					ADD(32, M(&mips->debugCount), Imm8(1));
+			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
+			SHR(32, R(EDX), Imm8(24));
+			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = J_CC(CC_NE);
+				if (enableDebug) {
+					ADD(32, MIPSSTATE_VAR(debugCount), Imm8(1));
 				}
 				//grab from list and jump to it
 				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
 #ifdef _M_IX86
-				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
+				ADD(32, R(EAX), ImmPtr(GetBasePtr()));
 #elif _M_X64
-				ADD(64, R(RAX), R(R15));
+				if (jo.reserveR15ForAsm)
+					ADD(64, R(RAX), R(JITBASEREG));
+				else
+					ADD(64, R(EAX), Imm32(jitbase));
 #endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
-			ABI_CallFunction((void *)&Jit);
-			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
+			RestoreRoundingMode(true);
+			ABI_CallFunction(&MIPSComp::JitAt);
+			ApplyRoundingMode(true);
+			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		CMP(32, M((void*)&coreState), Imm32(0));
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		J_CC(CC_Z, outerLoop, true);
 
+	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
+	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
-	breakpointBailout = GetCodePtr();
-	ABI_PopAllCalleeSavedRegsAndAdjustStack();
-	RET();
+	crashHandler = GetCodePtr();
+	if (RipAccessible((const void *)&coreState)) {
+		MOV(32, M(&coreState), Imm32(CORE_RUNTIME_ERROR));
+	} else {
+		MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+		MOV(32, MatR(RAX), Imm32(CORE_RUNTIME_ERROR));
+	}
+	JMP(quitLoop, true);
+
+	// Let's spare the pre-generated code from unprotect-reprotect.
+	endOfPregeneratedCode = AlignCodePage();
+	EndWrite();
 }
+
+}  // namespace
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

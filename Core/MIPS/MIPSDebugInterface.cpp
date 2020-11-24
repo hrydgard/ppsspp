@@ -15,35 +15,45 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Debugger/Breakpoints.h"
-#include "../Debugger/SymbolMap.h"
-#include "../Debugger/DebugInterface.h"
+#include <string>
+#include <cstring>
 
-#include "MIPSDebugInterface.h"
-#include "../Globals.h"
-#include "../MemMap.h"	
-#include "../MIPS/MIPSTables.h"	
-#include "../MIPS/MIPS.h"
-#include "../System.h"
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
+
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/System.h"
 
 enum ReferenceIndexType {
-	REF_INDEX_PC = 32,
-	REF_INDEX_HI = 33,
-	REF_INDEX_LO = 34,
-	REF_INDEX_FPU = 0x1000,
-	REF_INDEX_FPU_INT = 0x2000,
-	REF_INDEX_VFPU = 0x4000,
+	REF_INDEX_PC       = 32,
+	REF_INDEX_HI       = 33,
+	REF_INDEX_LO       = 34,
+	REF_INDEX_FPU      = 0x1000,
+	REF_INDEX_FPU_INT  = 0x2000,
+	REF_INDEX_VFPU     = 0x4000,
 	REF_INDEX_VFPU_INT = 0x8000,
 	REF_INDEX_IS_FLOAT = REF_INDEX_FPU | REF_INDEX_VFPU,
+	REF_INDEX_HLE      = 0x10000,
+	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
+	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
 };
 
 
 class MipsExpressionFunctions: public IExpressionFunctions
 {
 public:
-	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { };
+	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { }
 
-	virtual bool parseReference(char* str, uint32& referenceIndex)
+	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
 		for (int i = 0; i < 32; i++)
 		{
@@ -104,15 +114,24 @@ public:
 			return true;
 		}
 
+		if (strcasecmp(str, "threadid") == 0) {
+			referenceIndex = REF_INDEX_THREAD;
+			return true;
+		}
+		if (strcasecmp(str, "moduleid") == 0) {
+			referenceIndex = REF_INDEX_MODULE;
+			return true;
+		}
+
 		return false;
 	}
 
-	virtual bool parseSymbol(char* str, uint32& symbolValue)
+	bool parseSymbol(char* str, uint32_t& symbolValue) override
 	{
-		return symbolMap.GetLabelValue(str,symbolValue); 
+		return g_symbolMap->GetLabelValue(str,symbolValue); 
 	}
 
-	virtual uint32 getReferenceValue(uint32 referenceIndex)
+	uint32_t getReferenceValue(uint32_t referenceIndex) override
 	{
 		if (referenceIndex < 32)
 			return cpu->GetRegValue(0, referenceIndex);
@@ -122,6 +141,10 @@ public:
 			return cpu->GetHi();
 		if (referenceIndex == REF_INDEX_LO)
 			return cpu->GetLo();
+		if (referenceIndex == REF_INDEX_THREAD)
+			return __KernelGetCurThread();
+		if (referenceIndex == REF_INDEX_MODULE)
+			return __KernelGetCurThreadModuleId();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
@@ -129,14 +152,14 @@ public:
 		return -1;
 	}
 
-	virtual ExpressionType getReferenceType(uint32 referenceIndex) {
+	ExpressionType getReferenceType(uint32_t referenceIndex) override {
 		if (referenceIndex & REF_INDEX_IS_FLOAT) {
 			return EXPR_TYPE_FLOAT;
 		}
 		return EXPR_TYPE_UINT;
 	}
 	
-	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error)
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override
 	{
 		switch (size)
 		{
@@ -175,19 +198,16 @@ private:
 
 
 
-const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align) 
+const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
 {
-	MIPSState *x = currentCPU;
-	currentCPU = cpu;
-	
-	static char mojs[256]; 
+	static char mojs[256];
 	if (Memory::IsValidAddress(address))
 		MIPSDisAsm(Memory::Read_Opcode_JIT(address), address, mojs);
 	else
 		strcpy(mojs, "-");
-	currentCPU = x;
 	return mojs;
 }
+
 unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 {
 	return Memory::Read_Instruction(address).encoding;
@@ -195,7 +215,7 @@ unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 
 bool MIPSDebugInterface::isAlive()
 {
-	return PSP_IsInited() && coreState != CORE_ERROR && coreState != CORE_POWERDOWN;
+	return PSP_IsInited() && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN;
 }
 
 bool MIPSDebugInterface::isBreakpoint(unsigned int address) 
@@ -221,13 +241,13 @@ void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=symbolMap.GetFunctionNum(address);
+	int n=g_symbolMap->GetFunctionNum(address);
 	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
-const char *MIPSDebugInterface::getDescription(unsigned int address) 
+std::string MIPSDebugInterface::getDescription(unsigned int address) 
 {
-	return symbolMap.GetDescription(address);
+	return g_symbolMap->GetDescription(address);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)
@@ -256,14 +276,14 @@ const char *MIPSDebugInterface::GetName()
 const char *MIPSDebugInterface::GetRegName(int cat, int index)
 {
 	static const char *regName[32] = {
-		"zero",	"at",	"v0",	"v1",
-		"a0",		"a1",	"a2",	"a3",
-		"t0",		"t1",	"t2",	"t3",
-		"t4",		"t5",	"t6",	"t7",
-		"s0",		"s1",	"s2",	"s3",
-		"s4",		"s5",	"s6",	"s7",
-		"t8",		"t9",	"k0",	"k1",
-		"gp",		"sp",	"fp",	"ra"
+		"zero",  "at",    "v0",    "v1",
+		"a0",    "a1",    "a2",    "a3",
+		"t0",    "t1",    "t2",    "t3",
+		"t4",    "t5",    "t6",    "t7",
+		"s0",    "s1",    "s2",    "s3",
+		"s4",    "s5",    "s6",    "s7",
+		"t8",    "t9",    "k0",    "k1",
+		"gp",    "sp",    "fp",    "ra"
 	};
 
 	// really nasty hack so that this function can be called several times on one line of c++.

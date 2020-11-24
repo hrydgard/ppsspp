@@ -15,68 +15,55 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "scePauth.h"
 #include "zlib.h"
+#include <stdio.h>
 
-int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
+#include "Core/MemMap.h"
+#include "Core/System.h"
+#include "Core/ELF/PrxDecrypter.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/scePauth.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Common/File/FileUtil.h"
+
+static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	ERROR_LOG(HLE, "UNIMPL scePauth_F7AA47F6(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);
+	auto src = Memory::GetPointer(srcPtr);
+	auto key = Memory::GetPointer(workArea);
+
+	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);
+
+	if (decryptResult < 0)
+	{
+		ERROR_LOG(HLE, "Pauth decryption failed 0x%08X", decryptResult);
+		return decryptResult;
+	}
+
+	Memory::Write_U32(decryptResult, destLengthPtr);
 	return 0;
 }
 
-int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
+static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	u8 *src, *key;
-	u32 crc;
-	char name[256];
-	std::string hostPath;
-	FILE *fp;
-	int size;
+	auto src = Memory::GetPointer(srcPtr);
+	auto key = Memory::GetPointer(workArea);
 
-	INFO_LOG(HLE, "scePauth_98B83B5D(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);
+	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);
 
-	sprintf(name, "ms0:/PAUTH");
-	pspFileSystem.GetHostPath(std::string(name), hostPath);
-
-	src = (u8*) Memory::GetPointer(srcPtr);
-	key = (u8*) Memory::GetPointer(workArea);
-	crc = crc32(0, src, srcLength);
-
-	sprintf(name, "%s/pauth_%08x.bin.decrypt", hostPath.c_str(), crc);
-	fp = fopen(name, "rb");
-	if(fp){
-		fseek(fp, 0, SEEK_END);
-		size = ftell(fp);
-		fseek(fp, 0, SEEK_SET);
-		fread(src, 1, size, fp);
-		fclose(fp);
-		Memory::Write_U32(size, destLengthPtr);
-		INFO_LOG(HLE, "    read from decrypted file %s", name);
-		return 0;
+	if (decryptResult < 0)
+	{
+		ERROR_LOG(HLE, "Pauth decryption failed 0x%08X", decryptResult);
+		return decryptResult;
 	}
 
-	pspFileSystem.MkDir("ms0:/PAUTH");
-
-	sprintf(name, "%s/pauth_%08x.bin", hostPath.c_str(), crc);
-	ERROR_LOG(HLE, "    no decrypted file found! save as %s", name);
-
-	fp = fopen(name, "wb");
-	fwrite(src, 1, srcLength, fp);
-	fclose(fp);
-
-	sprintf(name, "%s/pauth_%08x.key", hostPath.c_str(), crc);
-	fp = fopen(name, "wb");
-	fwrite(key, 1, 16, fp);
-	fclose(fp);
-
-	return -1;
+	Memory::Write_U32(decryptResult, destLengthPtr);
+	return 0;
 }
 
 const HLEFunction scePauth[] = {
-	{0xF7AA47F6, &WrapI_UIUU<scePauth_F7AA47F6>, "scePauth_F7AA47F6"},
-	{0x98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>, "scePauth_98B83B5D"},
+	{0XF7AA47F6, &WrapI_UIUU<scePauth_F7AA47F6>,     "scePauth_F7AA47F6", 'i', "xixx"},
+	{0X98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>,     "scePauth_98B83B5D", 'i', "xixx"},
 };
 
 void Register_scePauth()

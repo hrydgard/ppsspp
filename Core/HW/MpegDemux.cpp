@@ -1,4 +1,6 @@
-#include "MpegDemux.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Core/HW/MpegDemux.h"
+#include "Core/Reporting.h"
 
 const int PACKET_START_CODE_MASK   = 0xffffff00;
 const int PACKET_START_CODE_PREFIX = 0x00000100;
@@ -27,7 +29,8 @@ MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size) {
 	m_readSize = 0;
 }
 
-MpegDemux::~MpegDemux(void) {
+MpegDemux::~MpegDemux() {
+	delete [] m_buf;
 }
 
 void MpegDemux::DoState(PointerWrap &p) {
@@ -35,16 +38,16 @@ void MpegDemux::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(m_index);
-	p.Do(m_len);
-	p.Do(m_audioChannel);
-	p.Do(m_readSize);
+	Do(p, m_index);
+	Do(p, m_len);
+	Do(p, m_audioChannel);
+	Do(p, m_readSize);
 	if (m_buf)
-		p.DoArray(m_buf, m_len);
-	p.DoClass(m_audioStream);
+		DoArray(p, m_buf, m_len);
+	DoClass(p, m_audioStream);
 }
 
-bool MpegDemux::addStreamData(u8* buf, int addSize) {
+bool MpegDemux::addStreamData(const u8 *buf, int addSize) {
 	if (m_readSize + addSize > m_len)
 		return false;
 	memcpy(m_buf + m_readSize, buf, addSize);
@@ -61,7 +64,7 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 			break;
 		}
 	}
-		if ((c & 0xC0) == 0x40) {
+	if ((c & 0xC0) == 0x40) {
 		read8();
 		c = read8();
 		length -= 2;
@@ -136,15 +139,14 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 	return length;
 }
 
-int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
+int MpegDemux::demuxStream(bool bdemux, int startCode, int length, int channel)
 {
-	int length = read16();
 	if (bdemux) {
 		PesHeader pesHeader(channel);
 		length = readPesHeader(pesHeader, length, startCode);
 		if (pesHeader.channel == channel || channel < 0) {
 			channel = pesHeader.channel;
-			m_audioStream.push(m_buf + m_index, length);
+			m_audioStream.push(m_buf + m_index, length, pesHeader.pts);
 		}
 		skip(length);
 	} else {
@@ -153,61 +155,136 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 	return channel;
 }
 
-void MpegDemux::demux(int audioChannel)
+bool MpegDemux::skipPackHeader() {
+	// MPEG version / SCR
+	if ((read8() & 0xC4) != 0x44) {
+		return false;
+	}
+	skip(1);
+	if ((read8() & 0x04) != 0x04) {
+		return false;
+	}
+	skip(1);
+	if ((read8() & 0x04) != 0x04) {
+		return false;
+	}
+	// SCR_ext
+	if ((read8() & 0x01) != 0x01) {
+		return false;
+	}
+
+	int muxrate = read24();
+	if ((muxrate & 3) != 3) {
+		return false;
+	}
+	int stuffing = read8() & 7;
+	while (stuffing > 0) {
+		if (read8() != 0xFF) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool MpegDemux::demux(int audioChannel)
 {
 	if (audioChannel >= 0)
 		m_audioChannel = audioChannel;
-	while (m_index < m_len)
+
+	bool looksValid = false;
+	bool needMore = false;
+	while (m_index < m_readSize && !needMore)
 	{
-		if (m_index + 2048 > m_readSize)
-			break;
 		// Search for start code
 		int startCode = 0xFF;
 		while ((startCode & PACKET_START_CODE_MASK) != PACKET_START_CODE_PREFIX && !isEOF()) {
 			startCode = (startCode << 8) | read8();
 		}
+		// Not enough data available yet.
+		if (m_readSize - m_index < 16) {
+			m_index -= 4;
+			break;
+		}
+
 		switch (startCode) {
 		case PACK_START_CODE:
-			skip(10);
+			if (skipPackHeader()) {
+				looksValid = true;
+			}
 			break;
-		case SYSTEM_HEADER_START_CODE:
-			skip(14);
-			break;
-		case PADDING_STREAM:
-		case PRIVATE_STREAM_2:
-			{
-				int length = read16();
-				skip(length);
+		case SYSTEM_HEADER_START_CODE: {
+			looksValid = true;
+			int length = read16();
+			if (m_readSize - m_index < length) {
+				m_index -= 4 + 2;
+				needMore = true;
 				break;
 			}
+			skip(length);
+			break;
+		}
+		case PADDING_STREAM:
+		case PRIVATE_STREAM_2: {
+			looksValid = true;
+			int length = read16();
+			if (m_readSize - m_index < length) {
+				m_index -= 4 + 2;
+				needMore = true;
+				break;
+			}
+			skip(length);
+			break;
+		}
 		case PRIVATE_STREAM_1: {
 			// Audio stream
-			m_audioChannel = demuxStream(true, startCode, m_audioChannel);
+			int length = read16();
+			// Check for PES header marker.
+			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
+			if (m_readSize - m_index < length) {
+				m_index -= 4 + 2;
+				needMore = true;
+				break;
+			}
+			m_audioChannel = demuxStream(true, startCode, length, m_audioChannel);
+			looksValid = true;
 			break;
 		}
 		case 0x1E0: case 0x1E1: case 0x1E2: case 0x1E3:
 		case 0x1E4: case 0x1E5: case 0x1E6: case 0x1E7:
 		case 0x1E8: case 0x1E9: case 0x1EA: case 0x1EB:
-		case 0x1EC: case 0x1ED: case 0x1EE: case 0x1EF:
+		case 0x1EC: case 0x1ED: case 0x1EE: case 0x1EF: {
 			// Video Stream
-			demuxStream(false, startCode, -1);
+			int length = read16();
+			// Check for PES header marker.
+			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
+			if (m_readSize - m_index < length) {
+				m_index -= 4 + 2;
+				needMore = true;
+				break;
+			}
+			demuxStream(false, startCode, length, -1);
 			break;
+		}
 		case USER_DATA_START_CODE:
 			// User data, probably same as queried by sceMpegGetUserdataAu.
 			// Not sure what exactly to do or how much to read.
 			// TODO: implement properly.
+			WARN_LOG_REPORT_ONCE(mpeguserdata, ME, "MPEG user data found");
+			looksValid = true;
 			break;
 		}
 	}
 	if (m_index < m_readSize) {
 		int size = m_readSize - m_index;
-		memcpy(m_buf, m_buf + m_index, size);
+		memmove(m_buf, m_buf + m_index, size);
 		m_index = 0;
 		m_readSize = size;
 	} else {
 		m_index = 0;
 		m_readSize = 0;
 	}
+
+	return looksValid;
 }
 
 static bool isHeader(u8* audioStream, int offset)
@@ -233,25 +310,45 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 	return -1;
 }
 
-int MpegDemux::getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2)
+int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts)
 {
-	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
-	if (gotsize == 0 || !isHeader(m_audioFrame, 0))
-		return 0;
-	u8 Code1 = m_audioFrame[2];
-	u8 Code2 = m_audioFrame[3];
-	int frameSize = (((Code1 & 0x03) << 8) | ((Code2 & 0xFF) * 8)) + 0x10;
-	if (frameSize > gotsize)
+	int gotsize;
+	int frameSize;
+	if (!hasNextAudioFrame(&gotsize, &frameSize, headerCode1, headerCode2))
 		return 0;
 	int audioPos = 8;
 	int nextHeader = getNextHeaderPosition(m_audioFrame, audioPos, gotsize, frameSize);
 	if (nextHeader >= 0) {
 		audioPos = nextHeader;
-	} else
+	} else {
 		audioPos = gotsize;
-	m_audioStream.pop_front(0, audioPos);
-	*buf = m_audioFrame + 8;
-	if (headerCode1) *headerCode1 = Code1;
-	if (headerCode2) *headerCode2 = Code2;
+	}
+	m_audioStream.pop_front(0, audioPos, pts);
+	if (buf) {
+		*buf = m_audioFrame + 8;
+	}
 	return frameSize - 8;
+}
+
+bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2)
+{
+	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
+	if (gotsize < 4 || !isHeader(m_audioFrame, 0))
+		return false;
+	u8 code1 = m_audioFrame[2];
+	u8 code2 = m_audioFrame[3];
+	int frameSize = (((code1 & 0x03) << 8) | (code2 * 8)) + 0x10;
+	if (frameSize > gotsize)
+		return false;
+
+	if (gotsizeOut)
+		*gotsizeOut = gotsize;
+	if (frameSizeOut)
+		*frameSizeOut = frameSize;
+	if (headerCode1)
+		*headerCode1 = code1;
+	if (headerCode2)
+		*headerCode2 = code2;
+
+	return true;
 }

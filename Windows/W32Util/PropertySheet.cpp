@@ -1,7 +1,7 @@
-#include "stdafx.h"
+#include "Windows/stdafx.h"
 #include "Misc.h"
 #include "PropertySheet.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include <commctrl.h>
 
@@ -150,7 +150,7 @@ namespace W32Util
 				}
 				LPARAM l = ((LPPROPSHEETPAGE)lParam)->lParam;
 				tab = (Tab *)l;
-				SetWindowLongPtr(hDlg, GWLP_USERDATA, (DWORD_PTR)l);
+				SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)l);
 				tab->Init(hDlg);
 			}
 			break;

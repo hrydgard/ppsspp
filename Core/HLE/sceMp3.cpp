@@ -18,81 +18,31 @@
 #include <map>
 #include <algorithm>
 
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/HW/SimpleAudioDec.h"
 
-#ifdef USE_FFMPEG
-#ifndef PRId64
-#define PRId64  "%llu" 
-#endif
-
-extern "C" {
-#include <libavutil/opt.h>
-#include <libavformat/avformat.h>
-//#include <libavutil/timestamp.h>     // iOS build is not happy with this one.
-#include <libswresample/swresample.h>
-#include <libavutil/samplefmt.h>
-}
-#endif
-
-static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
-
-struct Mp3Context;
-int __Mp3InitContext(Mp3Context *ctx);
+static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671001;
+static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
+static const u32 ERROR_MP3_NOT_YET_INIT_HANDLE = 0x80671103;
+static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
+static const u32 ERROR_MP3_BAD_RESET_FRAME = 0x80671501;
+static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
+static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
+static const u32 ERROR_AVCODEC_INVALID_DATA = 0x807f00fd;
+static const int AU_BUF_MIN_SIZE = 8192;
+static const int PCM_BUF_MIN_SIZE = 9216;
+static const size_t MP3_MAX_HANDLES = 2;
 
 struct Mp3Context {
-	Mp3Context()
-#ifdef USE_FFMPEG
-		: avformat_context(NULL), avio_context(NULL), resampler_context(NULL) {
-#else
-	{
-#endif
-	}
-
-	~Mp3Context() {
-#ifdef USE_FFMPEG
-		if (avio_context != NULL) {
-			av_free(avio_context->buffer);
-			av_free(avio_context);
-		}
-		if (avformat_context != NULL) {
-			avformat_free_context(avformat_context);
-		}
-		if (resampler_context != NULL) {
-			swr_free(&resampler_context);
-		}
-#endif
-	}
-
-	void DoState(PointerWrap &p) {
-		auto s = p.Section("Mp3Context", 1);
-		if (!s)
-			return;
-
-		p.Do(mp3StreamStart);
-		p.Do(mp3StreamEnd);
-		p.Do(mp3Buf);
-		p.Do(mp3BufSize);
-		p.Do(mp3PcmBuf);
-		p.Do(mp3PcmBufSize);
-		p.Do(readPosition);
-		p.Do(bufferRead);
-		p.Do(bufferWrite);
-		p.Do(bufferAvailable);
-		p.Do(mp3DecodedBytes);
-		p.Do(mp3LoopNum);
-		p.Do(mp3MaxSamples);
-		p.Do(mp3SumDecodedSamples);
-		p.Do(mp3Channels);
-		p.Do(mp3Bitrate);
-		p.Do(mp3SamplingRate);
-		p.Do(mp3Version);
-
-		__Mp3InitContext(this);
-	}
+public:
 
 	int mp3StreamStart;
 	int mp3StreamEnd;
@@ -116,18 +66,38 @@ struct Mp3Context {
 	int mp3Bitrate;
 	int mp3SamplingRate;
 	int mp3Version;
-#ifdef USE_FFMPEG
-	AVFormatContext *avformat_context;
-	AVIOContext	  *avio_context;
-	AVCodecContext  *decoder_context;
-	SwrContext      *resampler_context;
-	int audio_stream_index;
-#endif
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("Mp3Context", 1);
+		if (!s)
+			return;
+
+		Do(p, mp3StreamStart);
+		Do(p, mp3StreamEnd);
+		Do(p, mp3Buf);
+		Do(p, mp3BufSize);
+		Do(p, mp3PcmBuf);
+		Do(p, mp3PcmBufSize);
+		Do(p, readPosition);
+		Do(p, bufferRead);
+		Do(p, bufferWrite);
+		Do(p, bufferAvailable);
+		Do(p, mp3DecodedBytes);
+		Do(p, mp3LoopNum);
+		Do(p, mp3MaxSamples);
+		Do(p, mp3SumDecodedSamples);
+		Do(p, mp3Channels);
+		Do(p, mp3Bitrate);
+		Do(p, mp3SamplingRate);
+		Do(p, mp3Version);
+	};
 };
 
-static std::map<u32, Mp3Context *> mp3Map;
+static std::map<u32, AuCtx *> mp3Map;
+static const int mp3DecodeDelay = 2400;
+static bool resourceInited = false;
 
-Mp3Context *getMp3Ctx(u32 mp3) {
+static AuCtx *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
 		return NULL;
 	return mp3Map[mp3];
@@ -141,535 +111,611 @@ void __Mp3Shutdown() {
 }
 
 void __Mp3DoState(PointerWrap &p) {
-	auto s = p.Section("sceMp3", 0, 1);
+	auto s = p.Section("sceMp3", 0, 3);
 	if (!s)
 		return;
 
-	p.Do(mp3Map);
+	if (s >= 2) {
+		Do(p, mp3Map);
+	} else {
+		std::map<u32, Mp3Context *> mp3Map_old;
+		Do(p, mp3Map_old); // read old map
+		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
+			auto mp3 = new AuCtx;
+			u32 id = it->first;
+			auto mp3_old = it->second;
+			mp3->AuBuf = mp3_old->mp3Buf;
+			mp3->AuBufSize = mp3_old->mp3BufSize;
+			mp3->PCMBuf = mp3_old->mp3PcmBuf;
+			mp3->PCMBufSize = mp3_old->mp3PcmBufSize;
+			mp3->BitRate = mp3_old->mp3Bitrate;
+			mp3->Channels = mp3_old->mp3Channels;
+			mp3->endPos = mp3_old->mp3StreamEnd;
+			mp3->startPos = mp3_old->mp3StreamStart;
+			mp3->LoopNum = mp3_old->mp3LoopNum;
+			mp3->SamplingRate = mp3_old->mp3SamplingRate;
+			mp3->freq = mp3->SamplingRate;
+			mp3->SumDecodedSamples = mp3_old->mp3SumDecodedSamples;
+			mp3->Version = mp3_old->mp3Version;
+			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
+			mp3->readPos = mp3_old->readPosition;
+			mp3->AuBufAvailable = 0; // reset to read from file
+			mp3->askedReadSize = 0;
+
+			mp3->audioType = PSP_CODEC_MP3;
+			mp3->decoder = new SimpleAudio(mp3->audioType);
+			mp3Map[id] = mp3;
+		}
+	}
+
+	if (s >= 3) {
+		Do(p, resourceInited);
+	} else {
+		// Previous behavior acted as if it was already inited.
+		resourceInited = true;
+	}
 }
 
-/* MP3 */
-int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
+static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
-	Mp3Context *ctx = getMp3Ctx(mp3);
+	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
-
-	// Nothing to decode
-	if (ctx->bufferAvailable == 0 || ctx->readPosition >= ctx->mp3StreamEnd) {
-		return 0;
+		
+	int pcmBytes = ctx->AuDecode(outPcmPtr);
+	if (pcmBytes > 0) {
+		// decode data successfully, delay thread
+		return hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
 	}
-	int bytesdecoded = 0;
+	return pcmBytes;
+}
 
-#ifndef USE_FFMPEG
-	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
-	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
-#else
+static int sceMp3ResetPlayPosition(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	}
 
-	AVFrame frame;
-	memset(&frame, 0, sizeof(frame));
-	AVPacket packet;
-	memset(&packet, 0, sizeof(packet));
-	int got_frame = 0, ret;
-	static int audio_frame_count = 0;
+	return hleLogSuccessI(ME, ctx->AuResetPlayPosition());
+}
 
-	while (!got_frame) {
-		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0)
-			break;
+static int sceMp3CheckStreamDataNeeded(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
 
-		if (packet.stream_index == ctx->audio_stream_index) {
-			avcodec_get_frame_defaults(&frame);
-			got_frame = 0;
-			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
-			if (ret < 0) {
-				ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", ret);
-				continue;
-			}
-			if (got_frame) {
-				//char buf[1024] = "";
-				//av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				//DEBUG_LOG(ME, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
+	return hleLogSuccessI(ME, ctx->AuCheckStreamDataNeeded());
+}
 
-				/*
-				u8 *audio_dst_data;
-				int audio_dst_linesize;
+static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
+	if (!resourceInited) {
+		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "sceMp3InitResource must be called first");
+	}
+	if (mp3Map.size() >= MP3_MAX_HANDLES) {
+		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "no free handles");
+	}
+	if (mp3Addr != 0 && !Memory::IsValidRange(mp3Addr, 32)) {
+		// The PSP would crash, but might as well return a proper error.
+		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "bad mp3 pointer");
+	}
 
-				ret = av_samples_alloc(&audio_dst_data, &audio_dst_linesize, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
-				if (ret < 0) {
-					ERROR_LOG(ME, "av_samples_alloc: Could not allocate audio buffer %d", ret);
-					return -1;
-				}
-				*/
+	AuCtx *Au = new AuCtx;
+	if (mp3Addr) {
+		Au->startPos = Memory::Read_U64(mp3Addr); // Audio stream start position.
+		Au->endPos = Memory::Read_U64(mp3Addr + 8); // Audio stream end position.
+		Au->AuBuf = Memory::Read_U32(mp3Addr + 16); // Input Au data buffer.
+		Au->AuBufSize = Memory::Read_U32(mp3Addr + 20); // Input Au data buffer size.
+		Au->PCMBuf = Memory::Read_U32(mp3Addr + 24); // Output PCM data buffer.
+		Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28); // Output PCM data buffer size.
 
-				int decoded = av_samples_get_buffer_size(NULL, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
-
-				u8* out = Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded);
-				ret = swr_convert(ctx->resampler_context, &out, frame.nb_samples, (const u8**)frame.extended_data, frame.nb_samples);
-				if (ret < 0) {
-					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
-					return -1;
-				}
-				__AdjustBGMVolume((s16 *)out, frame.nb_samples * frame.channels);
-
-				//av_samples_copy(&audio_dst_data, frame.data, 0, 0, frame.nb_samples, frame.channels, (AVSampleFormat)frame.format);
-
-				//memcpy(Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded), audio_dst_data, decoded);
-				bytesdecoded += decoded;
-				// av_freep(&audio_dst_data[0]);
-			}
+		if (Au->startPos >= Au->endPos) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "start must be before end");
 		}
-		av_free_packet(&packet);
-	}
-	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
-#endif
-
-	#if 0 && defined(_DEBUG)
-	char fileName[256];
-	sprintf(fileName, "out.wav", mp3);
-
-	FILE * file = fopen(fileName, "a+b");
-	if (file) {
-		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
+		if (!Au->AuBuf || !Au->PCMBuf) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_ADDR, "invalid buffer addresses");
+		}
+		if ((int)Au->AuBufSize < AU_BUF_MIN_SIZE || (int)Au->PCMBufSize < PCM_BUF_MIN_SIZE) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "buffers too small");
 		}
 
-		//u8 * ptr = Memory::GetPointer(ctx->mp3Buf);
-		fwrite(Memory::GetPointer(ctx->mp3PcmBuf), 1, bytesdecoded, file);
-
-		fclose(file);
-	}
-	#endif
-	// 2 bytes per channel and we always two channels per mp3 so it is 2 * 2
-	ctx->mp3SumDecodedSamples += bytesdecoded / 2 * 2;
-
-	return bytesdecoded;
-}
-
-int sceMp3ResetPlayPosition(u32 mp3) {
-	DEBUG_LOG(ME, "SceMp3ResetPlayPosition(%08x)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	ctx->readPosition = ctx->mp3StreamStart;
-	return 0;
-}
-
-int sceMp3CheckStreamDataNeeded(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3CheckStreamDataNeeded(%08x)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->bufferAvailable != ctx->mp3BufSize && ctx->readPosition < ctx->mp3StreamEnd;
-}
-
-static int readFunc(void *opaque, uint8_t *buf, int buf_size) {
-	Mp3Context *ctx = static_cast<Mp3Context*>(opaque);
-
-	int res = 0;
-	while (ctx->bufferAvailable && buf_size) {
-		// Maximum bytes we can read
-		int to_read = std::min(ctx->bufferAvailable, buf_size);
-
-		// Don't read past the end if the buffer loops
-		to_read = std::min(ctx->mp3BufSize - ctx->bufferRead, to_read);
-		memcpy(buf + res, Memory::GetCharPointer(ctx->mp3Buf + ctx->bufferRead), to_read);
-
-		ctx->bufferRead += to_read;
-		if (ctx->bufferRead == ctx->mp3BufSize)
-			ctx->bufferRead = 0;
-		ctx->bufferAvailable -= to_read;
-		buf_size -= to_read;
-		res += to_read;
-	}
-
-	if (ctx->bufferAvailable == 0) {
-		ctx->bufferRead = 0;
-		ctx->bufferWrite = 0;
-	}
-
-#if 0 && defined(_DEBUG)
-	char fileName[256];
-	sprintf(fileName, "out.mp3");
-
-	FILE * file = fopen(fileName, "a+b");
-	if (file) {
-		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
-		}
-
-		fwrite(buf, 1, res, file);
-
-		fclose(file);
-	}
-#endif
-
-	return res;
-}
-
-u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
-	DEBUG_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
-	Mp3Context *ctx = new Mp3Context;
-
-	memset(ctx, 0, sizeof(Mp3Context));
-
-	ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
-	ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr+8);
-	ctx->mp3Buf = Memory::Read_U32(mp3Addr+16);
-	ctx->mp3BufSize = Memory::Read_U32(mp3Addr+20);
-	ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr+24);
-	ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr+28);
-
-	ctx->readPosition = ctx->mp3StreamStart;
-	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
-
-	ctx->mp3Channels = 2;
-	ctx->mp3Bitrate = 128;
-	ctx->mp3SamplingRate = 44100;
-
-	mp3Map[mp3Addr] = ctx;
-	return mp3Addr;
-}
-
-int sceMp3InitResource() {
-	WARN_LOG(ME, "UNIMPL: sceMp3InitResource");
-	// Do nothing here 
-	return 0;
-}
-
-int sceMp3TermResource() {
-	WARN_LOG(ME, "UNIMPL: sceMp3TermResource");
-	// Do nothing here 
-	return 0;
-}
-
-int __Mp3InitContext(Mp3Context *ctx) {
-#ifdef USE_FFMPEG
-	InitFFmpeg();
-	u8 *avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
-	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
-	ctx->avformat_context = avformat_alloc_context();
-	ctx->avformat_context->pb = ctx->avio_context;
-
-	int ret;
-	if ((ret = avformat_open_input(&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
-		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
-		return -1;
-	}
-
-	if ((ret = avformat_find_stream_info(ctx->avformat_context, NULL)) < 0) {
-		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
-		return -1;
-	}
-
-	AVCodec *dec;
-
-	/* select the audio stream */
-	ret = av_find_best_stream(ctx->avformat_context, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
-	if (ret < 0) {
-		ERROR_LOG(ME, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
-		return -1;
-	}
-	ctx->audio_stream_index = ret;
-	ctx->decoder_context = ctx->avformat_context->streams[ctx->audio_stream_index]->codec;
-
-	/* init the audio decoder */
-	if ((ret = avcodec_open2(ctx->decoder_context, dec, NULL)) < 0) {
-		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
-		return -1;
-	}
-
-	ctx->resampler_context = swr_alloc_set_opts(NULL,
-		ctx->decoder_context->channel_layout,
-		AV_SAMPLE_FMT_S16,
-		ctx->decoder_context->sample_rate,
-		ctx->decoder_context->channel_layout,
-		ctx->decoder_context->sample_fmt,
-		ctx->decoder_context->sample_rate,
-		0, NULL);
-
-	if (!ctx->resampler_context) {
-		ERROR_LOG(ME, "Could not allocate resampler context %d", ret);
-		return -1;
-	}
-
-	if ((ret = swr_init(ctx->resampler_context)) < 0) {
-		ERROR_LOG(ME, "Failed to initialize the resampling context %d", ret);
-		return -1;
-	}
-
-	return 0;
-#endif
-}
-
-int sceMp3Init(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	// Read in the header and swap the endian
-	int header = Memory::Read_U32(ctx->mp3Buf);
-	header = (header >> 24) |
-		((header<<8) & 0x00FF0000) |
-		((header>>8) & 0x0000FF00) |
-		(header << 24);
-
-	ctx->mp3Version = ((header >> 19) & 0x3);
-
-#ifdef USE_FFMPEG
-	int ret = __Mp3InitContext(ctx);
-	if (ret != 0)
-		return ret;
-
-	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
-
-	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
-	ctx->mp3Channels = ctx->decoder_context->channels;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
-
-	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
-#endif
-
-	return 0;
-}
-
-int sceMp3GetLoopNum(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3LoopNum;
-}
-
-int sceMp3GetMaxOutputSample(u32 mp3)
-{
-	DEBUG_LOG(ME, "sceMp3GetMaxOutputSample(%08x)", mp3);
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3MaxSamples;
-}
-
-int sceMp3GetSumDecodedSample(u32 mp3) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3SumDecodedSamples;
-}
-
-int sceMp3SetLoopNum(u32 mp3, int loop) {
-	INFO_LOG(ME, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	ctx->mp3LoopNum = loop;
-
-	return 0;
-}
-int sceMp3GetMp3ChannelNum(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3Channels;
-}
-int sceMp3GetBitRate(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3Bitrate;
-}
-int sceMp3GetSamplingRate(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	return ctx->mp3SamplingRate;
-}
-
-int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	INFO_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	u32 buf, max_write;
-	if (ctx->readPosition < ctx->mp3StreamEnd) {
-		buf = ctx->mp3Buf + ctx->bufferWrite;
-		max_write = std::min(ctx->mp3BufSize - ctx->bufferWrite, ctx->mp3BufSize - ctx->bufferAvailable);
+		DEBUG_LOG(ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
+			Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
 	} else {
-		buf = 0;
-		max_write = 0;
+		Au->startPos = 0;
+		Au->endPos = 0;
+		Au->AuBuf = 0;
+		Au->AuBufSize = 0;
+		Au->PCMBuf = 0;
+		Au->PCMBufSize = 0;
 	}
 
-	if (Memory::IsValidAddress(dstPtr))
-		Memory::Write_U32(buf, dstPtr);
-	if (Memory::IsValidAddress(towritePtr))
-		Memory::Write_U32(max_write, towritePtr);
-	if (Memory::IsValidAddress(srcposPtr))
-		Memory::Write_U32(ctx->readPosition, srcposPtr);
+	Au->SumDecodedSamples = 0;
+	Au->LoopNum = -1;
+	Au->AuBufAvailable = 0;
+	Au->readPos = Au->startPos;
 
-	return 0;
+	Au->audioType = PSP_CODEC_MP3;
+	Au->decoder = new SimpleAudio(Au->audioType);
+
+	int handle = (int)mp3Map.size();
+	mp3Map[handle] = Au;
+
+	return hleLogSuccessI(ME, handle);
 }
 
-int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	INFO_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+static int sceMp3InitResource() {
+	// TODO: Could validate the utility modules have been loaded?
+	if (resourceInited) {
+		return hleLogSuccessI(ME, 0);
+	}
+	resourceInited = true;
+	return hleLogSuccessI(ME, hleDelayResult(0, "mp3 resource init", 200));
+}
 
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+static int sceMp3TermResource() {
+	if (!resourceInited) {
+		return hleLogSuccessI(ME, 0);
+	}
+
+	// Free any handles that are still open.
+	for (auto au : mp3Map) {
+		delete au.second;
+	}
+	mp3Map.clear();
+
+	resourceInited = false;
+	return hleLogSuccessI(ME, hleDelayResult(0, "mp3 resource term", 100));
+}
+
+static int __CalculateMp3Channels(int bitval) {
+	if (bitval == 0 || bitval == 1 || bitval == 2) { // Stereo / Joint Stereo / Dual Channel.
+		return 2;
+	}
+	else if (bitval == 3) { // Mono.
+		return 1;
+	}
+	else {
 		return -1;
 	}
-
-	ctx->readPosition += size;
-	ctx->bufferAvailable += size;
-	ctx->bufferWrite += size;
-
-	if (ctx->bufferWrite == ctx->mp3BufSize)
-		ctx->bufferWrite = 0;
-
-	if (ctx->readPosition >= ctx->mp3StreamEnd && ctx->mp3LoopNum != 0) {
-		ctx->readPosition = ctx->mp3StreamStart;
-		if (ctx->mp3LoopNum > 0)
-			ctx->mp3LoopNum--;
-	}
-	return 0;
 }
 
-int sceMp3ReleaseMp3Handle(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+static int __CalculateMp3SampleRates(int bitval, int mp3version) {
+	if (mp3version == 3) { // MPEG Version 1
+		int valuemapping[] = { 44100, 48000, 32000, -1 };
+		return valuemapping[bitval];
+	}
+	else if (mp3version == 2) { // MPEG Version 2
+		int valuemapping[] = { 22050, 24000, 16000, -1 };
+		return valuemapping[bitval];
+	}
+	else if (mp3version == 0) { // MPEG Version 2.5
+		int valuemapping[] = { 11025, 12000, 8000, -1 };
+		return valuemapping[bitval];
+	}
+	else {
 		return -1;
 	}
-
-	mp3Map.erase(mp3Map.find(mp3));
-
-	delete ctx;
-
-	return 0;
 }
 
-u32 sceMp3EndEntry() {
+static int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
+	if (mp3version == 3) { // MPEG Version 1
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 2) { // Layer II
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 1) { // Layer III
+			int valuemapping[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1 };
+			return valuemapping[bitval];
+		}
+		else {
+			return -1;
+		}
+	}
+	else if (mp3version == 2 || mp3version == 0) { // MPEG Version 2 or 2.5
+		if (mp3layer == 3) { // Layer I
+			int valuemapping[] = { 0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, -1 };
+			return valuemapping[bitval];
+		}
+		else if (mp3layer == 1 || mp3layer == 2) { // Layer II or III
+			int valuemapping[] = { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, -1 };
+			return valuemapping[bitval];
+		}
+		else {
+			return -1;
+		}
+	}
+	else {
+		return -1;
+	}
+}
+
+static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
+	if (versionBits == 1 || layerBits == 0) {
+		return -1;
+	} else if (layerBits == 3) {
+		return 384;
+	} else if (layerBits == 2 || versionBits == 3) {
+		return 1152;
+	} else {
+		return 576;
+	}
+}
+
+static int FindMp3Header(AuCtx *ctx, int &header, int end) {
+	u32 addr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
+	if (Memory::IsValidRange(addr, end)) {
+		u8 *ptr = Memory::GetPointerUnchecked(addr);
+		for (int offset = 0; offset < end; ++offset) {
+			// If we hit valid sync bits, then we've found a header.
+			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
+				header = bswap32(Memory::Read_U32(addr + offset));
+				return offset;
+			}
+		}
+	}
+
+	return -1;
+}
+
+static int sceMp3Init(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	static const int PARSE_DELAY_MS = 500;
+
+	// First, let's search for the MP3 header.  It can be offset by at most 1439 bytes.
+	// If we have an ID3 tag, we'll get past it based on frame sync.  Don't modify startPos.
+	int header = 0;
+	if (FindMp3Header(ctx, header, 1440) < 0)
+		return hleDelayResult(hleLogWarning(ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
+
+	// Parse the Mp3 header
+	int layerBits = (header >> 17) & 0x3;
+	int versionBits = (header >> 19) & 0x3;
+	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, versionBits);
+	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
+	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, versionBits, layerBits);
+	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(versionBits, layerBits);
+	ctx->freq = ctx->SamplingRate;
+
+	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+
+	if (layerBits != 1) {
+		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
+	}
+	if (versionBits != 3) {
+		// TODO: Should return 0x80671301 (unsupported version?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
+	}
+	if (ctx->BitRate == 0 || ctx->BitRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+	}
+	if (ctx->SamplingRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+	} else if (ctx->SamplingRate != 44100) {
+		// TODO: Should return 0x80671302 (unsupported sample rate?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not 44.1kHz");
+	}
+
+	// Based on bitrate, we can calculate the frame size in bytes.
+	// Note: this doesn't correctly handle padding or slot size, but the PSP doesn't either.
+	uint32_t bytesPerSecond = (ctx->MaxOutputSample / 8) * ctx->BitRate * 1000;
+	// The frame count ignores the upper bits of these sizes, although they are used in cases.
+	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);
+	ctx->FrameNum = (int)((totalBytes * ctx->SamplingRate) / bytesPerSecond);
+
+	ctx->Version = versionBits;
+
+	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
+	// TODO: Isn't this backwards?  Woudln't we want to read as 48kHz and resample to 44.1kHz?
+	if (ctx->freq == 48000) {
+		ctx->decoder->SetResampleFrequency(ctx->freq);
+	}
+
+	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
+}
+
+static int sceMp3GetLoopNum(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetLoopNum());
+}
+
+static int sceMp3GetMaxOutputSample(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no channel available for low level");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetMaxOutputSample());
+}
+
+static int sceMp3GetSumDecodedSample(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetSumDecodedSample());
+}
+
+static int sceMp3SetLoopNum(u32 mp3, int loop) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	if (loop < 0)
+		loop = -1;
+
+	return hleLogSuccessI(ME, ctx->AuSetLoopNum(loop));
+}
+
+static int sceMp3GetMp3ChannelNum(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no channel available for low level");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetChannelNum());
+}
+
+static int sceMp3GetBitRate(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no bitrate available for low level");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetBitRate());
+}
+
+static int sceMp3GetSamplingRate(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no sample rate available for low level");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetSamplingRate());
+}
+
+static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr));
+}
+
+static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuNotifyAddStreamData(size));
+}
+
+static int sceMp3ReleaseMp3Handle(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (ctx) {
+		delete ctx;
+		mp3Map.erase(mp3);
+		return hleLogSuccessI(ME, 0);
+	} else if (mp3 >= MP3_MAX_HANDLES) {
+		return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+	}
+
+	// Intentionally a zero result.
+	return hleLogDebug(ME, 0, "double free ignored");
+}
+
+static u32 sceMp3EndEntry() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
-u32 sceMp3StartEntry() {
+static u32 sceMp3StartEntry() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
-u32 sceMp3GetFrameNum(u32 mp3) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+static u32 sceMp3GetFrameNum(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuGetFrameNum());
+}
+
+static u32 sceMp3GetMPEGVersion(u32 mp3) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		// Seems to be the wrong error code.
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no MPEG version available for low level");
+	}
+
+	// Tests have not revealed how to expose more than "3" here as a result.
+	return hleReportDebug(ME, ctx->AuGetVersion());
+}
+
+static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	}
+
+	if ((int)frame >= ctx->AuGetFrameNum()) {
+		return hleLogError(ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuResetPlayPositionByFrame(frame));
+}
+
+static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
+	INFO_LOG(ME, "sceMp3LowLevelInit(%i, %i)", mp3, unk);
+	auto ctx = new AuCtx;
+
+	ctx->audioType = PSP_CODEC_MP3;
+	// create mp3 decoder
+	ctx->decoder = new SimpleAudio(ctx->audioType);
+
+	// close the audio if mp3 already exists.
+	if (mp3Map.find(mp3) != mp3Map.end()) {
+		delete mp3Map[mp3];
+		mp3Map.erase(mp3);
+	}
+	mp3Map[mp3] = ctx;
+
+	// Indicate that we've run low level init by setting version to 1.
+	ctx->Version = 1;
+
 	return 0;
 }
 
-u32 sceMp3GetVersion(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetVersion(%08x)", mp3);
-	Mp3Context *ctx = getMp3Ctx(mp3);
+static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
+	// sourceAddr: input mp3 stream buffer
+	// sourceBytesConsumedAddr: consumed bytes decoded in source
+	// samplesAddr: output pcm buffer
+	// sampleBytesAddr: output pcm size
+	DEBUG_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+
+	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
-	return ctx->mp3Version;
-}
-
-u32 sceMp3ResetPlayPosition2(u32 mp3, int position) {
-	DEBUG_LOG(ME, "sceMp3ResetPlayPosition2(%08x, %i)", mp3, position);
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(sourceBytesConsumedAddr) ||
+		!Memory::IsValidAddress(samplesAddr) || !Memory::IsValidAddress(sampleBytesAddr)) {
+		ERROR_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x) : invalid address in args", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 		return -1;
 	}
 
-	ctx->readPosition = position;
-	return 0;
-}
-
-u32 sceMp3_1B839B83() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_1B839B83(...)");
-	return 0;
-}
-
-u32 sceMp3_E3EE2C81() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3_E3EE2C81(...)");
+	auto inbuff = Memory::GetPointer(sourceAddr);
+	auto outbuff = Memory::GetPointer(samplesAddr);
+	
+	int outpcmbytes = 0;
+	ctx->decoder->Decode((void*)inbuff, 4096, outbuff, &outpcmbytes);
+	
+	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);
+	Memory::Write_U32(outpcmbytes, sampleBytesAddr);
 	return 0;
 }
 
 const HLEFunction sceMp3[] = {
-	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
-	{0x0DB149F4,WrapI_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
-	{0x2A368661,WrapI_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
-	{0x354D27EA,WrapI_U<sceMp3GetSumDecodedSample>,"sceMp3GetSumDecodedSample"},
-	{0x35750070,WrapI_V<sceMp3InitResource>,"sceMp3InitResource"},
-	{0x3C2FA058,WrapI_V<sceMp3TermResource>,"sceMp3TermResource"},
-	{0x3CEF484F,WrapI_UI<sceMp3SetLoopNum>,"sceMp3SetLoopNum"},
-	{0x44E07129,WrapI_U<sceMp3Init>,"sceMp3Init"},
-	{0x732B042A,WrapU_V<sceMp3EndEntry>,"sceMp3EndEntry"},
-	{0x7F696782,WrapI_U<sceMp3GetMp3ChannelNum>,"sceMp3GetMp3ChannelNum"},
-	{0x87677E40,WrapI_U<sceMp3GetBitRate>,"sceMp3GetBitRate"},
-	{0x87C263D1,WrapI_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
-	{0x8AB81558,WrapU_V<sceMp3StartEntry>,"sceMp3StartEntry"},
-	{0x8F450998,WrapI_U<sceMp3GetSamplingRate>,"sceMp3GetSamplingRate"},
-	{0xA703FE0F,WrapI_UUUU<sceMp3GetInfoToAddStreamData>,"sceMp3GetInfoToAddStreamData"},
-	{0xD021C0FB,WrapI_UU<sceMp3Decode>,"sceMp3Decode"},
-	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
-	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
-	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},  // Incorrect function name
-	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
-	{0x0840e808,WrapU_UI<sceMp3ResetPlayPosition2>,"sceMp3ResetPlayPosition2"},  // Incorrect function name
-	{0x1b839b83,WrapU_V<sceMp3_1B839B83>,"sceMp3_1B839B83"},
-	{0xe3ee2c81,WrapU_V<sceMp3_E3EE2C81>,"sceMp3_E3EE2C81"}
+	{0X07EC321A, &WrapU_U<sceMp3ReserveMp3Handle>,          "sceMp3ReserveMp3Handle",         'x', "x"    },
+	{0X0DB149F4, &WrapI_UI<sceMp3NotifyAddStreamData>,      "sceMp3NotifyAddStreamData",      'i', "xi"   },
+	{0X2A368661, &WrapI_U<sceMp3ResetPlayPosition>,         "sceMp3ResetPlayPosition",        'i', "x"    },
+	{0X354D27EA, &WrapI_U<sceMp3GetSumDecodedSample>,       "sceMp3GetSumDecodedSample",      'i', "x"    },
+	{0X35750070, &WrapI_V<sceMp3InitResource>,              "sceMp3InitResource",             'i', ""     },
+	{0X3C2FA058, &WrapI_V<sceMp3TermResource>,              "sceMp3TermResource",             'i', ""     },
+	{0X3CEF484F, &WrapI_UI<sceMp3SetLoopNum>,               "sceMp3SetLoopNum",               'i', "xi"   },
+	{0X44E07129, &WrapI_U<sceMp3Init>,                      "sceMp3Init",                     'i', "x"    },
+	{0X732B042A, &WrapU_V<sceMp3EndEntry>,                  "sceMp3EndEntry",                 'x', ""     },
+	{0X7F696782, &WrapI_U<sceMp3GetMp3ChannelNum>,          "sceMp3GetMp3ChannelNum",         'i', "x"    },
+	{0X87677E40, &WrapI_U<sceMp3GetBitRate>,                "sceMp3GetBitRate",               'i', "x"    },
+	{0X87C263D1, &WrapI_U<sceMp3GetMaxOutputSample>,        "sceMp3GetMaxOutputSample",       'i', "x"    },
+	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
+	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
+	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xppp" },
+	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xx"   },
+	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
+	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
+	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
+	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
+	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'i', "x"    },
+	{0X0840E808, &WrapU_UU<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'i', "xi"   },
+	{0X1B839B83, &WrapU_UU<sceMp3LowLevelInit>,             "sceMp3LowLevelInit",             'x', "xx"   },
+	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
 };
 
 void Register_sceMp3() {

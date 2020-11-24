@@ -15,35 +15,45 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-#include "ChunkFile.h"
+#include "ppsspp_config.h"
 
-#include "MemMap.h"
-#include "Core.h"
-#include "MIPS/MIPS.h"
-#include "MIPS/JitCommon/JitCommon.h"
-#include "HLE/HLE.h"
-#include "CPU.h"
-#include "Debugger/SymbolMap.h"
+#if PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#endif
+
+#include <algorithm>
+#include <mutex>
+
+#include "Common/Common.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+
+#include "Core/MemMap.h"
+#include "Core/MemFault.h"
+#include "Core/HDRemaster.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
+
+#include "Core/Core.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
+#include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "UI/OnScreenDisplay.h"
 
-namespace Memory
-{
+namespace Memory {
 
 // The base pointer to the auto-mirrored arena.
-u8*	base = NULL;
+u8* base = nullptr;
 
 // The MemArena class
 MemArena g_arena;
 // ==============
-
-// 64-bit: Pointers to low-mem (sub-0x10000000) mirror
-// 32-bit: Same as the corresponding physical/virtual pointers.
-u8 *m_pRAM;
-u8 *m_pScratchPad;
-u8 *m_pVRAM;
 
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
@@ -52,28 +62,57 @@ u8 *m_pUncachedScratchPad;
 u8 *m_pPhysicalRAM;
 u8 *m_pUncachedRAM;
 u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
+u8 *m_pPhysicalRAM2;
+u8 *m_pUncachedRAM2;
+u8 *m_pKernelRAM2;
+u8 *m_pPhysicalRAM3;
+u8 *m_pUncachedRAM3;
+u8 *m_pKernelRAM3;
 
-u8 *m_pPhysicalVRAM;
-u8 *m_pUncachedVRAM;
+// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
+// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
+u8 *m_pPhysicalVRAM1;
+u8 *m_pPhysicalVRAM2;
+u8 *m_pPhysicalVRAM3;
+u8 *m_pPhysicalVRAM4;
+u8 *m_pUncachedVRAM1;
+u8 *m_pUncachedVRAM2;
+u8 *m_pUncachedVRAM3;
+u8 *m_pUncachedVRAM4;
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
-// These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
+// This replaces RAM_NORMAL_SIZE at runtime.
 u32 g_MemorySize;
-u32 g_MemoryMask;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
+
+std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
 {
-	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
-	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pVRAM,       &m_pPhysicalVRAM,        0x04000000, 0x00800000, 0},
-	{NULL,           &m_pUncachedVRAM,        0x44000000, 0x00800000, MV_MIRROR_PREVIOUS},
-	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
-	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
+	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
+	{&m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	// Starts at memory + 31 MB.
+	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	// Starts at memory + 31 * 2 MB.
+	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -81,27 +120,202 @@ static MemoryView views[] =
 
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
-void Init()
-{
-	int flags = 0;
-	// This mask is used ONLY after validating the address is in the correct range.
-	// So let's just use a fixed mask to remove the uncached/user memory bits.
-	// Using (Memory::g_MemorySize - 1) won't work for e.g. 0x04C00000.
-	Memory::g_MemoryMask = 0x07FFFFFF;
-
-	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
-		if (views[i].flags & MV_IS_PRIMARY_RAM)
-			views[i].size = g_MemorySize;
-	}
-	base = MemoryMap_Setup(views, num_views, flags, &g_arena);
-
-	INFO_LOG(MEMMAP, "Memory system initialized. RAM at %p (mirror at 0 @ %p, uncached @ %p)",
-		m_pRAM, m_pPhysicalRAM, m_pUncachedRAM);
+inline static bool CanIgnoreView(const MemoryView &view) {
+#ifdef MASKED_PSP_MEMORY
+	// Basically, 32-bit platforms can ignore views that are masked out anyway.
+	return (view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~MEMVIEW32_MASK) != 0;
+#else
+	return false;
+#endif
 }
 
-void DoState(PointerWrap &p)
-{
-	auto s = p.Section("Memory", 1, 2);
+#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#define SKIP(a_flags, b_flags) \
+	if ((b_flags) & MV_KERNEL) \
+		continue;
+#else
+#define SKIP(a_flags, b_flags) \
+	;
+#endif
+
+static bool Memory_TryBase(u32 flags) {
+	// OK, we know where to find free space. Now grab it!
+	// We just mimic the popular BAT setup.
+
+	size_t position = 0;
+	size_t last_position = 0;
+
+	// Zero all the pointers to be sure.
+	for (int i = 0; i < num_views; i++) {
+		if (views[i].out_ptr)
+			*views[i].out_ptr = 0;
+	}
+
+	int i;
+	for (i = 0; i < num_views; i++) {
+		const MemoryView &view = views[i];
+		if (view.size == 0)
+			continue;
+		SKIP(flags, view.flags);
+		
+		if (view.flags & MV_MIRROR_PREVIOUS) {
+			position = last_position;
+		}
+#ifndef MASKED_PSP_MEMORY
+		*view.out_ptr = (u8*)g_arena.CreateView(
+			position, view.size, base + view.virtual_address);
+		if (!*view.out_ptr) {
+			goto bail;
+			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+		}
+#else
+		if (CanIgnoreView(view)) {
+			// This is handled by address masking in 32-bit, no view needs to be created.
+			*view.out_ptr = *views[i - 1].out_ptr;
+		} else {
+			*view.out_ptr = (u8*)g_arena.CreateView(
+				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
+			if (!*view.out_ptr) {
+				DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+				goto bail;
+			}
+		}
+#endif
+		last_position = position;
+		position += g_arena.roundup(view.size);
+	}
+
+	return true;
+bail:
+	// Argh! ERROR! Free what we grabbed so far so we can try again.
+	for (int j = 0; j <= i; j++) {
+		if (views[i].size == 0)
+			continue;
+		SKIP(flags, views[i].flags);
+		if (*views[j].out_ptr) {
+			if (!CanIgnoreView(views[j])) {
+				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
+			}
+			*views[j].out_ptr = NULL;
+		}
+	}
+	return false;
+}
+
+bool MemoryMap_Setup(u32 flags) {
+#if PPSSPP_PLATFORM(UWP)
+	// We reserve the memory, then simply commit in TryBase.
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
+#else
+
+	// Figure out how much memory we need to allocate in total.
+	size_t total_mem = 0;
+	for (int i = 0; i < num_views; i++) {
+		if (views[i].size == 0)
+			continue;
+		SKIP(flags, views[i].flags);
+		if (!CanIgnoreView(views[i]))
+			total_mem += g_arena.roundup(views[i].size);
+	}
+
+	// Grab some pagefile backed memory out of the void ...
+	g_arena.GrabLowMemSpace(total_mem);
+#endif
+
+#if !PPSSPP_PLATFORM(ANDROID)
+	if (g_arena.NeedsProbing()) {
+		int base_attempts = 0;
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(32BIT)
+		// Try a whole range of possible bases. Return once we got a valid one.
+		uintptr_t max_base_addr = 0x7FFF0000 - 0x10000000;
+		uintptr_t min_base_addr = 0x01000000;
+		uintptr_t stride = 0x400000;
+#elif PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
+		// iOS
+		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
+		uintptr_t min_base_addr = 0x100000000ULL;
+		uintptr_t stride = 0x800000;
+#else
+		uintptr_t max_base_addr = 0;
+		uintptr_t min_base_addr = 0;
+		uintptr_t stride = 0;
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
+		return false;
+#endif
+		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
+			base_attempts++;
+			base = (u8 *)base_addr;
+			if (Memory_TryBase(flags)) {
+				INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
+				return true;
+			}
+		}
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
+		return false;
+	}
+	else
+#endif
+	{
+#if !PPSSPP_PLATFORM(UWP)
+		base = g_arena.Find4GBBase();
+#endif
+	}
+
+	// Should return true...
+	return Memory_TryBase(flags);
+}
+
+void MemoryMap_Shutdown(u32 flags) {
+	for (int i = 0; i < num_views; i++) {
+		if (views[i].size == 0)
+			continue;
+		SKIP(flags, views[i].flags);
+		if (*views[i].out_ptr)
+			g_arena.ReleaseView(*views[i].out_ptr, views[i].size);
+		*views[i].out_ptr = nullptr;
+	}
+	g_arena.ReleaseSpace();
+
+#if PPSSPP_PLATFORM(UWP)
+	VirtualFree(base, 0, MEM_RELEASE);
+#endif
+}
+
+bool Init() {
+	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
+	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
+	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].flags & MV_IS_PRIMARY_RAM)
+			views[i].size = std::min((int)g_MemorySize, MAX_MMAP_SIZE);
+		if (views[i].flags & MV_IS_EXTRA1_RAM)
+			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE, 0), MAX_MMAP_SIZE);
+		if (views[i].flags & MV_IS_EXTRA2_RAM)
+			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
+	}
+
+	int flags = 0;
+	if (!MemoryMap_Setup(flags)) {
+		return false;
+	}
+
+	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+		base, m_pPhysicalRAM, m_pUncachedRAM);
+
+	MemFault_Init();
+	return true;
+}
+
+void Reinit() {
+	_assert_msg_(PSP_IsInited(), "Cannot reinit during startup/shutdown");
+	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	Shutdown();
+	Init();
+	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
+}
+
+void DoState(PointerWrap &p) {
+	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
 
@@ -109,50 +323,105 @@ void DoState(PointerWrap &p)
 		if (!g_RemasterMode)
 			g_MemorySize = RAM_NORMAL_SIZE;
 		g_PSPModel = PSP_MODEL_FAT;
-	} else {
-		p.Do(g_PSPModel);
+	} else if (s == 2) {
+		// In version 2, we determine memory size based on PSP model.
+		u32 oldMemorySize = g_MemorySize;
+		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
-		if (!g_RemasterMode)
+		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
+			if (oldMemorySize < g_MemorySize) {
+				Reinit();
+			}
+		}
+	} else {
+		// In version 3, we started just saving the memory size directly.
+		// It's no longer based strictly on the PSP model.
+		u32 oldMemorySize = g_MemorySize;
+		Do(p, g_PSPModel);
+		p.DoMarker("PSPModel");
+		Do(p, g_MemorySize);
+		if (oldMemorySize != g_MemorySize) {
+			Reinit();
+		}
 	}
 
-	p.DoArray(m_pRAM, g_MemorySize);
+	DoArray(p, GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
 
-	p.DoArray(m_pVRAM, VRAM_SIZE);
+	DoArray(p, m_pPhysicalVRAM1, VRAM_SIZE);
 	p.DoMarker("VRAM");
-	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
+	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
 }
 
-void Shutdown()
-{
+void Shutdown() {
+	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
 	u32 flags = 0;
-	MemoryMap_Shutdown(views, num_views, flags, &g_arena);
-	g_arena.ReleaseSpace();
-	base = NULL;
-	INFO_LOG(MEMMAP, "Memory system shut down.");
+	MemoryMap_Shutdown(flags);
+	base = nullptr;
+	DEBUG_LOG(MEMMAP, "Memory system shut down.");
 }
 
-void Clear()
-{
-	if (m_pRAM)
-		memset(m_pRAM, 0, g_MemorySize);
-	if (m_pScratchPad)
-		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
-	if (m_pVRAM)
-		memset(m_pVRAM, 0, VRAM_SIZE);
+void Clear() {
+	if (m_pPhysicalRAM)
+		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
+	if (m_pPhysicalScratchPad)
+		memset(m_pPhysicalScratchPad, 0, SCRATCHPAD_SIZE);
+	if (m_pPhysicalVRAM1)
+		memset(m_pPhysicalVRAM1, 0, VRAM_SIZE);
 }
 
-Opcode Read_Instruction(u32 address)
+bool IsActive() {
+	return base != nullptr;
+}
+
+// Wanting to avoid include pollution, MemMap.h is included a lot.
+MemoryInitedLock::MemoryInitedLock()
 {
-	Opcode inst = Opcode(Read_U32(address));
-	if (MIPS_IS_EMUHACK(inst) && MIPSComp::jit)
-	{
-		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		int block_num = bc->GetBlockNumberFromEmuHackOp(inst);
-		if (block_num >= 0) {
-			return bc->GetOriginalFirstOp(block_num);
+	g_shutdownLock.lock();
+}
+MemoryInitedLock::~MemoryInitedLock()
+{
+	g_shutdownLock.unlock();
+}
+
+MemoryInitedLock Lock()
+{
+	return MemoryInitedLock();
+}
+
+__forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
+{
+	if (!MIPS_IS_EMUHACK(inst.encoding)) {
+		return inst;
+	}
+
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
+		inst = MIPSComp::jit->GetOriginalOp(inst);
+		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
+			u32 op;
+			if (GetReplacedOpAt(address, &op)) {
+				if (MIPS_IS_EMUHACK(op)) {
+					ERROR_LOG(MEMMAP, "WTF 1");
+					return Opcode(op);
+				} else {
+					return Opcode(op);
+				}
+			} else {
+				ERROR_LOG(MEMMAP, "Replacement, but no replacement op? %08x", inst.encoding);
+			}
+		}
+		return inst;
+	} else if (resolveReplacements && MIPS_IS_REPLACEMENT(inst.encoding)) {
+		u32 op;
+		if (GetReplacedOpAt(address, &op)) {
+			if (MIPS_IS_EMUHACK(op)) {
+				ERROR_LOG(MEMMAP, "WTF 2");
+				return Opcode(op);
+			} else {
+				return Opcode(op);
+			}
 		} else {
 			return inst;
 		}
@@ -161,51 +430,45 @@ Opcode Read_Instruction(u32 address)
 	}
 }
 
+Opcode Read_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(Read_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
+}
+
+Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
+{
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
+	return Read_Instruction(address, resolveReplacements, inst);
+}
+
 Opcode Read_Opcode_JIT(u32 address)
 {
-	return Read_Instruction(address);
+	Opcode inst = Opcode(Read_U32(address));
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
+		return MIPSComp::jit->GetOriginalOp(inst);
+	} else {
+		return inst;
+	}
 }
 
 // WARNING! No checks!
 // We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
+void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 {
 	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
-{	
-	u8 *ptr = GetPointer(_Address);
-	if (ptr != NULL)
-	{
-		memset(ptr,_iValue,_iLength);
-	}
-	else
-	{
+void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
+	if (IsValidRange(_Address, _iLength)) {
+		uint8_t *ptr = GetPointerUnchecked(_Address);
+		memset(ptr, _iValue, _iLength);
+	} else {
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
-}
 
-void GetString(std::string& _string, const u32 em_address)
-{
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-	char c;
-	u32 addr = em_address;
-	while ((c = Read_U8(addr)))
-	{
-		*string++ = c;
-		addr++;
-	}
-	*string++ = '\0';
-	_string = stringBuffer;
-}
-
-const char *GetAddressName(u32 address)
-{
-	// TODO, follow GetPointer
-	return "[mem]";
+	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 }
 
 } // namespace

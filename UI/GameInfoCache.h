@@ -19,106 +19,166 @@
 
 #include <string>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <atomic>
 
-#include "base/mutex.h"
-#include "file/file_util.h"
-#include "thread/prioritizedworkqueue.h"
-#include "gfx/texture.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Loaders.h"
+#include "UI/TextureUtil.h"
 
+namespace Draw {
+	class DrawContext;
+	class Texture;
+}
+class PrioritizedWorkQueue;
 
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
+// Only cares about games that are installed on the current device.
+
+// A GameInfo object can also represent a piece of savedata.
+
+// Guessed from GameID, not necessarily accurate
+enum GameRegion {
+	GAMEREGION_JAPAN,
+	GAMEREGION_USA,
+	GAMEREGION_EUROPE,
+	GAMEREGION_HONGKONG,
+	GAMEREGION_ASIA,
+	GAMEREGION_KOREA,
+	GAMEREGION_OTHER,
+	GAMEREGION_MAX,
+};
+
+enum GameInfoWantFlags {
+	GAMEINFO_WANTBG = 0x01,
+	GAMEINFO_WANTSIZE = 0x02,
+	GAMEINFO_WANTSND = 0x04,
+	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
+};
+
+class FileLoader;
+enum class IdentifiedFileType;
+
+struct GameInfoTex {
+	std::string data;
+	std::unique_ptr<ManagedTexture> texture;
+	// The time at which the Icon and the BG were loaded.
+	// Can be useful to fade them in smoothly once they appear.
+	double timeLoaded = 0.0;
+	std::atomic<bool> dataLoaded{};
+
+	void Clear() {
+		if (!data.empty()) {
+			data.clear();
+			dataLoaded = false;
+		}
+		texture.reset(nullptr);
+	}
+};
 
 class GameInfo {
 public:
-	GameInfo() 
-		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
-		  wantBG(false), gameSize(0), saveDataSize(0), installDataSize(0), disc_total(0), disc_number(0) {}
+	GameInfo();
+	~GameInfo();
 
-	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
+	bool LoadFromPath(const std::string &gamePath);
+
+	std::shared_ptr<FileLoader> GetFileLoader();
+	void DisposeFileLoader();
 
 	u64 GetGameSizeInBytes();
 	u64 GetSaveDataSizeInBytes();
 	u64 GetInstallDataSizeInBytes();
 
-	void LoadParamSFO();
+	void ParseParamSFO();
 
 	std::vector<std::string> GetSaveDataDirectories();
 
+	std::string GetTitle();
+	void SetTitle(const std::string &newTitle);
 
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
-	recursive_mutex lock;
+	std::mutex lock;
 
-	FileInfo fileInfo;
-	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
 	std::string id_version;
-	int disc_total;
-	int disc_number;
+	int disc_total = 0;
+	int disc_number = 0;
+	int region = -1;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
-	bool paramSFOLoaded;
-	
+	bool paramSFOLoaded = false;
+	bool hasConfig = false;
+
 	// Pre read the data, create a texture the next time (GL thread..)
-	std::string iconTextureData;
-	Texture *iconTexture;
-	std::string pic0TextureData;
-	Texture *pic0Texture;
-	std::string pic1TextureData;
-	Texture *pic1Texture;
+	GameInfoTex icon;
+	GameInfoTex pic0;
+	GameInfoTex pic1;
 
-	bool wantBG;
+	std::string sndFileData;
+	std::atomic<bool> sndDataLoaded{};
 
-	double lastAccessedTime;
+	int wantFlags = 0;
 
-	// The time at which the Icon and the BG were loaded.
-	// Can be useful to fade them in smoothly once they appear.
-	double timeIconWasLoaded;
-	double timePic0WasLoaded;
-	double timePic1WasLoaded;
+	double lastAccessedTime = 0.0;
 
-	u64 gameSize;
-	u64 saveDataSize;
-	u64 installDataSize;
+	u64 gameSize = 0;
+	u64 saveDataSize = 0;
+	u64 installDataSize = 0;
+	std::atomic<bool> pending{};
+	std::atomic<bool> working{};
+
+protected:
+	// Note: this can change while loading, use GetTitle().
+	std::string title;
+
+	// TODO: Get rid of this shared_ptr and managae lifetime better instead.
+	std::shared_ptr<FileLoader> fileLoader;
+	std::string filePath_;
+
+private:
+	DISALLOW_COPY_AND_ASSIGN(GameInfo);
 };
 
 class GameInfoCache {
 public:
-	GameInfoCache() : gameInfoWQ_(0) {}
+	GameInfoCache();
 	~GameInfoCache();
 
 	// This creates a background worker thread!
-	void Init();
-	void Shutdown();
 	void Clear();
+	void PurgeType(IdentifiedFileType fileType);
 
-	// All data in GameInfo including iconTexture may be zero the first time you call this
+	// All data in GameInfo including icon.texture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
-	// redrawing the UI often. Only set wantBG if you really want it because
-	// it's big. bgTextures may be discarded over time as well.
-	GameInfo *GetInfo(const std::string &gamePath, bool wantBG);
-	void Decimate();  // Deletes old info.
-	void FlushBGs();  // Gets rid of all BG textures.
+	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
+	// because they're big. bgTextures and sound may be discarded over time as well.
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
+	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
-	// TODO - save cache between sessions
-	void Save();
-	void Load();
+	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
-	void Add(const std::string &key, GameInfo *info_);
+	void CancelAll();
+	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:
-	// Maps ISO path to info.
-	std::map<std::string, GameInfo *> info_;
+	void Init();
+	void Shutdown();
+	void SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *draw, GameInfoTex &tex);
+
+	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
+	// and if they get destructed while being in use, that's bad.
+	std::map<std::string, std::shared_ptr<GameInfo> > info_;
 
 	// Work queue and management
 	PrioritizedWorkQueue *gameInfoWQ_;
 };
 
 // This one can be global, no good reason not to.
-extern GameInfoCache g_gameInfoCache;
+extern GameInfoCache *g_gameInfoCache;

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<assembly
+   xmlns="urn:schemas-microsoft-com:asm.v1"
+   manifestVersion="1.0">
+  <assemblyIdentity
+     processorArchitecture="*"
+     version="5.1.0.0"
+     type="win32"
+     name="PPSSPPWindows.exe"/>
+  <description>PPSSPP</description>
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+           type="win32"
+           name="Microsoft.Windows.Common-Controls"
+           version="6.0.0.0"
+           publicKeyToken="6595b64144ccf1df"
+           language="*"
+           processorArchitecture="*"/>
+    </dependentAssembly>
+  </dependency>
+  <!-- Identify the application security requirements. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel
+         level="asInvoker"
+         uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <!-- Should really use True/PM (per-monitor) here but as we are XP-compatible, we don't have access to the headers. -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+</assembly>

@@ -17,66 +17,67 @@
 
 #include "../Core/Host.h"
 #include "InputDevice.h"
-#include "KeyboardDevice.h"
+#include "Common/CommonWindows.h"
 #include <list>
 #include <memory>
 
-extern float mouseDeltaX;
-extern float mouseDeltaY;
+extern float g_mouseDeltaX;
+extern float g_mouseDeltaY;
 
-class WindowsHost : public Host
-{
+class GraphicsContext;
+
+class WindowsHost : public Host {
 public:
-	WindowsHost(HWND mainWindow, HWND displayWindow);
+	WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow);
 
-	~WindowsHost()
-	{
+	~WindowsHost() {
 		UpdateConsolePosition();
 	}
 
-	void UpdateMemView();
-	void UpdateDisassembly();
-	void UpdateUI();
-	virtual void UpdateScreen();
-	void SetDebugMode(bool mode);
+	void UpdateMemView() override;
+	void UpdateDisassembly() override;
+	void UpdateUI() override;
+	void SetDebugMode(bool mode) override;
 
-	bool InitGL(std::string *error_message);
-	void PollControllers(InputState &input_state);
-	void ShutdownGL();
+	// If returns false, will return a null context
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
+	void PollControllers() override;
+	void ShutdownGraphics() override;
 
-	void InitSound(PMixer *mixer);
-	void UpdateSound();
-	void ShutdownSound();
+	void InitSound() override;
+	void UpdateSound() override;
+	void ShutdownSound() override;
 
-	bool IsDebuggingEnabled();
-	void BootDone();
-	bool AttemptLoadSymbolMap();
-	void SaveSymbolMap();
-	void SetWindowTitle(const char *message);
+	bool IsDebuggingEnabled() override;
+	void BootDone() override;
+	bool AttemptLoadSymbolMap() override;
+	void SaveSymbolMap() override;
+	void NotifySymbolMapUpdated() override;
+	void SetWindowTitle(const char *message) override;
 
-	virtual bool GPUDebuggingActive();
-	virtual void GPUNotifyCommand(u32 pc);
-	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format);
-	virtual void GPUNotifyDraw();
-	virtual void GPUNotifyTextureAttachment(u32 addr);
-	virtual bool GPUAllowTextureCache(u32 addr);
-	virtual void ToggleDebugConsoleVisibility();
+	void ToggleDebugConsoleVisibility() override;
 
-	virtual bool CanCreateShortcut() {return false;}  // Turn on when fixed
-	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
+	bool CanCreateShortcut() override;
+	bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;
 
-	virtual void GoFullscreen(bool);
+	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
+	void SendUIMessage(const std::string &message, const std::string &value) override;
 
-	bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
-	bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue);
-	std::shared_ptr<KeyboardDevice> keyboard;
+	void NotifySwitchUMDUpdated() override;
+
+	GraphicsContext *GetGraphicsContext() { return gfx_; }
 
 private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
+	HINSTANCE hInstance_;
 	HWND displayWindow_;
 	HWND mainWindow_;
+	GraphicsContext *gfx_ = nullptr;
+	size_t numDinputDevices_ = 0;
+	std::wstring lastTitle_;
+	int lastNumInstances_ = 0;
 
-	std::list<std::shared_ptr<InputDevice>> input;
+	std::list<std::unique_ptr<InputDevice>> input;
 };

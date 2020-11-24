@@ -18,50 +18,56 @@
 #include "TiltAnalogSettingsScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *c = GetI18NCategory("Controls");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_->SetTag("TiltAnalogSettings");
 
 	LinearLayout *settings = new LinearLayout(ORIENT_VERTICAL);
 
 	settings->SetSpacing(0);
-	settings->Add(new ItemHeader(c->T("Invert Axes")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltX, c->T("Invert Tilt along X axis")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltY, c->T("Invert Tilt along Y axis")));
+	settings->Add(new ItemHeader(co->T("Invert Axes")));
+	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
+	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
 
-	settings->Add(new ItemHeader(c->T("Sensitivity")));
+	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	//TODO: allow values greater than 100? I'm not sure if that's needed.
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, c->T("Tilt Sensitivity along X axis"), screenManager()));
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, c->T("Tilt Sensitivity along Y axis"), screenManager()));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, c->T("Deadzone Radius"), screenManager()));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(),"%"));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone Radius"), 0.01f, screenManager(),"/ 1.0"));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
 
-	settings->Add(new ItemHeader(c->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem("To calibrate, keep device on a flat surface and press calibrate.", "");
+	settings->Add(new ItemHeader(co->T("Calibration")));
+	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
 	settings->Add(calibrationInfo);
 
-	Choice *calibrate = new Choice(c->T("Calibrate D-Pad"));
+	Choice *calibrate = new Choice(co->T("Calibrate D-Pad"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
 	settings->Add(calibrate);
 
 	root_->Add(settings);
 	settings->Add(new ItemHeader(""));
-	settings->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-void TiltAnalogSettingsScreen::update(InputState &input) {
-	UIScreen::update(input);
-	//I'm not sure why y is x and x is y. i's probably because of the orientation
-	//of the screen (the x and y are in portrait coordinates). once portrait and 
-	//reverse-landscape is enabled, this will probably have to change.
-	//If needed, we can add a "swap x and y" option. 
-	currentTiltX_ = input.acc.y;
-	currentTiltY_ = input.acc.x;
+bool TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
+	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
+		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
+		// TODO: We may want to configure this based on screen orientation.
+		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_X) {
+			currentTiltY_ = axis.value;
+		}
+		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_Y) {
+			currentTiltX_ = axis.value;
+		}
+	}
+	return false;
 }
 
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {

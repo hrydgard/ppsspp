@@ -17,37 +17,142 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include "Common/Common.h"
+#include "Common/CommonTypes.h"
+#include "Core/MIPS/MIPS.h"
+
+// TODO: Find a better place for these.
+std::vector<std::string> DisassembleArm2(const u8 *data, int size);
+std::vector<std::string> DisassembleArm64(const u8 *data, int size);
+std::vector<std::string> DisassembleX86(const u8 *data, int size);
 
 struct JitBlock;
+class JitBlockCache;
+class JitBlockCacheDebugInterface;
+class PointerWrap;
 
 #ifdef USING_QT_UI
 #undef emit
 #endif
 
-#if defined(PPC) 
-#include "../PPC/PpcJit.h"
-#elif defined(ARM)
-#include "../ARM/ArmJit.h"
-#else
-#include "../x86/Jit.h"
-#endif
-
-// Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
-// opcode to represent JIT blocks and other emu hacks.
-// I've chosen 0x68000000.
-
-#define MIPS_EMUHACK_OPCODE 0x68000000
-#define MIPS_EMUHACK_MASK 0xFC000000
-#define MIPS_EMUHACK_VALUE_MASK 0x03FFFFFF
-
-#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-
-
-// There are 2 bits available for sub-opcodes, 0x03000000.
-#define EMUOP_RUNBLOCK 0   // Runs a JIT block
-#define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
+class MIPSState;
 
 namespace MIPSComp {
-	extern Jit *jit;
+	void JitAt();
+
+	class MIPSFrontendInterface {
+	public:
+		virtual ~MIPSFrontendInterface() {}
+
+		virtual void EatPrefix() = 0;
+
+		virtual void Comp_Generic(MIPSOpcode op) = 0;
+		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
+		virtual void Comp_ReplacementFunc(MIPSOpcode op) = 0;
+		virtual void Comp_ITypeMem(MIPSOpcode op) = 0;
+		virtual void Comp_Cache(MIPSOpcode op) = 0;
+		virtual void Comp_RelBranch(MIPSOpcode op) = 0;
+		virtual void Comp_RelBranchRI(MIPSOpcode op) = 0;
+		virtual void Comp_FPUBranch(MIPSOpcode op) = 0;
+		virtual void Comp_FPULS(MIPSOpcode op) = 0;
+		virtual void Comp_FPUComp(MIPSOpcode op) = 0;
+		virtual void Comp_Jump(MIPSOpcode op) = 0;
+		virtual void Comp_JumpReg(MIPSOpcode op) = 0;
+		virtual void Comp_Syscall(MIPSOpcode op) = 0;
+		virtual void Comp_Break(MIPSOpcode op) = 0;
+		virtual void Comp_IType(MIPSOpcode op) = 0;
+		virtual void Comp_RType2(MIPSOpcode op) = 0;
+		virtual void Comp_RType3(MIPSOpcode op) = 0;
+		virtual void Comp_ShiftType(MIPSOpcode op) = 0;
+		virtual void Comp_Allegrex(MIPSOpcode op) = 0;
+		virtual void Comp_Allegrex2(MIPSOpcode op) = 0;
+		virtual void Comp_VBranch(MIPSOpcode op) = 0;
+		virtual void Comp_MulDivType(MIPSOpcode op) = 0;
+		virtual void Comp_Special3(MIPSOpcode op) = 0;
+		virtual void Comp_FPU3op(MIPSOpcode op) = 0;
+		virtual void Comp_FPU2op(MIPSOpcode op) = 0;
+		virtual void Comp_mxc1(MIPSOpcode op) = 0;
+		virtual void Comp_SV(MIPSOpcode op) = 0;
+		virtual void Comp_SVQ(MIPSOpcode op) = 0;
+		virtual void Comp_VPFX(MIPSOpcode op) = 0;
+		virtual void Comp_VVectorInit(MIPSOpcode op) = 0;
+		virtual void Comp_VMatrixInit(MIPSOpcode op) = 0;
+		virtual void Comp_VDot(MIPSOpcode op) = 0;
+		virtual void Comp_VecDo3(MIPSOpcode op) = 0;
+		virtual void Comp_VV2Op(MIPSOpcode op) = 0;
+		virtual void Comp_Mftv(MIPSOpcode op) = 0;
+		virtual void Comp_Vmfvc(MIPSOpcode op) = 0;
+		virtual void Comp_Vmtvc(MIPSOpcode op) = 0;
+		virtual void Comp_Vmmov(MIPSOpcode op) = 0;
+		virtual void Comp_VScl(MIPSOpcode op) = 0;
+		virtual void Comp_Vmmul(MIPSOpcode op) = 0;
+		virtual void Comp_Vmscl(MIPSOpcode op) = 0;
+		virtual void Comp_Vtfm(MIPSOpcode op) = 0;
+		virtual void Comp_VHdp(MIPSOpcode op) = 0;
+		virtual void Comp_VCrs(MIPSOpcode op) = 0;
+		virtual void Comp_VDet(MIPSOpcode op) = 0;
+		virtual void Comp_Vi2x(MIPSOpcode op) = 0;
+		virtual void Comp_Vx2i(MIPSOpcode op) = 0;
+		virtual void Comp_Vf2i(MIPSOpcode op) = 0;
+		virtual void Comp_Vi2f(MIPSOpcode op) = 0;
+		virtual void Comp_Vh2f(MIPSOpcode op) = 0;
+		virtual void Comp_Vcst(MIPSOpcode op) = 0;
+		virtual void Comp_Vhoriz(MIPSOpcode op) = 0;
+		virtual void Comp_VRot(MIPSOpcode op) = 0;
+		virtual void Comp_VIdt(MIPSOpcode op) = 0;
+		virtual void Comp_Vcmp(MIPSOpcode op) = 0;
+		virtual void Comp_Vcmov(MIPSOpcode op) = 0;
+		virtual void Comp_Viim(MIPSOpcode op) = 0;
+		virtual void Comp_Vfim(MIPSOpcode op) = 0;
+		virtual void Comp_VCrossQuat(MIPSOpcode op) = 0;
+		virtual void Comp_Vsgn(MIPSOpcode op) = 0;
+		virtual void Comp_Vocp(MIPSOpcode op) = 0;
+		virtual void Comp_ColorConv(MIPSOpcode op) = 0;
+		virtual void Comp_Vbfy(MIPSOpcode op) = 0;
+		virtual void Comp_DoNothing(MIPSOpcode op) = 0;
+
+		virtual int Replace_fabsf() = 0;
+	};
+
+	class JitInterface {
+	public:
+		virtual ~JitInterface() {}
+
+		virtual bool CodeInRange(const u8 *ptr) const = 0;
+		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
+		virtual const u8 *GetDispatcher() const = 0;
+		virtual const u8 *GetCrashHandler() const = 0;
+		virtual JitBlockCache *GetBlockCache() = 0;
+		virtual JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() = 0;
+		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
+		virtual void DoState(PointerWrap &p) = 0;
+		virtual void RunLoopUntil(u64 globalticks) = 0;
+		virtual void Compile(u32 em_address) = 0;
+		virtual void CompileFunction(u32 start_address, u32 length) { }
+		virtual void ClearCache() = 0;
+		virtual void UpdateFCR31() = 0;
+		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
+
+		// No jit operations may be run between these calls.
+		// Meant to be used to make memory safe for savestates, memcpy, etc.
+		virtual std::vector<u32> SaveAndClearEmuHackOps() = 0;
+		virtual void RestoreSavedEmuHackOps(std::vector<u32> saved) = 0;
+
+		// Block linking. This may need to work differently for whole-function JITs and stuff
+		// like that.
+		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
+		virtual void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) = 0;
+	};
+
+	typedef void (MIPSFrontendInterface::*MIPSCompileFunc)(MIPSOpcode opcode);
+	typedef int (MIPSFrontendInterface::*MIPSReplaceFunc)();
+
+	extern JitInterface *jit;
+
+	void DoDummyJitState(PointerWrap &p);
+
+	JitInterface *CreateNativeJit(MIPSState *mips);
 }

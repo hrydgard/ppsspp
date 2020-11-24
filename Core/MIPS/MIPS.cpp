@@ -18,24 +18,21 @@
 #include <cmath>
 #include <limits>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
+
 #include "Common.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/IR/IRJit.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
-
-#if defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(PPC)
-#include "PPC/PpcJit.h"
-#else
-#include "x86/Jit.h"
-#endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
@@ -56,7 +53,10 @@ u8 fromvoffset[128];
 #define M_LN10     2.30258509299404568402f
 #undef M_PI
 #define M_PI       3.14159265358979323846f
+
+#ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923f
+#endif
 #define M_PI_4     0.785398163397448309616f
 #define M_1_PI     0.318309886183790671538f
 #define M_2_PI     0.636619772367581343076f
@@ -89,8 +89,7 @@ const float cst_constants[32] = {
 };
 
 
-MIPSState::MIPSState()
-{
+MIPSState::MIPSState() {
 	MIPSComp::jit = 0;
 
 	// Initialize vorder
@@ -101,7 +100,7 @@ MIPSState::MIPSState()
 	// 0x01 0x21 0x41 0x61
 	// 0x02 0x22 0x42 0x62
 	// 0x03 0x23 0x43 0x63
-	
+
 	// 0x04 0x24 0x44 0x64
 	// 0x06 0x26 0x45 0x65
 	// ....
@@ -109,7 +108,7 @@ MIPSState::MIPSState()
 	// the VPU registers are effectively organized like this:
 	// 0x00 0x01 0x02 0x03
 	// 0x04 0x05 0x06 0x07
-	// 0x08 0x09 0x0a 0x0b 
+	// 0x08 0x09 0x0a 0x0b
 	// ....
 
 	// This is because the original indices look like this:
@@ -117,14 +116,14 @@ MIPSState::MIPSState()
 
 	// We will now map 0YYMMMXX to 0MMMXXYY.
 
-	// Advantages: 
+	// Advantages:
 	// * Columns can be flushed and reloaded faster "at once"
 	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
 
 	// Disadvantages:
 	// * Extra indirection, can be confusing and slower (interpreter only)
 	// * Flushing and reloading row registers is now slower
-	
+
 	int i = 0;
 	for (int m = 0; m < 8; m++) {
 		for (int y = 0; y < 4; y++) {
@@ -151,6 +150,7 @@ MIPSState::MIPSState()
 		0x6, 0x26, 0x46, 0x66,
 		0x7, 0x27, 0x47, 0x67,
 	};
+
 	for (int i = 0; i < (int)ARRAY_SIZE(firstThirtyTwo); i++) {
 		if (voffset[firstThirtyTwo[i]] != i) {
 			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
@@ -158,26 +158,23 @@ MIPSState::MIPSState()
 	}
 }
 
-MIPSState::~MIPSState()
-{
-	if (MIPSComp::jit)
-	{
+MIPSState::~MIPSState() {
+	Shutdown();
+}
+
+void MIPSState::Shutdown() {
+	if (MIPSComp::jit) {
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 	}
 }
 
-void MIPSState::Reset()
-{
-	if (MIPSComp::jit)
-	{
-		delete MIPSComp::jit;
-		MIPSComp::jit = 0;
-	}
-		
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
-		MIPSComp::jit = new MIPSComp::Jit(this);
+void MIPSState::Reset() {
+	Shutdown();
+	Init();
+}
 
+void MIPSState::Init() {
 	memset(r, 0, sizeof(r));
 	memset(f, 0, sizeof(f));
 	memset(v, 0, sizeof(v));
@@ -188,6 +185,7 @@ void MIPSState::Reset()
 	vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
 	vfpuCtrl[VFPU_CTRL_CC] = 0x3f;
 	vfpuCtrl[VFPU_CTRL_INF4] = 0;
+	vfpuCtrl[VFPU_CTRL_REV] = 0x7772ceab;
 	vfpuCtrl[VFPU_CTRL_RCX0] = 0x3f800001;
 	vfpuCtrl[VFPU_CTRL_RCX1] = 0x3f800002;
 	vfpuCtrl[VFPU_CTRL_RCX2] = 0x3f800004;
@@ -210,6 +208,49 @@ void MIPSState::Reset()
 	downcount = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
+
+	if (PSP_CoreParameter().cpuCore == CPUCore::JIT) {
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_JIT) {
+		MIPSComp::jit = new MIPSComp::IRJit(this);
+	} else {
+		MIPSComp::jit = nullptr;
+	}
+}
+
+bool MIPSState::HasDefaultPrefix() const {
+	return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
+}
+
+void MIPSState::UpdateCore(CPUCore desired) {
+	if (PSP_CoreParameter().cpuCore == desired) {
+		return;
+	}
+
+	PSP_CoreParameter().cpuCore = desired;
+	switch (PSP_CoreParameter().cpuCore) {
+	case CPUCore::JIT:
+		INFO_LOG(CPU, "Switching to JIT");
+		if (MIPSComp::jit) {
+			delete MIPSComp::jit;
+		}
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+		break;
+
+	case CPUCore::IR_JIT:
+		INFO_LOG(CPU, "Switching to IRJIT");
+		if (MIPSComp::jit) {
+			delete MIPSComp::jit;
+		}
+		MIPSComp::jit = new MIPSComp::IRJit(this);
+		break;
+
+	case CPUCore::INTERPRETER:
+		INFO_LOG(CPU, "Switching to interpreter");
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+		break;
+	}
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -223,118 +264,71 @@ void MIPSState::DoState(PointerWrap &p) {
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
 	else
-		MIPSComp::Jit::DoDummyState(p);
+		MIPSComp::DoDummyJitState(p);
 
-	p.DoArray(r, sizeof(r) / sizeof(r[0]));
-	p.DoArray(f, sizeof(f) / sizeof(f[0]));
+	DoArray(p, r, sizeof(r) / sizeof(r[0]));
+	DoArray(p, f, sizeof(f) / sizeof(f[0]));
 	if (s <= 2) {
 		float vtemp[128];
-		p.DoArray(vtemp, sizeof(v) / sizeof(v[0]));
+		DoArray(p, vtemp, sizeof(v) / sizeof(v[0]));
 		for (int i = 0; i < 128; i++) {
 			v[voffset[i]] = vtemp[i];
 		}
 	} else {
-		p.DoArray(v, sizeof(v) / sizeof(v[0]));
+		DoArray(p, v, sizeof(v) / sizeof(v[0]));
 	}
-	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
-	p.Do(pc);
-	p.Do(nextPC);
-	p.Do(downcount);
-	p.Do(hi);
-	p.Do(lo);
-	p.Do(fpcond);
+	DoArray(p, vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
+	Do(p, pc);
+	Do(p, nextPC);
+	Do(p, downcount);
+	// Reversed, but we can just leave it that way.
+	Do(p, hi);
+	Do(p, lo);
+	Do(p, fpcond);
 	if (s <= 1) {
 		u32 fcr0_unused = 0;
-		p.Do(fcr0_unused);
+		Do(p, fcr0_unused);
 	}
-	p.Do(fcr31);
-	p.Do(rng.m_w);
-	p.Do(rng.m_z);
-	p.Do(inDelaySlot);
-	p.Do(llBit);
-	p.Do(debugCount);
+	Do(p, fcr31);
+	Do(p, rng.m_w);
+	Do(p, rng.m_z);
+	Do(p, inDelaySlot);
+	Do(p, llBit);
+	Do(p, debugCount);
+
+	if (p.mode == p.MODE_READ && MIPSComp::jit) {
+		// Now that we've loaded fcr31, update any jit state associated.
+		MIPSComp::jit->UpdateFCR31();
+	}
 }
 
-void MIPSState::SingleStep()
-{
+void MIPSState::SingleStep() {
 	int cycles = MIPS_SingleStep();
 	currentMIPS->downcount -= cycles;
 	CoreTiming::Advance();
 }
 
 // returns 1 if reached ticks limit
-int MIPSState::RunLoopUntil(u64 globalTicks)
-{
-	switch (PSP_CoreParameter().cpuCore)
-	{
-	case CPU_JIT:
+int MIPSState::RunLoopUntil(u64 globalTicks) {
+	switch (PSP_CoreParameter().cpuCore) {
+	case CPUCore::JIT:
+	case CPUCore::IR_JIT:
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 
-	case CPU_INTERPRETER:
+	case CPUCore::INTERPRETER:
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;
 }
 
-void MIPSState::WriteFCR(int reg, int value)
-{
-	if (reg == 31)
-	{
-		fcr31 = value & 0x0181FFFF;
-		fpcond = (value >> 23) & 1;
-	}
-	else
-	{
-		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
-}
-
-u32 MIPSState::ReadFCR(int reg)
-{
-	DEBUG_LOG(CPU,"FCR%i read",reg);
-	if (reg == 31)
-	{
-		fcr31 = (fcr31 & ~(1<<23)) | ((fpcond & 1)<<23);
-		return fcr31;
-	}
-	else if (reg == 0)
-	{
-		return FCR0_VALUE;
-	}
-	else
-	{
-		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	return 0;
-}
-
-void MIPSState::InvalidateICache(u32 address, int length)
-{
+void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
-		MIPSComp::jit->ClearCacheAt(address, length);
+		MIPSComp::jit->InvalidateCacheAt(address, length);
 }
 
-
-// Interrupts should be served directly on the running thread.
-void MIPSState::Irq()
-{
-//	if (IRQEnabled())
-	{
-	}
-}
-
-
-void MIPSState::SWI()
-{
-}
-
-const char *MIPSState::DisasmAt(u32 compilerPC) {
-	static char temp[256];
-	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
-	return temp;
+void MIPSState::ClearJitCache() {
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCache();
 }

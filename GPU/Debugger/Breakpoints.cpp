@@ -17,24 +17,28 @@
 
 #include <vector>
 #include <set>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
 namespace GPUBreakpoints {
 
-static recursive_mutex breaksLock;
-static std::vector<bool> breakCmds;
+static std::mutex breaksLock;
+static bool breakCmds[256];
 static std::set<u32> breakPCs;
 static std::set<u32> breakTextures;
+static std::set<u32> breakRenderTargets;
 // Small optimization to avoid a lock/lookup for the common case.
 static size_t breakPCsCount = 0;
 static size_t breakTexturesCount = 0;
+static size_t breakRenderTargetsCount = 0;
 
 // If these are set, the above are also, but they should be temporary.
-static std::vector<bool> breakCmdsTemp;
+static bool breakCmdsTemp[256];
 static std::set<u32> breakPCsTemp;
 static std::set<u32> breakTexturesTemp;
+static std::set<u32> breakRenderTargetsTemp;
 static bool textureChangeTemp = false;
 
 static u32 lastTexture = 0xFFFFFFFF;
@@ -48,6 +52,8 @@ const static u8 textureRelatedCmds[] = {
 
 	GE_CMD_CLUTADDR, GE_CMD_CLUTADDRUPPER, GE_CMD_LOADCLUT, GE_CMD_CLUTFORMAT,
 	GE_CMD_TEXFORMAT, GE_CMD_TEXMODE, GE_CMD_TEXTUREMAPENABLE,
+	GE_CMD_TEXFILTER, GE_CMD_TEXWRAP,
+	GE_CMD_TEXLEVEL,
 
 	// Sometimes found between clut/texture params.
 	GE_CMD_TEXFLUSH, GE_CMD_TEXSYNC,
@@ -94,6 +100,17 @@ u32 GetAdjustedTextureAddress(u32 op) {
 	return addr;
 }
 
+u32 GetAdjustedRenderTargetAddress(u32 op) {
+	const u8 cmd = op >> 24;
+	switch (cmd) {
+	case GE_CMD_FRAMEBUFPTR:
+	case GE_CMD_ZBUFPTR:
+		return op & 0x003FFFF0;
+	}
+
+	return (u32)-1;
+}
+
 bool IsTextureChangeBreakpoint(u32 op, u32 addr) {
 	if (!textureChangeTemp) {
 		return false;
@@ -129,6 +146,14 @@ bool IsTextureCmdBreakpoint(u32 op) {
 	}
 }
 
+bool IsRenderTargetCmdBreakpoint(u32 op) {
+	const u32 addr = GetAdjustedRenderTargetAddress(op);
+	if (addr != (u32)-1) {
+		return IsRenderTargetBreakpoint(addr);
+	}
+	return false;
+}
+
 bool IsBreakpoint(u32 pc, u32 op) {
 	if (IsAddressBreakpoint(pc) || IsOpBreakpoint(op)) {
 		return true;
@@ -137,6 +162,9 @@ bool IsBreakpoint(u32 pc, u32 op) {
 	if ((breakTexturesCount != 0 || textureChangeTemp) && IsTextureCmdBreakpoint(op)) {
 		// Break on the next non-texture.
 		AddNonTextureTempBreakpoints();
+	}
+	if (breakRenderTargetsCount != 0 && IsRenderTargetCmdBreakpoint(op)) {
+		return true;
 	}
 
 	return false;
@@ -148,7 +176,7 @@ bool IsAddressBreakpoint(u32 addr, bool &temp) {
 		return false;
 	}
 
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 	temp = breakPCsTemp.find(addr) != breakPCsTemp.end();
 	return breakPCs.find(addr) != breakPCs.end();
 }
@@ -158,7 +186,7 @@ bool IsAddressBreakpoint(u32 addr) {
 		return false;
 	}
 
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 	return breakPCs.find(addr) != breakPCs.end();
 }
 
@@ -168,7 +196,7 @@ bool IsTextureBreakpoint(u32 addr, bool &temp) {
 		return false;
 	}
 
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 	temp = breakTexturesTemp.find(addr) != breakTexturesTemp.end();
 	return breakTextures.find(addr) != breakTextures.end();
 }
@@ -178,8 +206,40 @@ bool IsTextureBreakpoint(u32 addr) {
 		return false;
 	}
 
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 	return breakTextures.find(addr) != breakTextures.end();
+}
+
+bool IsRenderTargetBreakpoint(u32 addr, bool &temp) {
+	if (breakRenderTargetsCount == 0) {
+		temp = false;
+		return false;
+	}
+
+	addr &= 0x003FFFF0;
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	temp = breakRenderTargetsTemp.find(addr) != breakRenderTargetsTemp.end();
+	return breakRenderTargets.find(addr) != breakRenderTargets.end();
+}
+
+bool IsRenderTargetBreakpoint(u32 addr) {
+	if (breakRenderTargetsCount == 0) {
+		return false;
+	}
+
+	addr &= 0x003FFFF0;
+
+	std::lock_guard<std::mutex> guard(breaksLock);
+	return breakRenderTargets.find(addr) != breakRenderTargets.end();
+}
+
+bool IsOpBreakpoint(u32 op, bool &temp) {
+	return IsCmdBreakpoint(op >> 24, temp);
+}
+
+bool IsOpBreakpoint(u32 op) {
+	return IsCmdBreakpoint(op >> 24);
 }
 
 bool IsCmdBreakpoint(u8 cmd, bool &temp) {
@@ -192,7 +252,7 @@ bool IsCmdBreakpoint(u8 cmd) {
 }
 
 void AddAddressBreakpoint(u32 addr, bool temp) {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
 	if (temp) {
 		if (breakPCs.find(addr) == breakPCs.end()) {
@@ -224,7 +284,7 @@ void AddCmdBreakpoint(u8 cmd, bool temp) {
 }
 
 void AddTextureBreakpoint(u32 addr, bool temp) {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
 	if (temp) {
 		if (breakTextures.find(addr) == breakTextures.end()) {
@@ -239,12 +299,36 @@ void AddTextureBreakpoint(u32 addr, bool temp) {
 	breakTexturesCount = breakTextures.size();
 }
 
+void AddRenderTargetBreakpoint(u32 addr, bool temp) {
+	std::lock_guard<std::mutex> guard(breaksLock);
+
+	addr &= 0x003FFFF0;
+
+	if (temp) {
+		if (breakRenderTargets.find(addr) == breakRenderTargets.end()) {
+			breakRenderTargetsTemp.insert(addr);
+			breakRenderTargets.insert(addr);
+		}
+	} else {
+		breakRenderTargetsTemp.erase(addr);
+		breakRenderTargets.insert(addr);
+	}
+
+	breakRenderTargetsCount = breakRenderTargets.size();
+}
+
 void AddTextureChangeTempBreakpoint() {
 	textureChangeTemp = true;
 }
 
+void AddAnyTempBreakpoint() {
+	for (int i = 0; i < 256; ++i) {
+		AddCmdBreakpoint(i, true);
+	}
+}
+
 void RemoveAddressBreakpoint(u32 addr) {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
 	breakPCsTemp.erase(addr);
 	breakPCs.erase(addr);
@@ -258,12 +342,23 @@ void RemoveCmdBreakpoint(u8 cmd) {
 }
 
 void RemoveTextureBreakpoint(u32 addr) {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
 	breakTexturesTemp.erase(addr);
 	breakTextures.erase(addr);
 
 	breakTexturesCount = breakTextures.size();
+}
+
+void RemoveRenderTargetBreakpoint(u32 addr) {
+	std::lock_guard<std::mutex> guard(breaksLock);
+
+	addr &= 0x003FFFF0;
+
+	breakRenderTargetsTemp.erase(addr);
+	breakRenderTargets.erase(addr);
+
+	breakRenderTargetsCount = breakRenderTargets.size();
 }
 
 void RemoveTextureChangeTempBreakpoint() {
@@ -275,26 +370,29 @@ void UpdateLastTexture(u32 addr) {
 }
 
 void ClearAllBreakpoints() {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
-	breakCmds.clear();
-	breakCmds.resize(256, false);
+	for (int i = 0; i < 256; ++i) {
+		breakCmds[i] = false;
+		breakCmdsTemp[i] = false;
+	}
 	breakPCs.clear();
 	breakTextures.clear();
+	breakRenderTargets.clear();
 
-	breakCmdsTemp.clear();
-	breakCmdsTemp.resize(256, false);
 	breakPCsTemp.clear();
 	breakTexturesTemp.clear();
+	breakRenderTargetsTemp.clear();
 
 	breakPCsCount = breakPCs.size();
 	breakTexturesCount = breakTextures.size();
+	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
 }
 
 void ClearTempBreakpoints() {
-	lock_guard guard(breaksLock);
+	std::lock_guard<std::mutex> guard(breaksLock);
 
 	// Reset ones that were temporary back to non-breakpoints in the primary arrays.
 	for (int i = 0; i < 256; ++i) {
@@ -314,7 +412,13 @@ void ClearTempBreakpoints() {
 		breakTextures.erase(*it);
 	}
 	breakTexturesTemp.clear();
-	breakPCsCount = breakTextures.size();
+	breakTexturesCount = breakTextures.size();
+
+	for (auto it = breakRenderTargetsTemp.begin(), end = breakRenderTargetsTemp.end(); it != end; ++it) {
+		breakRenderTargets.erase(*it);
+	}
+	breakRenderTargetsTemp.clear();
+	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
 }

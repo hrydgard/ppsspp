@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../Common/CommonTypes.h"
+#include "Common/CommonTypes.h"
 
 class PointerWrap;
 
@@ -40,6 +40,26 @@ const int CTRL_STICK_RIGHT = 1;
 #define CTRL_LTRIGGER   0x0100
 #define CTRL_RTRIGGER   0x0200
 
+// System-ish buttons.  Not generally used by games.
+#define CTRL_HOME         0x00010000
+#define CTRL_HOLD         0x00020000
+#define CTRL_WLAN         0x00040000
+#define CTRL_REMOTE_HOLD  0x00080000
+#define CTRL_VOL_UP       0x00100000
+#define CTRL_VOL_DOWN     0x00200000
+#define CTRL_SCREEN       0x00400000
+#define CTRL_NOTE         0x00800000
+#define CTRL_DISC         0x01000000
+#define CTRL_MEMSTICK     0x02000000
+#define CTRL_FORWARD      0x10000000
+#define CTRL_BACK         0x20000000
+#define CTRL_PLAYPAUSE    0x40000000
+
+#define CTRL_MASK_DPAD    (CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT)
+#define CTRL_MASK_ACTION  (CTRL_SQUARE | CTRL_TRIANGLE | CTRL_CIRCLE | CTRL_CROSS)
+#define CTRL_MASK_TRIGGER (CTRL_LTRIGGER | CTRL_RTRIGGER)
+#define CTRL_MASK_USER    (CTRL_MASK_DPAD | CTRL_MASK_ACTION | CTRL_START | CTRL_SELECT | CTRL_MASK_TRIGGER | CTRL_HOME | CTRL_HOLD | CTRL_WLAN | CTRL_REMOTE_HOLD | CTRL_VOL_UP | CTRL_VOL_DOWN | CTRL_SCREEN | CTRL_NOTE)
+
 void __CtrlInit();
 void __CtrlDoState(PointerWrap &p);
 void __CtrlShutdown();
@@ -59,8 +79,21 @@ void __CtrlSetAnalogY(float value, int stick = CTRL_STICK_LEFT);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
 void __CtrlSetRapidFire(bool state);
+bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
 void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
+
+void Register_sceCtrl_driver();
+
+u16 sceCtrlGetRightVibration();
+u16 sceCtrlGetLeftVibration();
+
+namespace SceCtrl {
+	void SetLeftVibration(u16 lVibration);
+	void SetRightVibration(u16 rVibration);
+	void SetVibrationLeftDropout(u8 vibrationLDropout);
+	void SetVibrationRightDropout(u8 vibrationRDropout);
+};

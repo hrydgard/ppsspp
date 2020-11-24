@@ -17,87 +17,71 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Directx9/FramebufferDX9.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
-#include "GPU/Directx9/TransformPipelineDX9.h"
-#include "GPU/Directx9/TextureCacheDX9.h"
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
+#include "GPU/Directx9/DrawEngineDX9.h"
+#include "GPU/Directx9/DepalettizeShaderDX9.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
 
 class ShaderManagerDX9;
 class LinkedShaderDX9;
+class TextureCacheDX9;
 
-class DIRECTX9_GPU : public GPUCommon
-{
+class GPU_DX9 : public GPUCommon {
 public:
-	DIRECTX9_GPU();
-	~DIRECTX9_GPU();
-	virtual void InitClear();
-	virtual void PreExecuteOp(u32 op, u32 diff);
-	virtual void ExecuteOp(u32 op, u32 diff);
+	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
+	~GPU_DX9();
 
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
-	virtual void CopyDisplayToOutput();
-	virtual void BeginFrame();
-	virtual void UpdateStats();
-	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual void UpdateMemory(u32 dest, u32 src, int size);
-	virtual void ClearCacheNextFrame();
-	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
+	void CheckGPUFeatures() override;
+	void PreExecuteOp(u32 op, u32 diff) override;
+	void ExecuteOp(u32 op, u32 diff) override;
 
-	virtual void DumpNextFrame();
-	virtual void DoState(PointerWrap &p);
-	
-	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	virtual void Resized();
-	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
-		return textureCache_.DecodeTexture(dest, state);
-	}
-	virtual bool FramebufferDirty();
-	virtual bool FramebufferReallyDirty();
+	void ReapplyGfxState() override;
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	void GetStats(char *buffer, size_t bufsize) override;
+	void ClearCacheNextFrame() override;
+	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
+	void DeviceRestore() override;
 
-	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-	std::vector<FramebufferInfo> GetFramebufferList();
+	void DoState(PointerWrap &p) override;
+
+	void ClearShaderCache() override;
+
+	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
+
+	void BeginHostFrame() override;
 
 protected:
-	virtual void FastRunLoop(DisplayList &list);
-	virtual void ProcessEvent(GPUEvent ev);
+	void FinishDeferred() override;
 
 private:
 	void Flush() {
-		transformDraw_.Flush();
+		drawEngine_.Flush();
 	}
-	void DoBlockTransfer();
-	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
-	FramebufferManagerDX9 framebufferManager_;
-	TextureCacheDX9 textureCache_;
-	TransformDrawEngineDX9 transformDraw_;
-	ShaderManagerDX9 *shaderManager_;
+	void InitClear() override;
+	void BeginFrame() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 
-	u8 *commandFlags_;
+	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
 
-	bool resized_;
-	int lastVsync_;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
+	FramebufferManagerDX9 *framebufferManagerDX9_;
+	TextureCacheDX9 *textureCacheDX9_;
+	DepalShaderCacheDX9 depalShaderCache_;
+	DrawEngineDX9 drawEngine_;
+	ShaderManagerDX9 *shaderManagerDX9_;
 };
 
-};
+}  // namespace DX9
 
-typedef DX9::DIRECTX9_GPU DIRECTX9_GPU;
+typedef DX9::GPU_DX9 DIRECTX9_GPU;

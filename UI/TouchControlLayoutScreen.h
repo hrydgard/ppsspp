@@ -17,28 +17,31 @@
 
 #pragma once
 
-#include "base/functional.h"
-#include "ui/view.h"
-#include "MiscScreens.h"
+#include <functional>
 #include <vector>
 
-class DragDropButton;
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "MiscScreens.h"
+
+class ControlLayoutView;
 
 class TouchControlLayoutScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlLayoutScreen();
 
-	virtual void CreateViews();
-	virtual void touch(const TouchInput &touch);
-	virtual void dialogFinished(const Screen *dialog, DialogResult result);
-	virtual void onFinish(DialogResult reason);
+	virtual void CreateViews() override;
+	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+	virtual void onFinish(DialogResult reason) override;
+	virtual void update() override;
+	virtual void resized() override;
 
 protected:
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
 	virtual UI::EventReturn OnVisibility(UI::EventParams &e);
+	virtual UI::EventReturn OnMode(UI::EventParams &e);
 
 private:
-	DragDropButton *pickedControl_;
-	std::vector<DragDropButton *> controls_;
-	DragDropButton *getPickedControl(const int x, const int y);
+	UI::ChoiceStrip *mode_ = nullptr;
+	ControlLayoutView *layoutView_ = nullptr;
 };

@@ -24,12 +24,14 @@
 
 // An approximation of what the interface will look like. Similar to JPCSP's.
 
-#include "../../Globals.h"
-#include "../HLE/sceMpeg.h"
-#include "ChunkFile.h"
+#include <map>
+#include "Common/CommonTypes.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
+#include "Core/HW/SimpleAudioDec.h"
 
-struct SimpleAT3;
+class PointerWrap;
+class SimpleAudio;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
@@ -39,7 +41,7 @@ struct AVFormatContext;
 struct AVCodecContext;
 #endif
 
-inline s64 getMpegTimeStamp(u8* buf) {
+inline s64 getMpegTimeStamp(const u8 *buf) {
 	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
@@ -48,8 +50,6 @@ inline s64 getMpegTimeStamp(u8* buf) {
 bool InitFFmpeg();
 #endif
 
-void __AdjustBGMVolume(s16 *samples, u32 count);
-
 class MediaEngine
 {
 public:
@@ -57,44 +57,55 @@ public:
 	~MediaEngine();
 
 	void closeMedia();
-	bool loadStream(u8* buffer, int readSize, int RingbufferSize);
+	bool loadStream(const u8 *buffer, int readSize, int RingbufferSize);
+	bool reloadStream();
+	bool addVideoStream(int streamNum, int streamId = -1);
 	// open the mpeg context
-	bool openContext();
+	bool openContext(bool keepReadPos = false);
+	void closeContext();
 
 	// Returns number of packets actually added. I guess the buffer might be full.
-	int addStreamData(u8* buffer, int addSize);
+	int addStreamData(const u8 *buffer, int addSize);
+	bool seekTo(s64 timestamp, int videoPixelMode);
 
-	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
-	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
+	bool setVideoStream(int streamNum, bool force = false);
+	// TODO: Return false if the stream doesn't exist.
+	bool setAudioStream(int streamNum) { m_audioStream = streamNum; return true; }
 
 	u8 *getFrameImage();
 	int getRemainSize();
+	int getAudioRemainSize();
 
-	bool stepVideo(int videoPixelMode);
-	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
-	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
+	bool stepVideo(int videoPixelMode, bool skipFrame = false);
+	int writeVideoImage(u32 bufferPtr, int frameWidth = 512, int videoPixelMode = 3);
+	int writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height);
-	int getAudioSamples(u8* buffer);
+	int getAudioSamples(u32 bufferPtr);
 
-	bool setVideoDim(int width = 0, int height = 0);
 	s64 getVideoTimeStamp();
 	s64 getAudioTimeStamp();
 	s64 getLastTimeStamp();
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
-	bool IsNoAudioData() { return m_noAudioData; }
+	bool IsNoAudioData();
+	bool IsActuallyPlayingAudio();
+	int VideoWidth() { return m_desWidth; }
+	int VideoHeight() { return m_desHeight; }
 
 	void DoState(PointerWrap &p);
 
 private:
+	bool SetupStreams();
+	bool setVideoDim(int width = 0, int height = 0);
 	void updateSwsFormat(int videoPixelMode);
+	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
 
 public:  // TODO: Very little of this below should be public.
 
 	// Video ffmpeg context - not used for audio
 #ifdef USE_FFMPEG
 	AVFormatContext *m_pFormatCtx;
-	AVCodecContext *m_pCodecCtx;
+	std::map<int, AVCodecContext *> m_pCodecCtxs;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
@@ -104,6 +115,7 @@ public:  // TODO: Very little of this below should be public.
 	int m_sws_fmt;
 	u8 *m_buffer;
 	int m_videoStream;
+	int m_expectedVideoStreams;
 
 	// Used by the demuxer.
 	int m_audioStream;
@@ -116,16 +128,19 @@ public:  // TODO: Very little of this below should be public.
 	BufferQueue *m_pdata;
 
 	MpegDemux *m_demux;
-	SimpleAT3 *m_audioContext;
+	SimpleAudio *m_audioContext;
 	s64 m_audiopts;
 
 	s64 m_firstTimeStamp;
 	s64 m_lastTimeStamp;
 
 	bool m_isVideoEnd;
-	bool m_noAudioData;
 
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
 	int m_mpegheaderReadPos;
+	int m_mpegheaderSize;
+
+	// used for audio type 
+	int m_audioType;
 };

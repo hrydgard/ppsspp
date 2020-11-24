@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
@@ -39,14 +42,15 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
-	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc)
+namespace MIPSComp {
+	using namespace Gen;
+
+	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -65,15 +69,30 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, void *safeFunc)
+	static OpArg DowncastImm(OpArg in, int bits) {
+		if (!in.IsImm())
+			return in;
+		if (in.GetImmBits() > bits) {
+			in.SetImmBits(bits);
+			return in;
+		}
+		return in;
+	}
+
+	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		gpr.MapReg(rt, true, false);
+		
+		if (rt == MIPS_REG_ZERO || gpr.R(rt).IsImm()) {
+			// NOTICE_LOG(JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
+		} else {
+			gpr.MapReg(rt, true, false);
+		}
 
 #ifdef _M_IX86
 		// We use EDX so we can have DL for 8-bit ops.
@@ -93,8 +112,19 @@ namespace MIPSComp
 				MOV(32, R(EDX), gpr.R(rt));
 				MOV(bits, dest, R(EDX));
 			}
-			else
-				MOV(bits, dest, gpr.R(rt));
+			else {
+				if (rt == MIPS_REG_ZERO) {
+					switch (bits) {
+					case 8: MOV(8, dest, Imm8(0)); break;
+					case 16: MOV(16, dest, Imm16(0)); break;
+					case 32: MOV(32, dest, Imm32(0)); break;
+					}
+				} else {
+					// The downcast is needed so we don't try to generate a 8-bit write with a 32-bit imm
+					// (that might have been generated from an li instruction) which is illegal.
+					MOV(bits, dest, DowncastImm(gpr.R(rt), bits));
+				}
+			}
 		}
 		if (safe.PrepareSlowWrite())
 			safe.DoSlowWrite(safeFunc, gpr.R(rt));
@@ -107,7 +137,7 @@ namespace MIPSComp
 
 	void Jit::CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		int o = op>>26;
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
@@ -121,7 +151,7 @@ namespace MIPSComp
 		shiftReg = R9;
 #endif
 
-		gpr.Lock(rt);
+		gpr.Lock(rt, rs);
 		gpr.MapReg(rt, true, !isStore);
 
 		// Grab the offset from alignment for shifting (<< 3 for bytes -> bits.)
@@ -132,7 +162,6 @@ namespace MIPSComp
 
 		{
 			JitSafeMem safe(this, rs, offset, ~3);
-			safe.SetFar();
 			OpArg src;
 			if (safe.PrepareRead(src, 4))
 			{
@@ -141,7 +170,7 @@ namespace MIPSComp
 
 				CompITypeMemUnpairedLRInner(op, shiftReg);
 			}
-			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
+			if (safe.PrepareSlowRead(safeMemFuncs.readU32))
 				CompITypeMemUnpairedLRInner(op, shiftReg);
 			safe.Finish();
 		}
@@ -154,7 +183,7 @@ namespace MIPSComp
 			if (safe.PrepareWrite(dest, 4))
 				MOV(32, dest, R(EDX));
 			if (safe.PrepareSlowWrite())
-				safe.DoSlowWrite((void *) &Memory::Write_U32, R(EDX));
+				safe.DoSlowWrite(safeMemFuncs.writeU32, R(EDX));
 			safe.Finish();
 		}
 
@@ -164,7 +193,7 @@ namespace MIPSComp
 
 	void Jit::CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		int o = op>>26;
 		MIPSGPReg rt = _RT;
 
@@ -199,7 +228,7 @@ namespace MIPSComp
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 
 		// Flip ECX around from 3 bytes / 24 bits.
@@ -250,13 +279,13 @@ namespace MIPSComp
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 	}
 
 	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -269,47 +298,47 @@ namespace MIPSComp
 		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			CompITypeMemRead(op, 16, &XEmitter::MOVZX, (void *) &Memory::Read_U16);
+			CompITypeMemRead(op, 16, &XEmitter::MOVZX, safeMemFuncs.readU16);
 			break;
 
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			CompITypeMemRead(op, 8, &XEmitter::MOVZX, (void *) &Memory::Read_U8);
+			CompITypeMemRead(op, 8, &XEmitter::MOVZX,  safeMemFuncs.readU8);
 			break;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
+			CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
 			break;
 
 		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
-			CompITypeMemRead(op, 8, &XEmitter::MOVSX, (void *) &Memory::Read_U8);
+			CompITypeMemRead(op, 8, &XEmitter::MOVSX, safeMemFuncs.readU8);
 			break;
 
 		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
-			CompITypeMemRead(op, 16, &XEmitter::MOVSX, (void *) &Memory::Read_U16);
+			CompITypeMemRead(op, 16, &XEmitter::MOVSX, safeMemFuncs.readU16);
 			break;
 
 		case 40: //WriteMem8 (addr, R(rt)); break; //sb
-			CompITypeMemWrite(op, 8, (void *) &Memory::Write_U8);
+			CompITypeMemWrite(op, 8, safeMemFuncs.writeU8);
 			break;
 
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			CompITypeMemWrite(op, 16, (void *) &Memory::Write_U16);
+			CompITypeMemWrite(op, 16, safeMemFuncs.writeU16);
 			break;
 
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
+			CompITypeMemWrite(op, 32, safeMemFuncs.writeU32);
 			break;
 
 		case 34: //lwl
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for lwr rd, offset-3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
-				if (!js.inDelaySlot && nextOp == desiredOp)
+				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
-					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
+					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
 				}
 				else
 					CompITypeMemUnpairedLR(op, false);
@@ -318,14 +347,14 @@ namespace MIPSComp
 
 		case 38: //lwr
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for lwl rd, offset+3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
-				if (!js.inDelaySlot && nextOp == desiredOp)
+				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
 					EatInstruction(nextOp);
 					// op has the correct address.
-					CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
+					CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
 				}
 				else
 					CompITypeMemUnpairedLR(op, false);
@@ -334,14 +363,14 @@ namespace MIPSComp
 
 		case 42: //swl
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for swr rd, offset-3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
-				if (!js.inDelaySlot && nextOp == desiredOp)
+				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
-					CompITypeMemWrite(nextOp, 32, (void *) &Memory::Write_U32);
+					CompITypeMemWrite(nextOp, 32, safeMemFuncs.writeU32);
 				}
 				else
 					CompITypeMemUnpairedLR(op, true);
@@ -350,14 +379,14 @@ namespace MIPSComp
 
 		case 46: //swr
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for swl rd, offset+3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
-				if (!js.inDelaySlot && nextOp == desiredOp)
+				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
 					EatInstruction(nextOp);
 					// op has the correct address.
-					CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
+					CompITypeMemWrite(op, 32, safeMemFuncs.writeU32);
 				}
 				else
 					CompITypeMemUnpairedLR(op, true);
@@ -372,6 +401,21 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Cache(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(LSU);
+
+		int func = (op >> 16) & 0x1F;
+
+		// See Int_Cache for the definitions.
+		switch (func) {
+		case 24: break;
+		case 25: break;
+		case 27: break;
+		case 30: break;
+		default:
+			// Fall back to the interpreter.
+			DISABLE;
+		}
 	}
 }
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

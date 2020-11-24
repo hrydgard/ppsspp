@@ -15,21 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// MIPS is really trivial :)
-
 #include <cmath>
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
+#include "Common/BitSet.h"
+#include "Common/BitScan.h"
 #include "Common/Common.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/System.h"
 
 #define R(i) (currentMIPS->r[i])
@@ -38,20 +41,24 @@
 #define FsI(i) (currentMIPS->fs[i])
 #define PC (currentMIPS->pc)
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS ((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
+#define _RD   ((op>>11) & 0x1F)
+#define _FS   ((op>>11) & 0x1F)
+#define _FT   ((op>>16) & 0x1F)
+#define _FD   ((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
 
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
 
 static inline void DelayBranchTo(u32 where)
 {
+	if (!Memory::IsValidAddress(where)) {
+		// TODO: What about misaligned?
+		Core_ExecException(where, PC, ExecExceptionType::JUMP);
+	}
 	PC += 4;
 	mipsr4k.nextPC = where;
 	mipsr4k.inDelaySlot = true;
@@ -70,50 +77,17 @@ int MIPS_SingleStep()
 #else
 	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 #endif
-	/*
-	// Choke on VFPU
-	MIPSInfo info = MIPSGetInfo(op);
-	if (info & IS_VFPU)
-	{
-		if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
-		{
-			Core_EnableStepping(true);
-			return;
-		}
-	}*/
-
-	if (mipsr4k.inDelaySlot)
-	{
+	if (mipsr4k.inDelaySlot) {
 		MIPSInterpret(op);
-		if (mipsr4k.inDelaySlot)
-		{
+		if (mipsr4k.inDelaySlot) {
 			mipsr4k.pc = mipsr4k.nextPC;
 			mipsr4k.inDelaySlot = false;
 		}
-	}
-	else
-	{
+	} else {
 		MIPSInterpret(op);
 	}
 	return 1;
 }
-
-
-
-u32 MIPS_GetNextPC()
-{
-	if (mipsr4k.inDelaySlot)
-		return mipsr4k.nextPC;
-	else
-		return mipsr4k.pc + 4;
-}
-
-
-void MIPS_ClearDelaySlot()
-{
-	mipsr4k.inDelaySlot = false;
-}
-
 
 namespace MIPSInt
 {
@@ -124,8 +98,22 @@ namespace MIPSInt
 		int addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
 
-		// It appears that a cache line is 0x40 (64) bytes.
+		// It appears that a cache line is 0x40 (64) bytes, loops in games
+		// issue the cache instruction at that interval.
+
+		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
+
+		// NOTE: If you add support for more, make sure they are handled in the various Jit::Comp_Cache.
 		switch (func) {
+		// Icache
+		case 8:
+			// Invalidate the instruction cache at this address
+			if (MIPSComp::jit) {
+				MIPSComp::jit->InvalidateCacheAt(addr, 0x40);
+			}
+			break;
+
+		// Dcache
 		case 24:
 			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
 			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
@@ -133,13 +121,13 @@ namespace MIPSInt
 		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
 			// No need to do anything.
 			break;
-		case 27:  // D-cube. Hit Writeback Invalidate.
+		case 27:  // D-cube. Hit Writeback Invalidate.  Tony Hawk Underground 2
 			break;
-		case 30:  // GTA LCS, a lot. Fill (prefetch).
+		case 30:  // GTA LCS, a lot. Fill (prefetch).   Tony Hawk Underground 2
 			break;
 
 		default:
-			DEBUG_LOG(CPU,"cache instruction affecting %08x : function %i", addr, func);
+			DEBUG_LOG(CPU, "cache instruction affecting %08x : function %i", addr, func);
 		}
 
 		PC += 4;
@@ -171,9 +159,7 @@ namespace MIPSInt
 	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
-		ERROR_LOG(CPU, "BREAK!");
-		if (!g_Config.bIgnoreBadMemAccess) 
-			Core_UpdateState(CORE_STEPPING);
+		Core_Break();
 		PC += 4;
 	}
 
@@ -197,7 +183,7 @@ namespace MIPSInt
 		case 23: if ((s32)R(rs) >  0) DelayBranchTo(addr); else SkipLikely(); break; //bgtzl
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -219,7 +205,7 @@ namespace MIPSInt
 		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
 		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -254,7 +240,7 @@ namespace MIPSInt
 		case 2: if (!currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1fl
 		case 3: if ( currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1tl
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -262,7 +248,7 @@ namespace MIPSInt
 	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
-			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
+			_dbg_assert_msg_(false,"Jump in delay slot :(");
 
 		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
@@ -275,7 +261,7 @@ namespace MIPSInt
 			DelayBranchTo(addr);
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -288,7 +274,7 @@ namespace MIPSInt
 			if (op == 0x03e00008)
 				return;
 			ERROR_LOG(CPU, "Jump in delay slot :(");
-			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
+			_dbg_assert_msg_(false,"Jump in delay slot :(");
 		}
 
 		int rs = _RS;
@@ -297,11 +283,11 @@ namespace MIPSInt
 		switch (op & 0x3f) 
 		{
 		case 8: //jr
-			//			LOG(CPU,"returning from: %08x",PC);
 			DelayBranchTo(addr);
 			break;
 		case 9: //jalr
-			R(rd) = PC + 8;
+			if (rd != 0)
+				R(rd) = PC + 8;
 			DelayBranchTo(addr);
 			break;
 		}
@@ -333,7 +319,7 @@ namespace MIPSInt
 		case 14: R(rt) = R(rs) ^ uimm; break; //xori
 		case 15: R(rt) = uimm << 16;	 break; //lui
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -365,7 +351,7 @@ namespace MIPSInt
 			}
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -390,19 +376,9 @@ namespace MIPSInt
 		{
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
-		case 32: 
-			if (!has_warned) {
-				ERROR_LOG(CPU,"WARNING : exception-causing add at %08x", PC);
-				has_warned = true;
-			}
-			R(rd) = R(rs) + R(rt);		break; //add
+		case 32: R(rd) = R(rs) + R(rt);		break; //add (exception on overflow)
 		case 33: R(rd) = R(rs) + R(rt);		break; //addu
-		case 34: 
-			if (!has_warned) {
-				ERROR_LOG(CPU,"WARNING : exception-causing sub at %08x", PC);
-				has_warned = true;
-			}
-			R(rd) = R(rs) - R(rt);		break; //sub
+		case 34: R(rd) = R(rs) - R(rt);		break; //sub (exception on overflow)
 		case 35: R(rd) = R(rs) - R(rt);		break; //subu
 		case 36: R(rd) = R(rs) & R(rt);		break; //and
 		case 37: R(rd) = R(rs) | R(rt);		break; //or
@@ -413,7 +389,7 @@ namespace MIPSInt
 		case 44: R(rd) = ((s32)R(rs) > (s32)R(rt)) ? R(rs) : R(rt); break; //max
 		case 45: R(rd) = ((s32)R(rs) < (s32)R(rt)) ? R(rs) : R(rt); break;//min
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_( 0, "Unknown MIPS instruction %08x", op.encoding);
 			break;
 		}
 		PC += 4;
@@ -484,7 +460,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret Mem instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret Mem instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -502,7 +478,7 @@ namespace MIPSInt
 		case 49: FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		case 57: Memory::Write_U32(FI(ft), addr); break; //swc1
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPULS instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -513,15 +489,49 @@ namespace MIPSInt
 		int fs = _FS;
 		int rt = _RT;
 
-		switch((op>>21)&0x1f) 
-		{
-		case 0: if (rt != 0) R(rt) = FI(fs); break; //mfc1
-		case 2: if (rt != 0) R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
-		case 4: FI(fs) = R(rt);	break; //mtc1
-		case 6: currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
+		switch ((op>>21)&0x1f) {
+		case 0: //mfc1
+			if (rt != 0)
+				R(rt) = FI(fs);
+			break;
+
+		case 2: //cfc1
+			if (rt != 0) {
+				if (fs == 31) {
+					currentMIPS->fcr31 = (currentMIPS->fcr31 & ~(1<<23)) | ((currentMIPS->fpcond & 1)<<23);
+					R(rt) = currentMIPS->fcr31;
+				} else if (fs == 0) {
+					R(rt) = MIPSState::FCR0_VALUE;
+				} else {
+					WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", fs);
+					R(rt) = 0;
+				}
+				break;
+			}
+
+		case 4: //mtc1
+			FI(fs) = R(rt);
+			break;
+
+		case 6: //ctc1
+			{
+				u32 value = R(rt);
+				if (fs == 31) {
+					currentMIPS->fcr31 = value & 0x0181FFFF;
+					currentMIPS->fpcond = (value >> 23) & 1;
+					if (MIPSComp::jit) {
+						// In case of DISABLE, we need to tell jit we updated FCR31.
+						MIPSComp::jit->UpdateFCR31();
+					}
+				} else {
+					WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
+				}
+				DEBUG_LOG(CPU, "FCR%i written to, value %08x", fs, value);
+				break;
+			}
 		
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -542,31 +552,13 @@ namespace MIPSInt
 		switch (op & 63)
 		{
 		case 22:	//clz
-			{ //TODO: verify
-				int x = 31;
-				int count=0;
-				while (!(R(rs) & (1<<x)) && x >= 0)
-				{
-					count++;
-					x--;
-				}
-				R(rd) = count;
-			}
+			R(rd) = clz32(R(rs));
 			break;
 		case 23: //clo
-			{ //TODO: verify
-				int x = 31;
-				int count=0;
-				while ((R(rs) & (1<<x)) && x >= 0)
-				{
-					count++;
-					x--;
-				}
-				R(rd) = count;
-			}
+			R(rd) = clz32(~R(rs));
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -635,9 +627,9 @@ namespace MIPSInt
 				HI = (u32)(result>>32);
 			}
 			break;
-		case 16: R(rd) = HI; break; //mfhi
+		case 16: if (rd != 0) R(rd) = HI; break; //mfhi
 		case 17: HI = R(rs); break; //mthi
-		case 18: R(rd) = LO; break; //mflo
+		case 18: if (rd != 0) R(rd) = LO; break; //mflo
 		case 19: LO = R(rs); break; //mtlo
 		case 26: //div
 			{
@@ -645,11 +637,13 @@ namespace MIPSInt
 				s32 b = (s32)R(rt);
 				if (a == (s32)0x80000000 && b == -1) {
 					LO = 0x80000000;
+					HI = -1;
 				} else if (b != 0) {
 					LO = (u32)(a / b);
 					HI = (u32)(a % b);
 				} else {
-					LO = HI = 0;	// Not sure what the right thing to do is?
+					LO = a < 0 ? 1 : -1;
+					HI = a;
 				}
 			}
 			break;
@@ -657,18 +651,18 @@ namespace MIPSInt
 			{
 				u32 a = R(rs);
 				u32 b = R(rt);
-				if (b != 0) 
-				{
+				if (b != 0) {
 					LO = (a/b);
 					HI = (a%b);
 				} else {
-					LO = HI = 0;
+					LO = a <= 0xFFFF ? 0xFFFF : -1;
+					HI = a;
 				}
 			}
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -723,7 +717,7 @@ namespace MIPSInt
 		case 7: R(rd) = (u32)(((s32)R(rt)) >> (R(rs)&0x1F)); break; //srav
 		default:
 			wrong:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -766,7 +760,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret ALLEGREX instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -793,7 +787,7 @@ namespace MIPSInt
 			R(rd) = swap32(R(rt));
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret ALLEGREX instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret ALLEGREX instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -804,16 +798,16 @@ namespace MIPSInt
 		static int reported = 0;
 		switch (op & 0x3F)
 		{
-		case 36:
+		case 36:  // mfic
 			if (!reported) {
-				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
 				WARN_LOG(CPU,"MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
-		case 38:
+		case 38:  // mtic
 			if (!reported) {
-				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
 				WARN_LOG(CPU,"MTIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
@@ -829,25 +823,24 @@ namespace MIPSInt
 		int pos = _POS;
 
 		// Don't change $zr.
-		if (rt == 0)
-		{
+		if (rt == 0) {
 			PC += 4;
 			return;
 		}
 
-		switch (op & 0x3f)
-		{
+		switch (op & 0x3f) {
 		case 0x0: //ext
 			{
 				int size = _SIZE + 1;
-				R(rt) = (R(rs) >> pos) & ((1<<size) - 1);
+				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
+				R(rt) = (R(rs) >> pos) & sourcemask;
 			}
 			break;
 		case 0x4: //ins
 			{
 				int size = (_SIZE + 1) - pos;
-				int sourcemask = (1 << size) - 1;
-				int destmask = sourcemask << pos;
+				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
+				u32 destmask = sourcemask << pos;
 				R(rt) = (R(rt) & ~destmask) | ((R(rs)&sourcemask) << pos);
 			}
 			break;
@@ -879,7 +872,18 @@ namespace MIPSInt
 			switch (op & 0x3f)
 			{
 			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-			case 13: FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
+			case 13: //trunc.w.s
+				if (F(fs) >= 0.0f) {
+					FsI(fd) = (int)floorf(F(fs));
+					// Overflow, but it was positive.
+					if (FsI(fd) == -2147483648LL) {
+						FsI(fd) = 2147483647LL;
+					}
+				} else {
+					// Overflow happens to be the right value anyway.
+					FsI(fd) = (int)ceilf(F(fs));
+				}
+				break;
 			case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 			case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
 			}
@@ -901,7 +905,7 @@ namespace MIPSInt
 			}
 			break; //cvt.w.s
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU2Op instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPU2Op instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -955,7 +959,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPUComp instruction that can't be interpreted");
 			cond = false;
 			break;
 		}
@@ -971,12 +975,19 @@ namespace MIPSInt
 
 		switch (op & 0x3f)
 		{
-		case 0: F(fd) = F(fs) + F(ft); break; //add
-		case 1: F(fd) = F(fs) - F(ft); break; //sub
-		case 2: F(fd) = F(fs) * F(ft); break; //mul
-		case 3: F(fd) = F(fs) / F(ft); break; //div
+		case 0: F(fd) = F(fs) + F(ft); break; // add.s
+		case 1: F(fd) = F(fs) - F(ft); break; // sub.s
+		case 2: // mul.s
+			if ((my_isinf(F(fs)) && F(ft) == 0.0f) || (my_isinf(F(ft)) && F(fs) == 0.0f)) {
+				// Must be positive NAN, see #12519.
+				FI(fd) = 0x7fc00000;
+			} else {
+				F(fd) = F(fs) * F(ft);
+			}
+			break;
+		case 3: F(fd) = F(fs) / F(ft); break; // div.s
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU3Op instruction that can't be interpreted");
+			_dbg_assert_msg_(false,"Trying to interpret FPU3Op instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;
@@ -989,7 +1000,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
-				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
@@ -998,10 +1009,30 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-
 	void Int_Emuhack(MIPSOpcode op)
 	{
-		_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
+		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
+			_dbg_assert_msg_(false,"Trying to interpret emuhack instruction that can't be interpreted");
+		}
+		// It's a replacement func!
+		int index = op.encoding & 0xFFFFFF;
+		const ReplacementTableEntry *entry = GetReplacementFunc(index);
+		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
+			entry->replaceFunc();
+
+			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+				// Interpret the original instruction under the hook.
+				MIPSInterpret(Memory::Read_Instruction(PC, true));
+			} else {
+				PC = currentMIPS->r[MIPS_REG_RA];
+			}
+		} else {
+			if (!entry || !entry->replaceFunc) {
+				ERROR_LOG(CPU, "Bad replacement function index %i", index);
+			}
+			// Interpret the original instruction under it.
+			MIPSInterpret(Memory::Read_Instruction(PC, true));
+		}
 	}
 
 

@@ -15,12 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <math.h>
+#include <cmath>
+#include <mutex>
+
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Common/ChunkFile.h"
-#include "Common/StdMutex.h"
+#include "Core/MemMapHelpers.h"
+#include "Core/Replay.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
@@ -35,8 +41,6 @@
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
 
-const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
-
 const u32 NUM_CTRL_BUFFERS = 64;
 
 enum {
@@ -44,9 +48,7 @@ enum {
 	CTRL_WAIT_NEGATIVE = 2,
 };
 
-// Returned control data
-struct _ctrl_data
-{
+struct CtrlData {
 	u32_le frame;
 	u32_le buttons;
 	// The PSP has only one stick, but has space for more info.
@@ -69,8 +71,8 @@ static bool analogEnabled = false;
 static int ctrlLatchBufs = 0;
 static u32 ctrlOldButtons = 0;
 
-static _ctrl_data ctrlBufs[NUM_CTRL_BUFFERS];
-static _ctrl_data ctrlCurrent;
+static CtrlData ctrlBufs[NUM_CTRL_BUFFERS];
+static CtrlData ctrlCurrent;
 static u32 ctrlBuf = 0;
 static u32 ctrlBufRead = 0;
 static CtrlLatch latch;
@@ -82,9 +84,15 @@ static int ctrlIdleBack = -1;
 static int ctrlCycle = 0;
 
 static std::vector<SceUID> waitingThreads;
-static std::recursive_mutex ctrlMutex;
+static std::mutex ctrlMutex;
 
 static int ctrlTimer = -1;
+
+static u16 leftVibration = 0;
+static u16 rightVibration = 0;
+// The higher the dropout, the longer Vibration will run
+static u8 vibrationLeftDropout = 160;
+static u8 vibrationRightDropout = 160;
 
 // STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -97,18 +105,20 @@ static u32 emuRapidFireFrames = 0;
 // These buttons are not affected by rapid fire (neither is analog.)
 const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
 
-void __CtrlUpdateLatch()
+static void __CtrlUpdateLatch()
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	
-	// Copy in the current data to the current buffer.
-	ctrlBufs[ctrlBuf] = ctrlCurrent;
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	u64 t = CoreTiming::GetGlobalTimeUs();
+
 	u32 buttons = ctrlCurrent.buttons;
 	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
-	{
-		ctrlBufs[ctrlBuf].buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
-	}
+
+	ReplayApplyCtrl(buttons, ctrlCurrent.analog, t);
+
+	// Copy in the current data to the current buffer.
+	ctrlBufs[ctrlBuf] = ctrlCurrent;
+	ctrlBufs[ctrlBuf].buttons = buttons;
 
 	u32 changed = buttons ^ ctrlOldButtons;
 	latch.btnMake |= buttons & changed;
@@ -117,10 +127,10 @@ void __CtrlUpdateLatch()
 	latch.btnRelease |= ~buttons;
 	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
-		
+
 	ctrlOldButtons = buttons;
 
-	ctrlBufs[ctrlBuf].frame = (u32) CoreTiming::GetGlobalTimeUs();
+	ctrlBufs[ctrlBuf].frame = (u32)t;
 	if (!analogEnabled)
 		memset(ctrlBufs[ctrlBuf].analog, CTRL_ANALOG_CENTER, sizeof(ctrlBufs[ctrlBuf].analog));
 
@@ -132,7 +142,7 @@ void __CtrlUpdateLatch()
 		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 }
 
-int __CtrlResetLatch()
+static int __CtrlResetLatch()
 {
 	int oldBufs = ctrlLatchBufs;
 	memset(&latch, 0, sizeof(CtrlLatch));
@@ -142,14 +152,14 @@ int __CtrlResetLatch()
 
 u32 __CtrlPeekButtons()
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
 
 	return ctrlCurrent.buttons;
 }
 
 void __CtrlPeekAnalog(int stick, float *x, float *y)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
 
 	*x = (ctrlCurrent.analog[stick][CTRL_ANALOG_X] - 127.5f) / 127.5f;
 	*y = -(ctrlCurrent.analog[stick][CTRL_ANALOG_Y] - 127.5f) / 127.5f;
@@ -168,26 +178,28 @@ u32 __CtrlReadLatch()
 
 void __CtrlButtonDown(u32 buttonBit)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
 	ctrlCurrent.buttons |= buttonBit;
 }
 
 void __CtrlButtonUp(u32 buttonBit)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
 void __CtrlSetAnalogX(float x, int stick)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = (u8)ceilf(x * 127.5f + 127.5f);
+	u8 scaled = clamp_u8((int)ceilf(x * 127.5f + 127.5f));
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = scaled;
 }
 
 void __CtrlSetAnalogY(float y, int stick)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = (u8)ceilf(-y * 127.5f + 127.5f);
+	u8 scaled = clamp_u8((int)ceilf(-y * 127.5f + 127.5f));
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaled;
 }
 
 void __CtrlSetRapidFire(bool state)
@@ -195,13 +207,20 @@ void __CtrlSetRapidFire(bool state)
 	emuRapidFire = state;
 }
 
-int __CtrlReadSingleBuffer(PSPPointer<_ctrl_data> data, bool negative)
+bool __CtrlGetRapidFire()
+{
+	return emuRapidFire;
+}
+
+static int __CtrlReadSingleBuffer(PSPPointer<CtrlData> data, bool negative)
 {
 	if (data.IsValid())
 	{
 		*data = ctrlBufs[ctrlBufRead];
 		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 
+		// Mask out buttons games aren't allowed to see.
+		data->buttons &= CTRL_MASK_USER;
 		if (negative)
 			data->buttons = ~data->buttons;
 
@@ -211,7 +230,7 @@ int __CtrlReadSingleBuffer(PSPPointer<_ctrl_data> data, bool negative)
 	return 0;
 }
 
-int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
+static int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 {
 	if (nBufs > NUM_CTRL_BUFFERS)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
@@ -236,8 +255,7 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	ctrlBufRead = (ctrlBuf - availBufs + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
 
 	int done = 0;
-	PSPPointer<_ctrl_data> data;
-	data = ctrlDataPtr;
+	auto data = PSPPointer<CtrlData>::Create(ctrlDataPtr);
 	for (u32 i = 0; i < availBufs; ++i)
 		done += __CtrlReadSingleBuffer(data++, negative);
 
@@ -247,7 +265,7 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	return done;
 }
 
-void __CtrlDoSample()
+static void __CtrlDoSample()
 {
 	// This samples the ctrl data into the buffers and updates the latch.
 	__CtrlUpdateLatch();
@@ -265,29 +283,35 @@ retry:
 		if (wVal == 0)
 			goto retry;
 
-		PSPPointer<_ctrl_data> ctrlDataPtr;
+		PSPPointer<CtrlData> ctrlDataPtr;
 		ctrlDataPtr = __KernelGetWaitValue(threadID, error);
 		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
 		__KernelResumeThreadFromWait(threadID, retVal);
+		__KernelReSchedule("ctrl buffers updated");
 	}
 }
 
-void __CtrlVblank()
+static void __CtrlVblank()
 {
 	emuRapidFireFrames++;
+
+	// Reduce gamepad Vibration by set % each frame
+	leftVibration *= (float)vibrationLeftDropout / 256.0f;
+	rightVibration *= (float)vibrationRightDropout / 256.0f;
 
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
 		__CtrlDoSample();
 }
 
-void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
+static void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 {
 	// This only runs in timer mode (ctrlCycle > 0.)
-	_dbg_assert_msg_(SCECTRL, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+	_dbg_assert_msg_(ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+
+	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle) - cyclesLate, ctrlTimer, 0);
 
 	__CtrlDoSample();
-	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
 }
 
 void __CtrlInit()
@@ -299,7 +323,7 @@ void __CtrlInit()
 	ctrlIdleBack = -1;
 	ctrlCycle = 0;
 
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
 
 	ctrlBuf = 1;
 	ctrlBufRead = 0;
@@ -316,44 +340,44 @@ void __CtrlInit()
 	analogEnabled = false;
 
 	for (u32 i = 0; i < NUM_CTRL_BUFFERS; i++)
-		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
+		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(CtrlData));
 }
 
 void __CtrlDoState(PointerWrap &p)
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+
 	auto s = p.Section("sceCtrl", 1, 3);
 	if (!s)
 		return;
 
-	p.Do(analogEnabled);
-	p.Do(ctrlLatchBufs);
-	p.Do(ctrlOldButtons);
+	Do(p, analogEnabled);
+	Do(p, ctrlLatchBufs);
+	Do(p, ctrlOldButtons);
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
 	if (s <= 2) {
-		_ctrl_data dummy = {0};
-		p.Do(dummy);
+		CtrlData dummy = {0};
+		Do(p, dummy);
 	}
-	p.Do(ctrlBuf);
-	p.Do(ctrlBufRead);
-	p.Do(latch);
+	Do(p, ctrlBuf);
+	Do(p, ctrlBufRead);
+	Do(p, latch);
 	if (s == 1) {
 		dialogBtnMake = 0;
 	} else {
-		p.Do(dialogBtnMake);
+		Do(p, dialogBtnMake);
 	}
 
-	p.Do(ctrlIdleReset);
-	p.Do(ctrlIdleBack);
+	Do(p, ctrlIdleReset);
+	Do(p, ctrlIdleBack);
 
-	p.Do(ctrlCycle);
+	Do(p, ctrlCycle);
 
 	SceUID dv = 0;
-	p.Do(waitingThreads, dv);
+	Do(p, waitingThreads, dv);
 
-	p.Do(ctrlTimer);
+	Do(p, ctrlTimer);
 	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
 }
 
@@ -362,7 +386,7 @@ void __CtrlShutdown()
 	waitingThreads.clear();
 }
 
-u32 sceCtrlSetSamplingCycle(u32 cycle)
+static u32 sceCtrlSetSamplingCycle(u32 cycle)
 {
 	DEBUG_LOG(SCECTRL, "sceCtrlSetSamplingCycle(%u)", cycle);
 
@@ -383,7 +407,7 @@ u32 sceCtrlSetSamplingCycle(u32 cycle)
 	return prev;
 }
 
-int sceCtrlGetSamplingCycle(u32 cyclePtr)
+static int sceCtrlGetSamplingCycle(u32 cyclePtr)
 {
 	DEBUG_LOG(SCECTRL, "sceCtrlGetSamplingCycle(%08x)", cyclePtr);
 	if (Memory::IsValidAddress(cyclePtr))
@@ -391,7 +415,7 @@ int sceCtrlGetSamplingCycle(u32 cyclePtr)
 	return 0;
 }
 
-u32 sceCtrlSetSamplingMode(u32 mode)
+static u32 sceCtrlSetSamplingMode(u32 mode)
 {
 	u32 retVal = 0;
 
@@ -404,7 +428,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 	return retVal;
 }
 
-int sceCtrlGetSamplingMode(u32 modePtr)
+static int sceCtrlGetSamplingMode(u32 modePtr)
 {
 	u32 retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
 	DEBUG_LOG(SCECTRL, "%d=sceCtrlGetSamplingMode(%08x)", retVal, modePtr);
@@ -415,7 +439,7 @@ int sceCtrlGetSamplingMode(u32 modePtr)
 	return 0;
 }
 
-int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
+static int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 {
 	DEBUG_LOG(SCECTRL, "FAKE sceCtrlSetIdleCancelThreshold(%d, %d)", idleReset, idleBack);
 
@@ -427,14 +451,14 @@ int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 	return 0;
 }
 
-int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
+static int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 {
 	DEBUG_LOG(SCECTRL, "sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
 
 	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 
 	if (idleResetPtr)
 		Memory::Write_U32(ctrlIdleReset, idleResetPtr);
@@ -444,12 +468,12 @@ int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 	return 0;
 }
 
-void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
+static int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
+	hleEatCycles(330);
 	if (done != 0)
 	{
-		RETURN(done);
 		DEBUG_LOG(SCECTRL, "%d=sceCtrlReadBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
 	}
 	else
@@ -458,14 +482,15 @@ void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
 		DEBUG_LOG(SCECTRL, "sceCtrlReadBufferPositive(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
+	return done;
 }
 
-void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
+static int sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, false);
+	hleEatCycles(330);
 	if (done != 0)
 	{
-		RETURN(done);
 		DEBUG_LOG(SCECTRL, "%d=sceCtrlReadBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
 	}
 	else
@@ -474,64 +499,101 @@ void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
 		DEBUG_LOG(SCECTRL, "sceCtrlReadBufferNegative(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
+	return done;
 }
 
-int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
+static int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
 	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
+	hleEatCycles(330);
 	return done;
 }
 
-int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
+static int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
 	DEBUG_LOG(SCECTRL, "%d=sceCtrlPeekBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	hleEatCycles(330);
 	return done;
 }
 
-u32 sceCtrlPeekLatch(u32 latchDataPtr)
-{
-	DEBUG_LOG(SCECTRL, "sceCtrlPeekLatch(%08x)", latchDataPtr);
-
-	if (Memory::IsValidAddress(latchDataPtr))
-		Memory::WriteStruct(latchDataPtr, &latch);
-
-	return ctrlLatchBufs;
+static void __CtrlWriteUserLatch(CtrlLatch *userLatch, int bufs) {
+	*userLatch = latch;
+	userLatch->btnBreak &= CTRL_MASK_USER;
+	userLatch->btnMake &= CTRL_MASK_USER;
+	userLatch->btnPress &= CTRL_MASK_USER;
+	if (bufs > 0) {
+		userLatch->btnRelease |= ~CTRL_MASK_USER;
+	}
 }
 
-u32 sceCtrlReadLatch(u32 latchDataPtr)
-{
-	DEBUG_LOG(SCECTRL, "sceCtrlReadLatch(%08x)", latchDataPtr);
-
-	if (Memory::IsValidAddress(latchDataPtr))
-		Memory::WriteStruct(latchDataPtr, &latch);
-
-	return __CtrlResetLatch();
+static u32 sceCtrlPeekLatch(u32 latchDataPtr) {
+	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
+	if (userLatch.IsValid()) {
+		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
+	}
+	return hleLogSuccessI(SCECTRL, ctrlLatchBufs);
 }
 
-static const HLEFunction sceCtrl[] = 
+static u32 sceCtrlReadLatch(u32 latchDataPtr) {
+	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
+	if (userLatch.IsValid()) {
+		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
+	}
+	return hleLogSuccessI(SCECTRL, __CtrlResetLatch());
+}
+
+static const HLEFunction sceCtrl[] =
 {
-	{0x3E65A0EA, 0, "sceCtrlInit"}, //(int unknown), init with 0
-	{0x1f4011e6, WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
-	{0x6A2774F3, WrapU_U<sceCtrlSetSamplingCycle>, "sceCtrlSetSamplingCycle"},
-	{0x02BAAD91, WrapI_U<sceCtrlGetSamplingCycle>,"sceCtrlGetSamplingCycle"},
-	{0xDA6B76A1, WrapI_U<sceCtrlGetSamplingMode>, "sceCtrlGetSamplingMode"},
-	{0x1f803938, WrapV_UU<sceCtrlReadBufferPositive>, "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
-	{0x3A622550, WrapI_UU<sceCtrlPeekBufferPositive>, "sceCtrlPeekBufferPositive"},
-	{0xC152080A, WrapI_UU<sceCtrlPeekBufferNegative>, "sceCtrlPeekBufferNegative"},
-	{0x60B81F86, WrapV_UU<sceCtrlReadBufferNegative>, "sceCtrlReadBufferNegative"},
-	{0xB1D0E5CD, WrapU_U<sceCtrlPeekLatch>, "sceCtrlPeekLatch"},
-	{0x0B588501, WrapU_U<sceCtrlReadLatch>, "sceCtrlReadLatch"},
-	{0x348D99D4, 0, "sceCtrlSetSuspendingExtraSamples"},
-	{0xAF5960F3, 0, "sceCtrlGetSuspendingExtraSamples"},
-	{0xA68FD260, 0, "sceCtrlClearRapidFire"},
-	{0x6841BE1A, 0, "sceCtrlSetRapidFire"},
-	{0xa7144800, WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
-	{0x687660fa, WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold"},
-};	
+	{0X3E65A0EA, nullptr,                                  "sceCtrlInit",                      '?', ""  }, //(int unknown), init with 0
+	{0X1F4011E6, &WrapU_U<sceCtrlSetSamplingMode>,         "sceCtrlSetSamplingMode",           'x', "x" },
+	{0X6A2774F3, &WrapU_U<sceCtrlSetSamplingCycle>,        "sceCtrlSetSamplingCycle",          'x', "x" },
+	{0X02BAAD91, &WrapI_U<sceCtrlGetSamplingCycle>,        "sceCtrlGetSamplingCycle",          'i', "x" },
+	{0XDA6B76A1, &WrapI_U<sceCtrlGetSamplingMode>,         "sceCtrlGetSamplingMode",           'i', "x" },
+	{0X1F803938, &WrapI_UU<sceCtrlReadBufferPositive>,     "sceCtrlReadBufferPositive",        'i', "xx"},
+	{0X3A622550, &WrapI_UU<sceCtrlPeekBufferPositive>,     "sceCtrlPeekBufferPositive",        'i', "xx"},
+	{0XC152080A, &WrapI_UU<sceCtrlPeekBufferNegative>,     "sceCtrlPeekBufferNegative",        'i', "xx"},
+	{0X60B81F86, &WrapI_UU<sceCtrlReadBufferNegative>,     "sceCtrlReadBufferNegative",        'i', "xx"},
+	{0XB1D0E5CD, &WrapU_U<sceCtrlPeekLatch>,               "sceCtrlPeekLatch",                 'i', "x" },
+	{0X0B588501, &WrapU_U<sceCtrlReadLatch>,               "sceCtrlReadLatch",                 'i', "x" },
+	{0X348D99D4, nullptr,                                  "sceCtrlSetSuspendingExtraSamples", '?', ""  },
+	{0XAF5960F3, nullptr,                                  "sceCtrlGetSuspendingExtraSamples", '?', ""  },
+	{0XA68FD260, nullptr,                                  "sceCtrlClearRapidFire",            '?', ""  },
+	{0X6841BE1A, nullptr,                                  "sceCtrlSetRapidFire",              '?', ""  },
+	{0XA7144800, &WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold",    'i', "ii"},
+	{0X687660FA, &WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold",    'i', "xx"},
+};
 
 void Register_sceCtrl()
 {
 	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
+}
+
+void Register_sceCtrl_driver()
+{
+	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
+}
+
+u16 sceCtrlGetRightVibration() {
+	return rightVibration;
+}
+
+u16 sceCtrlGetLeftVibration() {
+	return leftVibration;
+}
+
+namespace SceCtrl {
+	void SetRightVibration(u16 rVibration) {
+		rightVibration = rVibration;
+	}
+	void SetLeftVibration(u16 lVibration) {
+		leftVibration = lVibration;
+	}
+	void SetVibrationRightDropout(u8 vibrationRDropout) {
+		vibrationRightDropout = vibrationRDropout;
+	}
+	void SetVibrationLeftDropout(u8 vibrationLDropout) {
+		vibrationLeftDropout = vibrationLDropout;
+	}
 }

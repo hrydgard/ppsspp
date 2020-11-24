@@ -17,33 +17,104 @@
 
 #pragma once
 
-#include "base/functional.h"
-#include "ui/ui_screen.h"
-#include "ui/viewgroup.h"
-#include "UI/MiscScreens.h"
+#include <functional>
 
-// Game screen: Allows you to start a game, delete saves, delete the game,
-// set game specific settings, etc.
-// Uses GameInfoCache heavily to implement the functionality.
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/ViewGroup.h"
+#include "UI/MiscScreens.h"
+#include "Common/File/PathBrowser.h"
+
+enum GameBrowserFlags {
+	FLAG_HOMEBREWSTOREBUTTON = 1
+};
+
+enum class BrowseFlags {
+	NONE = 0,
+	NAVIGATE = 1,
+	ARCHIVES = 2,
+	PIN = 4,
+	HOMEBREW_STORE = 8,
+	STANDARD = 1 | 2 | 4,
+};
+ENUM_CLASS_BITOPS(BrowseFlags);
+
+class GameBrowser : public UI::LinearLayout {
+public:
+	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
+
+	UI::Event OnChoice;
+	UI::Event OnHoldChoice;
+	UI::Event OnHighlight;
+
+	void FocusGame(const std::string &gamePath);
+	void SetPath(const std::string &path);
+	void Draw(UIContext &dc) override;
+	void Update() override;
+
+protected:
+	virtual bool DisplayTopBar();
+	virtual bool HasSpecialFiles(std::vector<std::string> &filenames);
+
+	void Refresh();
+
+private:
+	bool IsCurrentPathPinned();
+	const std::vector<std::string> GetPinnedPaths();
+	const std::string GetBaseName(const std::string &path);
+
+	UI::EventReturn GameButtonClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
+	UI::EventReturn NavigateClick(UI::EventParams &e);
+	UI::EventReturn LayoutChange(UI::EventParams &e);
+	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn HomeClick(UI::EventParams &e);
+	UI::EventReturn PinToggleClick(UI::EventParams &e);
+	UI::EventReturn GridSettingsClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClear(UI::EventParams &e);
+	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
+
+	UI::ViewGroup *gameList_ = nullptr;
+	PathBrowser path_;
+	bool *gridStyle_ = nullptr;
+	BrowseFlags browseFlags_;
+	std::string lastText_;
+	std::string lastLink_;
+	std::string focusGamePath_;
+	bool listingPending_ = false;
+	float lastScale_ = 1.0f;
+	bool lastLayoutWasGrid_ = true;
+	ScreenManager *screenManager_;
+};
+
+class RemoteISOBrowseScreen;
 
 class MainScreen : public UIScreenWithBackground {
 public:
-	MainScreen() {}
+	MainScreen();
+	~MainScreen();
 
-	virtual bool isTopLevel() const { return true; }
+	bool isTopLevel() const override { return true; }
+
+	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
+	static bool showHomebrewTab;
 
 protected:
-	virtual void CreateViews();
-	virtual void update(InputState &input);
-	virtual void sendMessage(const char *message, const char *value);
+	void CreateViews() override;
+	void DrawBackground(UIContext &dc) override;
+	void update() override;
+	void sendMessage(const char *message, const char *value) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-private:
+	bool UseVerticalLayout() const;
+	bool DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress);
+
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
 	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
+	UI::EventReturn OnGameHighlight(UI::EventParams &e);
 	// Event handlers
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnRecentChange(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
@@ -51,42 +122,25 @@ private:
 	UI::EventReturn OnExit(UI::EventParams &e);
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
+	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 
-	UI::LinearLayout *upgradeBar_;
-};
+	UI::LinearLayout *upgradeBar_ = nullptr;
+	UI::TabHolder *tabHolder_ = nullptr;
 
-class GamePauseScreen : public UIDialogScreen {
-public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreen(), gamePath_(filename), saveSlots_(NULL) {}
-	virtual ~GamePauseScreen();
+	std::string restoreFocusGamePath_;
+	std::vector<GameBrowser *> gameBrowsers_;
 
-	virtual void onFinish(DialogResult result);
+	std::string highlightedGamePath_;
+	std::string prevHighlightedGamePath_;
+	float highlightProgress_ = 0.0f;
+	float prevHighlightProgress_ = 0.0f;
+	bool backFromStore_ = false;
+	bool lockBackgroundAudio_ = false;
+	bool lastVertical_;
+	bool confirmedTemporary_ = false;
+	UI::ScrollView *scrollAllGames_ = nullptr;
 
-protected:
-	virtual void DrawBackground(UIContext &dc);
-	virtual void CreateViews();
-	virtual void update(InputState &input);
-	virtual void sendMessage(const char *message, const char *value);
-
-private:
-	UI::EventReturn OnMainSettings(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnExitToMenu(UI::EventParams &e);
-
-	UI::EventReturn OnSaveState(UI::EventParams &e);
-	UI::EventReturn OnLoadState(UI::EventParams &e);
-	UI::EventReturn OnRewind(UI::EventParams &e);
-
-	UI::EventReturn OnStateSelected(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
-
-	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
-
-	std::string gamePath_;
-
-	UI::ChoiceStrip *saveSlots_;
-	UI::Choice *saveStateButton_;
-	UI::Choice *loadStateButton_;
+	friend class RemoteISOBrowseScreen;
 };
 
 class UmdReplaceScreen : public UIDialogScreenWithBackground {
@@ -94,8 +148,8 @@ public:
 	UmdReplaceScreen() {}
 
 protected:
-	virtual void CreateViews();
-	virtual void update(InputState &input);
+	void CreateViews() override;
+	void update() override;
 	//virtual void sendMessage(const char *message, const char *value);
 
 private:
@@ -104,4 +158,18 @@ private:
 
 	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
+};
+
+class GridSettingsScreen : public PopupScreen {
+public:
+	GridSettingsScreen(std::string label) : PopupScreen(label) {}
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	UI::Event OnRecentChanged;
+
+private:
+	UI::EventReturn GridPlusClick(UI::EventParams &e);
+	UI::EventReturn GridMinusClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
+	const float MAX_GAME_GRID_SCALE = 3.0f;
+	const float MIN_GAME_GRID_SCALE = 0.8f;
 };

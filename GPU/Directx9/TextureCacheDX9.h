@@ -17,150 +17,84 @@
 
 #pragma once
 
-#include "../Globals.h"
-#include "helper/global.h"
-#include "helper/fbo.h"
+#include <map>
+
+#include <d3d9.h>
+
+#include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
+#include "GPU/Common/TextureCacheCommon.h"
+
+struct VirtualFramebuffer;
 
 namespace DX9 {
 
-struct VirtualFramebufferDX9;
+class FramebufferManagerDX9;
+class DepalShaderCacheDX9;
+class ShaderManagerDX9;
 
-enum TextureFiltering {
-	AUTO = 1,
-	NEAREST = 2,
-	LINEAR = 3,   
-	LINEARFMV = 4,
-};
-
-enum FramebufferNotification {
-	NOTIFY_FB_CREATED,
-	NOTIFY_FB_UPDATED,
-	NOTIFY_FB_DESTROYED,
-};
-
-class TextureCacheDX9 
-{
+class TextureCacheDX9 : public TextureCacheCommon {
 public:
-	TextureCacheDX9();
+	TextureCacheDX9(Draw::DrawContext *draw);
 	~TextureCacheDX9();
 
-	void SetTexture();
-
-	void Clear(bool delete_them);
 	void StartFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type);
-	void InvalidateAll(GPUInvalidationType type);
-	void ClearNextFrame();
-	void LoadClut();
 
-	// FramebufferManager keeps TextureCache updated about what regions of memory
-	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg);
-
-	size_t NumLoadedTextures() const {
-		return cache.size();
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
+	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
+		depalShaderCache_ = dpCache;
+	}
+	void SetShaderManager(ShaderManagerDX9 *sm) {
+		shaderManager_ = sm;
 	}
 
-	// Only used by Qt UI?
-	bool DecodeTexture(u8 *output, GPUgstate state);
+	void ForgetLastTexture() override {
+		InvalidateLastTexture();
+	}
+	void InvalidateLastTexture() override;
+
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
+
+protected:
+	void BindTexture(TexCacheEntry *entry) override;
+	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
 private:
-	// Wow this is starting to grow big. Soon need to start looking at resizing it.
-	// Must stay a POD.
-	struct TexCacheEntry {
-		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
-		const static int FRAMES_REGAIN_TRUST = 1000;
+	void ApplySamplingParams(const SamplerCacheKey &key);
 
-		enum Status {
-			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,  // cache, don't hash
-			STATUS_UNRELIABLE = 0x02,  // never cache
-			STATUS_MASK = 0x03,
+	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, u32 dstFmt);
+	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	static TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,  // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,  // Like above, but also has 0 alpha (e.g. 5551.)
-			STATUS_ALPHA_MASK = 0x0c,
-		};
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
+	void BuildTexture(TexCacheEntry *const entry) override;
 
-		// Status, but int so we can zero initialize.
-		int status;
-		u32 addr;
-		u32 hash;
-		VirtualFramebufferDX9 *framebuffer;  // if null, not sourced from an FBO.
-		u32 sizeInRAM;
-		int lastFrame;
-		int numFrames;
-		int numInvalidated;
-		u32 framesUntilNextFullHash;
-		u8 format;
-		u16 dim;
-		u16 bufw;
-		LPDIRECT3DTEXTURE9 texture;  //GLuint
-		int invalidHint;
-		u32 fullhash;
-		u32 cluthash;
-		int maxLevel;
-		float lodBias;
+	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
+		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
+	}
 
-		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
-		u8 magFilt;
-		u8 minFilt;
-		bool sClamp;
-		bool tClamp;
+	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
 
-		bool Matches(u16 dim2, u8 format2, int maxLevel2);
-	};
-
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
-	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw);
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt);
-	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h);
-	template <typename T>
-	const T *GetCurrentClut();
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut();
-	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, bool exactMatch);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer);
-	void SetTextureFramebuffer(TexCacheEntry *entry);
-
-	TexCacheEntry *GetEntryAt(u32 texaddr);
-
-	typedef std::map<u64, TexCacheEntry> TexCache;
-	TexCache cache;
-	TexCache secondCache;
-	std::vector<VirtualFramebufferDX9 *> fbCache_;
-
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
 	TextureScalerDX9 scaler;
 
-	SimpleBuf<u32> tmpTexBuf32;
-	SimpleBuf<u16> tmpTexBuf16;
-
-	SimpleBuf<u32> tmpTexBufRearrange;
-
-	u32 clutLastFormat_;
-	u32 *clutBufRaw_;
-	u32 *clutBufConverted_;
-	u32 *clutBuf_;
-	u32 clutHash_;
-	u32 clutTotalBytes_;
-	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
-	u16 clutAlphaLinearColor_;
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	int texelsScaledThisFrame_;
+	int timesInvalidatedAllThisFrame_;
+
+	FramebufferManagerDX9 *framebufferManagerDX9_;
+	DepalShaderCacheDX9 *depalShaderCache_;
+	ShaderManagerDX9 *shaderManager_;
 };
+
+D3DFORMAT getClutDestFormat(GEPaletteFormat format);
 
 };

@@ -17,41 +17,56 @@
 
 #pragma once
 
-#include "gfx_es2/glsl_program.h"
+#include <functional>
+#include "CommonWindows.h"
+
+#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Common/CommonWindows.h"
-#include "Globals.h"
 
 struct SimpleGLWindow {
-	static const PTCHAR windowClass;
+	static const wchar_t *windowClass;
 
 	enum Format {
-		FORMAT_565_REV = 0,
-		FORMAT_5551_REV = 1,
-		FORMAT_4444_REV = 2,
-		FORMAT_8888 = 3,
-		FORMAT_565 = 4,
-		FORMAT_5551 = 5,
-		FORMAT_4444 = 6,
+		FORMAT_565_REV = 0x00,
+		FORMAT_5551_REV = 0x01,
+		FORMAT_4444_REV = 0x02,
+		FORMAT_8888 = 0x03,
+		FORMAT_565 = 0x04,
+		FORMAT_5551 = 0x05,
+		FORMAT_4444 = 0x06,
+		FORMAT_5551_BGRA_REV = 0x09,
+		FORMAT_4444_BGRA_REV = 0x0A,
+		FORMAT_8888_BGRA = 0x0B,
 
 		FORMAT_FLOAT = 0x10,
 		FORMAT_16BIT = 0x11,
 		FORMAT_8BIT = 0x12,
+		FORMAT_24BIT_8X = 0x13,
+		FORMAT_24X_8BIT = 0x14,
+
+		FORMAT_FLOAT_DIV_256 = 0x18,
+		FORMAT_24BIT_8X_DIV_256 = 0x1B,
 	};
 
 	enum Flags {
 		RESIZE_NONE = 0x00,
-		RESIZE_CENTER = 0x02,
-		RESIZE_SHRINK_FIT = 0x01,
+		RESIZE_CENTER = 0x01,
+		RESIZE_SHRINK_FIT = 0x02,
 		RESIZE_SHRINK_CENTER = 0x03,
+		RESIZE_GROW_FIT = 0x04,
+		RESIZE_GROW_CENTER = 0x05,
+		RESIZE_BEST_FIT = 0x06,
+		RESIZE_BEST_CENTER = 0x07,
+
 		ALPHA_IGNORE = 0x00,
-		ALPHA_BLEND = 0x04,
+		ALPHA_BLEND = 0x08,
 	};
 
 	SimpleGLWindow(HWND wnd);
 	~SimpleGLWindow();
 
 	void Clear();
-	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
+	void Draw(const u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
 	void Redraw(bool andSwap = true);
 	void Initialize(u32 flags);
 	static SimpleGLWindow *GetFrom(HWND hwnd);
@@ -66,6 +81,7 @@ struct SimpleGLWindow {
 	}
 
 	void Swap() {
+		swapped_ = true;
 		SwapBuffers(hDC_);
 	}
 
@@ -75,6 +91,10 @@ struct SimpleGLWindow {
 
 	int Height() {
 		return h_;
+	}
+
+	bool HasTex() {
+		return tw_ > 0 && th_ > 0;
 	}
 
 	int TexWidth() {
@@ -87,6 +107,20 @@ struct SimpleGLWindow {
 
 	void GetContentSize(float &x, float &y, float &fw, float &fh);
 
+	void SetRedrawCallback(std::function<void()> callback) {
+		redrawCallback_ = callback;
+	}
+
+	void SetHoverCallback(std::function<void(int, int)> hoverCallback) {
+		hoverCallback_ = hoverCallback;
+	}
+
+	// Called first with 0 that it's opening, then the selected item.
+	void SetRightClickMenu(HMENU menu, std::function<void(int)> callback) {
+		rightClickCallback_ = callback;
+		rightClickMenu_ = menu;
+	}
+
 	static void RegisterClass();
 protected:
 	void SetupGL();
@@ -97,12 +131,16 @@ protected:
 	bool DragStart(int mouseX, int mouseY);
 	bool DragContinue(int mouseX, int mouseY);
 	bool DragEnd(int mouseX, int mouseY);
+	bool Hover(int mouseX, int mouseY);
+	bool Leave();
+	bool RightClick(int mouseX, int mouseY);
 	bool ToggleZoom();
+	const u8 *Reformat(const u8 *data, Format fmt, u32 numPixels);
 
 	HWND hWnd_;
 	HDC hDC_;
 	HGLRC hGLRC_;
-	bool valid_;
+	bool valid_ = false;
 	// Width and height of the window.
 	int w_;
 	int h_;
@@ -111,17 +149,29 @@ protected:
 	int th_;
 	bool tflipped_;
 
-	GLSLProgram *drawProgram_;
-	GLuint checker_;
-	GLuint tex_;
-	u32 flags_;
+	GLSLProgram *drawProgram_ = nullptr;
+	GLuint vao_ = 0;
+	GLuint ibuf_ = 0;
+	GLuint vbuf_ = 0;
+	GLuint checker_ = 0;
+	GLuint tex_ = 0;
+	u32 flags_ = 0;
 	// Disable shrink (toggled by double click.)
-	bool zoom_;
-	bool dragging_;
+	bool zoom_ = false;
+	bool dragging_ = false;
+	bool inRedrawCallback_ = false;
+	bool swapped_ = false;
 	int dragStartX_;
 	int dragStartY_;
 	u32 dragLastUpdate_;
 	// Offset to position the texture is drawn at.
-	int offsetX_;
-	int offsetY_;
+	int offsetX_ = 0;
+	int offsetY_ = 0;
+	u32 *reformatBuf_ = nullptr;
+	u32 reformatBufSize_ = 0;
+
+	std::function<void()> redrawCallback_;
+	std::function<void(int, int)> hoverCallback_;
+	std::function<void(int)> rightClickCallback_;
+	HMENU rightClickMenu_;
 };

@@ -17,8 +17,10 @@
 
 #pragma once
 
-#include "base/functional.h"
-#include "ui/ui_screen.h"
+#include <functional>
+
+#include "UI/MiscScreens.h"
+#include "Common/UI/UIScreen.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
@@ -26,20 +28,25 @@
 // Uses GameInfoCache heavily to implement the functionality.
 // Should possibly merge this with the PauseScreen.
 
-class GameScreen : public UIDialogScreen {
+class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(std::string gamePath) : gamePath_(gamePath) {}
+	GameScreen(const std::string &gamePath);
+	~GameScreen();
 
-	virtual void update(InputState &input);
+	void render() override;
+
+	std::string tag() const override { return "game"; }
 
 protected:
-	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
+	void CreateViews() override;
+	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(std::string gamePath);
+	bool isRecentGame(const std::string &gamePath);
 
 private:
+	UI::Choice *AddOtherChoice(UI::Choice *choice);
+
 	// Event handlers
 	UI::EventReturn OnPlay(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
@@ -48,13 +55,24 @@ private:
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
 	UI::EventReturn OnCreateShortcut(UI::EventParams &e);
 	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
-
-	std::string gamePath_;
+	UI::EventReturn OnShowInFolder(UI::EventParams &e);
+	UI::EventReturn OnCreateConfig(UI::EventParams &e);
+	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
+	UI::EventReturn OnCwCheat(UI::EventParams &e);
+	UI::EventReturn OnSetBackground(UI::EventParams &e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextureView *texvGameIcon_;
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;
 	UI::TextView *tvInstallDataSize_;
+	UI::TextView *tvRegion_;
+
+	UI::Choice *btnGameSettings_;
+	UI::Choice *btnCreateGameConfig_;
+	UI::Choice *btnDeleteGameConfig_;
+	UI::Choice *btnDeleteSaveData_;
+	UI::Choice *btnSetBackground_;
+	std::vector<UI::Choice *> otherChoices_;
+	std::vector<std::string> saveDirs;
 };

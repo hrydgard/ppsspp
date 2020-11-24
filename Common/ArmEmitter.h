@@ -15,23 +15,15 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
+#pragma once
 
-#ifndef _DOLPHIN_ARM_CODEGEN_
-#define _DOLPHIN_ARM_CODEGEN_
-
-#include "Common.h"
-#include "MemoryUtil.h"
-#if defined(__SYMBIAN32__) || defined(PANDORA)
-#include <signal.h>
-#endif
 #include <vector>
+#include <cstdint>
 
-#undef _IP
-#undef R0
-#undef _SP
-#undef _LR
-#undef _PC
+#include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/ArmCommon.h"
+#include "Common/CodeBlock.h"
 
 // VCVT flags
 #define TO_FLOAT      0
@@ -51,7 +43,7 @@ enum ARMReg
 	// R13 - R15 are SP, LR, and PC.
 	// Almost always referred to by name instead of register number
 	R12 = 12, R13 = 13, R14 = 14, R15 = 15,
-	_IP = 12, _SP = 13, _LR = 14, _PC = 15,
+	R_IP = 12, R_SP = 13, R_LR = 14, R_PC = 15,
 
 
 	// VFP single precision registers
@@ -75,28 +67,6 @@ enum ARMReg
 	REG_UPDATE = R13,
 	INVALID_REG = 0xFFFFFFFF
 };
-
-enum CCFlags
-{
-	CC_EQ = 0, // Equal
-	CC_NEQ, // Not equal
-	CC_CS, // Carry Set
-	CC_CC, // Carry Clear
-	CC_MI, // Minus (Negative)
-	CC_PL, // Plus
-	CC_VS, // Overflow
-	CC_VC, // No Overflow
-	CC_HI, // Unsigned higher
-	CC_LS, // Unsigned lower or same
-	CC_GE, // Signed greater than or equal
-	CC_LT, // Signed less than
-	CC_GT, // Signed greater than
-	CC_LE, // Signed less than or equal
-	CC_AL, // Always (unconditional) 14
-	CC_HS = CC_CS, // Alias of CC_CS  Unsigned higher or same
-	CC_LO = CC_CC, // Alias of CC_CC  Unsigned lower
-};
-const u32 NO_COND = 0xE0000000;
 
 enum ShiftType
 {
@@ -148,7 +118,7 @@ private:
 	u8 IndexOrShift;
 	ShiftType Shift;
 public:
-	OpType GetType()
+	OpType GetType() const
 	{
 		return Type;
 	}
@@ -175,7 +145,7 @@ public:
 	Operand2(ARMReg base, ShiftType type, ARMReg shift) // RSR
 	{
 		Type = TYPE_RSR;
-		_assert_msg_(JIT, type != ST_RRX, "Invalid Operand2: RRX does not take a register shift amount");
+		_assert_msg_(type != ST_RRX, "Invalid Operand2: RRX does not take a register shift amount");
 		IndexOrShift = shift;
 		Shift = type;
 		Value = base;
@@ -187,29 +157,29 @@ public:
 		switch (type)
 		{
 		case ST_LSL:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: LSL %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: LSL %u", shift);
 			break;
 		case ST_LSR:
-			_assert_msg_(JIT, shift <= 32, "Invalid Operand2: LSR %u", shift);
+			_assert_msg_(shift <= 32, "Invalid Operand2: LSR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			if (shift == 32)
 				shift = 0;
 			break;
 		case ST_ASR:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: ASR %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: ASR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			if (shift == 32)
 				shift = 0;
 			break;
 		case ST_ROR:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: ROR %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: ROR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			break;
 		case ST_RRX:
-			_assert_msg_(JIT, shift == 0, "Invalid Operand2: RRX does not take an immediate shift amount");
+			_assert_msg_(shift == 0, "Invalid Operand2: RRX does not take an immediate shift amount");
 			type = ST_ROR;
 			break;
 		}
@@ -231,86 +201,86 @@ public:
 		case TYPE_RSR:
 			return RSR();
 		default:
-			_assert_msg_(JIT, false, "GetData with Invalid Type");
+			_assert_msg_(false, "GetData with Invalid Type");
 			return 0;
 		}
 	}
 	u32 IMMSR() // IMM shifted register
 	{
-		_assert_msg_(JIT, Type == TYPE_IMMSREG, "IMMSR must be imm shifted register");
+		_assert_msg_(Type == TYPE_IMMSREG, "IMMSR must be imm shifted register");
 		return ((IndexOrShift & 0x1f) << 7 | (Shift << 5) | Value);
 	}
 	u32 RSR() // Register shifted register
 	{
-		_assert_msg_(JIT, Type == TYPE_RSR, "RSR must be RSR Of Course");
+		_assert_msg_(Type == TYPE_RSR, "RSR must be RSR Of Course");
 		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Value;
 	}
-	u32 Rm()
+	u32 Rm() const
 	{
-		_assert_msg_(JIT, Type == TYPE_REG, "Rm must be with Reg");
+		_assert_msg_(Type == TYPE_REG, "Rm must be with Reg");
 		return Value;
 	}
 
-	u32 Imm5()
+	u32 Imm5() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm5 not IMM value");
+		_assert_msg_((Type == TYPE_IMM), "Imm5 not IMM value");
 		return ((Value & 0x0000001F) << 7);
 	}
-	u32 Imm8()
+	u32 Imm8() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
+		_assert_msg_((Type == TYPE_IMM), "Imm8Rot not IMM value");
 		return Value & 0xFF;
 	}
-	u32 Imm8Rot() // IMM8 with Rotation
+	u32 Imm8Rot() const // IMM8 with Rotation
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
-		_assert_msg_(JIT, (Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
+		_assert_msg_((Type == TYPE_IMM), "Imm8Rot not IMM value");
+		_assert_msg_((Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
 		return (1 << 25) | (Rotation << 7) | (Value & 0x000000FF);
 	}
-	u32 Imm12()
+	u32 Imm12() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12 not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm12 not IMM");
 		return (Value & 0x00000FFF);
 	}
 
-	u32 Imm12Mod()
+	u32 Imm12Mod() const
 	{
 		// This is an IMM12 with the top four bits being rotation and the
 		// bottom eight being an IMM. This is for instructions that need to
 		// expand a 8bit IMM to a 32bit value and gives you some rotation as
 		// well.
 		// Each rotation rotates to the right by 2 bits
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12Mod not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm12Mod not IMM");
 		return ((Rotation & 0xF) << 8) | (Value & 0xFF);
 	}
-	u32 Imm16()
+	u32 Imm16() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm16 not IMM");
 		return ( (Value & 0xF000) << 4) | (Value & 0x0FFF);
 	}
-	u32 Imm16Low()
+	u32 Imm16Low() const
 	{
 		return Imm16();
 	}
-	u32 Imm16High() // Returns high 16bits
+	u32 Imm16High() const // Returns high 16bits
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm16 not IMM");
 		return ( ((Value >> 16) & 0xF000) << 4) | ((Value >> 16) & 0x0FFF);
 	}
-	u32 Imm24()
+	u32 Imm24() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm16 not IMM");
 		return (Value & 0x0FFFFFFF);
 	}
 	// NEON and ASIMD specific
-	u32 Imm8ASIMD()
+	u32 Imm8ASIMD() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8ASIMD not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm8ASIMD not IMM");
 		return  ((Value & 0x80) << 17) | ((Value & 0x70) << 12) | (Value & 0xF);
 	}
-	u32 Imm8VFP()
+	u32 Imm8VFP() const
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8VFP not IMM");
+		_assert_msg_((Type == TYPE_IMM), "Imm8VFP not IMM");
 		return ((Value & 0xF0) << 12) | (Value & 0xF);
 	}
 };
@@ -359,6 +329,20 @@ const u32 I_UNSIGNED = (1 << 5);
 const u32 F_32 = (1 << 6);
 const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 
+enum VIMMMode {
+	VIMM___x___x = 0x0, // 0000 VMOV
+	VIMM__x___x_ = 0x2, // 0010
+	VIMM_x___x__ = 0x4, // 0100
+	VIMMx___x___ = 0x6, // 0110
+	VIMM_x_x_x_x = 0x8, // 1000
+	VIMMx_x_x_x_ = 0xA, // 1010
+	VIMM__x1__x1 = 0xC, // 1100
+	VIMM_x11_x11 = 0xD, // 1101
+	VIMMxxxxxxxx = 0xE, // 1110  // op == 0
+	VIMMf000f000 = 0xF, // 1111  // op == 0     ( really   aBbbbbbc defgh 00000000 00000000 ) where B = NOT b
+	VIMMbits2bytes = 0x1E,   // Bit replication into bytes! Easily created 111111111 00000000 masks!
+};
+
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
@@ -368,10 +352,40 @@ u32 encodedSize(u32 value);
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
 
+inline bool IsQ(ARMReg r) {
+	return r >= Q0 && r <= Q15;
+}
+
+inline bool IsD(ARMReg r) {
+	return r >= D0 && r <= D31;
+}
+
 // See A.7.1 in the ARMv7-A
 // VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
+inline ARMReg XScalar(ARMReg reg, int subScalar) {
+	if (IsQ(reg))
+		return QScalar(reg, subScalar);
+	else
+		return DScalar(reg, subScalar);
+}
+
+const char *ARMRegAsString(ARMReg reg);
+
+// Get the two halves of a Q register.
+inline ARMReg D_0(ARMReg q) {
+	if (q >= Q0 && q <= Q15) {
+		return ARMReg(D0 + (q - Q0) * 2);
+	} else if (q >= D0 && q <= D31) {
+		return q;
+	} else {
+		return INVALID_REG;
+	}
+}
+inline ARMReg D_1(ARMReg q) {
+	return ARMReg(D0 + (q - Q0) * 2 + 1);
+}
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,
@@ -395,6 +409,7 @@ private:
 
 	void WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 op2, bool RegAdd);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
+	void WriteVRegStoreOp(u32 op, ARMReg dest, bool Double, bool WriteBack, ARMReg firstreg, u8 numregs);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
 	void WriteSignedMultiply(u32 Op, u32 Op2, u32 Op3, ARMReg dest, ARMReg r1, ARMReg r2);
@@ -408,6 +423,10 @@ private:
 
 	void WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
 	void WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
+
+	void WriteVimm(ARMReg Vd, int cmode, u8 imm, int op);
+
+	void EncodeShiftByImm(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount, u8 opcode, bool quad, bool inverse, bool halve);
 
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
@@ -424,11 +443,12 @@ public:
 	}
 	virtual ~ARMXEmitter() {}
 
-	void SetCodePtr(u8 *ptr);
+	void SetCodePointer(u8 *ptr, u8 *writePtr);
+	const u8 *GetCodePointer() const;
+
 	void ReserveCodeSpace(u32 bytes);
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
-	const u8 *GetCodePtr() const;
 	void FlushIcache();
 	void FlushIcacheSection(u8 *start, u8 *end);
 	u8 *GetWritableCodePtr();
@@ -469,7 +489,7 @@ public:
 	void B (ARMReg src);
 	void BL(const void *fnptr);
 	void BL(ARMReg src);
-	bool BLInRange(const void *fnptr);
+	bool BLInRange(const void *fnptr) const;
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);
@@ -540,7 +560,9 @@ public:
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
 	void BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width);
+	void BFC(ARMReg rd, u8 lsb, u8 width);
 	void UBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
+	void SBFX(ARMReg dest, ARMReg op2, u8 lsb, u8 width);
 	void CLZ(ARMReg rd, ARMReg rm);
 	void PLD(ARMReg rd, int offset, bool forWrite = false);
 
@@ -587,6 +609,16 @@ public:
 	void VSUB(IntegerSize size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 
 	// VFP Only
+	void VLDMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VSTMIA(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VLDMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VSTMDB(ARMReg dest, bool WriteBack, ARMReg firstreg, int numregs);
+	void VPUSH(ARMReg firstvreg, int numvregs) {
+		VSTMDB(R_SP, true, firstvreg, numvregs);
+	}
+	void VPOP(ARMReg firstvreg, int numvregs) {
+		VLDMIA(R_SP, true, firstvreg, numvregs);
+	}
 	void VLDR(ARMReg Dest, ARMReg Base, s16 offset);
 	void VSTR(ARMReg Src,  ARMReg Base, s16 offset);
 	void VCMP(ARMReg Vd, ARMReg Vm);
@@ -612,6 +644,8 @@ public:
 	void VMOV(ARMReg Dest, Operand2 op2);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
+	// Either Vd, Rt, Rt2 or Rt, Rt2, Vd.
+	void VMOV(ARMReg Dest, ARMReg Src1, ARMReg Src2);
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
 	// NEON, need to check for this (supported if VFP4 is supported)
@@ -631,8 +665,6 @@ public:
 	void VADDHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VADDL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VADDW(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VAND(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VBIC(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBIF(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBIT(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VBSL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -651,10 +683,9 @@ public:
 	void VCNT(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index);
 	void VDUP(u32 Size, ARMReg Vd, ARMReg Rt);
-	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VEXT(ARMReg Vd, ARMReg Vn, ARMReg Vm, u8 index);
-	void VFMA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VFMS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VFMA(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VFMS(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VHADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VHSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMAX(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -691,9 +722,29 @@ public:
 	void VQRDMULH_scalar(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	*/
 
-	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
+  // Vector bitwise. These don't have an element size for obvious reasons.
+	void VAND(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VBIC(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VEOR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORN(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VORR(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	inline void VMOV_neon(ARMReg Dest, ARMReg Src) {
+		VORR(Dest, Src, Src);
+	}
+	void VMOV_neon(u32 Size, ARMReg Vd, u32 imm);
+	void VMOV_neon(u32 Size, ARMReg Vd, float imm) {
+		_dbg_assert_msg_(Size == F_32, "Expecting F_32 immediate for VMOV_neon float arg.");
+		union {
+			float f;
+			u32 u;
+		} val;
+		val.f = imm;
+		VMOV_neon(I_32, Vd, val.u);
+	}
+	void VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane);
+
+	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VMVN(ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VPADDL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -713,7 +764,7 @@ public:
 	void VRSQRTE(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VRSQRTS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VSHL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn);  // Register shift
 	void VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -729,150 +780,122 @@ public:
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
 
+	// NEON immediate instructions
+
+
+	void VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMOV_immf(ARMReg Vd, float value);  // This only works with a select few values (1.0f and -1.0f).
+
+	void VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm);
+
+	// Shifts by immediate
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);
+	void VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);  // widening
+	void VSHR(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);
+	void VSHRN(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);  // narrowing
 
 	// Vector VCVT
 	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);
 
 
 	// Notes:
-	// Rm == _PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
+	// Rm == R_PC  is interpreted as no offset, otherwise, effective address is sum of Rn and Rm
 	// Rm == R13  is interpreted as   VLD1,   ....  [Rn]!    Added a REG_UPDATE pseudo register.
 
 	// Load/store multiple registers full of elements (a register is a D register)
 	// Specifying alignment when it can be guaranteed is documented to improve load/store performance.
 	// For example, when loading a set of four 64-bit registers that we know is 32-byte aligned, we should specify ALIGN_256.
-	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST1(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
 	// Load/store single lanes of D registers
-	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
-	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = _PC);
+	void VLD1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = R_PC);
+	void VST1_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm = R_PC);
 
 	// Load one value into all lanes of a D or a Q register (either supported, all formats should work). 
-	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = _PC);
+	void VLD1_all_lanes(u32 Size, ARMReg Vd, ARMReg Rn, bool aligned, ARMReg Rm = R_PC);
 
 	/*
 	// Deinterleave two loads... or something. TODO
-	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST2(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST2_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 
-	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST3(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST3_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 
-	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
-	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = _PC);
+	void VLD4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
+	void VST4(u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align = ALIGN_NONE, ARMReg Rm = R_PC);
 
-	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
-	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = _PC);
+	void VLD4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
+	void VST4_lane(u32 Size, ARMReg Vd, ARMReg Rn, int lane, ARMReg Rm = R_PC);
 	*/
 
 	void VMRS_APSR();
 	void VMRS(ARMReg Rt);
 	void VMSR(ARMReg Rt);
 
-	void QuickCallFunction(ARMReg scratchreg, void *func);
+	void QuickCallFunction(ARMReg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(ARMReg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
+	}
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
+	void MOVI2FR(ARMReg dest, float val, bool negate = false);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
+	void MOVI2F_neon(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
-		MOVI2R(reg, (u32)(intptr_t)(void *)val);
+		MOVI2R(reg, (u32)(uintptr_t)(void *)val);
+	}
+
+	void MOVIU2F(ARMReg dest, u32 val, ARMReg tempReg, bool negate = false) {
+		union {
+			u32 u;
+			float f;
+		} v = {val};
+		MOVI2F(dest, v.f, tempReg, negate);
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
+	void SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TrySUBI2R(ARMReg rd, ARMReg rs, u32 val);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryANDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void CMPI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryCMPI2R(ARMReg rs, u32 val);
 	void TSTI2R(ARMReg rs, u32 val, ARMReg scratch);
+	bool TryTSTI2R(ARMReg rs, u32 val);
 	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryORI2R(ARMReg rd, ARMReg rs, u32 val);
+	void EORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	bool TryEORI2R(ARMReg rd, ARMReg rs, u32 val);
 };  // class ARMXEmitter
 
 
 // Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class ARMXCodeBlock : public ARMXEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
 
+class ARMXCodeBlock : public CodeBlock<ARMXEmitter> {
 public:
-	ARMXCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~ARMXCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size)
-	{
-		region_size = size;
-		region = (u8*)AllocateExecutableMemory(region_size);
-		SetCodePtr(region);
-	}
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace() 
-	{
-		// x86/64: 0xCC = breakpoint
-		memset(region, 0xCC, region_size);
-		ResetCodePtr();
-	}
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace()
-	{
-#ifdef __SYMBIAN32__
-		ResetExecutableMemory(region);
-#else
-		FreeMemoryPages(region, region_size);
-#endif
-		region = NULL;
-		region_size = 0;
-	}
-
-	bool IsInSpace(const u8 *ptr) const
-	{
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect()
-	{
-		WriteProtectMemory(region, region_size, true);
-	}
-	void UnWriteProtect()
-	{
-		UnWriteProtectMemory(region, region_size, false);
-	}
-
-	void ResetCodePtr()
-	{
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const
-	{
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory(int offset) override;
 };
 
 // VFP Specific
@@ -884,5 +907,3 @@ extern const VFPEnc VFPOps[16][2];
 extern const char *VFPOpNames[16];
 
 }  // namespace
-
-#endif // _DOLPHIN_INTEL_CODEGEN_

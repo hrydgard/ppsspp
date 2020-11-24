@@ -15,218 +15,432 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <vector>
 
-#include "TouchControlLayoutScreen.h"
-#include "TouchControlVisibilityScreen.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/UI/Context.h"
+
+#include "Common/Common.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "base/colorutil.h"
-#include "ui/ui_context.h"
-#include "ui_atlas.h"
-#include "gfx_es2/draw_buffer.h"
-#include "GamepadEmu.h"
-#include "i18n/i18n.h"
+#include "UI/GamepadEmu.h"
+#include "UI/TouchControlLayoutScreen.h"
+#include "UI/TouchControlVisibilityScreen.h"
 
-static const int leftMargin = 140; 
-
-// convert from screen coordinates (leftMargin to dp_xres) to actual fullscreen coordinates (0 to 1.0)
-static inline float toFullscreenCoord(int screenx) {
-	return  (float)(screenx - leftMargin) / (dp_xres - leftMargin);
+static u32 GetButtonColor() {
+	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
-
-// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftMargin to dp_xres)
-static inline int fromFullscreenCoord(float controllerX) {
-	return leftMargin + (dp_xres - leftMargin) * controllerX;
-};
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(float &x, float &y, int bgImg, int img, float scale) 
-	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*dp_yres, UI::NONE, UI::NONE, true)),
-    x_(x), y_(y) {
-		scale_ = scale;
+	DragDropButton(ConfigTouchPos &pos, ImageID bgImg, ImageID img, const Bounds &screenBounds)
+	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(pos.x * screenBounds.w, pos.y * screenBounds.h, UI::NONE, UI::NONE, true)),
+		x_(pos.x), y_(pos.y), theScale_(pos.scale), screenBounds_(screenBounds) {
+		scale_ = theScale_;
 	}
 
-	virtual bool IsDown() {
-		//don't want the button to enlarge and throw the user's perspective
-		//of button size off whack.
+	bool IsDown() override {
+		// Don't want the button to enlarge and throw the user's perspective
+		// of button size off whack.
 		return false;
 	};
 
-	void SavePosition() {
-		x_ = toFullscreenCoord(bounds_.centerX());
-		y_ = bounds_.centerY() / dp_yres;
+	virtual void SavePosition() {
+		x_ = (bounds_.centerX() - screenBounds_.x) / screenBounds_.w;
+		y_ = (bounds_.centerY() - screenBounds_.y) / screenBounds_.h;
+		scale_ = theScale_;
+	}
+
+	virtual float GetScale() const { return theScale_; }
+	virtual void SetScale(float s) { theScale_ = s; scale_ = s; }
+
+	virtual float GetSpacing() const { return 1.0f; }
+	virtual void SetSpacing(float s) { }
+
+protected:
+	float GetButtonOpacity() override {
+		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+		return std::max(0.5f, opacity);
 	}
 
 private:
 	float &x_, &y_;
+	float &theScale_;
+	const Bounds &screenBounds_;
 };
 
 class PSPActionButtons : public DragDropButton {
 public:
-	PSPActionButtons(float &x, float &y, int actionButtonSpacing, float scale) 
-	: DragDropButton(x, y, -1, -1, scale), actionButtonSpacing_(actionButtonSpacing) {
+	PSPActionButtons(ConfigTouchPos &pos, float &spacing, const Bounds &screenBounds)
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid(), screenBounds), spacing_(spacing) {
 		using namespace UI;
-		roundId_ = I_ROUND;
-
-		circleId_ = I_CIRCLE;
-		crossId_ = I_CROSS;
-		triangleId_ = I_TRIANGLE;
-		squareId_ = I_SQUARE;
-
-		circleVisible_ = triangleVisible_ = squareVisible_ = crossVisible_ = true;
+		roundId_ = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	};
 
-	void setCircleVisibility(bool visible){
+	void setCircleVisibility(bool visible) {
 		circleVisible_ = visible;
 	}
 
-	void setCrossVisibility(bool visible){
+	void setCrossVisibility(bool visible) {
 		crossVisible_ = visible;
 	}
 
-	void setTriangleVisibility(bool visible){
+	void setTriangleVisibility(bool visible) {
 		triangleVisible_ = visible;
 	}
 
-	void setSquareVisibility(bool visible){
+	void setSquareVisibility(bool visible) {
 		squareVisible_ = visible;
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-		uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
 
+		float spacing = spacing_ * baseActionButtonSpacing;
 		if (circleVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX + actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(circleId_,  centerX + actionButtonSpacing_, centerY, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(roundId_, centerX + spacing, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(circleId_,  centerX + spacing, centerY, scale_, 0, color, false);
 		}
 
 		if (crossVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + actionButtonSpacing_, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + actionButtonSpacing_, scale_, 0, color, false);
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + spacing, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + spacing, scale_, 0, color, false);
 		}
 
 		if (triangleVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - actionButtonSpacing_, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(triangleId_, centerX, centerY - actionButtonSpacing_, scale_, 0, color, false);
+			float y = centerY - spacing;
+			y -= 2.8f * scale_;
+			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - spacing, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(triangleId_, centerX, y, scale_, 0, color, false);
 		}
-		
-		if (squareVisible_){
-			dc.Draw()->DrawImageRotated(roundId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(squareId_, centerX -  actionButtonSpacing_, centerY, scale_, 0, color, false);
+
+		if (squareVisible_) {
+			dc.Draw()->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
+			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
 	};
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
-		const AtlasImage &image = dc.Draw()->GetAtlas()->images[roundId_];
-		w = 2 * actionButtonSpacing_ + image.w * scale_;
-		h = 2 * actionButtonSpacing_ + image.h * scale_;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(roundId_);
 
-		//w += 2 * actionButtonSpacing_;
-		//h += 2 * actionButtonSpacing_;
-	};
+		w = (2.0f * baseActionButtonSpacing * spacing_) + image->w * scale_;
+		h = (2.0f * baseActionButtonSpacing * spacing_) + image->h * scale_;
+	}
+
+	float GetSpacing() const override { return spacing_; }
+	void SetSpacing(float s) override { spacing_ = s; }
 
 private:
+	bool circleVisible_ = true, crossVisible_ = true, triangleVisible_ = true, squareVisible_ = true;
 
-	bool circleVisible_, crossVisible_, triangleVisible_, squareVisible_;
+	ImageID roundId_ = ImageID::invalid();
+	ImageID circleId_ = ImageID("I_CIRCLE");
+	ImageID crossId_ = ImageID("I_CROSS");
+	ImageID triangleId_ = ImageID("I_TRIANGLE");
+	ImageID squareId_ = ImageID("I_SQUARE");
 
-	int roundId_;
-	int circleId_, crossId_, triangleId_, squareId_;
-
-	int actionButtonSpacing_;
+	float &spacing_;
 };
 
 class PSPDPadButtons : public DragDropButton {
 public:
-	PSPDPadButtons(float &x, float &y, int DpadRadius, float scale) 
-		: DragDropButton(x, y, -1, -1, scale), DpadRadius_(DpadRadius) {
+	PSPDPadButtons(ConfigTouchPos &pos, float &spacing, const Bounds &screenBounds)
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid(), screenBounds), spacing_(spacing) {
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-		uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
 
+		ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
+
 		for (int i = 0; i < 4; i++) {
-			float x = bounds_.centerX() + xoff[i] * DpadRadius_;
-			float y  = bounds_.centerY() + yoff[i] * DpadRadius_;
+			float r = D_pad_Radius * spacing_;
+			float x = bounds_.centerX() + xoff[i] * r;
+			float y = bounds_.centerY() + yoff[i] * r;
+			float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
+			float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
 			float angle = i * M_PI / 2;
 
-			dc.Draw()->DrawImageRotated(I_DIR, x, y, scale_, angle + PI, colorBg, false);
-			dc.Draw()->DrawImageRotated(I_ARROW, x, y, scale_, angle + PI, color);
+			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
+			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
 	}
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
-		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_DIR];
-		w =  2 * DpadRadius_ + image.w * scale_;
-		h =  2 * DpadRadius_ + image.h * scale_;
-
-		//w += 2 * DpadRadius_;
-		//h += 2 * DpadRadius_;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_DIR"));
+		w = 2 * D_pad_Radius * spacing_ + image->w * scale_;
+		h = 2 * D_pad_Radius * spacing_ + image->h * scale_;
 	};
 
-private:
-	int DpadRadius_;
-}; 
+	float GetSpacing() const override { return spacing_; }
+	void SetSpacing(float s) override { spacing_ = s; }
 
-TouchControlLayoutScreen::TouchControlLayoutScreen() {
-	pickedControl_ = 0;
+private:
+	float &spacing_;
 };
 
-void TouchControlLayoutScreen::touch(const TouchInput &touch) {
-	UIScreen::touch(touch);
+class SnapGrid : public UI::View {
+public:
+	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color) {
+		x1 = leftMargin;
+		x2 = rightMargin;
+		y1 = topMargin;
+		y2 = bottomMargin;
+		col = color;
+	}
 
+	void Draw(UIContext &dc) override {
+		if (g_Config.bTouchSnapToGrid) {
+			dc.Flush();
+			dc.BeginNoTex();
+			float xOffset = bounds_.x;
+			float yOffset = bounds_.y;
+			for (int x = x1; x < x2; x += g_Config.iTouchSnapGridSize)
+				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
+			for (int y = y1; y < y2; y += g_Config.iTouchSnapGridSize)
+				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
+			dc.Flush();
+			dc.Begin();
+		}
+	}
+
+private:
+	int x1, x2, y1, y2;
+	u32 col;
+};
+
+class DragDropButton;
+
+class ControlLayoutView : public UI::AnchorLayout {
+public:
+	explicit ControlLayoutView(UI::LayoutParams *layoutParams)
+		: UI::AnchorLayout(layoutParams) {
+	}
+
+	void Touch(const TouchInput &input) override;
+	void CreateViews();
+	bool HasCreatedViews() const {
+		return !controls_.empty();
+	}
+
+	DragDropButton *pickedControl_ = nullptr;
+	DragDropButton *getPickedControl(const int x, const int y);
+	std::vector<DragDropButton *> controls_;
+
+	// Touch down state for dragging
+	float startObjectX_ = -1.0f;
+	float startObjectY_ = -1.0f;
+	float startDragX_ = -1.0f;
+	float startDragY_ = -1.0f;
+	float startScale_ = -1.0f;
+	float startSpacing_ = -1.0f;
+
+	int mode_ = 0;
+};
+
+static Point ClampTo(const Point &p, const Bounds &b) {
+	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
+}
+
+void ControlLayoutView::Touch(const TouchInput &touch) {
 	using namespace UI;
 
-	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != 0) {
-		const Bounds &bounds = pickedControl_->GetBounds();
-		
-		int mintouchX = leftMargin + bounds.w * 0.5;
-		int maxTouchX = dp_xres - bounds.w * 0.5;
+	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
+		if (mode_ == 0) {
+			const Bounds &controlBounds = pickedControl_->GetBounds();
 
-		int minTouchY = bounds.h * 0.5;
-		int maxTouchY = dp_yres - bounds.h * 0.5;
+			// Allow placing the control halfway outside the play area.
+			Bounds validRange = this->GetBounds();
+			// Control coordinates are relative inside the bounds.
+			validRange.x = 0.0f;
+			validRange.y = 0.0f;
 
-		int newX = bounds.centerX(), newY = bounds.centerY();
+			validRange.x += controlBounds.w * 0.5f;
+			validRange.w -= controlBounds.w;
+			validRange.y += controlBounds.h * 0.5f;
+			validRange.h -= controlBounds.h;
 
-		//we have to handle x and y separately since even if x is blocked, y may not be.
-		if (touch.x > mintouchX && touch.x < maxTouchX) {
-			//if the leftmost point of the control is ahead of the margin,
-			//move it. Otherwise, don't.
-			newX = touch.x;
+			Point newPos;
+			newPos.x = startObjectX_ + (touch.x - startDragX_);
+			newPos.y = startObjectY_ + (touch.y - startDragY_);
+			if (g_Config.bTouchSnapToGrid) {
+				newPos.x -= fmod(newPos.x - controlBounds.w, g_Config.iTouchSnapGridSize);
+				newPos.y -= fmod(newPos.y - controlBounds.h, g_Config.iTouchSnapGridSize);
+			}
+
+			newPos = ClampTo(newPos, validRange);
+			pickedControl_->ReplaceLayoutParams(new AnchorLayoutParams(newPos.x, newPos.y, NONE, NONE, true));
+		} else if (mode_ == 1) {
+			// Resize. Vertical = scaling, horizontal = spacing;
+			// Up should be bigger so let's negate in that direction
+			float diffX = (touch.x - startDragX_);
+			float diffY = -(touch.y - startDragY_);
+
+			// Snap to grid
+			if (g_Config.bTouchSnapToGrid) {
+				diffX -= fmod(touch.x - startDragX_, g_Config.iTouchSnapGridSize/2);
+				diffY += fmod(touch.y - startDragY_, g_Config.iTouchSnapGridSize/2);
+			}
+			float movementScale = 0.02f;
+			float newScale = startScale_ + diffY * movementScale; 
+			float newSpacing = startSpacing_ + diffX * movementScale;
+			if (newScale > 3.0f) newScale = 3.0f;
+			if (newScale < 0.5f) newScale = 0.5f;
+			if (newSpacing > 3.0f) newSpacing = 3.0f;
+			if (newSpacing < 0.5f) newSpacing = 0.5f;
+			pickedControl_->SetSpacing(newSpacing);
+			pickedControl_->SetScale(newScale);
 		}
-		if (touch.y > minTouchY && touch.y < maxTouchY) {
-			newY = touch.y;
-		}
-
-		// ILOG("position: x = %d; y = %d", newX, newY);
-		pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
 	}
 	if ((touch.flags & TOUCH_DOWN) && pickedControl_ == 0) {
-		ILOG("->->->picked up")
 		pickedControl_ = getPickedControl(touch.x, touch.y);
+		if (pickedControl_) {
+			startDragX_ = touch.x;
+			startDragY_ = touch.y;
+			const auto &prevParams = pickedControl_->GetLayoutParams()->As<AnchorLayoutParams>();
+			startObjectX_ = prevParams->left;
+			startObjectY_ = prevParams->top;
+
+			startSpacing_ = pickedControl_->GetSpacing();
+			startScale_ = pickedControl_->GetScale();
+		}
 	}
 	if ((touch.flags & TOUCH_UP) && pickedControl_ != 0) {
 		pickedControl_->SavePosition();
-		ILOG("->->->dropped down")
 		pickedControl_ = 0;
 	}
-};
+}
+
+void ControlLayoutView::CreateViews() {
+	const Bounds &bounds = GetBounds();
+	if (bounds.w == 0.0f || bounds.h == 0.0f) {
+		// Layout hasn't happened yet, return.
+		// See comment in TouchControlLayoutScreen::update().
+		return;
+	}
+
+	// Create all the views.
+
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing, bounds);
+	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
+	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
+	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
+	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
+
+	controls_.push_back(actionButtons);
+
+	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
+	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
+	ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
+	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
+	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
+	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
+
+	const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
+
+	auto addDragDropButton = [&](ConfigTouchPos &pos, ImageID bgImg, ImageID img) {
+		DragDropButton *b = nullptr;
+		if (pos.show) {
+			b = new DragDropButton(pos, bgImg, img, bounds);
+			controls_.push_back(b);
+		}
+		return b;
+	};
+
+	if (g_Config.touchDpad.show) {
+		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing, bounds));
+	}
+
+	addDragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT"));
+	addDragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START"));
+
+	if (auto *unthrottle = addDragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"))) {
+		unthrottle->SetAngle(180.0f);
+	}
+	if (auto *speed1 = addDragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"))) {
+		speed1->SetAngle(170.0f, 180.0f);
+	}
+	if (auto *speed2 = addDragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"))) {
+		speed2->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *rapidFire = addDragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"))) {
+		rapidFire->SetAngle(90.0f, 180.0f);
+	}
+	if (auto *analogRotationCW = addDragDropButton(g_Config.touchAnalogRotationCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCW->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *analogRotationCCW = addDragDropButton(g_Config.touchAnalogRotationCCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCCW->SetAngle(350.0f, 180.0f);
+	}
+
+	addDragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L"));
+	if (auto *rbutton = addDragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"))) {
+		rbutton->FlipImageH(true);
+	}
+
+	addDragDropButton(g_Config.touchAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchRightAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]);
+	addDragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]);
+	addDragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]);
+	addDragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]);
+	addDragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]);
+
+	for (size_t i = 0; i < controls_.size(); i++) {
+		Add(controls_[i]);
+	}
+
+	Add(new SnapGrid(0, bounds.w, 0, bounds.h, 0x3FFFFFFF));
+}
+
+// return the control which was picked up by the touchEvent. If a control
+// was already picked up, then it's being dragged around, so just return that instead
+DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
+	if (pickedControl_ != 0) {
+		return pickedControl_;
+	}
+
+	for (size_t i = 0; i < controls_.size(); i++) {
+		DragDropButton *control = controls_[i];
+		const Bounds &bounds = control->GetBounds();
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds.w;
+		const float thresholdH = thresholdFactor * bounds.h;
+
+		Bounds tolerantBounds(bounds.x - thresholdW * 0.5, bounds.y - thresholdH * 0.5 , bounds.w + thresholdW, bounds.h + thresholdH);
+		if (tolerantBounds.Contains(x, y)) {
+			return control;
+		}
+	}
+
+	return 0;
+}
+
+TouchControlLayoutScreen::TouchControlLayoutScreen() {}
+
+void TouchControlLayoutScreen::resized() {
+	RecreateViews();
+}
 
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {
-	g_Config.Save();
+	g_Config.Save("TouchControlLayoutScreen::onFinish");
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
@@ -235,25 +449,10 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	g_Config.iActionButtonSpacing = -1;
-	g_Config.fActionButtonCenterX = -1.0;
-	g_Config.fActionButtonCenterY = -1.0;
-	g_Config.iDpadRadius = -1;
-	g_Config.fDpadX = -1.0;
-	g_Config.fDpadY = -1.0;
-	g_Config.fStartKeyX = -1.0;
-	g_Config.fStartKeyY = -1.0;
-	g_Config.fSelectKeyX = -1.0;
-	g_Config.fSelectKeyY = -1.0;
-	g_Config.fUnthrottleKeyX = -1.0;
-	g_Config.fUnthrottleKeyY = -1.0;
-	g_Config.fLKeyX = -1.0;
-	g_Config.fLKeyY = -1.0;
-	g_Config.fRKeyX = -1.0;
-	g_Config.fRKeyY = -1.0;
-	g_Config.fAnalogStickX = -1.0;
-	g_Config.fAnalogStickY = -1.0;
-	InitPadLayout();
+	INFO_LOG(G3D, "Resetting touch control layout");
+	g_Config.ResetControlLayout();
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
 	RecreateViews();
 	return UI::EVENT_DONE;
 };
@@ -262,108 +461,83 @@ void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult
 	RecreateViews();
 }
 
+UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
+	int mode = mode_->GetSelection();
+	if (layoutView_) {
+		layoutView_->mode_ = mode;
+	}
+	return UI::EVENT_DONE;
+}
+
+void TouchControlLayoutScreen::update() {
+	UIDialogScreenWithBackground::update();
+
+	// TODO: We really, really need a cleaner solution for creating sub-views
+	// of custom compound controls.
+	if (layoutView_) {
+		if (!layoutView_->HasCreatedViews()) {
+			layoutView_->CreateViews();
+		}
+	}
+}
+
 void TouchControlLayoutScreen::CreateViews() {
 	// setup g_Config for button layout
-	InitPadLayout();
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(bounds.w, bounds.h);
+
+	const float leftColumnWidth = 140.0f;
 
 	using namespace UI;
 
-	I18NCategory *c = GetI18NCategory("Controls");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Choice *reset = new Choice(d->T("Reset"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 84));
-	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 10));
-	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftMargin, WRAP_CONTENT, 10, NONE, NONE, 158));
+	Choice *reset = new Choice(di->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *visibility = new Choice(co->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 298));
+	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, co->T("Button Scaling"), screenManager()))
+	// 	->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
+
+	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 228));
+	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
+
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 140 + 158 + 64 + 10));
+	mode_->AddChoice(di->T("Move"));
+	mode_->AddChoice(di->T("Resize"));
+	mode_->SetSelection(0);
+	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
+
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	root_->Add(mode_);
 	root_->Add(visibility);
+	root_->Add(snap);
+	root_->Add(gridSize);
 	root_->Add(reset);
 	root_->Add(back);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftMargin, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder->SetTag("TouchControlLayout");
 	root_->Add(tabHolder);
+
+	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, 0.0f, 0.0f, false)));
 
 	// this is more for show than anything else. It's used to provide a boundary
 	// so that buttons like back can be placed within the boundary.
 	// serves no other purpose.
-	AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	// AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	I18NCategory *ms = GetI18NCategory("MainSettings");
+	auto ms = GetI18NCategory("MainSettings");
 
-	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
+	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
-	if (!g_Config.bShowTouchControls){
+	if (!g_Config.bShowTouchControls) {
+		// Shouldn't even be able to get here as the way into this dialog should be closed.
 		return;
 	}
-
-	float scale = g_Config.fButtonScale;
-	controls_.clear();
-
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.fActionButtonCenterX, g_Config.fActionButtonCenterY, g_Config.iActionButtonSpacing, scale);
-	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
-	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
-	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
-	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
-
-	controls_.push_back(actionButtons);
-
-	if (g_Config.bShowTouchDpad) {
-		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.iDpadRadius, scale));
-	}
-
-	if (g_Config.bShowTouchSelect) {
-		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, I_RECT, I_SELECT, scale));
-	}
-
-	if (g_Config.bShowTouchStart) {
-		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, I_RECT, I_START, scale));
-	}
-
-	if (g_Config.bShowTouchUnthrottle) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, I_RECT, I_ARROW, scale);
-		unthrottle->SetAngle(180.0f);
-		controls_.push_back(unthrottle);
-	}
-
-	if (g_Config.bShowTouchLTrigger) {
-		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, I_SHOULDER, I_L, scale));
-	}
-
-	if (g_Config.bShowTouchRTrigger) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, I_SHOULDER, I_R, scale);
-		rbutton->FlipImageH(true);
-		controls_.push_back(rbutton);
-	}
-
-	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, I_STICKBG, I_STICK, scale));
-	};
-
-	for (size_t i = 0; i < controls_.size(); i++) {
-		root_->Add(controls_[i]);
-	}
-}
-
-// return the control which was picked up by the touchEvent. If a control
-// was already picked up, then it's being dragged around, so just return that instead
-DragDropButton *TouchControlLayoutScreen::getPickedControl(const int x, const int y) {
-	if (pickedControl_ != 0) {
-		return pickedControl_;
-	}
-
-	for (size_t i = 0; i < controls_.size(); i++) {
-		DragDropButton *control = controls_[i];
-		const Bounds &bounds = control->GetBounds();
-		const float thresholdFactor = 1.5f;
-
-		Bounds tolerantBounds(bounds.x, bounds.y, bounds.w * thresholdFactor, bounds.h * thresholdFactor);
-		if (tolerantBounds.Contains(x, y)) {
-			return control;
-		}
-	}
-
-	return 0;
 }

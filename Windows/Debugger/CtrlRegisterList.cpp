@@ -3,23 +3,22 @@
 #include <math.h>
 #include <tchar.h>
 
-#include "util/text/utf8.h"
-#include "../resource.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Windows/resource.h"
 #include "Core/MemMap.h"
-#include "../W32Util/Misc.h"
-#include "../InputBox.h"
+#include "Windows/W32Util/Misc.h"
+#include "Windows/InputBox.h"
 
 #include "CtrlRegisterList.h"
 #include "Debugger_MemoryDlg.h"
 
 #include "Core/Config.h"
-#include "../../globals.h"
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
 
-#include "../main.h"
+#include "Windows/main.h"
 
-//#include "DbgHelp.h"
 extern HMENU g_hPopupMenus;
 
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
@@ -28,31 +27,28 @@ TCHAR CtrlRegisterList::szClassName[] = _T("CtrlRegisterList");
 
 void CtrlRegisterList::init()
 {
-    WNDCLASSEX wc;
-    
-    wc.cbSize         = sizeof(wc);
-    wc.lpszClassName  = szClassName;
-    wc.hInstance      = GetModuleHandle(0);
-    wc.lpfnWndProc    = CtrlRegisterList::wndProc;
-    wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wc.hIcon          = 0;
-    wc.lpszMenuName   = 0;
-    wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wc.style          = CS_DBLCLKS;
-    wc.cbClsExtra     = 0;
-	wc.cbWndExtra     = sizeof( CtrlRegisterList * );
-    wc.hIconSm        = 0;
-	
-	
-    RegisterClassEx(&wc);
+	WNDCLASSEX wc;
+
+	wc.cbSize = sizeof(wc);
+	wc.lpszClassName = szClassName;
+	wc.hInstance = GetModuleHandle(0);
+	wc.lpfnWndProc = CtrlRegisterList::wndProc;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = 0;
+	wc.lpszMenuName = 0;
+	wc.hbrBackground = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wc.style = CS_DBLCLKS;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = sizeof(CtrlRegisterList *);
+	wc.hIconSm = 0;
+
+	RegisterClassEx(&wc);
 }
 
 void CtrlRegisterList::deinit()
 {
 	//UnregisterClass(szClassName, hInst)
 }
-
-
 
 LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -108,43 +104,29 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 		break;
 	case WM_GETDLGCODE:	// want chars so that we can return 0 on key press and supress the beeping sound
 		return DLGC_WANTARROWS|DLGC_WANTCHARS;
-    default:
-        break;
-    }
-	
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
+	default:
+		break;
+	}
 
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
 
 CtrlRegisterList *CtrlRegisterList::getFrom(HWND hwnd)
 {
-    return (CtrlRegisterList *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	return (CtrlRegisterList *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
-
-
-
 
 CtrlRegisterList::CtrlRegisterList(HWND _wnd)
-{
-	wnd=_wnd;
+	: wnd(_wnd) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
-	//SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-	//SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-	
-	rowHeight=g_Config.iFontHeight;
 
-	font = CreateFont(rowHeight,g_Config.iFontWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
-		DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
-	selecting=false;
-	selection=0;
-	category=0;
-	showHex=false;
-	cpu=0;
-	lastPC = 0;
-	lastCat0Values = NULL;
-	changedCat0Regs = NULL;
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	rowHeight = g_Config.iFontHeight * fontScale;
+	int charWidth = g_Config.iFontWidth * fontScale;
+	font = CreateFont(rowHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
 }
-
 
 CtrlRegisterList::~CtrlRegisterList()
 {
@@ -289,6 +271,10 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				value = cpu->GetLo();
 				len = sprintf(temp,"lo");
 				break;
+			default:
+				temp[0] = '\0';
+				len = 0;
+				break;
 			}
 
 			SetTextColor(hdc,0x600000);
@@ -364,22 +350,18 @@ void CtrlRegisterList::redraw()
 	UpdateWindow(wnd); 
 }
 
-void CtrlRegisterList::copyRegisterValue()
+u32 CtrlRegisterList::getSelectedRegValue(char *out, size_t size)
 {
-	if (!Core_IsStepping())
-	{
-		MessageBox(wnd,L"Can't copy register values while the core is running.",L"Error",MB_OK);
-		return;
-	}
-
-	int cat = category;
 	int reg = selection;
 	u32 val;
 
-	if (selection >= cpu->GetNumRegsInCategory(cat))
+	if (selection >= cpu->GetNumRegsInCategory(category))
 	{
-		if (cat != 0 || selection >= REGISTERS_END)
-			return;
+		if (category != 0 || selection >= REGISTERS_END)
+		{
+			*out = '\0';
+			return -1;
+		}
 
 		switch (selection)
 		{
@@ -392,14 +374,29 @@ void CtrlRegisterList::copyRegisterValue()
 		case REGISTER_LO:
 			val = cpu->GetLo();
 			break;
+		default:
+			*out = '\0';
+			return -1;
 		}
-	} else {
-		val = cpu->GetRegValue(cat,reg);	
+	}
+	else
+		val = cpu->GetRegValue(category, reg);
+
+	snprintf(out, size, "%08X", val);
+	return val;
+}
+
+void CtrlRegisterList::copyRegisterValue()
+{
+	if (!Core_IsStepping())
+	{
+		MessageBox(wnd,L"Can't copy register values while the core is running.",L"Error",MB_OK);
+		return;
 	}
 
 	char temp[24];
-	sprintf(temp,"%08X",val);
-	W32Util::CopyTextToClipboard(wnd,temp);
+	getSelectedRegValue(temp, 24);
+	W32Util::CopyTextToClipboard(wnd, temp);
 }
 
 void CtrlRegisterList::editRegisterValue()
@@ -410,33 +407,9 @@ void CtrlRegisterList::editRegisterValue()
 		return;
 	}
 
-	int cat = category;
+	char temp[24];
+	u32 val = getSelectedRegValue(temp, 24);
 	int reg = selection;
-	u32 val;
-	
-	if (selection >= cpu->GetNumRegsInCategory(cat))
-	{
-		if (cat != 0 || selection >= REGISTERS_END)
-			return;
-
-		switch (selection)
-		{
-		case REGISTER_PC:
-			val = cpu->GetPC();
-			break;
-		case REGISTER_HI:
-			val = cpu->GetHi();
-			break;
-		case REGISTER_LO:
-			val = cpu->GetLo();
-			break;
-		}
-	} else {
-		val = cpu->GetRegValue(cat,reg);	
-	}
-
-	char temp[256];
-	sprintf(temp,"0x%08X",val);
 
 	std::string value = temp;
 	if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Set new value",value,value)) {
@@ -455,7 +428,7 @@ void CtrlRegisterList::editRegisterValue()
 				cpu->SetLo(val);
 				break;
 			default:
-				cpu->SetRegValue(cat,reg,val);
+				cpu->SetRegValue(category, reg, val);
 				break;
 			}
 			redraw();
@@ -529,6 +502,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			case REGISTER_LO:
 				val = cpu->GetLo();
 				break;
+			default:
+				return;
 			}
 		}
 		else
@@ -543,9 +518,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,val,0);
 			break;
 		case ID_REGLIST_GOTOINDISASM:
-			for (int i=0; i<numCPUs; i++)
-				if (disasmWindow[i])
-					disasmWindow[i]->Goto(val);
+			if (disasmWindow)
+				disasmWindow->Goto(val);
 			break;
 		case ID_REGLIST_COPYVALUE:
 			copyRegisterValue();

@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#if defined(_M_IX86) || defined(_M_X64)
+
 #include "x64Emitter.h"
 #include "ABI.h"
 
@@ -59,20 +61,20 @@ void XEmitter::ABI_EmitEpilogue(int maxCallParams)
 #ifdef _M_IX86 // All32
 
 // Shared code between Win32 and Unix32
-void XEmitter::ABI_CallFunction(void *func) {
+void XEmitter::ABI_CallFunction(const void *func) {
 	ABI_AlignStack(0);
 	CALL(func);
 	ABI_RestoreStack(0);
 }
 
-void XEmitter::ABI_CallFunctionC16(void *func, u16 param1) {
+void XEmitter::ABI_CallFunctionC16(const void *func, u16 param1) {
 	ABI_AlignStack(1 * 2);
 	PUSH(16, Imm16(param1));
 	CALL(func);
 	ABI_RestoreStack(1 * 2);
 }
 
-void XEmitter::ABI_CallFunctionCC16(void *func, u32 param1, u16 param2) {
+void XEmitter::ABI_CallFunctionCC16(const void *func, u32 param1, u16 param2) {
 	ABI_AlignStack(1 * 2 + 1 * 4);
 	PUSH(16, Imm16(param2));
 	PUSH(32, Imm32(param1));
@@ -80,14 +82,14 @@ void XEmitter::ABI_CallFunctionCC16(void *func, u32 param1, u16 param2) {
 	ABI_RestoreStack(1 * 2 + 1 * 4);
 }
 
-void XEmitter::ABI_CallFunctionC(void *func, u32 param1) {
+void XEmitter::ABI_CallFunctionC(const void *func, u32 param1) {
 	ABI_AlignStack(1 * 4);
 	PUSH(32, Imm32(param1));
 	CALL(func);
 	ABI_RestoreStack(1 * 4);
 }
 
-void XEmitter::ABI_CallFunctionCC(void *func, u32 param1, u32 param2) {
+void XEmitter::ABI_CallFunctionCC(const void *func, u32 param1, u32 param2) {
 	ABI_AlignStack(2 * 4);
 	PUSH(32, Imm32(param2));
 	PUSH(32, Imm32(param1));
@@ -95,7 +97,7 @@ void XEmitter::ABI_CallFunctionCC(void *func, u32 param1, u32 param2) {
 	ABI_RestoreStack(2 * 4);
 }
 
-void XEmitter::ABI_CallFunctionCCC(void *func, u32 param1, u32 param2, u32 param3) {
+void XEmitter::ABI_CallFunctionCCC(const void *func, u32 param1, u32 param2, u32 param3) {
 	ABI_AlignStack(3 * 4);
 	PUSH(32, Imm32(param3));
 	PUSH(32, Imm32(param2));
@@ -104,18 +106,18 @@ void XEmitter::ABI_CallFunctionCCC(void *func, u32 param1, u32 param2, u32 param
 	ABI_RestoreStack(3 * 4);
 }
 
-void XEmitter::ABI_CallFunctionCCP(void *func, u32 param1, u32 param2, void *param3) {
+void XEmitter::ABI_CallFunctionCCP(const void *func, u32 param1, u32 param2, void *param3) {
 	ABI_AlignStack(3 * 4);
-	PUSH(32, Imm32((u32)param3));
+	PUSH(32, ImmPtr(param3));
 	PUSH(32, Imm32(param2));
 	PUSH(32, Imm32(param1));
 	CALL(func);
 	ABI_RestoreStack(3 * 4);
 }
 
-void XEmitter::ABI_CallFunctionCCCP(void *func, u32 param1, u32 param2,u32 param3, void *param4) {
+void XEmitter::ABI_CallFunctionCCCP(const void *func, u32 param1, u32 param2,u32 param3, void *param4) {
 	ABI_AlignStack(4 * 4);
-	PUSH(32, Imm32((u32)param4));
+	PUSH(32, ImmPtr(param4));
 	PUSH(32, Imm32(param3));
 	PUSH(32, Imm32(param2));
 	PUSH(32, Imm32(param1));
@@ -123,24 +125,41 @@ void XEmitter::ABI_CallFunctionCCCP(void *func, u32 param1, u32 param2,u32 param
 	ABI_RestoreStack(4 * 4);
 }
 
-void XEmitter::ABI_CallFunctionP(void *func, void *param1) {
+void XEmitter::ABI_CallFunctionP(const void *func, void *param1) {
 	ABI_AlignStack(1 * 4);
-	PUSH(32, Imm32((u32)param1));
+	PUSH(32, ImmPtr(param1));
 	CALL(func);
 	ABI_RestoreStack(1 * 4);
 }
 
-void XEmitter::ABI_CallFunctionPPC(void *func, void *param1, void *param2, u32 param3) {
+void XEmitter::ABI_CallFunctionPA(const void *func, void *param1, const Gen::OpArg &arg2) {
+	ABI_AlignStack(2 * 4);
+	PUSH(32, arg2);
+	PUSH(32, ImmPtr(param1));
+	CALL(func);
+	ABI_RestoreStack(2 * 4);
+}
+
+void XEmitter::ABI_CallFunctionPAA(const void *func, void *param1, const Gen::OpArg &arg2, const Gen::OpArg &arg3) {
+	ABI_AlignStack(3 * 4);
+	PUSH(32, arg3);
+	PUSH(32, arg2);
+	PUSH(32, ImmPtr(param1));
+	CALL(func);
+	ABI_RestoreStack(3 * 4);
+}
+
+void XEmitter::ABI_CallFunctionPPC(const void *func, void *param1, void *param2, u32 param3) {
 	ABI_AlignStack(3 * 4);
 	PUSH(32, Imm32(param3));
-	PUSH(32, Imm32((u32)param2));
-	PUSH(32, Imm32((u32)param1));
+	PUSH(32, ImmPtr(param2));
+	PUSH(32, ImmPtr(param1));
 	CALL(func);
 	ABI_RestoreStack(3 * 4);
 }
 
 // Pass a register as a parameter.
-void XEmitter::ABI_CallFunctionR(void *func, X64Reg reg1) {
+void XEmitter::ABI_CallFunctionR(const void *func, X64Reg reg1) {
 	ABI_AlignStack(1 * 4);
 	PUSH(32, R(reg1));
 	CALL(func);
@@ -148,7 +167,7 @@ void XEmitter::ABI_CallFunctionR(void *func, X64Reg reg1) {
 }
 
 // Pass two registers as parameters.
-void XEmitter::ABI_CallFunctionRR(void *func, Gen::X64Reg reg1, Gen::X64Reg reg2)
+void XEmitter::ABI_CallFunctionRR(const void *func, Gen::X64Reg reg1, Gen::X64Reg reg2)
 {
 	ABI_AlignStack(2 * 4);
 	PUSH(32, R(reg2));
@@ -157,7 +176,7 @@ void XEmitter::ABI_CallFunctionRR(void *func, Gen::X64Reg reg1, Gen::X64Reg reg2
 	ABI_RestoreStack(2 * 4);
 }
 
-void XEmitter::ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2)
+void XEmitter::ABI_CallFunctionAC(const void *func, const Gen::OpArg &arg1, u32 param2)
 {
 	ABI_AlignStack(2 * 4);
 	PUSH(32, Imm32(param2));
@@ -166,7 +185,7 @@ void XEmitter::ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2
 	ABI_RestoreStack(2 * 4);
 }
 
-void XEmitter::ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param2, u32 param3)
+void XEmitter::ABI_CallFunctionACC(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3)
 {
 	ABI_AlignStack(3 * 4);
 	PUSH(32, Imm32(param3));
@@ -176,7 +195,7 @@ void XEmitter::ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param
 	ABI_RestoreStack(3 * 4);
 }
 
-void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
+void XEmitter::ABI_CallFunctionA(const void *func, const Gen::OpArg &arg1)
 {
 	ABI_AlignStack(1 * 4);
 	PUSH(32, arg1);
@@ -184,7 +203,7 @@ void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 	ABI_RestoreStack(1 * 4);
 }
 
-void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
+void XEmitter::ABI_CallFunctionAA(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
 {
 	ABI_AlignStack(2 * 4);
 	PUSH(32, arg2);
@@ -247,140 +266,172 @@ void XEmitter::ABI_RestoreStack(unsigned int frameSize) {
 #else //64bit
 
 // Common functions
-void XEmitter::ABI_CallFunction(void *func) {
+void XEmitter::ABI_CallFunction(const void *func) {
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionC16(void *func, u16 param1) {
+void XEmitter::ABI_CallFunctionC16(const void *func, u16 param1) {
 	MOV(32, R(ABI_PARAM1), Imm32((u32)param1));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionCC16(void *func, u32 param1, u16 param2) {
+void XEmitter::ABI_CallFunctionCC16(const void *func, u32 param1, u16 param2) {
 	MOV(32, R(ABI_PARAM1), Imm32(param1));
 	MOV(32, R(ABI_PARAM2), Imm32((u32)param2));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 		&& distance <  0xFFFFFFFF80000000ULL) {
 			// Far call
-			MOV(64, R(RAX), Imm64((u64)func));
+			MOV(64, R(RAX), ImmPtr(func));
 			CALLptr(R(RAX));
 	} else {
 		CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionC(void *func, u32 param1) {
+void XEmitter::ABI_CallFunctionC(const void *func, u32 param1) {
 	MOV(32, R(ABI_PARAM1), Imm32(param1));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionCC(void *func, u32 param1, u32 param2) {
+void XEmitter::ABI_CallFunctionCC(const void *func, u32 param1, u32 param2) {
 	MOV(32, R(ABI_PARAM1), Imm32(param1));
 	MOV(32, R(ABI_PARAM2), Imm32(param2));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionCCC(void *func, u32 param1, u32 param2, u32 param3) {
+void XEmitter::ABI_CallFunctionCCC(const void *func, u32 param1, u32 param2, u32 param3) {
 	MOV(32, R(ABI_PARAM1), Imm32(param1));
 	MOV(32, R(ABI_PARAM2), Imm32(param2));
+	MOV(32, R(ABI_PARAM3), Imm32(param3));
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionCCP(const void *func, u32 param1, u32 param2, void *param3) {
+	MOV(32, R(ABI_PARAM1), Imm32(param1));
+	MOV(32, R(ABI_PARAM2), Imm32(param2));
+	MOV(64, R(ABI_PARAM3), ImmPtr(param3));
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionCCCP(const void *func, u32 param1, u32 param2, u32 param3, void *param4) {
+	MOV(32, R(ABI_PARAM1), Imm32(param1));
+	MOV(32, R(ABI_PARAM2), Imm32(param2));
+	MOV(32, R(ABI_PARAM3), Imm32(param3));
+	MOV(64, R(ABI_PARAM4), ImmPtr(param4));
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionP(const void *func, void *param1) {
+	MOV(64, R(ABI_PARAM1), ImmPtr(param1));
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionPA(const void *func, void *param1, const Gen::OpArg &arg2) {
+	MOV(64, R(ABI_PARAM1), ImmPtr(param1));
+	if (!arg2.IsSimpleReg(ABI_PARAM2))
+		MOV(32, R(ABI_PARAM2), arg2);
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionPAA(const void *func, void *param1, const Gen::OpArg &arg2, const Gen::OpArg &arg3) {
+	MOV(64, R(ABI_PARAM1), ImmPtr(param1));
+	if (!arg2.IsSimpleReg(ABI_PARAM2))
+		MOV(32, R(ABI_PARAM2), arg2);
+	if (!arg3.IsSimpleReg(ABI_PARAM3))
+		MOV(32, R(ABI_PARAM3), arg3);
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), ImmPtr(func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionPPC(const void *func, void *param1, void *param2, u32 param3) {
+	MOV(64, R(ABI_PARAM1), ImmPtr(param1));
+	MOV(64, R(ABI_PARAM2), ImmPtr(param2));
 	MOV(32, R(ABI_PARAM3), Imm32(param3));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
-	    CALLptr(R(RAX));
-	} else {
-	    CALL(func);
-	}
-}
-
-void XEmitter::ABI_CallFunctionCCP(void *func, u32 param1, u32 param2, void *param3) {
-	MOV(32, R(ABI_PARAM1), Imm32(param1));
-	MOV(32, R(ABI_PARAM2), Imm32(param2));
-	MOV(64, R(ABI_PARAM3), Imm64((u64)param3));
-	u64 distance = u64(func) - (u64(code) + 5);
-	if (distance >= 0x0000000080000000ULL
-	 && distance <  0xFFFFFFFF80000000ULL) {
-	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
-	    CALLptr(R(RAX));
-	} else {
-	    CALL(func);
-	}
-}
-
-void XEmitter::ABI_CallFunctionCCCP(void *func, u32 param1, u32 param2, u32 param3, void *param4) {
-	MOV(32, R(ABI_PARAM1), Imm32(param1));
-	MOV(32, R(ABI_PARAM2), Imm32(param2));
-	MOV(32, R(ABI_PARAM3), Imm32(param3));
-	MOV(64, R(ABI_PARAM4), Imm64((u64)param4));
-	u64 distance = u64(func) - (u64(code) + 5);
-	if (distance >= 0x0000000080000000ULL
-	 && distance <  0xFFFFFFFF80000000ULL) {
-	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
-	    CALLptr(R(RAX));
-	} else {
-	    CALL(func);
-	}
-}
-
-void XEmitter::ABI_CallFunctionP(void *func, void *param1) {
-	MOV(64, R(ABI_PARAM1), Imm64((u64)param1));
-	u64 distance = u64(func) - (u64(code) + 5);
-	if (distance >= 0x0000000080000000ULL
-	 && distance <  0xFFFFFFFF80000000ULL) {
-	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
-	    CALLptr(R(RAX));
-	} else {
-	    CALL(func);
-	}
-}
-
-void XEmitter::ABI_CallFunctionPPC(void *func, void *param1, void *param2, u32 param3) {
-	MOV(64, R(ABI_PARAM1), Imm64((u64)param1));
-	MOV(64, R(ABI_PARAM2), Imm64((u64)param2));
-	MOV(32, R(ABI_PARAM3), Imm32(param3));
-	u64 distance = u64(func) - (u64(code) + 5);
-	if (distance >= 0x0000000080000000ULL
-	 && distance <  0xFFFFFFFF80000000ULL) {
-	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
@@ -388,14 +439,14 @@ void XEmitter::ABI_CallFunctionPPC(void *func, void *param1, void *param2, u32 p
 }
 
 // Pass a register as a parameter.
-void XEmitter::ABI_CallFunctionR(void *func, X64Reg reg1) {
+void XEmitter::ABI_CallFunctionR(const void *func, X64Reg reg1) {
 	if (reg1 != ABI_PARAM1)
 		MOV(32, R(ABI_PARAM1), R(reg1));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
@@ -403,7 +454,7 @@ void XEmitter::ABI_CallFunctionR(void *func, X64Reg reg1) {
 }
 
 // Pass two registers as parameters.
-void XEmitter::ABI_CallFunctionRR(void *func, X64Reg reg1, X64Reg reg2) {
+void XEmitter::ABI_CallFunctionRR(const void *func, X64Reg reg1, X64Reg reg2) {
 	if (reg2 != ABI_PARAM1) {
 		if (reg1 != ABI_PARAM1)
 			MOV(64, R(ABI_PARAM1), R(reg1));
@@ -419,14 +470,14 @@ void XEmitter::ABI_CallFunctionRR(void *func, X64Reg reg1, X64Reg reg2) {
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2)
+void XEmitter::ABI_CallFunctionAC(const void *func, const Gen::OpArg &arg1, u32 param2)
 {
 	if (!arg1.IsSimpleReg(ABI_PARAM1))
 		MOV(32, R(ABI_PARAM1), arg1);
@@ -435,30 +486,31 @@ void XEmitter::ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param2, u32 param3)
+void XEmitter::ABI_CallFunctionACC(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3)
 {
-	MOV(32, R(ABI_PARAM1), arg1);
+	if (!arg1.IsSimpleReg(ABI_PARAM1))
+		MOV(32, R(ABI_PARAM1), arg1);
 	MOV(32, R(ABI_PARAM2), Imm32(param2));
 	MOV(64, R(ABI_PARAM3), Imm64(param3));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
+void XEmitter::ABI_CallFunctionA(const void *func, const Gen::OpArg &arg1)
 {
 	if (!arg1.IsSimpleReg(ABI_PARAM1))
 		MOV(32, R(ABI_PARAM1), arg1);
@@ -466,14 +518,14 @@ void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
 	}
 }
 
-void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
+void XEmitter::ABI_CallFunctionAA(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
 {
 	if (!arg1.IsSimpleReg(ABI_PARAM1))
 		MOV(32, R(ABI_PARAM1), arg1);
@@ -483,7 +535,7 @@ void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen:
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
 	    // Far call
-	    MOV(64, R(RAX), Imm64((u64)func));
+	    MOV(64, R(RAX), ImmPtr(func));
 	    CALLptr(R(RAX));
 	} else {
 	    CALL(func);
@@ -514,7 +566,7 @@ void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
 	PUSH(R15);
 	ABI_AlignStack(0);
 
-	// Do this after aligning, beacuse before it's offset by 8.
+	// Do this after aligning, because before it's offset by 8.
 	SUB(64, R(RSP), Imm32(XMM_STACK_SPACE));
 	for (int i = 0; i < 16; ++i)
 		MOVAPS(MDisp(RSP, i * 16), (X64Reg)(XMM0 + i));
@@ -629,4 +681,4 @@ void XEmitter::ABI_RestoreStack(unsigned int /*frameSize*/) {
 
 #endif // 32bit
 
-
+#endif // defined(_M_IX86) || defined(_M_X64)

@@ -21,19 +21,28 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-using namespace Gen;
-
+namespace X64JitConstants {
 #ifdef _M_X64
-#define NUM_X_REGS 16
-#elif _M_IX86
-#define NUM_X_REGS 8
+	const Gen::X64Reg MEMBASEREG = Gen::RBX;
+	const Gen::X64Reg CTXREG = Gen::R14;
+	const Gen::X64Reg JITBASEREG = Gen::R15;
+#else
+	const Gen::X64Reg CTXREG = Gen::EBP;
 #endif
 
-// TODO: Add more cachable regs, like HI, LO
-#define NUM_MIPS_GPRS 32
+		// This must be one of EAX, EBX, ECX, EDX as they have 8-bit subregisters.
+	const Gen::X64Reg TEMPREG = Gen::EAX;
+	const int NUM_MIPS_GPRS = 36;
+
+#ifdef _M_X64
+	const u32 NUM_X_REGS = 16;
+#elif _M_IX86
+	const u32 NUM_X_REGS = 8;
+#endif
+}
 
 struct MIPSCachedReg {
-	OpArg location;
+	Gen::OpArg location;
 	bool away;  // value not in source register
 	bool locked;
 };
@@ -46,46 +55,56 @@ struct X64CachedReg {
 };
 
 struct GPRRegCacheState {
-	MIPSCachedReg regs[NUM_MIPS_GPRS];
-	X64CachedReg xregs[NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
 };
+
+namespace MIPSComp {
+	struct JitOptions;
+	struct JitState;
+}
 
 class GPRRegCache
 {
 public:
 	GPRRegCache();
 	~GPRRegCache() {}
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
-	void SetEmitter(XEmitter *emitter) {emit = emitter;}
+	void DiscardR(MIPSGPReg preg);
+	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
 
-	void FlushR(X64Reg reg); 
-	void FlushLockX(X64Reg reg) {
+	void FlushR(Gen::X64Reg reg); 
+	void FlushLockX(Gen::X64Reg reg) {
 		FlushR(reg);
 		LockX(reg);
 	}
-	void FlushLockX(X64Reg reg1, X64Reg reg2) {
+	void FlushLockX(Gen::X64Reg reg1, Gen::X64Reg reg2) {
 		FlushR(reg1); FlushR(reg2);
 		LockX(reg1); LockX(reg2);
 	}
 	void Flush();
 	void FlushBeforeCall();
+
+	// Flushes one register and reuses the register for another one. Dirtyness is implied.
+	void FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg);
+
 	int SanityCheck() const;
 	void KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty);
 
 	void MapReg(MIPSGPReg preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(MIPSGPReg preg);
 
-	const OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}
-	X64Reg RX(MIPSGPReg preg) const
+	const Gen::OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}
+	Gen::X64Reg RX(MIPSGPReg preg) const
 	{
 		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
 			return regs[preg].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - %i", preg); 
-		return (X64Reg)-1;
+		_assert_msg_(false, "Not so simple - %d", preg); 
+		return (Gen::X64Reg)-1;
 	}
-	OpArg GetDefaultLocation(MIPSGPReg reg) const;
+	Gen::OpArg GetDefaultLocation(MIPSGPReg reg) const;
 
 	// Register locking.
 	void Lock(MIPSGPReg p1, MIPSGPReg p2 = MIPS_REG_INVALID, MIPSGPReg p3 = MIPS_REG_INVALID, MIPSGPReg p4 = MIPS_REG_INVALID);
@@ -98,16 +117,19 @@ public:
 	u32 GetImm(MIPSGPReg preg) const;
 
 	void GetState(GPRRegCacheState &state) const;
-	void RestoreState(const GPRRegCacheState state);
+	void RestoreState(const GPRRegCacheState& state);
 
 	MIPSState *mips;
 
 private:
-	X64Reg GetFreeXReg();
-	const int *GetAllocationOrder(int &count);
+	Gen::X64Reg GetFreeXReg();
+	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
+	const Gen::X64Reg *GetAllocationOrder(int &count);
 
-	MIPSCachedReg regs[NUM_MIPS_GPRS];
-	X64CachedReg xregs[NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
 
-	XEmitter *emit;
+	Gen::XEmitter *emit;
+	MIPSComp::JitState *js_;
+	MIPSComp::JitOptions *jo_;
 };

@@ -1,0 +1,34 @@
+# http://editorconfig.org/
+root = true
+
+[*]
+charset = utf-8
+indent_style = tab
+insert_final_newline = true
+# Would be nice, but don't want to change files unnecessarily.
+#trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 2
+
+[*.sh]
+end_of_line = lf
+
+[*.rc]
+indent_style = space
+indent_size = 4
+
+[Core/Dialog/PSPOskDialog.cpp]
+charset = utf-8-bom
+
+[ext/native/tools/kanjifilter.h]
+# This file may need to force a BOM so compilers treat as utf-8.
+charset = utf-8-bom
+
+[Windows/{aboutbox.rc,version.rc}]
+charset = utf-8
+
+[libretro/**.{cpp,h}]
+indent_style = space
+indent_size = 3

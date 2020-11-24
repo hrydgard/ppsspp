@@ -17,11 +17,7 @@
 
 #pragma once
 
-#ifdef __arm__
-#if !defined(ARM)
-#define ARM
-#endif
-#endif
+#include "CommonFuncs.h"
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -30,19 +26,25 @@
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
-#if !defined(_WIN32) && !defined(PANDORA)
-#if defined(MAEMO)
-       //ucontext.h will be then skipped
-       #define _SYS_UCONTEXT_H 1
-#endif
-#include <signal.h>
-#endif
-
-namespace LogTypes
-{
+namespace LogTypes {
 
 enum LOG_TYPE {
-	MASTER_LOG,
+	SYSTEM = 0,  // Catch-all for uncategorized things
+	BOOT,
+	COMMON,
+	CPU,
+	FILESYS,
+	G3D,
+	HLE,  // dumping ground that we should get rid of
+	JIT,
+	LOADER,
+	ME,
+	MEMMAP,
+	SASMIX,
+	SAVESTATE,
+	FRAMEBUF,
+	AUDIO,
+	IO,
 
 	SCEAUDIO,
 	SCECTRL,
@@ -57,25 +59,12 @@ enum LOG_TYPE {
 	SCERTC,
 	SCESAS,
 	SCEUTILITY,
-
-	BOOT,
-	COMMON,
-	CPU,
-	FILESYS,
-	G3D,
-	HLE,  // dumping ground that we should get rid off
-	JIT,
-	LOADER,
-	ME,
-	MEMMAP,
-	TIME,
-	SASMIX,
+	SCEMISC,
 
 	NUMBER_OF_LOGS,  // Must be last
 };
 
-// FIXME: should this be removed?
-enum LOG_LEVELS {
+enum LOG_LEVELS : int {
 	LNOTICE = NOTICE_LEVEL,
 	LERROR = ERROR_LEVEL,
 	LWARNING = WARNING_LEVEL,
@@ -84,73 +73,88 @@ enum LOG_LEVELS {
 	LVERBOSE = VERBOSE_LEVEL,
 };
 
-#define LOGTYPES_LEVELS LogTypes::LOG_LEVELS
-#define LOGTYPES_TYPE LogTypes::LOG_TYPE
-
 }  // namespace
 
-void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
+void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 		const char *file, int line, const char *fmt, ...)
 #ifdef __GNUC__
 		__attribute__((format(printf, 5, 6)))
 #endif
 		;
+bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
-#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST)
+#if defined(_DEBUG) || defined(_WIN32)
+
 #define MAX_LOGLEVEL DEBUG_LEVEL
+
 #else
+
 #ifndef MAX_LOGLEVEL
 #define MAX_LOGLEVEL INFO_LEVEL
 #endif // loglevel
+
 #endif // logging
 
-// Let the compiler optimize this out
+// Let the compiler optimize this out.
+// TODO: Compute a dynamic max level as well that can be checked here.
 #define GENERIC_LOG(t, v, ...) { \
 	if (v <= MAX_LOGLEVEL) \
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
-#define WARN_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
-#define NOTICE_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) }
-#define INFO_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
-#define DEBUG_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
-#define VERBOSE_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) }
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR,   __VA_ARGS__) } while (false)
+#define WARN_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE,  __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO,    __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG,   __VA_ARGS__) } while (false)
+#define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
+// Currently only actually shows a dialog box on Windows.
+bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)
+#ifdef __GNUC__
+__attribute__((format(printf, 5, 6)))
+#endif
+;
+
+#if defined(__ANDROID__)
+// Tricky macro to get the basename, that also works if *built* on Win32.
+// Doesn't mean this macro can be used on Win32 though.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+#else
+#define __FILENAME__ __FILE__
+#endif
+
+// If we're in "debug" assert mode
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
-#define _dbg_assert_(_t_, _a_) \
+
+#define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n  Time: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__, __TIME__); \
-		if (!PanicYesNo("*** Assertion (see log)***\n")) {Crash();} \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
 	}
-#define _dbg_assert_msg_(_t_, _a_, ...)\
-	if (!(_a_)) {\
-		printf(__VA_ARGS__); \
-		ERROR_LOG(_t_, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) {Crash();} \
+
+#define _dbg_assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-#define _dbg_update_() ; //Host_UpdateLogDisplay();
 
 #else // not debug
-#define _dbg_update_() ;
 
 #ifndef _dbg_assert_
-#define _dbg_assert_(_t_, _a_) {}
-#define _dbg_assert_msg_(_t_, _a_, _desc_, ...) {}
+#define _dbg_assert_(_a_) {}
+#define _dbg_assert_msg_(_a_, _desc_, ...) {}
 #endif // dbg_assert
+
 #endif // MAX_LOGLEVEL DEBUG
 
-#define _assert_(_a_) _dbg_assert_(MASTER_LOG, _a_)
+#define _assert_(_a_) \
+	if (!(_a_)) {\
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "*** Assertion ***\n")) Crash(); \
+	}
 
-#ifdef _MSC_VER
-#define _assert_msg_(_t_, _a_, _fmt_, ...)		\
-	if (!(_a_)) {\
-		if (!PanicYesNo(_fmt_, __VA_ARGS__)) {Crash();} \
+#define _assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
-#else // not win32
-#define _assert_msg_(_t_, _a_, _fmt_, ...)		\
-	if (!(_a_)) {\
-		if (!PanicYesNo(_fmt_, ##__VA_ARGS__)) {Crash();} \
-	}
-#endif // WIN32
+
+// Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.
+void OutputDebugStringUTF8(const char *p);

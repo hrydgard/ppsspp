@@ -17,110 +17,195 @@
 
 #pragma once
 
-#include "input/input_state.h"
-#include "gfx_es2/draw_buffer.h"
+#include "Common/Input/InputState.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Core/CoreParameter.h"
 
-class MultiTouchButton : public UI::View {
+class GamepadView : public UI::View {
 public:
-	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
+	GamepadView(UI::LayoutParams *layoutParams);
+
+	void Touch(const TouchInput &input) override;
+	bool Key(const KeyInput &input) override {
+		return false;
+	}
+	void Update() override;
+
+protected:
+	virtual float GetButtonOpacity();
+
+	double lastFrameTime_;
+	float secondsWithoutTouch_ = 0.0;
+};
+
+class MultiTouchButton : public GamepadView {
+public:
+	MultiTouchButton(ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: GamepadView(layoutParams), scale_(scale), bgImg_(bgImg), bgDownImg_(bgDownImg), img_(img) {
 	}
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	virtual bool IsDown() { return pointerDownMask_ != 0; }
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
-	MultiTouchButton *SetAngle(float angle) { angle_ = angle; return this; }
+	MultiTouchButton *SetAngle(float angle) { angle_ = angle; bgAngle_ = angle; return this; }
+	MultiTouchButton *SetAngle(float angle, float bgAngle) { angle_ = angle; bgAngle_ = bgAngle; return this; }
 
 protected:
-	uint32_t pointerDownMask_;
+	uint32_t pointerDownMask_ = 0;
 	float scale_;
 
 private:
-	int bgImg_;
-	int img_;
-	float angle_;
-	bool flipImageH_;
+	ImageID bgImg_;
+	ImageID bgDownImg_;
+	ImageID img_;
+	float bgAngle_ = 0.0f;
+	float angle_ = 0.0f;
+	bool flipImageH_ = false;
 };
 
 class BoolButton : public MultiTouchButton {
 public:
-	BoolButton(bool *value, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(bgImg, img, scale, layoutParams), value_(value) {
+	BoolButton(bool *value, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), value_(value) {
 
 	}
-	virtual void Touch(const TouchInput &input);
-	virtual bool IsDown() { return *value_; }
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override { return *value_; }
+
+	UI::Event OnChange;
 
 private:
 	bool *value_;
 };
 
+class FPSLimitButton : public MultiTouchButton {
+public:
+	FPSLimitButton(FPSLimit limit, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), limit_(limit) {
+
+	}
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override;
+
+private:
+	FPSLimit limit_;
+};
+
+class RapidFireButton : public MultiTouchButton {
+public:
+	RapidFireButton(ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams) {
+	}
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override;
+};
+
+class AnalogRotationButton : public MultiTouchButton {
+public:
+	AnalogRotationButton(bool clockWise, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), clockWise_(clockWise) {
+	}
+	void Touch(const TouchInput &input) override;
+	void Update() override;
+
+private:
+	bool autoRotating_ = false;
+	bool clockWise_;
+};
+
 class PSPButton : public MultiTouchButton {
 public:
-	PSPButton(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
+	PSPButton(int pspButtonBit, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
-	virtual void Touch(const TouchInput &input);
-	virtual bool IsDown();
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override;
 
 private:
 	int pspButtonBit_;
 };
 
-class PSPCross : public UI::View {
+class PSPDpad : public GamepadView {
 public:
-	PSPCross(int arrowIndex, int overlayIndex, float scale, float radius, UI::LayoutParams *layoutParams);
+	PSPDpad(ImageID arrowIndex, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams);
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 private:
 	void ProcessTouch(float x, float y, bool down);
-	int arrowIndex_;
-	int overlayIndex_;
+	ImageID arrowIndex_;
+	ImageID arrowDownIndex_;
+	ImageID overlayIndex_;
 
 	float scale_;
-	float radius_;
+	float spacing_;
 
 	int dragPointerId_;
 	int down_;
 };
 
-class PSPStick : public UI::View {
+class PSPStick : public GamepadView {
 public:
-	PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams);
+	PSPStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams);
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+protected:
+	int dragPointerId_;
+	ImageID bgImg_;
+	ImageID stickImageIndex_;
+	ImageID stickDownImg_;
+
+	int stick_;
+	float stick_size_;
+	float scale_;
+
+	float centerX_;
+	float centerY_;
+
+private:
+	void ProcessTouch(float x, float y, bool down);
+};
+
+class PSPCustomStick : public PSPStick {
+public:
+	PSPCustomStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams);
+
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
 
 private:
 	void ProcessTouch(float x, float y, bool down);
 
-	int dragPointerId_;
-	int bgImg_;
-	int stickImageIndex_;
-	int stick_;
-	float stick_size_;
-	float scale_;
-	bool dragging_[MAX_POINTERS];
-	bool lastPointerDown_[MAX_POINTERS];
+	float posX_ = 0.0f;
+	float posY_ = 0.0f;
 };
 
 //initializes the layout from Config. if a default layout does not exist,
 //it sets up default values
-void InitPadLayout();
-UI::ViewGroup *CreatePadLayout(bool *pause);
+void InitPadLayout(float xres, float yres, float globalScale = 1.15f);
+UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause);
+
+const int D_pad_Radius = 50;
+const int baseActionButtonSpacing = 60;
+
+class ComboKey : public MultiTouchButton {
+public:
+	ComboKey(int pspButtonBit, bool toggle, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle) {
+	}
+	void Touch(const TouchInput &input) override;
+private:
+	int pspButtonBit_;
+	bool toggle_;
+};

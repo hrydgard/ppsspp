@@ -17,16 +17,20 @@
 
 #pragma once
 
-#include <vector>
+#include <functional>
 #include <map>
 #include <string>
+#include <vector>
 
-#include "base/functional.h"
-#include "file/file_util.h"
-#include "ui/ui_screen.h"
-#include "GPU/Common/PostShader.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/File/DirListing.h"
+
+struct ShaderInfo;
+struct TextureShaderInfo;
 
 extern std::string boot_filename;
+void UIBackgroundInit(UIContext &dc);
+void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
@@ -34,26 +38,48 @@ class UIScreenWithBackground : public UIScreen {
 public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
-	virtual void DrawBackground(UIContext &dc);
-	virtual void sendMessage(const char *message, const char *value);
-	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
+	void DrawBackground(UIContext &dc) override;
+	void sendMessage(const char *message, const char *value) override;
+};
+
+class UIScreenWithGameBackground : public UIScreenWithBackground {
+public:
+	UIScreenWithGameBackground(const std::string &gamePath)
+		: UIScreenWithBackground(), gamePath_(gamePath) {}
+	void DrawBackground(UIContext &dc) override;
+	void sendMessage(const char *message, const char *value) override;
+protected:
+	std::string gamePath_;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
-	virtual void DrawBackground(UIContext &dc);
-	virtual void sendMessage(const char *message, const char *value);
-	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
+	void DrawBackground(UIContext &dc) override;
+	void sendMessage(const char *message, const char *value) override;
+
+	void AddStandardBack(UI::ViewGroup *parent);
+};
+
+class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
+public:
+	UIDialogScreenWithGameBackground(const std::string &gamePath)
+		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
+	void DrawBackground(UIContext &dc) override;
+	void sendMessage(const char *message, const char *value) override;
+protected:
+	std::string gamePath_;
 };
 
 class PromptScreen : public UIDialogScreenWithBackground {
 public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, 
+	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
-	virtual void CreateViews();
+	void CreateViews() override;
+
+	void TriggerFinish(DialogResult result) override;
 
 private:
 	UI::EventReturn OnYes(UI::EventParams &e);
@@ -70,8 +96,8 @@ public:
 	NewLanguageScreen(const std::string &title);
 
 private:
-	virtual void OnCompleted(DialogResult result);
-	virtual bool ShowButtons() const { return true; }
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<FileInfo> langs_;
@@ -79,48 +105,61 @@ private:
 
 class PostProcScreen : public ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title);
+	PostProcScreen(const std::string &title, int id);
 
 private:
-	virtual void OnCompleted(DialogResult result);
-	virtual bool ShowButtons() const { return true; }
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
+	int id_;
+};
+
+class TextureShaderScreen : public ListPopupScreen {
+public:
+	TextureShaderScreen(const std::string &title);
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<TextureShaderInfo> shaders_;
 };
 
 class LogoScreen : public UIScreen {
 public:
-	LogoScreen()
-		: frames_(0), switched_(false) {}
-	void key(const KeyInput &key);
-	void update(InputState &input);
-	void render();
-	void sendMessage(const char *message, const char *value);
-	virtual void CreateViews() {}
+	LogoScreen(bool gotoGameSettings = false)
+		: gotoGameSettings_(gotoGameSettings) {}
+	bool key(const KeyInput &key) override;
+	bool touch(const TouchInput &touch) override;
+	void update() override;
+	void render() override;
+	void sendMessage(const char *message, const char *value) override;
+	void CreateViews() override {}
 
 private:
 	void Next();
-	int frames_;
-	bool switched_;
+	int frames_ = 0;
+	bool switched_ = false;
+	bool gotoGameSettings_ = false;
 };
 
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen() : frames_(0) {}
-	void update(InputState &input);
-	void render();
-	virtual void CreateViews();
+	void update() override;
+	void render() override;
+
+	void CreateViews() override;
 
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);
 
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
+	UI::EventReturn OnPrivacy(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
-	UI::EventReturn OnChineseForum(UI::EventParams &e);
+	UI::EventReturn OnDiscord(UI::EventParams &e);
+	UI::EventReturn OnShare(UI::EventParams &e);
+	UI::EventReturn OnTwitter(UI::EventParams &e);
 
 	int frames_;
 };
-
-
-// Utility functions that create various popup screens
-ListPopupScreen *CreateLanguageScreen();

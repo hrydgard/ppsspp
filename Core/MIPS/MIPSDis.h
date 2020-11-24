@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
 extern u32 disPC;
@@ -34,6 +34,7 @@ namespace MIPSDis
 	void Dis_RelBranch2(MIPSOpcode op, char *out);
 	void Dis_RelBranch(MIPSOpcode op, char *out);
 	void Dis_Generic(MIPSOpcode op, char *out);
+	void Dis_Cache(MIPSOpcode op, char *out);
 	void Dis_IType(MIPSOpcode op, char *out);
 	void Dis_IType1(MIPSOpcode op, char *out);
 	void Dis_ITypeMem(MIPSOpcode op, char *out);

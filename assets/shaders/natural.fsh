@@ -53,6 +53,6 @@ c1=RGBtoYIQ*c0;
 
 c1=vec3(pow(c1.x,val00.x),c1.yz*val00.yz);
 
-gl_FragColor.xyz=YIQtoRGB*c1;
-
+gl_FragColor.rgb=YIQtoRGB*c1;
+gl_FragColor.a = 1.0;
 }

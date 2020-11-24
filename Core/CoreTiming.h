@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _CORETIMING_H
-#define _CORETIMING_H
+#pragma once
+
+#include <string>
+#include "Common/CommonTypes.h"
 
 // This is a system to schedule events into the emulated machine's future. Time is measured
 // in main CPU clock cycles.
@@ -30,8 +32,6 @@
 // So to schedule a new event on a regular basis:
 // inside callback:
 //   ScheduleEvent(periodInCycles - cyclesLate, callback, "whatever")
-
-#include "../Globals.h"
 
 class PointerWrap;
 
@@ -67,7 +67,7 @@ inline s64 usToCycles(u64 us) {
 }
 
 inline s64 cyclesToUs(s64 cycles) {
-	return cycles / (CPU_HZ / 1000000);
+	return (cycles * 1000000) / CPU_HZ;
 }
 
 namespace CoreTiming
@@ -75,6 +75,7 @@ namespace CoreTiming
 	void Init();
 	void Shutdown();
 
+	typedef void (*MHzChangeCallback)();
 	typedef void (*TimedCallback)(u64 userdata, int cyclesLate);
 
 	u64 GetTicks();
@@ -114,16 +115,14 @@ namespace CoreTiming
 	void LogPendingEvents();
 
 	// Warning: not included in save states.
-	void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted));
+	void RegisterMHzChangeCallback(MHzChangeCallback callback);
 
 	std::string GetScheduledEventsSummary();
 
 	void DoState(PointerWrap &p);
 
-	void SetClockFrequencyMHz(int cpuMhz);
-	int GetClockFrequencyMHz();
+	void SetClockFrequencyHz(int cpuHz);
+	int GetClockFrequencyHz();
 	extern int slicelength;
 
 }; // end of namespace
-
-#endif

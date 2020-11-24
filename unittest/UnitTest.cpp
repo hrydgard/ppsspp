@@ -23,34 +23,67 @@
 //
 // TODO: Make a test of nice unittest asserts and count successes etc.
 // Or just integrate with an existing testing framework.
-
+//
+// To use, set command line parameter to one or more of the tests below, or "all".
+// Search for "availableTests".
 
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <string>
+#include <sstream>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
-#include "base/NativeApp.h"
-#include "Common/ArmEmitter.h"
+#include "ppsspp_config.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Input/InputState.h"
 #include "ext/disarm.h"
-#include "math/math_util.h"
-#include "util/text/parsers.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Text/Parsers.h"
 
-#define EXPECT_TRUE(a) if (!(a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
-#define EXPECT_FALSE(a) if ((a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
-#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf(__FUNCTION__ ":" __LINE__ ": Test Fail\n%f\nvs\n%f\n", a, b); return false; }
-#define EXPECT_EQ_STR(a, b) if (a != b) { printf(__FUNCTION__ ": Test Fail\n%s\nvs\n%s\n", a.c_str(), b.c_str()); return false; }
+#include "Common/ArmEmitter.h"
+#include "Common/BitScan.h"
+#include "Common/CPUDetect.h"
+#include "Common/Log.h"
+#include "Core/Config.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
+#include "GPU/Common/TextureDecoder.h"
 
-#define RET(a) if (!(a)) { return false; }
+#include "unittest/JitHarness.h"
+#include "unittest/TestVertexJit.h"
+#include "unittest/UnitTest.h"
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+int System_GetPropertyInt(SystemProperty prop) {
+	return -1;
+}
+float System_GetPropertyFloat(SystemProperty prop) {
+	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
+}
 
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
 
-static const float asinCoef[8] = {
-	0
-};
+jclass findClass(const char *name) {
+	return nullptr;
+}
+#endif
 
+#ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
+#endif
+
+// asin acos atan: https://github.com/michaldrobot/ShaderFastLibs/blob/master/ShaderFastMathLib.h
 
 // TODO:
 // Fast approximate sincos for NEON
@@ -69,7 +102,6 @@ static const float asinCoef[8] = {
 // Unfortunately this is very serial.
 // At least there are only 8 constants needed - load them into two low quads and go to town.
 // For every step, VDUP the constant into a new register (out of two alternating), then VMLA or VFMA into it.
-
 
 // http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/arcsin/
 // minimax polynomial rational approx, pretty good, get four digits consistently.
@@ -90,14 +122,14 @@ float fastasin(double x) {
 	return sign * (y - sqrtthing);
 }
 
-double atan_66s(double x) { 
-	const double c1=1.6867629106; 
-	const double c2=0.4378497304; 
-	const double c3=1.6867633134; 
-	
-	double x2; // The input argument squared 
+double atan_66s(double x) {
+	const double c1=1.6867629106;
+	const double c2=0.4378497304;
+	const double c3=1.6867633134;
 
-	x2=x * x; 
+	double x2; // The input argument squared
+
+	x2 = x * x;
 	return (x*(c1 + x2*c2)/(c3 + x2));
 }
 
@@ -127,13 +159,9 @@ float fastasin5(float x)
 	float sign = x >= 0.0f ? 1.0f : -1.0f;
 	x = fabs(x);
 	float fRoot = sqrtf(1.0f - x);
-	float fResult = -0.0187293f;
-	fResult *= x;
-	fResult += 0.0742610f;
-	fResult *= x;
-	fResult -= 0.2121144f;
-	fResult *= x;
-	fResult += 1.5707288f;
+	float fResult = 0.0742610f + -0.0187293f  * x;
+	fResult = -0.2121144f + fResult * x;
+	fResult = 1.5707288f + fResult * x;
 	fResult = M_PI/2 - fRoot*fResult;
 	return sign * fResult;
 }
@@ -149,10 +177,10 @@ void fcs(float angle, float &sinout, float &cosout) {
 	int phasein = angle * (1 << BITSPERQUARTER);
 	// Modulo phase into quarter, convert to float 0..1
 	float modphase = (phasein & ((1<<BITSPERQUARTER)-1)) * (1.0f / (1<<BITSPERQUARTER));
-	// Extract quarter bits 
+	// Extract quarter bits
 	int quarter = phasein >> BITSPERQUARTER;
 	// Recognize quarter
-	if (!quarter) { 
+	if (!quarter) {
 		// First quarter, angle = 0 .. pi/2
 		float x = modphase - 0.5f;      // 1 sub
 		float temp = (2 - 4*C)*x*x + C; // 2 mul, 1 add
@@ -200,13 +228,11 @@ void fcs2(float theta, float &outsine, float &outcosine) {
 	gamma *= 4;
 	gamma -= 2;
 
-	const float B = 2;
-
-	float x = 2 * gamma - gamma * abs(gamma);
-	float y = 2 * theta - theta * abs(theta);
-	const float P = 0.225;
-	outsine = P * (y * abs(y) - y) + y;   // Q * y + P * y * abs(y)
-	outcosine = P * (x * abs(x) - x) + x;   // Q * y + P * y * abs(y)
+	float x = 2 * gamma - gamma * fabs(gamma);
+	float y = 2 * theta - theta * fabs(theta);
+	const float P = 0.225f;
+	outsine = P * (y * fabsf(y) - y) + y;   // Q * y + P * y * abs(y)
+	outcosine = P * (x * fabsf(x) - x) + x;   // Q * y + P * y * abs(y)
 }
 
 
@@ -243,63 +269,6 @@ bool TestAsin() {
 	return true;
 }
 
-
-
-bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
-	u32 instr;
-	memcpy(&instr, emit.GetCodePtr() - 4, 4);
-	char disasm[512];
-	ArmDis(0, instr, disasm);
-	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
-	return true;
-}
-
-
-bool TestArmEmitter() {
-	using namespace ArmGen;
-
-	u32 code[512];
-	ARMXEmitter emitter((u8 *)code);
-	emitter.LDR(R3, R7);
-	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
-	emitter.VLDR(S3, R8, 48);
-	RET(CheckLast(emitter, "edd81a0c VLDR s3, [r8, #48]"));
-	emitter.VSTR(S5, R12, -36);
-	RET(CheckLast(emitter, "ed4c2a09 VSTR s5, [r12, #-36]"));
-	emitter.VADD(S1, S2, S3);
-	RET(CheckLast(emitter, "ee710a21 VADD s1, s2, s3"));
-	emitter.VMUL(S7, S8, S9);
-	RET(CheckLast(emitter, "ee643a24 VMUL s7, s8, s9"));
-	emitter.VMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee443a24 VMLA s7, s8, s9"));
-	emitter.VNMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee543a64 VNMLA s7, s8, s9"));
-	emitter.VABS(S1, S2);
-	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
-	emitter.VSQRT(S1, S2);
-	RET(CheckLast(emitter, "eef10ac1 VSQRT s1, s2"));
-	emitter.VDIV(S1, S2, S3);
-	RET(CheckLast(emitter, "eec10a21 VDIV s1, s2, s3"));
-	emitter.VMRS(R1);
-	RET(CheckLast(emitter, "eef11a10 VMRS r1"));
-	emitter.VMSR(R7);
-	RET(CheckLast(emitter, "eee17a10 VMSR r7"));
-	emitter.VMRS_APSR();
-	RET(CheckLast(emitter, "eef1fa10 VMRS APSR"));
-	emitter.VCVT(S0, S1, TO_INT | IS_SIGNED);
-	RET(CheckLast(emitter, "eebd0a60 VCVT ..."));
-
-
-	// WTF?
-	//emitter.VSUB(S4, S5, S6);
-	//RET(CheckLast(emitter, "ee322ac3 VSUB s4, s5, s6"));
-
-
-	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
-	return true;
-}
-
 bool TestMathUtil() {
 	EXPECT_FALSE(my_isinf(1.0));
 	volatile float zero = 0.0f;
@@ -321,12 +290,364 @@ bool TestParsers() {
 	return true;
 }
 
-int main(int argc, const char *argv[])
-{
-	TestAsin();
-	//TestSinCos();
-	//TestArmEmitter();
-	TestMathUtil();
-	TestParsers();
+bool TestVFPUSinCos() {
+	float sine, cosine;
+	vfpu_sincos(0.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(1.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(2.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 0.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, -1.0f);
+	vfpu_sincos(3.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, -1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(4.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(5.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+
+	vfpu_sincos(-1.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, -1.0f);
+	EXPECT_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(-2.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, -1.0f);
+
+	for (float angle = -10.0f; angle < 10.0f; angle += 0.1f) {
+		vfpu_sincos(angle, sine, cosine);
+		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
+		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
+
+		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+	}
+	return true;
+}
+
+bool TestMatrixTranspose() {
+	MatrixSize sz = M_4x4;
+	int matrix = 0;  // M000
+	u8 cols[4];
+	u8 rows[4];
+
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	int transposed = Xpose(matrix);
+	u8 x_cols[4];
+	u8 x_rows[4];
+
+	GetMatrixColumns(transposed, sz, x_cols);
+	GetMatrixRows(transposed, sz, x_rows);
+
+	for (int i = 0; i < GetMatrixSide(sz); i++) {
+		EXPECT_EQ_INT(cols[i], x_rows[i]);
+		EXPECT_EQ_INT(x_cols[i], rows[i]);
+	}
+	return true;
+}
+
+void TestGetMatrix(int matrix, MatrixSize sz) {
+	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz));
+	u8 fullMatrix[16];
+
+	u8 cols[4];
+	u8 rows[4];
+
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	GetMatrixRegs(fullMatrix, sz, matrix);
+
+	int n = GetMatrixSide(sz);
+	VectorSize vsz = GetVectorSize(sz);
+	for (int i = 0; i < n; i++) {
+		// int colName = GetColumnName(matrix, sz, i, 0);
+		// int rowName = GetRowName(matrix, sz, i, 0);
+		int colName = cols[i];
+		int rowName = rows[i];
+		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz));
+		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz));
+
+		u8 colRegs[4];
+		u8 rowRegs[4];
+		GetVectorRegs(colRegs, vsz, colName);
+		GetVectorRegs(rowRegs, vsz, rowName);
+
+		// Check that the individual regs are the expected ones.
+		std::stringstream a, b, c, d;
+		for (int j = 0; j < n; j++) {
+			a.clear();
+			b.clear();
+			a << (int)fullMatrix[i * 4 + j] << " ";
+			b << (int)colRegs[j] << " ";
+
+			c.clear();
+			d.clear();
+
+			c << (int)fullMatrix[j * 4 + i] << " ";
+			d << (int)rowRegs[j] << " ";
+		}
+		INFO_LOG(SYSTEM, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		if (a.str() != b.str())
+			INFO_LOG(SYSTEM, "WRONG!");
+		INFO_LOG(SYSTEM, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
+		if (c.str() != d.str())
+			INFO_LOG(SYSTEM, "WRONG!");
+	}
+}
+
+bool TestParseLBN() {
+	const char *validStrings[] = {
+		"/sce_lbn0x5fa0_size0x1428",
+		"/sce_lbn7050_sizeee850",
+		"/sce_lbn0x5eeeh_size0x234x",  // Check for trailing chars. See #7960.
+		"/sce_lbneee__size434.",  // Check for trailing chars. See #7960.
+	};
+	int expectedResults[][2] = {
+		{0x5fa0, 0x1428},
+		{0x7050, 0xee850},
+		{0x5eee, 0x234},
+		{0xeee,  0x434},
+	};
+	const char *invalidStrings[] = {
+		"/sce_lbn0x5fa0_sze0x1428",
+		"",
+		"//",
+	};
+	for (int i = 0; i < ARRAY_SIZE(validStrings); i++) {
+		u32 startSector = 0, readSize = 0;
+		// printf("testing %s\n", validStrings[i]);
+		EXPECT_TRUE(parseLBN(validStrings[i], &startSector, &readSize));
+		EXPECT_EQ_INT(startSector, expectedResults[i][0]);
+		EXPECT_EQ_INT(readSize, expectedResults[i][1]);
+	}
+	for (int i = 0; i < ARRAY_SIZE(invalidStrings); i++) {
+		u32 startSector, readSize;
+		EXPECT_FALSE(parseLBN(invalidStrings[i], &startSector, &readSize));
+	}
+	return true;
+}
+
+// So we can use EXPECT_TRUE, etc.
+struct AlignedMem {
+	AlignedMem(size_t sz, size_t alignment = 16) {
+		p_ = AllocateAlignedMemory(sz, alignment);
+	}
+	~AlignedMem() {
+		FreeAlignedMemory(p_);
+	}
+
+	operator void *() {
+		return p_;
+	}
+
+	operator char *() {
+		return (char *)p_;
+	}
+
+private:
+	void *p_;
+};
+
+bool TestQuickTexHash() {
+	SetupTextureDecoder();
+
+	static const int BUF_SIZE = 1024;
+	AlignedMem buf(BUF_SIZE, 16);
+
+	memset(buf, 0, BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xaa756edc);
+
+	memset(buf, 1, BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x66f81b1c);
+
+	strncpy(buf, "hello", BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xf6028131);
+
+	strncpy(buf, "goodbye", BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xef81b54f);
+
+	// Simple patterns.
+	for (int i = 0; i < BUF_SIZE; ++i) {
+		char *p = buf;
+		p[i] = i & 0xFF;
+	}
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x0d64531c);
+
+	int j = 573;
+	for (int i = 0; i < BUF_SIZE; ++i) {
+		char *p = buf;
+		j += ((i * 7) + (i & 3)) * 11;
+		p[i] = j & 0xFF;
+	}
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x58de8dbc);
+
+	return true;
+}
+
+bool TestCLZ() {
+	static const uint32_t input[] = {
+		0xFFFFFFFF,
+		0x00FFFFF0,
+		0x00101000,
+		0x00003000,
+		0x00000001,
+		0x00000000,
+	};
+	static const uint32_t expected[] = {
+		0,
+		8,
+		11,
+		18,
+		31,
+		32,
+	};
+	for (int i = 0; i < ARRAY_SIZE(input); i++) {
+		EXPECT_EQ_INT(clz32(input[i]), expected[i]);
+	}
+	return true;
+}
+
+static bool TestMemMap() {
+	Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+
+	enum class Flags {
+		NO_KERNEL = 0,
+		ALLOW_KERNEL = 1,
+	};
+	struct Range {
+		uint32_t base;
+		uint32_t size;
+		Flags flags;
+	};
+	static const Range ranges[] = {
+		{ 0x08000000, Memory::RAM_DOUBLE_SIZE, Flags::ALLOW_KERNEL },
+		{ 0x00010000, Memory::SCRATCHPAD_SIZE, Flags::NO_KERNEL },
+		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },
+	};
+	static const uint32_t extraBits[] = {
+		0x00000000,
+		0x40000000,
+		0x80000000,
+	};
+
+	for (const auto &range : ranges) {
+		size_t testBits = range.flags == Flags::ALLOW_KERNEL ? 3 : 2;
+		for (size_t i = 0; i < testBits; ++i) {
+			uint32_t base = range.base | extraBits[i];
+
+			EXPECT_TRUE(Memory::IsValidAddress(base));
+			EXPECT_TRUE(Memory::IsValidAddress(base + range.size - 1));
+			EXPECT_FALSE(Memory::IsValidAddress(base + range.size));
+			EXPECT_FALSE(Memory::IsValidAddress(base - 1));
+
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size + 1), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size - 1), range.size - 1);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0), 0);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x80000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x40000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x20000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x10000001), range.size);
+		}
+	}
+
+	return true;
+}
+
+typedef bool (*TestFunc)();
+struct TestItem {
+	const char *name;
+	TestFunc func;
+};
+
+#define TEST_ITEM(name) { #name, &Test ##name, }
+
+bool TestArmEmitter();
+bool TestArm64Emitter();
+bool TestX64Emitter();
+bool TestShaderGenerators();
+
+TestItem availableTests[] = {
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+	TEST_ITEM(Arm64Emitter),
+#endif
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+	TEST_ITEM(ArmEmitter),
+#endif
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+	TEST_ITEM(X64Emitter),
+#endif
+	TEST_ITEM(VertexJit),
+	TEST_ITEM(Asin),
+	TEST_ITEM(SinCos),
+	TEST_ITEM(VFPUSinCos),
+	TEST_ITEM(MathUtil),
+	TEST_ITEM(Parsers),
+	TEST_ITEM(Jit),
+	TEST_ITEM(MatrixTranspose),
+	TEST_ITEM(ParseLBN),
+	TEST_ITEM(QuickTexHash),
+	TEST_ITEM(CLZ),
+	TEST_ITEM(ShaderGenerators),
+};
+
+int main(int argc, const char *argv[]) {
+	cpu_info.bNEON = true;
+	cpu_info.bVFP = true;
+	cpu_info.bVFPv3 = true;
+	cpu_info.bVFPv4 = true;
+	g_Config.bEnableLogging = true;
+
+	bool allTests = false;
+	TestFunc testFunc = nullptr;
+	if (argc >= 2) {
+		if (!strcasecmp(argv[1], "all")) {
+			allTests = true;
+		}
+		for (auto f : availableTests) {
+			if (!strcasecmp(argv[1], f.name)) {
+				testFunc = f.func;
+				break;
+			}
+		}
+	}
+
+	if (allTests) {
+		int passes = 0;
+		int fails = 0;
+		for (auto f : availableTests) {
+			if (f.func()) {
+				++passes;
+			} else {
+				printf("%s: FAILED\n", f.name);
+				++fails;
+			}
+		}
+		if (passes > 0) {
+			printf("%d tests passed.\n", passes);
+		}
+		if (fails > 0) {
+			return 2;
+		}
+	} else if (testFunc == nullptr) {
+		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Available tests:\n");
+		for (auto f : availableTests) {
+			fprintf(stderr, "  * %s\n", f.name);
+		}
+		return 1;
+	} else {
+		if (!testFunc()) {
+			return 2;
+		}
+	}
+
 	return 0;
 }

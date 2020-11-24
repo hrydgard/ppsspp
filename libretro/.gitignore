@@ -1,0 +1,5 @@
+*.bc
+*.so
+*.dll
+*.dylib
+*.manifest

@@ -36,6 +36,6 @@ Change directory back up to the main ppsspp directory and do the following:
 
     mkdir build-ios
     cd build-ios
-    cmake -DCMAKE_TOOLCHAIN_FILE=../ios/ios.toolchain.cmake -GXcode ..
+    cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 
 You now should have an Xcode project file in the build-ios directory named PPSSPP.xcodeproj.  Open it up in Xcode and do Product->Build to build the debug version, or Product->Build For->Archiving to build the release version (which is much faster).  If your iOS device is plugged in, you may be able to just Run in Xcode to install and test it.  Otherwise, copy the PPSSPP app from build-ios/Debug-iphoneos/PPSSPP.app or build-ios/Release-iphoneos/PPSSPP.app to the /Applications directory on your device and from ssh or MobileTerminal do a "chmod +x PPSSPP" inside the PPSSPP.app directory.  If this is the first time you've installed the PPSSPP app, you'll have to respring or restart your device for the icon to show up.

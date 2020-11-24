@@ -21,6 +21,7 @@ void Register_scePsmf();
 void Register_scePsmfPlayer();
 
 void __PsmfInit();
+void __PsmfPlayerLoadModule(int devkitVersion);
 void __PsmfDoState(PointerWrap &p);
 void __PsmfPlayerDoState(PointerWrap &p);
 void __PsmfShutdown();

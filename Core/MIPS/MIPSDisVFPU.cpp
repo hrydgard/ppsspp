@@ -15,23 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../HLE/HLE.h"
+#include <cstring>
+#include "Core/HLE/HLE.h"
 
-#include "MIPS.h"
-#include "MIPSDis.h"
-#include "MIPSTables.h"
-#include "MIPSDebugInterface.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDis.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
-#include "MIPSVFPUUtils.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
+#define _RD   ((op>>11) & 0x1F)
+#define _FS   ((op>>11) & 0x1F)
+#define _FT   ((op>>16) & 0x1F)
+#define _FD   ((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
 
 
 #define RN(i) currentDebugMIPS->GetRegName(0,i)
@@ -149,7 +150,7 @@ namespace MIPSDis
 	{
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t",name);
+		sprintf(out, "%s\t[",name);
 		static const char *regnam[4] = {"X","Y","Z","W"};
 		static const char *constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
 		for (int i=0; i<4; i++)
@@ -174,16 +175,19 @@ namespace MIPSDis
 			}
 			if (abs && !constants)
 				strcat(out, "|");
-			strcat(out, " ");
+			if (i != 3)
+				strcat(out, ",");
 		}
+
+		strcat(out, "]");
 	}
 
 	void Dis_VPFXD(MIPSOpcode op, char *out)
 	{
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t", name);
-		static const char *satNames[4] = {"", "0-1", "X", "-1-1"};
+		sprintf(out, "%s\t[", name);
+		static const char *satNames[4] = {"", "0:1", "X", "-1:1"};
 		for (int i=0; i<4; i++)
 		{
 			int sat = (data>>i*2)&3;
@@ -193,8 +197,10 @@ namespace MIPSDis
 			if (mask)
 				strcat(out, "M");
 			if (i < 4 - 1)
-				strcat(out, ", ");
+				strcat(out, ",");
 		}
+
+		strcat(out, "]");
 	}
 
 
@@ -252,7 +258,7 @@ namespace MIPSDis
 	{
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
-		MatrixSize sz = GetMtxSize(op);
+		MatrixSize sz = GetMtxSizeSafe(op);
 		sprintf(out, "%s%s\t%s",name,VSuff(op),MN(vd, sz));
 	}
 	void Dis_MatrixSet2(MIPSOpcode op, char *out)
@@ -260,7 +266,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
 		int vs = _VS;
-		MatrixSize sz = GetMtxSize(op);
+		MatrixSize sz = GetMtxSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s",name,VSuff(op),MN(vd, sz),MN(vs,sz));
 	}
 	void Dis_MatrixSet3(MIPSOpcode op, char *out)
@@ -269,7 +275,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSize(op);
+		MatrixSize sz = GetMtxSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s, %s",name,VSuff(op),MN(vd, sz),MN(vs,sz),MN(vt,sz));
 	}
 
@@ -279,7 +285,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSize(op);
+		MatrixSize sz = GetMtxSizeSafe(op);
 		// TODO: Xpose?
 		sprintf(out, "%s%s\t%s, %s, %s",name,VSuff(op),MN(vd, sz),MN(Xpose(vs),sz),MN(vt,sz));
 	}
@@ -290,7 +296,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSize(op);
+		MatrixSize sz = GetMtxSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s, %s", name, VSuff(op), MN(vd, sz), MN(vs, sz), VN(vt, V_Single));
 	}
 
@@ -300,7 +306,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s, %s", name, VSuff(op), VN(vd, V_Single), VN(vs,sz), VN(vt, sz));
 	}
 
@@ -310,8 +316,8 @@ namespace MIPSDis
 		int vs = _VS;
 		int vt = _VT;
 		int ins = (op>>23) & 7;
-		VectorSize sz = GetVecSize(op);
-		MatrixSize msz = GetMtxSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
+		MatrixSize msz = GetMtxSizeSafe(op);
 		int n = GetNumVectorElements(sz);
 
 		if (n == ins)
@@ -339,8 +345,8 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int vt = _VT;
 		int vs = _VS;
-		int vd = _VS;
-		VectorSize sz = GetVecSize(op);
+		int vd = _VD;
+		VectorSize sz = GetVecSizeSafe(op);
 		if (sz != V_Triple)
 		{
 			sprintf(out, "vcrs\tERROR");
@@ -356,7 +362,7 @@ namespace MIPSDis
 		int vt = _VT;
 		int vs = _VS;
 		int cond = op&15;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		const char *condNames[16] = {"FL","EQ","LT","LE","TR","NE","GE","GT","EZ","EN","EI","ES","NZ","NN","NI","NS"};
 		sprintf(out, "%s%s\t%s, %s, %s", name, VSuff(op), condNames[cond], VN(vs, sz), VN(vt,sz));
 	}
@@ -364,7 +370,7 @@ namespace MIPSDis
 	void Dis_Vcmov(MIPSOpcode op, char *out)
 	{
 		const char *name = MIPSGetName(op);
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		int vd = _VD;
 		int vs = _VS;
 		int tf = (op >> 19)&3;
@@ -385,7 +391,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
 		int vs = _VS;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s", name, VSuff(op), VN(vd, V_Single), VN(vs,sz));
 	}
 
@@ -395,7 +401,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s, %s", name, VSuff(op), VN(vd, sz), VN(vs,sz), VN(vt, V_Single));
 	}
 
@@ -403,7 +409,7 @@ namespace MIPSDis
 	{
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s",name,VSuff(op),VN(vd, sz));
 	}
 	void Dis_VectorSet2(MIPSOpcode op, char *out)
@@ -411,7 +417,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
 		int vs = _VS;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s",name,VSuff(op),VN(vd, sz),VN(vs, sz));
 	}
 	void Dis_VectorSet3(MIPSOpcode op, char *out)
@@ -420,7 +426,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		sprintf(out, "%s%s\t%s, %s, %s", name, VSuff(op), VN(vd, sz), VN(vs,sz), VN(vt, sz));
 	}
 
@@ -430,7 +436,7 @@ namespace MIPSDis
 		int vs = _VS;
 		int imm = (op>>16) & 0x1f;
 		bool negSin = (imm & 0x10) ? true : false;
-		char c[5] = "....";
+		char c[5] = "0000";
 		char temp[16]={""};
 		if (((imm>>2)&3)==(imm&3))
 		{
@@ -439,7 +445,7 @@ namespace MIPSDis
 		}
 		c[(imm>>2) & 3] = 'S';
 		c[imm&3] = 'C';
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		int numElems = GetNumVectorElements(sz);
 		int pos = 0;
 		temp[pos++] = '[';
@@ -447,10 +453,9 @@ namespace MIPSDis
 		{
 			if (c[i] == 'S' && negSin)
 				temp[pos++] = '-';
-			else
-				temp[pos++] = ' ';
 			temp[pos++] = c[i];
-			temp[pos++] = ' ';
+			if (i != numElems-1)
+				temp[pos++] = ',';
 		}
 		temp[pos++] = ']';
 		temp[pos]=0;
@@ -460,7 +465,7 @@ namespace MIPSDis
 
 	void Dis_CrossQuat(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		const char *name;
 		switch (sz)
 		{
@@ -485,7 +490,7 @@ namespace MIPSDis
 
 	void Dis_Vbfy(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		int vd = _VD;
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
@@ -494,7 +499,7 @@ namespace MIPSDis
 
 	void Dis_Vf2i(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op>>16)&0x1f;
@@ -504,7 +509,7 @@ namespace MIPSDis
 
 	void Dis_Vs2i(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 		int vd = _VD;
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
@@ -513,8 +518,8 @@ namespace MIPSDis
 
 	void Dis_Vi2x(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
-		VectorSize dsz = GetHalfVectorSize(sz);
+		VectorSize sz = GetVecSizeSafe(op);
+		VectorSize dsz = GetHalfVectorSizeSafe(sz);
 		if (((op>>16)&3)==0)
 			dsz = V_Single;
 
@@ -526,7 +531,7 @@ namespace MIPSDis
 
 	void Dis_Vwbn(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 
 		int vd = _VD;
 		int vs = _VS;
@@ -537,8 +542,8 @@ namespace MIPSDis
 
 	void Dis_Vf2h(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
-		VectorSize dsz = GetHalfVectorSize(sz);
+		VectorSize sz = GetVecSizeSafe(op);
+		VectorSize dsz = GetHalfVectorSizeSafe(sz);
 		if (((op>>16)&3)==0)
 			dsz = V_Single;
 
@@ -550,8 +555,8 @@ namespace MIPSDis
 
 	void Dis_Vh2f(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
-		VectorSize dsz = GetDoubleVectorSize(sz);
+		VectorSize sz = GetVecSizeSafe(op);
+		VectorSize dsz = GetDoubleVectorSizeSafe(sz);
 
 		int vd = _VD;
 		int vs = _VS;
@@ -561,8 +566,8 @@ namespace MIPSDis
 
 	void Dis_ColorConv(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
-		VectorSize dsz = GetHalfVectorSize(sz);
+		VectorSize sz = GetVecSizeSafe(op);
+		VectorSize dsz = GetHalfVectorSizeSafe(sz);
 
 		int vd = _VD;
 		int vs = _VS;
@@ -579,7 +584,7 @@ namespace MIPSDis
 
 	void Dis_VrndX(MIPSOpcode op, char *out)
 	{
-		VectorSize sz = GetVecSize(op);
+		VectorSize sz = GetVecSizeSafe(op);
 
 		int vd = _VD;
 		const char *name = MIPSGetName(op);

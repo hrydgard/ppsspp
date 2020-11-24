@@ -17,39 +17,45 @@
 
 #pragma once
 
-#include "../GPUCommon.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUCommon.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 
-class NullGPU : public GPUCommon
-{
+class NullGPU : public GPUCommon {
 public:
 	NullGPU();
 	~NullGPU();
-	virtual void InitClear() {}
-	virtual void ExecuteOp(u32 op, u32 diff);
 
-	virtual void BeginFrame() {}
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {}
-	virtual void CopyDisplayToOutput() {}
-	virtual void UpdateStats();
-	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual void UpdateMemory(u32 dest, u32 src, int size);
-	virtual void ClearCacheNextFrame() {};
+	void CheckGPUFeatures() override {}
+	void InitClear() override {}
+	void ExecuteOp(u32 op, u32 diff) override;
 
-	virtual void DeviceLost() {}
-	virtual void DumpNextFrame() {}
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override {}
+	void CopyDisplayToOutput(bool reallyDirty) override {}
+	void GetStats(char *buffer, size_t bufsize) override;
+	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemorySet(u32 dest, u8 v, int size) override;
+	bool PerformMemoryDownload(u32 dest, int size) override;
+	bool PerformMemoryUpload(u32 dest, int size) override;
+	bool PerformStencilUpload(u32 dest, int size) override;
+	void ClearCacheNextFrame() override {}
+	bool FramebufferDirty() override { return true; }
 
-	virtual void Resized() {}
-	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+	void DeviceLost() override {}
+	void DeviceRestore() override {}
+	void DumpNextFrame() override {}
+
+	void Resized() override {}
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "NULL";
 		fullInfo = "NULL";
 	}
 
-	virtual bool FramebufferReallyDirty() {
-		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
-	}
+	bool FramebufferReallyDirty() override;
 
 protected:
-	virtual void FastRunLoop(DisplayList &list);
+	void FastRunLoop(DisplayList &list) override;
 };

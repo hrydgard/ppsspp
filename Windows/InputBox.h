@@ -1,7 +1,6 @@
 #pragma once
 
-#include "Globals.h"
-
+#include <string>
 #include "Common/CommonWindows.h"
 
 

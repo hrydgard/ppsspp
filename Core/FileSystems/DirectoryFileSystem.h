@@ -20,8 +20,7 @@
 // TODO: Remove the Windows-specific code, FILE is fine there too.
 
 #include <map>
-
-#include "../Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/FileSystem.h"
 
 #ifdef _WIN32
 typedef void * HANDLE;
@@ -39,7 +38,7 @@ typedef void * HANDLE;
 #define HOST_IS_CASE_SENSITIVE 1
 #endif
 
-#elif defined(_WIN32) || defined(__SYMBIAN32__)
+#elif defined(_WIN32)
 #define HOST_IS_CASE_SENSITIVE 0
 
 #else  // Android, Linux, BSD (and the rest?)
@@ -54,27 +53,29 @@ enum FixPathCaseBehavior {
 	FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
 };
 
-bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior behavior);
+bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior);
 #endif
 
-struct DirectoryFileHandle
-{
+struct DirectoryFileHandle {
+	enum Flags {
+		NORMAL,
+		SKIP_REPLAY,
+	};
+
 #ifdef _WIN32
-	HANDLE hFile;
+	HANDLE hFile = (HANDLE)-1;
 #else
-	FILE* hFile;
+	int hFile = -1;
 #endif
-	DirectoryFileHandle()
-	{
-#ifdef _WIN32
-		hFile = (HANDLE)-1;
-#else
-		hFile = 0;
-#endif
+	s64 needsTrunc_ = -1;
+	bool replay_ = true;
+	bool inGameDir_ = false;
+
+	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
 	}
 
-	std::string GetLocalPath(std::string& basePath, std::string localpath);
-	bool Open(std::string& basePath, std::string& fileName, FileAccess access);
+	std::string GetLocalPath(const std::string &basePath, std::string localpath);
+	bool Open(const std::string &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
 	size_t Seek(s32 position, FileMove type);
@@ -83,35 +84,45 @@ struct DirectoryFileHandle
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags = FileSystemFlags::NONE);
 	~DirectoryFileSystem();
 
-	void DoState(PointerWrap &p);
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
-	void     CloseFile(u32 handle);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle);
+	void CloseAll();
 
-	bool MkDir(const std::string &dirname);
-	bool RmDir(const std::string &dirname);
-	int  RenameFile(const std::string &from, const std::string &to);
-	bool RemoveFile(const std::string &filename);
-	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	void DoState(PointerWrap &p) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
+	void     CloseFile(u32 handle) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	PSPFileInfo GetFileInfo(std::string filename) override;
+	bool     OwnsHandle(u32 handle) override;
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
+	PSPDevType DevType(u32 handle) override;
+
+	bool MkDir(const std::string &dirname) override;
+	bool RmDir(const std::string &dirname) override;
+	int  RenameFile(const std::string &from, const std::string &to) override;
+	bool RemoveFile(const std::string &filename) override;
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
+	FileSystemFlags Flags() override { return flags; }
+	u64 FreeSpace(const std::string &path) override;
 
 private:
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile;
+		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
+		std::string guestFilename;
+		FileAccess access;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
 	std::string basePath;
 	IHandleAllocator *hAlloc;
-
+	FileSystemFlags flags;
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
 };
@@ -123,21 +134,27 @@ public:
 	VFSFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
 	~VFSFileSystem();
 
-	void DoState(PointerWrap &p);
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
-	void     CloseFile(u32 handle);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle);
+	void DoState(PointerWrap &p) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
+	void     CloseFile(u32 handle) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	PSPFileInfo GetFileInfo(std::string filename) override;
+	bool     OwnsHandle(u32 handle) override;
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
+	PSPDevType DevType(u32 handle) override;
 
-	bool MkDir(const std::string &dirname);
-	bool RmDir(const std::string &dirname);
-	int  RenameFile(const std::string &from, const std::string &to);
-	bool RemoveFile(const std::string &filename);
-	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	bool MkDir(const std::string &dirname) override;
+	bool RmDir(const std::string &dirname) override;
+	int  RenameFile(const std::string &from, const std::string &to) override;
+	bool RemoveFile(const std::string &filename) override;
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
+	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
+	u64 FreeSpace(const std::string &path) override { return 0; }
 
 private:
 	struct OpenFileEntry {

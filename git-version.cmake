@@ -3,7 +3,7 @@ set(GIT_VERSION "unknown")
 set(GIT_VERSION_UPDATE "1")
 
 find_package(Git)
-if(GIT_FOUND)
+if(GIT_FOUND AND EXISTS "${SOURCE_DIR}/.git/")
 	execute_process(COMMAND ${GIT_EXECUTABLE} describe --always
 		WORKING_DIRECTORY ${SOURCE_DIR}
 		RESULT_VARIABLE exit_code
@@ -19,17 +19,10 @@ endif()
 if(EXISTS ${GIT_VERSION_FILE})
 	# Don't update if marked not to update.
 	file(STRINGS ${GIT_VERSION_FILE} match
-		REGEX "PPSSPP_GIT_VERSION_NO_UPDATE = 1")
+		REGEX "PPSSPP_GIT_VERSION_NO_UPDATE 1")
 	if(NOT ${match} EQUAL "")
 		set(GIT_VERSION_UPDATE "0")
 	endif()
-
-	# Don't update if it's already the same.
-	file(STRINGS ${GIT_VERSION_FILE} match
-		REGEX "${GIT_VERSION}")
-	if(NOT ${match} EQUAL "")
-		set(GIT_VERSION_UPDATE "0")
-	endif()	
 endif()
 
 set(code_string "// This is a generated file.\n\n"
@@ -37,7 +30,6 @@ set(code_string "// This is a generated file.\n\n"
 	"// If you don't want this file to update/recompile, change to 1.\n"
 	"#define PPSSPP_GIT_VERSION_NO_UPDATE 0\n")
 
-message(WARNING "UPDATE: ${GIT_VERSION_FILE}")
 if ("${GIT_VERSION_UPDATE}" EQUAL "1")
 	file(WRITE ${GIT_VERSION_FILE} ${code_string})
 endif()

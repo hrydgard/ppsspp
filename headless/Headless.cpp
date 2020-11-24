@@ -5,26 +5,37 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
-#include "Common/FileUtil.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
+#include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
+#include "Core/SaveState.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "base/NativeApp.h"
-#include "input/input_state.h"
-#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
-#ifdef _WIN32
-#include "Windows/OpenGLBase.h"
+#if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
-#include "WindowsHeadlessHostDx9.h"
+#elif defined(SDL)
+#include "SDLHeadlessHost.h"
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -33,49 +44,64 @@
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-class PrintfLogger : public LogListener
-{
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
+
+jclass findClass(const char *name) {
+	return nullptr;
+}
+#endif
+
+class PrintfLogger : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg)
-	{
-		switch (level)
-		{
+	void Log(const LogMessage &message) {
+		switch (message.level) {
 		case LogTypes::LVERBOSE:
-			fprintf(stderr, "V %s", msg);
+			fprintf(stderr, "V %s", message.msg.c_str());
 			break;
 		case LogTypes::LDEBUG:
-			fprintf(stderr, "D %s", msg);
+			fprintf(stderr, "D %s", message.msg.c_str());
 			break;
 		case LogTypes::LINFO:
-			fprintf(stderr, "I %s", msg);
+			fprintf(stderr, "I %s", message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			fprintf(stderr, "E %s", msg);
+			fprintf(stderr, "E %s", message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			fprintf(stderr, "W %s", msg);
+			fprintf(stderr, "W %s", message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			fprintf(stderr, "N %s", msg);
+			fprintf(stderr, "N %s", message.msg.c_str());
 			break;
 		}
 	}
 };
 
-struct InputState;
-// Temporary hack around annoying linking error.
-void GL_SwapBuffers() { }
-void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+// Temporary hacks around annoying linking errors.
+void NativeUpdate() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
+void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+int System_GetPropertyInt(SystemProperty prop) {
+	return -1;
+}
+float System_GetPropertyFloat(SystemProperty prop) {
+	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
+}
+void System_SendMessage(const char *command, const char *parameter) {}
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-#ifndef _WIN32
-InputState input_state;
-#endif
-
-void printUsage(const char *progname, const char *reason)
+int printUsage(const char *progname, const char *reason)
 {
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
@@ -83,13 +109,14 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
 	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
+	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
+	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
 
-#if HEADLESSHOST_CLASS != HeadlessHost
+#if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
-		fprintf(stderr, "                        options: gles, software, directx9\n");
+		fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 #endif
@@ -97,21 +124,25 @@ void printUsage(const char *progname, const char *reason)
 
 	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
 	fprintf(stderr, "  -i                    use the interpreter\n");
+	fprintf(stderr, "  --ir                  use ir interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
+
+	return 1;
 }
 
-static HeadlessHost * getHost(GPUCore gpuCore) {
-	switch(gpuCore) {
-	case GPU_NULL:
+static HeadlessHost *getHost(GPUCore gpuCore) {
+	switch (gpuCore) {
+	case GPUCORE_NULL:
 		return new HeadlessHost();
-#ifdef _WIN32
-	case GPU_DIRECTX9:
-		return new WindowsHeadlessHostDx9();
-#endif
+#ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
+#else
+	default:
+		return new HeadlessHost();
+#endif
 	}
 }
 
@@ -141,11 +172,17 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
-	time_update();
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
-	static double deadline = time_now() + timeout;
+	static double deadline;
+	deadline = time_now_d() + timeout;
+
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+
+	PSP_BeginHostFrame();
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -158,7 +195,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
-		time_update();
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
@@ -169,6 +205,10 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			Core_Stop();
 		}
 	}
+	PSP_EndHostFrame();
+
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->EndFrame();
 
 	PSP_Shutdown();
 
@@ -184,6 +224,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 int main(int argc, const char* argv[])
 {
+	PROFILE_INIT();
+
+#if defined(_DEBUG) && defined(_MSC_VER)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -191,33 +237,40 @@ int main(int argc, const char* argv[])
 #endif
 
 	bool fullLog = false;
-	bool useJit = true;
 	bool autoCompare = false;
 	bool verbose = false;
-	GPUCore gpuCore = GPU_NULL;
-	
+	const char *stateToLoad = 0;
+	GPUCore gpuCore = GPUCORE_NULL;
+	CPUCore cpuCore = CPUCore::JIT;
+
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
+	const char *mountRoot = 0;
 	const char *screenshotFilename = 0;
-	bool readMount = false;
 	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (readMount)
-		{
-			mountIso = argv[i];
-			readMount = false;
-			continue;
-		}
 		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount"))
-			readMount = true;
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -m");
+			mountIso = argv[i];
+		}
+		else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -r");
+			mountRoot = argv[i];
+		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
-			useJit = false;
+			cpuCore = CPUCore::INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
-			useJit = true;
+			cpuCore = CPUCore::JIT;
+		else if (!strcmp(argv[i], "--ir"))
+			cpuCore = CPUCore::IR_JIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
@@ -226,33 +279,37 @@ int main(int argc, const char* argv[])
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
-				gpuCore = GPU_GLES;
+				gpuCore = GPUCORE_GLES;
 			else if (!strcasecmp(gpuName, "software"))
-				gpuCore = GPU_SOFTWARE;
+				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
-				gpuCore = GPU_DIRECTX9;
+				gpuCore = GPUCORE_DIRECTX9;
+			else if (!strcasecmp(gpuName, "directx11"))
+				gpuCore = GPUCORE_DIRECTX11;
+			else if (!strcasecmp(gpuName, "vulkan"))
+				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPU_NULL;
+				gpuCore = GPUCORE_NULL;
 			else
-			{
-				printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
-				return 1;
-			}
+				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
 		// Default to GLES if no value selected.
-		else if (!strcmp(argv[i], "--graphics"))
-			gpuCore = GPU_GLES;
-		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
+		else if (!strcmp(argv[i], "--graphics")) {
+#if PPSSPP_API(ANY_GL)
+			gpuCore = GPUCORE_GLES;
+#else
+			gpuCore = GPUCORE_DIRECTX11;
+#endif
+		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
+		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
+			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-		{
-			printUsage(argv[0], NULL);
-			return 1;
-		}
+			return printUsage(argv[0], NULL);
 		else
 			testFilenames.push_back(argv[i]);
 	}
@@ -268,48 +325,42 @@ int main(int argc, const char* argv[])
 			testFilenames.push_back(temp);
 	}
 
-	if (readMount)
-	{
-		printUsage(argv[0], "Missing argument after -m");
-		return 1;
-	}
 	if (testFilenames.empty())
-	{
-		printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
-		return 1;
+		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
+
+	LogManager::Init(&g_Config.bEnableLogging);
+	LogManager *logman = LogManager::GetInstance();
+
+	PrintfLogger *printfLogger = new PrintfLogger();
+
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
+		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		logman->SetEnabled(type, fullLog);
+		logman->SetLogLevel(type, LogTypes::LDEBUG);
 	}
+	logman->AddListener(printfLogger);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
-	bool glWorking = host->InitGL(&error_string);
-
-	LogManager::Init();
-	LogManager *logman = LogManager::GetInstance();
-	
-	PrintfLogger *printfLogger = new PrintfLogger();
-
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnable(type, fullLog);
-		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		logman->AddListener(type, printfLogger);
-	}
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
+	coreParameter.cpuCore = cpuCore;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
-	coreParameter.startPaused = false;
+	coreParameter.mountRoot = mountRoot ? mountRoot : "";
+	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
+	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
-	coreParameter.outputWidth = 480;
-	coreParameter.outputHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
 	coreParameter.unthrottle = true;
@@ -320,15 +371,10 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = 0;
+	g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	g_Config.bHardwareTransform = true;
-#ifdef USING_GLES2
-	g_Config.iAnisotropyLevel = 0;
-#else
-	g_Config.iAnisotropyLevel = 8;
-#endif
+	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.bVertexCache = true;
-	g_Config.bTrueColor = true;
 	g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
@@ -338,31 +384,57 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
+	g_Config.iNumWorkerThreads = 1;
+	g_Config.bSoftwareSkinning = true;
+	g_Config.bVertexDecoderJit = true;
+	g_Config.bBlockTransferGPU = true;
+	g_Config.iSplineBezierQuality = 2;
+	g_Config.bHighQualityDepth = true;
+	g_Config.bMemStickInserted = true;
+	g_Config.iMemStickSizeGB = 16;
+	g_Config.bFragmentTestCache = true;
+	g_Config.bEnableWlan = true;
+	g_Config.sMACAddress = "12:34:56:78:9A:BC";
+	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
+	g_Config.internalDataDirectory = "";
 	InitSysDirectories();
 #endif
 
-#if defined(ANDROID)
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
-#elif !defined(_WIN32)
-	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+#if !defined(__ANDROID__) && !defined(_WIN32)
+	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 3; ++i)
-	{
-		if (!File::Exists(g_Config.flash0Directory))
+	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
+		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
+			g_Config.flash0Directory += "../assets/flash0/";
+		else
 			g_Config.flash0Directory += "../../flash0/";
 	}
 	// Or else, maybe in the executable's dir.
 	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() + "flash0/";
+		g_Config.flash0Directory = File::GetExeDirectory() + "assets/flash0/";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
+#ifdef __ANDROID__
+	// For some reason the debugger installs it with this name?
+	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+	}
+	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+	}
+#endif
+
+	if (stateToLoad != NULL)
+		SaveState::Load(stateToLoad, -1);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
@@ -397,10 +469,14 @@ int main(int argc, const char* argv[])
 		}
 	}
 
-	host->ShutdownGL();
+	host->ShutdownGraphics();
 	delete host;
-	host = NULL;
-	headlessHost = NULL;
+	host = nullptr;
+	headlessHost = nullptr;
+
+	VFSShutdown();
+	LogManager::Shutdown();
+	delete printfLogger;
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();

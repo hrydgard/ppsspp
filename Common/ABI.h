@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _JIT_ABI_H_
-#define _JIT_ABI_H_
+#pragma once
 
 #include "Common.h"
 
@@ -77,7 +76,3 @@
 #endif // WIN32
 
 #endif // X86
-
-#endif  // _JIT_ABI_H_
-
-

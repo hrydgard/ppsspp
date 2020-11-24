@@ -1,0 +1,13 @@
+version: '{branch}-1.0.{build}'
+pull_requests:
+  do_not_increment_build_number: true
+configuration:
+- Release
+- Debug
+install:
+- cmd: git submodule update --init --recursive
+build:
+  project: Windows/PPSSPP.sln
+  parallel: true
+  verbosity: normal
+test: off

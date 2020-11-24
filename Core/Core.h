@@ -17,29 +17,113 @@
 
 #pragma once
 
-#include "Globals.h"
+#include <string>
+
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 
+class GraphicsContext;
+
 // called from emu thread
-void Core_Run();
+void UpdateRunLoop();
+
+void Core_Run(GraphicsContext *ctx);
 void Core_Stop();
-void Core_ErrorPause();
+// For platforms that don't call Core_Run
+void Core_SetGraphicsContext(GraphicsContext *ctx);
+
 // called from gui
 void Core_EnableStepping(bool step);
+
+bool Core_NextFrame();
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
+void Core_ProcessStepping();
+// Changes every time we enter stepping.
+int Core_GetSteppingCounter();
 
-typedef void (* Core_ShutdownFunc)();
-void Core_ListenShutdown(Core_ShutdownFunc func);
-void Core_NotifyShutdown();
-void Core_Halt(const char *msg);
+enum class CoreLifecycle {
+	STARTING,
+	// Note: includes failure cases.  Guaranteed call after STARTING.
+	START_COMPLETE,
+	STOPPING,
+	// Guaranteed call after STOPPING.
+	STOPPED,
+
+	// Sometimes called for save states.  Guaranteed sequence, and never during STARTING or STOPPING.
+	MEMORY_REINITING,
+	MEMORY_REINITED,
+};
+
+// Callback is called on the Emu thread.
+typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
+void Core_ListenLifecycle(CoreLifecycleFunc func);
+void Core_NotifyLifecycle(CoreLifecycle stage);
+
+// Callback is executed on requesting thread.
+typedef void (* CoreStopRequestFunc)();
+void Core_ListenStopRequest(CoreStopRequestFunc callback);
 
 bool Core_IsStepping();
 
 bool Core_IsActive();
 bool Core_IsInactive();
+// Warning: these currently work only on Windows.
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 
-void UpdateScreenScale();
+bool UpdateScreenScale(int width, int height);
+
+// Don't run the core when minimized etc.
+void Core_NotifyWindowHidden(bool hidden);
+void Core_NotifyActivity();
+
+void Core_SetPowerSaving(bool mode);
+bool Core_GetPowerSaving();
+
+enum class MemoryExceptionType {
+	NONE,
+	UNKNOWN,
+	READ_WORD,
+	WRITE_WORD,
+	READ_BLOCK,
+	WRITE_BLOCK,
+};
+enum class ExecExceptionType {
+	JUMP,
+	THREAD,
+};
+
+// Separate one for without info, to avoid having to allocate a string
+void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+
+void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo);
+
+void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
+void Core_Break();
+
+enum class ExceptionType {
+	NONE,
+	MEMORY,
+	BREAK,
+	BAD_EXEC_ADDR,
+};
+
+struct ExceptionInfo {
+	ExceptionType type;
+	std::string info;
+
+	// Memory exception info
+	MemoryExceptionType memory_type;
+	uint32_t pc;
+	uint32_t address;
+
+	// Reuses pc and address from memory type, where address is the failed destination.
+	ExecExceptionType exec_type;
+};
+
+const ExceptionInfo &Core_GetExceptionInfo();
+
+const char *ExceptionTypeAsString(ExceptionType type);
+const char *MemoryExceptionTypeAsString(MemoryExceptionType type);
+const char *ExecExceptionTypeAsString(ExecExceptionType type);

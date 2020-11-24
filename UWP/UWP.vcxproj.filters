@@ -1,0 +1,373 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>0d070030-beb5-4f48-99a0-b1777297a468</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>a5564d79-b131-4b27-9f5f-d80671731d94</UniqueIdentifier>
+      <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
+    </Filter>
+    <ClInclude Include="Common\DirectXHelper.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DeviceResources.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClCompile Include="Common\DeviceResources.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Filter Include="Content">
+      <UniqueIdentifier>{ef87b390-608f-4c6d-a0ad-88963875ed11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\lang">
+      <UniqueIdentifier>{0c1cdb21-de65-4a10-962e-46b9bb0ff717}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\shaders">
+      <UniqueIdentifier>{a861f712-3285-448d-b7a0-f6d39ac4c4b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\flash0">
+      <UniqueIdentifier>{d51ae335-1279-4484-bfbf-2caa2efba6d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\flash0\font">
+      <UniqueIdentifier>{d2294c79-82bd-470f-b984-f838f0fbcd25}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\git-version.cpp" />
+    <ClCompile Include="XAudioSoundStream.cpp" />
+    <ClCompile Include="PPSSPP_UWPMain.cpp" />
+    <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
+    <ClCompile Include="StorageFileLoader.cpp" />
+    <ClCompile Include="UWPHost.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp" />
+    <ClCompile Include="StorageFolderBrowser.cpp" />
+    <ClCompile Include="..\Windows\InputDevice.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="App.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="..\ppsspp_config.h" />
+    <ClInclude Include="XAudioSoundStream.h" />
+    <ClInclude Include="PPSSPP_UWPMain.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h" />
+    <ClInclude Include="StorageFileLoader.h" />
+    <ClInclude Include="UWPHost.h" />
+    <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="UWPUtil.h" />
+    <ClInclude Include="StorageFolderBrowser.h" />
+    <ClInclude Include="..\Windows\InputDevice.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Content\7z.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\unknown.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\zip.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\ui_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="AssetsGold\StoreLogo.scale-100.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UWP_TemporaryKey.pfx" />
+    <None Include="Content\compat.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\knownfuncs.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\langregion.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ppge_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
+    <None Include="Content\lang\ar_AE.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\az_AZ.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\bg_BG.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ca_ES.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\cz_CZ.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\da_DK.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\de_DE.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\dr_ID.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\en_US.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\es_ES.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\es_LA.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\fa_IR.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\fi_FI.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\fr_FR.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\gl_ES.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\gr_EL.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\he_IL.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\hu_HU.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\id_ID.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\it_IT.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ja_JP.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\jv_ID.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ko_KR.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\lo_LA.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\lt-LT.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ms_MY.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\nl_NL.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\no_NO.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\pl_PL.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\pt_BR.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\pt_PT.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ro_RO.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\ru_RU.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\sv_SE.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\tg_PH.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\th_TH.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\tr_TR.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\uk_UA.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\vi_VN.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\zh_CN.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\zh_TW.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\shaders\4xhqglsl.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\5xBR.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\5xBR-lv2.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\aacolor.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\bloom.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\cartoon.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\crt.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\defaultshaders.ini">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\fxaa.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\GaussianDownscale.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\grayscale.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\inversecolors.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\flash0\font\jpn0.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\kr0.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn0.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn1.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn2.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn3.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn4.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn5.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn6.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn7.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn8.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn9.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn10.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn11.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn12.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn13.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn14.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\flash0\font\ltn15.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="Content\shaders\natural.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\naturalA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\scanlines.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\sharpen.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\vignette.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\videoAA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\assets\ppge_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\assets\ui_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Content\gamecontrollerdb.txt">
+      <Filter>Content</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="Content\Roboto-Condensed.ttf">
+      <Filter>Content</Filter>
+    </Font>
+  </ItemGroup>
+</Project>

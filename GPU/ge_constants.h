@@ -15,11 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _GE_CONSTANTS_H
-#define _GE_CONSTANTS_H
+#pragma once
 
-enum GECommand
-{
+enum GECommand {
 	GE_CMD_NOP = 0,
 	GE_CMD_VADDR = 0x1,
 	GE_CMD_IADDR = 0x2,
@@ -43,13 +41,13 @@ enum GECommand
 	GE_CMD_LIGHTINGENABLE = 0x17,
 	GE_CMD_LIGHTENABLE0 = 0x18,
 	GE_CMD_LIGHTENABLE1 = 0x19,
-	GE_CMD_LIGHTENABLE2 = 0x1a,
-	GE_CMD_LIGHTENABLE3 = 0x1b,
-	GE_CMD_CLIPENABLE = 0x1c,
-	GE_CMD_CULLFACEENABLE,
-	GE_CMD_TEXTUREMAPENABLE,
-	GE_CMD_FOGENABLE,
-	GE_CMD_DITHERENABLE,
+	GE_CMD_LIGHTENABLE2 = 0x1A,
+	GE_CMD_LIGHTENABLE3 = 0x1B,
+	GE_CMD_DEPTHCLAMPENABLE = 0x1C,
+	GE_CMD_CULLFACEENABLE = 0x1D,
+	GE_CMD_TEXTUREMAPENABLE = 0x1E,
+	GE_CMD_FOGENABLE = 0x1F,
+	GE_CMD_DITHERENABLE = 0x20,
 	GE_CMD_ALPHABLENDENABLE = 0x21,
 	GE_CMD_ALPHATESTENABLE = 0x22,
 	GE_CMD_ZTESTENABLE = 0x23,
@@ -72,19 +70,19 @@ enum GECommand
 	GE_CMD_PATCHPRIMITIVE = 0x37,
 	GE_CMD_PATCHFACING = 0x38,
 	GE_CMD_WORLDMATRIXNUMBER = 0x3A,
-	GE_CMD_WORLDMATRIXDATA,
-	GE_CMD_VIEWMATRIXNUMBER,
-	GE_CMD_VIEWMATRIXDATA,
-	GE_CMD_PROJMATRIXNUMBER,
-	GE_CMD_PROJMATRIXDATA,
+	GE_CMD_WORLDMATRIXDATA = 0x3B,
+	GE_CMD_VIEWMATRIXNUMBER = 0x3C,
+	GE_CMD_VIEWMATRIXDATA = 0x3D,
+	GE_CMD_PROJMATRIXNUMBER = 0x3E,
+	GE_CMD_PROJMATRIXDATA = 0x3F,
 	GE_CMD_TGENMATRIXNUMBER = 0x40,
 	GE_CMD_TGENMATRIXDATA = 0x41,
-	GE_CMD_VIEWPORTX1,
-	GE_CMD_VIEWPORTY1,
-	GE_CMD_VIEWPORTZ1,
-	GE_CMD_VIEWPORTX2,
-	GE_CMD_VIEWPORTY2,
-	GE_CMD_VIEWPORTZ2,
+	GE_CMD_VIEWPORTXSCALE = 0x42,
+	GE_CMD_VIEWPORTYSCALE = 0x43,
+	GE_CMD_VIEWPORTZSCALE = 0x44,
+	GE_CMD_VIEWPORTXCENTER = 0x45,
+	GE_CMD_VIEWPORTYCENTER = 0x46,
+	GE_CMD_VIEWPORTZCENTER = 0x47,
 	GE_CMD_TEXSCALEU = 0x48,
 	GE_CMD_TEXSCALEV = 0x49,
 	GE_CMD_TEXOFFSETU = 0x4A,
@@ -94,14 +92,14 @@ enum GECommand
 	GE_CMD_SHADEMODE = 0x50,  // flat or gouraud
 	GE_CMD_REVERSENORMAL = 0x51,
 	GE_CMD_MATERIALUPDATE = 0x53,
-	GE_CMD_MATERIALEMISSIVE, //not sure about these but this makes sense
-	GE_CMD_MATERIALAMBIENT,  //gotta try enabling lighting and check :)
+	GE_CMD_MATERIALEMISSIVE = 0x54, //not sure about these but this makes sense
+	GE_CMD_MATERIALAMBIENT = 0x55,  //gotta try enabling lighting and check :)
 	GE_CMD_MATERIALDIFFUSE = 0x56,
 	GE_CMD_MATERIALSPECULAR = 0x57,
 	GE_CMD_MATERIALALPHA = 0x58,
 	GE_CMD_MATERIALSPECULARCOEF = 0x5B,
-	GE_CMD_AMBIENTCOLOR,
-	GE_CMD_AMBIENTALPHA,
+	GE_CMD_AMBIENTCOLOR = 0x5C,
+	GE_CMD_AMBIENTALPHA = 0x5D,
 	GE_CMD_LIGHTMODE = 0x5E,
 	GE_CMD_LIGHTTYPE0 = 0x5F,
 	GE_CMD_LIGHTTYPE1 = 0x60,
@@ -184,8 +182,8 @@ enum GECommand
 	GE_CMD_TEXBUFWIDTH5,	
 	GE_CMD_TEXBUFWIDTH6,
 	GE_CMD_TEXBUFWIDTH7,
-	GE_CMD_CLUTADDR=0xB0,
-	GE_CMD_CLUTADDRUPPER,
+	GE_CMD_CLUTADDR = 0xB0,
+	GE_CMD_CLUTADDRUPPER = 0xB1,
 	GE_CMD_TRANSFERSRC,
 	GE_CMD_TRANSFERSRCW,
 	GE_CMD_TRANSFERDST,
@@ -243,6 +241,16 @@ enum GECommand
 	GE_CMD_TRANSFERSRCPOS = 0xEB,
 	GE_CMD_TRANSFERDSTPOS = 0xEC,
 	GE_CMD_TRANSFERSIZE = 0xEE,
+	GE_CMD_VSCX = 0xF0,
+	GE_CMD_VSCY = 0xF1,
+	GE_CMD_VSCZ = 0xF2,
+	GE_CMD_VTCS = 0xF3,
+	GE_CMD_VTCT = 0xF4,
+	GE_CMD_VTCQ = 0xF5,
+	GE_CMD_VCV = 0xF6,
+	GE_CMD_VAP = 0xF7,
+	GE_CMD_VFC = 0xF8,
+	GE_CMD_VSCV = 0xF9,
 	GE_CMD_UNKNOWN_03 = 0x03,
 	GE_CMD_UNKNOWN_0D = 0x0D,
 	GE_CMD_UNKNOWN_11 = 0x11,
@@ -260,22 +268,12 @@ enum GECommand
 	GE_CMD_UNKNOWN_D1 = 0xD1,
 	GE_CMD_UNKNOWN_ED = 0xED,
 	GE_CMD_UNKNOWN_EF = 0xEF,
-	GE_CMD_UNKNOWN_F0 = 0xF0,
-	GE_CMD_UNKNOWN_F1 = 0xF1,
-	GE_CMD_UNKNOWN_F2 = 0xF2,
-	GE_CMD_UNKNOWN_F3 = 0xF3,
-	GE_CMD_UNKNOWN_F4 = 0xF4,
-	GE_CMD_UNKNOWN_F5 = 0xF5,
-	GE_CMD_UNKNOWN_F6 = 0xF6,
-	GE_CMD_UNKNOWN_F7 = 0xF7,
-	GE_CMD_UNKNOWN_F8 = 0xF8,
-	GE_CMD_UNKNOWN_F9 = 0xF9,
 	GE_CMD_UNKNOWN_FA = 0xFA,
 	GE_CMD_UNKNOWN_FB = 0xFB,
 	GE_CMD_UNKNOWN_FC = 0xFC,
 	GE_CMD_UNKNOWN_FD = 0xFD,
 	GE_CMD_UNKNOWN_FE = 0xFE,
-	GE_CMD_UNKNOWN_FF = 0xFF,
+	GE_CMD_NOP_FF = 0xFF,
 };
 
 enum GEBufferFormat
@@ -284,8 +282,14 @@ enum GEBufferFormat
 	GE_FORMAT_5551 = 1,
 	GE_FORMAT_4444 = 2,
 	GE_FORMAT_8888 = 3,
+	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
 	GE_FORMAT_INVALID = 0xFF,
 };
+
+const char *GeBufferFormatToString(GEBufferFormat fmt);
+inline bool IsGeBufferFormat16BitColor(GEBufferFormat fmt) {
+	return (int)fmt < 3;
+}
 
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
@@ -336,6 +340,7 @@ enum GEBufferFormat
 #define GE_VTYPE_IDX_NONE  (0<<11)
 #define GE_VTYPE_IDX_8BIT  (1<<11)
 #define GE_VTYPE_IDX_16BIT (2<<11)
+#define GE_VTYPE_IDX_32BIT (3<<11)
 #define GE_VTYPE_IDX_MASK  (3<<11)
 #define GE_VTYPE_IDX_SHIFT 11
 
@@ -396,7 +401,7 @@ enum GELightComputation
 {
 	GE_LIGHTCOMP_ONLYDIFFUSE = 0,
 	GE_LIGHTCOMP_BOTH = 1,
-	GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE = 2,
+	GE_LIGHTCOMP_ONLYPOWDIFFUSE = 2,
 };
 
 enum GETextureFormat
@@ -412,6 +417,42 @@ enum GETextureFormat
 	GE_TFMT_DXT1 = 8,
 	GE_TFMT_DXT3 = 9,
 	GE_TFMT_DXT5 = 10,
+};
+
+const char *GeTextureFormatToString(GETextureFormat tfmt);
+inline bool IsClutFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8 || tfmt == GE_TFMT_CLUT16 || tfmt == GE_TFMT_CLUT32;
+}
+inline bool IsDXTFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_DXT1 || tfmt == GE_TFMT_DXT3 || tfmt == GE_TFMT_DXT5;
+}
+inline bool IsTextureFormatBufferCompatible(GETextureFormat tfmt) {
+	return (int)tfmt < 4;
+}
+inline bool IsBufferFormat16Bit(GEBufferFormat bfmt) {
+	return (int)bfmt < 3;
+}
+inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
+	return (int)tfmt < 3;
+}
+inline bool TextureFormatMatchesBufferFormat(GETextureFormat fmt, GEBufferFormat bfmt) {
+	// First four matches perfectly.
+	if ((int)fmt < 4) {
+		return (int)fmt == (int)bfmt;
+	} else {
+		return false;
+	}
+}
+// only applicable if IsTextureFormatBufferCompatible(fmt)
+inline GEBufferFormat TextureFormatToBufferFormat(GETextureFormat bfmt) {
+	return (GEBufferFormat)(int)bfmt;
+}
+
+enum GETexLevelMode {
+	GE_TEXLEVEL_MODE_AUTO = 0,
+	GE_TEXLEVEL_MODE_CONST = 1,
+	GE_TEXLEVEL_MODE_SLOPE = 2,
+	GE_TEXLEVEL_MODE_UNKNOWN = 3,  // Behaves like CONST.
 };
 
 enum GEMaterialColorSetting
@@ -469,6 +510,9 @@ enum GETexFunc
 	GE_TEXFUNC_BLEND = 2,
 	GE_TEXFUNC_REPLACE = 3,
 	GE_TEXFUNC_ADD = 4,
+	GE_TEXFUNC_UNKNOWN1 = 5,
+	GE_TEXFUNC_UNKNOWN2 = 6,
+	GE_TEXFUNC_UNKNOWN3 = 7,
 };
 
 enum GEStencilOp
@@ -545,8 +589,18 @@ enum GEPatchPrimType
 	GE_PATCHPRIM_TRIANGLES = 0,
 	GE_PATCHPRIM_LINES = 1,
 	GE_PATCHPRIM_POINTS = 2,
+	// Treated as points.
 	GE_PATCHPRIM_UNKNOWN = 3,
 };
+
+inline GEPrimitiveType PatchPrimToPrim(GEPatchPrimType type) {
+	switch (type) {
+	case GE_PATCHPRIM_TRIANGLES: return GE_PRIM_TRIANGLES;
+	case GE_PATCHPRIM_LINES: return GE_PRIM_LINES;
+	case GE_PATCHPRIM_POINTS: return GE_PRIM_POINTS;
+	case GE_PATCHPRIM_UNKNOWN: default: return GE_PRIM_POINTS; // Treated as points.
+	}
+}
 
 enum GEPaletteFormat
 {
@@ -555,5 +609,3 @@ enum GEPaletteFormat
 	GE_CMODE_16BIT_ABGR4444,
 	GE_CMODE_32BIT_ABGR8888,
 };
-
-#endif

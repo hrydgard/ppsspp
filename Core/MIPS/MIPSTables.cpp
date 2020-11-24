@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -29,8 +31,7 @@
 
 #include "JitCommon/JitCommon.h"
 
-enum MipsEncoding
-{
+enum MipsEncoding {
 	Imme,
 	Spec,
 	Spe2,
@@ -59,187 +60,185 @@ enum MipsEncoding
 	Emu,
 	Rese,
 	NumEncodings,
+
+	Instruc = -1,
+	Inval = -2,
 };
 
-struct MIPSInstruction
-{
-	int altEncoding;
+struct MIPSInstruction {
+	MipsEncoding altEncoding;
 	const char *name;
 	MIPSComp::MIPSCompileFunc compile;
-#ifndef FINAL
 	MIPSDisFunc disasm;
-#endif
 	MIPSInterpretFunc interpret;
 	//MIPSInstructionInfo information;
 	MIPSInfo flags;
 };
 
-#define INVALID {-2}
+#define INVALID {Inval}
 #define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
-#define N(a) a
 
-#ifndef FINAL
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, MIPSInfo(flags)}
-#else
-#define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, comp, inter, flags}
-#endif
+#define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, MIPSInfo(flags)}
 
+#define JITFUNC(f) (&MIPSFrontendInterface::f)
 
 using namespace MIPSDis;
 using namespace MIPSInt;
 using namespace MIPSComp;
-//regregreg instructions
+
+// %s/&Jit::\(.\{-}\),/JITFUNC(\1),/g
+
+// regregreg instructions
 const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ................
 {
 	//0
 	ENCODING(Spec),
 	ENCODING(RegI),
-	INSTR("j",    &Jit::Comp_Jump, Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|DELAYSLOT),
-	INSTR("jal",  &Jit::Comp_Jump, Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|OUT_RA|DELAYSLOT),
-	INSTR("beq",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_EQ),
-	INSTR("bne",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_NE),
-	INSTR("blez", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LEZ),
-	INSTR("bgtz", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GTZ),
+	INSTR("j",    JITFUNC(Comp_Jump), Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|DELAYSLOT),
+	INSTR("jal",  JITFUNC(Comp_Jump), Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|OUT_RA|DELAYSLOT),
+	INSTR("beq",  JITFUNC(Comp_RelBranch), Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_EQ),
+	INSTR("bne",  JITFUNC(Comp_RelBranch), Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_NE),
+	INSTR("blez", JITFUNC(Comp_RelBranch), Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LEZ),
+	INSTR("bgtz", JITFUNC(Comp_RelBranch), Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GTZ),
 	//8
-	INSTR("addi",  &Jit::Comp_IType, Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("addiu", &Jit::Comp_IType, Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("slti",  &Jit::Comp_IType, Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("sltiu", &Jit::Comp_IType, Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("andi",  &Jit::Comp_IType, Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("ori",   &Jit::Comp_IType, Dis_ori,    Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("xori",  &Jit::Comp_IType, Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
-	INSTR("lui",   &Jit::Comp_IType, Dis_IType1, Int_IType, IN_IMM16|OUT_RT),
+	INSTR("addi",  JITFUNC(Comp_IType), Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("addiu", JITFUNC(Comp_IType), Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("slti",  JITFUNC(Comp_IType), Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("sltiu", JITFUNC(Comp_IType), Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("andi",  JITFUNC(Comp_IType), Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("ori",   JITFUNC(Comp_IType), Dis_ori,    Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("xori",  JITFUNC(Comp_IType), Dis_IType,  Int_IType, IN_RS|IN_IMM16|OUT_RT),
+	INSTR("lui",   JITFUNC(Comp_IType), Dis_IType1, Int_IType, IN_IMM16|OUT_RT),
 	//16
 	ENCODING(Cop0), //cop0
 	ENCODING(Cop1), //cop1
 	ENCODING(Cop2), //cop2
 	INVALID, //copU
 
-	INSTR("beql",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_EQ), //L = likely
-	INSTR("bnel",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_NE),
-	INSTR("blezl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LEZ),
-	INSTR("bgtzl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GTZ),
+	INSTR("beql",  JITFUNC(Comp_RelBranch), Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_EQ), //L = likely
+	INSTR("bnel",  JITFUNC(Comp_RelBranch), Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_NE),
+	INSTR("blezl", JITFUNC(Comp_RelBranch), Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LEZ),
+	INSTR("bgtzl", JITFUNC(Comp_RelBranch), Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GTZ),
 	//24
 	ENCODING(VFPU0),
 	ENCODING(VFPU1),
 	ENCODING(Emu),
 	ENCODING(VFPU3),
-	ENCODING(Spe2),//special2
-	INVALID, //, "jalx", 0, Dis_JumpType, Int_JumpType},
+	ENCODING(Spe2), //special2
 	INVALID,
-	ENCODING(Spe3),//special3
+	INVALID,
+	ENCODING(Spe3), //special3
 	//32
-	INSTR("lb",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
-	INSTR("lh",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
-	INSTR("lwl", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
-	INSTR("lw",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
-	INSTR("lbu", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
-	INSTR("lhu", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
-	INSTR("lwr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
+	INSTR("lb",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
+	INSTR("lh",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
+	INSTR("lwl", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_RT|OUT_RT|MEMTYPE_WORD),
+	INSTR("lw",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
+	INSTR("lbu", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
+	INSTR("lhu", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
+	INSTR("lwr", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_RT|OUT_RT|MEMTYPE_WORD),
 	INVALID,
 	//40
-	INSTR("sb",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_BYTE),
-	INSTR("sh",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_HWORD),
-	INSTR("swl", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("sw",  &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
+	INSTR("sb",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_BYTE),
+	INSTR("sh",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_HWORD),
+	INSTR("swl", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
+	INSTR("sw",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
 	INVALID,
 	INVALID,
-	INSTR("swr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("cache", &Jit::Comp_Cache, Dis_Generic, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_OTHER),
+	INSTR("swr", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
+	INSTR("cache", JITFUNC(Comp_Cache), Dis_Cache, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR),
 	//48
-	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|OUT_OTHER|MEMTYPE_WORD),
-	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|MEMTYPE_FLOAT),
-	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
-	INVALID, // HIT THIS IN WIPEOUT
+	INSTR("ll", JITFUNC(Comp_Generic), Dis_Generic, Int_StoreSync, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|OUT_OTHER|MEMTYPE_WORD),
+	INSTR("lwc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_FT|MEMTYPE_FLOAT|IS_FPU),
+	INSTR("lv.s", JITFUNC(Comp_SV), Dis_SV, Int_SV, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
+	INVALID,
 	ENCODING(VFPU4Jump),
-	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
-	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
+	INSTR("lv", JITFUNC(Comp_SVQ), Dis_SVLRQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
+	INSTR("lv.q", JITFUNC(Comp_SVQ), Dis_SVQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
 	ENCODING(VFPU5),
 	//56
-	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, IN_IMM16|IN_RS_ADDR|IN_OTHER|IN_RT|OUT_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|MEMTYPE_FLOAT), //copU
-	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
+	INSTR("sc", JITFUNC(Comp_Generic), Dis_Generic, Int_StoreSync, IN_IMM16|IN_RS_ADDR|IN_OTHER|IN_RT|OUT_RT|OUT_MEM|MEMTYPE_WORD),
+	INSTR("swc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_IMM16|IN_RS_ADDR|IN_FT|OUT_MEM|MEMTYPE_FLOAT|IS_FPU), //copU
+	INSTR("sv.s", JITFUNC(Comp_SV), Dis_SV, Int_SV, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
 	INVALID,
 	//60
 	ENCODING(VFPU6),
-	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
-	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
+	INSTR("sv", JITFUNC(Comp_SVQ), Dis_SVLRQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
+	INSTR("sv.q", JITFUNC(Comp_SVQ), Dis_SVQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
 	// Some call this VFPU7 (vflush/vnop/vsync), but it's not super important.
-	INSTR("vflush", &Jit::Comp_DoNothing, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("vflush", JITFUNC(Comp_DoNothing), Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
 const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("sll",   &Jit::Comp_ShiftType, Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
+	INSTR("sll",   JITFUNC(Comp_ShiftType), Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
 	INVALID,  // copu
 
-	INSTR("srl",   &Jit::Comp_ShiftType, Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
-	INSTR("sra",   &Jit::Comp_ShiftType, Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
-	INSTR("sllv",  &Jit::Comp_ShiftType, Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
+	INSTR("srl",   JITFUNC(Comp_ShiftType), Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
+	INSTR("sra",   JITFUNC(Comp_ShiftType), Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
+	INSTR("sllv",  JITFUNC(Comp_ShiftType), Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
 	INVALID,
-	INSTR("srlv",  &Jit::Comp_ShiftType, Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
-	INSTR("srav",  &Jit::Comp_ShiftType, Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
+	INSTR("srlv",  JITFUNC(Comp_ShiftType), Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
+	INSTR("srav",  JITFUNC(Comp_ShiftType), Dis_VarShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_RS_SHIFT),
 
 	//8
-	INSTR("jr",    &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|DELAYSLOT),
-	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|OUT_RD|DELAYSLOT),
-	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_EQ),
-	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_NE),
-	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall, IN_MEM|IN_OTHER|OUT_MEM|OUT_OTHER),
-	INSTR("break", &Jit::Comp_Break, Dis_Generic, Int_Break, 0),
+	INSTR("jr",    JITFUNC(Comp_JumpReg), Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|DELAYSLOT),
+	INSTR("jalr",  JITFUNC(Comp_JumpReg), Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|OUT_RD|DELAYSLOT),
+	INSTR("movz",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_EQ),
+	INSTR("movn",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_NE),
+	INSTR("syscall", JITFUNC(Comp_Syscall), Dis_Syscall, Int_Syscall, IN_MEM|IN_OTHER|OUT_MEM|OUT_OTHER),
+	INSTR("break", JITFUNC(Comp_Break), Dis_Generic, Int_Break, 0),
 	INVALID,
-	INSTR("sync",  &Jit::Comp_DoNothing, Dis_Generic, Int_Sync, 0),
+	INSTR("sync",  JITFUNC(Comp_DoNothing), Dis_Generic, Int_Sync, 0),
 
 	//16
-	INSTR("mfhi",  &Jit::Comp_MulDivType, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
-	INSTR("mthi",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
-	INSTR("mflo",  &Jit::Comp_MulDivType, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
-	INSTR("mtlo",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
+	INSTR("mfhi",  JITFUNC(Comp_MulDivType), Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_HI),
+	INSTR("mthi",  JITFUNC(Comp_MulDivType), Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_HI),
+	INSTR("mflo",  JITFUNC(Comp_MulDivType), Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_LO),
+	INSTR("mtlo",  JITFUNC(Comp_MulDivType), Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_LO),
 	INVALID,
 	INVALID,
-	INSTR("clz",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS),
-	INSTR("clo",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS),
+	INSTR("clz",   JITFUNC(Comp_RType2), Dis_RType2, Int_RType2, OUT_RD|IN_RS),
+	INSTR("clo",   JITFUNC(Comp_RType2), Dis_RType2, Int_RType2, OUT_RD|IN_RS),
 
 	//24
-	INSTR("mult",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("multu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("div",   &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("divu",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("madd",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
-	INSTR("maddu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
+	INSTR("mult",  JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_HI|OUT_LO),
+	INSTR("multu", JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_HI|OUT_LO),
+	INSTR("div",   JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_HI|OUT_LO),
+	INSTR("divu",  JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_HI|OUT_LO),
+	INSTR("madd",  JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_HI|IN_LO|OUT_HI|OUT_LO),
+	INSTR("maddu", JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_HI|IN_LO|OUT_HI|OUT_LO),
 	INVALID,
 	INVALID,
 
 	//32
-	INSTR("add",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("addu", &Jit::Comp_RType3, Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("sub",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("subu", &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("and",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("or",   &Jit::Comp_RType3, Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("xor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("nor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("add",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("addu", JITFUNC(Comp_RType3), Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("sub",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("subu", JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("and",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("or",   JITFUNC(Comp_RType3), Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("xor",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("nor",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
 
 	//40
 	INVALID,
 	INVALID,
-	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("max",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("min",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
-	INSTR("msub",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
-	INSTR("msubu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
+	INSTR("slt",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("sltu", JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("max",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("min",  JITFUNC(Comp_RType3), Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("msub",  JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_HI|IN_LO|OUT_HI|OUT_LO),
+	INSTR("msubu", JITFUNC(Comp_MulDivType), Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_HI|IN_LO|OUT_HI|OUT_LO),
 
 	//48
-	INSTR("tge",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
-	INSTR("tgeu", &Jit::Comp_Generic, Dis_RType3, 0, 0),
-	INSTR("tlt",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
-	INSTR("tltu", &Jit::Comp_Generic, Dis_RType3, 0, 0),
-	INSTR("teq",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
+	INSTR("tge",  JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
+	INSTR("tgeu", JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
+	INSTR("tlt",  JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
+	INSTR("tltu", JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
+	INSTR("teq",  JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
 	INVALID,
-	INSTR("tne",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
+	INSTR("tne",  JITFUNC(Comp_Generic), Dis_RType3, 0, 0),
 	INVALID,
 
 	//56
@@ -249,7 +248,7 @@ const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxx
 // Theoretically should not hit these.
 const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -257,9 +256,9 @@ const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxx
 	INVALID_X_8,
 	//32
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("mfic", &Jit::Comp_Generic, Dis_Generic, Int_Special2, 0),
+	INSTR("mfic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, OUT_OTHER),
 	INVALID,
-	INSTR("mtic", &Jit::Comp_Generic, Dis_Generic, Int_Special2, 0),
+	INSTR("mtic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, OUT_OTHER),
 	INVALID,
 	//40
 	INVALID_X_8,
@@ -269,11 +268,11 @@ const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxx
 
 const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("ext", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
+	INSTR("ext", JITFUNC(Comp_Special3), Dis_Special3, Int_Special3, IN_RS|OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("ins", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|IN_RT|OUT_RT),
+	INSTR("ins", JITFUNC(Comp_Special3), Dis_Special3, Int_Special3, IN_RS|IN_RT|OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -293,62 +292,62 @@ const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxx
 	INVALID_X_8,
 	//56
 	INVALID, INVALID, INVALID,
-	INSTR("rdhwr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("rdhwr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID,
 };
 
 const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 {
-	INSTR("bltz",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
-	INSTR("bgez",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
-	INSTR("bltzl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LTZ),
-	INSTR("bgezl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
+	INSTR("bltz",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
+	INSTR("bgez",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
+	INSTR("bltzl", JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LTZ),
+	INSTR("bgezl", JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
 	INVALID,
 	INVALID,
 	INVALID,
 	INVALID,
 	//8
-	INSTR("tgei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("tgeiu", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("tlti",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("tltiu", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("teqi",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("tgei",  JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("tgeiu", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("tlti",  JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("tltiu", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("teqi",  JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID,
-	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("tnei",  JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID,
 	//16
-	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),
-	INSTR("bgezal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_GEZ),
-	INSTR("bltzall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_LTZ), //L = likely
-	INSTR("bgezall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
+	INSTR("bltzal",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),
+	INSTR("bgezal",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_GEZ),
+	INSTR("bltzall", JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_LTZ), //L = likely
+	INSTR("bgezall", JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
 	INVALID,
 	INVALID,
 	INVALID,
 	INVALID,
 	//24
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INSTR("synci", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("synci", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 };
 
 const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 {
-	INSTR("mfc2", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
+	INSTR("mfc2", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),
 	INVALID,
-	INSTR("cfc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IN_OTHER|OUT_RT|IS_VFPU),
-	INSTR("mtc2", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
+	INSTR("cfc2", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("mfv", JITFUNC(Comp_Mftv), Dis_Mftv, Int_Mftv, IN_OTHER|IN_VFPU_CC|OUT_RT|IS_VFPU),
+	INSTR("mtc2", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),
 	INVALID,
-	INSTR("ctc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IN_RT|OUT_OTHER|IS_VFPU),
+	INSTR("ctc2", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("mtv", JITFUNC(Comp_Mftv), Dis_Mftv, Int_Mftv, IN_RT|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
 	//8
 	ENCODING(Cop2BC2),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	//16
 	INVALID_X_8,
 	INVALID_X_8,
@@ -356,31 +355,31 @@ const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 
 const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
 {
-	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
-	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
-	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
-	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvf", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
+	INSTR("bvt", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
+	INSTR("bvfl", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvtl", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
 };
 
 const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
-	INSTR("mfc0", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
+	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),  // unused
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("mtc0", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
+	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),  // unused
 	INVALID,
 	INVALID,
 	INVALID,
 	//8
 	INVALID,
 	INVALID,
-	INSTR("rdpgpr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfmc0", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("rdpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("mfmc0", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 
 	INVALID,
 	INVALID,
-	INSTR("wrpgpr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("wrpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID,
 	//16
 	ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO),
@@ -391,24 +390,24 @@ const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
 {
 	INVALID,
-	INSTR("tlbr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("tlbwi", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("tlbr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("tlbwi", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("tlbwr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("tlbwr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID,
 	//8
-	INSTR("tlbp", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("tlbp", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INVALID_X_8,
 	//24
-	INSTR("eret", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("iack", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("iack", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID,
-	INSTR("deret", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("deret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	//32
-	INSTR("wait", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("wait", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//40
 	INVALID_X_8,
@@ -418,13 +417,13 @@ const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
 
 const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
 {
-	INSTR("mfc1", &Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_OTHER|OUT_RT),
+	INSTR("mfc1", JITFUNC(Comp_mxc1), Dis_mxc1, Int_mxc1, IN_FS|OUT_RT|IS_FPU),
 	INVALID,
-	INSTR("cfc1", &Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_OTHER|IN_FPUFLAG|OUT_RT),
+	INSTR("cfc1", JITFUNC(Comp_mxc1), Dis_mxc1, Int_mxc1, IN_OTHER|IN_FPUFLAG|OUT_RT|IS_FPU),
 	INVALID,
-	INSTR("mtc1", &Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_RT|OUT_OTHER),
+	INSTR("mtc1", JITFUNC(Comp_mxc1), Dis_mxc1, Int_mxc1, IN_RT|OUT_FS|IS_FPU),
 	INVALID,
-	INSTR("ctc1", &Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_RT|OUT_FPUFLAG|OUT_OTHER),
+	INSTR("ctc1", JITFUNC(Comp_mxc1), Dis_mxc1, Int_mxc1, IN_RT|OUT_FPUFLAG|OUT_OTHER|IS_FPU),
 	INVALID,
 	//8
 	ENCODING(Cop1BC), INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
@@ -437,10 +436,10 @@ const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
 
 const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 {
-	INSTR("bc1f",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUFALSE),
-	INSTR("bc1t",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUTRUE),
-	INSTR("bc1fl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY|CONDTYPE_FPUFALSE),
-	INSTR("bc1tl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY|CONDTYPE_FPUTRUE),
+	INSTR("bc1f",  JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUFALSE|IS_FPU),
+	INSTR("bc1t",  JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUTRUE|IS_FPU),
+	INSTR("bc1fl", JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY|CONDTYPE_FPUFALSE|IS_FPU),
+	INSTR("bc1tl", JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY|CONDTYPE_FPUTRUE|IS_FPU),
 	INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -450,20 +449,20 @@ const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 
 const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 {
-	INSTR("add.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
-	INSTR("sub.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
-	INSTR("mul.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
-	INSTR("div.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
-	INSTR("sqrt.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("abs.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("mov.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("neg.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("mul.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("sqrt.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("abs.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("mov.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("neg.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	//8
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("round.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("trunc.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("ceil.w.s",   &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
-	INSTR("floor.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("round.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("trunc.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("ceil.w.s",   JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("floor.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	//16
 	INVALID_X_8,
 	//24
@@ -471,29 +470,29 @@ const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 	//32
 	INVALID, INVALID, INVALID, INVALID,
 	//36
-	INSTR("cvt.w.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("cvt.w.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INVALID,
-	INSTR("dis.int", &Jit::Comp_Generic, Dis_Generic, Int_Interrupt, 0),
+	INSTR("dis.int", JITFUNC(Comp_Generic), Dis_Generic, Int_Interrupt, 0),
 	INVALID,
 	//40
 	INVALID_X_8,
 	//48 - 010001 10000 ..... ..... ..... 11xxxx
-	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.eq",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ueq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.olt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ult", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ole", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ule", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.sf",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ngle",&Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.seq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ngl", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.lt",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.nge", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.le",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
-	INSTR("c.ngt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.f",   JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.un",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.eq",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ueq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.olt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ult", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ole", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ule", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.sf",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngle",JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.seq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngl", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.lt",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.nge", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.le",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
 };
 
 const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
@@ -506,7 +505,7 @@ const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 	//24
 	INVALID_X_8,
 	//32
-	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("cvt.s.w", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INVALID, INVALID, INVALID,
 	//36
 	INVALID,
@@ -522,37 +521,37 @@ const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 
 const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
 {
-	INSTR("vadd", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsub", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vsbn", &Jit::Comp_Generic, Dis_VectorSet3, Int_Vsbn, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	// TODO: Disasm is wrong.
+	INSTR("vsbn", JITFUNC(Comp_Generic), Dis_VectorSet3, Int_Vsbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID, INVALID,
 
-	INSTR("vdiv", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vdiv", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU1[8] = // 011001 xxx ....... . ....... . .......
 {
-	INSTR("vmul", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vdot", &Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vscl", &Jit::Comp_VScl, Dis_VScl, Int_VScl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmul", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vdot", JITFUNC(Comp_VDot), Dis_VectorDot, Int_VDot, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vscl", JITFUNC(Comp_VScl), Dis_VScl, Int_VScl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
-	INSTR("vhdp", &Jit::Comp_VHdp, Dis_VectorDot, Int_VHdp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrs", &Jit::Comp_VCrs, Dis_Vcrs, Int_Vcrs, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vdet", &Jit::Comp_VDet, Dis_VectorDot, Int_Vdet, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vhdp", JITFUNC(Comp_VHdp), Dis_VectorDot, Int_VHdp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrs", JITFUNC(Comp_VCrs), Dis_Vcrs, Int_Vcrs, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vdet", JITFUNC(Comp_VDet), Dis_VectorDot, Int_Vdet, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 };
 
 const MIPSInstruction tableVFPU3[8] = // 011011 xxx ....... . ....... . .......
 {
-	INSTR("vcmp", &Jit::Comp_Vcmp, Dis_Vcmp, Int_Vcmp, IN_OTHER|OUT_VFPU_CC|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcmp", JITFUNC(Comp_Vcmp), Dis_Vcmp, Int_Vcmp, IN_OTHER|OUT_VFPU_CC|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
-	INSTR("vmin", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmax", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmin", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmax", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
-	INSTR("vscmp", &Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsge", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vsge, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vslt", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vslt, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vscmp", JITFUNC(Comp_Generic), Dis_VectorSet3, Int_Vscmp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsge", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_Vsge, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vslt", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_Vslt, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . .......
@@ -560,147 +559,142 @@ const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . ...
 	ENCODING(VFPU4),
 	ENCODING(VFPU7),
 	ENCODING(VFPU9),
-	INSTR("vcst", &Jit::Comp_Vcst, Dis_Vcst, Int_Vcst, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcst", JITFUNC(Comp_Vcst), Dis_Vcst, Int_Vcst, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID, INVALID,
 
 	//8
 	INVALID_X_8,
 
 	//16
-	INSTR("vf2in", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2iz", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2iu", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2id", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2in", JITFUNC(Comp_Vf2i), Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2iz", JITFUNC(Comp_Vf2i), Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2iu", JITFUNC(Comp_Vf2i), Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2id", JITFUNC(Comp_Vf2i), Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//20
-	INSTR("vi2f", &Jit::Comp_Vi2f, Dis_Vf2i, Int_Vi2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcmov", &Jit::Comp_Vcmov, Dis_Vcmov, Int_Vcmov, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2f", JITFUNC(Comp_Vi2f), Dis_Vf2i, Int_Vi2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcmov", JITFUNC(Comp_Vcmov), Dis_Vcmov, Int_Vcmov, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	INVALID,
 	//24 - 110100 11 ........ . ....... . .......
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vwbn.s", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . .......
 {
-	// TODO disasm
-	INSTR("vrnds", &Jit::Comp_Generic, Dis_Vrnds, Int_Vrnds, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vrndi", &Jit::Comp_Generic, Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vrndf1", &Jit::Comp_Generic, Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vrndf2", &Jit::Comp_Generic, Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrnds", JITFUNC(Comp_Generic), Dis_Vrnds, Int_Vrnds, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrndi", JITFUNC(Comp_Generic), Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrndf1", JITFUNC(Comp_Generic), Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrndf2", JITFUNC(Comp_Generic), Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID, INVALID, INVALID, INVALID,
-	// TODO: Flags may not be correct (prefixes, etc.)  Is this the correct encoding?  Others say 10110.
-	INSTR("vsbz", &Jit::Comp_Generic, Dis_Generic, Int_Vsbz, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INVALID, INVALID, INVALID,
+	INVALID, INVALID, INVALID, INVALID,
 	//16
 	INVALID,
 	INVALID,
-	INSTR("vf2h", &Jit::Comp_Generic, Dis_Vf2h, Int_Vf2h, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vh2f", &Jit::Comp_Vh2f, Dis_Vh2f, Int_Vh2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2h", JITFUNC(Comp_Generic), Dis_Vf2h, Int_Vf2h, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vh2f", JITFUNC(Comp_Vh2f), Dis_Vh2f, Int_Vh2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID,
 	INVALID,
-	INVALID,
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, Int_Vlgb, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vsbz", JITFUNC(Comp_Generic), Dis_Generic, Int_Vsbz, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vlgb", JITFUNC(Comp_Generic), Dis_Generic, Int_Vlgb, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//24
-	INSTR("vuc2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vus2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vs2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vuc2i", JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i",  JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vus2i", JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vs2i",  JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("vi2uc", &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2c",  &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2us", &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2s",  &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2uc", JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2c",  JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2us", JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2s",  JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 // 110100 00000 10100 0000000000000000
 // 110100 00000 10111 0000000000000000
 const MIPSInstruction tableVFPU4[32] = // 110100 00000 xxxxx . ....... . .......
 {
-	INSTR("vmov", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vabs", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vneg", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vidt", &Jit::Comp_VIdt, Dis_VectorSet1, Int_Vidt, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsat0", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsat1", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vzero", &Jit::Comp_VVectorInit, Dis_VectorSet1, Int_VVectorInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vone",  &Jit::Comp_VVectorInit, Dis_VectorSet1, Int_VVectorInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmov", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vabs", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vneg", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vidt", JITFUNC(Comp_VIdt), Dis_VectorSet1, Int_Vidt, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsat0", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsat1", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vzero", JITFUNC(Comp_VVectorInit), Dis_VectorSet1, Int_VVectorInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vone",  JITFUNC(Comp_VVectorInit), Dis_VectorSet1, Int_VVectorInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//8
 	INVALID_X_8,
 	//16
-	INSTR("vrcp", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vrsq", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsin", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcos", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vexp2", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vlog2", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsqrt", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vasin", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrcp", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrsq", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsin", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcos", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vexp2", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vlog2", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsqrt", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vasin", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//24
-	INSTR("vnrcp", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vnrcp", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
-	INSTR("vnsin", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vnsin", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
-	INSTR("vrexp2", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrexp2", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID,
 };
 
 MIPSInstruction tableVFPU5[8] = // 110111 xxx ....... ................
 {
-	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
-	INSTR("viim.s", &Jit::Comp_Viim, Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vfim.s", &Jit::Comp_Vfim, Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vpfxs", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxs", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxt", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxt", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxd", JITFUNC(Comp_VPFX), Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxd", JITFUNC(Comp_VPFX), Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("viim.s", JITFUNC(Comp_Viim), Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vfim.s", JITFUNC(Comp_Vfim), Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
 {
 	//0
-	INSTR("vmmul", &Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul", &Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul", &Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul", &Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul", JITFUNC(Comp_Vmmul), Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul", JITFUNC(Comp_Vmmul), Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul", JITFUNC(Comp_Vmmul), Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul", JITFUNC(Comp_Vmmul), Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("v(h)tfm2", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm2", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm2", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm2", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm2", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm2", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm2", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm2", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//8
-	INSTR("v(h)tfm3", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm3", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm3", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm3", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm3", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm3", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm3", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm3", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("v(h)tfm4", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm4", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm4", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("v(h)tfm4", &Jit::Comp_Vtfm, Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm4", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm4", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm4", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("v(h)tfm4", JITFUNC(Comp_Vtfm), Dis_Vtfm, Int_Vtfm, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//16
-	INSTR("vmscl", &Jit::Comp_Vmscl, Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmscl", &Jit::Comp_Vmscl, Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmscl", &Jit::Comp_Vmscl, Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmscl", &Jit::Comp_Vmscl, Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmscl", JITFUNC(Comp_Vmscl), Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmscl", JITFUNC(Comp_Vmscl), Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmscl", JITFUNC(Comp_Vmscl), Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmscl", JITFUNC(Comp_Vmscl), Dis_Vmscl, Int_Vmscl, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("vcrsp.t/vqmul.q", &Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q", &Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q", &Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q", &Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q", JITFUNC(Comp_VCrossQuat), Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q", JITFUNC(Comp_VCrossQuat), Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q", JITFUNC(Comp_VCrossQuat), Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q", JITFUNC(Comp_VCrossQuat), Dis_CrossQuat, Int_CrossQuat, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//24
 	INVALID,
 	INVALID,
@@ -708,7 +702,7 @@ const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
 	INVALID,
 	//28
 	ENCODING(VFPUMatrix1),
-	INSTR("vrot", &Jit::Comp_VRot, Dis_VRot, Int_Vrot, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrot", JITFUNC(Comp_VRot), Dis_VRot, Int_Vrot, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	INVALID,
 };
@@ -716,39 +710,34 @@ const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
 // TODO: Should this only be when bit 20 is 0?
 const MIPSInstruction tableVFPUMatrixSet1[16] = // 111100 11100 .xxxx . ....... . .......  (rm x is 16)
 {
-	INSTR("vmmov", &Jit::Comp_Vmmov, Dis_MatrixSet2, Int_Vmmov, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmov", JITFUNC(Comp_Vmmov), Dis_MatrixSet2, Int_Vmmov, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	INVALID,
-	INSTR("vmidt", &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmidt", JITFUNC(Comp_VMatrixInit), Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID,
 	INVALID,
-	INSTR("vmzero", &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmone",  &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmzero", JITFUNC(Comp_VMatrixInit), Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmone",  JITFUNC(Comp_VMatrixInit), Dis_MatrixSet1, Int_VMatrixInit, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID_X_8,
 };
 
 const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 {
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vsrt1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU),
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vsrt2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vbfy1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vbfy2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt1", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt2", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vbfy1", JITFUNC(Comp_Vbfy), Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vbfy2", JITFUNC(Comp_Vbfy), Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//4
-	INSTR("vocp", &Jit::Comp_Vocp, Dis_Vbfy, Int_Vocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // one's complement
-	INSTR("vsocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vfad", &Jit::Comp_Vhoriz, Dis_Vfad, Int_Vfad, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vavg", &Jit::Comp_Vhoriz, Dis_Vfad, Int_Vavg, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vocp", JITFUNC(Comp_Vocp), Dis_Vbfy, Int_Vocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // one's complement
+	INSTR("vsocp", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vfad", JITFUNC(Comp_Vhoriz), Dis_Vfad, Int_Vfad, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vavg", JITFUNC(Comp_Vhoriz), Dis_Vfad, Int_Vavg, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//8
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vsrt3", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt3, IN_OTHER|OUT_OTHER|IS_VFPU),
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vsrt4", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt4, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vsgn", &Jit::Comp_Vsgn, Dis_Vbfy, Int_Vsgn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt3", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt4", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt4, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsgn", JITFUNC(Comp_Vsgn), Dis_Vbfy, Int_Vsgn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	//12
 	INVALID,
@@ -757,10 +746,8 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 	INVALID,
 
 	//16
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Vmftvc, Int_Vmfvc, IN_OTHER|OUT_OTHER|IS_VFPU),
-	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Vmftvc, Int_Vmtvc, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vmfvc", JITFUNC(Comp_Vmfvc), Dis_Vmftvc, Int_Vmfvc, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU),
+	INSTR("vmtvc", JITFUNC(Comp_Vmtvc), Dis_Vmftvc, Int_Vmtvc, IN_OTHER|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
 	INVALID,
 	INVALID,
 
@@ -768,9 +755,9 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 	INVALID, INVALID, INVALID, INVALID,
 	//24
 	INVALID,
-	INSTR("vt4444", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vt5551", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vt5650", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt4444", JITFUNC(Comp_ColorConv), Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt5551", JITFUNC(Comp_ColorConv), Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt5650", JITFUNC(Comp_ColorConv), Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	//28
 	INVALID, INVALID, INVALID, INVALID,
@@ -780,23 +767,23 @@ const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 10
 {
 	INVALID,
 	INVALID,
-	INSTR("wsbh", &Jit::Comp_Allegrex2, Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
-	INSTR("wsbw", &Jit::Comp_Allegrex2, Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 	INVALID, INVALID, INVALID, INVALID,
 //8
 	INVALID_X_8,
 //16
-	INSTR("seb", &Jit::Comp_Allegrex, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
 	INVALID,
 	INVALID,
 	INVALID,
 //20
-	INSTR("bitrev", &Jit::Comp_Allegrex, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
 	INVALID,
 	INVALID,
 	INVALID,
 //24
-	INSTR("seh", &Jit::Comp_Allegrex, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -808,47 +795,52 @@ const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 10
 };
 
 
-const MIPSInstruction tableEMU[4] = 
-{
-	INSTR("RUNBLOCK", &Jit::Comp_RunBlock, Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
+const MIPSInstruction tableEMU[4] = {
+	INSTR("RUNBLOCK", JITFUNC(Comp_RunBlock), Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
 	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
-	INVALID,
+	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
 	INVALID,
 };
 
-const int encodingBits[NumEncodings][2] =
-{
-	{26, 6}, //IMME
-	{0,  6}, //Special
-	{0,  6}, //special2
-	{0,  6}, //special3
-	{16, 5}, //RegImm
-	{21, 5}, //Cop0
-	{0,  6}, //Cop0CO
-	{21, 5}, //Cop1
-	{16, 5}, //Cop1BC
-	{0,  6}, //Cop1S
-	{0,  6}, //Cop1W
-	{21, 5}, //Cop2
-	{16, 2}, //Cop2BC2
-	{0,  0}, //Cop2Rese
-	{23, 3}, //VFPU0
-	{23, 3}, //VFPU1
-	{23, 3}, //VFPU3
-	{21, 5}, //VFPU4Jump
-	{16, 5}, //VFPU7
-	{16, 5}, //VFPU4
-	{23, 3}, //VFPU5
-	{21, 5}, //VFPU6
-	{16, 4}, //VFPUMatrix1
-	{16, 5}, //VFPU9
-	{6,  5}, //ALLEGREX0
-	{24, 2}, //EMUHACK
+struct EncodingBitsInfo {
+	EncodingBitsInfo(u8 shift_, u8 maskBits_) : shift(shift_) {
+		mask = (1 << maskBits_) - 1;
+	}
+	u8 shift;
+	u32 mask;
 };
 
+const EncodingBitsInfo encodingBits[NumEncodings] = {
+	EncodingBitsInfo(26, 6), //IMME
+	EncodingBitsInfo(0,  6), //Special
+	EncodingBitsInfo(0,  6), //special2
+	EncodingBitsInfo(0,  6), //special3
+	EncodingBitsInfo(16, 5), //RegImm
+	EncodingBitsInfo(21, 5), //Cop0
+	EncodingBitsInfo(0,  6), //Cop0CO
+	EncodingBitsInfo(21, 5), //Cop1
+	EncodingBitsInfo(16, 5), //Cop1BC
+	EncodingBitsInfo(0,  6), //Cop1S
+	EncodingBitsInfo(0,  6), //Cop1W
+	EncodingBitsInfo(21, 5), //Cop2
+	EncodingBitsInfo(16, 2), //Cop2BC2
+	EncodingBitsInfo(0,  0), //Cop2Rese
+	EncodingBitsInfo(23, 3), //VFPU0
+	EncodingBitsInfo(23, 3), //VFPU1
+	EncodingBitsInfo(23, 3), //VFPU3
+	EncodingBitsInfo(21, 5), //VFPU4Jump
+	EncodingBitsInfo(16, 5), //VFPU7
+	EncodingBitsInfo(16, 5), //VFPU4
+	EncodingBitsInfo(23, 3), //VFPU5
+	EncodingBitsInfo(21, 5), //VFPU6
+	EncodingBitsInfo(16, 4), //VFPUMatrix1
+	EncodingBitsInfo(16, 5), //VFPU9
+	EncodingBitsInfo(6,  5), //ALLEGREX0
+	EncodingBitsInfo(24, 2), //EMUHACK
+	EncodingBitsInfo(0,  0), //Rese
+};
 
-const MIPSInstruction *mipsTables[NumEncodings] =
-{
+const MIPSInstruction *mipsTables[NumEncodings] = {
 	tableImmediate,
 	tableSpecial,
 	tableSpecial2,
@@ -874,10 +866,9 @@ const MIPSInstruction *mipsTables[NumEncodings] =
 	tableVFPUMatrixSet1,
 	tableVFPU9,
 	tableALLEGREX0,
-	tableEMU
+	tableEMU,
+	0,
 };
-
-
 
 //arm encoding table
 //const MIPSInstruction mipsinstructions[] = 
@@ -888,72 +879,48 @@ const MIPSInstruction *mipsTables[NumEncodings] =
 //	{Comp_AND,   Dis_AND,    Info_DP,    0, DATAP(0, 0), 0x20F, {0}},
 //};
 
-
-//Todo : generate dispatcher functions from above tables
-//instead of this horribly slow abomination
-
-const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
-{
+// TODO : generate smart dispatcher functions from above tables
+// instead of this slow method.
+const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	MipsEncoding encoding = Imme;
-	const MIPSInstruction *instr = &tableImmediate[op>>26];
-	while (instr->altEncoding != -1)
-	{
-		const MIPSInstruction *table = mipsTables[encoding];
-		int mask = ((1<<encodingBits[encoding][1])-1);
-		int shift = encodingBits[encoding][0];
-		int subop = (op >> shift) & mask;
-		instr = &table[subop];
-		if (encoding == Rese)
-			return 0; //invalid instruction
-		if (!instr)
-			return 0;
-		if (instr->altEncoding == -2)
-		{
+	const MIPSInstruction *instr = &tableImmediate[op.encoding >> 26];
+	while (instr->altEncoding != Instruc) {
+		if (instr->altEncoding == Inval) {
 			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
-		encoding = (MipsEncoding)instr->altEncoding;
+		encoding = instr->altEncoding;
+
+		const MIPSInstruction *table = mipsTables[encoding];
+		const u32 subop = (op.encoding >> encodingBits[encoding].shift) & encodingBits[encoding].mask;
+		instr = &table[subop];
 	}
 	//alright, we have a valid MIPS instruction!
 	return instr;
 }
 
-
-
-void MIPSCompileOp(MIPSOpcode op)
-{
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	const MIPSInfo info = MIPSGetInfo(op);
-	if (instr)
-	{
-		if (instr->compile)
-			(MIPSComp::jit->*(instr->compile))(op);   // woohoo, member functions pointers!
-		else
-		{
+	if (instr) {
+		if (instr->compile) {
+			(jit->*(instr->compile))(op);
+		} else {
 			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
-			//MessageBox(0,"ARGH2",0,0);//compile an interpreter call
 		}
-
 		if (info & OUT_EAT_PREFIX)
-			MIPSComp::jit->EatPrefix();
-	}
-	else
-	{
+			jit->EatPrefix();
+	} else {
 		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
 }
 
-
-void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
-{
-	if (op == 0)
-	{
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
+	if (op == 0) {
 		sprintf(out,"nop");
-	}
-	else
-	{
+	} else {
 		disPC = pc;
 		const MIPSInstruction *instr = MIPSGetInstruction(op);
 		if (instr && instr->disasm) {
@@ -967,31 +934,20 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
 			}
 		} else {
 			strcpy(out, "no instruction :(");
-			//__asm int 3
-			MIPSGetInstruction(op);
 		}
 	}
 }
 
-
-void MIPSInterpret(MIPSOpcode op) //only for those rare ones
-{
-	//if ((op&0xFFFFF000) == 0xd0110000)
-	//	Crash();
-	//if (atable[CRUNCH_MIPS_OP(op)].interpret)
-	//		atable[CRUNCH_MIPS_OP(op)].interpret(op);
-	//	else
-	//		_dbg_assert_msg_(MIPS,0,"Trying to interpret instruction that can't be interpreted");
+void MIPSInterpret(MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	if (instr && instr->interpret)
+	if (instr && instr->interpret) {
 		instr->interpret(op);
-	else
-	{
+	} else {
 		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm);
-		_dbg_assert_msg_(CPU, 0, "%s", disasm);
+		_dbg_assert_msg_( 0, "%s", disasm);
 		currentMIPS->pc += 4;
 	}
 }
@@ -1008,6 +964,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	while (coreState == CORE_RUNNING)
 	{
 		CoreTiming::Advance();
+		u32 lastPC = 0;
 
 		// NEVER stop in a delay slot!
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
@@ -1046,17 +1003,29 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
 
+				/*
+				if (curMips->pc != lastPC + 4) {
+					if (blockCount > 0) {
+						MIPSState *mips_ = curMips;
+						fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
+						fflush(f);
+						blockCount--;
+					}
+				}
+				lastPC = curMips->pc;
+				*/
 				MIPSInterpret(op);
 
 				if (curMips->inDelaySlot)
 				{
+					curMips->downcount -= 1;
 					// The reason we have to check this is the delay slot hack in Int_Syscall.
 					if (wasInDelaySlot)
 					{
 						curMips->pc = curMips->nextPC;
 						curMips->inDelaySlot = false;
+						continue;
 					}
-					curMips->downcount -= 1;
 					goto again;
 				}
 			}
@@ -1071,13 +1040,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	}
 
 	return 1;
-}
-
-static inline void DelayBranchTo(MIPSState *curMips, u32 where)
-{
-	curMips->pc += 4;
-	curMips->nextPC = where;
-	curMips->inDelaySlot = true;
 }
 
 const char *MIPSGetName(MIPSOpcode op)
@@ -1117,4 +1079,10 @@ int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 		return 2;
 	else
 		return 1;
+}
+
+const char *MIPSDisasmAt(u32 compilerPC) {
+	static char temp[256];
+	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
+	return temp;
 }
