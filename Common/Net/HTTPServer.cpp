@@ -31,8 +31,8 @@
 #include <algorithm>
 #include <functional>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/Sinks.h"
@@ -119,27 +119,27 @@ void Request::WriteHttpResponseHeader(const char *ver, int status, int64_t size,
 }
 
 void Request::WritePartial() const {
-  _assert_(fd_);
-  out_->Flush();
+	_assert_(fd_);
+	out_->Flush();
 }
 
 void Request::Write() {
-  _assert_(fd_);
-  WritePartial();
-  Close();
+	_assert_(fd_);
+	WritePartial();
+	Close();
 }
 
 void Request::Close() {
-  if (fd_) {
-    closesocket(fd_);
-    fd_ = 0;
-  }
+	if (fd_) {
+		closesocket(fd_);
+		fd_ = 0;
+	}
 }
 
 Server::Server(NewThreadExecutor *executor)
-  : port_(0), executor_(executor) {
-  RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
-  SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
+	: port_(0), executor_(executor) {
+	RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
+	SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }
 
 Server::~Server() {
@@ -147,7 +147,7 @@ Server::~Server() {
 }
 
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {
-  handlers_[std::string(url_path)] = handler;
+	handlers_[std::string(url_path)] = handler;
 }
 
 void Server::SetFallbackHandler(UrlHandlerFunc handler) {
@@ -312,18 +312,18 @@ void Server::Stop() {
 }
 
 void Server::HandleConnection(int conn_fd) {
-  Request request(conn_fd);
-  if (!request.IsOK()) {
-    WARN_LOG(IO, "Bad request, ignoring.");
-    return;
-  }
-  HandleRequest(request);
+	Request request(conn_fd);
+	if (!request.IsOK()) {
+		WARN_LOG(IO, "Bad request, ignoring.");
+		return;
+	}
+	HandleRequest(request);
 
-  // TODO: Way to mark the content body as read, read it here if never read.
-  // This allows the handler to stream if need be.
+	// TODO: Way to mark the content body as read, read it here if never read.
+	// This allows the handler to stream if need be.
 
-  // TODO: Could handle keep alive here.
-  request.Write();
+	// TODO: Could handle keep alive here.
+	request.Write();
 }
 
 void Server::HandleRequest(const Request &request) {
