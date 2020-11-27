@@ -183,7 +183,10 @@
     <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp">
+    <ClCompile Include="..\..\Common\Thread\ThreadManager.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Thread\ParallelLoop.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp">
@@ -460,7 +463,16 @@
     <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Thread\ThreadPool.h">
+    <ClInclude Include="..\..\Common\Thread\Channel.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ParallelLoop.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\Promise.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Thread\ThreadManager.h">
       <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Thread\ThreadUtil.h">

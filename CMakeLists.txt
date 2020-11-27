@@ -608,12 +608,16 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/Thread/Channel.h
+	Common/Thread/ParallelLoop.cpp
+	Common/Thread/ParallelLoop.h
 	Common/Thread/PrioritizedWorkQueue.cpp
 	Common/Thread/PrioritizedWorkQueue.h
+	Common/Thread/Promise.h
 	Common/Thread/ThreadUtil.cpp
 	Common/Thread/ThreadUtil.h
-	Common/Thread/ThreadPool.cpp
-	Common/Thread/ThreadPool.h
+	Common/Thread/ThreadManager.cpp
+	Common/Thread/ThreadManager.h
 	Common/UI/Root.cpp
 	Common/UI/Root.h
 	Common/UI/Screen.cpp

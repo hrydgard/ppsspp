@@ -93,9 +93,6 @@
     <ClInclude Include="Thread\PrioritizedWorkQueue.h">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="Thread\ThreadPool.h">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="Thread\ThreadUtil.h">
       <Filter>Thread</Filter>
     </ClInclude>
@@ -398,6 +395,18 @@
     <ClInclude Include="File\AndroidStorage.h">
       <Filter>File</Filter>
     </ClInclude>
+    <ClInclude Include="Thread\ThreadManager.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread\Channel.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread\Promise.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread\ParallelLoop.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -494,9 +503,6 @@
       <Filter>ext\libpng17</Filter>
     </ClCompile>
     <ClCompile Include="Thread\PrioritizedWorkQueue.cpp">
-      <Filter>Thread</Filter>
-    </ClCompile>
-    <ClCompile Include="Thread\ThreadPool.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="Thread\ThreadUtil.cpp">
@@ -767,6 +773,12 @@
     <ClCompile Include="LogReporting.cpp" />
     <ClCompile Include="File\AndroidStorage.cpp">
       <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="Thread\ThreadManager.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="Thread\ParallelLoop.cpp">
+      <Filter>Thread</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

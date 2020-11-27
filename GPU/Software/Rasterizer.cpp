@@ -21,11 +21,12 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
-
+#include "Common/Thread/ParallelLoop.h"
 #include "Core/ThreadPools.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/ThreadPools.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
@@ -1326,24 +1327,24 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b);
 			};
-			GlobalThreadPool::Loop(bound, 0, rangeX);
+			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX);
 		} else {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b);
 			};
-			GlobalThreadPool::Loop(bound, 0, rangeX);
+			ParallelRangeLoop(&g_threadManager, bound, 0, rangeX);
 		}
 	} else if (rangeY >= 12 && rangeX >= 12) {
 		if (gstate.isModeClear()) {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b);
 			};
-			GlobalThreadPool::Loop(bound, 0, rangeY);
+			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY);
 		} else {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b);
 			};
-			GlobalThreadPool::Loop(bound, 0, rangeY);
+			ParallelRangeLoop(&g_threadManager, bound, 0, rangeY);
 		}
 	} else {
 		if (gstate.isModeClear()) {

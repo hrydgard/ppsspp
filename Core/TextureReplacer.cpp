@@ -30,6 +30,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -748,8 +749,8 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 		int w, h, f;
 		uint8_t *image;
 		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
-			GlobalThreadPool::Loop([&](int low, int high) {
-				for (int y = low; y < high; ++y) {
+			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
+				for (int y = l; y < h; ++y) {
 					memcpy((uint8_t *)out + rowPitch * y, image + w * 4 * y, w * 4);
 				}
 			}, 0, h);
