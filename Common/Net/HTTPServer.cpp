@@ -138,7 +138,7 @@ void Request::Close() {
 }
 
 Server::Server(NewThreadExecutor *executor)
-	: executor_(executor) {
+	: port_(0), executor_(executor) {
 	RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
 	SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }
