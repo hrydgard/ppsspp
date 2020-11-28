@@ -531,6 +531,9 @@ void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vf
 		if (oldFormat == GE_FORMAT_565) {
 			// We have to bind here instead of clear, since it can be that no framebuffer is bound.
 			// The backend can sometimes directly optimize it to a clear.
+			// TODO: Ultimate Ghosts and Goblins, if we don't enable reinterpret, long after this hits an assert
+			// in VKContext::BindFramebufferAsTexture indicating that we've fallen out of sync between
+			// VKContext::curFramebuffer and currentRenderVfb_. That's issue #13717.
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
 			// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 			// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
@@ -1009,7 +1012,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 	shaderManager_->DirtyLastShader();
 
-	currentRenderVfb_ = 0;
+	currentRenderVfb_ = nullptr;
 
 	if (displayFramebufPtr_ == 0) {
 		if (Core_IsStepping())
@@ -1146,7 +1149,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
-	currentRenderVfb_ = 0;
+	currentRenderVfb_ = nullptr;
 
 	for (auto iter : fbosToDelete_) {
 		iter->Release();
