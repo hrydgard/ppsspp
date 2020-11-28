@@ -885,7 +885,7 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 
 	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
-		BlitFramebuffer(dst, x, y, src, x, y, w, h, 0);
+		BlitFramebuffer(dst, x, y, src, x, y, w, h, 0, "Blit_CopyFramebufferForColorTexture");
 	}
 }
 
@@ -1274,9 +1274,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
+			// TODO: Swap the order of the below? That way we can avoid the needGLESRebinds_ check below I think.
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0);
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, "Blit_ResizeFramebufFBO");
 			}
 		}
 		fbosToDelete_.push_back(old.fbo);
@@ -1380,7 +1381,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		} else {
 			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x (size: %x)", src, dst, size);
 			// Just do the blit!
-			BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
+			BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0, "Blit_InterBufferMemcpy");
 			SetColorUpdated(dstBuffer, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer memcpy");
 		}
@@ -1732,7 +1733,8 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					dstBasePtr, dstX, dstY, dstStride,
 					width, height, bpp);
 				FlushBeforeCopy();
-				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
+				// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
+				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_IntraBufferBlockTransfer");
 				RebindFramebuffer("rebind after intra block transfer");
 				SetColorUpdated(dstBuffer, skipDrawReason);
 				return true;
@@ -1745,9 +1747,9 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				srcBasePtr, srcX, srcY, srcStride,
 				dstBasePtr, dstX, dstY, dstStride,
 				width, height, bpp);
-			// Just do the blit!
+			// Straightforward blit between two framebuffers.
 			FlushBeforeCopy();
-			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
+			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_InterBufferBlockTransfer");
 			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
 			SetColorUpdated(dstBuffer, skipDrawReason);
 			return true;  // No need to actually do the memory copy behind, probably.
@@ -1987,7 +1989,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 			tempVfb.renderWidth = w;
 			tempVfb.renderHeight = h;
 			tempVfb.renderScaleFactor = (float)maxRes;
-			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
+			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0, "Blit_GetFramebuffer");
 
 			bound = tempFBO;
 		} else {
@@ -2178,7 +2180,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		} else {
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, "Blit_ReadFramebufferToMemory");
 				PackFramebufferSync_(nvfb, x, y, w, h);
 			}
 		}
@@ -2226,7 +2228,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 			if (nvfb) {
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, "Blit_DownloadFramebufferForClut");
 				PackFramebufferSync_(nvfb, x, y, w, h);
 			}
 
