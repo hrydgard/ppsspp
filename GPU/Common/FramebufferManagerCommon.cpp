@@ -825,7 +825,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 
 bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
-		draw_->BindTexture(0, nullptr);
+		draw_->BindTexture(stage, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return false;
 	}
@@ -859,7 +859,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		// Actually if the texture region and render regions don't overlap, this is safe, but we need
 		// to transition to GENERAL image layout which will take some trickery.
 		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
-		draw_->BindTexture(0, nullptr);
+		draw_->BindTexture(stage, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return false;
 	}
