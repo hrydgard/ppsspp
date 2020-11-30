@@ -6917,7 +6917,7 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 */
 int matchingEventThread(int matchingId) 
 {
-	setCurrentThreadName("MatchingEvent");
+	SetCurrentThreadName("MatchingEvent");
 	// Multithreading Lock
 	peerlock.lock();
 	// Cast Context
@@ -7051,7 +7051,7 @@ int matchingEventThread(int matchingId)
 */
 int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is using sceNetAdhocPdpRecv & sceNetAdhocPdpSend functions so it might be better to run this on PSP thread instead of real thread
 {
-	setCurrentThreadName("MatchingInput");
+	SetCurrentThreadName("MatchingInput");
 	auto n = GetI18NCategory("Networking");
 	// Multithreading Lock
 	peerlock.lock();

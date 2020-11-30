@@ -300,7 +300,7 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 
 unsigned int WINAPI ConsoleListener::RunThread(void *lpParam)
 {
-	setCurrentThreadName("Console");
+	SetCurrentThreadName("Console");
 	ConsoleListener *consoleLog = (ConsoleListener *)lpParam;
 	consoleLog->LogWriterThread();
 	return 0;

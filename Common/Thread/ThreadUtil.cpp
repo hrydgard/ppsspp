@@ -40,7 +40,7 @@ static EXCEPTION_DISPOSITION NTAPI ignore_handler(EXCEPTION_RECORD *rec,
 }
 #endif
 
-void setCurrentThreadName(const char* threadName) {
+void SetCurrentThreadName(const char* threadName) {
 #ifdef _WIN32
 	// Set the debugger-visible threadname through an unholy magic hack
 	static const DWORD MS_VC_EXCEPTION = 0x406D1388;

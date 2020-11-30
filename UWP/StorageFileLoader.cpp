@@ -40,7 +40,7 @@ StorageFileLoader::~StorageFileLoader() {
 }
 
 void StorageFileLoader::threadfunc() {
-	setCurrentThreadName("StorageFileLoader");
+	SetCurrentThreadName("StorageFileLoader");
 
 
 	{

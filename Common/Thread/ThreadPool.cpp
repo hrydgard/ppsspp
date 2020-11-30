@@ -38,7 +38,7 @@ void WorkerThread::WaitForCompletion() {
 }
 
 void WorkerThread::WorkFunc() {
-	setCurrentThreadName("Worker");
+	SetCurrentThreadName("Worker");
 	std::unique_lock<std::mutex> guard(mutex);
 	while (active) {
 		// 'active == false' is one of the conditions for signaling,

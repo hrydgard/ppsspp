@@ -267,7 +267,7 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 	if (aheadThread_.joinable())
 		aheadThread_.join();
 	aheadThread_ = std::thread([this, pos] {
-		setCurrentThreadName("FileLoaderReadAhead");
+		SetCurrentThreadName("FileLoaderReadAhead");
 
 		std::unique_lock<std::recursive_mutex> guard(blocksMutex_);
 		s64 cacheStartPos = pos >> BLOCK_SHIFT;

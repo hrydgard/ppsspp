@@ -225,7 +225,7 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 	if (aheadThread_.joinable())
 		aheadThread_.join();
 	aheadThread_ = std::thread([this] {
-		setCurrentThreadName("FileLoaderReadAhead");
+		SetCurrentThreadName("FileLoaderReadAhead");
 
 		while (aheadRemaining_ != 0 && !aheadCancel_) {
 			// Where should we look?

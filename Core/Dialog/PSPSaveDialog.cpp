@@ -1162,7 +1162,7 @@ void PSPSaveDialog::JoinIOThread() {
 }
 
 static void DoExecuteIOAction(PSPSaveDialog *dialog) {
-	setCurrentThreadName("SaveIO");
+	SetCurrentThreadName("SaveIO");
 	dialog->ExecuteIOAction();
 }
 

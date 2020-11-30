@@ -108,7 +108,7 @@ namespace Reporting
 	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
-		setCurrentThreadName("ReportCRC");
+		SetCurrentThreadName("ReportCRC");
 
 		// TODO: Use the blockDevice from pspFileSystem?
 		FileLoader *fileLoader = ConstructFileLoader(crcFilename);
@@ -462,7 +462,7 @@ namespace Reporting
 
 	int Process(int pos)
 	{
-		setCurrentThreadName("Report");
+		SetCurrentThreadName("Report");
 
 		Payload &payload = payloadBuffer[pos];
 		Buffer output;
@@ -616,7 +616,7 @@ namespace Reporting
 	}
 
 	int ProcessPending() {
-		setCurrentThreadName("Report");
+		SetCurrentThreadName("Report");
 
 		std::unique_lock<std::mutex> guard(pendingMessageLock);
 		while (!pendingMessagesDone) {

@@ -315,7 +315,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// To do something deterministically when the game starts, disabling this thread won't be enough.
 	// Instead: Use Core_ListenLifecycle() or watch coreState.
 	loadingThread = std::thread([bootpath] {
-		setCurrentThreadName("ExecLoader");
+		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
 			return;
@@ -450,7 +450,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	PSPLoaders_Shutdown();
 	// Note: See Load_PSP_ISO for notes about this thread.
 	loadingThread = std::thread([finalName] {
-		setCurrentThreadName("ExecLoader");
+		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
 			return;
@@ -474,7 +474,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	PSPLoaders_Shutdown();
 	// Note: See Load_PSP_ISO for notes about this thread.
 	loadingThread = std::thread([] {
-		setCurrentThreadName("ExecLoader");
+		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
 			return;

@@ -1681,7 +1681,7 @@ const char * strcpyxml(char * out, const char * in, uint32_t size)
  */
 int proAdhocServerThread(int port) // (int argc, char * argv[])
 {
-	setCurrentThreadName("AdhocServer");
+	SetCurrentThreadName("AdhocServer");
 	// Result
 	int result = 0;
 

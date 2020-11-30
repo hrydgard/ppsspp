@@ -172,7 +172,7 @@ void PathBrowser::HandlePath() {
 		return;
 
 	pendingThread_ = std::thread([&] {
-		setCurrentThreadName("PathBrowser");
+		SetCurrentThreadName("PathBrowser");
 
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;

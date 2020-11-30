@@ -160,7 +160,7 @@ namespace SaveState
 			if (compressThread_.joinable())
 				compressThread_.join();
 			compressThread_ = std::thread([=]{
-				setCurrentThreadName("SaveStateCompress");
+				SetCurrentThreadName("SaveStateCompress");
 				Compress(*result, *state, *base);
 			});
 		}

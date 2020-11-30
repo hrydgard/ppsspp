@@ -168,7 +168,7 @@ bool PPSSPP_UWPMain::Render() {
 
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
-		setCurrentThreadName("UWPRenderThread");
+		SetCurrentThreadName("UWPRenderThread");
 		hasSetThreadName = true;
 	}
 

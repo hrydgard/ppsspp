@@ -530,7 +530,7 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 }
 
 void Download::Do() {
-	setCurrentThreadName("Downloader::Do");
+	SetCurrentThreadName("Downloader::Do");
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;

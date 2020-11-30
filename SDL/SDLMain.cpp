@@ -445,7 +445,7 @@ static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext) {
-	setCurrentThreadName("Emu");
+	SetCurrentThreadName("Emu");
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.

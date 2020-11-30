@@ -1325,7 +1325,7 @@ std::vector<std::string> getChatLog() {
 }
 
 int friendFinder(){
-	setCurrentThreadName("FriendFinder");
+	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory("Networking");
 	// Receive Buffer
 	int rxpos = 0;

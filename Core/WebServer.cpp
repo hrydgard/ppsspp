@@ -247,7 +247,7 @@ static void ForwardDebuggerRequest(const http::Request &request) {
 }
 
 static void ExecuteWebServer() {
-	setCurrentThreadName("HTTPServer");
+	SetCurrentThreadName("HTTPServer");
 
 	auto http = new http::Server(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
