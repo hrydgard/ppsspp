@@ -285,7 +285,7 @@ void ReportScreen::CreateViews() {
 
 	if (tookScreenshot_ && !screenshotFilename_.empty()) {
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
-		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	} else {
 		if (tookScreenshot_) {
 			includeScreenshot_ = false;
