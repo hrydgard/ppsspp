@@ -74,6 +74,7 @@ struct CompatFlags {
 	bool DateLimited;
 	bool ReinterpretFramebuffers;
 	bool DoublePrecisionSinCos;
+	bool ShaderColorBitmask;
 };
 
 class IniFile;
