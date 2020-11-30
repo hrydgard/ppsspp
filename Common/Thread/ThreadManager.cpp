@@ -59,6 +59,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 				thread->cond.wait(lock);
 			}
 		}
+
 		if (!task) {
 			// Grab one from the global queue if there is any.
 			std::unique_lock<std::mutex> lock(global->mutex);
