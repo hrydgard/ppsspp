@@ -278,7 +278,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
-	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \
 	$(COMMONDIR)/Thread/ParallelLoop.cpp \
 	$(COMMONDIR)/Thread/ThreadManager.cpp \
 	$(COMMONDIR)/UI/Root.cpp \

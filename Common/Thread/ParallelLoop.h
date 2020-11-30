@@ -8,7 +8,7 @@
 #include "Common/Thread/ThreadManager.h"
 
 // Kind of like a semaphore I guess.
-struct WaitableCounter {
+struct WaitableCounter : public Waitable {
 public:
 	WaitableCounter(int maxValue) : maxValue_(maxValue) {}
 
@@ -19,16 +19,11 @@ public:
 		}
 	}
 
-	void Wait() {
+	void Wait() override {
 		std::unique_lock<std::mutex> lock(mutex_);
 		while (count_.load() != maxValue_) {
 			cond_.wait(lock);
 		}
-	}
-
-	void WaitAndRelease() {
-		Wait();
-		delete this;
 	}
 
 	int maxValue_;

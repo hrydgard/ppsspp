@@ -285,7 +285,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
+<<<<<<< HEAD
   $(SRC)/Common/Thread/PrioritizedWorkQueue.cpp \
+=======
+  $(SRC)/Common/Thread/Executor.cpp \
+>>>>>>> 82282c7a3 (Get rid of the PrioritizedWorkQueue. Instead just queue tasks on the ThreadManager.)
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \

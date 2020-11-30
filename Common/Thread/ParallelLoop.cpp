@@ -7,7 +7,7 @@ public:
 	LoopRangeTask(WaitableCounter *counter, const std::function<void(int, int)> &loop, int lower, int upper)
 		: counter_(counter), loop_(loop), lower_(lower), upper_(upper) {}
 
-	void run() override {
+	void Run() override {
 		loop_(lower_, upper_);
 		counter_->Count();
 	}

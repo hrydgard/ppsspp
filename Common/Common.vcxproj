@@ -528,8 +528,9 @@
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
     <ClInclude Include="Thread\Channel.h" />
+    <ClInclude Include="Thread\Event.h" />
+    <ClInclude Include="Thread\Executor.h" />
     <ClInclude Include="Thread\ParallelLoop.h" />
-    <ClInclude Include="Thread\PrioritizedWorkQueue.h" />
     <ClInclude Include="Thread\Promise.h" />
     <ClInclude Include="Thread\ThreadManager.h" />
     <ClInclude Include="Thread\ThreadUtil.h" />
@@ -968,7 +969,6 @@
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
     <ClCompile Include="Thread\ParallelLoop.cpp" />
-    <ClCompile Include="Thread\PrioritizedWorkQueue.cpp" />
     <ClCompile Include="Thread\ThreadManager.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />
     <ClCompile Include="Thunk.cpp" />

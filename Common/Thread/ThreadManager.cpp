@@ -72,7 +72,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 		// The task itself takes care of notifying anyone waiting on it. Not the
 		// responsibility of the ThreadManager (although it could be!).
 		if (task) {
-			task->run();
+			task->Run();
 			delete task;
 		}
 	}
@@ -124,6 +124,6 @@ int ThreadManager::GetNumLooperThreads() const {
 	return (int)(global_->threads_.size() / 2);
 }
 
-void ThreadManager::TryCancelTask(Task *task) {
+void ThreadManager::TryCancelTask(uint64_t taskID) {
 	// Do nothing
 }

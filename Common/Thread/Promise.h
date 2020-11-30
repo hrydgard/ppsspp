@@ -13,7 +13,7 @@ public:
 		tx_->Release();
 	}
 
-	void run() override {
+	void Run() override {
 		T *value = fun_();
 		tx_->Send(value);
 		tx_->Release();

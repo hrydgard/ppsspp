@@ -90,9 +90,6 @@
     <ClInclude Include="..\ext\libpng17\pngstruct.h">
       <Filter>ext\libpng17</Filter>
     </ClInclude>
-    <ClInclude Include="Thread\PrioritizedWorkQueue.h">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="Thread\ThreadUtil.h">
       <Filter>Thread</Filter>
     </ClInclude>
@@ -407,6 +404,9 @@
     <ClInclude Include="Thread\ParallelLoop.h">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="Thread\Event.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -501,9 +501,6 @@
     </ClCompile>
     <ClCompile Include="..\ext\libpng17\pngwutil.c">
       <Filter>ext\libpng17</Filter>
-    </ClCompile>
-    <ClCompile Include="Thread\PrioritizedWorkQueue.cpp">
-      <Filter>Thread</Filter>
     </ClCompile>
     <ClCompile Include="Thread\ThreadUtil.cpp">
       <Filter>Thread</Filter>

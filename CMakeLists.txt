@@ -611,8 +611,6 @@ add_library(Common STATIC
 	Common/Thread/Channel.h
 	Common/Thread/ParallelLoop.cpp
 	Common/Thread/ParallelLoop.h
-	Common/Thread/PrioritizedWorkQueue.cpp
-	Common/Thread/PrioritizedWorkQueue.h
 	Common/Thread/Promise.h
 	Common/Thread/ThreadUtil.cpp
 	Common/Thread/ThreadUtil.h
