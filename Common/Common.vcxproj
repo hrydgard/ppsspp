@@ -529,7 +529,6 @@
     <ClInclude Include="System\System.h" />
     <ClInclude Include="Thread\Channel.h" />
     <ClInclude Include="Thread\Event.h" />
-    <ClInclude Include="Thread\Executor.h" />
     <ClInclude Include="Thread\ParallelLoop.h" />
     <ClInclude Include="Thread\Promise.h" />
     <ClInclude Include="Thread\ThreadManager.h" />

@@ -180,9 +180,6 @@
     <ClCompile Include="..\..\Common\Input\InputState.cpp">
       <Filter>Input</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Thread\Executor.cpp">
-      <Filter>Thread</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Thread\ThreadManager.cpp">
       <Filter>Thread</Filter>
     </ClCompile>
@@ -459,9 +456,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Input\KeyCodes.h">
       <Filter>Input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\Thread\Executor.h">
-      <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Thread\Channel.h">
       <Filter>Thread</Filter>

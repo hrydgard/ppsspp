@@ -33,14 +33,18 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <thread>
 
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Net/Sinks.h"
 #include "Common/File/FileDescriptor.h"
+
+#include "Common/Buffer.h"
 #include "Common/Log.h"
 
-void NewThreadExecutor::Run(std::function<void()> &&func) {
+
+void NewThreadExecutor::Run(std::function<void()> func) {
 	threads_.push_back(std::thread(func));
 }
 
