@@ -664,7 +664,28 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return inputLayout;
 }
 
-class D3D11ShaderModule;
+class D3D11ShaderModule : public ShaderModule {
+public:
+	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
+	}
+	~D3D11ShaderModule() {
+		if (vs)
+			vs->Release();
+		if (ps)
+			ps->Release();
+		if (gs)
+			gs->Release();
+	}
+	ShaderStage GetStage() const override { return stage; }
+
+	std::vector<uint8_t> byteCode_;
+	ShaderStage stage;
+	std::string tag_;
+
+	ID3D11VertexShader *vs = nullptr;
+	ID3D11PixelShader *ps = nullptr;
+	ID3D11GeometryShader *gs = nullptr;
+};
 
 class D3D11Pipeline : public Pipeline {
 public:
@@ -681,6 +702,9 @@ public:
 			il->Release();
 		if (dynamicUniforms)
 			dynamicUniforms->Release();
+		for (D3D11ShaderModule *shaderModule : shaderModules) {
+			shaderModule->Release();
+		}
 	}
 	bool RequiresBuffer() override {
 		return true;
@@ -855,29 +879,6 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	}
 	return tex;
 }
-
-class D3D11ShaderModule : public ShaderModule {
-public:
-	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
-	}
-	~D3D11ShaderModule() {
-		if (vs)
-			vs->Release();
-		if (ps)
-			ps->Release();
-		if (gs)
-			gs->Release();
-	}
-	ShaderStage GetStage() const override { return stage; }
-
-	std::vector<uint8_t> byteCode_;
-	ShaderStage stage;
-	std::string tag_;
-
-	ID3D11VertexShader *vs = nullptr;
-	ID3D11PixelShader *ps = nullptr;
-	ID3D11GeometryShader *gs = nullptr;
-};
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
