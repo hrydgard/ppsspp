@@ -1390,5 +1390,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
-	ClearCodeSpace(0);
+	if (g_Config.iCpuCore == (int)CPUCore::JIT) {
+		ClearCodeSpace(0);
+	}
 }
