@@ -44,12 +44,6 @@ public:
 		mailbox->AddRef();
 		return promise;
 	}
-	/*
-	Promise(Promise &&promise) noexcept {
-		data_ = promise.data_;
-		ready_ = promise.ready_;
-		rx_ = promise.rx_;
-	}*/
 
 	~Promise() {
 		if (rx_) {
