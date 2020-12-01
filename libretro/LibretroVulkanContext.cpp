@@ -66,6 +66,8 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_XCB, nullptr, nullptr);
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
+#elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	vk->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
 #endif
 
 	context->gpu = vk->GetPhysicalDevice(physical_device);

@@ -373,6 +373,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
 		 || !strcmp(pName, "vkCreateWaylandSurfaceKHR")
 #endif
+#ifdef VK_USE_PLATFORM_DISPLAY_KHR
+		 || !strcmp(pName, "vkCreateDisplayPlaneSurfaceKHR")
+#endif
 	) {
 		return (PFN_vkVoidFunction)vkCreateLibretroSurfaceKHR;
 	}
