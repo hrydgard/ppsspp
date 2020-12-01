@@ -13,40 +13,33 @@ struct Mailbox {
 	T *data_ = nullptr;
 
 	T *Wait() {
-		T *data;
-		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			while (!data_) {
-				condvar_.wait(lock);
-			}
-			data = data_;
+		std::unique_lock<std::mutex> lock(mutex_);
+		while (!data_) {
+			condvar_.wait(lock);
 		}
-		return data;
+		return data_;
 	}
 
 	bool Poll(T **data) {
-		bool retval = false;
-		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			if (data_) {
-				*data = data_;
-				retval = true;
-			}
+		std::unique_lock<std::mutex> lock(mutex_);
+		if (data_) {
+			*data = data_;
+			return true;
+		} else {
+			return false;
 		}
-		return retval;
 	}
 
 	bool Send(T *data) {
-		bool success = false;
-		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			if (!data_) {
-				data_ = data;
-				success = true;
-			}
+		std::unique_lock<std::mutex> lock(mutex_);
+		if (!data_) {
+			data_ = data;
 			condvar_.notify_one();
+			return true;
+		} else {
+			// Already has value.
+			return false;
 		}
-		return success;
 	}
 
 	void AddRef() {
