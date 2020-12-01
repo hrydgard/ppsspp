@@ -48,8 +48,18 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 	SetCurrentThreadName(threadName);
 	while (!thread->cancelled) {
 		Task *task = nullptr;
-		// Check the thread-private queue first, then check the global queue.
+
+		// Check the global queue first, then check the private queue and wait if there's nothing to do.
 		{
+			// Grab one from the global queue if there is any.
+			std::unique_lock<std::mutex> lock(global->mutex);
+			if (!global->queue.empty()) {
+				task = global->queue.front();
+				global->queue.pop_front();
+			}
+		}
+
+		if (!task) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			if (!thread->private_queue.empty()) {
 				task = thread->private_queue.front();
@@ -59,16 +69,6 @@ static void WorkerThreadFunc(GlobalThreadContext *global, ThreadContext *thread)
 				thread->cond.wait(lock);
 			}
 		}
-
-		if (!task) {
-			// Grab one from the global queue if there is any.
-			std::unique_lock<std::mutex> lock(global->mutex);
-			if (!global->queue.empty()) {
-				task = global->queue.front();
-				global->queue.pop_front();
-			}
-		}  // Don't try to else here!
-
 		// The task itself takes care of notifying anyone waiting on it. Not the
 		// responsibility of the ThreadManager (although it could be!).
 		if (task) {
