@@ -9,7 +9,6 @@ if(NOT ANDROID)
 endif()
 
 enable_language(ASM)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
@@ -61,8 +60,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	endif()
 endif()
 
-include(ccache)
-
 # the libraries in the ffmpeg/ directory are not compatible with mingw
 if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
 	set(USE_SYSTEM_FFMPEG ON)
@@ -92,6 +89,14 @@ endif()
 if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+if(NOT (ARM64 AND MACOSX))
+	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
+endif()
+
+include(ccache)
+
 
 if(GOLD)
 	add_definitions(-DGOLD)
