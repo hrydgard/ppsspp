@@ -19,6 +19,11 @@
 
 #include <sstream>
 
+#if PPSSPP_PLATFORM(MAC)
+#include <sys/sysctl.h>
+#endif
+
+
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <ctype.h>
@@ -246,6 +251,17 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
+#elif PPSSPP_PLATFORM(MAC)
+	strcpy(brand_string, "Apple M1");
+	int num = 0;
+	size_t sz = sizeof(num);
+	if (sysctlbyname("hw.physicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+		num_cores = num;
+		sz = sizeof(num);
+		if (sysctlbyname("hw.logicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+			logical_cpu_count = num / num_cores;
+		}
+	}
 #elif PPSSPP_PLATFORM(WINDOWS)
 	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 	isVFP3 = true;
