@@ -9,7 +9,6 @@ if(NOT ANDROID)
 endif()
 
 enable_language(ASM)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
@@ -25,7 +24,13 @@ endif()
 
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
-	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+		set(ARM64 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm64")
+		# M1 Mac
+		set(ARM64 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+		message("ARM_DEVICE is a go")
 		set(ARM_DEVICE ON)
 		if(UNIX AND NOT APPLE)
 			execute_process(COMMAND cat /proc/cpuinfo OUTPUT_VARIABLE OUTSTR)
@@ -43,8 +48,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 				set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -target armv7a-none-linux-android")
 			endif()
 		endif()
-	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
-		set(ARM64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^AMD64")
 		set(X86_DEVICE ON)
 		set(X86_64_DEVICE ON)
@@ -56,8 +59,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
 endif()
-
-include(ccache)
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
 if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
@@ -77,6 +78,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
+	set(USING_EGL OFF)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
@@ -87,6 +89,14 @@ endif()
 if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+if(NOT (ARM64 AND MACOSX))
+	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
+endif()
+
+include(ccache)
+
 
 if(GOLD)
 	add_definitions(-DGOLD)
