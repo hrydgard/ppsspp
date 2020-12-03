@@ -66,7 +66,7 @@ R"(  mat4 u_proj;
   vec3 u_texenv;
   ivec4 u_alphacolorref;
   ivec4 u_alphacolormask;
-  vec3 u_blendFixA; uint colorWriteMask;
+  vec3 u_blendFixA;
   vec3 u_blendFixB;
   vec4 u_texclamp;
   vec2 u_texclampoff;
