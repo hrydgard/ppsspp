@@ -19,7 +19,7 @@
 
 #include <sstream>
 
-#if PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 #include <sys/sysctl.h>
 #endif
 
@@ -243,18 +243,20 @@ void CPUInfo::Detect()
 #if !PPSSPP_PLATFORM(LINUX)
 	bool isVFP3 = false;
 	bool isVFP4 = false;
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 #if PPSSPP_PLATFORM(IOS)
 	isVFP3 = true;
 	// Check for swift arch (VFP4)
 #ifdef __ARM_ARCH_7S__
 	isVFP4 = true;
 #endif
-	strcpy(brand_string, "Apple A");
-	num_cores = 2;
-#elif PPSSPP_PLATFORM(MAC)
-	strcpy(brand_string, "Apple M1");
+#endif // PPSSPP_PLATFORM(IOS)
+	size_t sz;
+	if (sysctlbyname("machdep.cpu.brand_string", brand_string, &sz, nullptr, 0) != 0) {
+		strcpy(brand_string, "Unknown");
+	}
 	int num = 0;
-	size_t sz = sizeof(num);
+	sz = sizeof(num);
 	if (sysctlbyname("hw.physicalcpu_max", &num, &sz, nullptr, 0) == 0) {
 		num_cores = num;
 		sz = sizeof(num);
@@ -269,7 +271,7 @@ void CPUInfo::Detect()
 	SYSTEM_INFO sysInfo;
 	GetSystemInfo(&sysInfo);
 	num_cores = sysInfo.dwNumberOfProcessors;
-#else // !PPSSPP_PLATFORM(IOS)
+#else // !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(WINDOWS)
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;
 #endif
