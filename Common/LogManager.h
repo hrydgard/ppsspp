@@ -22,6 +22,7 @@
 #include <fstream>
 #include <mutex>
 #include <vector>
+#include <cstdarg>
 
 #include "Common/Data/Format/IniFile.h"
 #include "Common/CommonFuncs.h"
