@@ -2188,6 +2188,12 @@ if(IOS)
 	)
 endif()
 
+configure_file(
+	"${CMAKE_SOURCE_DIR}/ppsspp.desktop.in"
+	"${CMAKE_BINARY_DIR}/ppsspp.desktop"
+	@ONLY
+)
+
 install(
 	TARGETS ${TargetBin}
 	DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -2196,6 +2202,11 @@ install(
 	DIRECTORY "${CMAKE_BINARY_DIR}/assets"
 	DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
 	PATTERN ".git*" EXCLUDE
+)
+install(
+	FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
+	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications"
+	RENAME ${TargetBin}.desktop
 )
 install(
 	DIRECTORY "${CMAKE_SOURCE_DIR}/icons/hicolor"
