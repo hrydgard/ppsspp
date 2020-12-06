@@ -1050,6 +1050,7 @@ void MainScreen::CreateViews() {
 			leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 		}
 	} else {
+		scrollAllGames_ = nullptr;
 		if (!showRecent) {
 			leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 			// Just so it's destroyed on recreate.
@@ -1203,7 +1204,9 @@ void MainScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
-	g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
+	if (scrollAllGames_) {
+		g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
+	}
 }
 
 bool MainScreen::UseVerticalLayout() const {
