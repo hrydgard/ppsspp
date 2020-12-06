@@ -1350,10 +1350,10 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			lines = DisassembleArm64((const u8 *)jitted_, jittedSize_);
 #elif PPSSPP_ARCH(ARM)
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
-#elif PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
-			// No MIPS disassembler defined
-#else
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
+#else
+			// No disassembler defined
 #endif
 			std::string buffer;
 			for (auto line : lines) {
