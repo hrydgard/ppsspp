@@ -96,7 +96,9 @@ if(NOT (ARM64 AND MACOSX))
 endif()
 
 include(ccache)
+include(GNUInstallDirs)
 
+add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
 if(GOLD)
 	add_definitions(-DGOLD)
@@ -1015,7 +1017,6 @@ elseif(TARGET SDL2::SDL2)
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
-	set(TargetBin PPSSPPSDL)
 elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
@@ -2186,3 +2187,22 @@ if(IOS)
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 	)
 endif()
+
+install(
+	TARGETS ${TargetBin}
+	DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+install(
+	DIRECTORY "${CMAKE_BINARY_DIR}/assets"
+	DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
+	PATTERN ".git*" EXCLUDE
+)
+install(
+	DIRECTORY "${CMAKE_SOURCE_DIR}/icons/hicolor"
+	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons"
+)
+install(
+	FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
+	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
+	RENAME ppsspp.svg
+)
