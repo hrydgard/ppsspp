@@ -2119,8 +2119,7 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			list(APPEND NativeAssets ios/Settings.bundle)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
@@ -2188,32 +2187,33 @@ if(IOS)
 	)
 endif()
 
-configure_file(
-	"${CMAKE_SOURCE_DIR}/ppsspp.desktop.in"
-	"${CMAKE_BINARY_DIR}/ppsspp.desktop"
-	@ONLY
-)
-
-install(
-	TARGETS ${TargetBin}
-	DESTINATION "${CMAKE_INSTALL_BINDIR}"
-)
-install(
-	DIRECTORY "${CMAKE_BINARY_DIR}/assets"
-	DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
-	PATTERN ".git*" EXCLUDE
-)
-install(
-	FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
-	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications"
-	RENAME ${TargetBin}.desktop
-)
-install(
-	DIRECTORY "${CMAKE_SOURCE_DIR}/icons/hicolor"
-	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons"
-)
-install(
-	FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
-	DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
-	RENAME ppsspp.svg
-)
+if (LINUX AND NOT ANDROID)
+	configure_file(
+		"${CMAKE_SOURCE_DIR}/ppsspp.desktop.in"
+		"${CMAKE_BINARY_DIR}/ppsspp.desktop"
+		@ONLY
+	)
+	install(
+		TARGETS ${TargetBin}
+		DESTINATION "${CMAKE_INSTALL_BINDIR}"
+	)
+	install(
+		DIRECTORY "${CMAKE_BINARY_DIR}/assets"
+		DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
+		PATTERN ".git*" EXCLUDE
+	)
+	install(
+		FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications"
+		RENAME ${TargetBin}.desktop
+	)
+	install(
+		DIRECTORY "${CMAKE_SOURCE_DIR}/icons/hicolor"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons"
+	)
+	install(
+		FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
+		RENAME ppsspp.svg
+	)
+endif()
