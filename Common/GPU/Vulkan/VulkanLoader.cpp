@@ -239,7 +239,7 @@ static const char *so_names[] = {
 #ifdef IOS
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 #elif defined(PPSSPP_PLATFORM_MAC)
-    "@executable_path/../Frameworks/libMoltenVK.dylib",
+	"@executable_path/../Frameworks/libMoltenVK.dylib",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)
