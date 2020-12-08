@@ -237,7 +237,7 @@ static const char *device_name_blacklist[] = {
 
 static const char *so_names[] = {
 #if defined(__APPLE__)
-	"libMoltenVK.dylib",
+	"@rpath/libMoltenVK.dylib",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)

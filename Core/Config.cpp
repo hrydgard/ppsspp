@@ -669,10 +669,7 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 			return false;
 	}
 
-#if PPSSPP_PLATFORM(IOS)
-	if (backend != GPUBackend::OPENGL)
-		return false;
-#elif PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
 	if (backend != GPUBackend::DIRECT3D11)
 		return false;
 #elif PPSSPP_PLATFORM(WINDOWS)
@@ -689,12 +686,10 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
-#if !PPSSPP_PLATFORM(IOS)
 	if (validate) {
 		if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
 			return false;
 	}
-#endif
 
 	return true;
 }
