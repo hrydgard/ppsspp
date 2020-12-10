@@ -2187,7 +2187,7 @@ if(IOS)
 	)
 endif()
 
-if (LINUX AND NOT ANDROID)
+if(UNIX AND NOT ANDROID AND NOT APPLE)
 	configure_file(
 		"${CMAKE_SOURCE_DIR}/ppsspp.desktop.in"
 		"${CMAKE_BINARY_DIR}/ppsspp.desktop"
