@@ -54,6 +54,20 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12,},
 };
 
+// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
+Draw::DataFormat FromD3D11Format(u32 fmt) {
+	switch (fmt) {
+	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+}
+
+DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
+	switch (fmt) {
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	}
+}
+
 SamplerCacheD3D11::~SamplerCacheD3D11() {
 	for (auto &iter : cache_) {
 		iter.second->Release();
@@ -518,14 +532,49 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
-	int level = 0;
+	int srcLevel = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		level = std::max(0, gstate.getTexLevelOffset16() / 16);
+		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
+
+	ID3D11Texture2D *texture = DxTex(entry);
+	_assert_(texture == nullptr);
+
+	// Create texture
+	int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
+	int tw = w, th = h;
+	DXGI_FORMAT tfmt = dstFmt;
+	if (replaced.GetSize(srcLevel, tw, th)) {
+		tfmt = ToDXGIFormat(replaced.Format(srcLevel));
+	} else {
+		tw *= scaleFactor;
+		th *= scaleFactor;
+		if (scaleFactor > 1) {
+			tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+		}
+	}
+
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.CPUAccessFlags = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.ArraySize = 1;
+	desc.SampleDesc.Count = 1;
+	desc.Width = tw;
+	desc.Height = th;
+	desc.Format = tfmt;
+	desc.MipLevels = IsFakeMipmapChange() ? 1 : levels;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
+	ID3D11ShaderResourceView *view;
+	ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
+	entry->texturePtr = texture;
+	entry->textureView = view;
+
+	LoadTextureLevel(*entry, replaced, srcLevel, 0, maxLevel, scaleFactor, dstFmt);
 
 	ID3D11ShaderResourceView *textureView = DxView(entry);
 	if (!textureView) {
@@ -535,7 +584,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	// Mipmapping is only enabled when texture scaling is disabled.
 	if (maxLevel > 0 && scaleFactor == 1) {
 		for (int i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, replaced, i, maxLevel, scaleFactor, dstFmt);
+			LoadTextureLevel(*entry, replaced, i, i, maxLevel, scaleFactor, dstFmt);
 		}
 	}
 
@@ -604,75 +653,28 @@ CheckAlphaResult TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt,
 	}
 }
 
-// NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
-
-Draw::DataFormat FromD3D11Format(u32 fmt) {
-	switch (fmt) {
-	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
-	}
-}
-
-DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
-	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
-	}
-}
-
-void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, DXGI_FORMAT dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
+void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int maxLevel, int scaleFactor, DXGI_FORMAT dstFmt) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
 
 	ID3D11Texture2D *texture = DxTex(&entry);
-	if ((level == 0 || IsFakeMipmapChange()) && texture == nullptr) {
-		// Create texture
-		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
-		int tw = w, th = h;
-		DXGI_FORMAT tfmt = dstFmt;
-		if (replaced.GetSize(level, tw, th)) {
-			tfmt = ToDXGIFormat(replaced.Format(level));
-		} else {
-			tw *= scaleFactor;
-			th *= scaleFactor;
-			if (scaleFactor > 1) {
-				tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
-			}
-		}
-
-		D3D11_TEXTURE2D_DESC desc{};
-		// TODO: Make it DEFAULT or immutable, required for multiple mip levels. Will require some code restructuring though.
-		desc.CPUAccessFlags = 0;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.ArraySize = 1;
-		desc.SampleDesc.Count = 1;
-		desc.Width = tw;
-		desc.Height = th;
-		desc.Format = tfmt;
-		desc.MipLevels = IsFakeMipmapChange() ? 1 : levels;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
-		ID3D11ShaderResourceView *view;
-		ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
-		entry.texturePtr = texture;
-		entry.textureView = view;
-	}
 
 	gpuStats.numTexturesDecoded++;
 	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 	u32 *mapData = nullptr;
 	int mapRowPitch = 0;
-	if (replaced.GetSize(level, w, h)) {
+	if (replaced.GetSize(srcLevel, w, h)) {
 		mapData = (u32 *)AllocateAlignedMemory(w * h * sizeof(u32), 16);
 		mapRowPitch = w * 4;
 		double replaceStart = time_now_d();
-		replaced.Load(level, mapData, mapRowPitch);
+		replaced.Load(srcLevel, mapData, mapRowPitch);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
-		dstFmt = ToDXGIFormat(replaced.Format(level));
+		dstFmt = ToDXGIFormat(replaced.Format(srcLevel));
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-		int bufw = GetTextureBufw(level, texaddr, tfmt);
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
+		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
 		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 		u32 *pixelData;
 		int decPitch;
@@ -697,8 +699,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
-		entry.SetAlphaStatus(alphaResult, level);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
+		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		if (scaleFactor > 1) {
 			u32 scaleFmt = (u32)dstFmt;
@@ -732,14 +734,11 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacedInfo.fmt = FromD3D11Format(dstFmt);
 
 			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
 		}
 	}
 
-	if (IsFakeMipmapChange())
-		context_->UpdateSubresource(texture, 0, nullptr, mapData, mapRowPitch, 0);
-	else
-		context_->UpdateSubresource(texture, level, nullptr, mapData, mapRowPitch, 0);
+	context_->UpdateSubresource(texture, dstLevel, nullptr, mapData, mapRowPitch, 0);
 	FreeAlignedMemory(mapData);
 }
 

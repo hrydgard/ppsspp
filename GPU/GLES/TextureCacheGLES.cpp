@@ -521,13 +521,21 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	int level = 0;
+	int srcLevel = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		level = std::max(0, gstate.getTexLevelOffset16() / 16);
+		srcLevel = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 
-	LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
+	_assert_(!entry->textureName);
+
+	// TODO: Actually pass in correct size here. The size here is (in GL) not yet used for anything else
+	// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
+	// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
+	// and unify BuildTexture.
+	entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
+
+	LoadTextureLevel(*entry, replaced, srcLevel, 0, scaleFactor, dstFmt);
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
@@ -544,7 +552,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				}
 			} else {
 				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, replaced, i, scaleFactor, dstFmt);
+					LoadTextureLevel(*entry, replaced, i, i, scaleFactor, dstFmt);
 				}
 				texMaxLevel = maxLevel;
 			}
@@ -609,40 +617,32 @@ CheckAlphaResult TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::Da
 	}
 }
 
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int srcLevel, int dstLevel, int scaleFactor, Draw::DataFormat dstFmt) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
 	uint8_t *pixelData;
 	int decPitch = 0;
 
 	gpuStats.numTexturesDecoded++;
 
-	if (!entry.textureName) {
-		// TODO: Actually pass in correct size here. The size here is not yet used for anything else
-		// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
-		// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
-		// and unify BuildTexture.
-		entry.textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
-	}
-
-	if (replaced.GetSize(level, w, h)) {
+	if (replaced.GetSize(srcLevel, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
-		int bpp = (int)DataFormatSizeInBytes(replaced.Format(level));
+		int bpp = (int)DataFormatSizeInBytes(replaced.Format(srcLevel));
 		decPitch = w * bpp;
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(decPitch * h, 16);
 		double replaceStart = time_now_d();
-		replaced.Load(level, rearrange, decPitch);
+		replaced.Load(srcLevel, rearrange, decPitch);
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 		pixelData = rearrange;
 
-		dstFmt = replaced.Format(level);
+		dstFmt = replaced.Format(srcLevel);
 	} else {
 		PROFILE_THIS_SCOPE("decodetex");
 
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
-		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
+		int bufw = GetTextureBufw(srcLevel, texaddr, GETextureFormat(entry.format));
 
 		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
 		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
@@ -650,8 +650,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 
-		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false);
-		entry.SetAlphaStatus(alphaStatus, level);
+		CheckAlphaResult alphaStatus = DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, srcLevel, bufw, true, false);
+		entry.SetAlphaStatus(alphaStatus, srcLevel);
 
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
@@ -673,15 +673,12 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = dstFmt;
 
-			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, srcLevel, w, h);
 		}
 	}
 	
 	PROFILE_THIS_SCOPE("loadtex");
-	if (IsFakeMipmapChange())
-		render_->TextureImage(entry.textureName, 0, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
-	else
-		render_->TextureImage(entry.textureName, level, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
+	render_->TextureImage(entry.textureName, dstLevel, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

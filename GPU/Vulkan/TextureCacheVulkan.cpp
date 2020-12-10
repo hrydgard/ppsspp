@@ -916,7 +916,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		}
-		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		entry->vkTex->EndCreate(cmdInit, false, prevStage, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 		if (maxLevel == 0) {
@@ -969,9 +970,9 @@ CheckAlphaResult TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat d
 	}
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
+void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int srcLevel, int scaleFactor, VkFormat dstFmt) {
+	int w = gstate.getTextureWidth(srcLevel);
+	int h = gstate.getTextureHeight(srcLevel);
 
 	gpuStats.numTexturesDecoded++;
 
@@ -980,11 +981,11 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		u32 texaddr = gstate.getTextureAddress(level);
+		u32 texaddr = gstate.getTextureAddress(srcLevel);
 
 		_assert_msg_(texaddr != 0, "Can't load a texture from address null")
 
-		int bufw = GetTextureBufw(level, texaddr, tfmt);
+		int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
 		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 
 		u32 *pixelData = (u32 *)writePtr;
@@ -999,10 +1000,10 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS) || dstFmt == VK_FORMAT_R8G8B8A8_UNORM;
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, expand32);
+		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, false, expand32);
 
 		// WARN_LOG(G3D, "Alpha: full=%d w=%d h=%d level=%d %s/%s", (int)(alphaResult == CHECKALPHA_FULL), w, h, level, GeTextureFormatToString(tfmt), GEPaletteFormatToString(clutformat));
-		entry.SetAlphaStatus(alphaResult, level);
+		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
