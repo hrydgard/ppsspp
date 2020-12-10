@@ -474,11 +474,12 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
-	u8 level = 0;
+	int level = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
+
 	LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
 
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);

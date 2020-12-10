@@ -521,11 +521,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	u8 level = 0;
+	int level = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
+
 	LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
 
 	// Mipmapping is only enabled when texture scaling is disabled.
@@ -560,6 +561,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		texMaxLevel = 0;
 	}
 
+	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
+
 	if (maxLevel == 0) {
 		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
 	} else {
@@ -568,8 +571,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
-
-	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
 }
 
 Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

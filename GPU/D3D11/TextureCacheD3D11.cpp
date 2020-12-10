@@ -518,15 +518,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		maxLevel = 0;
 	}
 
-	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
+	int level = 0;
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
-		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
-		LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
-	} else {
-		LoadTextureLevel(*entry, replaced, 0, maxLevel, scaleFactor, dstFmt);
+		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
+
+	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+	LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
 
 	ID3D11ShaderResourceView *textureView = DxView(entry);
 	if (!textureView) {

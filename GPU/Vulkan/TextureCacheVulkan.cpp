@@ -916,6 +916,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		}
+		entry->vkTex->EndCreate(cmdInit, false, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 		if (maxLevel == 0) {
 			entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
@@ -925,8 +927,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
-		entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
-		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 	}
 }
 
