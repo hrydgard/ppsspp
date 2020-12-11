@@ -366,6 +366,7 @@ private:
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
 	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
+	PSPFileInfo GetSaveInfo(std::string saveDir);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
 	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone);
