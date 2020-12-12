@@ -392,7 +392,9 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	// color must be 0, for now.
+	Framebuffer *GetCurrentRenderTarget() override {
+		return curFramebuffer_;
+	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
@@ -517,7 +519,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
-	VKFramebuffer *curFramebuffer_ = nullptr;
+	Framebuffer *curFramebuffer_ = nullptr;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -1539,7 +1541,6 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	curFramebuffer_ = fb;
 }
 
-// color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 

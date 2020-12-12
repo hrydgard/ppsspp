@@ -361,7 +361,9 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	// color must be 0, for now.
+	Framebuffer *GetCurrentRenderTarget() override {
+		return curRenderTarget_;
+	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -487,6 +489,7 @@ private:
 	int curVBufferOffsets_[4]{};
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
+	Framebuffer *curRenderTarget_ = nullptr;
 
 	uint8_t stencilRef_ = 0;
 
@@ -1320,6 +1323,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	GLRRenderPassAction stencil = (GLRRenderPassAction)rp.stencil;
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer_ : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
+	curRenderTarget_ = fb;
 }
 
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {

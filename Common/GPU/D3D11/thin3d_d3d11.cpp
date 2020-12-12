@@ -35,6 +35,7 @@ class D3D11BlendState;
 class D3D11DepthStencilState;
 class D3D11SamplerState;
 class D3D11RasterState;
+class D3D11Framebuffer;
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -71,7 +72,9 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	// color must be 0, for now.
+	Framebuffer *GetCurrentRenderTarget() override {
+		return curRenderTarget_;
+	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
@@ -182,6 +185,7 @@ private:
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
 	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
 
+	Framebuffer *curRenderTarget_ = nullptr;
 	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
 	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
 	// Needed to rotate stencil/viewport rectangles properly
@@ -1585,6 +1589,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			curRTWidth_ = fb->Width();
 			curRTHeight_ = fb->Height();
 		}
+		curRenderTarget_ = fb;
 	} else {
 		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_) {
 			// No need to switch, but let's fallthrough to clear!
@@ -1595,6 +1600,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			curRTWidth_ = bbWidth_;
 			curRTHeight_ = bbHeight_;
 		}
+		curRenderTarget_ = nullptr;
 	}
 	if (rp.color == RPAction::CLEAR && curRenderTargetView_) {
 		float cv[4]{};
@@ -1616,7 +1622,6 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 	stepId_++;
 }
 
-// color must be 0, for now.
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {
