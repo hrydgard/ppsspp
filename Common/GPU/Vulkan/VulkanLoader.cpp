@@ -236,8 +236,10 @@ static const char *device_name_blacklist[] = {
 };
 
 static const char *so_names[] = {
-#if defined(__APPLE__)
-	"libMoltenVK.dylib",
+#ifdef IOS
+	"@executable_path/Frameworks/libMoltenVK.dylib",
+#elif defined(PPSSPP_PLATFORM_MAC)
+	"@executable_path/../Frameworks/libMoltenVK.dylib",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)
