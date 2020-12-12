@@ -803,6 +803,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 
 		PROFILE_THIS_SCOPE("updatestate");
+
 		if (textureNeedsApply) {
 			textureCache_->ApplyTexture();
 			textureCache_->GetVulkanHandles(imageView, sampler);
@@ -860,8 +861,6 @@ void DrawEngineVulkan::DoFlush() {
 		UpdateUBOs(frame);
 
 		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
-		{
-		PROFILE_THIS_SCOPE("renderman_q");
 
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
@@ -870,12 +869,12 @@ void DrawEngineVulkan::DoFlush() {
 		int stride = dec_->GetDecVtxFmt().stride;
 
 		if (useElements) {
-			if (!ibuf)
+			if (!ibuf) {
 				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
+			}
 			renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, VK_INDEX_TYPE_UINT16);
 		} else {
 			renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
-		}
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");

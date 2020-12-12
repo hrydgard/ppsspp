@@ -958,10 +958,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	FramebufferMatchInfo fbInfo = candidate.match;
 
 	if (candidate.match.reinterpret) {
-		// TODO: Kinda ugly, maybe switch direction of the call?
 		GEBufferFormat oldFormat = candidate.fb->format;
 		candidate.fb->format = candidate.match.reinterpretTo;
-		framebufferManager_->ReinterpretFramebufferFrom(candidate.fb, oldFormat);
+		framebufferManager_->ReinterpretFramebuffer(candidate.fb, oldFormat, candidate.match.reinterpretTo);
 	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");

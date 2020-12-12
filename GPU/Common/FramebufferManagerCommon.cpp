@@ -471,10 +471,10 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	// Note: We prefer Blit ahead of Copy here, since at least on GL, Copy will always also copy stencil which we don't want. See #9740.
 	if (gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH)) {
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
-		RebindFramebuffer("BlitFramebufferDepth");
+		RebindFramebuffer("After BlitFramebufferDepth");
 	} else if (gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE)) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, w, h, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
-		RebindFramebuffer("BlitFramebufferDepth");
+		RebindFramebuffer("After BlitFramebufferDepth");
 	}
 	dst->last_frame_depth_updated = gpuStats.numFlips;
 }
@@ -503,7 +503,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	if (vfbFormatChanged) {
 		textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_UPDATED);
 		if (vfb->drawnFormat != vfb->format) {
-			ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
+			ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->format);
 		}
 	}
 
@@ -517,10 +517,14 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
-void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat oldFormat) {
+void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
+
+	_assert_(newFormat != oldFormat);
+	// The caller is responsible for updating the format.
+	_assert_(newFormat == vfb->format);
 
 	ShaderLanguage lang = draw_->GetShaderLanguageDesc().shaderLanguage;
 
@@ -548,10 +552,6 @@ void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vf
 		}
 		return;
 	}
-
-	GEBufferFormat newFormat = vfb->format;
-
-	_assert_(newFormat != oldFormat);
 
 	// We only reinterpret between 16 - bit formats, for now.
 	if (!IsGeBufferFormat16BitColor(oldFormat) || !IsGeBufferFormat16BitColor(newFormat)) {
@@ -671,8 +671,9 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			}
 		}
 	}
+
 	if (vfb->drawnFormat != vfb->format) {
-		ReinterpretFramebufferFrom(vfb, vfb->drawnFormat);
+		ReinterpretFramebuffer(vfb, vfb->drawnFormat, vfb->format);
 	}
 
 	if (useBufferedRendering_) {
@@ -839,10 +840,8 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
-	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping()) {
-		skipCopy = true;
-	}
+	bool skipCopy = !(flags & BINDFBCOLOR_MAY_COPY) || GPUStepping::IsStepping();
+
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
@@ -870,7 +869,6 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return false;
 	}
-
 }
 
 void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags) {
@@ -996,6 +994,8 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
+
+	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
@@ -1747,10 +1747,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_IntraBufferBlockTransfer");
 				RebindFramebuffer("rebind after intra block transfer");
 				SetColorUpdated(dstBuffer, skipDrawReason);
-				return true;
+				return true;  // Skip the memory copy.
 			} else {
 				// Ignore, nothing to do.  Tales of Phantasia X does this by accident.
-				return true;
+				return true;  // Skip the memory copy.
 			}
 		} else {
 			WARN_LOG_N_TIMES(dstnotsrc, 100, G3D, "Inter-buffer block transfer  %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
