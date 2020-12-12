@@ -536,10 +536,14 @@ void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vf
 			// Fixes #13717.
 			if (!PSP_CoreParameter().compat.flags().ReinterpretFramebuffers) {
 				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "FakeReinterpret");
-				currentRenderVfb_ = vfb;
 				// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
 				// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
 				gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+
+				if (currentRenderVfb_ != vfb) {
+					// In case ReinterpretFramebuffer was called from the texture manager.
+					draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After FakeReinterpret");
+				}
 			}
 		}
 		return;
@@ -626,13 +630,16 @@ void FramebufferManagerCommon::ReinterpretFramebufferFrom(VirtualFramebuffer *vf
 
 	// Unbind.
 	draw_->BindTexture(0, nullptr);
-	RebindFramebuffer("After reinterpret");
 
 	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
 
+	if (currentRenderVfb_ != vfb) {
+		// In case ReinterpretFramebuffer was called from the texture manager.
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After reinterpret");
+	}
 	delete[] vsCode;
 	delete[] fsCode;
 }
