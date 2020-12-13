@@ -1619,6 +1619,7 @@ PSPFileInfo SavedataParam::GetSaveInfo(std::string saveDir) {
 		for (auto file : allFiles) {
 			if (file.type == FILETYPE_DIRECTORY || file.name == "." || file.name == "..")
 				continue;
+			// Use a file to determine save date.
 			if (firstFile) {
 				info.ctime = file.ctime;
 				info.mtime = file.mtime;
