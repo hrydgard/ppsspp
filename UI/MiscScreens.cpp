@@ -126,7 +126,15 @@ void DrawBackground(UIContext &dc, float alpha) {
 		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
 	}
 
+#if PPSSPP_PLATFORM(IOS)
+	// iOS uses an old screenshot when restoring the task, so to avoid an ugly
+	// jitter we accumulate time instead.
+	static int frameCount = 0.0;
+	frameCount++;
+	double t = (double)frameCount / 60.0;
+#else
 	double t = time_now_d();
+#endif
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i] + dc.GetBounds().x;
 		float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
