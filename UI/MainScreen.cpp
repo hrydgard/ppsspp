@@ -1369,13 +1369,11 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
-	System_SendMessage("event", "exitprogram");
+	// Let's make sure the config was saved, since it may not have been.
+	g_Config.Save("MainScreen::OnExit");
 
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
-
-	// However, let's make sure the config was saved, since it may not have been.
-	g_Config.Save("MainScreen::OnExit");
 
 #ifdef __ANDROID__
 #ifdef ANDROID_NDK_PROFILER
