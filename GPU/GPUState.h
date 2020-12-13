@@ -504,6 +504,14 @@ struct KnownVertexBounds {
 	u16 maxV;
 };
 
+enum class SubmitType {
+	DRAW,
+	BEZIER,
+	SPLINE,
+	HW_BEZIER,
+	HW_SPLINE,
+};
+
 struct GPUStateCache {
 	bool Supports(u32 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
 	bool SupportsAll(u32 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
@@ -602,8 +610,8 @@ struct GPUStateCache {
 	}
 	u32 curRTOffsetX;
 
-	bool bezier;
-	bool spline;
+	// Set if we are doing hardware bezier/spline.
+	SubmitType submitType;
 	int spline_num_points_u;
 
 	bool useShaderDepal;

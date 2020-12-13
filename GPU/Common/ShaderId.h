@@ -15,7 +15,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_ENABLE_FOG = 2,
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
-	// 5 is free.
+	VS_BIT_VERTEX_RANGE_CULLING = 5,
 	// 6 is free,
 	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
