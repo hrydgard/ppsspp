@@ -12,7 +12,7 @@
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
 set(USING_GLES2 ON)
-set(IPHONEOS_DEPLOYMENT_TARGET 6.0)
+set(IPHONEOS_DEPLOYMENT_TARGET 9.0)
 add_definitions(
   -DGL_ETC1_RGB8_OES=0
   -U__STRICT_ANSI__
@@ -27,7 +27,7 @@ set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 # Standard settings
 set(CMAKE_SYSTEM_NAME Darwin)
 set(CMAKE_SYSTEM_VERSION 1)
-set(CMAKE_SYSTEM_PROCESSOR armv7)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
 set(IOS ON)
 set(CMAKE_CROSSCOMPILING ON)
 set(CMAKE_MACOSX_BUNDLE YES)
@@ -67,10 +67,9 @@ set(CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS sup
 # set the architecture for iOS 
 if(IOS_PLATFORM STREQUAL "OS")
   # When ffmpeg has been rebuilt for arm64 use:
-  set(IOS_ARCH "armv7;arm64")
-  #set(IOS_ARCH "armv7")
+  set(IOS_ARCH "arm64")
 else()
-  set(IOS_ARCH "i386;x86_64")
+  set(IOS_ARCH "x86_64")
 endif()
 
 set(CMAKE_OSX_ARCHITECTURES "${IOS_ARCH}" CACHE STRING "Build architecture for iOS")

@@ -25,10 +25,12 @@ endif()
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
-		set(ARM64 ON)
+		message("AARCH64 is a go")
+		set(ARM64_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm64")
+		message("ARM64 is a go")
 		# M1 Mac
-		set(ARM64 ON)
+		set(ARM64_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
 		message("ARM_DEVICE is a go")
 		set(ARM_DEVICE ON)
@@ -91,7 +93,7 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT (ARM64 AND MACOSX))
+if(NOT ((ARM64 AND MACOSX) OR IOS))
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
 endif()
 
@@ -111,6 +113,7 @@ endif()
 # :: Processors
 option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7_DEVICE})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM_DEVICE})
+option(ARM64 "Set to ON if targeting an ARM64 processor" ${ARM64_DEVICE})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS_DEVICE})
 option(X86 "Set to ON if targeting an X86 processor" ${X86_DEVICE})
 option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64_DEVICE})
@@ -198,7 +201,7 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-if(NOT LIBRETRO)
+if(NOT LIBRETRO AND NOT IOS)
 	find_package(SDL2)
 endif()
 include(FindThreads)
@@ -864,6 +867,7 @@ else()
 			ext/libpng17/arm/filter_neon_intrinsics.c
 		)
 	endif()
+
 	add_library(png17 STATIC
 		ext/libpng17/pngconf.h
 		ext/libpng17/pngdebug.h
@@ -1037,10 +1041,9 @@ if(WIN32)
 	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
-if(TARGET SDL2::SDL2)
+if(TARGET SDL2::SDL2 AND NOT IOS)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
-
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
@@ -2155,7 +2158,7 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS)
-	set(DEPLOYMENT_TARGET 8.0)
+	set(DEPLOYMENT_TARGET 9.0)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -2170,13 +2173,17 @@ if(IOS)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
-	if(CMAKE_GENERATOR STREQUAL "Xcode")
-		set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
-	else()
+	
+	# the commented out stuff doesn't seem to work
+	#if(CMAKE_GENERATOR STREQUAL "Xcode")
+	#	set(APP_DIR_NAME "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}")
+	#else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
-	endif()
+	#endif()
+	message("APP_DIR_NAME: ${APP_DIR_NAME}")
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND mkdir -p \"${APP_DIR_NAME}\"
+		COMMAND pwd
+		COMMAND mkdir -p ${APP_DIR_NAME}
 		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
 		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 	)
@@ -2187,7 +2194,6 @@ if(IOS)
 		RESOURCE "ios/Settings.bundle"
 		RESOURCE "MoltenVK/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
