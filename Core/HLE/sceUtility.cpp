@@ -143,9 +143,26 @@ static PSPGamedataInstallDialog gamedataInstallDialog;
 
 static std::map<int, u32> currentlyLoadedModules;
 
+static void ActivateDialog(UtilityDialogType type) {
+	if (!currentDialogActive) {
+		// TODO: Lock volatile RAM (see https://github.com/hrydgard/ppsspp/issues/8288)
+		// We don't have a virtual dialog thread unlike JPSCP. Not sure if it's OK to
+		// just do it on the current thread - it does seem dangerous to assume so...
+		currentDialogType = type;
+		currentDialogActive = true;
+	}
+}
+
+static void DeactivateDialog() {
+	if (currentDialogActive) {
+		// TODO: Unlock and zero volatile RAM.
+		currentDialogActive = false;
+	}
+}
+
 void __UtilityInit() {
 	currentDialogType = UTILITY_DIALOG_NONE;
-	currentDialogActive = false;
+	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
 }
@@ -200,8 +217,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 	}
 
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_SAVEDATA;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_SAVEDATA);
 	int ret = saveDialog.Init(paramAddr);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataInitStart(%08x)",ret,paramAddr);
 	return ret;
@@ -214,8 +230,9 @@ static int sceUtilitySavedataShutdownStart()
 		WARN_LOG(SCEUTILITY, "sceUtilitySavedataShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	
-	currentDialogActive = false;
+
+	DeactivateDialog();
+	DeactivateDialog();
 	int ret = saveDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataShutdownStart()",ret);
 	return ret;
@@ -361,7 +378,7 @@ static int sceUtilityMsgDialogShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = msgDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogShutdownStart()", ret);
 	return ret;
@@ -422,8 +439,7 @@ static int sceUtilityOskInitStart(u32 oskPtr)
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_OSK;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_OSK);
 	int ret = oskDialog.Init(oskPtr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", ret, oskPtr);
 	return ret;
@@ -437,7 +453,7 @@ static int sceUtilityOskShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = oskDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskShutdownStart()",ret);
 	return ret;
@@ -479,8 +495,7 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_NET;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_NET);
 	return hleLogSuccessInfoI(SCEUTILITY, netDialog.Init(paramsAddr));
 }
 
@@ -489,7 +504,7 @@ static int sceUtilityNetconfShutdownStart() {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	return hleLogSuccessI(SCEUTILITY, netDialog.Shutdown());
 }
 
@@ -535,8 +550,7 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr)
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_SCREENSHOT);
 	u32 retval = screenshotDialog.Init(paramAddr);
 	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
@@ -550,7 +564,7 @@ static int sceUtilityScreenshotShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret  = screenshotDialog.Shutdown();
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotShutdownStart()", ret);
 	return ret;
@@ -605,9 +619,8 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	
-	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
-	currentDialogActive = true;	
+
+	ActivateDialog(UTILITY_DIALOG_GAMEDATAINSTALL);
 	int ret = gamedataInstallDialog.Init(paramsAddr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
 	return ret;
@@ -620,7 +633,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart()");
 	return gamedataInstallDialog.Shutdown();
 }
@@ -659,7 +672,7 @@ static int sceUtilityGamedataInstallAbort()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = gamedataInstallDialog.Abort();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallDialogAbort",ret);
 	return ret;
@@ -824,7 +837,7 @@ static int sceUtilityGameSharingShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingShutdownStart()");
 	return 0;
 }
@@ -837,8 +850,7 @@ static int sceUtilityGameSharingInitStart(u32 paramsPtr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogType = UTILITY_DIALOG_GAMESHARING;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_GAMESHARING);
 	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 	return 0;
 }
