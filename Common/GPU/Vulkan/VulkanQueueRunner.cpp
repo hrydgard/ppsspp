@@ -1234,12 +1234,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
-	VkPipeline lastPipeline = VK_NULL_HANDLE;
-
 	auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
 	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.
+	// Might also want to consider scissor and viewport.
+	VkPipeline lastPipeline = VK_NULL_HANDLE;
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;

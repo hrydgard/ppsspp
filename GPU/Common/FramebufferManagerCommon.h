@@ -15,6 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// TODO: We now have the tools in thin3d to nearly eliminate the backend-specific framebuffer managers.
+// Here's a list of functionality to unify into FramebufferManagerCommon:
+// * DrawActiveTexture
+// * BlitFramebuffer
+// * StencilBuffer*.cpp
+//
+// Also, in TextureCache we should be able to unify texture-based depal.
+
 #pragma once
 
 #include <set>
@@ -131,7 +139,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 enum BindFramebufferColorFlags {
 	BINDFBCOLOR_SKIP_COPY = 0,
 	BINDFBCOLOR_MAY_COPY = 1,
-	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
+	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,  // includes BINDFBCOLOR_MAY_COPY
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
@@ -322,7 +330,7 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() {
 		return vfbs_;
 	}
-	void ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
+	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -356,7 +364,7 @@ protected:
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
-	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {}
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 

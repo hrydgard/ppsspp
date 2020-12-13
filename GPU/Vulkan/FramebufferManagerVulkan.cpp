@@ -234,18 +234,6 @@ void FramebufferManagerVulkan::Bind2DShader() {
 	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);
 }
 
-int FramebufferManagerVulkan::GetLineWidth() {
-	if (g_Config.iInternalResolution == 0) {
-		return std::max(1, (int)(renderWidth_ / 480));
-	} else {
-		return g_Config.iInternalResolution;
-	}
-}
-
-void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// Nothing to do here.
-}
-
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
