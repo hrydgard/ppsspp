@@ -598,7 +598,7 @@ void DrawEngineVulkan::DoFlush() {
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
-	bool tess = gstate_c.bezier || gstate_c.spline;
+	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

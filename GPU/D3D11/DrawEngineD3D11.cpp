@@ -341,7 +341,7 @@ void DrawEngineD3D11::DoFlush() {
 	ApplyDrawState(prim);
 
 	// Always use software for flat shading to fix the provoking index.
-	bool tess = gstate_c.bezier || gstate_c.spline;
+	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
