@@ -30,6 +30,7 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/MemMap.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -155,8 +156,13 @@ static void ActivateDialog(UtilityDialogType type) {
 
 static void DeactivateDialog() {
 	if (currentDialogActive) {
-		// TODO: Unlock and zero volatile RAM.
 		currentDialogActive = false;
+
+		// TODO: Zero volatile RAM. Hack version of the solution for #8288 (JPCSP does it more properly).
+		u32 addr = PSP_GetVolatileMemoryStart();
+		u32 size = PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart();
+
+		Memory::Memset(addr, 0, size);
 	}
 }
 

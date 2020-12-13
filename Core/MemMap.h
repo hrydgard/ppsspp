@@ -468,6 +468,9 @@ inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
 
+inline u32 PSP_GetVolatileMemoryStart() { return 0x08400000; }
+inline u32 PSP_GetVolatileMemoryEnd() { return 0x08800000; }
+
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
 inline u32 PSP_GetDefaultLoadAddress() { return 0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
