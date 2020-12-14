@@ -185,9 +185,6 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.NV_framebuffer_blit || gl_extensions.GLES3) {
 		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT | GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
 	}
-	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
-		features |= GPU_SUPPORTS_VAO;
-	}
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;

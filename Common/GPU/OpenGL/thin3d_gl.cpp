@@ -620,30 +620,28 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 	} else {
-		if (gl_extensions.IsCoreContext) {
-			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
-				shaderLanguageDesc_.fragColor0 = "fragColor0";
-				shaderLanguageDesc_.texture = "texture";
-				shaderLanguageDesc_.glslES30 = true;
+		// I don't know why we were checking for IsCoreContext here before.
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
+			shaderLanguageDesc_.fragColor0 = "fragColor0";
+			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.glslES30 = true;
+			shaderLanguageDesc_.bitwiseOps = true;
+			shaderLanguageDesc_.texelFetch = "texelFetch";
+			shaderLanguageDesc_.varying_vs = "out";
+			shaderLanguageDesc_.varying_fs = "in";
+			shaderLanguageDesc_.attribute = "in";
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
+			shaderLanguageDesc_.fragColor0 = "fragColor0";
+			shaderLanguageDesc_.bitwiseOps = true;
+			shaderLanguageDesc_.texelFetch = "texelFetch";
+		} else {
+			// This too...
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
+			if (gl_extensions.EXT_gpu_shader4) {
 				shaderLanguageDesc_.bitwiseOps = true;
-				shaderLanguageDesc_.texelFetch = "texelFetch";
-				shaderLanguageDesc_.varying_vs = "out";
-				shaderLanguageDesc_.varying_fs = "in";
-				shaderLanguageDesc_.attribute = "in";
-			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				// Hm, I think this is wrong. This should be outside "if (gl_extensions.IsCoreContext)".
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				shaderLanguageDesc_.fragColor0 = "fragColor0";
-				shaderLanguageDesc_.bitwiseOps = true;
-				shaderLanguageDesc_.texelFetch = "texelFetch";
-			} else {
-				// This too...
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				if (gl_extensions.EXT_gpu_shader4) {
-					shaderLanguageDesc_.bitwiseOps = true;
-					shaderLanguageDesc_.texelFetch = "texelFetch2D";
-				}
+				shaderLanguageDesc_.texelFetch = "texelFetch2D";
 			}
 		}
 	}

@@ -43,7 +43,8 @@ void GLQueueRunner::CreateDeviceObjects() {
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
 
-	// Populate some strings from the GL thread.
+	// Populate some strings from the GL thread so they can be queried from thin3d.
+	// TODO: Merge with GLFeatures.cpp/h
 	auto populate = [&](int name) {
 		const GLubyte *value = glGetString(name);
 		if (!value)
@@ -55,9 +56,6 @@ void GLQueueRunner::CreateDeviceObjects() {
 	populate(GL_RENDERER);
 	populate(GL_VERSION);
 	populate(GL_SHADING_LANGUAGE_VERSION);
-	if (!gl_extensions.IsCoreContext) {  // Not OK to query this in core profile!
-		populate(GL_EXTENSIONS);
-	}
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
