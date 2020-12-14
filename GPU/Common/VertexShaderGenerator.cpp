@@ -1102,6 +1102,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
+
+	if (gstate_c.Supports(GPU_NEEDS_Z_EQUAL_W_HACK)) {
+		// See comment in GPU_Vulkan.cpp.
+		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
+			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
+	}
+
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, " gl_PointSize = 1.0;\n");
 	}

@@ -616,6 +616,8 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		case FramebufferMatch::VALID:
 			relevancy += 1000;
 			break;
+		default:
+			break;
 		}
 
 		// Bonus point for matching stride.
@@ -791,6 +793,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		}
 		break;
 	}
+	default:
+		break;
 	}
 }
 
