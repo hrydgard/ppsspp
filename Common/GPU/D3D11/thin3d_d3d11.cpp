@@ -275,6 +275,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			case 0x163C:
 			case 0x8086:
 			case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+			// TODO: There are Windows ARM devices that could have Qualcomm here too.
+			// Not sure where I'll find the vendor codes for those though...
 			default:
 				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 			}
