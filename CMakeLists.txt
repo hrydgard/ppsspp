@@ -858,6 +858,11 @@ else()
 			ext/libpng17/arm/filter_neon.S
 			ext/libpng17/arm/filter_neon_intrinsics.c
 		)
+	elseif(ARM64)
+		set(PNG_ARM_INCLUDES
+			ext/libpng17/arm/arm_init.c
+			ext/libpng17/arm/filter_neon_intrinsics.c
+		)
 	endif()
 	add_library(png17 STATIC
 		ext/libpng17/pngconf.h
