@@ -204,7 +204,7 @@ void GPU_DX9::CheckGPUFeatures() {
 		if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1)
 			features |= GPU_SUPPORTS_ANISOTROPY;
 		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
-			features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+			features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	}
 
 	if (!g_Config.bHighQualityDepth) {

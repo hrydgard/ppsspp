@@ -190,7 +190,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
 
 	if (gl_extensions.OES_texture_npot)
-		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+		features |= GPU_SUPPORTS_TEXTURE_NPOT;
 
 	if (gl_extensions.EXT_blend_minmax)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
