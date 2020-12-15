@@ -138,13 +138,19 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 	gl_extensions.IsCoreContext = useCoreContext;
 
-#ifdef USING_GLES2
-	gl_extensions.IsGLES = !useCoreContext;
-#endif
-
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
 	const char *glslVersionStr = (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
+
+
+#ifdef USING_GLES2
+	gl_extensions.IsGLES = !useCoreContext;
+#else
+	if (strstr(versionStr, "OpenGL ES") == versionStr) {
+		// For desktops running GLES.
+		gl_extensions.IsGLES = true;
+	}
+#endif
 
 	// Check vendor string to try and guess GPU
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
@@ -175,6 +181,8 @@ void CheckGLExtensions() {
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
 		} else if (vendor == "Vivante Corporation") {
 			gl_extensions.gpuVendor = GPU_VENDOR_VIVANTE;
+		} else if (vendor == "Apple") {
+			gl_extensions.gpuVendor = GPU_VENDOR_APPLE;
 		} else {
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 		}
@@ -218,12 +226,6 @@ void CheckGLExtensions() {
 		}
 	}
 
-#ifndef USING_GLES2
-	if (strstr(versionStr, "OpenGL ES") == versionStr) {
-		// For desktops running GLES.
-		gl_extensions.IsGLES = true;
-	}
-#endif
 
 	if (!gl_extensions.IsGLES) { // For desktop GL
 		gl_extensions.ver[0] = parsed[0];

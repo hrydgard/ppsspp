@@ -616,6 +616,8 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		case FramebufferMatch::VALID:
 			relevancy += 1000;
 			break;
+		default:
+			break;
 		}
 
 		// Bonus point for matching stride.
@@ -791,6 +793,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		}
 		break;
 	}
+	default:
+		break;
 	}
 }
 
@@ -1058,7 +1062,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 		scaleFactor = g_Config.iTexScalingLevel;
 	}
 
-	if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
 		while ((scaleFactor & (scaleFactor - 1)) != 0) {
 			--scaleFactor;

@@ -222,6 +222,7 @@ enum class GPUVendor {
 	VENDOR_IMGTEC,  // PowerVR
 	VENDOR_BROADCOM,  // Raspberry
 	VENDOR_VIVANTE,
+	VENDOR_APPLE,
 };
 
 enum class NativeObject {

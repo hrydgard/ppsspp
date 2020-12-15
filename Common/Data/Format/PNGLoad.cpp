@@ -17,7 +17,8 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 
 	if (PNG_IMAGE_FAILED(png))
 	{
-		ERROR_LOG(IO, "pngLoad: %s", png.message);
+		WARN_LOG(IO, "pngLoad: %s (%s)", png.message, file);
+		*image_data_ptr = nullptr;
 		return 0;
 	}
 	*pwidth = png.width;
@@ -37,7 +38,8 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	png_image_begin_read_from_memory(&png, input_ptr, input_len);
 
 	if (PNG_IMAGE_FAILED(png)) {
-		ERROR_LOG(IO, "pngLoad: %s", png.message);
+		WARN_LOG(IO, "pngLoad: %s", png.message);
+		*image_data_ptr = nullptr;
 		return 0;
 	}
 	*pwidth = png.width;
@@ -49,6 +51,7 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	size_t size = PNG_IMAGE_SIZE(png);
 	if (!size) {
 		ERROR_LOG(IO, "pngLoad: empty image");
+		*image_data_ptr = nullptr;
 		return 0;
 	}
 

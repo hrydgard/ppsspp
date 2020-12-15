@@ -672,7 +672,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 
 bool DrawEngineGLES::SupportsHWTessellation() const {
 	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-	return hasTexelFetch && gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT);
+	return hasTexelFetch && gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT | GPU_SUPPORTS_INSTANCE_RENDERING);
 }
 
 bool DrawEngineGLES::UpdateUseHWTessellation(bool enable) {

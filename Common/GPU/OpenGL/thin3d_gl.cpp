@@ -442,6 +442,7 @@ public:
 				case GPUVendor::VENDOR_ARM: return "VENDOR_ARM";
 				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
 				case GPUVendor::VENDOR_VIVANTE: return "VENDOR_VIVANTE";
+				case GPUVendor::VENDOR_APPLE: return "VENDOR_APPLE";
 				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
@@ -544,6 +545,7 @@ OpenGLContext::OpenGLContext() {
 	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
 	case GPU_VENDOR_VIVANTE: caps_.vendor = GPUVendor::VENDOR_VIVANTE; break;
+	case GPU_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
 	case GPU_VENDOR_UNKNOWN:
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
@@ -620,30 +622,28 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 	} else {
-		if (gl_extensions.IsCoreContext) {
-			if (gl_extensions.VersionGEThan(3, 3, 0)) {
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
-				shaderLanguageDesc_.fragColor0 = "fragColor0";
-				shaderLanguageDesc_.texture = "texture";
-				shaderLanguageDesc_.glslES30 = true;
+		// I don't know why we were checking for IsCoreContext here before.
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
+			shaderLanguageDesc_.fragColor0 = "fragColor0";
+			shaderLanguageDesc_.texture = "texture";
+			shaderLanguageDesc_.glslES30 = true;
+			shaderLanguageDesc_.bitwiseOps = true;
+			shaderLanguageDesc_.texelFetch = "texelFetch";
+			shaderLanguageDesc_.varying_vs = "out";
+			shaderLanguageDesc_.varying_fs = "in";
+			shaderLanguageDesc_.attribute = "in";
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
+			shaderLanguageDesc_.fragColor0 = "fragColor0";
+			shaderLanguageDesc_.bitwiseOps = true;
+			shaderLanguageDesc_.texelFetch = "texelFetch";
+		} else {
+			// This too...
+			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
+			if (gl_extensions.EXT_gpu_shader4) {
 				shaderLanguageDesc_.bitwiseOps = true;
-				shaderLanguageDesc_.texelFetch = "texelFetch";
-				shaderLanguageDesc_.varying_vs = "out";
-				shaderLanguageDesc_.varying_fs = "in";
-				shaderLanguageDesc_.attribute = "in";
-			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-				// Hm, I think this is wrong. This should be outside "if (gl_extensions.IsCoreContext)".
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				shaderLanguageDesc_.fragColor0 = "fragColor0";
-				shaderLanguageDesc_.bitwiseOps = true;
-				shaderLanguageDesc_.texelFetch = "texelFetch";
-			} else {
-				// This too...
-				shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
-				if (gl_extensions.EXT_gpu_shader4) {
-					shaderLanguageDesc_.bitwiseOps = true;
-					shaderLanguageDesc_.texelFetch = "texelFetch2D";
-				}
+				shaderLanguageDesc_.texelFetch = "texelFetch2D";
 			}
 		}
 	}
