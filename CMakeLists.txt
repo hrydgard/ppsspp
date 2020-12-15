@@ -2124,10 +2124,10 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "MoltenVK/iOS/Frameworks")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "ext/vulkan/iOS/Frameworks")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/MoltenVK/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
 			elseif(USING_QT_UI)
@@ -2185,7 +2185,7 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
 		RESOURCE "ios/Settings.bundle"
-		RESOURCE "MoltenVK/iOS/Frameworks"
+		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
