@@ -49,7 +49,8 @@ enum PSPDirectories {
 	DIRECTORY_PLUGINS,
 	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
 	DIRECTORY_VIDEO,
-	DIRECTORY_AUDIO
+	DIRECTORY_AUDIO,
+	DIRECTORY_MEMSTICK_ROOT,
 };
 
 class GraphicsContext;

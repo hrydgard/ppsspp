@@ -179,6 +179,7 @@ private:
 	UI::EventReturn OnRemoteDebugger(UI::EventParams &e);
 	UI::EventReturn OnGPUDriverTest(UI::EventParams &e);
 	UI::EventReturn OnTouchscreenTest(UI::EventParams &e);
+	UI::EventReturn OnCopyStatesToRoot(UI::EventParams &e);
 
 	bool allowDebugger_ = false;
 	bool canAllowDebugger_ = true;
