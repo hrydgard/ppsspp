@@ -22,6 +22,7 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -33,7 +34,7 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, std::string *errorString) {
 	*uniformMask = 0;
 	errorString->clear();
 
@@ -77,7 +78,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
-	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
+	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER);
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK);

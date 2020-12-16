@@ -19,67 +19,67 @@
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
 
-bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
+bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_1xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateFragmentShader(id, buffer, compat, &uniformMask, errorString);
+		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, errorString);
 	}
 	default:
 		return false;
 	}
 }
 
-bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, std::string *errorString) {
+bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	switch (lang) {
 	case ShaderLanguage::GLSL_VULKAN:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_VULKAN);
-		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_1xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_1xx);
-		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D9:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
-		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D11);
-		return GenerateVertexShader(id, buffer, compat, &attrMask, &uniformMask, errorString);
+		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, errorString);
 	}
 	default:
 		return false;
@@ -234,6 +234,8 @@ bool TestVertexShaders() {
 	int successes = 0;
 	int count = 700;
 
+	Draw::Bugs bugs;
+
 	// Generate a bunch of random vertex shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
 	for (int i = 0; i < count; i++) {
@@ -259,7 +261,7 @@ bool TestVertexShaders() {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], &genErrorString[j]);
+			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
 				printf("%s\n", genErrorString[j].c_str());
 			}
@@ -297,6 +299,8 @@ bool TestFragmentShaders() {
 	int successes = 0;
 	int count = 300;
 
+	Draw::Bugs bugs;
+
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
 	for (int i = 0; i < count; i++) {
@@ -318,7 +322,7 @@ bool TestFragmentShaders() {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], &genErrorString[j]);
+			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
 				printf("%s\n", genErrorString[j].c_str());
 			}
