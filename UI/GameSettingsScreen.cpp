@@ -370,7 +370,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// Hide insets option if no insets, or OS too old.
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29 &&
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
 		(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
