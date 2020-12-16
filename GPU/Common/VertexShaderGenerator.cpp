@@ -22,6 +22,7 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -126,7 +127,7 @@ static const char * const boneWeightDecl[9] = {
 extern const char *vulkan_glsl_preamble_vs;
 extern const char *hlsl_preamble_vs;
 
-bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString) {
 	*attrMask = 0;
 	*uniformMask = 0;
 
@@ -151,7 +152,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// this is only valid for some settings of uvGenMode
 	GETexProjMapMode uvProjMode = static_cast<GETexProjMapMode>(id.Bits(VS_BIT_UVPROJ_MODE, 2));
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
-	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE);
+	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER);
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;

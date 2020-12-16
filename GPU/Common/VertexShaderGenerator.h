@@ -21,10 +21,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/thin3d.h"
 
 struct VShaderID;
 
-bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
+bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, const Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, std::string *errorString);
 
 // D3D9 constants.
 enum {

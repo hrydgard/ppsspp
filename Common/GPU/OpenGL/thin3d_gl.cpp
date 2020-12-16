@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <map>
 
+#include "ppsspp_config.h"
+
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -590,6 +592,13 @@ OpenGLContext::OpenGLContext() {
 		// TODO: Should this workaround be removed for newer devices/drivers?
 		bugs_.Infest(Bugs::PVR_GENMIPMAP_HEIGHT_GREATER);
 	}
+
+#if PPSSPP_PLATFORM(IOS)
+	// For some reason, this bug does not appear on M1.
+	if (caps_.vendor == GPUVendor::VENDOR_APPLE) {
+		bugs_.Infest(Bugs::BROKEN_FLAT_IN_SHADER);
+	}
+#endif
 
 	shaderLanguageDesc_.Init(GLSL_1xx);
 
