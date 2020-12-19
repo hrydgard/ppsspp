@@ -1738,10 +1738,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
 			if (srcX != dstX || srcY != dstY) {
-				WARN_LOG_N_TIMES(dstsrc, 100, G3D, "Intra-buffer block transfer %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+				WARN_LOG_N_TIMES(dstsrc, 100, G3D, "Intra-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
+					width, height, bpp,
 					srcBasePtr, srcX, srcY, srcStride,
-					dstBasePtr, dstX, dstY, dstStride,
-					width, height, bpp);
+					dstBasePtr, dstX, dstY, dstStride);
 				FlushBeforeCopy();
 				// Some backends can handle blitting within a framebuffer. Others will just have to deal with it or ignore it, apparently.
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_IntraBufferBlockTransfer");
@@ -1753,10 +1753,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				return true;  // Skip the memory copy.
 			}
 		} else {
-			WARN_LOG_N_TIMES(dstnotsrc, 100, G3D, "Inter-buffer block transfer  %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+			WARN_LOG_N_TIMES(dstnotsrc, 100, G3D, "Inter-buffer block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
+				width, height, bpp,
 				srcBasePtr, srcX, srcY, srcStride,
-				dstBasePtr, dstX, dstY, dstStride,
-				width, height, bpp);
+				dstBasePtr, dstX, dstY, dstStride);
 			// Straightforward blit between two framebuffers.
 			FlushBeforeCopy();
 			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp, "Blit_InterBufferBlockTransfer");
@@ -1769,10 +1769,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		// Here we should just draw the pixels into the buffer.  Copy first.
 		return false;
 	} else if (srcBuffer) {
-		WARN_LOG_N_TIMES(btd, 100, G3D, "Block transfer readback %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d) (%dx%d %dbpp)",
+		WARN_LOG_N_TIMES(btd, 100, G3D, "Block transfer readback %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
+			width, height, bpp,
 			srcBasePtr, srcX, srcY, srcStride,
-			dstBasePtr, dstX, dstY, dstStride,
-			width, height, bpp);
+			dstBasePtr, dstX, dstY, dstStride);
 		FlushBeforeCopy();
 		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
