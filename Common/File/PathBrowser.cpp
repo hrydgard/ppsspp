@@ -238,20 +238,30 @@ bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 	}
 }
 
+void PathBrowser::NavigateUp() {
+	// Upwards.
+	// Check for windows drives.
+	if (path_.size() == 3 && path_[1] == ':') {
+		path_ = "/";
+	} else if (startsWith(path_, "http://") || startsWith(path_, "https://")) {
+		// You can actually pin "remote disc streaming" (which I didn't even realize until recently).
+		// This prevents you from getting the path browser into very weird states:
+		path_ = "/";
+		// It's ok to just go directly to root without more checking since remote disc streaming
+		// does not yet support folders.
+	} else {
+		size_t slash = path_.rfind('/', path_.size() - 2);
+		if (slash != std::string::npos)
+			path_ = path_.substr(0, slash + 1);
+	}
+}
+
 // TODO: Support paths like "../../hello"
 void PathBrowser::Navigate(const std::string &path) {
 	if (path == ".")
 		return;
 	if (path == "..") {
-		// Upwards.
-		// Check for windows drives.
-		if (path_.size() == 3 && path_[1] == ':') {
-			path_ = "/";
-		} else {
-			size_t slash = path_.rfind('/', path_.size() - 2);
-			if (slash != std::string::npos)
-				path_ = path_.substr(0, slash + 1);
-		}
+		NavigateUp();
 	} else {
 		if (path.size() > 2 && path[1] == ':' && path_ == "/")
 			path_ = path;

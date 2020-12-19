@@ -22,6 +22,8 @@ public:
 	void SetPath(const std::string &path);
 	bool IsListingReady();
 	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
+
+	void NavigateUp();
 	void Navigate(const std::string &path);
 
 	std::string GetPath() const {
