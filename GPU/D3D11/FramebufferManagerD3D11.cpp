@@ -373,6 +373,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		dst->fbo, dstX1, dstY1, dstX2, dstY2,
 		srcFBO, srcX1, srcY1, srcX2, srcY2,
 		false);
+
+	draw_->BindTexture(0, nullptr);
 }
 
 // Nobody calls this yet.
