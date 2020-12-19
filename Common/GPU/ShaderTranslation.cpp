@@ -96,7 +96,7 @@ cbuffer data : register(b0) {
 )";
 
 static const char *vulkanPrologue =
-R"(#version 430
+R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 )";
@@ -217,9 +217,10 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	return true;
 }
 
-bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, ShaderStage stage, std::string *errorMessage) {
-	if (srcLang != GLSL_3xx && srcLang != GLSL_1xx)
+bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLanguageDesc &desc, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, ShaderStage stage, std::string *errorMessage) {
+	if (srcLang != GLSL_3xx && srcLang != GLSL_1xx) {
 		return false;
+	}
 
 	if ((srcLang == GLSL_1xx || srcLang == GLSL_3xx) && destLang == GLSL_VULKAN) {
 		// Let's just mess about at the string level, no need to recompile.
@@ -357,6 +358,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		spirv_cross::ShaderResources resources = glsl.get_shader_resources();
 		// Set some options.
 		spirv_cross::CompilerGLSL::Options options;
+		options.es = desc.gles;
 		options.version = gl_extensions.GLSLVersion();
 		// macOS OpenGL 4.1 implementation does not support GL_ARB_shading_language_420pack.
 		// Prevent explicit binding location emission enabled in SPIRV-Cross by default.
