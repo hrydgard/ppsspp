@@ -49,6 +49,7 @@
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/KeyMap.h"
+#include "Core/MemFault.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -1025,6 +1026,9 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
+	resumeButton_ = root_->Add(new Button(dev->T("Resume"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true)));
+	resumeButton_->OnClick.Handle(this, &EmuScreen::OnResume);
+	resumeButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
@@ -1135,15 +1139,29 @@ UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
-	if (chatButtons->GetVisibility() == UI::V_VISIBLE) chatButtons->SetVisibility(UI::V_GONE);
+UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
+	if (chatButtons->GetVisibility() == UI::V_VISIBLE) {
+		chatButtons->SetVisibility(UI::V_GONE);
+	}
 	screenManager()->push(new ChatMenu());
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
+	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+		// Force it!
+		Memory::MemFault_IgnoreLastCrash();
+		coreState = CoreState::CORE_RUNNING;
+	}
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
+	using namespace UI;
+
 	UIScreen::update();
-	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? UI::Visibility::V_VISIBLE : UI::Visibility::V_GONE);
+	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
+	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 
 	if (bootPending_) {
 		bootGame(gamePath_);
