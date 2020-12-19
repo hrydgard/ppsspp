@@ -113,11 +113,13 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	int instructionSize = 4;
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
+	instructionSize = 15;
 
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	LSInstructionInfo info{};
 	success = X86AnalyzeMOV(codePtr, info);
-	instructionSize = info.instructionSize;
+	if (success)
+		instructionSize = info.instructionSize;
 #elif PPSSPP_ARCH(ARM64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
@@ -133,7 +135,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 
 	std::string disassembly;
-	if (success && DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
+	if (DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
 		infoString += disassembly + "\n";
 	}
 

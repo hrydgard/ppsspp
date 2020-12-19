@@ -1269,21 +1269,23 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	// TODO: Draw a lot more information. Full register set, and so on.
 
 #ifdef _DEBUG
-	char build[] = "Debug";
+	char build[] = "debug";
 #else
-	char build[] = "Release";
+	char build[] = "release";
 #endif
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 Game ID (Title): %s (%s)
-PPSSPP build: %s (%s)
-ABI: %s
+%s (%s)
+%s v%d (%s)
 )",
 		ExceptionTypeAsString(info.type),
-		g_paramSFO.GetDiscID().c_str(),
-		g_paramSFO.GetValueString("TITLE").c_str(),
-		versionString,
-		build,
-		GetCompilerABI()
+		g_paramSFO.GetDiscID().c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
+		versionString, build,
+		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
 	draw2d->SetFontScale(.7f, .7f);
@@ -1323,6 +1325,15 @@ BREAK
 	std::string kernelState = __KernelStateSummary();
 
 	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+
+	// Draw some additional stuff to the right.
+	snprintf(statbuf, sizeof(statbuf),
+		"CPU Core: %d\n"
+		"Locked CPU freq: %d MHz\n",
+		g_Config.iCpuCore,
+		g_Config.iLockedCPUSpeed);
+
+	draw2d->DrawTextShadow(ubuntu24, statbuf, 420, 50, 0xFFFFFFFF);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
