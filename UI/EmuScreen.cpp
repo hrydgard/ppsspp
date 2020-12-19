@@ -1258,6 +1258,15 @@ static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
+static const char *CPUCoreAsString(int core) {
+	switch (core) {
+	case 0: return "Interpreter";
+	case 1: return "JIT";
+	case 2: return "IR Interpreter";
+	default: return "N/A";
+	}
+}
+
 static void DrawCrashDump(DrawBuffer *draw2d) {
 	const ExceptionInfo &info = Core_GetExceptionInfo();
 
@@ -1328,9 +1337,9 @@ BREAK
 
 	// Draw some additional stuff to the right.
 	snprintf(statbuf, sizeof(statbuf),
-		"CPU Core: %d\n"
+		"CPU Core: %s\n"
 		"Locked CPU freq: %d MHz\n",
-		g_Config.iCpuCore,
+		CPUCoreAsString(g_Config.iCpuCore),
 		g_Config.iLockedCPUSpeed);
 
 	x += 400;
