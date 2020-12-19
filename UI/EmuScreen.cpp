@@ -1289,8 +1289,8 @@ Game ID (Title): %s (%s)
 	);
 
 	draw2d->SetFontScale(.7f, .7f);
-	int x = 20;
-	int y = 50;
+	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	int y = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
 
@@ -1333,7 +1333,10 @@ BREAK
 		g_Config.iCpuCore,
 		g_Config.iLockedCPUSpeed);
 
-	draw2d->DrawTextShadow(ubuntu24, statbuf, 420, 50, 0xFFFFFFFF);
+	x += 400;
+	y = 50;
+
+	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
