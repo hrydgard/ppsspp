@@ -49,6 +49,14 @@ void MemFault_Init() {
 	g_ignoredAddresses.clear();
 }
 
+bool MemFault_MayBeResumable() {
+	return g_lastCrashAddress != nullptr;
+}
+
+void MemFault_IgnoreLastCrash() {
+	g_ignoredAddresses.insert(g_lastCrashAddress);
+}
+
 #ifdef MACHINE_CONTEXT_SUPPORTED
 
 static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std::string *dest) {
@@ -72,14 +80,6 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 	}
 #endif
 	return false;
-}
-
-bool MemFault_MayBeResumable() {
-	return g_lastCrashAddress != nullptr;
-}
-
-void MemFault_IgnoreLastCrash() {
-	g_ignoredAddresses.insert(g_lastCrashAddress);
 }
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
