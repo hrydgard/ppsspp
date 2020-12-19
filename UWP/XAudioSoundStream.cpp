@@ -143,38 +143,37 @@ void XAudioBackend::PollLoop() {
 		XAUDIO2_VOICE_STATE state;
 		xaudioVoice->GetState(&state);
 
-		if (state.BuffersQueued < 1) {
-			int a = 0;
-			a++;
+		// TODO: Still plenty of tuning to do here.
+		// 4 seems to work fine.
+		if (state.BuffersQueued > 4) {
+			Sleep(1);
+			continue;
 		}
 
 		uint32_t bytesRequired = (sampleRate_ * 4) / 100;
 
-		while (bytesRequired) {
-			uint32_t bytesLeftInBuffer = BUFSIZE - cursor_;
-			uint32_t readCount = std::min(bytesRequired, bytesLeftInBuffer);
+		uint32_t bytesLeftInBuffer = BUFSIZE - cursor_;
+		uint32_t readCount = std::min(bytesRequired, bytesLeftInBuffer);
 
-			int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, 16, sampleRate_, 2);
-			int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
+		// realtimeBuffer_ is just used as a ring of scratch space to be submitted, since SubmitSourceBuffer doesn't
+		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
+		// above, which it is, easily.
 
-			XAUDIO2_BUFFER xaudioBuffer{};
-			xaudioBuffer.pAudioData = (const BYTE*)&realtimeBuffer_[cursor_];
-			xaudioBuffer.AudioBytes = numBytesRendered;
+		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, 16, sampleRate_, 2);
+		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
 
-			if FAILED(xaudioVoice->SubmitSourceBuffer(&xaudioBuffer, NULL)) {
-				WARN_LOG(AUDIO, "XAudioBackend: Failed writing bytes");
-			}
-			cursor_ += numBytesRendered;
+		XAUDIO2_BUFFER xaudioBuffer{};
+		xaudioBuffer.pAudioData = (const BYTE*)&realtimeBuffer_[cursor_];
+		xaudioBuffer.AudioBytes = numBytesRendered;
 
-			if (cursor_ >= BUFSIZE) {
-				// This can't happen, right?
-				cursor_ = 0;
-				bytesLeftInBuffer = BUFSIZE;
-			}
-			bytesRequired -= numBytesRendered;
+		if FAILED(xaudioVoice->SubmitSourceBuffer(&xaudioBuffer, NULL)) {
+			WARN_LOG(AUDIO, "XAudioBackend: Failed writing bytes");
 		}
-
-		Sleep(2);
+		cursor_ += numBytesRendered;
+		if (cursor_ >= BUFSIZE) {
+			cursor_ = 0;
+			bytesLeftInBuffer = BUFSIZE;
+		}
 	}
 
 	SetEvent(exitEvent_);
