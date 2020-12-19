@@ -54,6 +54,10 @@ void GamepadView::Update() {
 }
 
 float GamepadView::GetButtonOpacity() {
+	if (coreState != CORE_RUNNING) {
+		return 0.0f;
+	}
+
 	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
 	float fadeTransitionSeconds = std::min(fadeAfterSeconds, 0.5f);
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;

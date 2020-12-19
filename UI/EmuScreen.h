@@ -49,13 +49,13 @@ public:
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
-protected:
+private:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
+	UI::EventReturn OnResume(UI::EventParams &params);
 
-private:
 	void bootGame(const std::string &filename);
 	bool bootAllowStorage(const std::string &filename);
 	void bootComplete();
@@ -105,6 +105,7 @@ private:
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
 	UI::TextView *loadingTextView_ = nullptr;
+	UI::Button *resumeButton_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
