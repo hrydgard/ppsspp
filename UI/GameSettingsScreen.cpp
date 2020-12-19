@@ -616,7 +616,8 @@ void GameSettingsScreen::CreateViews() {
 	altVolume->SetZeroLabel(a->T("Mute"));
 	altVolume->SetNegativeDisable(a->T("Use global volume"));
 
-#ifdef _WIN32
+	// Hide the backend selector in UWP builds (we only support XAudio2 there).
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (IsVistaOrHigher()) {
 		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
 		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
@@ -625,7 +626,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
-	if (micList.size() >= 1) {
+	if (!micList.empty()) {
 		audioSettings->Add(new ItemHeader(a->T("Microphone")));
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
