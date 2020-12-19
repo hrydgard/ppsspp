@@ -1134,6 +1134,8 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 
 	atrac->first_.offset += bytesToAdd;
 	atrac->bufferValidBytes_ += bytesToAdd;
+	if (atrac->RemainingFrames() > 2) // Code Lyoko don't like SeekToSample for unknown reason
+		atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
 
 	return hleLogSuccessI(ME, 0);
 }
