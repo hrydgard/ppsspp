@@ -904,7 +904,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0x55c20a00, &WrapI_CUUU<sceKernelCreateEventFlag>,              "sceKernelCreateEventFlag",                  'i', "sxxx",   HLE_KERNEL_SYSCALL },
 	{0xef9e4c70, &WrapU_I<sceKernelDeleteEventFlag>,                 "sceKernelDeleteEventFlag",                  'x', "i",      HLE_KERNEL_SYSCALL },
 	{0x1fb15a32, &WrapU_IU<sceKernelSetEventFlag>,                   "sceKernelSetEventFlag",                     'x', "ix",     HLE_KERNEL_SYSCALL },
-	{0x812346e4, &WrapU_IU<sceKernelClearEventFlag>,                 "sceKernelClearEventFlag",                   'x', "ix"      },
+	{0x812346e4, &WrapU_IU<sceKernelClearEventFlag>,                 "sceKernelClearEventFlag",                   'x', "ix",     HLE_KERNEL_SYSCALL },
 	{0x402fcf22, &WrapI_IUUUU<sceKernelWaitEventFlag>,               "sceKernelWaitEventFlag",                    'i', "ixxpp",  HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL},
 	{0xc07bb470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sxxxxx" ,HLE_KERNEL_SYSCALL },
 	{0xed1410e0, &WrapI_I<sceKernelDeleteFpl>,                       "sceKernelDeleteFpl",                        'i', "i"      ,HLE_KERNEL_SYSCALL },
