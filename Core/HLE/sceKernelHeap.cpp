@@ -126,9 +126,8 @@ static u32 SysMemForKernel_536AD5E1()
 	return 0;
 }
 
-//should have option variable
-static u32 sceKernelAllocHeapMemoryWithOptionFunction(int heapId, int size) {
-	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelAllocHeapMemoryWithOptionFunction %d %d", heapId, size);
+static u32 sceKernelAllocHeapMemoryWithOptionFunction(int heapId, int size ,u32 option) {
+	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelAllocHeapMemoryWithOptionFunction %d %d %d", heapId, size, option);
 	u32 error;
 	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (heap) {
@@ -138,7 +137,7 @@ static u32 sceKernelAllocHeapMemoryWithOptionFunction(int heapId, int size) {
 		return hleLogSuccessInfoX(SCEKERNEL, addr);
 	}
 	else {
-		return hleLogError(SCEKERNEL, error, "sceKernelAllocHeapMemory(%d): invalid heapId", heapId);
+		return hleLogError(SCEKERNEL, error, "sceKernelAllocHeapMemoryWithOptionFunction(%d): invalid heapId", heapId);
 	}	
 }
 
@@ -153,7 +152,7 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,             "sceKernelPartitionMaxFreeMemSize",         'x', "i",HLE_KERNEL_SYSCALL },
 	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",                'x', ""           ,HLE_KERNEL_SYSCALL },
 	{ 0x536AD5E1, &WrapU_V<SysMemForKernel_536AD5E1>,       "SysMemForKernel_536AD5E1",      'i', "i"                         ,HLE_KERNEL_SYSCALL },
-	{ 0xeb7a74db, &WrapU_II<sceKernelAllocHeapMemoryWithOptionFunction>,  "sceKernelAllocHeapMemoryWithOptionFunction",     'x', "xx"       ,HLE_KERNEL_SYSCALL },	
+	{ 0xeb7a74db, &WrapU_IIU<sceKernelAllocHeapMemoryWithOptionFunction>,  "sceKernelAllocHeapMemoryWithOptionFunction",     'x', "xxx"       ,HLE_KERNEL_SYSCALL },	
 	{ 0x7b749390, &WrapI_IU<sceKernelFreeHeapMemory>,                "sceKernelFreeHeapMemory",                'x', "xx"       ,HLE_KERNEL_SYSCALL },
 };
 
