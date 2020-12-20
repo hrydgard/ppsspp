@@ -264,6 +264,21 @@ bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 	}
 }
 
+bool PathBrowser::CanNavigateUp() {
+/* Leaving this commented out, not sure if there's a use in UWP for navigating up from the user data folder.
+#if PPSSPP_PLATFORM(UWP)
+	// Can't navigate up from memstick folder :(
+	if (path_ == GetSysDirectory(DIRECTORY_MEMSTICK_ROOT)) {
+		return false;
+	}
+#endif
+*/
+	if (path_ == "/") {
+		return false;
+	}
+	return true;
+}
+
 void PathBrowser::NavigateUp() {
 	// Upwards.
 	// Check for windows drives.

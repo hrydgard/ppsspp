@@ -661,7 +661,7 @@ void GameBrowser::Refresh() {
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-			if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 				topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 			} else {
 				topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
@@ -763,9 +763,10 @@ void GameBrowser::Refresh() {
 	}
 
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
-		gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::NavigateClick);
-
+		if (path_.CanNavigateUp()) {
+			gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+				OnClick.Handle(this, &GameBrowser::NavigateClick);
+		}
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
