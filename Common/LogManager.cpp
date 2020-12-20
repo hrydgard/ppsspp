@@ -304,8 +304,10 @@ void FileLogListener::Log(const LogMessage &message) {
 }
 
 void OutputDebugStringLogListener::Log(const LogMessage &message) {
+	char buffer[4096];
+	snprintf(buffer, sizeof(buffer), "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 #if _MSC_VER
-	OutputDebugStringUTF8(message.msg.c_str());
+	OutputDebugStringUTF8(buffer);
 #endif
 }
 

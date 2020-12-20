@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "ppltasks.h"
+
+#include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -11,63 +13,76 @@ using namespace Concurrency;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
 
+// Not sure how necessary this one is.
 static std::mutex initMutex;
 
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
+	active_ = false;
 	file_ = file;
 	path_ = FromPlatformString(file_->Path);
+	INFO_LOG(IO, "StorageFileLoader - launching thread");
 	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
+
+	// Before we proceed, we need to block until the thread has found the size.
+	// Hacky way:
+	while (size_ < 0) {
+		Sleep(10);
+	}
 }
 
 StorageFileLoader::~StorageFileLoader() {
+	INFO_LOG(IO, "StorageFileLoader destructor");
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
+		INFO_LOG(IO, "StorageFileLoader - setting active to false");
 		active_ = false;
 		operationRequested_ = false;
-		cond_.notify_all();
+		cond_.notify_one();
 	}
+	INFO_LOG(IO, "StorageFileLoader - joining with thread");
 	thread_->join();
 }
 
 void StorageFileLoader::threadfunc() {
 	setCurrentThreadName("StorageFileLoader");
 
-	initMutex.lock();
 
-	auto opentask = create_task(file_->OpenReadAsync()).then([this](IRandomAccessStreamWithContentType ^stream) {
-		stream_ = stream;
-		active_ = true;
-	});
+	{
+		std::unique_lock<std::mutex> lock(initMutex);
+		_assert_(!active_);
+		auto opentask = create_task(file_->OpenReadAsync()).then([this](IRandomAccessStreamWithContentType ^stream) {
+			stream_ = stream;
+			active_ = true;
+			INFO_LOG(IO, "StorageFileLoader: active");
+		});
 
-	try {
-		opentask.wait();
-	}
-	catch (const std::exception& e) {
-		operationFailed_ = true;
-		// TODO: What do we do?
-		const char *what = e.what();
-		INFO_LOG(SYSTEM, "%s", what);
-	}
-	catch (Platform::COMException ^e) {
+		try {
+			opentask.wait();
+			INFO_LOG(IO, "StorageFileLoader: first wait finished");
+		} catch (const std::exception& e) {
+			operationFailed_ = true;
+			// TODO: What do we do?
+			const char *what = e.what();
+			INFO_LOG(SYSTEM, "%s", what);
+		} catch (Platform::COMException ^e) {
 
-	}
+		}
 
-	auto sizetask = create_task(file_->GetBasicPropertiesAsync()).then([this](Windows::Storage::FileProperties::BasicProperties ^props) {
-		size_ = props->Size;
-	});
-	try {
-		sizetask.wait();
+		auto sizetask = create_task(file_->GetBasicPropertiesAsync()).then([this](Windows::Storage::FileProperties::BasicProperties ^props) {
+			size_ = props->Size;
+			INFO_LOG(IO, "StorageFileLoader: Got size: %d", (int)size_);
+		});
+		try {
+			sizetask.wait();
+			INFO_LOG(IO, "StorageFileLoader: second wait finished");
+		} catch (const std::exception& e) {
+			const char *what = e.what();
+			INFO_LOG(SYSTEM, "%s", what);
+		} catch (Platform::COMException ^e) {
+			std::string what = FromPlatformString(e->ToString());
+			INFO_LOG(SYSTEM, "%s", what.c_str());
+		}
 	}
-	catch (const std::exception& e) {
-		const char *what = e.what();
-		INFO_LOG(SYSTEM, "%s", what);
-	}
-	catch (Platform::COMException ^e) {
-		std::string what = FromPlatformString(e->ToString());
-		INFO_LOG(SYSTEM, "%s", what.c_str());
-	}
-
-	initMutex.unlock();
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	while (active_) {
@@ -134,17 +149,15 @@ std::string StorageFileLoader::Extension() {
 }
 
 void StorageFileLoader::EnsureOpen() {
-	// UGLY!
-	while (!thread_)
-		Sleep(100);
 	while (size_ == -1)
-		Sleep(100);
+		Sleep(50);
 }
 
 size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	EnsureOpen();
-	if (operationRequested_ || responseAvailable_)
-		Crash();
+	_assert_(!operationRequested_);
+	_assert_(!responseAvailable_)
+
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
 		operation_.type = OpType::READ_AT;
@@ -160,6 +173,9 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 		while (!responseAvailable_) {
 			condResponse_.wait(responseLock);
 		}
+		INFO_LOG(IO, "StorageFileLoader: Got response");
+		// still under mutexResponse_ lock here.
+		responseAvailable_ = false;
 		if (operationFailed_) {
 			return 0;
 		}
@@ -168,7 +184,6 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 		Platform::Array<uint8_t> ^bytearray = ref new Platform::Array<uint8_t>((unsigned int)len);
 		rd->ReadBytes(bytearray);
 		memcpy(data, bytearray->Data, len);
-		responseAvailable_ = false;
 		response_.buffer = nullptr;
 		return len / bytes;
 	}
