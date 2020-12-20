@@ -27,6 +27,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Util/PPGeDraw.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -412,9 +413,13 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
+
+	PPGeSetDrawContext(draw);
 }
 
 GPUCommon::~GPUCommon() {
+	// Probably not necessary.
+	PPGeSetDrawContext(nullptr);
 }
 
 void GPUCommon::UpdateCmdInfo() {
@@ -478,6 +483,7 @@ void GPUCommon::DeviceLost() {
 void GPUCommon::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	framebufferManager_->DeviceRestore(draw_);
+	PPGeSetDrawContext(draw_);
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {

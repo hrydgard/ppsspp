@@ -42,6 +42,7 @@
 #include "Core/System.h"
 
 Atlas g_ppge_atlas;
+Draw::DrawContext *g_draw = nullptr;
 
 static u32 atlasPtr;
 static int atlasWidth;
@@ -80,7 +81,7 @@ static u32 paletteSize = sizeof(u16) * 16;
 static u32 vertexStart;
 static u32 vertexCount;
 
-// Used for formating text
+// Used for formatting text
 struct AtlasCharVertex
 {
 	float x;
@@ -125,6 +126,10 @@ struct PPGeTextDrawerImage {
 	u32 ptr;
 };
 std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
+
+void PPGeSetDrawContext(Draw::DrawContext *draw) {
+	g_draw = draw;
+}
 
 // Overwrite the current text lines buffer so it can be drawn later.
 void PPGePrepareText(const char *text, float x, float y, PPGeAlign align, float scale, float lineHeightScale,
@@ -705,8 +710,8 @@ static bool HasTextDrawer() {
 		return textDrawer != nullptr;
 	}
 
-	// TODO: Should we pass a draw_?
-	textDrawer = TextDrawer::Create(nullptr);
+	// TODO: Should we pass a draw_? Yes! UWP requires it.
+	textDrawer = TextDrawer::Create(g_draw);
 	if (textDrawer) {
 		textDrawer->SetFontScale(1.0f, 1.0f);
 		textDrawer->SetForcedDPIScale(1.0f);
