@@ -546,19 +546,15 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
-	SetPath(g_Config.memStickDirectory);
-#elif defined(USING_QT_UI) || defined(USING_WIN_UI)
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_QT_UI) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
+	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 		System_SendMessage("browse_folder", "");
+	} else {
+		SetPath(g_Config.memStickDirectory);
 	}
-#elif PPSSPP_PLATFORM(UWP)
-	// TODO UWP
-	SetPath(g_Config.memStickDirectory);
 #else
 	SetPath(getenv("HOME"));
 #endif
-
 	return UI::EVENT_DONE;
 }
 
