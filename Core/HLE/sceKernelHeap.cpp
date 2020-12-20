@@ -90,6 +90,22 @@ static int sceKernelDeleteHeap(int heapId) {
 	}
 }
 
+static int sceKernelFreeHeapMemory(int heapId, u32 block) {
+	u32 error;
+	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
+	if (heap) {		
+		int freeResult = userMemory.Free(block);
+		if (freeResult)
+			return hleLogSuccessInfoX(SCEKERNEL, 0);
+		else {
+			return hleLogError(SCEKERNEL, error, "sceKernelFreeHeapMemory(%d, %d): canoot free Block", heapId, block);
+		}
+	} else {
+		return hleLogError(SCEKERNEL, error, "sceKernelFreeHeapMemory(%d, %d): invalid heapId", heapId , block);
+	}
+}
+
+
 static u32 sceKernelPartitionTotalFreeMemSize(int partitionId) {
 	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelPartitionTotalFreeMemSize(%d)", partitionId);
 	//Need more work #13021
@@ -110,6 +126,21 @@ static u32 SysMemForKernel_536AD5E1()
 	return 0;
 }
 
+//should have option variable
+static u32 sceKernelAllocHeapMemoryWithOptionFunction(int heapId, int size) {
+	ERROR_LOG(SCEKERNEL, "UNIMP sceKernelAllocHeapMemoryWithOptionFunction %d %d", heapId, size);
+	u32 error;
+	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
+	if (heap) {
+		// There's 8 bytes at the end of every block, reserved.
+		u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
+		u32 addr = heap->alloc.Alloc(memSize, true);
+		return hleLogSuccessInfoX(SCEKERNEL, addr);
+	}
+	else {
+		return hleLogError(SCEKERNEL, error, "sceKernelAllocHeapMemory(%d): invalid heapId", heapId);
+	}	
+}
 
 const HLEFunction SysMemForKernel[] = {
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>, "sceKernelAllocHeapMemory", 'x', "ii",                                  HLE_KERNEL_SYSCALL },
@@ -122,6 +153,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,             "sceKernelPartitionMaxFreeMemSize",         'x', "i",HLE_KERNEL_SYSCALL },
 	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",                'x', ""           ,HLE_KERNEL_SYSCALL },
 	{ 0x536AD5E1, &WrapU_V<SysMemForKernel_536AD5E1>,       "SysMemForKernel_536AD5E1",      'i', "i"                         ,HLE_KERNEL_SYSCALL },
+	{ 0xeb7a74db, &WrapU_II<sceKernelAllocHeapMemoryWithOptionFunction>,  "sceKernelAllocHeapMemoryWithOptionFunction",     'x', "xx"       ,HLE_KERNEL_SYSCALL },	
+	{ 0x7b749390, &WrapI_IU<sceKernelFreeHeapMemory>,                "sceKernelFreeHeapMemory",                'x', "xx"       ,HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
