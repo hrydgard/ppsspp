@@ -20,7 +20,6 @@ StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 	active_ = false;
 	file_ = file;
 	path_ = FromPlatformString(file_->Path);
-	INFO_LOG(IO, "StorageFileLoader - launching thread");
 	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
 
 	// Before we proceed, we need to block until the thread has found the size.
@@ -31,15 +30,12 @@ StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 }
 
 StorageFileLoader::~StorageFileLoader() {
-	INFO_LOG(IO, "StorageFileLoader destructor");
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
-		INFO_LOG(IO, "StorageFileLoader - setting active to false");
 		active_ = false;
 		operationRequested_ = false;
 		cond_.notify_one();
 	}
-	INFO_LOG(IO, "StorageFileLoader - joining with thread");
 	thread_->join();
 }
 
@@ -53,12 +49,10 @@ void StorageFileLoader::threadfunc() {
 		auto opentask = create_task(file_->OpenReadAsync()).then([this](IRandomAccessStreamWithContentType ^stream) {
 			stream_ = stream;
 			active_ = true;
-			INFO_LOG(IO, "StorageFileLoader: active");
 		});
 
 		try {
 			opentask.wait();
-			INFO_LOG(IO, "StorageFileLoader: first wait finished");
 		} catch (const std::exception& e) {
 			operationFailed_ = true;
 			// TODO: What do we do?
@@ -70,11 +64,9 @@ void StorageFileLoader::threadfunc() {
 
 		auto sizetask = create_task(file_->GetBasicPropertiesAsync()).then([this](Windows::Storage::FileProperties::BasicProperties ^props) {
 			size_ = props->Size;
-			INFO_LOG(IO, "StorageFileLoader: Got size: %d", (int)size_);
 		});
 		try {
 			sizetask.wait();
-			INFO_LOG(IO, "StorageFileLoader: second wait finished");
 		} catch (const std::exception& e) {
 			const char *what = e.what();
 			INFO_LOG(SYSTEM, "%s", what);
@@ -113,7 +105,6 @@ void StorageFileLoader::threadfunc() {
 				break;
 			}
 			default:
-				ERROR_LOG(SYSTEM, "Unknown operation");
 				operationRequested_ = false;
 				break;
 			}
@@ -173,7 +164,6 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 		while (!responseAvailable_) {
 			condResponse_.wait(responseLock);
 		}
-		INFO_LOG(IO, "StorageFileLoader: Got response");
 		// still under mutexResponse_ lock here.
 		responseAvailable_ = false;
 		if (operationFailed_) {
