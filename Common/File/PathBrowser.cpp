@@ -2,6 +2,8 @@
 #include <cstring>
 #include <set>
 
+#include "ppsspp_config.h"
+
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/URL.h"
 
@@ -10,6 +12,8 @@
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+
+#include "Core/System.h"
 
 bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileInfo> &files) {
 	http::Client http;
@@ -199,6 +203,28 @@ void PathBrowser::HandlePath() {
 
 bool PathBrowser::IsListingReady() {
 	return ready_;
+}
+
+std::string PathBrowser::GetFriendlyPath() const {
+	std::string str = GetPath();
+	// Show relative to memstick root if there.
+	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+	for (size_t i = 0; i < root.size(); i++) {
+		if (root[i] == '\\')
+			root[i] = '/';
+	}
+
+	if (startsWith(str, root)) {
+		return std::string("ms:/") + str.substr(root.size());
+	}
+
+#if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
+	char *home = getenv("HOME");
+	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
+		str = std::string("~") + str.substr(strlen(home));
+	}
+#endif
+	return str;
 }
 
 bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter, bool *cancel) {
