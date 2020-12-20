@@ -1003,7 +1003,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Some games will draw to some memory once, and use it as a render-to-texture later.
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
-		if (!g_Config.bDisableSlowFramebufEffects) {
+		if (!g_Config.bDisableSlowFramebufEffects && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->firstFrameSaved = true;

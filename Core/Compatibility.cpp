@@ -77,6 +77,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ReinterpretFramebuffers", &flags_.ReinterpretFramebuffers);
 	CheckSetting(iniFile, gameID, "DoublePrecisionSinCos", &flags_.DoublePrecisionSinCos);
 	CheckSetting(iniFile, gameID, "ShaderColorBitmask", &flags_.ShaderColorBitmask);
+	CheckSetting(iniFile, gameID, "DisableFirstFrameReadback", &flags_.DisableFirstFrameReadback);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

@@ -75,6 +75,7 @@ struct CompatFlags {
 	bool ReinterpretFramebuffers;
 	bool DoublePrecisionSinCos;
 	bool ShaderColorBitmask;
+	bool DisableFirstFrameReadback;
 };
 
 class IniFile;
