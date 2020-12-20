@@ -23,6 +23,7 @@ public:
 	bool IsListingReady();
 	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 
+	bool CanNavigateUp();
 	void NavigateUp();
 	void Navigate(const std::string &path);
 

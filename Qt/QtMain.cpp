@@ -199,6 +199,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
+	case SYSPROP_HAS_FOLDER_BROWSER:
 		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
