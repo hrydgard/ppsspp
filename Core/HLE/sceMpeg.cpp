@@ -1097,12 +1097,6 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		}
 	}
 
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x):warming up", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
-	}
-
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 	
@@ -1584,6 +1578,12 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
+	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming uo", mpeg, streamId, auAddr, attrAddr);
+		ctx->mpegwarmUp++;
+		return ERROR_MPEG_NO_DATA;
+	}
+
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
@@ -1677,6 +1677,12 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// Would have crashed before, TODO test behavior.
 		WARN_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
+	}
+
+	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warning up", mpeg, streamId, auAddr, attrAddr);
+		ctx->mpegwarmUp++;
+		return ERROR_MPEG_NO_DATA;
 	}
 
 	SceMpegAu atracAu;
@@ -1941,11 +1947,6 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 		return -1;
 	}
 
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegAtracDecode(%08x, %08x, %08x, %i):warming up", mpeg, auAddr, bufferAddr, init);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
-	}
 	DEBUG_LOG(ME, "sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
 
 	SceMpegAu atracAu;
