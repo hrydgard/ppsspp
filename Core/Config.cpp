@@ -521,7 +521,7 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
-	ReportedConfigSetting("VideoDecodingThreads", &g_Config.iVideoDecodingThreads, 0, true, false),
+	ReportedConfigSetting("DisableVideoDecodingThread", &g_Config.bDisableVideoDecodingThreads, false, true, false),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),

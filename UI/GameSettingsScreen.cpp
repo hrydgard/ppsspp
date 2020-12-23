@@ -888,10 +888,10 @@ void GameSettingsScreen::CreateViews() {
 	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
 	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
 	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
-	PopupSliderChoice *videoDecodingThreads = systemSettings->Add(new PopupSliderChoice(&g_Config.iVideoDecodingThreads, 0, 16, sy->T("Video decoding threads", "Video decoding threads"), screenManager(), ""));
-	videoDecodingThreads->SetZeroLabel(sy->T("Auto"));
-	videoDecodingThreads->OnChange.Add([&](UI::EventParams &e) {
-		settingInfo_->Show(sy->T("Video decoding threads tip", "Higher values may improve performance, but may make video blur"), e.v);
+	CheckBox *VideoThreads = systemSettings->Add(new CheckBox(&g_Config.bDisableVideoDecodingThreads, sy->T("Disable Video Decoding Threads")));
+	VideoThreads->OnClick.Add([=](EventParams &e) {
+		if (!g_Config.bDisableVideoDecodingThreads)
+			settingInfo_->Show(gr->T("Disable Video Decoding Threads Tip", "May fix video blur, but slower"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	
