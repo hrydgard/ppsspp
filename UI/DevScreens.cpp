@@ -34,6 +34,10 @@
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+#include "Core/Debugger/PythonScripting.h"
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -77,6 +81,9 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #if !defined(MOBILE_DEVICE)
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenu::OnLogView);
 #endif
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+	items->Add(new Choice(dev->T("Load Python Script")))->OnClick.Handle(this, &DevMenu::OnPythonScript);
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
 	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
@@ -215,12 +222,29 @@ void LogScreen::CreateViews() {
 	UpdateLog();
 }
 
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+UI::EventReturn DevMenu::OnPythonScript(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+
+	PPSSPPPythonScripting::run_file(GetSysDirectory(DIRECTORY_PYTHON) + "ppsspp_python.py");
+
+	return UI::EVENT_DONE;
+}
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
+
 UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 	std::string cmd = cmdLine_->GetText();
 
 	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
 
 	NOTICE_LOG(SYSTEM, "Submitted: %s", cmd.c_str());
+
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+	if (cmd.size() > 3 && cmd.substr(0, 3) == "py ") {
+		std::string result = PPSSPPPythonScripting::eval(cmd.substr(3));
+		NOTICE_LOG(SYSTEM, "Python: %s", result.c_str());
+	}
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
 
 	UpdateLog();
 	cmdLine_->SetText("");

@@ -135,6 +135,7 @@ option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_S
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
+option(USE_PYTHON3 "Enable Python 3 debugger scripting support" ${USE_PYTHON3})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
@@ -1443,6 +1444,21 @@ set(GPU_SOURCES
 	GPU/Software/TransformUnit.h
 	GPU/ge_constants.h
 )
+
+if (USE_PYTHON3)
+    find_package(Python3 COMPONENTS Development)
+    if(Python3_FOUND)
+        include_directories(${Python3_INCLUDE_DIRS})
+        add_definitions(-DPPSSPP_USE_PYTHON_SCRIPTING)
+        list(APPEND CoreExtra
+                Core/Debugger/PythonScripting.cpp
+                Core/Debugger/PythonScripting.h
+        )
+        set(CoreExtraLibs ${CoreExtraLibs} ${Python3_LIBRARIES})
+    else()
+        message(STATUS "Could not find Python3 libraries, disabling Debugger Python Scripting.")
+    endif()
+endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else

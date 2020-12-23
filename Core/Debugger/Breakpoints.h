@@ -25,6 +25,7 @@ enum BreakAction {
 	BREAK_ACTION_IGNORE = 0x00,
 	BREAK_ACTION_LOG = 0x01,
 	BREAK_ACTION_PAUSE = 0x02,
+	BREAK_ACTION_CALLBACK = 0x04,
 };
 
 static inline BreakAction &operator |= (BreakAction &lhs, const BreakAction &rhs) {
@@ -133,6 +134,8 @@ public:
 	static void ClearAllBreakPoints();
 	static void ClearTemporaryBreakPoints();
 
+	static void SetBreakpointCallback(void (*callbackFunc)(u32 addr, void *userData), void *userData);
+
 	// Makes a copy of the condition.
 	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
 	static void ChangeBreakPointRemoveCond(u32 addr);
@@ -186,6 +189,9 @@ private:
 
 	static std::vector<MemCheck> memChecks_;
 	static std::vector<MemCheck *> cleanupMemChecks_;
+
+	static void (*breakpointCallbackFunc_)(u32 addr, void *userData);
+	static void *breakpointCallbackFuncUserData_;
 };
 
 

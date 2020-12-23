@@ -577,6 +577,8 @@ CoreParameter &PSP_CoreParameter() {
 
 std::string GetSysDirectory(PSPDirectories directoryType) {
 	switch (directoryType) {
+	case DIRECTORY_PYTHON:
+		return g_Config.memStickDirectory + "PSP/Python/";
 	case DIRECTORY_CHEATS:
 		return g_Config.memStickDirectory + "PSP/Cheats/";
 	case DIRECTORY_GAME:

@@ -41,6 +41,10 @@
 #include "Core/MIPS/MIPS.h"
 #include "GPU/Debugger/Stepping.h"
 
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+#include "Core/Debugger/PythonScripting.h"
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
+
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
@@ -204,6 +208,9 @@ void UpdateRunLoop() {
 		sleep_ms(16);
 		return;
 	}
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+	PPSSPPPythonScripting::frame_hook();
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
 	NativeUpdate();
 	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender(graphicsContext);
