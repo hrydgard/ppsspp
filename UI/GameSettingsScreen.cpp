@@ -888,6 +888,13 @@ void GameSettingsScreen::CreateViews() {
 	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
 	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
 	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
+	PopupSliderChoice *videoDecodingThreads = systemSettings->Add(new PopupSliderChoice(&g_Config.iVideoDecodingThreads, 0, 16, sy->T("Video decoding threads", "Video decoding threads"), screenManager(), ""));
+	videoDecodingThreads->SetZeroLabel(sy->T("Auto"));
+	videoDecodingThreads->OnChange.Add([&](UI::EventParams &e) {
+		settingInfo_->Show(sy->T("Video decoding threads tip", "Higher values may improve performance, but may make video blur"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	
 	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
 	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
 	lockedMhz->OnChange.Add([&](UI::EventParams &) {

@@ -111,6 +111,7 @@ public:
 
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;
+	int iVideoDecodingThreads;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
