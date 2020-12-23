@@ -1579,7 +1579,7 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming uo", mpeg, streamId, auAddr, attrAddr);
+		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 		ctx->mpegwarmUp++;
 		return ERROR_MPEG_NO_DATA;
 	}
@@ -1680,7 +1680,7 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warning up", mpeg, streamId, auAddr, attrAddr);
+		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 		ctx->mpegwarmUp++;
 		return ERROR_MPEG_NO_DATA;
 	}
