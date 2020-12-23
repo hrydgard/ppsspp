@@ -1404,8 +1404,7 @@ void SavedataParam::Clear()
 int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 {
 	pspParam = param;
-	if (!pspParam)
-	{
+	if (!pspParam) {
 		Clear();
 		return 0;
 	}
@@ -1420,17 +1419,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			if (save.type != FILETYPE_DIRECTORY || save.name == "." || save.name == "..")
 				continue;
 			std::string fileDataDir = savePath + save.name;
-			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
-			auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
-			bool firstFile = true;
-			for (auto file : allFiles) {
-				if (firstFile) {
-					// Use a file in save directory to determine the directory info.
-					info = file;
-					firstFile = false;
-				} else
-					info.size += file.size;
-			}
+			PSPFileInfo info = GetSaveInfo(fileDataDir);
 			SetFileInfo(realCount, info, "", save.name);
 			realCount++;
 		}
@@ -1439,29 +1428,24 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	}
 
 	bool listEmptyFile = true;
-	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD ||
-			param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE)
-	{
+	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD || param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE) {
 		listEmptyFile = false;
 	}
 
 	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList.IsValid())
-	{
+	if (param->saveNameList.IsValid()) {
 		Clear();
 
 		saveNameListData = param->saveNameList;
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
-		while (saveNameListData[saveDataListCount][0] != 0)
-		{
+		while (saveNameListData[saveDataListCount][0] != 0) {
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0 && wouldHasMultiSaveName(param))
-		{
+		if (saveDataListCount > 0 && wouldHasMultiSaveName(param)) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			
@@ -1482,7 +1466,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 							if(IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
 
-							fileDataPath = savePath + it->name +  "/" + GetFileName(param);
+							fileDataPath = savePath + it->name;
 							PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 							if (info.exists) {
 								SetFileInfo(realCount, info, saveName);
@@ -1504,20 +1488,9 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				DEBUG_LOG(SCEUTILITY, "Name : %s", thisSaveName.c_str());
 
 				std::string fileDataDir = savePath + GetGameName(param) + thisSaveName;
-				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
+				PSPFileInfo info = GetSaveInfo(fileDataDir);
 				if (info.exists) {
-					auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
-					bool firstFile = true;
-					for (auto file : allFiles) {
-						if (firstFile) {
-							// Use a file in save directory to determine the directory info.
-							info = file;
-							firstFile = false;
-						} else
-							info.size += file.size;
-					}
 					SetFileInfo(realCount, info, thisSaveName);
-
 					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
 					realCount++;
 				} else {
@@ -1531,8 +1504,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveNameListDataCount = realCount;
 		}
 	}
-	if (!hasMultipleFileName) // Load info on only save
-	{
+	// Load info on only save 
+	if (!hasMultipleFileName) {
 		saveNameListData = 0;
 
 		Clear();
@@ -1543,28 +1516,13 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		DEBUG_LOG(SCEUTILITY,"Name : %s",GetSaveName(param).c_str());
 
 		std::string fileDataDir = savePath + GetGameName(param) + GetSaveName(param);
-		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataDir);
-		if (info.exists)
-		{
-			auto allFiles = pspFileSystem.GetDirListing(fileDataDir);
-			bool firstFile = true;
-			for (auto file : allFiles) {
-				if (firstFile) {
-					// Use a file in save directory to determine the directory info.
-					info = file;
-					firstFile = false;
-				} else
-					info.size += file.size;
-			}
+		PSPFileInfo info = GetSaveInfo(fileDataDir);
+		if (info.exists) {
 			SetFileInfo(0, info, GetSaveName(param));
-
-			DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
+			ERROR_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
 			saveNameListDataCount = 1;
-		}
-		else
-		{
-			if (listEmptyFile)
-			{
+		} else {
+			if (listEmptyFile) {
 				ClearFileInfo(saveDataList[0], GetSaveName(param));
 				DEBUG_LOG(SCEUTILITY,"Don't Exist");
 			}
@@ -1650,6 +1608,31 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, const std::string &sav
 		const PspUtilitySavedataFileData &icon0FileData = GetPspParam()->icon0FileData;
 		saveInfo.texture = new PPGeImage(icon0FileData.buf.ptr, (SceSize)icon0FileData.size);
 	}
+}
+
+PSPFileInfo SavedataParam::GetSaveInfo(std::string saveDir) {
+	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
+	if (info.exists) {
+		info.access = 0777;
+		auto allFiles = pspFileSystem.GetDirListing(saveDir);
+		bool firstFile = true;
+		for (auto file : allFiles) {
+			if (file.type == FILETYPE_DIRECTORY || file.name == "." || file.name == "..")
+				continue;
+			// Use a file to determine save date.
+			if (firstFile) {
+				info.ctime = file.ctime;
+				info.mtime = file.mtime;
+				info.atime = file.atime;
+				info.size += file.size;
+				firstFile = false;
+			} else {
+				info.size += file.size;
+			}
+		}
+	}
+	ERROR_LOG(HLE, "size = %d", info.size);
+	return info;
 }
 
 SceUtilitySavedataParam *SavedataParam::GetPspParam()
