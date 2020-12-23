@@ -673,6 +673,34 @@ static LocationHelper *locationHelper;
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_10]; // Start
 	};
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
+	if (extendedProfile.leftThumbstickButton != nil) {
+		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_11];
+		};
+	}
+	if (extendedProfile.rightThumbstickButton != nil) {
+		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_12];
+		};
+	}
+	if (extendedProfile.buttonOptions != nil) {
+		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];
+		};
+	}
+	if (extendedProfile.buttonMenu != nil) {
+		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_14];
+		};
+	}
+	if (extendedProfile.buttonHome != nil) {
+		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_15];
+		};
+	}
+#endif
 	
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
