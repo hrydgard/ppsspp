@@ -81,6 +81,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 			// maybe it also just happened to have that size, 
 		}
 		return IdentifiedFileType::PSP_ISO;
+	} else if (!strcasecmp(extension.c_str(), ".chd")) {
+		return IdentifiedFileType::PSP_ISO;
 	} else if (!strcasecmp(extension.c_str(), ".cso")) {
 		return IdentifiedFileType::PSP_ISO;
 	} else if (!strcasecmp(extension.c_str(), ".ppst")) {
@@ -181,6 +183,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	else if (!strcasecmp(extension.c_str(),".pbp")) {
 		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
 		return IdentifiedFileType::PSP_PBP;
+	} else if (!strcasecmp(extension.c_str(),".chd")) {
+		return IdentifiedFileType::ARCHIVE_CHD;
 	} else if (!strcasecmp(extension.c_str(),".bin")) {
 		return IdentifiedFileType::UNKNOWN_BIN;
 	} else if (!strcasecmp(extension.c_str(),".zip")) {

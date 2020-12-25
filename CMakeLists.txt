@@ -661,6 +661,8 @@ setup_target_project(Common Common)
 
 target_link_libraries(Common Ext::Snappy)
 
+include_directories(ext/libchdr)
+
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
@@ -1824,6 +1826,7 @@ if(WIN32)
 endif()
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
+	chdr
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(FFmpeg_FOUND)

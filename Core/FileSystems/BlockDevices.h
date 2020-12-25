@@ -24,6 +24,7 @@
 // with CISO images.
 
 #include <mutex>
+#include <chd.h>
 
 #include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
@@ -75,6 +76,24 @@ private:
 	u32 numBlocks;
 	u32 numFrames;
 	int ver_;
+};
+
+class CHDFileBlockDevice : public BlockDevice {
+public:
+	CHDFileBlockDevice(FileLoader *fileLoader);
+	~CHDFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() override { return numBlocks; }
+	bool IsDisc() override { return true; }
+
+private:
+  chd_file *chd;
+  const chd_header *header;
+	u8 *readBuffer;
+  u32 currentHunk;
+  u32 blocksPerHunk;
+  u32 numBlocks;
 };
 
 

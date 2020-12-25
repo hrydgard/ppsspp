@@ -41,6 +41,7 @@ enum class IdentifiedFileType {
 	ARCHIVE_RAR,
 	ARCHIVE_ZIP,
 	ARCHIVE_7Z,
+	ARCHIVE_CHD,
 	PSP_PS1_PBP,
 	ISO_MODE2,
 
