@@ -1240,6 +1240,9 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 					// Enable Port Re-use, this will allow binding to an already used port, but only one of them can read the data (shared receive buffer?)
 					setSockReuseAddrPort(usocket);
 
+					// Disable Connection Reset error on UDP to avoid strange behavior https://stackoverflow.com/questions/34242622/windows-udp-sockets-recvfrom-fails-with-error-10054
+					setUDPConnReset(usocket, false);
+
 					// Binding Information for local Port
 					sockaddr_in addr;
 					addr.sin_family = AF_INET;
@@ -1978,6 +1981,10 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
 				// Close Connection
+				struct linger sl;
+				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
+				sl.l_linger = 0;	// timeout interval in seconds
+				setsockopt(sock->data.pdp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 				shutdown(sock->data.pdp.id, SD_BOTH);
 				closesocket(sock->data.pdp.id);
 
@@ -2919,7 +2926,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if (sock != NULL && sock->type == SOCK_PDP) {
-					// Set available bytes to be received. With FIOREAD There might be lingering 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2)
+					// Set available bytes to be received. With FIOREAD There might be ghosting 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2) Attempting to recv this ghost 1 byte will result to socket error 10054 (may need to disable SIO_UDP_CONNRESET error)
 					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id);
 
 					// Copy Socket Data from Internal Memory
@@ -3558,6 +3565,10 @@ int NetAdhocPtp_Close(int id, int unknown) {
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
 				// Close Connection
+				struct linger sl;
+				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
+				sl.l_linger = 0;	// timeout interval in seconds
+				setsockopt(socket->data.ptp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 				shutdown(socket->data.ptp.id, SD_BOTH);
 				closesocket(socket->data.ptp.id);
 
