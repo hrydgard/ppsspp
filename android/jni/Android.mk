@@ -189,6 +189,58 @@ EXT_FILES := \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/ext/xxhash.c \
 
+FLAC_FILES := \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/bitmath.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/bitreader.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/cpu.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/crc.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/fixed.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/fixed_intrin_sse2.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/fixed_intrin_ssse3.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/float.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/format.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc_intrin_avx2.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc_intrin_sse2.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc_intrin_sse41.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc_intrin_sse.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/lpc_intrin_vsx.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/md5.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/memory.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/metadata_iterators.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/metadata_object.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/stream_decoder.c \
+  $(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/window.c \
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/libchdr/deps/flac-1.3.3/src/libFLAC/include $(LOCAL_C_INCLUDES)
+
+LZMA_FILES := \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Alloc.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Bra86.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Bra.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/BraIA64.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/CpuArch.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Delta.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/LzFind.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Lzma2Dec.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Lzma2Enc.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Lzma86Dec.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Lzma86Enc.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/LzmaDec.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/LzmaEnc.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/LzmaLib.c \
+  $(SRC)/ext/libchdr/deps/lzma-16.04/C/Sort.c \
+
+LOCAL_CFLAGS += -D'PACKAGE_VERSION="1.3.3"' -DFLAC__HAS_OGG=0 -DFLAC__NO_DLL -DHAVE_LROUND -DHAVE_STDINT_H -DHAVE_STDLIB_H -D_7ZIP_ST
+
+LIBCHDR_FILES := \
+	$(FLAC_FILES) \
+	$(LZMA_FILES) \
+  $(SRC)/ext/libchdr/src/bitstream.c \
+  $(SRC)/ext/libchdr/src/cdrom.c \
+  $(SRC)/ext/libchdr/src/chd.c \
+  $(SRC)/ext/libchdr/src/flac.c \
+  $(SRC)/ext/libchdr/src/huffman.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -197,6 +249,7 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
+  $(LIBCHDR_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \

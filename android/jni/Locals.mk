@@ -13,6 +13,10 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/glslang \
   $(LOCAL_PATH)/../../ext/miniupnp \
   $(LOCAL_PATH)/../../ext/miniupnp-build \
+  $(LOCAL_PATH)/../../ext/libchdr/src \
+  $(LOCAL_PATH)/../../ext/libchdr/deps/flac-1.3.3/include \
+  $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-16.04/C \
+  $(LOCAL_PATH)/../../ext/libchdr/deps/crypto \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/../../ext/libpng17 \
   $(LOCAL_PATH)/../../ext/libzip \
