@@ -1285,7 +1285,7 @@ static const char *CPUCoreAsString(int core) {
 	}
 }
 
-static void DrawCrashDump(DrawBuffer *draw2d) {
+static void DrawCrashDump(UIContext *ctx) {
 	const ExceptionInfo &info = Core_GetExceptionInfo();
 
 	FontID ubuntu24("UBUNTU24");
@@ -1304,8 +1304,18 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
 
+	// First column
+	ctx->Flush();
+	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	int y = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+
+	int columnWidth = (ctx->GetBounds().w - x - 10) / 2;
+	int height = ctx->GetBounds().h;
+
+	ctx->PushScissor(Bounds(x, y, columnWidth, height));
+
 	snprintf(statbuf, sizeof(statbuf), R"(%s
-Game ID (Title): %s (%s)
+%s (%s)
 %s (%s)
 %s v%d (%s)
 )",
@@ -1315,10 +1325,8 @@ Game ID (Title): %s (%s)
 		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
-	draw2d->SetFontScale(.7f, .7f);
-	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
-	int y = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
-	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	ctx->Draw()->SetFontScale(.7f, .7f);
+	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
 
 	if (info.type == ExceptionType::MEMORY) {
@@ -1330,7 +1338,7 @@ PC: %08x
 			info.address,
 			info.pc,
 			info.info.c_str());
-		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -1339,31 +1347,33 @@ PC: %08x)",
 			ExecExceptionTypeAsString(info.exec_type),
 			info.address,
 			info.pc);
-		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 )");
-		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	}
 
 	std::string kernelState = __KernelStateSummary();
 
-	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+	ctx->Draw()->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+
+	ctx->PopScissor();
 
 	// Draw some additional stuff to the right.
+
+	x += columnWidth + 10;
+	y = 50;
 	snprintf(statbuf, sizeof(statbuf),
 		"CPU Core: %s\n"
 		"Locked CPU freq: %d MHz\n",
 		CPUCoreAsString(g_Config.iCpuCore),
 		g_Config.iLockedCPUSpeed);
 
-	x += 400;
-	y = 50;
-
-	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
@@ -1594,11 +1604,12 @@ void EmuScreen::renderUI() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 
-	DrawBuffer *draw2d = ctx->Draw();
 	if (root_) {
 		UI::LayoutViewHierarchy(*ctx, root_, false);
 		root_->Draw(*ctx);
 	}
+
+	DrawBuffer *draw2d = ctx->Draw();
 
 	if (g_Config.bShowDebugStats && !invalid_) {
 		DrawDebugStats(draw2d, ctx->GetLayoutBounds());
@@ -1636,7 +1647,7 @@ void EmuScreen::renderUI() {
 	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
 		const ExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != ExceptionType::NONE) {
-			DrawCrashDump(draw2d);
+			DrawCrashDump(ctx);
 		}
 	}
 
