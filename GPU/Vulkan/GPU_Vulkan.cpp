@@ -184,7 +184,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 

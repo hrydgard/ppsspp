@@ -149,7 +149,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
 	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-		if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 		}
 	}

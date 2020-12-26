@@ -171,7 +171,7 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 	auto vendor = draw_->GetDeviceCaps().vendor;
-	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 		// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
 		// Also causes problems on old NVIDIA.
 		switch (vendor) {
