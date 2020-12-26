@@ -60,7 +60,8 @@ static ServerStatus RetrieveStatus() {
 
 // This reports the local IP address to report.ppsspp.org, which can then
 // relay that address to a mobile device searching for the server.
-static void RegisterServer(int port) {
+static bool RegisterServer(int port) {
+	bool success = false;
 	http::Client http;
 	Buffer theVoid;
 
@@ -70,31 +71,39 @@ static void RegisterServer(int port) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			http.GET(resource4, &theVoid);
+			if (http.GET(resource4, &theVoid) > 0)
+				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
 		}
 	}
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV6)) {
+		// If IPv4 was successful, don't give this as much time (it blocks and sometimes IPv6 is broken.)
+		double timeout = success ? 2.0 : 20.0;
+
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
-		if (resource4[0] != 0 && http.Connect()) {
-			http.GET(resource4, &theVoid);
+		if (resource4[0] != 0 && http.Connect(timeout)) {
+			if (http.GET(resource4, &theVoid) > 0)
+				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
 		}
 
 		// Currently, we're not using keepalive, so gotta reconnect...
-		if (http.Connect()) {
+		if (http.Connect(timeout)) {
 			char resource6[1024] = {};
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			http.GET(resource6, &theVoid);
+			if (http.GET(resource6, &theVoid) > 0)
+				success = true;
 			theVoid.Skip(theVoid.size());
 			http.Disconnect();
 		}
 	}
+
+	return success;
 }
 
 bool RemoteISOFileSupported(const std::string &filename) {
