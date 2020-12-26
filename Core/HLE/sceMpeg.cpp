@@ -74,6 +74,7 @@ static const int MPEG_AU_MODE_SKIP = 1;
 static const u32 MPEG_MEMSIZE_0104 = 0x0b3DB;
 static const u32 MPEG_MEMSIZE_0105 = 0x10000;     // 64k.
 static const int MPEG_AVC_DECODE_SUCCESS = 1;     // Internal value.
+static const int MPEG_WARMUP_FRAMES = 1;
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
@@ -178,10 +179,13 @@ struct MpegContext {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("MpegContext", 1, 2);
+		auto s = p.Section("MpegContext", 1, 3);
 		if (!s)
 			return;
-
+		if (s >= 3)
+			Do(p, mpegwarmUp);
+		else
+			mpegwarmUp = 1000;
 		DoArray(p, mpegheader, 2048);
 		Do(p, defaultFrameWidth);
 		Do(p, videoFrameCount);
@@ -231,6 +235,7 @@ struct MpegContext {
 	u32 mpegFirstDate;
 	u32 mpegLastDate;
 	u32 mpegRingbufferAddr;
+	int mpegwarmUp;
 	bool esBuffers[MPEG_DATA_ES_BUFFERS];
 	AvcContext avc;
 
@@ -316,6 +321,7 @@ static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
 	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
+	ctx->mpegwarmUp = 0;
 	ctx->avc.avcDetailFrameWidth = (*(u8*)(buffer + 142)) * 0x10;
 	ctx->avc.avcDetailFrameHeight = (*(u8*)(buffer + 143)) * 0x10;
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
@@ -1572,6 +1578,12 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
+	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
+		ctx->mpegwarmUp++;
+		return ERROR_MPEG_NO_DATA;
+	}
+
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
@@ -1665,6 +1677,12 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// Would have crashed before, TODO test behavior.
 		WARN_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
+	}
+
+	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
+		ctx->mpegwarmUp++;
+		return ERROR_MPEG_NO_DATA;
 	}
 
 	SceMpegAu atracAu;
