@@ -343,6 +343,10 @@ bool OutputSink::Flush(bool allowBlock) {
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
 		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
+#if !PPSSPP_PLATFORM(WINDOWS)
+		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+			bytes = 0;
+#endif
 		AccountDrain(bytes);
 
 		if (bytes == 0) {
@@ -371,6 +375,10 @@ void OutputSink::Drain() {
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
 		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
+#if !PPSSPP_PLATFORM(WINDOWS)
+		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+			bytes = 0;
+#endif
 		AccountDrain(bytes);
 	}
 }
