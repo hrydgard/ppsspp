@@ -17,7 +17,7 @@
 
 #include "Instance.h"
 
-#if __linux__ || __APPLE__
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
