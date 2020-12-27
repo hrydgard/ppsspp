@@ -1584,6 +1584,12 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return ERROR_MPEG_NO_DATA;
 	}
 
+	//Mega Man Powered Up don't want warm up
+	if (mpegLibVersion != 260) {
+		ctx->mpegwarmUp++;
+		if (ctx->mpegwarmUp == 20)
+			ctx->mpegwarmUp = 0;
+	}
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
@@ -1684,7 +1690,12 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		ctx->mpegwarmUp++;
 		return ERROR_MPEG_NO_DATA;
 	}
-
+	//Mega Man Powered Up don't want warm up
+	if (mpegLibVersion != 260) {
+		ctx->mpegwarmUp++;
+		if (ctx->mpegwarmUp == 20)
+			ctx->mpegwarmUp = 0;
+	}
 	SceMpegAu atracAu;
 	atracAu.read(auAddr);
 
