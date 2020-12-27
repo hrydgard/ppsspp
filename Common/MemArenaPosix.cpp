@@ -26,6 +26,11 @@
 #include <cstring>
 #include <string>
 
+#ifndef MAP_NORESERVE
+// Not implemented on BSDs
+#define MAP_NORESERVE 0
+#endif
+
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/MemoryUtil.h"
