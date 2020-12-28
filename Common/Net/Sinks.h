@@ -19,6 +19,7 @@ public:
 	size_t TakeAtMost(char *buf, size_t bytes);
 	// Skip exactly this number of bytes, or fail.
 	bool Skip(size_t bytes);
+	void Discard();
 
 	bool Empty();
 	bool TryFill();

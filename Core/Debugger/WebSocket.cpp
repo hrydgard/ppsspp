@@ -196,6 +196,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	}
 
 	delete ws;
+	request.In()->Discard();
 	UpdateConnected(-1);
 }
 

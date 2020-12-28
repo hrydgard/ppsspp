@@ -164,6 +164,12 @@ bool InputSink::Skip(size_t bytes) {
 	return true;
 }
 
+void InputSink::Discard() {
+	read_ = 0;
+	write_ = 0;
+	valid_ = 0;
+}
+
 void InputSink::Fill() {
 	// Avoid small reads if possible.
 	if (BUFFER_SIZE - valid_ > PRESSURE) {
