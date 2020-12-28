@@ -299,7 +299,8 @@ void __DisplayDoState(PointerWrap &p) {
 			ScheduleLagSync();
 		}
 	} else {
-		lagSyncEvent = CoreTiming::RegisterEvent("LagSync", &hleLagSync);
+		lagSyncEvent = -1;
+		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
 		ScheduleLagSync();
 	}
 

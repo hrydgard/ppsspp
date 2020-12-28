@@ -213,9 +213,7 @@ void __SasDoState(PointerWrap &p) {
 		__SasDisableThread();
 	}
 
-	if (sasMixEvent != -1) {
-		CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
-	}
+	CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
 }
 
 void __SasShutdown() {

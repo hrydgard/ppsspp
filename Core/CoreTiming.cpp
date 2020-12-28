@@ -16,9 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <atomic>
-#include <vector>
 #include <cstdio>
 #include <mutex>
+#include <vector>
 
 #include "Common/Profiler/Profiler.h"
 
@@ -48,6 +48,7 @@ struct EventType {
 };
 
 std::vector<EventType> event_types;
+int nextEventTypeRestoreId = -1;
 
 struct BaseEvent {
 	s64 time;
@@ -160,29 +161,33 @@ void FreeTsEvent(Event* ev)
 	allocatedTsEvents--;
 }
 
-int RegisterEvent(const char *name, TimedCallback callback)
-{
+int RegisterEvent(const char *name, TimedCallback callback) {
+	for (const auto &ty : event_types) {
+		if (!strcmp(ty.name, name)) {
+			_assert_msg_(false, "Event type %s already registered", name);
+			// Try to make sure it doesn't work so we notice for sure.
+			return -1;
+		}
+	}
+
+	int id = (int)event_types.size();
 	event_types.push_back(EventType{ callback, name });
-	return (int)event_types.size() - 1;
+	return id;
 }
 
-void AntiCrashCallback(u64 userdata, int cyclesLate)
-{
+void AntiCrashCallback(u64 userdata, int cyclesLate) {
 	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
 	Core_EnableStepping(true);
 }
 
-void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
-{
-	_assert_msg_(event_type >= 0, "Invalid event type %d", event_type)
-	if (event_type >= (int) event_types.size())
-		event_types.resize(event_type + 1, EventType{ AntiCrashCallback, "INVALID EVENT" });
-
+void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callback) {
+	if (event_type == -1)
+		event_type = nextEventTypeRestoreId++;
+	_assert_msg_(event_type >= 0 && event_type < event_types.size(), "Invalid event type %d", event_type);
 	event_types[event_type] = EventType{ callback, name };
 }
 
-void UnregisterAllEvents()
-{
+void UnregisterAllEvents() {
 	_dbg_assert_msg_(first == nullptr, "Unregistering events with events pending - this isn't good.");
 	event_types.clear();
 }
@@ -672,18 +677,28 @@ void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 	Do(p, *ev);
 }
 
-void DoState(PointerWrap &p)
-{
+void DoState(PointerWrap &p) {
 	std::lock_guard<std::mutex> lk(externalEventLock);
 
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)
 		return;
 
-	int n = (int) event_types.size();
+	int n = (int)event_types.size();
+	int current = n;
 	Do(p, n);
+	if (n > current) {
+		WARN_LOG(SAVESTATE, "Savestate failure: more events than current (can't ever remove an event)");
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
+
 	// These (should) be filled in later by the modules.
-	event_types.resize(n, EventType{ AntiCrashCallback, "INVALID EVENT" });
+	for (int i = 0; i < current; ++i) {
+		event_types[i].callback = AntiCrashCallback;
+		event_types[i].name = "INVALID EVENT";
+	}
+	nextEventTypeRestoreId = n;
 
 	if (s >= 3) {
 		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);
