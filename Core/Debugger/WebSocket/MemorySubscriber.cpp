@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/MemMap.h"
@@ -30,6 +31,7 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 	map["memory.read_u16"] = &WebSocketMemoryReadU16;
 	map["memory.read_u32"] = &WebSocketMemoryReadU32;
 	map["memory.read"] = &WebSocketMemoryRead;
+	map["memory.readString"] = &WebSocketMemoryReadString;
 	map["memory.write_u8"] = &WebSocketMemoryWriteU8;
 	map["memory.write_u16"] = &WebSocketMemoryWriteU16;
 	map["memory.write_u32"] = &WebSocketMemoryWriteU32;
@@ -158,6 +160,47 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 		req.ws->AddFragment(false, Base64Encode(Memory::GetPointerUnchecked(addr) + i, left));
 	}
 	req.ws->AddFragment(false, "\"");
+}
+
+// Read a NUL terminated string from memory (memory.readString)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the memory range.
+//  - type: optional, 'utf-8' (default) or 'base64'.
+//
+// Response (same event name) for 'utf8':
+//  - value: string value read.
+//
+// Response (same event name) for 'base64':
+//  - base64: base64 encode of binary data, not including NUL.
+void WebSocketMemoryReadString(DebuggerRequest &req) {
+	auto memLock = Memory::Lock();
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
+
+	uint32_t addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	std::string type = "utf-8";
+	if (!req.ParamString("type", &type, DebuggerParamType::OPTIONAL))
+		return;
+	if (type != "utf-8" && type != "base64")
+		return req.Fail("Invalid type, must be either utf-8 or base64");
+
+	if (!Memory::IsValidAddress(addr))
+		return req.Fail("Invalid address");
+
+	// Let's try to avoid crashing and get a safe length.
+	const uint8_t *p = Memory::GetPointerUnchecked(addr);
+	size_t longest = Memory::ValidSize(addr, Memory::g_MemorySize);
+	size_t len = strnlen((const char *)p, longest);
+
+	JsonWriter &json = req.Respond();
+	if (type == "utf-8") {
+		json.writeString("value", std::string((const char *)p, len));
+	} else if (type == "base64") {
+		json.writeString("base64", Base64Encode(p, len));
+	}
 }
 
 // Write a byte to memory (memory.write_u8)

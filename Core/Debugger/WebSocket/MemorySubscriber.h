@@ -25,6 +25,7 @@ void WebSocketMemoryReadU8(DebuggerRequest &req);
 void WebSocketMemoryReadU16(DebuggerRequest &req);
 void WebSocketMemoryReadU32(DebuggerRequest &req);
 void WebSocketMemoryRead(DebuggerRequest &req);
+void WebSocketMemoryReadString(DebuggerRequest &req);
 void WebSocketMemoryWriteU8(DebuggerRequest &req);
 void WebSocketMemoryWriteU16(DebuggerRequest &req);
 void WebSocketMemoryWriteU32(DebuggerRequest &req);
