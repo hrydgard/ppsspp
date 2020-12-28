@@ -1455,7 +1455,9 @@ void PostPutAction::run(MipsCall &call) {
 	const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
 
 	int packetsAddedThisRound = currentMIPS->r[MIPS_REG_V0];
-	ringbufferPutPacketsAdded += packetsAddedThisRound;
+	if (packetsAddedThisRound > 0) {
+		ringbufferPutPacketsAdded += packetsAddedThisRound;
+	}
 
 	// It seems validation is done only by older mpeg libs.
 	if (mpegLibVersion < 0x0105 && packetsAddedThisRound > 0) {
@@ -1506,7 +1508,12 @@ void PostPutAction::run(MipsCall &call) {
 	}
 	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAddedThisRound, ringbuffer->packetsRead, ringbuffer->packets);
 
-	call.setReturnValue(ringbufferPutPacketsAdded);
+	if (packetsAddedThisRound < 0 && ringbufferPutPacketsAdded == 0) {
+		// Return an error.
+		call.setReturnValue(packetsAddedThisRound);
+	} else {
+		call.setReturnValue(ringbufferPutPacketsAdded);
+	}
 }
 
 
