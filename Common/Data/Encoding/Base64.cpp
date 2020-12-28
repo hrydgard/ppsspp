@@ -2,7 +2,7 @@
 
 // TODO: This is a simple but not very efficient implementation.
 std::string Base64Encode(const uint8_t *p, size_t sz) {
-	const char digits[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	static const char digits[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 	size_t unpaddedLength = (4 * sz + 2) / 3;
 	std::string result;
@@ -35,7 +35,7 @@ std::string Base64Encode(const uint8_t *p, size_t sz) {
 }
 
 std::vector<uint8_t> Base64Decode(const char *s, size_t sz) {
-	const uint8_t lookup[256] = {
+	static const uint8_t lookup[256] = {
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,  62,  63,  62, 255,  63,

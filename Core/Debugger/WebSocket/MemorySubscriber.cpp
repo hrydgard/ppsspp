@@ -132,19 +132,16 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 
 	uint32_t addr;
-	if (!req.ParamU32("address", &addr)) {
+	if (!req.ParamU32("address", &addr))
 		return;
-	}
 	uint32_t size;
-	if (!req.ParamU32("size", &size)) {
+	if (!req.ParamU32("size", &size))
 		return;
-	}
 
-	if (!Memory::IsValidAddress(addr)) {
+	if (!Memory::IsValidAddress(addr))
 		return req.Fail("Invalid address");
-	} else if (!Memory::IsValidRange(addr, size)) {
+	else if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Invalid size");
-	}
 
 	JsonWriter &json = req.Respond();
 	// Start a value without any actual data yet...
@@ -309,22 +306,19 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 
 	uint32_t addr;
-	if (!req.ParamU32("address", &addr)) {
+	if (!req.ParamU32("address", &addr))
 		return;
-	}
 	std::string encoded;
-	if (!req.ParamString("base64", &encoded)) {
+	if (!req.ParamString("base64", &encoded))
 		return;
-	}
 
 	std::vector<uint8_t> value = Base64Decode(&encoded[0], encoded.size());
 	uint32_t size = (uint32_t)value.size();
 
-	if (!Memory::IsValidAddress(addr)) {
+	if (!Memory::IsValidAddress(addr))
 		return req.Fail("Invalid address");
-	} else if (value.size() != (size_t)size || !Memory::IsValidRange(addr, size)) {
+	else if (value.size() != (size_t)size || !Memory::IsValidRange(addr, size))
 		return req.Fail("Invalid size");
-	}
 
 	Memory::MemcpyUnchecked(addr, &value[0], size);
 	req.Respond();
