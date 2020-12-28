@@ -17,6 +17,7 @@
 
 #include "Common/StringUtils.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/System.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -42,10 +43,11 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 //  - value: unsigned integer
 void WebSocketMemoryReadU8(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
 
@@ -67,10 +69,11 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 //  - value: unsigned integer
 void WebSocketMemoryReadU16(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
 
@@ -92,10 +95,11 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 //  - value: unsigned integer
 void WebSocketMemoryReadU32(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
 
@@ -118,15 +122,14 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 //  - value: new value, unsigned integer
 void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr, val;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr, val;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
-
 	if (!req.ParamU32("value", &val, false)) {
-		req.Fail("No value given");
 		return;
 	}
 
@@ -150,15 +153,14 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 //  - value: new value, unsigned integer
 void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr, val;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr, val;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
-
 	if (!req.ParamU32("value", &val, false)) {
-		req.Fail("No value given");
 		return;
 	}
 
@@ -182,15 +184,14 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 //  - value: new value, unsigned integer
 void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	auto memLock = Memory::Lock();
-	uint32_t addr, val;
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
 
+	uint32_t addr, val;
 	if (!req.ParamU32("address", &addr, false)) {
-		req.Fail("No address given");
 		return;
 	}
-
 	if (!req.ParamU32("value", &val, false)) {
-		req.Fail("No value given");
 		return;
 	}
 
