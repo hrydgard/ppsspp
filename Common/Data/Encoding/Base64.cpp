@@ -49,15 +49,16 @@ std::vector<uint8_t> Base64Decode(const char *s, size_t sz) {
 		 41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51, 255, 255, 255, 255, 255,
 	};
 
+	const uint8_t *p = (const uint8_t *)s;
 	std::vector<uint8_t> result;
 	result.reserve(3 * sz / 4);
 
 	for (size_t i = 0; i < sz; i += 4) {
 		uint8_t quad[4] = {
-			lookup[s[i]],
-			i + 1 < sz ? lookup[s[i + 1]] : 255,
-			i + 2 < sz ? lookup[s[i + 2]] : 255,
-			i + 3 < sz ? lookup[s[i + 3]] : 255,
+			lookup[p[i]],
+			i + 1 < sz ? lookup[p[i + 1]] : (uint8_t)255,
+			i + 2 < sz ? lookup[p[i + 2]] : (uint8_t)255,
+			i + 3 < sz ? lookup[p[i + 3]] : (uint8_t)255,
 		};
 
 		// First: ABCDEF GHXXXX XXXXXX XXXXXX.  Neither 6-bit value should be invalid.
