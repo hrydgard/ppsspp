@@ -161,11 +161,11 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", teamCityName.c_str());
 		return false;
 	}
 
-	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
+	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", teamCityName.c_str());
 
 	host->BootDone();
 
@@ -201,7 +201,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			passed = false;
 
 			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			TeamCityPrint("testFailed name='%s' message='Test timeout'", teamCityName.c_str());
 			Core_Stop();
 		}
 	}
@@ -217,7 +217,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
-	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
+	TeamCityPrint("testFinished name='%s'", teamCityName.c_str());
 
 	return passed;
 }

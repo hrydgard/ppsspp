@@ -49,7 +49,7 @@ void TeamCityPrint(const char *fmt, ...)
 	temp[TEMP_BUFFER_SIZE - 1] = '\0';
 	va_end(args);
 
-	printf("%s", temp);
+	printf("##teamcity[%s]\n", temp);
 }
 
 struct BufferedLineReader {
@@ -223,7 +223,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 
 			if (!failed)
 			{
-				TeamCityPrint("##teamcity[testFailed name='%s' message='Output different from expected file']\n", teamCityName.c_str());
+				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", teamCityName.c_str());
 				failed = true;
 			}
 
@@ -277,7 +277,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 	else
 	{
 		fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='Expects file missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='Expects file missing'", teamCityName.c_str());
 		return false;
 	}
 }
