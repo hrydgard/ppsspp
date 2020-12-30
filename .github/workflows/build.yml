@@ -28,8 +28,8 @@ jobs:
 
     - name: Build Windows
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} Windows/PPSSPP.sln
-      
+      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} Windows/PPSSPP.sln
+
     - name: Package build
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: |
@@ -65,4 +65,27 @@ jobs:
 
     - name: Build UWP
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
+      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
+
+  test-windows:
+    runs-on: windows-latest
+    needs: build-windows
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: false
+
+    - name: Fetch tests
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Doing this to avoid ffmpeg and other large submodules.
+      run: git submodule update --init pspautotests assets/lang
+
+    - name: Download build
+      uses: actions/download-artifact@v2
+      with:
+        name: Windows x64 release
+        path: ppsspp/
+
+    - name: Execute tests
+      run: python test.py --graphics=null --teamcity
