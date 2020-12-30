@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  # Configuration type to build.
+  # You can convert this to a build matrix if you need coverage of multiple configuration types.
+  # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build Windows
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} Windows/PPSSPP.sln
+      
+    - name: Package build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: |
+        mkdir ppsspp
+        cp PPSSPP*.exe ppsspp/
+        cp *.pdb ppsspp/
+        cp Windows/*.bat ppsspp/
+        cp -r assets ppsspp/assets
+
+    - name: Package headless (x86_64)
+      if: env.BUILD_PLATFORM == 'x64'
+      run: cp Windows/x64/Release/*.exe ppsspp/
+
+    - name: Package headless (x86_32)
+      if: env.BUILD_PLATFORM != 'x64'
+      run: cp Windows/Release/*.exe ppsspp/
+
+    - name: Upload build
+      uses: actions/upload-artifact@v1
+      with:
+        name: Windows x64 release
+        path: ppsspp/
+
+  build-uwp:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build UWP
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
