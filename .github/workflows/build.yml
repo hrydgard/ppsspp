@@ -95,9 +95,9 @@ jobs:
       matrix:
         include:
         - os: ubuntu-latest
-          args: ./b.sh --headless
           cc: gcc
           cxx: g++
+          args: ./b.sh --headless
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
@@ -106,34 +106,34 @@ jobs:
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
-          android: true
-          args: ./android/ab.sh -j2 APP_ABI=arm64-v8a
+          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a
+          extra: android
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
-          android: true
-          args: ./android/ab.sh -j2 APP_ABI=armeabi-v7a
+          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a
+          extra: android
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
-          android: true
-          args: ./android/ab.sh -j2 APP_ABI=x86
+          args: cd android && ./ab.sh -j2 APP_ABI=x86
+          extra: android
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
-          android: true
-          args: ./android/ab.sh -j2 APP_ABI=x86_64
+          args: cd android && ./ab.sh -j2 APP_ABI=x86_64
+          extra: android
         - os: ubuntu-latest
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro_android ppsspp_libretro
-          android: true
+          extra: android
 
         - os: ubuntu-latest
           cc: gcc
           cxx: g++
           args: ./b.sh --qt
-          qt: true
+          extra: qt
         - os: ubuntu-latest
           cc: gcc
           cxx: g++
@@ -160,7 +160,13 @@ jobs:
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v2
-      if: matrix.qt == 'true'
+      if: matrix.extra == 'qt'
+
+    - uses: nttld/setup-ndk@v1
+      if: matrix.extra == 'android'
+      id: setup-ndk
+      with:
+        ndk-version: r21d
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
@@ -178,4 +184,5 @@ jobs:
       env:
         CC: ${{ matrix.cc }}
         CXX: ${{ matrix.cxx }}
+        NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
       run: ${{matrix.args}}
