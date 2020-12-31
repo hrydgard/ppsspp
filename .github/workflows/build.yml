@@ -88,4 +88,4 @@ jobs:
         path: ppsspp/
 
     - name: Execute tests
-      run: python test.py --graphics=null --teamcity
+      run: python test.py --graphics=software
