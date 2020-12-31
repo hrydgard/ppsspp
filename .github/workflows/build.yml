@@ -195,6 +195,8 @@ jobs:
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPSDL ppsspp/
+        elif [ -e build*/PPSSPPSDL.app ]; then
+          cp -r build*/PPSSPPSDL.app ppsspp/
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
         fi
