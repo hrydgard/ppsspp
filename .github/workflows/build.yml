@@ -89,3 +89,81 @@ jobs:
 
     - name: Execute tests
       run: python test.py --graphics=software
+
+  build-cmake:
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          args: ./b.sh --headless
+          cc: gcc
+          cxx: g++
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --headless
+
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          android: true
+          args: ./android/ab.sh -j2 APP_ABI=arm64-v8a
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          android: true
+          args: ./android/ab.sh -j2 APP_ABI=armeabi-v7a
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          android: true
+          args: ./android/ab.sh -j2 APP_ABI=x86
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          android: true
+          args: ./android/ab.sh -j2 APP_ABI=x86_64
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          android: true
+          args: ./b.sh --libretro_android ppsspp_libretro
+
+        - os: ubuntu-latest
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --qt
+          qt: true
+        - os: ubuntu-latest
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --libretro
+        - os: ubuntu-latest
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --libretro
+
+        - os: macos-latest
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --headless
+        - os: macos-latest
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --ios
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+      if: ${{matrix.qt}} == 'true'
+
+    - name: Execute build
+      env:
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
+      run: ${{matrix.args}}
