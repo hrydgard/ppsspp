@@ -65,7 +65,7 @@ void GitHubActionsPrint(const char *type, const char *fmt, ...) {
 	temp[TEMP_BUFFER_SIZE - 1] = '\0';
 	va_end(args);
 
-	printf("::%s::%s\n", type, temp);
+	printf("::%s file=%s::%s\n", type, currentTestName.c_str(), temp);
 }
 
 struct BufferedLineReader {
