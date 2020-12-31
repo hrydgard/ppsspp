@@ -88,6 +88,8 @@ jobs:
         path: ppsspp/
 
     - name: Execute tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # GitHub Actions runners don't have graphics.
       run: python test.py --graphics=null
 
   build:
@@ -136,10 +138,12 @@ jobs:
           cxx: g++
           args: ./b.sh --qt
         - os: ubuntu-latest
+          extra: libretro
           cc: gcc
           cxx: g++
           args: ./b.sh --libretro
         - os: ubuntu-latest
+          extra: libretro
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro
@@ -150,6 +154,7 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless
         - os: macos-latest
+          extra: ios
           cc: clang
           cxx: clang++
           args: ./b.sh --ios
@@ -171,14 +176,14 @@ jobs:
         ndk-version: r21d
 
     - name: Install Linux dependencies
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && matrix.extra != 'android'
       run: |
         sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
 
     - name: Install macOS dependencies
-      if: runner.os == 'macOS'
+      if: runner.os == 'macOS' && matrix.extra != 'ios'
       run: |
         brew install sdl2
 
@@ -258,4 +263,5 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # GitHub Actions runners don't have graphics.
       run: python test.py --graphics=null
