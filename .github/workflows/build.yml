@@ -94,6 +94,7 @@ jobs:
 
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
@@ -220,6 +221,7 @@ jobs:
 
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
 
