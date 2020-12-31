@@ -7,7 +7,7 @@ on:
     paths-ignore:
     - '*.{txt,md}'
     - 'Tools/**'
-    - '.{editorconfig,gitattributes,gitignore,travis.sh,travis.yml}'
+    - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
   pull_request:
     branches:
@@ -15,7 +15,7 @@ on:
     paths-ignore:
     - '*.{txt,md}'
     - 'Tools/**'
-    - '.{editorconfig,gitattributes,gitignore,travis.sh,travis.yml}'
+    - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
 
 env:
