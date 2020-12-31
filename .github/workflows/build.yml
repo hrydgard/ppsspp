@@ -1,0 +1,279 @@
+name: Build
+
+on:
+  push:
+    branches:
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+  pull_request:
+    branches:
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+
+env:
+  # Configuration type to build.
+  # You can convert this to a build matrix if you need coverage of multiple configuration types.
+  # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build Windows
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} Windows/PPSSPP.sln
+
+    - name: Package build
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: |
+        mkdir ppsspp
+        cp PPSSPP*.exe ppsspp/
+        cp *.pdb ppsspp/
+        cp Windows/*.bat ppsspp/
+        cp -r assets ppsspp/assets
+
+    - name: Package headless (x86_64)
+      if: env.BUILD_PLATFORM == 'x64'
+      run: cp Windows/x64/Release/*.exe ppsspp/
+
+    - name: Package headless (x86_32)
+      if: env.BUILD_PLATFORM != 'x64'
+      run: cp Windows/Release/*.exe ppsspp/
+
+    - name: Upload build
+      uses: actions/upload-artifact@v1
+      with:
+        name: Windows x64 build
+        path: ppsspp/
+
+  build-uwp:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build UWP
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
+
+  test-windows:
+    runs-on: windows-latest
+    needs: build-windows
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: false
+
+    - name: Fetch tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # Doing this to avoid ffmpeg and other large submodules.
+      run: git submodule update --init pspautotests assets/lang
+
+    - name: Download build
+      uses: actions/download-artifact@v2
+      with:
+        name: Windows x64 build
+        path: ppsspp/
+
+    - name: Execute tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # GitHub Actions runners don't have graphics.
+      run: python test.py --graphics=null
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-latest
+          extra: test
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --headless
+        - os: ubuntu-latest
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --headless
+
+        - os: ubuntu-latest
+          extra: android
+          cc: clang
+          cxx: clang++
+          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a
+        - os: ubuntu-latest
+          extra: android
+          cc: clang
+          cxx: clang++
+          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a
+        - os: ubuntu-latest
+          extra: android
+          cc: clang
+          cxx: clang++
+          args: cd android && ./ab.sh -j2 APP_ABI=x86
+        - os: ubuntu-latest
+          extra: android
+          cc: clang
+          cxx: clang++
+          args: cd android && ./ab.sh -j2 APP_ABI=x86_64
+        - os: ubuntu-latest
+          extra: android
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --libretro_android ppsspp_libretro
+
+        - os: ubuntu-latest
+          extra: qt
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --qt
+        - os: ubuntu-latest
+          extra: libretro
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --libretro
+        - os: ubuntu-latest
+          extra: libretro
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --libretro
+
+        - os: macos-latest
+          extra: test
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --headless
+        - os: macos-latest
+          extra: ios
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --ios
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+      if: matrix.extra == 'qt'
+
+    - uses: nttld/setup-ndk@v1
+      if: matrix.extra == 'android'
+      id: setup-ndk
+      with:
+        ndk-version: r21d
+
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux' && matrix.extra != 'android'
+      run: |
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo apt-get update -y -qq
+        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+
+    - name: Install macOS dependencies
+      if: runner.os == 'macOS' && matrix.extra != 'ios'
+      run: |
+        brew install sdl2
+
+    - name: Execute build
+      env:
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
+        NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: ${{ matrix.args }}
+
+    - name: Package build
+      if: matrix.extra == 'test'
+      run: |
+        mkdir ppsspp
+        if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
+          cp build*/$BUILD_CONFIGURATION/PPSSPPSDL ppsspp/
+        elif [ -e build*/PPSSPPSDL.app ]; then
+          cp -r build*/PPSSPPSDL.app ppsspp/
+        elif [ -e build*/PPSSPPSDL ]; then
+          cp build*/PPSSPPSDL ppsspp/
+        fi
+        if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
+          cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/
+        elif [ -e build*/PPSSPPHeadless ]; then
+          cp build*/PPSSPPHeadless ppsspp/
+        fi
+
+    - name: Upload build
+      uses: actions/upload-artifact@v1
+      if: matrix.extra == 'test'
+      with:
+        name: ${{ matrix.os }} build
+        path: ppsspp/
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+    needs: build
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: false
+
+    - name: Fetch tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # Doing this to avoid ffmpeg and other large submodules.
+      run: git submodule update --init pspautotests assets/lang
+
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo apt-get update -y -qq
+        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+
+    - name: Install macOS dependencies
+      if: runner.os == 'macOS'
+      run: |
+        brew install sdl2
+
+    - name: Download build
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.os }} build
+        path: ppsspp/
+
+    # Not sure where it's ending up, but test.py can't find it...
+    - name: Fix headless permissions
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: |
+        cp `find . -name PPSSPPHeadless` .
+        chmod +x PPSSPPHeadless
+
+    - name: Execute tests
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      # GitHub Actions runners don't have graphics.
+      run: python test.py --graphics=null

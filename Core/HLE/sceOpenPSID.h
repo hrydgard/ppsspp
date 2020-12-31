@@ -30,6 +30,3 @@ void __OpenPSIDShutdown();
 void Register_sceOpenPSID();
 void Register_sceOpenPSID_driver();
 void Register_sceDdrdb();
-
-static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr);
-static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr, u32 unknown);
