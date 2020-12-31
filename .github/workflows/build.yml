@@ -3,10 +3,20 @@ name: Build
 on:
   push:
     branches:
-      - master
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore,travis.sh,travis.yml}'
+    - 'appveyor.yml'
   pull_request:
     branches:
-      - master
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore,travis.sh,travis.yml}'
+    - 'appveyor.yml'
 
 env:
   # Configuration type to build.
