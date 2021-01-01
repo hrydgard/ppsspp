@@ -38,12 +38,6 @@
 #include "SDLHeadlessHost.h"
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
 #if defined(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
@@ -228,12 +222,6 @@ int main(int argc, const char* argv[])
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
-
-#ifdef ANDROID_NDK_PROFILER
-	setenv("CPUPROFILE_FREQUENCY", "500", 1);
-	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
-	monstartup("ppsspp_headless");
 #endif
 
 	bool fullLog = false;
@@ -477,10 +465,6 @@ int main(int argc, const char* argv[])
 	VFSShutdown();
 	LogManager::Shutdown();
 	delete printfLogger;
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
 
 	return 0;
 }

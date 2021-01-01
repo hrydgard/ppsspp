@@ -137,12 +137,6 @@ Atlas g_ui_atlas;
 #include <mach-o/dyld.h>
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -1415,10 +1409,6 @@ void NativeShutdown() {
 	// Avoid shutting this down when restarting core.
 	if (!restarting)
 		LogManager::Shutdown();
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
 
 	if (logger) {
 		delete logger;
