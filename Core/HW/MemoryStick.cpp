@@ -88,6 +88,10 @@ u64 MemoryStick_FreeSpace() {
 	u64 simulatedFreeSpace = 0;
 	if (usedSpace < memStickSize) {
 		simulatedFreeSpace = memStickSize - usedSpace;
+	} else if (flags.ReportSmallMemstick) {
+		// There's more stuff in the memstick than the size we report.
+		// This doesn't work, so we'll just have to lie. Not sure what the best way is.
+		simulatedFreeSpace = smallMemstickSize / 2;  // just pick a value.
 	}
 	if (flags.MemstickFixedFree) {
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
