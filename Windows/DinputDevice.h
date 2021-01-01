@@ -62,10 +62,10 @@ private:
 	bool                    analog;
 	BYTE                    lastButtons_[128];
 	WORD                    lastPOV_[4];
-	short                   last_lX_;
-	short                   last_lY_;
-	short                   last_lZ_;
-	short                   last_lRx_;
-	short                   last_lRy_;
-	short                   last_lRz_;
+	int                     last_lX_;
+	int                     last_lY_;
+	int                     last_lZ_;
+	int                     last_lRx_;
+	int                     last_lRy_;
+	int                     last_lRz_;
 };
