@@ -170,7 +170,7 @@ void InputSink::Fill() {
 		// Whatever isn't valid and follows write_ is what's available.
 		size_t avail = BUFFER_SIZE - std::max(write_, valid_);
 
-		int bytes = recv(fd_, buf_ + write_, (int)avail, 0);
+		int bytes = recv(fd_, buf_ + write_, (int)avail, MSG_NOSIGNAL);
 		AccountFill(bytes);
 	}
 }

@@ -196,7 +196,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 	}
 
 	while (true) {
-		int retval = recv(fd, &buf[0], (int)buf.size(), 0);
+		int retval = recv(fd, &buf[0], (int)buf.size(), MSG_NOSIGNAL);
 		if (retval == 0) {
 			break;
 		} else if (retval < 0) {
@@ -228,7 +228,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, bool *c
 				return false;
 			ready = fd_util::WaitUntilReady(fd, CANCEL_INTERVAL, false);
 		}
-		int retval = recv(fd, &buf[0], (int)buf.size(), 0);
+		int retval = recv(fd, &buf[0], (int)buf.size(), MSG_NOSIGNAL);
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
@@ -248,7 +248,7 @@ int Buffer::Read(int fd, size_t sz) {
 	char buf[1024];
 	int retval;
 	size_t received = 0;
-	while ((retval = recv(fd, buf, (int)std::min(sz, sizeof(buf)), 0)) > 0) {
+	while ((retval = recv(fd, buf, (int)std::min(sz, sizeof(buf)), MSG_NOSIGNAL)) > 0) {
 		if (retval < 0) {
 			return retval;
 		}
