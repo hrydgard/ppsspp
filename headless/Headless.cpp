@@ -148,10 +148,8 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
-	if (teamCityMode) {
-		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = GetTestName(coreParameter.fileToStart);
-	}
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	currentTestName = GetTestName(coreParameter.fileToStart);
 
 	std::string output;
 	if (autoCompare)
@@ -161,11 +159,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
+		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
 		return false;
 	}
 
-	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
+	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
 	host->BootDone();
 
@@ -201,7 +200,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			passed = false;
 
 			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
+			GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			Core_Stop();
 		}
 	}
@@ -217,7 +217,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
-	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
+	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
 }

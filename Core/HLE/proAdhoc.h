@@ -1322,6 +1322,11 @@ int setSockNoSIGPIPE(int sock, int flag);
 int setSockReuseAddrPort(int sock);
 
 /*
+* Set Socket Connection Reset on UDP (which could cause a strange behavior)
+*/
+int setUDPConnReset(int udpsock, bool enabled);
+
+/*
 * Set Socket KeepAlive (opt = SO_KEEPALIVE)
 */
 int setSockKeepAlive(int sock, bool keepalive, const int keepinvl = 60, const int keepcnt = 20, const int keepidle = 180);

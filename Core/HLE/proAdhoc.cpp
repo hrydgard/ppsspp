@@ -1982,6 +1982,19 @@ int setSockReuseAddrPort(int sock) {
 	return setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 }
 
+int setUDPConnReset(int udpsock, bool enabled) {
+	// On Windows: Connection Reset error on UDP could cause a strange behavior https://stackoverflow.com/questions/34242622/windows-udp-sockets-recvfrom-fails-with-error-10054
+#if defined(_WIN32)
+#if !defined(SIO_UDP_CONNRESET)
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+	BOOL bNewBehavior = enabled;
+	DWORD dwBytesReturned = 0;
+	return WSAIoctl(udpsock, SIO_UDP_CONNRESET, &bNewBehavior, sizeof bNewBehavior, NULL, 0, &dwBytesReturned, NULL, NULL);
+#endif
+	return -1;
+}
+
 #if !defined(TCP_KEEPIDLE)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif

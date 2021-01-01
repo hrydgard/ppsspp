@@ -33,7 +33,7 @@
 #include <vector>
 
 bool teamCityMode = false;
-std::string teamCityName = "";
+std::string currentTestName = "";
 
 void TeamCityPrint(const char *fmt, ...)
 {
@@ -49,7 +49,23 @@ void TeamCityPrint(const char *fmt, ...)
 	temp[TEMP_BUFFER_SIZE - 1] = '\0';
 	va_end(args);
 
-	printf("%s", temp);
+	printf("##teamcity[%s]\n", temp);
+}
+
+void GitHubActionsPrint(const char *type, const char *fmt, ...) {
+	if (!getenv("GITHUB_ACTIONS"))
+		return;
+
+	const int TEMP_BUFFER_SIZE = 32768;
+	char temp[TEMP_BUFFER_SIZE];
+
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(temp, TEMP_BUFFER_SIZE - 1, fmt, args);
+	temp[TEMP_BUFFER_SIZE - 1] = '\0';
+	va_end(args);
+
+	printf("::%s file=%s::%s\n", type, currentTestName.c_str(), temp);
 }
 
 struct BufferedLineReader {
@@ -223,7 +239,8 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 
 			if (!failed)
 			{
-				TeamCityPrint("##teamcity[testFailed name='%s' message='Output different from expected file']\n", teamCityName.c_str());
+				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
+				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
 				failed = true;
 			}
 
@@ -277,7 +294,8 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 	else
 	{
 		fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='Expects file missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
+		GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
 		return false;
 	}
 }

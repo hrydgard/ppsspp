@@ -739,7 +739,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			StartDraw();
 
 			DisplaySaveIcon(true);
-			DisplaySaveDataInfo2(true);
+			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("Save completed"));
 

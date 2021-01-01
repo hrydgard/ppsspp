@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <ctime>
 
 #include "Common.h"
 #include "Core/HLE/sceKernel.h"
