@@ -1402,14 +1402,6 @@ void NativeShutdown() {
 #endif
 	g_Config.Save("NativeShutdown");
 
-	// Avoid shutting this down when restarting core.
-	if (!restarting)
-		LogManager::Shutdown();
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
-
 	INFO_LOG(SYSTEM, "NativeShutdown called");
 
 	ShutdownWebServer();
@@ -1419,6 +1411,14 @@ void NativeShutdown() {
 	net::Shutdown();
 
 	g_Discord.Shutdown();
+
+	// Avoid shutting this down when restarting core.
+	if (!restarting)
+		LogManager::Shutdown();
+
+#ifdef ANDROID_NDK_PROFILER
+	moncleanup();
+#endif
 
 	if (logger) {
 		delete logger;
