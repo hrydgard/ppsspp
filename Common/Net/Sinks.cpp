@@ -385,6 +385,14 @@ void OutputSink::AccountPush(size_t bytes) {
 
 void OutputSink::AccountDrain(int bytes) {
 	if (bytes < 0) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		int err = WSAGetLastError();
+		if (err == WSAEWOULDBLOCK)
+			return;
+#else
+		if (errno == EWOULDBLOCK || errno == EAGAIN)
+			return;
+#endif
 		ERROR_LOG(IO, "Error writing to socket");
 		return;
 	}

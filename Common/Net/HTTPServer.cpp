@@ -54,7 +54,7 @@ Request::Request(int fd)
 	header_.ParseHeaders(in_);
 
 	if (header_.ok) {
-		INFO_LOG(IO, "The request carried with it %i bytes", (int)header_.content_length);
+		VERBOSE_LOG(IO, "The request carried with it %i bytes", (int)header_.content_length);
 	} else {
 	    Close();
 	}
@@ -171,8 +171,13 @@ bool Server::Listen4(int port) {
 	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 
 	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		int err = WSAGetLastError();
+#else
+		int err = errno;
+#endif
+		ERROR_LOG(IO, "Failed to bind to port %d, error=%d - Bailing (ipv4)", port, err);
 		closesocket(listener_);
-		ERROR_LOG(IO, "Failed to bind to port %d. Bailing.", port);
 		return false;
 	}
 
@@ -216,8 +221,13 @@ bool Server::Listen6(int port, bool ipv6_only) {
 	setsockopt(listener_, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&opt, sizeof(opt));
 
 	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		int err = WSAGetLastError();
+#else
+		int err = errno;
+#endif
+		ERROR_LOG(IO, "Failed to bind to port %d, error=%d - Bailing (ipv6)", port, err);
 		closesocket(listener_);
-		ERROR_LOG(IO, "Failed to bind to port %d. Bailing.", port);
 		return false;
 	}
 

@@ -366,6 +366,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
+		ERROR_LOG(IO, "Code not parse HTTP status code");
 		return -1;
 	}
 
@@ -377,6 +378,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	}
 
 	if (responseHeaders.size() == 0) {
+		ERROR_LOG(IO, "No HTTP response headers");
 		return -1;
 	}
 
