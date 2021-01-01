@@ -17,6 +17,9 @@
 
 #include "ppsspp_config.h"
 
+#include <cstdint>
+#include <unordered_set>
+
 #include "Common/MachineContext.h"
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -37,9 +40,21 @@
 namespace Memory {
 
 static int64_t g_numReportedBadAccesses = 0;
+const uint8_t *g_lastCrashAddress;
+std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
 void MemFault_Init() {
 	g_numReportedBadAccesses = 0;
+	g_lastCrashAddress = nullptr;
+	g_ignoredAddresses.clear();
+}
+
+bool MemFault_MayBeResumable() {
+	return g_lastCrashAddress != nullptr;
+}
+
+void MemFault_IgnoreLastCrash() {
+	g_ignoredAddresses.insert(g_lastCrashAddress);
 }
 
 #ifdef MACHINE_CONTEXT_SUPPORTED
@@ -71,6 +86,9 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
+	// We set this later if we think it can be resumed from.
+	g_lastCrashAddress = nullptr;
+
 	// TODO: Check that codePtr is within the current JIT space.
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
@@ -90,6 +108,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// Host address outside - this was a different kind of crash.
 		return false;
 	}
+
 
 	// OK, a guest executable did a bad access. Take care of it.
 
@@ -113,11 +132,13 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	int instructionSize = 4;
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
+	instructionSize = 15;
 
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	LSInstructionInfo info{};
 	success = X86AnalyzeMOV(codePtr, info);
-	instructionSize = info.instructionSize;
+	if (success)
+		instructionSize = info.instructionSize;
 #elif PPSSPP_ARCH(ARM64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
@@ -133,7 +154,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 
 	std::string disassembly;
-	if (success && DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
+	if (DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
 		infoString += disassembly + "\n";
 	}
 
@@ -147,7 +168,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		type = MemoryExceptionType::UNKNOWN;
 	}
 
-	if (success && g_Config.bIgnoreBadMemAccess) {
+	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
@@ -163,7 +184,10 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		Core_MemoryExceptionInfo(guestAddress, approximatePC, type, infoString);
 
-		// Redirect execution to a crash handler that will exit the game immediately.
+		// There's a small chance we can resume from this type of crash.
+		g_lastCrashAddress = codePtr;
+
+		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/thin3d.h"
 
 struct FShaderID;
 
@@ -37,4 +38,4 @@ struct FShaderID;
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
 
-bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, uint64_t *uniformMask, std::string *errorString);
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, std::string *errorString);

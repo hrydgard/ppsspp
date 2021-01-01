@@ -35,42 +35,27 @@ inline int Xpose(int v) {
 #endif
 
 // The VFPU uses weird angles where 4.0 represents a full circle. This makes it possible to return
-// exact 1.0/-1.0 values at certain angles. We get close enough for #2921 and #12900 by computing
-// things in double precision, multiplying the input by pi/2.
+// exact 1.0/-1.0 values at certain angles. We currently just scale, and special case the cardinal directions.
+//
+// Stepping down to [0, 2pi) helps, but we also check common exact-result values.
+// TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
+//
+// We also try an alternative solution, computing things in double precision, multiplying the input by pi/2.
+// This fixes #12900 (Hitman Reborn 2) but breaks #13705 (Cho Aniki Zero) and #13671 (Hajime no Ippo).
+// #2921 is still fine. So the alt solution (vfpu_sin_double etc) are behind a compat flag.
 //
 // A better solution would be to tailor some sine approximation for the 0..90 degrees range, compute
 // modulo manually and mirror that around the circle. Also correctly special casing for inf/nan inputs
 // and just trying to match it as closely as possible to the real PSP.
 //
-// Stepping down to [0, 2pi) helps, but we also check common exact-result values.
-// TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
-
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
 
-inline float vfpu_sin(float angle) {
-	return (float)sin((double)angle * M_PI_2);
-}
-
-inline float vfpu_cos(float angle) {
-	return (float)cos((double)angle * M_PI_2);
-}
+extern float (*vfpu_sin)(float);
+extern float (*vfpu_cos)(float);
+extern void (*vfpu_sincos)(float, float&, float&);
 
 inline float vfpu_asin(float angle) {
 	return asinf(angle) / M_PI_2;
-}
-
-inline void vfpu_sincos(float angle_f, float &sine, float &cosine) {
-	double angle = (double)angle_f * M_PI_2;
-#if defined(__linux__)
-	double d_sine;
-	double d_cosine;
-	sincos(angle, &d_sine, &d_cosine);
-	sine = (float)d_sine;
-	cosine = (float)d_cosine;
-#else
-	sine = (float)sin(angle);
-	cosine = (float)cos(angle);
-#endif
 }
 
 inline float vfpu_clamp(float v, float min, float max) {
@@ -230,3 +215,4 @@ int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 bool GetVFPUCtrlMask(int reg, u32 *mask);
 
 float Float16ToFloat32(unsigned short l);
+void InitVFPUSinCos(bool useDoublePrecision);

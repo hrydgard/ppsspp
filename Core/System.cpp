@@ -44,6 +44,7 @@
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -66,7 +67,6 @@
 #include "Common/LogManager.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "Core/HLE/sceAudiocodec.h"
-
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Debugger/RecordFormat.h"
@@ -286,6 +286,8 @@ bool CPU_Init() {
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
 	coreParameter.compat.Load(discID);
+
+	InitVFPUSinCos(coreParameter.compat.flags().DoublePrecisionSinCos);
 
 	HLEPlugins::Init();
 	if (!Memory::Init()) {
@@ -606,6 +608,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory + "PSP/VIDEO/";
 	case DIRECTORY_AUDIO:
 		return g_Config.memStickDirectory + "PSP/AUDIO/";
+	case DIRECTORY_MEMSTICK_ROOT:
+		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");

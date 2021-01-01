@@ -304,6 +304,7 @@ void RegisterAllModules() {
 	Register_sceUsbMic();
 	Register_sceOpenPSID_driver();
 	Register_semaphore();
+	Register_sceDdrdb();
 	// add new modules here.
 }
 

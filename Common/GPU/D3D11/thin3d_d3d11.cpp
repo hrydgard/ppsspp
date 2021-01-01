@@ -35,6 +35,7 @@ class D3D11BlendState;
 class D3D11DepthStencilState;
 class D3D11SamplerState;
 class D3D11RasterState;
+class D3D11Framebuffer;
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -71,7 +72,9 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	// color must be 0, for now.
+	Framebuffer *GetCurrentRenderTarget() override {
+		return curRenderTarget_;
+	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
@@ -182,6 +185,7 @@ private:
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
 	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
 
+	Framebuffer *curRenderTarget_ = nullptr;
 	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
 	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
 	// Needed to rotate stencil/viewport rectangles properly
@@ -271,6 +275,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			case 0x163C:
 			case 0x8086:
 			case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+			// TODO: There are Windows ARM devices that could have Qualcomm here too.
+			// Not sure where I'll find the vendor codes for those though...
 			default:
 				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 			}
@@ -664,7 +670,28 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return inputLayout;
 }
 
-class D3D11ShaderModule;
+class D3D11ShaderModule : public ShaderModule {
+public:
+	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
+	}
+	~D3D11ShaderModule() {
+		if (vs)
+			vs->Release();
+		if (ps)
+			ps->Release();
+		if (gs)
+			gs->Release();
+	}
+	ShaderStage GetStage() const override { return stage; }
+
+	std::vector<uint8_t> byteCode_;
+	ShaderStage stage;
+	std::string tag_;
+
+	ID3D11VertexShader *vs = nullptr;
+	ID3D11PixelShader *ps = nullptr;
+	ID3D11GeometryShader *gs = nullptr;
+};
 
 class D3D11Pipeline : public Pipeline {
 public:
@@ -681,6 +708,9 @@ public:
 			il->Release();
 		if (dynamicUniforms)
 			dynamicUniforms->Release();
+		for (D3D11ShaderModule *shaderModule : shaderModules) {
+			shaderModule->Release();
+		}
 	}
 	bool RequiresBuffer() override {
 		return true;
@@ -855,29 +885,6 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	}
 	return tex;
 }
-
-class D3D11ShaderModule : public ShaderModule {
-public:
-	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
-	}
-	~D3D11ShaderModule() {
-		if (vs)
-			vs->Release();
-		if (ps)
-			ps->Release();
-		if (gs)
-			gs->Release();
-	}
-	ShaderStage GetStage() const override { return stage; }
-
-	std::vector<uint8_t> byteCode_;
-	ShaderStage stage;
-	std::string tag_;
-
-	ID3D11VertexShader *vs = nullptr;
-	ID3D11PixelShader *ps = nullptr;
-	ID3D11GeometryShader *gs = nullptr;
-};
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
@@ -1584,6 +1591,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			curRTWidth_ = fb->Width();
 			curRTHeight_ = fb->Height();
 		}
+		curRenderTarget_ = fb;
 	} else {
 		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_) {
 			// No need to switch, but let's fallthrough to clear!
@@ -1594,6 +1602,7 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			curRTWidth_ = bbWidth_;
 			curRTHeight_ = bbHeight_;
 		}
+		curRenderTarget_ = nullptr;
 	}
 	if (rp.color == RPAction::CLEAR && curRenderTargetView_) {
 		float cv[4]{};
@@ -1615,7 +1624,6 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 	stepId_++;
 }
 
-// color must be 0, for now.
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {

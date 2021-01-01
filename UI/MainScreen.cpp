@@ -546,19 +546,15 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
-	SetPath(g_Config.memStickDirectory);
-#elif defined(USING_QT_UI) || defined(USING_WIN_UI)
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_QT_UI) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
+	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 		System_SendMessage("browse_folder", "");
+	} else {
+		SetPath(g_Config.memStickDirectory);
 	}
-#elif PPSSPP_PLATFORM(UWP)
-	// TODO UWP
-	SetPath(g_Config.memStickDirectory);
 #else
 	SetPath(getenv("HOME"));
 #endif
-
 	return UI::EVENT_DONE;
 }
 
@@ -665,7 +661,7 @@ void GameBrowser::Refresh() {
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-			if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 				topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 			} else {
 				topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
@@ -767,9 +763,10 @@ void GameBrowser::Refresh() {
 	}
 
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
-		gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::NavigateClick);
-
+		if (path_.CanNavigateUp()) {
+			gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+				OnClick.Handle(this, &GameBrowser::NavigateClick);
+		}
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
@@ -988,8 +985,8 @@ void MainScreen::CreateViews() {
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		scrollAllGames->SetTag("MainScreenAllGames");
+		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT), true);
+		scrollAllGames_->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
@@ -1000,13 +997,14 @@ void MainScreen::CreateViews() {
 			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-		scrollAllGames->Add(tabAllGames);
+		scrollAllGames_->Add(tabAllGames);
 		gameBrowsers_.push_back(tabAllGames);
 		scrollHomebrew->Add(tabHomebrew);
 		gameBrowsers_.push_back(tabHomebrew);
 
-		tabHolder_->AddTab(mm->T("Games"), scrollAllGames);
+		tabHolder_->AddTab(mm->T("Games"), scrollAllGames_);
 		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
+		scrollAllGames_->ScrollTo(g_Config.fGameListScrollPosition);
 
 		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -1049,6 +1047,7 @@ void MainScreen::CreateViews() {
 			leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 		}
 	} else {
+		scrollAllGames_ = nullptr;
 		if (!showRecent) {
 			leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 			// Just so it's destroyed on recreate.
@@ -1197,6 +1196,9 @@ void MainScreen::update() {
 	if (vertical != lastVertical_) {
 		RecreateViews();
 		lastVertical_ = vertical;
+	}
+	if (scrollAllGames_) {
+		g_Config.fGameListScrollPosition = scrollAllGames_->GetScrollPosition();
 	}
 }
 
@@ -1368,13 +1370,11 @@ UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
-	System_SendMessage("event", "exitprogram");
+	// Let's make sure the config was saved, since it may not have been.
+	g_Config.Save("MainScreen::OnExit");
 
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
-
-	// However, let's make sure the config was saved, since it may not have been.
-	g_Config.Save("MainScreen::OnExit");
 
 #ifdef __ANDROID__
 #ifdef ANDROID_NDK_PROFILER

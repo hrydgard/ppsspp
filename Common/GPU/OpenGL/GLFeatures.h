@@ -6,6 +6,7 @@
 
 #include <string>
 
+// TODO: Replace with thin3d's vendor enum.
 enum {
 	GPU_VENDOR_NVIDIA = 1,
 	GPU_VENDOR_AMD = 2,
@@ -15,6 +16,7 @@ enum {
 	GPU_VENDOR_QUALCOMM = 6,  // Adreno
 	GPU_VENDOR_BROADCOM = 7,  // Raspberry PI etc
 	GPU_VENDOR_VIVANTE = 8,
+	GPU_VENDOR_APPLE = 9,
 	GPU_VENDOR_UNKNOWN = 0,
 };
 

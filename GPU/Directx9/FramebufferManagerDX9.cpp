@@ -259,11 +259,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-		// Nothing to do here.
-	}
-
-	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
+	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 			// This can happen if we recently switched from non-buffered.
 			if (useBufferedRendering_)
@@ -300,7 +296,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			bool result = draw_->BlitFramebuffer(
 				src->fbo, srcX1, srcY1, srcX2, srcY2,
 				tempFBO, dstX1, dstY1, dstX2, dstY2,
-				Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer");
+				Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
 			if (result) {
 				srcFBO = tempFBO;
 			}
@@ -308,7 +304,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		bool result = draw_->BlitFramebuffer(
 			srcFBO, srcX1, srcY1, srcX2, srcY2,
 			dst->fbo, dstX1, dstY1, dstX2, dstY2,
-			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer");
+			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, tag);
 		if (!result) {
 			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit (%08x -> %08x)", src->fb_address, dst->fb_address);
 		}

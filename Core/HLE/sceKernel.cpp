@@ -85,6 +85,7 @@
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
+#include "sceOpenPSID.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -150,6 +151,7 @@ void __KernelInit()
 	__UsbGpsInit();
 	__UsbCamInit();
 	__UsbMicInit();
+	__OpenPSIDInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -173,6 +175,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__OpenPSIDShutdown();
 	__UsbCamShutdown();
 	__UsbMicShutdown();
 	__UsbGpsShutdown();
@@ -895,6 +898,23 @@ const HLEFunction ThreadManForKernel[] =
 	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
 	{0X28B6489C, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XEF9E4C70, &WrapU_I<sceKernelDeleteEventFlag>,                 "sceKernelDeleteEventFlag",                  'x', "i",      HLE_KERNEL_SYSCALL },
+	{0x278c0df5, &WrapI_IU<sceKernelWaitThreadEnd>,                  "sceKernelWaitThreadEnd",                    'i', "ix",     HLE_KERNEL_SYSCALL },
+	{0xd6da4ba1, &WrapI_CUIIU<sceKernelCreateSema>,                  "sceKernelCreateSema",                       'i', "sxiix",  HLE_KERNEL_SYSCALL },
+	{0x28b6489c, &WrapI_I<sceKernelDeleteSema>,                      "sceKernelDeleteSema",                       'i', "i",      HLE_KERNEL_SYSCALL },
+	{0x3f53e640, &WrapI_II<sceKernelSignalSema>,                     "sceKernelSignalSema",                       'i', "ii",     HLE_KERNEL_SYSCALL },
+	{0x4e3a1105, &WrapI_IIU<sceKernelWaitSema>,                      "sceKernelWaitSema",                         'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL},
+	{0x58b1f937, &WrapI_II<sceKernelPollSema>,                       "sceKernelPollSema",                         'i', "ii",     HLE_KERNEL_SYSCALL },
+	{0x55c20a00, &WrapI_CUUU<sceKernelCreateEventFlag>,              "sceKernelCreateEventFlag",                  'i', "sxxx",   HLE_KERNEL_SYSCALL },
+	{0xef9e4c70, &WrapU_I<sceKernelDeleteEventFlag>,                 "sceKernelDeleteEventFlag",                  'x', "i",      HLE_KERNEL_SYSCALL },
+	{0x1fb15a32, &WrapU_IU<sceKernelSetEventFlag>,                   "sceKernelSetEventFlag",                     'x', "ix",     HLE_KERNEL_SYSCALL },
+	{0x812346e4, &WrapU_IU<sceKernelClearEventFlag>,                 "sceKernelClearEventFlag",                   'x', "ix",     HLE_KERNEL_SYSCALL },
+	{0x402fcf22, &WrapI_IUUUU<sceKernelWaitEventFlag>,               "sceKernelWaitEventFlag",                    'i', "ixxpp",  HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL},
+	{0xc07bb470, &WrapI_CUUUUU<sceKernelCreateFpl>,                  "sceKernelCreateFpl",                        'i', "sxxxxx" ,HLE_KERNEL_SYSCALL },
+	{0xed1410e0, &WrapI_I<sceKernelDeleteFpl>,                       "sceKernelDeleteFpl",                        'i', "i"      ,HLE_KERNEL_SYSCALL },
+	{0x623ae665, &WrapI_IU<sceKernelTryAllocateFpl>,                 "sceKernelTryAllocateFpl",                   'i', "ix"     ,HLE_KERNEL_SYSCALL },
+	{0x616403ba, &WrapI_I<sceKernelTerminateThread>,                 "sceKernelTerminateThread",                  'i', "i"      ,HLE_KERNEL_SYSCALL },
+	{0x383f7bcc, &WrapI_I<sceKernelTerminateDeleteThread>,           "sceKernelTerminateDeleteThread",            'i', "i"      ,HLE_KERNEL_SYSCALL },
+	{0x57cf62dd, &WrapU_U<sceKernelGetThreadmanIdType>,              "sceKernelGetThreadmanIdType",               'x', "x"      ,HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()

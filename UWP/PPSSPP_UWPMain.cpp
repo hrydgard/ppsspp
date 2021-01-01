@@ -398,6 +398,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
+	case SYSPROP_HAS_FOLDER_BROWSER:
+		return false;  // at least I don't know a usable one
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return false;
 	case SYSPROP_HAS_BACK_BUTTON:

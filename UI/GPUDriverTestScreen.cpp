@@ -18,7 +18,11 @@ static const std::vector<Draw::ShaderSource> fsDiscard = {
 	varying vec2 oTexCoord0;
 	uniform sampler2D Sampler0;
 	void main() {
+	#if __VERSION__ >= 130
+		vec4 color = texture(Sampler0, oTexCoord0) * oColor0;
+	#else
 		vec4 color = texture2D(Sampler0, oTexCoord0) * oColor0;
+	#endif
 		if (color.a <= 0.0)
 			discard;
 		gl_FragColor = color;

@@ -145,10 +145,8 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 		info.displacement = *((s32 *)codePtr);
 	codePtr += displacementSize;
 	
-	if (accessType == 1)
+	if (accessType == 1)  // reg/mem
 	{
-		info.isMemoryWrite = true;
-		//Write access
 		switch (codeByte)
 		{
 		case MOVE_8BIT: //move 8-bit immediate
@@ -182,9 +180,11 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 			}
 			break;
 		case MOVE_REG_TO_MEM: //move reg to memory
+			info.isMemoryWrite = true;
 			break;
 
 		case MOVE_MEM_TO_REG:
+			info.isMemoryWrite = false;
 			break;
 
 		default:
@@ -195,6 +195,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 	else
 	{
 		// Memory read
+		info.isMemoryWrite = false;
 
 		//mov eax, dword ptr [rax]   == 8b 00
 		switch (codeByte)

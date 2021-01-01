@@ -19,7 +19,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 #include <libkern/OSCacheControl.h>
 #endif
 
@@ -323,7 +323,7 @@ void ARM64XEmitter::FlushIcache()
 
 void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end)
 {
-#if defined(IOS)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, (void *)start, end - start);
 #elif PPSSPP_PLATFORM(WINDOWS)
@@ -331,12 +331,11 @@ void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end)
 #elif PPSSPP_ARCH(ARM64)
 	// Code from Dolphin, contributed by the Mono project.
 
-	// Don't rely on GCC's __clear_cache implementation, as it caches
-	// icache/dcache cache line sizes, that can vary between cores on
-	// big.LITTLE architectures.
 	size_t isize, dsize;
-
 	if (cpu_info.sQuirks.bExynos8890DifferingCachelineSizes) {
+		// Don't rely on GCC's __clear_cache implementation, as it caches
+		// icache/dcache cache line sizes, that can vary between cores on
+		// very buggy big.LITTLE architectures like Exynos8890D.
 		// Enforce the minimum cache line size to be completely safe on these CPUs.
 		isize = 64;
 		dsize = 64;

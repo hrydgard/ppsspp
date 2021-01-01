@@ -27,6 +27,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Util/PPGeDraw.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -412,9 +413,13 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
+
+	PPGeSetDrawContext(draw);
 }
 
 GPUCommon::~GPUCommon() {
+	// Probably not necessary.
+	PPGeSetDrawContext(nullptr);
 }
 
 void GPUCommon::UpdateCmdInfo() {
@@ -478,6 +483,7 @@ void GPUCommon::DeviceLost() {
 void GPUCommon::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	framebufferManager_->DeviceRestore(draw_);
+	PPGeSetDrawContext(draw_);
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {
@@ -1836,20 +1842,21 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-		gstate_c.bezier = true;
+		gstate_c.submitType = SubmitType::HW_BEZIER;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
 			gstate_c.spline_num_points_u = surface.num_points_u;
 		}
+	} else {
+		gstate_c.submitType = SubmitType::BEZIER;
 	}
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	if (gstate_c.bezier)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	gstate_c.bezier = false;
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
@@ -1902,20 +1909,21 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-		gstate_c.spline = true;
+		gstate_c.submitType = SubmitType::HW_SPLINE;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
 			gstate_c.spline_num_points_u = surface.num_points_u;
 		}
+	} else {
+		gstate_c.submitType = SubmitType::SPLINE;
 	}
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	if (gstate_c.spline)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	gstate_c.spline = false;
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
@@ -2727,6 +2735,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+			// TODO: What? Why would a game copy between the mirrors? This check seems entirely
+			// superfluous.
 			// We use a little hack for Download/Upload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {

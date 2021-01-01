@@ -216,6 +216,7 @@ public:
 	bool bReloadCheats;
 	int iCwCheatRefreshRate;
 	float fCwCheatScrollPosition;
+	float fGameListScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;

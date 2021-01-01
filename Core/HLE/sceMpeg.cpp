@@ -1507,20 +1507,20 @@ void PostPutAction::run(MipsCall &call) {
 // Program signals that it has written data to the ringbuffer and gets a callback ?
 static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int available)
 {
-	// Generally, program will call sceMpegRingbufferAvailableSize() before this func.
-	// Still need to check available?
-
-	numPackets = std::min(numPackets, available);
-	if (numPackets <= 0) {
-		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
-		return 0;
-	}
-
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		// Would have crashed before, TODO test behavior.
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut(%08x, %i, %i): invalid ringbuffer address", ringbufferAddr, numPackets, available);
 		return -1;
+	}
+
+	numPackets = std::min(numPackets, available);
+	// Generally, program will call sceMpegRingbufferAvailableSize() before this func.
+	// Seems still need to check actual available, Patapon 3 for example.
+	numPackets = std::min(numPackets, ringbuffer->packets - ringbuffer->packetsAvail);
+	if (numPackets <= 0) {
+		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
+		return 0;
 	}
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
@@ -2289,21 +2289,21 @@ const HLEFunction sceMpeg[] =
 {
 	{0XE1CE83A7, &WrapI_UUUU<sceMpegGetAtracAu>,               "sceMpegGetAtracAu",                  'i', "xxxx"   },
 	{0XFE246728, &WrapI_UUUU<sceMpegGetAvcAu>,                 "sceMpegGetAvcAu",                    'i', "xxxx"   },
-	{0XD8C5F121, &WrapU_UUUUUUU<sceMpegCreate>,                "sceMpegCreate",                      'x', "xxxxxxx"},
+	{0XD8C5F121, &WrapU_UUUUUUU<sceMpegCreate>,                "sceMpegCreate",                      'x', "xxxxxxx" ,HLE_CLEAR_STACK_BYTES, 0xA8},
 	{0XF8DCB679, &WrapI_UUU<sceMpegQueryAtracEsSize>,          "sceMpegQueryAtracEsSize",            'i', "xxx"    },
-	{0XC132E22F, &WrapU_V<sceMpegQueryMemSize>,                "sceMpegQueryMemSize",                'x', ""       },
-	{0X21FF80E4, &WrapI_UUU<sceMpegQueryStreamOffset>,         "sceMpegQueryStreamOffset",           'i', "xxx"    },
-	{0X611E9E11, &WrapU_UU<sceMpegQueryStreamSize>,            "sceMpegQueryStreamSize",             'x', "xx"     },
-	{0X42560F23, &WrapI_UUU<sceMpegRegistStream>,              "sceMpegRegistStream",                'i', "xxx"    },
-	{0X591A4AA2, &WrapU_UI<sceMpegUnRegistStream>,             "sceMpegUnRegistStream",              'x', "xi"     },
+	{0XC132E22F, &WrapU_V<sceMpegQueryMemSize>,                "sceMpegQueryMemSize",                'x', "" ,HLE_CLEAR_STACK_BYTES, 0x18},
+	{0X21FF80E4, &WrapI_UUU<sceMpegQueryStreamOffset>,         "sceMpegQueryStreamOffset",           'i', "xxx",HLE_CLEAR_STACK_BYTES, 0x18},
+	{0X611E9E11, &WrapU_UU<sceMpegQueryStreamSize>,            "sceMpegQueryStreamSize",             'x', "xx",HLE_CLEAR_STACK_BYTES, 0x8},
+	{0X42560F23, &WrapI_UUU<sceMpegRegistStream>,              "sceMpegRegistStream",                'i', "xxx" ,HLE_CLEAR_STACK_BYTES, 0x48},
+	{0X591A4AA2, &WrapU_UI<sceMpegUnRegistStream>,             "sceMpegUnRegistStream",              'x', "xi" ,HLE_CLEAR_STACK_BYTES, 0x18 },
 	{0X707B7629, &WrapU_U<sceMpegFlushAllStream>,              "sceMpegFlushAllStream",              'x', "x"      },
 	{0X500F0429, &WrapU_UI<sceMpegFlushStream>,                "sceMpegFlushStream",                 'x', "xi"     },
 	{0XA780CF7E, &WrapI_U<sceMpegMallocAvcEsBuf>,              "sceMpegMallocAvcEsBuf",              'i', "x"      },
 	{0XCEB870B1, &WrapI_UI<sceMpegFreeAvcEsBuf>,               "sceMpegFreeAvcEsBuf",                'i', "xi"     },
 	{0X167AFD9E, &WrapI_UUU<sceMpegInitAu>,                    "sceMpegInitAu",                      'i', "xxx"    },
-	{0X682A619B, &WrapU_V<sceMpegInit>,                        "sceMpegInit",                        'x', ""       },
-	{0X606A4649, &WrapI_U<sceMpegDelete>,                      "sceMpegDelete",                      'i', "x"      },
-	{0X874624D6, &WrapU_V<sceMpegFinish>,                      "sceMpegFinish",                      'x', ""       },
+	{0X682A619B, &WrapU_V<sceMpegInit>,                        "sceMpegInit",                        'x', "" ,HLE_CLEAR_STACK_BYTES, 0x48},
+	{0X606A4649, &WrapI_U<sceMpegDelete>,                      "sceMpegDelete",                      'i', "x",HLE_CLEAR_STACK_BYTES, 0x18},
+	{0X874624D6, &WrapU_V<sceMpegFinish>,                      "sceMpegFinish",                      'x', "" ,HLE_CLEAR_STACK_BYTES, 0x18},
 	{0X800C44DF, &WrapU_UUUI<sceMpegAtracDecode>,              "sceMpegAtracDecode",                 'x', "xxxi"   },
 	{0X0E3C2E9D, &WrapU_UUUUU<sceMpegAvcDecode>,               "sceMpegAvcDecode",                   'x', "xxxxx"  },
 	{0X740FCCD1, &WrapU_UUUU<sceMpegAvcDecodeStop>,            "sceMpegAvcDecodeStop",               'x', "xxxx"   },

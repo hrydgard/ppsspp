@@ -9,7 +9,6 @@ if(NOT ANDROID)
 endif()
 
 enable_language(ASM)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
@@ -25,7 +24,13 @@ endif()
 
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
-	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+		set(ARM64 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm64")
+		# M1 Mac
+		set(ARM64 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+		message("ARM_DEVICE is a go")
 		set(ARM_DEVICE ON)
 		if(UNIX AND NOT APPLE)
 			execute_process(COMMAND cat /proc/cpuinfo OUTPUT_VARIABLE OUTSTR)
@@ -43,8 +48,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 				set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -target armv7a-none-linux-android")
 			endif()
 		endif()
-	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
-		set(ARM64 ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^amd64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^AMD64")
 		set(X86_DEVICE ON)
 		set(X86_64_DEVICE ON)
@@ -56,8 +59,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
 endif()
-
-include(ccache)
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
 if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
@@ -77,6 +78,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
+	set(USING_EGL OFF)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
@@ -87,6 +89,16 @@ endif()
 if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+if(NOT (ARM64 AND MACOSX))
+	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
+endif()
+
+include(ccache)
+include(GNUInstallDirs)
+
+add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
 if(GOLD)
 	add_definitions(-DGOLD)
@@ -675,7 +687,7 @@ if(USE_FFMPEG)
 			elseif(IOS)
 				set(PLATFORM_ARCH "ios/universal")
 			elseif(MACOSX)
-				set(PLATFORM_ARCH "macosx/x86_64")
+				set(PLATFORM_ARCH "macosx/universal")
 			elseif(LINUX)
 				if(ARMV7)
 					set(PLATFORM_ARCH "linux/armv7")
@@ -846,6 +858,11 @@ else()
 			ext/libpng17/arm/filter_neon.S
 			ext/libpng17/arm/filter_neon_intrinsics.c
 		)
+	elseif(ARM64)
+		set(PNG_ARM_INCLUDES
+			ext/libpng17/arm/arm_init.c
+			ext/libpng17/arm/filter_neon_intrinsics.c
+		)
 	endif()
 	add_library(png17 STATIC
 		ext/libpng17/pngconf.h
@@ -1005,7 +1022,6 @@ elseif(TARGET SDL2::SDL2)
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
-	set(TargetBin PPSSPPSDL)
 elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
@@ -2086,8 +2102,8 @@ if(LIBRETRO)
 endif()
 
 if(TargetBin)
-	if(IOS OR APPLE)
-		if(APPLE AND NOT IOS)
+	if(APPLE)
+		if(NOT IOS)
 			set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
 			set(MACOSX_BUNDLE_ICON_FILE ppsspp.icns)
 			set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
@@ -2100,7 +2116,7 @@ if(TargetBin)
 		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
-		if(APPLE AND NOT IOS)
+		if(NOT IOS)
 			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
 			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
 			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
@@ -2108,10 +2124,10 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			list(APPEND NativeAssets ios/Settings.bundle)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard" "MoltenVK/iOS/Frameworks")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			file(INSTALL "${CMAKE_SOURCE_DIR}/MoltenVK/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
 			elseif(USING_QT_UI)
@@ -2169,10 +2185,42 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
 		RESOURCE "ios/Settings.bundle"
+		RESOURCE "MoltenVK/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+	)
+endif()
+
+if(UNIX AND NOT ANDROID AND NOT APPLE)
+	configure_file(
+		"${CMAKE_SOURCE_DIR}/ppsspp.desktop.in"
+		"${CMAKE_BINARY_DIR}/ppsspp.desktop"
+		@ONLY
+	)
+	install(
+		TARGETS ${TargetBin}
+		DESTINATION "${CMAKE_INSTALL_BINDIR}"
+	)
+	install(
+		DIRECTORY "${CMAKE_BINARY_DIR}/assets"
+		DESTINATION "${CMAKE_INSTALL_DATADIR}/ppsspp"
+		PATTERN ".git*" EXCLUDE
+	)
+	install(
+		FILES "${CMAKE_BINARY_DIR}/ppsspp.desktop"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications"
+		RENAME ${TargetBin}.desktop
+	)
+	install(
+		DIRECTORY "${CMAKE_SOURCE_DIR}/icons/hicolor"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons"
+	)
+	install(
+		FILES "${CMAKE_SOURCE_DIR}/icons/icon-512.svg"
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/pixmaps"
+		RENAME ppsspp.svg
 	)
 endif()

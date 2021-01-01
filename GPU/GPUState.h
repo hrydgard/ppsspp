@@ -482,7 +482,7 @@ enum {
 	GPU_SUPPORTS_32BIT_INT_FSHADER = FLAG_BIT(15),
 	GPU_SUPPORTS_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_SUPPORTS_VAO = FLAG_BIT(18),
+	// Free bit: 18,
 	GPU_SUPPORTS_COPY_IMAGE = FLAG_BIT(19),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
@@ -491,7 +491,7 @@ enum {
 	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
 	GPU_SUPPORTS_FRAMEBUFFER_BLIT = FLAG_BIT(26),
 	GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH = FLAG_BIT(27),
-	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(28),
+	GPU_SUPPORTS_TEXTURE_NPOT = FLAG_BIT(28),
 	GPU_NEEDS_Z_EQUAL_W_HACK = FLAG_BIT(29),
 	// Free bit: 30
 	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
@@ -502,6 +502,14 @@ struct KnownVertexBounds {
 	u16 minV;
 	u16 maxU;
 	u16 maxV;
+};
+
+enum class SubmitType {
+	DRAW,
+	BEZIER,
+	SPLINE,
+	HW_BEZIER,
+	HW_SPLINE,
 };
 
 struct GPUStateCache {
@@ -602,8 +610,8 @@ struct GPUStateCache {
 	}
 	u32 curRTOffsetX;
 
-	bool bezier;
-	bool spline;
+	// Set if we are doing hardware bezier/spline.
+	SubmitType submitType;
 	int spline_num_points_u;
 
 	bool useShaderDepal;

@@ -141,7 +141,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 #endif
 
 	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
-	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	if (draw_->GetDeviceCaps().dualSourceBlend)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)

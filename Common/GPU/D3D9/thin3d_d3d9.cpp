@@ -520,7 +520,9 @@ public:
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	// color must be 0, for now.
+	Framebuffer *GetCurrentRenderTarget() override {
+		return curRenderTarget_;
+	}
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
@@ -615,6 +617,7 @@ private:
 	int curVBufferOffsets_[4]{};
 	D3D9Buffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
+	Framebuffer *curRenderTarget_ = nullptr;
 
 	// Framebuffer state
 	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
@@ -1139,9 +1142,11 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 		device_->SetRenderTarget(0, fb->surf);
 		device_->SetDepthStencilSurface(fb->depthstencil);
+		curRenderTarget_ = fb;
 	} else {
 		device_->SetRenderTarget(0, deviceRTsurf);
 		device_->SetDepthStencilSurface(deviceDSsurf);
+		curRenderTarget_ = nullptr;
 	}
 
 	int clearFlags = 0;

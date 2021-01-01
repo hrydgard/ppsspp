@@ -277,10 +277,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 	}
 }
 
-void FramebufferManagerD3D11::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// Nothing to do here.
-}
-
 void FramebufferManagerD3D11::SimpleBlit(
 	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2, bool linearFilter) {
@@ -335,7 +331,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
 }
 
-void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
+void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		if (useBufferedRendering_) {
@@ -377,6 +373,8 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		dst->fbo, dstX1, dstY1, dstX2, dstY2,
 		srcFBO, srcX1, srcY1, srcX2, srcY2,
 		false);
+
+	draw_->BindTexture(0, nullptr);
 }
 
 // Nobody calls this yet.

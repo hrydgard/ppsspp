@@ -139,6 +139,7 @@ protected:
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_;
 	bool confirmedTemporary_ = false;
+	UI::ScrollView *scrollAllGames_ = nullptr;
 
 	friend class RemoteISOBrowseScreen;
 };

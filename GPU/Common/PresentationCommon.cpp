@@ -470,7 +470,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 	bool translationFailed = false;
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
-		if (!TranslateShader(&translated, lang_, nullptr, src, lang, stage, errorString)) {
+		if (!TranslateShader(&translated, lang_, draw_->GetShaderLanguageDesc(), nullptr, src, lang, stage, errorString)) {
 			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader: %s", errorString->c_str());
 			return nullptr;
 		}

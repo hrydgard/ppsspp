@@ -71,6 +71,9 @@ public:
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
 	void ClearCodeSpace(int offset) {
+		if (!region) {
+			return;
+		}
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		}

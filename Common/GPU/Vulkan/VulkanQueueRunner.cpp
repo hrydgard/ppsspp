@@ -8,6 +8,23 @@
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
+static void MergeRenderAreaRectInto(VkRect2D *dest, VkRect2D &src) {
+	if (dest->offset.x > src.offset.x) {
+		dest->extent.width += (dest->offset.x - src.offset.x);
+		dest->offset.x = src.offset.x;
+	}
+	if (dest->offset.y > src.offset.y) {
+		dest->extent.height += (dest->offset.y - src.offset.y);
+		dest->offset.y = src.offset.y;
+	}
+	if (dest->extent.width < src.extent.width) {
+		dest->extent.width = src.extent.width;
+	}
+	if (dest->extent.height < src.extent.height) {
+		dest->extent.height = src.extent.height;
+	}
+}
+
 void VulkanQueueRunner::CreateDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
@@ -304,6 +321,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 						steps[i]->render.stencil = VKRRenderPassAction::CLEAR;
 						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
 					}
+					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
+
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
@@ -678,6 +697,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		// Also slurp up any pretransitions.
 		dst->preTransitions.insert(dst->preTransitions.end(), src->preTransitions.begin(), src->preTransitions.end());
 		dst->commands.insert(dst->commands.end(), src->commands.begin(), src->commands.end());
+		MergeRenderAreaRectInto(&dst->render.renderArea, src->render.renderArea);
 		// So we don't consider it for other things, maybe doesn't matter.
 		src->dependencies.clear();
 		src->stepType = VKRStepType::RENDER_SKIP;
@@ -1214,12 +1234,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
-	VkPipeline lastPipeline = VK_NULL_HANDLE;
-
 	auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
 	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.
+	// Might also want to consider scissor and viewport.
+	VkPipeline lastPipeline = VK_NULL_HANDLE;
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;

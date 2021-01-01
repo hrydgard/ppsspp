@@ -281,6 +281,8 @@ bool PlatformIsWXExclusive() {
 	// This might also come in useful for UWP (Universal Windows Platform) if I'm understanding things correctly.
 #if defined(IOS) || PPSSPP_PLATFORM(UWP) || defined(__OpenBSD__)
 	return true;
+#elif PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
+	return true;
 #else
 	// Returning true here lets you test the W^X path on Windows and other non-W^X platforms.
 	return false;

@@ -222,6 +222,7 @@ enum class GPUVendor {
 	VENDOR_IMGTEC,  // PowerVR
 	VENDOR_BROADCOM,  // Raspberry
 	VENDOR_VIVANTE,
+	VENDOR_APPLE,
 };
 
 enum class NativeObject {
@@ -314,6 +315,7 @@ public:
 		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
 		BROKEN_NAN_IN_CONDITIONAL = 4,
 		COLORWRITEMASK_BROKEN_WITH_DEPTHTEST = 5,
+		BROKEN_FLAT_IN_SHADER = 6,
 	};
 
 protected:
@@ -578,6 +580,7 @@ public:
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
+	virtual Framebuffer *GetCurrentRenderTarget() = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;

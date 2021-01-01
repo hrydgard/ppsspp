@@ -249,7 +249,6 @@ protected:
 //Microphone only
 	u8 *resampleBuf = nullptr;
 	u32 resampleBufSize = 0;
-	QueueBuf *rawAudioBuf = nullptr;
 };
 
 extern WindowsCaptureDevice *winCamera;

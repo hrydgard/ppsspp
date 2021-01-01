@@ -22,6 +22,9 @@ public:
 	void SetPath(const std::string &path);
 	bool IsListingReady();
 	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
+
+	bool CanNavigateUp();
+	void NavigateUp();
 	void Navigate(const std::string &path);
 
 	std::string GetPath() const {
@@ -30,19 +33,7 @@ public:
 		else
 			return "";
 	}
-	std::string GetFriendlyPath() const {
-		std::string str = GetPath();
-#if defined(__ANDROID__)
-		// Do nothing
-#elif defined(__linux)
-		char *home = getenv("HOME");
-		if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
-			str = str.substr(strlen(home));
-			str.insert(0, 1, '~');
-		}
-#endif
-		return str;
-	}
+	std::string GetFriendlyPath() const;
 
 private:
 	void HandlePath();

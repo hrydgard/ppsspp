@@ -205,7 +205,9 @@ void UpdateRunLoop() {
 		return;
 	}
 	NativeUpdate();
-	NativeRender(graphicsContext);
+	if (GetUIState() != UISTATE_EXIT) {
+		NativeRender(graphicsContext);
+	}
 }
 
 void KeepScreenAwake() {

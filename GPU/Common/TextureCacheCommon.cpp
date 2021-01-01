@@ -617,6 +617,8 @@ int TextureCacheCommon::GetBestCandidateIndex(const std::vector<AttachCandidate>
 		case FramebufferMatch::VALID:
 			relevancy += 1000;
 			break;
+		default:
+			break;
 		}
 
 		// Bonus point for matching stride.
@@ -792,6 +794,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		}
 		break;
 	}
+	default:
+		break;
 	}
 }
 
@@ -959,10 +963,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	FramebufferMatchInfo fbInfo = candidate.match;
 
 	if (candidate.match.reinterpret) {
-		// TODO: Kinda ugly, maybe switch direction of the call?
 		GEBufferFormat oldFormat = candidate.fb->format;
 		candidate.fb->format = candidate.match.reinterpretTo;
-		framebufferManager_->ReinterpretFramebufferFrom(candidate.fb, oldFormat);
+		framebufferManager_->ReinterpretFramebuffer(candidate.fb, oldFormat, candidate.match.reinterpretTo);
 	}
 
 	_dbg_assert_msg_(framebuffer != nullptr, "Framebuffer must not be null.");
@@ -1043,37 +1046,33 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor;
 
-	if (g_Config.bTexHardwareScaling && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		scaleFactor = 4;
+	// 0 means automatic texture scaling, up to 5x, based on resolution.
+	if (g_Config.iTexScalingLevel == 0) {
+		scaleFactor = g_Config.iInternalResolution;
+		// Automatic resolution too?  Okay.
+		if (scaleFactor == 0) {
+			if (!g_Config.IsPortrait()) {
+				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
+			} else {
+				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+			}
+		}
+
+		scaleFactor = std::min(5, scaleFactor);
 	} else {
-		// 0 means automatic texture scaling, up to 5x, based on resolution.
-		if (g_Config.iTexScalingLevel == 0) {
-			scaleFactor = g_Config.iInternalResolution;
-			// Automatic resolution too?  Okay.
-			if (scaleFactor == 0) {
-				if (!g_Config.IsPortrait()) {
-					scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
-				} else {
-					scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
-				}
-			}
+		scaleFactor = g_Config.iTexScalingLevel;
+	}
 
-			scaleFactor = std::min(6, scaleFactor);
-		} else {
-			scaleFactor = g_Config.iTexScalingLevel;
+	if (!gstate_c.Supports(GPU_SUPPORTS_TEXTURE_NPOT)) {
+		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
+		while ((scaleFactor & (scaleFactor - 1)) != 0) {
+			--scaleFactor;
 		}
+	}
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-			// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
-			while ((scaleFactor & (scaleFactor - 1)) != 0) {
-				--scaleFactor;
-			}
-		}
-
-		// Just in case, small display with auto resolution or something.
-		if (scaleFactor <= 0) {
-			scaleFactor = 1;
-		}
+	// Just in case, small display with auto resolution or something.
+	if (scaleFactor <= 0) {
+		scaleFactor = 1;
 	}
 
 	standardScaleFactor_ = scaleFactor;
@@ -1866,6 +1865,6 @@ std::string TextureCacheCommon::GetTextureReplacementInfo(u32 texAddr) {
 			break;
 		}
 	}
-	NOTICE_LOG(G3D, "Filename for replacement(Address, Clut Hash, Texture Hash): %s",filename.c_str());
+	NOTICE_LOG(G3D, "Filename for replacement(Address, Clut Hash, Texture Hash): %s", filename.c_str());
 	return filename;
 }

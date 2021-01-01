@@ -83,6 +83,8 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 		case ShaderStage::Fragment:
 			W(vulkan_glsl_preamble_fs);
 			break;
+		default:
+			break;
 		}
 		break;
 	case HLSL_D3D11:
@@ -98,6 +100,8 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 			} else {
 				W(hlsl_d3d11_preamble_fs);
 			}
+			break;
+		default:
 			break;
 		}
 		break;
@@ -124,6 +128,8 @@ void ShaderWriter::Preamble(const char **gl_extensions, size_t num_gl_extensions
 				C("precision highp float;\n");
 			}
 			C("#define gl_VertexIndex gl_VertexID\n");
+			break;
+		default:
 			break;
 		}
 		if (!lang_.gles) {
@@ -292,6 +298,8 @@ void ShaderWriter::DeclareSampler2D(const char *name, int binding) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
 		F("SamplerState %s : register(s%d);\n", name, binding);
+		break;
+	default:
 		break;
 	}
 }

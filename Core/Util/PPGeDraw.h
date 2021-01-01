@@ -28,8 +28,15 @@ class PointerWrap;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // PPGeDraw: Super simple internal drawing API for 2D overlays like sceUtility messageboxes
-// etc. Goes through the Ge emulation so that it's 100% portable - will work
-// splendidly on any existing GPU backend, including the future software backend.
+// etc. Goes through the Ge emulation so that it doesn't need to care about backends.
+//
+// It does need a thin3d Draw-context but only for text rendering.
+
+namespace Draw {
+class DrawContext;
+}
+
+void PPGeSetDrawContext(Draw::DrawContext *draw);
 
 // Uploads the necessary texture atlas and other data to kernel RAM, and reserves
 // space for the display list. The PSP must be inited.

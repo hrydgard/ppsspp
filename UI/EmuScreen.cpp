@@ -49,6 +49,7 @@
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/KeyMap.h"
+#include "Core/MemFault.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -1048,6 +1049,9 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
+	resumeButton_ = root_->Add(new Button(dev->T("Resume"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true)));
+	resumeButton_->OnClick.Handle(this, &EmuScreen::OnResume);
+	resumeButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
@@ -1158,15 +1162,29 @@ UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
-	if (chatButtons->GetVisibility() == UI::V_VISIBLE) chatButtons->SetVisibility(UI::V_GONE);
+UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
+	if (chatButtons->GetVisibility() == UI::V_VISIBLE) {
+		chatButtons->SetVisibility(UI::V_GONE);
+	}
 	screenManager()->push(new ChatMenu());
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
+	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+		// Force it!
+		Memory::MemFault_IgnoreLastCrash();
+		coreState = CoreState::CORE_RUNNING;
+	}
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
+	using namespace UI;
+
 	UIScreen::update();
-	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? UI::Visibility::V_VISIBLE : UI::Visibility::V_GONE);
+	onScreenMessagesView_->SetVisibility(g_Config.bShowOnScreenMessages ? V_VISIBLE : V_GONE);
+	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 
 	if (bootPending_) {
 		bootGame(gamePath_);
@@ -1281,6 +1299,15 @@ static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
+static const char *CPUCoreAsString(int core) {
+	switch (core) {
+	case 0: return "Interpreter";
+	case 1: return "JIT";
+	case 2: return "IR Interpreter";
+	default: return "N/A";
+	}
+}
+
 static void DrawCrashDump(DrawBuffer *draw2d) {
 	const ExceptionInfo &info = Core_GetExceptionInfo();
 
@@ -1292,26 +1319,28 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	// TODO: Draw a lot more information. Full register set, and so on.
 
 #ifdef _DEBUG
-	char build[] = "Debug";
+	char build[] = "debug";
 #else
-	char build[] = "Release";
+	char build[] = "release";
 #endif
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 Game ID (Title): %s (%s)
-PPSSPP build: %s (%s)
-ABI: %s
+%s (%s)
+%s v%d (%s)
 )",
 		ExceptionTypeAsString(info.type),
-		g_paramSFO.GetDiscID().c_str(),
-		g_paramSFO.GetValueString("TITLE").c_str(),
-		versionString,
-		build,
-		GetCompilerABI()
+		g_paramSFO.GetDiscID().c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
+		versionString, build,
+		sysName.c_str(), sysVersion, GetCompilerABI()
 	);
 
 	draw2d->SetFontScale(.7f, .7f);
-	int x = 20;
-	int y = 50;
+	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	int y = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 140;
 
@@ -1346,6 +1375,18 @@ BREAK
 	std::string kernelState = __KernelStateSummary();
 
 	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+
+	// Draw some additional stuff to the right.
+	snprintf(statbuf, sizeof(statbuf),
+		"CPU Core: %s\n"
+		"Locked CPU freq: %d MHz\n",
+		CPUCoreAsString(g_Config.iCpuCore),
+		g_Config.iLockedCPUSpeed);
+
+	x += 400;
+	y = 50;
+
+	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {

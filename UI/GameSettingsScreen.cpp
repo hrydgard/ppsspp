@@ -372,7 +372,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// Hide insets option if no insets, or OS too old.
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29 &&
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28 &&
 		(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
@@ -630,7 +630,8 @@ void GameSettingsScreen::CreateViews() {
 	altVolume->SetNegativeDisable(a->T("Use global volume"));
 
 	if (!g_Config.bSimpleUI) {
-#ifdef _WIN32
+	// Hide the backend selector in UWP builds (we only support XAudio2 there).
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (IsVistaOrHigher()) {
 		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
 		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
@@ -639,7 +640,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
-	if (micList.size() >= 1) {
+	if (!micList.empty()) {
 		audioSettings->Add(new ItemHeader(a->T("Microphone")));
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, nullptr, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
@@ -1712,6 +1713,12 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 
+	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
+	// you to descend into directories.
+#if PPSSPP_PLATFORM(IOS)
+	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
+#endif
+
 #if !defined(MOBILE_DEVICE)
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
@@ -1874,6 +1881,24 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
+	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+
+	std::vector<FileInfo> files;
+	getFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
+
+	for (const FileInfo &file : files) {
+		std::string src = file.fullName;
+		std::string dst = root_dir + file.name;
+		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
+		File::Copy(src, dst);
+	}
+
+	return UI::EVENT_DONE;
+}
+
 
 UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {

@@ -15,6 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// TODO: We now have the tools in thin3d to nearly eliminate the backend-specific framebuffer managers.
+// Here's a list of functionality to unify into FramebufferManagerCommon:
+// * DrawActiveTexture
+// * BlitFramebuffer
+// * StencilBuffer*.cpp
+//
+// Also, in TextureCache we should be able to unify texture-based depal.
+
 #pragma once
 
 #include <set>
@@ -131,7 +139,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 enum BindFramebufferColorFlags {
 	BINDFBCOLOR_SKIP_COPY = 0,
 	BINDFBCOLOR_MAY_COPY = 1,
-	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
+	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,  // includes BINDFBCOLOR_MAY_COPY
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
@@ -322,7 +330,7 @@ public:
 	const std::vector<VirtualFramebuffer *> &Framebuffers() {
 		return vfbs_;
 	}
-	void ReinterpretFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
+	void ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat);
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -337,7 +345,7 @@ protected:
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) = 0;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) = 0;
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
@@ -356,7 +364,7 @@ protected:
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
-	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {}
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 

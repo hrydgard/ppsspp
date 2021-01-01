@@ -265,7 +265,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
 		uint32_t attributeMask = 0;  // Not used
-		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString);
+		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &genErrorString);
 		_assert_(success);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
@@ -278,7 +278,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, &uniformMask, &genErrorString);
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &genErrorString);
 		_assert_(success);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
@@ -398,7 +398,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		std::string genErrorString;
 		uint32_t attributeMask = 0;
 		uint64_t uniformMask = 0;
-		if (!GenerateVertexShader(id, codeBuffer_, compat_, &attributeMask, &uniformMask, &genErrorString)) {
+		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
@@ -414,7 +414,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
-		if (!GenerateFragmentShader(id, codeBuffer_, compat_, &uniformMask, &genErrorString)) {
+		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &genErrorString)) {
 			return false;
 		}
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
