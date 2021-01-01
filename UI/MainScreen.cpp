@@ -68,11 +68,6 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
 #include <sstream>
 
 bool MainScreen::showHomebrewTab = false;
@@ -1371,12 +1366,6 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
-
-#ifdef __ANDROID__
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
-#endif
 
 	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;

@@ -696,10 +696,6 @@ $(call import-module,libzip)
 $(call import-module,glslang-build)
 $(call import-module,miniupnp-build)
 
-ifeq ($(ANDROID_NDK_PROFILER),1)
-  $(call import-module,android-ndk-profiler)
-endif
-
 jni/$(SRC)/git-version.cpp:
 	-./git-version-gen.sh
 	-..\Windows\git-version-gen.cmd
