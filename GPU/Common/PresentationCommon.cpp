@@ -204,7 +204,7 @@ static std::string ReadShaderSrc(const std::string &filename) {
 		return "";
 
 	std::string src(data, sz);
-	free(data);
+	delete[] data;
 	return src;
 }
 

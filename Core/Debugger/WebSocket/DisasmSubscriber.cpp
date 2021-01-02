@@ -262,7 +262,7 @@ uint32_t WebSocketDisasmState::RoundAddressUp(uint32_t addr) {
 //  - addressHex: string indicating base address in hexadecimal (may be 64 bit.)
 void WebSocketDisasmState::Base(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
-	json.writeString("addressHex", StringFromFormat("%016llx", Memory::base));
+	json.writeString("addressHex", StringFromFormat("%016llx", (uintptr_t)Memory::base));
 }
 
 // Disassemble a range of memory as CPU instructions (memory.disasm)
