@@ -61,7 +61,7 @@ bool GPU_IsReady() {
 
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	const auto &gpuCore = PSP_CoreParameter().gpuCore;
-	_assert_(draw || gpuCore == GPUCORE_NULL);
+	_assert_(draw || gpuCore == GPUCORE_NULL || gpuCore == GPUCORE_SOFTWARE);
 #if PPSSPP_PLATFORM(UWP)
 	if (gpuCore == GPUCORE_SOFTWARE) {
 		SetGPU(new SoftGPU(ctx, draw));

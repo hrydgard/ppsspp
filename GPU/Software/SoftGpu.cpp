@@ -69,29 +69,33 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
-	presentation_ = new PresentationCommon(draw_);
 
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
-		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
-		break;
-	case GPUBackend::DIRECT3D9:
-		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_D3D9);
-		break;
-	case GPUBackend::DIRECT3D11:
-		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_D3D11);
-		break;
-	case GPUBackend::VULKAN:
-		presentation_->SetLanguage(GLSL_VULKAN);
-		break;
+	if (gfxCtx && draw) {
+		presentation_ = new PresentationCommon(draw_);
+
+		switch (GetGPUBackend()) {
+		case GPUBackend::OPENGL:
+			presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
+			break;
+		case GPUBackend::DIRECT3D9:
+			ShaderTranslationInit();
+			presentation_->SetLanguage(HLSL_D3D9);
+			break;
+		case GPUBackend::DIRECT3D11:
+			ShaderTranslationInit();
+			presentation_->SetLanguage(HLSL_D3D11);
+			break;
+		case GPUBackend::VULKAN:
+			presentation_->SetLanguage(GLSL_VULKAN);
+			break;
+		}
 	}
 	Resized();
 }
 
 void SoftGPU::DeviceLost() {
-	presentation_->DeviceLost();
+	if (presentation_)
+		presentation_->DeviceLost();
 	draw_ = nullptr;
 	if (fbTex) {
 		fbTex->Release();
@@ -100,8 +104,10 @@ void SoftGPU::DeviceLost() {
 }
 
 void SoftGPU::DeviceRestore() {
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	presentation_->DeviceRestore(draw_);
+	if (PSP_CoreParameter().graphicsContext)
+		draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	if (presentation_)
+		presentation_->DeviceRestore(draw_);
 	PPGeSetDrawContext(draw_);
 }
 
@@ -111,15 +117,17 @@ SoftGPU::~SoftGPU() {
 		fbTex = nullptr;
 	}
 
-	delete presentation_;
-	switch (GetGPUBackend()) {
-	case GPUBackend::DIRECT3D9:
-	case GPUBackend::DIRECT3D11:
-		ShaderTranslationShutdown();
-		break;
-	case GPUBackend::OPENGL:
-	case GPUBackend::VULKAN:
-		break;
+	if (presentation_) {
+		delete presentation_;
+		switch (GetGPUBackend()) {
+		case GPUBackend::DIRECT3D9:
+		case GPUBackend::DIRECT3D11:
+			ShaderTranslationShutdown();
+			break;
+		case GPUBackend::OPENGL:
+		case GPUBackend::VULKAN:
+			break;
+		}
 	}
 
 	Sampler::Shutdown();
@@ -171,7 +179,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
-	if (!draw_)
+	if (!draw_ || !presentation_)
 		return;
 	float u0 = 0.0f;
 	float u1;
@@ -200,7 +208,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	bool hasImage = true;
 
 	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
-	bool hasPostShader = presentation_->HasPostShader();
+	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
 		u8 *data = Memory::GetPointer(0x04088000);
@@ -300,8 +308,10 @@ void SoftGPU::Resized() {
 		PSP_CoreParameter().renderHeight = 272;
 	}
 
-	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-	presentation_->UpdatePostShader();
+	if (presentation_) {
+		presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		presentation_->UpdatePostShader();
+	}
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
