@@ -99,8 +99,7 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # GitHub Actions runners don't have graphics.
-      run: python test.py --graphics=null
+      run: python test.py --graphics=software
 
   build:
     strategy:
@@ -275,5 +274,4 @@ jobs:
 
     - name: Execute tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # GitHub Actions runners don't have graphics.
-      run: python test.py --graphics=null
+      run: python test.py --graphics=software
