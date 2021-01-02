@@ -87,16 +87,6 @@ public:
 	const char *Ident() override { return "Software"; }
 };
 
-class LibretroNullContext : public LibretroGraphicsContext {
-public:
-	LibretroNullContext() {}
-
-	bool Init() override { return true; }
-	void SwapBuffers() override { video_cb(NULL, 0, 0, 0); }
-	GPUCore GetGPUCore() override { return GPUCORE_NULL; }
-	const char *Ident() override { return "NULL"; }
-};
-
 namespace Libretro {
 extern LibretroGraphicsContext *ctx;
 extern retro_environment_t environ_cb;

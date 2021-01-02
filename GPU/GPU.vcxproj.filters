@@ -10,9 +10,6 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Null">
-      <UniqueIdentifier>{b31aa5a1-da08-47e6-9467-ab1d547b6ff3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DirectX9">
       <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
     </Filter>
@@ -35,9 +32,6 @@
     </ClInclude>
     <ClInclude Include="GPUInterface.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Null\NullGpu.h">
-      <Filter>Null</Filter>
     </ClInclude>
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
@@ -277,9 +271,6 @@
     </ClCompile>
     <ClCompile Include="GPUState.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Null\NullGpu.cpp">
-      <Filter>Null</Filter>
     </ClCompile>
     <ClCompile Include="GPUCommon.cpp">
       <Filter>Common</Filter>

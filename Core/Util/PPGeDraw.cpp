@@ -219,7 +219,7 @@ void __PPGeSetupListArgs()
 
 void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = PSP_CoreParameter().gpuCore == GPUCORE_NULL || host->ShouldSkipUI();
+	bool skipZIM = host->ShouldSkipUI();
 
 	u8 *imageData[12]{};
 	int width[12]{};

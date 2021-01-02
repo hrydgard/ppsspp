@@ -86,7 +86,7 @@ bool RunTests() {
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
-	coreParam.gpuCore = GPUCORE_NULL;
+	coreParam.gpuCore = GPUCORE_SOFTWARE;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.graphicsContext = nullptr;
 	coreParam.mountIso = "";

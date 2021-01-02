@@ -346,7 +346,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
-  $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \

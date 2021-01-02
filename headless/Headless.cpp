@@ -128,7 +128,7 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPUCORE_NULL:
+	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
 	default:
@@ -228,7 +228,7 @@ int main(int argc, const char* argv[])
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPUCORE_NULL;
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 
 	std::vector<std::string> testFilenames;
@@ -268,7 +268,8 @@ int main(int argc, const char* argv[])
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
 				gpuCore = GPUCORE_GLES;
-			else if (!strcasecmp(gpuName, "software"))
+			// There used to be a separate "null" rendering core - just use software.
+			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
@@ -276,8 +277,6 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
-			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
@@ -338,7 +337,7 @@ int main(int argc, const char* argv[])
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
