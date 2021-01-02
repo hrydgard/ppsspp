@@ -129,6 +129,7 @@ int printUsage(const char *progname, const char *reason)
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
 	case GPUCORE_NULL:
+	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
 	default:
@@ -228,7 +229,7 @@ int main(int argc, const char* argv[])
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPUCORE_NULL;
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 
 	std::vector<std::string> testFilenames;
@@ -338,7 +339,7 @@ int main(int argc, const char* argv[])
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
