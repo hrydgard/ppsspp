@@ -128,7 +128,6 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPUCORE_NULL:
 	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
@@ -269,7 +268,8 @@ int main(int argc, const char* argv[])
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
 				gpuCore = GPUCORE_GLES;
-			else if (!strcasecmp(gpuName, "software"))
+			// There used to be a separate "null" rendering core - just use software.
+			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
@@ -277,8 +277,6 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
-			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}

@@ -23,7 +23,6 @@
 #include "Core/Config.h"
 
 enum GPUCore {
-	GPUCORE_NULL,
 	GPUCORE_GLES,
 	GPUCORE_SOFTWARE,
 	GPUCORE_DIRECTX9,

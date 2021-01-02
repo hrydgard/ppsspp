@@ -91,7 +91,6 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 	WindowsGraphicsContext *graphicsContext = nullptr;
 	bool needRenderThread = false;
 	switch (gpuCore_) {
-	case GPUCORE_NULL:
 	case GPUCORE_GLES:
 #if PPSSPP_API(ANY_GL)
 	case GPUCORE_SOFTWARE:

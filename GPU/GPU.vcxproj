@@ -452,7 +452,6 @@
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
-    <ClInclude Include="Null\NullGpu.h" />
     <ClInclude Include="Software\Clipper.h" />
     <ClInclude Include="Software\Lighting.h" />
     <ClInclude Include="Software\Rasterizer.h" />
@@ -628,7 +627,6 @@
     <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
-    <ClCompile Include="Null\NullGpu.cpp" />
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\Lighting.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />

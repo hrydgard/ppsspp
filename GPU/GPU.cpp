@@ -28,7 +28,6 @@
 #include "GPU/GLES/GPU_GLES.h"
 #endif
 #include "GPU/Vulkan/GPU_Vulkan.h"
-#include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
 #if PPSSPP_API(D3D9)
@@ -61,7 +60,7 @@ bool GPU_IsReady() {
 
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	const auto &gpuCore = PSP_CoreParameter().gpuCore;
-	_assert_(draw || gpuCore == GPUCORE_NULL || gpuCore == GPUCORE_SOFTWARE);
+	_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
 #if PPSSPP_PLATFORM(UWP)
 	if (gpuCore == GPUCORE_SOFTWARE) {
 		SetGPU(new SoftGPU(ctx, draw));
@@ -71,9 +70,6 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	return true;
 #else
 	switch (gpuCore) {
-	case GPUCORE_NULL:
-		SetGPU(new NullGPU());
-		break;
 	case GPUCORE_GLES:
 		// Disable GLES on ARM Windows (but leave it enabled on other ARM platforms).
 #if PPSSPP_API(ANY_GL)
