@@ -25,13 +25,14 @@
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Core/Core.h"
+#include "Core/Util/PPGeDraw.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 
@@ -101,6 +102,7 @@ void SoftGPU::DeviceLost() {
 void SoftGPU::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	presentation_->DeviceRestore(draw_);
+	PPGeSetDrawContext(draw_);
 }
 
 SoftGPU::~SoftGPU() {
