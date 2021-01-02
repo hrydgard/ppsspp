@@ -60,12 +60,17 @@ bool GPU_IsReady() {
 }
 
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
-	_assert_(draw || PSP_CoreParameter().gpuCore == GPUCORE_NULL);
+	const auto &gpuCore = PSP_CoreParameter().gpuCore;
+	_assert_(draw || gpuCore == GPUCORE_NULL);
 #if PPSSPP_PLATFORM(UWP)
-	SetGPU(new GPU_D3D11(ctx, draw));
+	if (gpuCore == GPUCORE_SOFTWARE) {
+		SetGPU(new SoftGPU(ctx, draw));
+	} else {
+		SetGPU(new GPU_D3D11(ctx, draw));
+	}
 	return true;
 #else
-	switch (PSP_CoreParameter().gpuCore) {
+	switch (gpuCore) {
 	case GPUCORE_NULL:
 		SetGPU(new NullGPU());
 		break;
