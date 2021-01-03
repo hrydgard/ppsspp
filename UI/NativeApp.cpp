@@ -946,14 +946,12 @@ void NativeShutdownGraphics() {
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
-		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
-		while (!winCamera->isShutDown()) {};// Wait for shutting down.
+		winCamera->waitShutDown();
 		delete winCamera;
 		winCamera = nullptr;
 	}
 	if (winMic) {
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
-		while (!winMic->isShutDown()) {};// Wait for shutting down.
+		winMic->waitShutDown();
 		delete winMic;
 		winMic = nullptr;
 	}

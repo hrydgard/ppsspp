@@ -854,6 +854,21 @@ CAPTUREDEVIDE_MESSAGE WindowsCaptureDevice::getMessage() {
 	return message;
 }
 
+void WindowsCaptureDevice::updateState(const CAPTUREDEVIDE_STATE &newState) {
+	std::unique_lock<std::mutex> guard(stateMutex_);
+	state = newState;
+	stateCond_.notify_all();
+}
+
+void WindowsCaptureDevice::waitShutDown() {
+	sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
+
+	std::unique_lock<std::mutex> guard(stateMutex_);
+	while (!isShutDown()) {
+		stateCond_.wait(guard);
+	}
+}
+
 void WindowsCaptureDevice::messageHandler() {
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	MFStartup(MF_VERSION);
