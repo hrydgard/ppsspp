@@ -421,14 +421,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
 	if (colorWriteMask && !hasPackUnorm4x8) {
 		WRITE(p, "uint packUnorm4x8(vec4 v) {\n");
-		WRITE(p, "  v = clamp(v, 0.0, 1.0);\n");
-		WRITE(p, "  uvec4 u = uvec4(255.0 * v);\n");
+		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
+		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
 		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");
 		WRITE(p, "}\n");
 
-		WRITE(p, "vec4 unpackUnorm4x8(uint x) {\n");
-		WRITE(p, "  uvec4 u = uvec4(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU, (x >> 24) & 0xFFU);\n");
-		WRITE(p, "  return vec4(u) * (1.0 / 255.0);\n");
+		WRITE(p, "vec4 unpackUnorm4x8(highp uint x) {\n");
+		WRITE(p, "  highp uvec4 u = uvec4(x & 0xFFU, (x >> 8) & 0xFFU, (x >> 16) & 0xFFU, (x >> 24) & 0xFFU);\n");
+		WRITE(p, "  highp vec4 f = vec4(u);\n");
+		WRITE(p, "  return f * (1.0 / 255.0);\n");
 		WRITE(p, "}\n");
 	}
 
