@@ -136,7 +136,6 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	if (FAILED(hr)) {
-
 		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
 		auto err = GetI18NCategory("Error");
 
@@ -285,12 +284,20 @@ void D3D11Context::Shutdown() {
 	context_ = nullptr;
 
 #ifdef _DEBUG
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
-	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
-	d3dDebug_->Release();
-	d3dInfoQueue_->Release();
+	if (d3dInfoQueue_) {
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
+	}
+	if (d3dDebug_) {
+		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+		d3dDebug_->Release();
+		d3dDebug_ = nullptr;
+	}
+	if (d3dInfoQueue_) {
+		d3dInfoQueue_->Release();
+		d3dInfoQueue_ = nullptr;
+	}
 #endif
 
 	hWnd_ = nullptr;
