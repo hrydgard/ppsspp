@@ -240,6 +240,8 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	}
 
 	std::string vsError, fsError;
+
+	// All post shaders are written in GLSL 1.0 so that's what we pass in here as a "from" language.
 	Draw::ShaderModule *vs = CompileShaderModule(ShaderStage::Vertex, GLSL_1xx, vsSourceGLSL, &vsError);
 	Draw::ShaderModule *fs = CompileShaderModule(ShaderStage::Fragment, GLSL_1xx, fsSourceGLSL, &fsError);
 
@@ -471,7 +473,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
 		if (!TranslateShader(&translated, lang_, draw_->GetShaderLanguageDesc(), nullptr, src, lang, stage, errorString)) {
-			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader: %s", errorString->c_str());
+			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader. Error string: '%s'\nSource code:\n%s\n", errorString->c_str(), src.c_str());
 			return nullptr;
 		}
 	}

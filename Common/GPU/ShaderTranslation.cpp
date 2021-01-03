@@ -75,11 +75,6 @@ void ShaderTranslationShutdown() {
 #endif
 }
 
-std::string Preprocess(std::string code, ShaderLanguage lang, ShaderStage stage) {
-	// This takes GL up to the version we need.
-	return code;
-}
-
 struct Builtin {
 	const char *needle;
 	const char *replacement;
@@ -218,7 +213,10 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 }
 
 bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLanguageDesc &desc, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, ShaderStage stage, std::string *errorMessage) {
+	_assert_(errorMessage != nullptr);
+
 	if (srcLang != GLSL_3xx && srcLang != GLSL_1xx) {
+		*errorMessage = StringFromFormat("Bad src shader language: %s", ShaderLanguageAsString(srcLang));
 		return false;
 	}
 
@@ -227,13 +225,13 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
 	}
-	if (errorMessage) {
-		*errorMessage = "";
-	}
 
 #if PPSSPP_PLATFORM(UWP)
+	*errorMessage = "No shader translation available (UWP)";
 	return false;
 #endif
+
+	*errorMessage = "";
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
@@ -247,17 +245,12 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	EShLanguage shaderStage = GetLanguage(stage);
 	glslang::TShader shader(shaderStage);
 
-	std::string preprocessed = Preprocess(src, srcLang, stage);
-
 	shaderStrings[0] = src.c_str();
 	shader.setStrings(shaderStrings, 1);
+
+	// TODO: Should set settings here based on srcLang.
 	if (!shader.parse(&Resources, 100, EProfile::ECompatibilityProfile, false, false, messages)) {
-		ERROR_LOG(G3D, "%s", shader.getInfoLog());
-		ERROR_LOG(G3D, "%s", shader.getInfoDebugLog());
-		if (errorMessage) {
-			*errorMessage = shader.getInfoLog();
-			(*errorMessage) += shader.getInfoDebugLog();
-		}
+		*errorMessage = std::string("GLSL parser failure: ") + shader.getInfoLog() + shader.getInfoDebugLog();
 		return false; // something didn't work
 	}
 
@@ -265,12 +258,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	program.addShader(&shader);
 
 	if (!program.link(messages)) {
-		ERROR_LOG(G3D, "%s", shader.getInfoLog());
-		ERROR_LOG(G3D, "%s", shader.getInfoDebugLog());
-		if (errorMessage) {
-			*errorMessage = shader.getInfoLog();
-			(*errorMessage) += shader.getInfoDebugLog();
-		}
+		*errorMessage = std::string("Linker failure: ") + shader.getInfoLog() + shader.getInfoDebugLog();
 		return false;
 	}
 
@@ -285,7 +273,6 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	// For whatever reason, with our config, the above outputs an invalid SPIR-V version, 0.
 	// Patch it up so spirv-cross accepts it.
 	spirv[1] = glslang::EShTargetSpv_1_0;
-
 
 	// Alright, step 1 done. Now let's take this SPIR-V shader and output in our desired format.
 
@@ -369,6 +356,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 		return true;
 	}
 	default:
+		*errorMessage = StringFromFormat("Unsupported destination language: %s", ShaderLanguageAsString(destLang));
 		return false;
 	}
 }

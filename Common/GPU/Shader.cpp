@@ -6,6 +6,17 @@
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 
+const char *ShaderLanguageAsString(ShaderLanguage lang) {
+	switch (lang) {
+	case GLSL_1xx: return "GLSL 1.x";
+	case GLSL_3xx: return "GLSL 3.x";
+	case GLSL_VULKAN: return "GLSL-VK";
+	case HLSL_D3D9: return "HLSL-D3D9";
+	case HLSL_D3D11: return "HLSL-D3D11";
+	default: return "(combination)";
+	}
+}
+
 ShaderLanguageDesc::ShaderLanguageDesc(ShaderLanguage lang) {
 	Init(lang);
 }
