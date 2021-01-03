@@ -1130,7 +1130,11 @@ void MainScreen::CreateViews() {
 		UI::Drawable solid(0xFFbd9939);
 		upgradeBar_->SetBG(solid);
 		upgradeBar_->Add(new TextView(u->T("New version of PPSSPP available") + std::string(": ") + g_Config.upgradeVersion, new LinearLayoutParams(1.0f, textMargins)));
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(WINDOWS)
 		upgradeBar_->Add(new Button(u->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+#else
+		upgradeBar_->Add(new Button(u->T("Details"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+#endif
 		upgradeBar_->Add(new Button(u->T("Dismiss"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDismissUpgrade);
 
 		// Slip in under root_
@@ -1155,9 +1159,12 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 	} else {
 		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
 	}
+#elif PPSSPP_PLATFORM(WINDOWS)
+	LaunchBrowser("https://www.ppsspp.org/downloads.html");
 #else
 	// Go directly to ppsspp.org and let the user sort it out
-	LaunchBrowser("https://www.ppsspp.org/downloads.html");
+	// (for details and in case downloads doesn't have their platform.)
+	LaunchBrowser("https://www.ppsspp.org/");
 #endif
 	return UI::EVENT_DONE;
 }
