@@ -65,9 +65,7 @@ enum class PPGeAlign {
 
 	ANY = 0xFF,
 };
-inline bool operator &(const PPGeAlign &lhs, const PPGeAlign &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(PPGeAlign);
 
 enum {
 	PPGE_LINE_NONE         = 0,
@@ -84,6 +82,10 @@ struct PPGeStyle {
 	uint32_t shadowColor = 0x80000000;
 };
 
+struct PPGeImageStyle {
+	uint32_t color = 0xFFFFFFFF;
+};
+
 // Get the metrics of the bounding box of the text without changing the buffer or state.
 void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
@@ -98,7 +100,7 @@ void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 
 // Just blits an image to the screen, multiplied with the color.
 void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style);
 void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const PPGeStyle &style);
-void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, const PPGeImageStyle &style);
 
 // Note: x2/y2 are exclusive.
 void PPGeScissor(int x1, int y1, int x2, int y2);
