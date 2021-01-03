@@ -194,11 +194,11 @@ public:
 
 	void setError(const CAPTUREDEVIDE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
 	void setSelction(const UINT32 &selection) { param.selection = selection; }
-	void updateState(const CAPTUREDEVIDE_STATE &newState) { state = newState; }
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
 	bool isShutDown() const { return state == CAPTUREDEVIDE_STATE::SHUTDOWN; }
 	bool isStarted() const { return state == CAPTUREDEVIDE_STATE::STARTED; }
+	void waitShutDown();
 
 	void sendMessage(CAPTUREDEVIDE_MESSAGE message);
 	CAPTUREDEVIDE_MESSAGE getMessage();
@@ -210,7 +210,8 @@ public:
 	friend class ReaderCallback;
 
 protected:
-// Handle message here.
+	void updateState(const CAPTUREDEVIDE_STATE &newState);
+	// Handle message here.
 	void messageHandler();
 
 	CAPTUREDEVIDE_TYPE type;
@@ -239,6 +240,8 @@ protected:
 
 // Param updating synchronously.
 	std::mutex paramMutex;
+	std::mutex stateMutex_;
+	std::condition_variable stateCond_;
 
 // Camera only
 	unsigned char *imageRGB = nullptr;
