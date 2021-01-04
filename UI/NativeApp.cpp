@@ -137,12 +137,6 @@ Atlas g_ui_atlas;
 #include <mach-o/dyld.h>
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -952,14 +946,12 @@ void NativeShutdownGraphics() {
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
-		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
-		while (!winCamera->isShutDown()) {};// Wait for shutting down.
+		winCamera->waitShutDown();
 		delete winCamera;
 		winCamera = nullptr;
 	}
 	if (winMic) {
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
-		while (!winMic->isShutDown()) {};// Wait for shutting down.
+		winMic->waitShutDown();
 		delete winMic;
 		winMic = nullptr;
 	}
@@ -1402,14 +1394,6 @@ void NativeShutdown() {
 #endif
 	g_Config.Save("NativeShutdown");
 
-	// Avoid shutting this down when restarting core.
-	if (!restarting)
-		LogManager::Shutdown();
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
-
 	INFO_LOG(SYSTEM, "NativeShutdown called");
 
 	ShutdownWebServer();
@@ -1419,6 +1403,10 @@ void NativeShutdown() {
 	net::Shutdown();
 
 	g_Discord.Shutdown();
+
+	// Avoid shutting this down when restarting core.
+	if (!restarting)
+		LogManager::Shutdown();
 
 	if (logger) {
 		delete logger;

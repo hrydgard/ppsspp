@@ -346,7 +346,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureScalerGLES.cpp \
-  $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
@@ -695,10 +694,6 @@ endif
 $(call import-module,libzip)
 $(call import-module,glslang-build)
 $(call import-module,miniupnp-build)
-
-ifeq ($(ANDROID_NDK_PROFILER),1)
-  $(call import-module,android-ndk-profiler)
-endif
 
 jni/$(SRC)/git-version.cpp:
 	-./git-version-gen.sh

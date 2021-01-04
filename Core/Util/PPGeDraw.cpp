@@ -219,7 +219,7 @@ void __PPGeSetupListArgs()
 
 void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = PSP_CoreParameter().gpuCore == GPUCORE_NULL || host->ShouldSkipUI();
+	bool skipZIM = host->ShouldSkipUI();
 
 	u8 *imageData[12]{};
 	int width[12]{};
@@ -1130,13 +1130,12 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
-void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color)
-{
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, const PPGeImageStyle &style) {
 	if (!dlPtr)
 		return;
 	BeginVertexData();
-	Vertex(x, y, u1, v1, tw, th, color);
-	Vertex(x + w, y + h, u2, v2, tw, th, color);
+	Vertex(x, y, u1, v1, tw, th, style.color);
+	Vertex(x + w, y + h, u2, v2, tw, th, style.color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
@@ -1222,7 +1221,8 @@ bool PPGeImage::Load() {
 		return false;
 	}
 
-	u32 texSize = width_ * height_ * 4;
+	u32 dataSize = width_ * height_ * 4;
+	u32 texSize = dataSize + width_ * 4;
 	texture_ = __PPGeDoAlloc(texSize, true, "Savedata Icon");
 	if (texture_ == 0) {
 		free(textureData);
@@ -1230,7 +1230,8 @@ bool PPGeImage::Load() {
 		return false;
 	}
 
-	Memory::Memcpy(texture_, textureData, texSize);
+	Memory::Memcpy(texture_, textureData, dataSize);
+	Memory::Memset(texture_ + dataSize, 0, texSize - dataSize);
 	free(textureData);
 
 	lastFrame_ = gpuStats.numFlips;

@@ -266,7 +266,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GPU.cpp \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
-	$(GPUDIR)/Null/NullGpu.cpp \
 	$(GPUDIR)/Software/Clipper.cpp \
 	$(GPUDIR)/Software/Lighting.cpp \
 	$(GPUDIR)/Software/Rasterizer.cpp \

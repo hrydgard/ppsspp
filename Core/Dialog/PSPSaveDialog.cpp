@@ -331,7 +331,7 @@ void PSPSaveDialog::DisplayBanner(int which)
 		break;
 	}
 	// TODO: Draw a hexagon icon
-	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, textStyle.color);
+	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
 	PPGeDrawText(title, 30, 11, textStyle);
 }
 
@@ -340,13 +340,12 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 	static int upFramesHeld = 0;
 	static int downFramesHeld = 0;
 
-	for (int displayCount = 0; displayCount < param.GetFilenameCount(); displayCount++)
-	{
-		int textureColor = 0xFFFFFFFF;
+	for (int displayCount = 0; displayCount < param.GetFilenameCount(); displayCount++) {
+		PPGeImageStyle imageStyle = FadedImageStyle();
 		auto fileInfo = param.GetFileInfo(displayCount);
 
 		if (fileInfo.size == 0 && fileInfo.texture != NULL)
-			textureColor = 0xFF777777;
+			imageStyle.color = CalcFadedColor(0xFF777777);
 
 		// Calc save image position on screen
 		float w, h , x, b;
@@ -380,7 +379,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			fileInfo.texture->SetTexture();
 			tw = fileInfo.texture->Width();
 			th = fileInfo.texture->Height();
-			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
+			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
 		}
 		PPGeSetDefaultTexture();
 	}
@@ -397,11 +396,11 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 {
 	std::lock_guard<std::mutex> guard(paramLock);
-	int textureColor = CalcFadedColor(0xFFFFFFFF);
+	PPGeImageStyle imageStyle = FadedImageStyle();
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
 	if (curSave.size == 0 && checkExists)
-		textureColor = CalcFadedColor(0xFF777777);
+		imageStyle.color = CalcFadedColor(0xFF777777);
 
 	// Calc save image position on screen
 	float w = 144;
@@ -418,7 +417,7 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 	} else {
 		PPGeDisableTexture();
 	}
-	PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
+	PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
 	PPGeSetDefaultTexture();
 }
 

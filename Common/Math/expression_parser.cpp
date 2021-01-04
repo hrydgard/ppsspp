@@ -462,7 +462,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				break;
 			case EXOP_SIGNMINUS:	// -0
 				if (useFloat)
-					valueStack.push_back(0.0 - fArg[0]);
+					valueStack.push_back((uint32_t)(0.0f - fArg[0]));
 				else
 					valueStack.push_back(0-arg[0]);
 				break;
@@ -474,7 +474,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				break;
 			case EXOP_MUL:			// a*b
 				if (useFloat)
-					valueStack.push_back(fArg[1]*fArg[0]);
+					valueStack.push_back((uint32_t)(fArg[1] * fArg[0]));
 				else
 					valueStack.push_back(arg[1]*arg[0]);
 				break;
@@ -485,7 +485,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 					return false;
 				}
 				if (useFloat)
-					valueStack.push_back(fArg[1]/fArg[0]);
+					valueStack.push_back((uint32_t)(fArg[1] / fArg[0]));
 				else
 					valueStack.push_back(arg[1]/arg[0]);
 				break;
@@ -499,13 +499,13 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				break;
 			case EXOP_ADD:			// a+b
 				if (useFloat)
-					valueStack.push_back(fArg[1]+fArg[0]);
+					valueStack.push_back((uint32_t)(fArg[1] + fArg[0]));
 				else
 					valueStack.push_back(arg[1]+arg[0]);
 				break;
 			case EXOP_SUB:			// a-b
 				if (useFloat)
-					valueStack.push_back(fArg[1]-fArg[0]);
+					valueStack.push_back((uint32_t)(fArg[1] - fArg[0]));
 				else
 					valueStack.push_back(arg[1]-arg[0]);
 				break;

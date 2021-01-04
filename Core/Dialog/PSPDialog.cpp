@@ -209,6 +209,12 @@ PPGeStyle PSPDialog::FadedStyle(PPGeAlign align, float scale) {
 	return textStyle;
 }
 
+PPGeImageStyle PSPDialog::FadedImageStyle() {
+	PPGeImageStyle style;
+	style.color = CalcFadedColor(style.color);
+	return style;
+}
+
 void PSPDialog::DisplayButtons(int flags, const char *caption)
 {
 	bool useCaption = false;

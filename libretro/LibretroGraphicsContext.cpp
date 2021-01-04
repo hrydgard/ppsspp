@@ -140,14 +140,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	}
 #endif
 
-#if 1
 	ctx = new LibretroSoftwareContext();
-
-	if (ctx->Init()) {
-		return ctx;
-	}
-	delete ctx;
-#endif
-
-	return new LibretroNullContext();
+   ctx->Init();
+   return ctx;
 }

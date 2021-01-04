@@ -1425,8 +1425,6 @@ set(GPU_SOURCES
 	GPU/GPUState.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
-	GPU/Null/NullGpu.cpp
-	GPU/Null/NullGpu.h
 	GPU/Software/Clipper.cpp
 	GPU/Software/Clipper.h
 	GPU/Software/Lighting.cpp

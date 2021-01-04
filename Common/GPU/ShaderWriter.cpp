@@ -205,7 +205,7 @@ void ShaderWriter::BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> var
 		break;
 	case HLSL_D3D9:
 		for (auto &uniform : uniforms) {
-			F("  %s %s : %s;\n", uniform.type, uniform.name, uniform.index);
+			F("  %s %s : register(c%d);\n", uniform.type, uniform.name, uniform.index);
 		}
 		// Let's do the varyings as parameters to main, no struct.
 		C("vec4 main(");

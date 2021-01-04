@@ -349,17 +349,25 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		vulkan_->Delete().QueueDeleteImageView(swapchainImages_[i].view);
 	}
-	vulkan_->Delete().QueueDeleteImageView(depth_.view);
-	vulkan_->Delete().QueueDeleteImage(depth_.image);
-	vulkan_->Delete().QueueDeleteDeviceMemory(depth_.mem);
+	swapchainImages_.clear();
+
+	if (depth_.view) {
+		vulkan_->Delete().QueueDeleteImageView(depth_.view);
+	}
+	if (depth_.image) {
+		vulkan_->Delete().QueueDeleteImage(depth_.image);
+	}
+	if (depth_.mem) {
+		vulkan_->Delete().QueueDeleteDeviceMemory(depth_.mem);
+	}
+	depth_ = {};
 	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
 		_dbg_assert_(framebuffers_[i] != VK_NULL_HANDLE);
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuffers_[i]);
 	}
 	framebuffers_.clear();
 
-	swapchainImages_.clear();
-	VLOG("Backbuffers Destroyed");
+	INFO_LOG(G3D, "Backbuffers destroyed");
 }
 
 VulkanRenderManager::~VulkanRenderManager() {

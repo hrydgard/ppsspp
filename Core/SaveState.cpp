@@ -677,7 +677,6 @@ namespace SaveState
 		return false;
 	}
 
-#ifndef MOBILE_DEVICE
 	static inline void CheckRewindState()
 	{
 		if (gpuStats.numFlips % g_Config.iRewindFlipFrequency != 0)
@@ -690,10 +689,9 @@ namespace SaveState
 			return;
 
 		rewindLastTime = now;
-		DEBUG_LOG(BOOT, "saving rewind state");
+		DEBUG_LOG(BOOT, "Saving rewind state");
 		rewindStates.Save();
 	}
-#endif
 
 	bool HasLoadedState() {
 		return hasLoadedState;
@@ -720,10 +718,8 @@ namespace SaveState
 
 	void Process()
 	{
-#ifndef MOBILE_DEVICE
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
-#endif
 
 		if (!needsProcess)
 			return;

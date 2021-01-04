@@ -19,6 +19,8 @@ inline bool ShaderLanguageIsOpenGL(ShaderLanguage lang) {
 	return lang == GLSL_1xx || lang == GLSL_3xx;
 }
 
+const char *ShaderLanguageAsString(ShaderLanguage lang);
+
 enum class ShaderStage {
 	Vertex,
 	Fragment,

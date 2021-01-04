@@ -80,9 +80,3 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
 endif
-
-# Compile with profiling.
-ifeq ($(ANDROID_NDK_PROFILER),1)
-  LOCAL_CFLAGS += -pg -DANDROID_NDK_PROFILER
-  LOCAL_STATIC_LIBRARIES += android-ndk-profiler
-endif

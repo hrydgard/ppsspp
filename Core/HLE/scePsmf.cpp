@@ -217,6 +217,7 @@ public:
 	}
 	PsmfPlayer(const PsmfPlayerCreateData *data);
 	~PsmfPlayer() {
+		AbortFinish();
 		if (mediaengine) 
 			delete mediaengine;
 		pspFileSystem.CloseFile(filehandle);
