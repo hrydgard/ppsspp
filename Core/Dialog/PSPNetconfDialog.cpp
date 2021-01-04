@@ -104,15 +104,14 @@ void PSPNetconfDialog::DrawBanner() {
 	textStyle.hasShadow = false;
 
 	// TODO: Draw a hexagon icon
-	PPGeDrawImage(10, 5, 11.0f, 10.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(10, 5, 11.0f, 10.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
 	auto di = GetI18NCategory("Dialog");
 	PPGeDrawText(di->T("Network Connection"), 31, 10, textStyle);
 }
 
 void PSPNetconfDialog::DrawIndicator() {
-
 	// TODO: Draw animated circle as processing indicator
-	PPGeDrawImage(456, 248, 20.0f, 20.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(456, 248, 20.0f, 20.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
 }
 
 void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std::string text2b, std::string text3a, std::string text3b, bool hasYesNo, bool hasOK) {

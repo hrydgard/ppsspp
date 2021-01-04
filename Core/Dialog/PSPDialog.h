@@ -85,6 +85,7 @@ public:
 	void EndDraw();
 protected:
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
+	PPGeImageStyle FadedImageStyle();
 	void UpdateButtons();
 	bool IsButtonPressed(int checkButton);
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
