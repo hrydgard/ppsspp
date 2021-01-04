@@ -31,7 +31,6 @@
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -114,15 +113,11 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		memset(rect.pBits, 0, 4);
 		nullTex_->UnlockRect(0);
 
-		ShaderTranslationInit();
-
 		presentation_->SetLanguage(HLSL_D3D9);
 		preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
-		ShaderTranslationShutdown();
-
 		if (pFramebufferVertexShader) {
 			pFramebufferVertexShader->Release();
 			pFramebufferVertexShader = nullptr;

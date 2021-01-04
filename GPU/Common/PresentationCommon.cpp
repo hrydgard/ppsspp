@@ -239,7 +239,8 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		return false;
 	}
 
-	std::string vsError, fsError;
+	std::string vsError;
+	std::string fsError;
 
 	// All post shaders are written in GLSL 1.0 so that's what we pass in here as a "from" language.
 	Draw::ShaderModule *vs = CompileShaderModule(ShaderStage::Vertex, GLSL_1xx, vsSourceGLSL, &vsError);
@@ -248,7 +249,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
 	if (!fs || !vs) {
 		std::string errorString = vsError + "\n" + fsError;
-		// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+		// DO NOT turn this into an ERROR_LOG_REPORT, as it will pollute our logs with all kinds of
 		// user shader experiments.
 		ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 		ShowPostShaderError(errorString);
@@ -263,6 +264,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		{ "u_setting", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
 		{ "u_video", 5, 5, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
 	} };
+
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
 	if (!pipeline)
 		return false;
@@ -353,7 +355,7 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 		}
 	}
 	if (!firstLine.empty()) {
-		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+		host->NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
 	} else {
 		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
