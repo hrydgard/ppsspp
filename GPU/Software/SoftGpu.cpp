@@ -78,11 +78,9 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
 			break;
 		case GPUBackend::DIRECT3D9:
-			ShaderTranslationInit();
 			presentation_->SetLanguage(HLSL_D3D9);
 			break;
 		case GPUBackend::DIRECT3D11:
-			ShaderTranslationInit();
 			presentation_->SetLanguage(HLSL_D3D11);
 			break;
 		case GPUBackend::VULKAN:
@@ -119,15 +117,6 @@ SoftGPU::~SoftGPU() {
 
 	if (presentation_) {
 		delete presentation_;
-		switch (GetGPUBackend()) {
-		case GPUBackend::DIRECT3D9:
-		case GPUBackend::DIRECT3D11:
-			ShaderTranslationShutdown();
-			break;
-		case GPUBackend::OPENGL:
-		case GPUBackend::VULKAN:
-			break;
-		}
 	}
 
 	Sampler::Shutdown();

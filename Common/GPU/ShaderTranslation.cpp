@@ -53,7 +53,7 @@
 
 extern void init_resources(TBuiltInResource &Resources);
 
-static EShLanguage GetLanguage(const ShaderStage stage) {
+static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::Vertex: return EShLangVertex;
 	case ShaderStage::Geometry: return EShLangGeometry;
@@ -234,15 +234,16 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	*errorMessage = "";
 
 	glslang::TProgram program;
-	const char *shaderStrings[1];
+	const char *shaderStrings[1]{};
 
-	TBuiltInResource Resources;
+	TBuiltInResource Resources{};
 	init_resources(Resources);
 
 	// Don't enable SPIR-V and Vulkan rules when parsing GLSL. Our postshaders are written in oldschool GLES 2.0.
 	EShMessages messages = EShMessages::EShMsgDefault;
 
-	EShLanguage shaderStage = GetLanguage(stage);
+	EShLanguage shaderStage = GetShLanguageFromStage(stage);
+
 	glslang::TShader shader(shaderStage);
 
 	shaderStrings[0] = src.c_str();
@@ -250,7 +251,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 
 	// TODO: Should set settings here based on srcLang.
 	if (!shader.parse(&Resources, 100, EProfile::ECompatibilityProfile, false, false, messages)) {
-		*errorMessage = std::string("GLSL parser failure: ") + shader.getInfoLog() + shader.getInfoDebugLog();
+		*errorMessage = StringFromFormat("%s parser failure: %s\n%s", ShaderStageAsString(stage), shader.getInfoLog(), shader.getInfoDebugLog());
 		return false; // something didn't work
 	}
 
@@ -258,7 +259,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 	program.addShader(&shader);
 
 	if (!program.link(messages)) {
-		*errorMessage = std::string("Linker failure: ") + shader.getInfoLog() + shader.getInfoDebugLog();
+		*errorMessage = StringFromFormat("%s linker failure: %s\n%s", ShaderStageAsString(stage), shader.getInfoLog(), shader.getInfoDebugLog());
 		return false;
 	}
 
