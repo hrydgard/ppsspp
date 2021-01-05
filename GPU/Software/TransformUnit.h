@@ -149,4 +149,7 @@ public:
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 
 	TransformUnit transformUnit;
+
+protected:
+	bool UpdateUseHWTessellation(bool enable) override { return false; }
 };

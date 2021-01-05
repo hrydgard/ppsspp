@@ -138,11 +138,11 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ENABLE_HLSL;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
@@ -157,8 +157,8 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -176,8 +176,8 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -195,8 +195,8 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -216,8 +216,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -238,8 +238,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -261,8 +261,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -284,8 +284,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ENABLE_HLSL;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent;glslang</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -334,6 +334,7 @@
     <ClCompile Include="glslang\hlsl\hlslGrammar.cpp" />
     <ClCompile Include="glslang\hlsl\hlslOpMap.cpp" />
     <ClCompile Include="glslang\hlsl\hlslParseables.cpp" />
+    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp" />
     <ClCompile Include="glslang\hlsl\hlslScanContext.cpp" />
     <ClCompile Include="glslang\hlsl\hlslTokenStream.cpp" />
     <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
@@ -382,6 +383,7 @@
     <ClInclude Include="glslang\hlsl\hlslGrammar.h" />
     <ClInclude Include="glslang\hlsl\hlslOpMap.h" />
     <ClInclude Include="glslang\hlsl\hlslParseables.h" />
+    <ClInclude Include="glslang\hlsl\hlslParseHelper.h" />
     <ClInclude Include="glslang\hlsl\hlslScanContext.h" />
     <ClInclude Include="glslang\hlsl\hlslTokens.h" />
     <ClInclude Include="glslang\hlsl\hlslTokenStream.h" />

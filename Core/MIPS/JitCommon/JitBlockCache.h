@@ -22,12 +22,13 @@
 #include <vector>
 #include <string>
 
+#include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
 #include "Common/CodeBlock.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
 
-#if defined(ARM) || defined(ARM64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 const int MAX_JIT_BLOCK_EXITS = 2;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;
@@ -59,7 +60,7 @@ enum class DestroyType {
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
 
-	u8 *checkedEntry;  // not const, may need to write through this to unlink
+	const u8 *checkedEntry;  // const, we have to translate to writable.
 	const u8 *normalEntry;
 
 	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump

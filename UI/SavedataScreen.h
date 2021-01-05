@@ -20,9 +20,9 @@
 #include <functional>
 #include <string>
 
-#include "ui/ui_screen.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 
 #include "UI/MiscScreens.h"
 

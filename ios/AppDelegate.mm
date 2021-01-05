@@ -1,6 +1,7 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
-#import "base/NativeApp.h"
+#import "Common/System/System.h"
+#import "Common/System/NativeApp.h"
 #import "Core/System.h"
 #import "Core/Config.h"
 #import "Common/Log.h"
@@ -72,6 +73,22 @@
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+
+	int argc = 1;
+	char *argv[3] = { 0 };
+	NSURL* nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
+
+	if (nsUrl != nullptr && nsUrl.isFileURL) {
+		NSString *nsString = nsUrl.path;
+		const char *string = nsString.UTF8String;
+		argv[argc++] = (char*)string;
+	}
+
+	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
+	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+
+
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 	self.viewController = [[ViewController alloc] init];
 	
@@ -103,6 +120,10 @@
 	}
 	
 	NativeMessageReceived("got_focus", "");	
+}
+
+- (void)applicationWillTerminate:(UIApplication *)application {
+	exit(0);
 }
 
 @end

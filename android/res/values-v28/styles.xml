@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<color name="black">#FF000000</color>
+	<style name="ppsspp_style" parent="android:Theme.DeviceDefault">
+		<item name="android:windowFullscreen">true</item>
+		<item name="android:windowNoTitle">true</item>
+		<item name="android:navigationBarColor">@color/black</item>
+		<item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+		<item name="android:windowTranslucentStatus">true</item>
+		<!-- TODO: Our rendering is not ready for these yet.
+		<item name="android:windowTranslucentNavigation">true</item>
+		-->
+	</style>
+</resources>

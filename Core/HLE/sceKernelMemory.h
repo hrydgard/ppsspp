@@ -66,5 +66,8 @@ int sceKernelGetTlsAddr(SceUID uid);
 int sceKernelFreeTlspl(SceUID uid);
 int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr);
 
-void Register_SysMemForKernel();
 void Register_SysMemUserForUser();
+
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr);
+int sceKernelFreePartitionMemory(SceUID id);
+u32 sceKernelGetBlockHeadAddr(SceUID id);

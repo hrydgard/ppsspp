@@ -282,8 +282,14 @@ enum GEBufferFormat
 	GE_FORMAT_5551 = 1,
 	GE_FORMAT_4444 = 2,
 	GE_FORMAT_8888 = 3,
+	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
 	GE_FORMAT_INVALID = 0xFF,
 };
+
+const char *GeBufferFormatToString(GEBufferFormat fmt);
+inline bool IsGeBufferFormat16BitColor(GEBufferFormat fmt) {
+	return (int)fmt < 3;
+}
 
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
@@ -412,6 +418,35 @@ enum GETextureFormat
 	GE_TFMT_DXT3 = 9,
 	GE_TFMT_DXT5 = 10,
 };
+
+const char *GeTextureFormatToString(GETextureFormat tfmt);
+inline bool IsClutFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8 || tfmt == GE_TFMT_CLUT16 || tfmt == GE_TFMT_CLUT32;
+}
+inline bool IsDXTFormat(GETextureFormat tfmt) {
+	return tfmt == GE_TFMT_DXT1 || tfmt == GE_TFMT_DXT3 || tfmt == GE_TFMT_DXT5;
+}
+inline bool IsTextureFormatBufferCompatible(GETextureFormat tfmt) {
+	return (int)tfmt < 4;
+}
+inline bool IsBufferFormat16Bit(GEBufferFormat bfmt) {
+	return (int)bfmt < 3;
+}
+inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
+	return (int)tfmt < 3;
+}
+inline bool TextureFormatMatchesBufferFormat(GETextureFormat fmt, GEBufferFormat bfmt) {
+	// First four matches perfectly.
+	if ((int)fmt < 4) {
+		return (int)fmt == (int)bfmt;
+	} else {
+		return false;
+	}
+}
+// only applicable if IsTextureFormatBufferCompatible(fmt)
+inline GEBufferFormat TextureFormatToBufferFormat(GETextureFormat bfmt) {
+	return (GEBufferFormat)(int)bfmt;
+}
 
 enum GETexLevelMode {
 	GE_TEXLEVEL_MODE_AUTO = 0,

@@ -15,43 +15,40 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-#if _MSC_VER == 1700
-// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012.. 
-#include "../native/base/basictypes.h"
-#endif
-
 #include <algorithm>
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
-#include "Common/ThreadPools.h"
+#include "Core/ThreadPools.h"
+#include "Common/GPU/DataFormat.h"
 
 int TextureScalerGLES::BytesPerPixel(u32 format) {
-	return (format == GL_UNSIGNED_BYTE) ? 4 : 2;
+	return ((Draw::DataFormat)format == Draw::DataFormat::R8G8B8A8_UNORM) ? 4 : 2;
 }
 
 u32 TextureScalerGLES::Get8888Format() {
-	return GL_UNSIGNED_BYTE;
+	return (u32)Draw::DataFormat::R8G8B8A8_UNORM;
 }
 
 void TextureScalerGLES::ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) {
-	switch(format) {
-	case GL_UNSIGNED_BYTE:
+	Draw::DataFormat fmt = (Draw::DataFormat)format;
+	switch (fmt) {
+	case Draw::DataFormat::R8G8B8A8_UNORM:
 		dest = source; // already fine
 		break;
 
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
 		GlobalThreadPool::Loop(std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		GlobalThreadPool::Loop(std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
 		GlobalThreadPool::Loop(std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 

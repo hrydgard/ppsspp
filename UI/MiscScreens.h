@@ -22,10 +22,11 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
+#include "Common/File/DirListing.h"
 
 struct ShaderInfo;
+struct TextureShaderInfo;
 
 extern std::string boot_filename;
 void UIBackgroundInit(UIContext &dc);
@@ -104,18 +105,29 @@ private:
 
 class PostProcScreen : public ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title);
+	PostProcScreen(const std::string &title, int id);
 
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
+	int id_;
+};
+
+class TextureShaderScreen : public ListPopupScreen {
+public:
+	TextureShaderScreen(const std::string &title);
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<TextureShaderInfo> shaders_;
 };
 
 class LogoScreen : public UIScreen {
 public:
-	LogoScreen()
-		: frames_(0), switched_(false) {}
+	LogoScreen(bool gotoGameSettings = false)
+		: gotoGameSettings_(gotoGameSettings) {}
 	bool key(const KeyInput &key) override;
 	bool touch(const TouchInput &touch) override;
 	void update() override;
@@ -125,8 +137,9 @@ public:
 
 private:
 	void Next();
-	int frames_;
-	bool switched_;
+	int frames_ = 0;
+	bool switched_ = false;
+	bool gotoGameSettings_ = false;
 };
 
 class CreditsScreen : public UIDialogScreenWithBackground {

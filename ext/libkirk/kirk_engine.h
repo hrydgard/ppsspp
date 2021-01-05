@@ -208,15 +208,18 @@ int kirk_CMD17(u8* inbuff, int insize);
 int kirk_init(); //CMD 0xF?
 int kirk_init2(u8 *, u32, u32, u32);
 
+// overhead free functions
+void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId);
+void kirk7(u8* outbuff, const u8* inbuff, size_t size, int keyId);
+
 //helper funcs
 u8* kirk_4_7_get_key(int key_type);
 
 //kirk "ex" functions
 int kirk_CMD1_ex(u8* outbuff, u8* inbuff, int size, KIRK_CMD1_HEADER* header);
 
-//sce-like funcs
-int sceUtilsSetFuseID(u8*fuse);
-int sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, u8* inbuff, int insize, int cmd);
+//sce-like func. sceUtilsBufferCopyWithRange is clearly intentionally confusingly named.
+int kirk_sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, const u8* inbuff, int insize, int cmd);
 void decrypt_kirk16_private(u8 *dA_out, u8 *dA_enc);
 void encrypt_kirk16_private(u8 *dA_out, u8 *dA_dec);
 

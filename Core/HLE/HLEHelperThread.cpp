@@ -15,10 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -49,17 +52,20 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const char *module, con
 }
 
 HLEHelperThread::~HLEHelperThread() {
-	__KernelDeleteThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper deleted");
-	kernelMemory.Free(entry_);
+	if (id_)
+		__KernelDeleteThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper deleted");
+	if (entry_)
+		kernelMemory.Free(entry_);
 }
 
 void HLEHelperThread::AllocEntry(u32 size) {
 	entry_ = kernelMemory.Alloc(size);
+	Memory::Memset(entry_, 0, size);
 	currentMIPS->InvalidateICache(entry_, size);
 }
 
 void HLEHelperThread::Create(const char *threadName, u32 prio, int stacksize) {
-	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0);
+	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0x00001000);
 }
 
 void HLEHelperThread::DoState(PointerWrap &p) {
@@ -68,8 +74,8 @@ void HLEHelperThread::DoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(id_);
-	p.Do(entry_);
+	Do(p, id_);
+	Do(p, entry_);
 }
 
 void HLEHelperThread::Start(u32 a0, u32 a1) {
@@ -78,4 +84,24 @@ void HLEHelperThread::Start(u32 a0, u32 a1) {
 
 void HLEHelperThread::Terminate() {
 	__KernelStopThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper terminated");
+}
+
+bool HLEHelperThread::Stopped() {
+	return KernelIsThreadDormant(id_);
+}
+
+void HLEHelperThread::ChangePriority(u32 prio) {
+	KernelChangeThreadPriority(id_, prio);
+}
+
+void HLEHelperThread::Resume(WaitType waitType, SceUID uid, int result) {
+	bool res = HLEKernel::ResumeFromWait(id_, waitType, uid, result);
+	if (!res) {
+		ERROR_LOG(HLE, "Failed to wake helper thread from wait");
+	}
+}
+
+void HLEHelperThread::Forget() {
+	id_ = 0;
+	entry_ = 0;
 }

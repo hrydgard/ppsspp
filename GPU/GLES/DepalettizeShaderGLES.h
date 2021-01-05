@@ -18,9 +18,9 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
-#include "gfx/gl_common.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
@@ -49,6 +49,7 @@ public:
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	GLRTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	void Init();
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);

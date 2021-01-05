@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <d3d11.h>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 

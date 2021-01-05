@@ -200,7 +200,7 @@ public:
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
 	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
-	virtual void CopyDisplayToOutput() = 0;
+	virtual void CopyDisplayToOutput(bool reallyDirty) = 0;
 
 	// Tells the GPU to update the gpuStats structure.
 	virtual void GetStats(char *buffer, size_t bufsize) = 0;

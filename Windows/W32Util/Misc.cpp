@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "ppsspp_config.h"
 #include "CommonWindows.h"
 
@@ -7,7 +6,7 @@
 #include <commctrl.h>
 
 #include "Misc.h"
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -131,21 +130,51 @@ namespace W32Util
 		return cmdline;
 	}
 
-	void ExitAndRestart() {
-		// This preserves arguments (for example, config file) and working directory.
+	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename) {
+		workingDirectory.resize(MAX_PATH);
+		size_t sz = GetCurrentDirectoryW((DWORD)workingDirectory.size(), &workingDirectory[0]);
+		if (sz != 0 && sz < workingDirectory.size()) {
+			// This means success, so now we can remove the null terminator.
+			workingDirectory.resize(sz);
+		} else if (sz > workingDirectory.size()) {
+			// If insufficient, sz will include the null terminator, so we remove after.
+			workingDirectory.resize(sz);
+			sz = GetCurrentDirectoryW((DWORD)sz, &workingDirectory[0]);
+			workingDirectory.resize(sz);
+		}
 
-		wchar_t moduleFilename[MAX_PATH];
-		wchar_t workingDirectory[MAX_PATH];
-		GetCurrentDirectoryW(MAX_PATH, workingDirectory);
-		const wchar_t *cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
-		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
-		ShellExecute(NULL, NULL, moduleFilename, cmdline, workingDirectory, SW_SHOW);
+		moduleFilename.clear();
+		do {
+			moduleFilename.resize(moduleFilename.size() + MAX_PATH);
+			// On failure, this will return the same value as passed in, but success will always be one lower.
+			sz = GetModuleFileName(GetModuleHandle(nullptr), &moduleFilename[0], (DWORD)moduleFilename.size());
+		} while (sz >= moduleFilename.size());
+		moduleFilename.resize(sz);
+	}
+
+	void ExitAndRestart(bool overrideArgs, const std::string &args) {
+		SpawnNewInstance(overrideArgs, args);
 
 		ExitProcess(0);
 	}
+
+	void SpawnNewInstance(bool overrideArgs, const std::string &args) {
+		// This preserves arguments (for example, config file) and working directory.
+		std::wstring workingDirectory;
+		std::wstring moduleFilename;
+		GetSelfExecuteParams(workingDirectory, moduleFilename);
+
+		const wchar_t *cmdline;
+		std::wstring wargs;
+		if (overrideArgs) {
+			wargs = ConvertUTF8ToWString(args);
+			cmdline = wargs.c_str();
+		} else {
+			cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
+		}
+		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
+	}
 }
-
-
 
 GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	: handle(hwnd), columns(def.columns),columnCount(def.columnCount),valid(false),
@@ -171,7 +200,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 
 	int totalListSize = rect.right-rect.left;
 	for (int i = 0; i < columnCount; i++) {
-		lvc.cx = columns[i].size * totalListSize;
+		lvc.cx = (int)(columns[i].size * totalListSize);
 		lvc.pszText = (LPTSTR)columns[i].name;
 
 		if (columns[i].flags & GLVC_CENTERED)

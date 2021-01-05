@@ -228,7 +228,7 @@ namespace MIPSComp {
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 
 		// Flip ECX around from 3 bytes / 24 bits.
@@ -279,7 +279,7 @@ namespace MIPSComp {
 			break;
 
 		default:
-			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+			_dbg_assert_msg_(false, "Unsupported left/right load/store instruction.");
 		}
 	}
 
@@ -401,7 +401,20 @@ namespace MIPSComp {
 	}
 
 	void Jit::Comp_Cache(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(LSU);
+
+		int func = (op >> 16) & 0x1F;
+
+		// See Int_Cache for the definitions.
+		switch (func) {
+		case 24: break;
+		case 25: break;
+		case 27: break;
+		case 30: break;
+		default:
+			// Fall back to the interpreter.
+			DISABLE;
+		}
 	}
 }
 

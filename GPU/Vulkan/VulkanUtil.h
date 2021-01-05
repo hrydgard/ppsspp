@@ -20,9 +20,10 @@
 #include <tuple>
 #include <map>
 
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanImage.h"
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanImage.h"
 
 // Vulkan doesn't really have the concept of an FBO that owns the images,
 // but it does have the concept of a framebuffer as a set of attachments.
@@ -72,6 +73,9 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	void PurgeVertexShader(VkShaderModule s, bool keepPipeline = false);
+	void PurgeFragmentShader(VkShaderModule s, bool keepPipeline = false);
+
 	VkDescriptorSet GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2);
 
 	struct Vertex {
@@ -118,6 +122,53 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
+	std::vector<VkPipeline> keptPipelines_;
+};
+
+// Manager for compute shaders that upload things (and those have two bindings: a storage buffer to read from and an image to write to).
+class VulkanComputeShaderManager {
+public:
+	VulkanComputeShaderManager(VulkanContext *vulkan);
+	~VulkanComputeShaderManager();
+
+	void DeviceLost() {
+		DestroyDeviceObjects();
+	}
+	void DeviceRestore(VulkanContext *vulkan) {
+		vulkan_ = vulkan;
+		InitDeviceObjects();
+	}
+
+	// Note: This doesn't cache. The descriptor is for immediate use only.
+	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2 = VK_NULL_HANDLE, VkDeviceSize offset2 = 0, VkDeviceSize range2 = 0);
+
+	// This of course caches though.
+	VkPipeline GetPipeline(VkShaderModule cs);
+	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
+
+	void BeginFrame();
+	void EndFrame();
+
+private:
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
+	VulkanContext *vulkan_ = nullptr;
+	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
+
+	struct FrameData {
+		VkDescriptorPool descPool;
+		int numDescriptors;
+	};
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+
+	struct PipelineKey {
+		VkShaderModule module;
+	};
+	
+	DenseHashMap<PipelineKey, VkPipeline, (VkPipeline)VK_NULL_HANDLE> pipelines_;
 };
 
 

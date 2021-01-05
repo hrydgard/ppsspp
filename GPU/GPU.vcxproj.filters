@@ -10,9 +10,6 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Null">
-      <UniqueIdentifier>{b31aa5a1-da08-47e6-9467-ab1d547b6ff3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DirectX9">
       <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
     </Filter>
@@ -27,9 +24,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ge_constants.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Math3D.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -38,9 +32,6 @@
     </ClInclude>
     <ClInclude Include="GPUInterface.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Null\NullGpu.h">
-      <Filter>Null</Filter>
     </ClInclude>
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
@@ -69,9 +60,6 @@
     <ClInclude Include="Directx9\GPU_DX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\DrawEngineDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
@@ -82,12 +70,6 @@
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\ShaderManagerDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\FramebufferDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Common\IndexGenerator.h">
@@ -129,9 +111,6 @@
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\FramebufferCommon.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\SoftwareTransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -165,10 +144,7 @@
     <ClInclude Include="Vulkan\DrawEngineVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Vulkan\FramebufferVulkan.h">
+    <ClInclude Include="Vulkan\FramebufferManagerVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Vulkan\GPU_Vulkan.h">
@@ -189,9 +165,6 @@
     <ClInclude Include="Vulkan\TextureScalerVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Vulkan\VulkanUtil.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
@@ -207,13 +180,7 @@
     <ClInclude Include="GLES\TextureScalerGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\FragmentShaderGeneratorGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\DepalettizeShaderGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\VertexShaderGeneratorGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="GLES\FramebufferManagerGLES.h">
@@ -226,12 +193,6 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\ShaderManagerD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h">
-      <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h">
       <Filter>D3D11</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\TextureCacheD3D11.h">
@@ -254,9 +215,6 @@
     </ClInclude>
     <ClInclude Include="D3D11\D3D11Util.h">
       <Filter>D3D11</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\ShaderTranslation.h">
-      <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Software\Sampler.h">
       <Filter>Software</Filter>
@@ -282,6 +240,30 @@
     <ClInclude Include="Debugger\RecordFormat.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Software\RasterizerRectangle.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\PresentationCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FramebufferManagerCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Directx9\FramebufferManagerDX9.h">
+      <Filter>DirectX9</Filter>
+    </ClInclude>
+    <ClInclude Include="ge_constants.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FragmentShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VertexShaderGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ReinterpretFramebuffer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -289,9 +271,6 @@
     </ClCompile>
     <ClCompile Include="GPUState.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Null\NullGpu.cpp">
-      <Filter>Null</Filter>
     </ClCompile>
     <ClCompile Include="GPUCommon.cpp">
       <Filter>Common</Filter>
@@ -320,9 +299,6 @@
     <ClCompile Include="Directx9\GPU_DX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
     <ClCompile Include="Directx9\DrawEngineDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
@@ -333,12 +309,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\FramebufferDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\TextureScalerDX9.cpp">
@@ -375,9 +345,6 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Common\FramebufferCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderX86.cpp">
@@ -428,9 +395,6 @@
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
@@ -447,9 +411,6 @@
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanUtil.cpp">
@@ -470,13 +431,7 @@
     <ClCompile Include="GLES\StencilBufferGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexShaderGeneratorGLES.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp">
@@ -492,12 +447,6 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\ShaderManagerD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp">
-      <Filter>D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp">
       <Filter>D3D11</Filter>
     </ClCompile>
     <ClCompile Include="D3D11\TextureCacheD3D11.cpp">
@@ -524,13 +473,10 @@
     <ClCompile Include="D3D11\StencilBufferD3D11.cpp">
       <Filter>D3D11</Filter>
     </ClCompile>
-    <ClCompile Include="Common\ShaderTranslation.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Common\ShaderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\FramebufferVulkan.cpp">
+    <ClCompile Include="Vulkan\FramebufferManagerVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Software\Sampler.cpp">
@@ -559,6 +505,30 @@
     </ClCompile>
     <ClCompile Include="Debugger\Playback.cpp">
       <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\RasterizerRectangle.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\PresentationCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FramebufferManagerCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\FramebufferManagerDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="GeConstants.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FragmentShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ReinterpretFramebuffer.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

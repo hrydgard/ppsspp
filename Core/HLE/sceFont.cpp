@@ -1,13 +1,15 @@
 #include "sceFont.h"
 
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 
 #include <cmath>
 #include <vector>
 #include <map>
 #include <algorithm>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceFont.h"
@@ -35,9 +37,15 @@ enum {
 	FONT_IS_OPEN   = 1,
 };
 
+// For the save states.
+static bool useAllocCallbacks = true;
+
 // Actions
 static int actionPostAllocCallback;
 static int actionPostOpenCallback;
+static int actionPostOpenAllocCallback;
+static int actionPostCharInfoAllocCallback;
+static int actionPostCharInfoFreeCallback;
 
 // Monster Hunter sequence:
 // 36:46:998 c:\dev\ppsspp\core\hle\scefont.cpp:469 E[HLE]: sceFontNewLib 89ad4a0, 9fff5cc
@@ -82,30 +90,32 @@ struct FontRegistryEntry {
 	const char *fontName;
 	int expireDate;
 	int shadow_option;
+	u32 fontFileSize;
+	u32 stingySize; // for the FONT_OPEN_INTERNAL_STINGY mode, from pspautotests.
 	bool ignoreIfMissing;
 };
 
 static const FontRegistryEntry fontRegistry[] = {
 	// This was added for Chinese translations and is not normally loaded on a PSP.
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, true },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0 },
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0},
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, 145844, true },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, 145844 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0, 69108, 16680 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0, 65124, 16920 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72948, 16872 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0, 67700, 17112 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72828, 16648 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0, 68220, 16928 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0, 77032, 16792 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0, 71144, 17160 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0, 41000, 16192 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0, 40164, 16476 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0, 42692, 16300 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0, 41488, 16656 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0, 43136, 16176 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0, 41772, 16436 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0, 45184, 16272 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0, 43044, 16704 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, 394192, 51856 },
 };
 
 static const float pointDPI = 72.f;
@@ -204,6 +214,8 @@ public:
 
 	PGF *GetPGF() { return &pgf_; }
 	const PGF *GetPGF() const { return &pgf_; }
+	u32 getSize() const { return dataSize_; }
+	u32 getStingySize() const { return stingySize_; }
 	bool IsValid() const { return valid_; }
 
 	void DoState(PointerWrap &p) {
@@ -211,12 +223,12 @@ public:
 		if (!s)
 			return;
 
-		p.Do(pgf_);
-		p.Do(style_);
+		Do(p, pgf_);
+		Do(p, style_);
 		if (s < 2) {
 			valid_ = true;
 		} else {
-			p.Do(valid_);
+			Do(p, valid_);
 		}
 	}
 
@@ -228,6 +240,8 @@ private:
 		style_.fontV = (float)pgf_.header.vSize / 64.0f;
 		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
 		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
+		this->dataSize_ = (u32)dataSize;
+		this->stingySize_ = 0; // Unused
 	}
 
 	void Init(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
@@ -247,11 +261,15 @@ private:
 		strncpy(style_.fontFileName, entry.fileName, sizeof(style_.fontFileName));
 		style_.fontAttributes = entry.extraAttributes;
 		style_.fontExpire = entry.expireDate;
+		this->dataSize_ = entry.fontFileSize;
+		this->stingySize_ = entry.stingySize;
 	}
 
 	PGF pgf_;
 	PGFFontStyle style_;
 	bool valid_;
+	u32 dataSize_;
+	u32 stingySize_;
 	DISALLOW_COPY_AND_ASSIGN(Font);
 };
 
@@ -301,29 +319,29 @@ public:
 			return;
 
 		int numInternalFonts = (int)internalFonts.size();
-		p.Do(numInternalFonts);
+		Do(p, numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		int internalFont = GetInternalFontIndex(font_);
-		p.Do(internalFont);
+		Do(p, internalFont);
 		if (internalFont == -1) {
-			p.Do(font_);
+			Do(p, font_);
 		} else if (p.mode == p.MODE_READ) {
 			font_ = internalFonts[internalFont];
 		}
-		p.Do(handle_);
+		Do(p, handle_);
 		if (s >= 2) {
-			p.Do(open_);
+			Do(p, open_);
 		} else {
 			open_ = fontLibID_ != (u32)-1;
 		}
 		if (s >= 3) {
-			p.Do(mode_);
+			Do(p, mode_);
 		} else {
 			mode_ = FONT_OPEN_INTERNAL_FULL;
 		}
@@ -338,18 +356,20 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
 
-class PostAllocCallback : public Action {
+class PostAllocCallback : public PSPAction {
 public:
 	PostAllocCallback() {}
-	static Action *Create() { return new PostAllocCallback(); }
+	static PSPAction *Create() { return new PostAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostAllocCallback", 1, 2);
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		if (s >= 2) {
-			p.Do(errorCodePtr_);
+			Do(p, errorCodePtr_);
+		} else {
+			errorCodePtr_ = 0;
 		}
 	}
 	void run(MipsCall &call) override;
@@ -360,16 +380,16 @@ private:
 	u32 errorCodePtr_;
 };
 
-class PostOpenCallback : public Action {
+class PostOpenCallback : public PSPAction {
 public:
 	PostOpenCallback() {}
-	static Action *Create() { return new PostOpenCallback(); }
+	static PSPAction *Create() { return new PostOpenCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenCallback", 1);
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -377,6 +397,69 @@ public:
 private:
 	u32 fontLibID_;
 };
+
+class PostOpenAllocCallback : public PSPAction {
+public:
+	PostOpenAllocCallback() {}
+	static PSPAction *Create() { return new PostOpenAllocCallback(); }
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("PostOpenAllocCallback", 1);
+		if (!s)
+			return;
+
+		Do(p, fontLibID_);
+		Do(p, fontHandle_);
+		Do(p, fontIndex_);
+	}
+	void run(MipsCall &call) override;
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFont(u32 handle, int index) { fontHandle_ = handle; fontIndex_ = index; }
+
+private:
+	u32 fontLibID_;
+	u32 fontHandle_;
+	int fontIndex_;
+};
+
+class PostCharInfoAllocCallback : public PSPAction {
+public:
+	PostCharInfoAllocCallback() {}
+	static PSPAction *Create() { return new PostCharInfoAllocCallback(); }
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("PostCharInfoAllocCallback", 1);
+		if (!s)
+			return;
+
+		Do(p, fontLibID_);
+	}
+	void run(MipsCall &call) override;
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+
+private:
+	u32 fontLibID_;
+};
+
+class PostCharInfoFreeCallback : public PSPAction {
+public:
+	PostCharInfoFreeCallback() {}
+	static PSPAction *Create() { return new PostCharInfoFreeCallback(); }
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("PostCharInfoFreeCallback", 1);
+		if (!s)
+			return;
+
+		Do(p, fontLibID_);
+		Do(p, charInfo_);
+	}
+	void run(MipsCall &call) override;
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetCharInfo(PSPPointer<PGFCharInfo> charInfo) { charInfo_ = charInfo; }
+
+private:
+	u32 fontLibID_;
+	PSPPointer<PGFCharInfo> charInfo_;
+};
+
 
 struct NativeFontLib {
 	FontNewLibParams params;
@@ -406,7 +489,7 @@ public:
 		// For save states only.
 	}
 
-	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F) {
+	FontLib(u32 paramPtr, u32 errorCodePtr) : fontHRes_(128.0f), fontVRes_(128.0f), altCharCode_(0x5F), charInfoBitmapAddress_(0) {
 		nfl_ = 0;
 		Memory::ReadStruct(paramPtr, &params_);
 		if (params_.numFonts > 9) {
@@ -418,8 +501,8 @@ public:
 		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(GetListID(), errorCodePtr);
 
-		u32 args[2] = { params_.userDataAddr, allocSize };
-		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, true);
+		u32 args[2] = { userDataAddr(), allocSize };
+		hleEnqueueCall(allocFuncAddr(), 2, args, action);
 	}
 
 	u32 GetListID() {
@@ -429,25 +512,29 @@ public:
 	void Done() {
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (isfontopen_[i] == FONT_IS_OPEN) {
-				fontMap[fonts_[i]]->Close();
+				CloseFont(fontMap[fonts_[i]]);
 				delete fontMap[fonts_[i]];
 				fontMap.erase(fonts_[i]);
 			}
 		}
-		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		u32 args[2] = { userDataAddr(), (u32)handle_ };
 		// TODO: The return value of this is leaking.
 		if (handle_) {  // Avoid calling free-callback on double-free
-			__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+			if (coreState != CORE_POWERDOWN) {
+				hleEnqueueCall(freeFuncAddr(), 2, args);
+			}
 		}
 		handle_ = 0;
 		fonts_.clear();
 		isfontopen_.clear();
+		openAllocatedAddresses_.clear();
 	}
 
 	void AllocDone(u32 allocatedAddr) {
 		handle_ = allocatedAddr;
 		fonts_.resize(params_.numFonts);
 		isfontopen_.resize(params_.numFonts);
+		openAllocatedAddresses_.resize(params_.numFonts);
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			u32 addr = allocatedAddr + 0x4C + (u32)i * 0x4C;
 			isfontopen_[i] = 0;
@@ -471,6 +558,9 @@ public:
 
 	u32 handle() const { return handle_; }
 	int numFonts() const { return params_.numFonts; }
+	u32_le userDataAddr() const{ return params_.userDataAddr; }
+	u32_le allocFuncAddr() const { return params_.allocFuncAddr; }
+	u32_le freeFuncAddr() const { return params_.freeFuncAddr; }
 
 	void SetResolution(float hres, float vres) {
 		fontHRes_ = hres;
@@ -524,6 +614,24 @@ public:
 			delete prevFont->second;
 		}
 		fontMap[loadedFont->Handle()] = loadedFont;
+
+		if (!useAllocCallbacks)
+			return loadedFont;
+
+		u32 allocSize = 12;
+		if (mode == FONT_OPEN_INTERNAL_STINGY) {
+			allocSize = loadedFont->GetFont()->getStingySize();
+		} else if (mode == FONT_OPEN_INTERNAL_FULL) {
+			allocSize += loadedFont->GetFont()->getSize();
+		}
+
+		PostOpenAllocCallback *action = (PostOpenAllocCallback *)__KernelCreateAction(actionPostOpenAllocCallback);
+		action->SetFontLib(GetListID());
+		action->SetFont(loadedFont->Handle(), freeFontIndex);
+
+		u32 args[2] = { userDataAddr(), allocSize };
+		hleEnqueueCall(allocFuncAddr(), 2, args, action);
+
 		return loadedFont;
 	}
 
@@ -531,29 +639,51 @@ public:
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (fonts_[i] == font->Handle()) {
 				isfontopen_[i] = 0;
-
+				if (openAllocatedAddresses_[i] != 0 && coreState != CORE_POWERDOWN) {
+					u32 args[2] = { userDataAddr(), openAllocatedAddresses_[i] };
+					hleEnqueueCall(freeFuncAddr(), 2, args);
+					openAllocatedAddresses_[i] = 0;
+				}
+				break;
 			}
 		}
+		flushFont();
 		font->Close();
 	}
 
+	void flushFont() {
+		if (charInfoBitmapAddress_ != 0 && coreState != CORE_POWERDOWN) {
+			u32 args[2] = { userDataAddr(), charInfoBitmapAddress_ };
+			hleEnqueueCall(freeFuncAddr(), 2, args);
+			charInfoBitmapAddress_ = 0;
+		}
+	}
+
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("FontLib", 1, 2);
+		auto s = p.Section("FontLib", 1, 3);
 		if (!s)
 			return;
 
-		p.Do(fonts_);
-		p.Do(isfontopen_);
-		p.Do(params_);
-		p.Do(fontHRes_);
-		p.Do(fontVRes_);
-		p.Do(fileFontHandle_);
-		p.Do(handle_);
-		p.Do(altCharCode_);
+		Do(p, fonts_);
+		Do(p, isfontopen_);
+		Do(p, params_);
+		Do(p, fontHRes_);
+		Do(p, fontVRes_);
+		Do(p, fileFontHandle_);
+		Do(p, handle_);
+		Do(p, altCharCode_);
 		if (s >= 2) {
-			p.Do(nfl_);
+			Do(p, nfl_);
 		} else {
 			nfl_ = 0;
+		}
+
+		if (s >= 3) {
+			Do(p, openAllocatedAddresses_);
+			Do(p, charInfoBitmapAddress_);
+		} else {
+			openAllocatedAddresses_.resize(params_.numFonts);
+			charInfoBitmapAddress_ = 0;
 		}
 	}
 
@@ -562,6 +692,20 @@ public:
 	}
 
 	u32 GetAltCharCode() const { return altCharCode_; }
+
+	u32 GetOpenAllocatedAddress(int index) const { 
+		if(index < numFonts())
+			return openAllocatedAddresses_[index];
+		return 0;
+	}
+
+	void SetOpenAllocatedAddress(int index, u32 addr) {
+		if (index < numFonts())
+			openAllocatedAddresses_[index] = addr;
+	}
+
+	u32 GetCharInfoBitmapAddress() const { return charInfoBitmapAddress_; }
+	void SetCharInfoBitmapAddress(u32 addr) { charInfoBitmapAddress_ = addr; }
 
 private:
 	std::vector<u32> fonts_;
@@ -573,6 +717,8 @@ private:
 	int fileFontHandle_;
 	int handle_;
 	int altCharCode_;
+	std::vector<u32> openAllocatedAddresses_;
+	u32 charInfoBitmapAddress_;
 	PSPPointer<NativeFontLib> nfl_;
 
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
@@ -584,12 +730,14 @@ void PostAllocCallback::run(MipsCall &call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (v0 == 0) {
 		// TODO: Who deletes fontLib?
-		Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
+		if (errorCodePtr_)
+			Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
 		call.setReturnValue(0);
 	} else {
 		FontLib *fontLib = fontLibList[fontLibID_];
 		fontLib->AllocDone(v0);
 		fontLibMap[fontLib->handle()] = fontLibID_;
+		// This is the same as v0 above.
 		call.setReturnValue(fontLib->handle());
 	}
 	INFO_LOG(SCEFONT, "Leaving PostAllocCallback::run");
@@ -599,6 +747,34 @@ void PostOpenCallback::run(MipsCall &call) {
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	fontLib->SetFileFontHandle(v0);
+}
+
+void PostOpenAllocCallback::run(MipsCall &call) {
+	FontLib *fontLib = fontLibList[fontLibID_];
+	u32 v0 = currentMIPS->r[MIPS_REG_V0];
+	fontLib->SetOpenAllocatedAddress(fontIndex_, v0);
+}
+
+void PostCharInfoAllocCallback::run(MipsCall &call) {
+	FontLib *fontLib = fontLibList[fontLibID_];
+	u32 v0 = currentMIPS->r[MIPS_REG_V0];
+	if (v0 == 0) {
+		call.setReturnValue(ERROR_FONT_OUT_OF_MEMORY); // From JPCSP, if alloc size is 0, still this error value?
+	} else {
+		fontLib->SetCharInfoBitmapAddress(v0);
+	}
+}
+
+void PostCharInfoFreeCallback::run(MipsCall &call) {
+	FontLib *fontLib = fontLibList[fontLibID_];
+	fontLib->SetCharInfoBitmapAddress(0);
+
+	u32 allocSize = charInfo_->bitmapWidth * charInfo_->bitmapHeight;
+	PostCharInfoAllocCallback *action = (PostCharInfoAllocCallback *)__KernelCreateAction(actionPostCharInfoAllocCallback);
+	action->SetFontLib(fontLibID_);
+
+	u32 args[2] = { fontLib->userDataAddr(), allocSize };
+	hleEnqueueCall(fontLib->allocFuncAddr(), 2, args, action);
 }
 
 inline bool LoadedFont::GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType) const {
@@ -709,8 +885,12 @@ int GetInternalFontIndex(Font *font) {
 }
 
 void __FontInit() {
+	useAllocCallbacks = true;
 	actionPostAllocCallback = __KernelRegisterActionType(PostAllocCallback::Create);
 	actionPostOpenCallback = __KernelRegisterActionType(PostOpenCallback::Create);
+	actionPostOpenAllocCallback = __KernelRegisterActionType(PostOpenAllocCallback::Create);
+	actionPostCharInfoAllocCallback = __KernelRegisterActionType(PostCharInfoAllocCallback::Create);
+	actionPostCharInfoFreeCallback = __KernelRegisterActionType(PostCharInfoFreeCallback::Create);
 }
 
 void __FontShutdown() {
@@ -733,20 +913,30 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
-	auto s = p.Section("sceFont", 1);
+	auto s = p.Section("sceFont", 1, 2);
 	if (!s)
 		return;
 
 	__LoadInternalFonts();
 
-	p.Do(fontLibList);
-	p.Do(fontLibMap);
-	p.Do(fontMap);
+	Do(p, fontLibList);
+	Do(p, fontLibMap);
+	Do(p, fontMap);
 
-	p.Do(actionPostAllocCallback);
+	Do(p, actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
-	p.Do(actionPostOpenCallback);
+	Do(p, actionPostOpenCallback);
 	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
+	if (s >= 2) {
+		Do(p, actionPostOpenAllocCallback);
+		__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
+		Do(p, actionPostCharInfoAllocCallback);
+		__KernelRestoreActionType(actionPostCharInfoAllocCallback, PostCharInfoAllocCallback::Create);
+		Do(p, actionPostCharInfoFreeCallback);
+		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
+	} else {
+		useAllocCallbacks = false;
+	}
 }
 
 static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
@@ -912,14 +1102,13 @@ static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u3
 
 static int sceFontClose(u32 fontHandle) {
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
-	if (font)
-	{
+	if (font) {
 		DEBUG_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
 		FontLib *fontLib = font->GetFontLib();
-		if (fontLib)
+		if (fontLib) {
 			fontLib->CloseFont(font);
-	}
-	else
+		}
+	} else
 		ERROR_LOG(SCEFONT, "sceFontClose(%x) - font not open?", fontHandle);
 	return 0;
 }
@@ -1100,6 +1289,27 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
 	font->GetCharInfo(charCode, charInfo);
 
+	if (!useAllocCallbacks)
+		return 0;
+
+	u32 allocSize = charInfo->bitmapWidth * charInfo->bitmapHeight;
+	if (charInfo->sfp26AdvanceH != 0 || charInfo->sfp26AdvanceV != 0) {
+		if (font->GetFontLib()->GetCharInfoBitmapAddress() != 0) {
+			PostCharInfoFreeCallback *action = (PostCharInfoFreeCallback *)__KernelCreateAction(actionPostCharInfoFreeCallback);
+			action->SetFontLib(font->GetFontLib()->GetListID());
+			action->SetCharInfo(charInfo);
+
+			u32 args[2] = { font->GetFontLib()->userDataAddr(), font->GetFontLib()->GetCharInfoBitmapAddress() };
+			hleEnqueueCall(font->GetFontLib()->freeFuncAddr(), 2, args, action);
+		} else {
+			PostCharInfoAllocCallback *action = (PostCharInfoAllocCallback *)__KernelCreateAction(actionPostCharInfoAllocCallback);
+			action->SetFontLib(font->GetFontLib()->GetListID());
+
+			u32 args[2] = { font->GetFontLib()->userDataAddr(), allocSize };
+			hleEnqueueCall(font->GetFontLib()->allocFuncAddr(), 2, args, action);
+		}
+	}
+
 	return 0;
 }
 
@@ -1215,7 +1425,15 @@ static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
 
 static int sceFontFlush(u32 fontHandle) {
 	INFO_LOG(SCEFONT, "sceFontFlush(%i)", fontHandle);
-	// Probably don't need to do anything here.
+	
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font) {
+		ERROR_LOG_REPORT(SCEFONT, "sceFontFlush(%08x): bad font", fontHandle);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	font->GetFontLib()->flushFont();
+
 	return 0;
 }
 

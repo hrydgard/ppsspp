@@ -18,11 +18,12 @@
 #include <algorithm>
 #include <cstdio>
 
-#include "base/basictypes.h"
-#include "base/logging.h"
+#include "ppsspp_config.h"
 
+#include "Common/Log.h"
 #include "Common/CPUDetect.h"
 #include "Common/ColorConv.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/MemMap.h"
@@ -1345,14 +1346,14 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			if (!jitted_)
 				return "Not compiled";
 			std::vector<std::string> lines;
-#if defined(ARM64)
+#if PPSSPP_ARCH(ARM64)
 			lines = DisassembleArm64((const u8 *)jitted_, jittedSize_);
-#elif defined(ARM)
+#elif PPSSPP_ARCH(ARM)
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
-#elif defined(MIPS)
-			// No MIPS disassembler defined
-#else
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
+#else
+			// No disassembler defined
 #endif
 			std::string buffer;
 			for (auto line : lines) {
@@ -1389,5 +1390,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
-	ClearCodeSpace(0);
+	if (g_Config.iCpuCore == (int)CPUCore::JIT) {
+		ClearCodeSpace(0);
+	}
 }

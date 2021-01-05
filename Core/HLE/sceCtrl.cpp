@@ -18,13 +18,14 @@
 #include <cmath>
 #include <mutex>
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Replay.h"
-#include "Common/ChunkFile.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
@@ -86,6 +87,12 @@ static std::vector<SceUID> waitingThreads;
 static std::mutex ctrlMutex;
 
 static int ctrlTimer = -1;
+
+static u16 leftVibration = 0;
+static u16 rightVibration = 0;
+// The higher the dropout, the longer Vibration will run
+static u8 vibrationLeftDropout = 160;
+static u8 vibrationRightDropout = 160;
 
 // STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -200,6 +207,11 @@ void __CtrlSetRapidFire(bool state)
 	emuRapidFire = state;
 }
 
+bool __CtrlGetRapidFire()
+{
+	return emuRapidFire;
+}
+
 static int __CtrlReadSingleBuffer(PSPPointer<CtrlData> data, bool negative)
 {
 	if (data.IsValid())
@@ -283,6 +295,10 @@ static void __CtrlVblank()
 {
 	emuRapidFireFrames++;
 
+	// Reduce gamepad Vibration by set % each frame
+	leftVibration *= (float)vibrationLeftDropout / 256.0f;
+	rightVibration *= (float)vibrationRightDropout / 256.0f;
+
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
 		__CtrlDoSample();
@@ -291,7 +307,7 @@ static void __CtrlVblank()
 static void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 {
 	// This only runs in timer mode (ctrlCycle > 0.)
-	_dbg_assert_msg_(SCECTRL, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+	_dbg_assert_msg_(ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
 
 	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle) - cyclesLate, ctrlTimer, 0);
 
@@ -335,33 +351,33 @@ void __CtrlDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(analogEnabled);
-	p.Do(ctrlLatchBufs);
-	p.Do(ctrlOldButtons);
+	Do(p, analogEnabled);
+	Do(p, ctrlLatchBufs);
+	Do(p, ctrlOldButtons);
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
 	if (s <= 2) {
 		CtrlData dummy = {0};
-		p.Do(dummy);
+		Do(p, dummy);
 	}
-	p.Do(ctrlBuf);
-	p.Do(ctrlBufRead);
-	p.Do(latch);
+	Do(p, ctrlBuf);
+	Do(p, ctrlBufRead);
+	Do(p, latch);
 	if (s == 1) {
 		dialogBtnMake = 0;
 	} else {
-		p.Do(dialogBtnMake);
+		Do(p, dialogBtnMake);
 	}
 
-	p.Do(ctrlIdleReset);
-	p.Do(ctrlIdleBack);
+	Do(p, ctrlIdleReset);
+	Do(p, ctrlIdleBack);
 
-	p.Do(ctrlCycle);
+	Do(p, ctrlCycle);
 
 	SceUID dv = 0;
-	p.Do(waitingThreads, dv);
+	Do(p, waitingThreads, dv);
 
-	p.Do(ctrlTimer);
+	Do(p, ctrlTimer);
 	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
 }
 
@@ -557,4 +573,27 @@ void Register_sceCtrl()
 void Register_sceCtrl_driver()
 {
 	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
+}
+
+u16 sceCtrlGetRightVibration() {
+	return rightVibration;
+}
+
+u16 sceCtrlGetLeftVibration() {
+	return leftVibration;
+}
+
+namespace SceCtrl {
+	void SetRightVibration(u16 rVibration) {
+		rightVibration = rVibration;
+	}
+	void SetLeftVibration(u16 lVibration) {
+		leftVibration = lVibration;
+	}
+	void SetVibrationRightDropout(u8 vibrationRDropout) {
+		vibrationRightDropout = vibrationRDropout;
+	}
+	void SetVibrationLeftDropout(u8 vibrationLDropout) {
+		vibrationLeftDropout = vibrationLDropout;
+	}
 }

@@ -345,7 +345,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int vt = _VT;
 		int vs = _VS;
-		int vd = _VS;
+		int vd = _VD;
 		VectorSize sz = GetVecSizeSafe(op);
 		if (sz != V_Triple)
 		{

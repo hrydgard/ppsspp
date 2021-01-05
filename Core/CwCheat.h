@@ -1,12 +1,13 @@
 // Rough and ready CwCheats implementation, disabled by default.
 // Will not enable by default until the TOOD:s have been addressed.
 
+#pragma once
+
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
 
-#include "base/basictypes.h"
 #include "Core/MemMap.h"
 
 class PointerWrap;
@@ -34,17 +35,23 @@ struct CheatCode {
 	std::vector<CheatLine> lines;
 };
 
+struct CheatFileInfo {
+	int lineNum;
+	std::string name;
+	bool enabled;
+};
+
 struct CheatOperation;
 
 class CWCheatEngine {
 public:
-	CWCheatEngine();
-	std::vector<std::string> GetCodesList();
+	CWCheatEngine(const std::string &gameID);
+	std::vector<CheatFileInfo> FileInfo();
 	void ParseCheats();
 	void CreateCheatFile();
+	std::string CheatFilename();
 	void Run();
 	bool HasCheats();
-
 	void InvalidateICache(u32 addr, int size);
 private:
 	u32 GetAddress(u32 value);
@@ -59,4 +66,6 @@ private:
 	bool TestIfAddr(const CheatOperation &op, bool(*oper)(int a, int b));
 
 	std::vector<CheatCode> cheats_;
+	std::string gameID_;
+	std::string filename_;
 };

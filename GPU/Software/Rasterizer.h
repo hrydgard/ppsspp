@@ -32,4 +32,9 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1);
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
-}
+// Shared functions with RasterizerRectangle.cpp
+Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst);
+void DrawSinglePixelNonClear(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in);
+Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, const Vec4<int>& texcolor);
+
+}  // namespace Rasterizer

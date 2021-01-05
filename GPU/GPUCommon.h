@@ -111,7 +111,7 @@ public:
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
 
-	void CopyDisplayToOutput() override = 0;
+	void CopyDisplayToOutput(bool reallyDirty) override = 0;
 	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
@@ -260,6 +260,9 @@ public:
 	}
 
 protected:
+	void DeviceLost() override;
+	void DeviceRestore() override;
+
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
@@ -276,6 +279,7 @@ protected:
 	}
 
 	void BeginFrame() override;
+	void UpdateVsyncInterval(bool force);
 
 	virtual void FastRunLoop(DisplayList &list);
 
@@ -302,10 +306,12 @@ protected:
 		}
 	}
 
-	FramebufferManagerCommon *framebufferManager_;
-	TextureCacheCommon *textureCache_;
-	DrawEngineCommon *drawEngineCommon_;
-	ShaderManagerCommon *shaderManager_;
+	size_t FormatGPUStatsCommon(char *buf, size_t size);
+
+	FramebufferManagerCommon *framebufferManager_ = nullptr;
+	TextureCacheCommon *textureCache_ = nullptr;
+	DrawEngineCommon *drawEngineCommon_ = nullptr;
+	ShaderManagerCommon *shaderManager_ = nullptr;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
@@ -339,7 +345,7 @@ protected:
 	bool dumpThisFrame_;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_;
+	bool resized_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
@@ -362,6 +368,7 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
+	int lastVsync_ = -1;
 };
 
 struct CommonCommandTableEntry {

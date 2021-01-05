@@ -1,6 +1,6 @@
 #pragma once
 
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "AndroidGraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
 

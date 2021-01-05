@@ -23,19 +23,11 @@
 #include <stdarg.h>
 
 #ifdef _MSC_VER
-#pragma warning (disable:4100)
+#pragma warning(disable:4100)
+#pragma warning(disable:4244)
+#pragma warning(disable:4996)
 #endif
 
-// Force enable logging in the right modes. For some reason, something had changed
-// so that debugfast no longer logged.
-#if defined(_DEBUG) || defined(DEBUGFAST)
-#undef LOGGING
-#define LOGGING 1
-#endif
-
-#define STACKALIGN
-
-#include "Log.h"
 #include "CommonTypes.h"
 #include "CommonFuncs.h"
 
@@ -45,17 +37,25 @@
 	void operator =(const t &other) = delete;
 #endif
 
-#ifdef __APPLE__
-// The Darwin ABI requires that stack frames be aligned to 16-byte boundaries.
-// This is only needed on i386 gcc - x86_64 already aligns to 16 bytes.
-#if defined __i386__ && defined __GNUC__
-#undef STACKALIGN
-#define STACKALIGN __attribute__((__force_align_arg_pointer__))
+#ifndef ENUM_CLASS_BITOPS
+#define ENUM_CLASS_BITOPS(T) \
+	static inline T operator |(const T &lhs, const T &rhs) { \
+		return T((int)lhs | (int)rhs); \
+	} \
+	static inline T &operator |= (T &lhs, const T &rhs) { \
+		lhs = lhs | rhs; \
+		return lhs; \
+	} \
+	static inline bool operator &(const T &lhs, const T &rhs) { \
+		return ((int)lhs & (int)rhs) != 0; \
+	}
 #endif
 
-#define CHECK_HEAP_INTEGRITY()
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#endif
 
-#elif defined(_WIN32)
+#if defined(_WIN32)
 
 // Memory leak checks
 	#define CHECK_HEAP_INTEGRITY()
@@ -64,7 +64,7 @@
 	#if defined(_DEBUG)
 		#include <crtdbg.h>
 		#undef CHECK_HEAP_INTEGRITY
-		#define CHECK_HEAP_INTEGRITY() {if (!_CrtCheckMemory()) PanicAlert("memory corruption detected. see log.");}
+		#define CHECK_HEAP_INTEGRITY() {if (!_CrtCheckMemory()) _assert_msg_(false, "Memory corruption detected. See log.");}
 	#endif
 #else
 
@@ -82,18 +82,16 @@
 #define __forceinline inline __attribute__((always_inline))
 #endif
 
-#if !defined(__GNUC__) && (defined(_M_X64) || defined(_M_IX86))
+#if defined __SSE4_2__
 # define _M_SSE 0x402
-#else
-# if defined __SSE4_2__
-#  define _M_SSE 0x402
-# elif defined __SSE4_1__
-#  define _M_SSE 0x401
-# elif defined __SSSE3__
-#  define _M_SSE 0x301
-# elif defined __SSE3__
-#  define _M_SSE 0x300
-# elif defined __SSE2__
-#  define _M_SSE 0x200
-# endif
+#elif defined __SSE4_1__
+# define _M_SSE 0x401
+#elif defined __SSSE3__
+# define _M_SSE 0x301
+#elif defined __SSE3__
+# define _M_SSE 0x300
+#elif defined __SSE2__
+# define _M_SSE 0x200
+#elif !defined(__GNUC__) && (defined(_M_X64) || defined(_M_IX86))
+# define _M_SSE 0x402
 #endif

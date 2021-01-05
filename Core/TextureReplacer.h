@@ -48,7 +48,6 @@ enum class ReplacedTextureAlpha {
 
 // For forward comatibility, we specify the hash.
 enum class ReplacedTextureHash {
-	// TODO: Maybe only support crc32c for now?
 	QUICK,
 	XXH32,
 	XXH64,
@@ -203,6 +202,7 @@ protected:
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
+	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;

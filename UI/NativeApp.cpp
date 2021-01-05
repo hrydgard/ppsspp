@@ -39,39 +39,50 @@
 #include "Windows/MainWindow.h"
 #endif
 
-#include "base/display.h"
-#include "base/timeutil.h"
-#include "base/logging.h"
-#include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "gfx_es2/draw_text.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "input/input_state.h"
-#include "math/fast/fast_math.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "ui/ui.h"
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "util/text/utf8.h"
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#include "Windows/CaptureDevice.h"
+#endif
 
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/draw_text.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/UI/UI.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "android/jni/app-android.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Input/InputState.h"
+#include "Common/Math/fast/fast_math.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
 #include "Common/CPUDetect.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
+#include "Common/OSVersion.h"
+#include "Common/GPU/ShaderTranslation.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
@@ -80,27 +91,24 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/HLE/proAdhoc.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
-#include "GPU/GPUInterface.h"
 
-#include "ui_atlas.h"
+#include "GPU/GPUInterface.h"
+#include "UI/BackgroundAudio.h"
+#include "UI/ControlMappingScreen.h"
+#include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GPUDriverTestScreen.h"
 #include "UI/HostTypes.h"
-#include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
-#include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
-#include "UI/DiscordIntegration.h"
-#include "UI/GPUDriverTestScreen.h"
-
-#if !defined(MOBILE_DEVICE)
-#include "Common/KeyMap.h"
-#endif
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 #include "Qt/QtHost.h"
@@ -116,9 +124,11 @@
 
 static UI::Theme ui_theme;
 
-#if defined(ARM) && defined(__ANDROID__)
+Atlas g_ui_atlas;
+
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
@@ -128,19 +138,12 @@ static UI::Theme ui_theme;
 #include <mach-o/dyld.h>
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
 ScreenManager *screenManager;
 std::string config_filename;
 
-bool g_graphicsInited;
-
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
+bool g_ShaderNameListChanged = false;
 static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
@@ -153,13 +156,19 @@ struct PendingMessage {
 	std::string value;
 };
 
+struct PendingInputBox {
+	std::function<void(bool, const std::string &)> cb;
+	bool result;
+	std::string value;
+};
+
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
+static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
-static std::vector<std::string> inputboxValue;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -167,7 +176,7 @@ WindowsAudioBackend *winAudioBackend;
 
 std::thread *graphicsLoadThread;
 
-class AndroidLogger : public LogListener {
+class PrintfLogger : public LogListener {
 public:
 	void Log(const LogMessage &message) override {
 		// Log with simplified headers as Android already provides timestamp etc.
@@ -175,17 +184,17 @@ public:
 		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
-			ILOG("[%s] %s", message.log, message.msg.c_str());
+			printf("INFO [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			ELOG("[%s] %s", message.log, message.msg.c_str());
+			printf("ERR  [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			WLOG("[%s] %s", message.log, message.msg.c_str());
+			printf("WARN [%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			ILOG("[%s] !!! %s", message.log, message.msg.c_str());
+			printf("NOTE [%s] !!! %s", message.log, message.msg.c_str());
 			break;
 		}
 	}
@@ -198,7 +207,7 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 #endif
 
 // globals
-static AndroidLogger *logger = nullptr;
+static LogListener *logger = nullptr;
 std::string boot_filename = "";
 
 void NativeHost::InitSound() {
@@ -221,7 +230,7 @@ void QtHost::ShutdownSound() { }
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
 	if (query == "screenRotation") {
-		ILOG("g_Config.screenRotation = %d", g_Config.iScreenRotation);
+		INFO_LOG(G3D, "g_Config.screenRotation = %d", g_Config.iScreenRotation);
 		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
@@ -242,8 +251,6 @@ std::string NativeQueryConfig(std::string query) {
 		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
 		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
 		return std::string(temp);
-	} else if (query == "force44khz") {
-		return std::string("0");
 	} else if (query == "androidJavaGL") {
 		// If we're using Vulkan, we say no... need C++ to use Vulkan.
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -260,7 +267,7 @@ std::string NativeQueryConfig(std::string query) {
 
 int NativeMix(short *audio, int num_samples) {
 	if (GetUIState() != UISTATE_INGAME) {
-		PlayBackgroundAudio();
+		g_BackgroundAudio.Play();
 	}
 
 	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
@@ -280,9 +287,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
 
-#if defined(ARM) && defined(__ANDROID__)
+#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
 	ArmEmitterTest();
-#elif defined(ARM64) && defined(__ANDROID__)
+#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
 	Arm64EmitterTest();
 #endif
 }
@@ -318,6 +325,8 @@ static void PostLoadConfig() {
 		g_Config.currentDirectory = g_Config.externalDirectory;
 #elif defined(IOS)
 		g_Config.currentDirectory = g_Config.internalDataDirectory;
+#elif PPSSPP_PLATFORM(SWITCH)
+		g_Config.currentDirectory = "/";
 #else
 		if (getenv("HOME") != nullptr)
 			g_Config.currentDirectory = getenv("HOME");
@@ -341,13 +350,14 @@ static void PostLoadConfig() {
 void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
+	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
 	File::CreateFullPath(g_Config.memStickDirectory + "PSP");
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_PLUGINS));
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
 	// and in the root PSP directory as well.
@@ -355,12 +365,13 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) + ".nomedia");
 }
 
 static void CheckFailedGPUBackends() {
 #ifdef _DEBUG
 	// If you're in debug mode, you probably don't want a fallback. If you're in release mode, use IGNORE below.
-	WARN_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
+	NOTICE_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
 	return;
 #endif
 
@@ -388,8 +399,11 @@ static void CheckFailedGPUBackends() {
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
-	if (lastBackend != g_Config.iGPUBackend)
-		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
+	if (lastBackend != g_Config.iGPUBackend) {
+		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		System_SendMessage("graphics_failedBackend", param.c_str());
+		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+	}
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
@@ -425,6 +439,8 @@ static void ClearFailedGPUBackends() {
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
+	ShaderTranslationInit();
+
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
 
@@ -437,6 +453,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
+	pendingInputBoxes.clear();
 #ifdef IOS
 	user_data_path += "/";
 #endif
@@ -446,12 +463,23 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #endif
-#if !defined(MOBILE_DEVICE) && !defined(_WIN32)
+#if defined(ASSETS_DIR)
+	VFSRegister("", new DirectoryAssetReader(ASSETS_DIR));
+#endif
+#if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
+	VFSRegister("", new DirectoryAssetReader("/usr/local/share/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader("/usr/local/share/games/ppsspp/assets/"));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader("/usr/share/games/ppsspp/assets/"));
 #endif
+#if PPSSPP_PLATFORM(SWITCH)
+	std::string assetPath = user_data_path + "assets/";
+	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
+#else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
+#endif
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
@@ -481,6 +509,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+#elif PPSSPP_PLATFORM(SWITCH)
+	g_Config.memStickDirectory = g_Config.internalDataDirectory + "config/ppsspp/";
+	g_Config.flash0Directory = g_Config.internalDataDirectory + "assets/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -500,7 +531,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (!LogManager::GetInstance())
-		LogManager::Init();
+		LogManager::Init(&g_Config.bEnableLogging);
 
 #ifndef _WIN32
 	g_Config.AddSearchPath(user_data_path);
@@ -514,6 +545,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	LogManager *logman = LogManager::GetInstance();
 
 #ifdef __ANDROID__
+	// On early versions of Android we don't need to ask permission.
 	CreateDirectoriesAndroid();
 #endif
 
@@ -521,6 +553,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *stateToLoad = 0;
 
 	bool gotBootFilename = false;
+	bool gotoGameSettings = false;
+	bool gotoTouchScreenTest = false;
+	boot_filename = "";
 
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -560,8 +595,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen"))
+				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.bFullScreen = true;
+					System_SendMessage("toggle_fullscreen", "1");
+				}
+				if (!strcmp(argv[i], "--windowed")) {
+					g_Config.bFullScreen = false;
+					System_SendMessage("toggle_fullscreen", "0");
+				}
+				if (!strcmp(argv[i], "--touchscreentest"))
+					gotoTouchScreenTest = true;
+				if (!strcmp(argv[i], "--gamesettings"))
+					gotoGameSettings = true;
 				break;
 			}
 		} else {
@@ -569,21 +614,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			// don't already have one.
 			if (!gotBootFilename) {
 				gotBootFilename = true;
-				ILOG("Boot filename found in args: '%s'", argv[i]);
+				INFO_LOG(SYSTEM, "Boot filename found in args: '%s'", argv[i]);
 
 				bool okToLoad = true;
 				bool okToCheck = true;
 				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
 					if (status == PERMISSION_STATUS_DENIED) {
-						ELOG("Storage permission denied. Launching without argument.");
+						ERROR_LOG(IO, "Storage permission denied. Launching without argument.");
 						okToLoad = false;
 						okToCheck = false;
 					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ELOG("Storage permission not granted. Launching without argument check.");
+						ERROR_LOG(IO, "Storage permission not granted. Launching without argument check.");
 						okToCheck = false;
 					} else {
-						ILOG("Storage permission granted.");
+						INFO_LOG(IO, "Storage permission granted.");
 					}
 				}
 				if (okToLoad) {
@@ -597,7 +642,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
 					if (!fileLoader->Exists()) {
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__ANDROID__)
 						// Ignore and proceed.
 #else
 						// Bail.
@@ -607,7 +652,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				}
 			} else {
 				fprintf(stderr, "Can only boot one file");
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__ANDROID__)
 				// Ignore and proceed.
 #else
 				// Bail.
@@ -622,19 +667,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	PostLoadConfig();
 
-	// Hard reset the logs. TODO: Get rid of this and read from config.
-#ifndef _WIN32
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnabled(type, true);
-		logman->SetLogLevel(type, logLevel);
-	}
-#endif
-
-#if defined(__ANDROID__) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
+#if PPSSPP_PLATFORM(ANDROID)
+	logger = new AndroidLogger();
+	logman->AddListener(logger);
+#elif (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
-	logger = new AndroidLogger();
+	logger = new PrintfLogger();
 	logman->AddListener(logger);
 #endif
 
@@ -645,7 +684,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 
-	I18NCategory *des = GetI18NCategory("DesktopUI");
+	auto des = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
@@ -680,8 +719,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
+	// TODO: Load these in the background instead of synchronously.
+	g_BackgroundAudio.LoadSamples();
+
 	if (!boot_filename.empty() && stateToLoad != NULL) {
-		SaveState::Load(stateToLoad, [](SaveState::Status status, const std::string &message, void *) {
+		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
@@ -689,7 +731,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	screenManager = new ScreenManager();
-	if (skipLogo) {
+	if (gotoGameSettings) {
+		screenManager->switchScreen(new LogoScreen(true));
+	} else if (gotoTouchScreenTest) {
+		screenManager->switchScreen(new MainScreen());
+		screenManager->push(new TouchTestScreen());
+	} else if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		screenManager->switchScreen(new LogoScreen());
@@ -736,20 +783,20 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 
 static void UIThemeInit() {
 #if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 15);
+	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 12);
 #else
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "", 11);
+	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), "", 11);
 #endif
 
-	ui_theme.checkOn = I_CHECKEDBOX;
-	ui_theme.checkOff = I_SQUARE;
-	ui_theme.whiteImage = I_SOLIDWHITE;
-	ui_theme.sliderKnob = I_CIRCLE;
-	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
+	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
+	ui_theme.checkOff = ImageID("I_SQUARE");
+	ui_theme.whiteImage = ImageID("I_SOLIDWHITE");
+	ui_theme.sliderKnob = ImageID("I_CIRCLE");
+	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");
 
 	ui_theme.itemStyle = MakeStyle(g_Config.uItemStyleFg, g_Config.uItemStyleBg);
 	ui_theme.itemFocusedStyle = MakeStyle(g_Config.uItemFocusedStyleFg, g_Config.uItemFocusedStyleBg);
@@ -771,61 +818,46 @@ static void UIThemeInit() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata);
+bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
-	ILOG("NativeInitGraphics");
-	_assert_msg_(G3D, graphicsContext, "No graphics context!");
+	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
-	using namespace Draw;
+	// We set this now so any resize during init is processed later.
+	resized = false;
+
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
-	_assert_msg_(G3D, g_draw, "No draw context available!");
 
-	ui_draw2d.SetAtlas(&ui_atlas);
-	ui_draw2d_front.SetAtlas(&ui_atlas);
+	if (!CreateGlobalPipelines()) {
+		ERROR_LOG(G3D, "Failed to create global pipelines");
+		return false;
+	}
+
+	// Load the atlas.
+	size_t atlas_data_size = 0;
+	if (!g_ui_atlas.IsMetadataLoaded()) {
+		const uint8_t *atlas_data = VFSReadFile("ui_atlas.meta", &atlas_data_size);
+		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
+		if (!load_success) {
+			ERROR_LOG(G3D, "Failed to load ui_atlas.meta - graphics will be broken.");
+			// Stumble along with broken visuals instead of dying.
+		}
+		delete[] atlas_data;
+	}
+
+	ui_draw2d.SetAtlas(&g_ui_atlas);
+	ui_draw2d_front.SetAtlas(&g_ui_atlas);
 
 	UIThemeInit();
 
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
-	Draw::BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
-	Draw::DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
-	Draw::RasterState *rasterNoCull = g_draw->CreateRasterState({});
-
-	PipelineDesc colorDesc{
-		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
-	};
-	PipelineDesc texColorDesc{
-		Primitive::TRIANGLE_LIST,
-		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
-	};
-
-	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
-	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
-
-	_assert_(colorPipeline);
-	_assert_(texColorPipeline);
-
-	// Release these now, reference counting should ensure that they get completely released
-	// once we delete both pipelines.
-	inputLayout->Release();
-	rasterNoCull->Release();
-	blendNormal->Release();
-	depth->Release();
-
 	ui_draw2d.Init(g_draw, texColorPipeline);
 	ui_draw2d_front.Init(g_draw, texColorPipeline);
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
-	RasterStateDesc desc;
-	desc.cull = CullMode::NONE;
-	desc.frontFace = Facing::CCW;
-
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
@@ -843,13 +875,62 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 #endif
 
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (IsWin7OrHigher()) {
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::AUDIO);
+		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+	}
+#endif
+
 	g_gameInfoCache = new GameInfoCache();
 
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceRestore();
+	}
 
-	g_graphicsInited = true;
-	ILOG("NativeInitGraphics completed");
+	INFO_LOG(SYSTEM, "NativeInitGraphics completed");
+	return true;
+}
+
+bool CreateGlobalPipelines() {
+	using namespace Draw;
+
+	InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
+	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
+	RasterState *rasterNoCull = g_draw->CreateRasterState({});
+
+	PipelineDesc colorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
+	};
+	PipelineDesc texColorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
+	};
+
+	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
+	if (!colorPipeline) {
+		// Something really critical is wrong, don't care much about correct releasing of the states.
+		return false;
+	}
+
+	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
+	if (!texColorPipeline) {
+		// Something really critical is wrong, don't care much about correct releasing of the states.
+		return false;
+	}
+
+	// Release these now, reference counting should ensure that they get completely released
+	// once we delete both pipelines.
+	inputLayout->Release();
+	rasterNoCull->Release();
+	blendNormal->Release();
+	depth->Release();
 	return true;
 }
 
@@ -859,18 +940,30 @@ void NativeShutdownGraphics() {
 	if (gpu)
 		gpu->DeviceLost();
 
-	g_graphicsInited = false;
-	ILOG("NativeShutdownGraphics");
+	INFO_LOG(SYSTEM, "NativeShutdownGraphics");
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	delete winAudioBackend;
 	winAudioBackend = nullptr;
 #endif
 
-	delete g_gameInfoCache;
-	g_gameInfoCache = nullptr;
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	if (winCamera) {
+		winCamera->waitShutDown();
+		delete winCamera;
+		winCamera = nullptr;
+	}
+	if (winMic) {
+		winMic->waitShutDown();
+		delete winMic;
+		winMic = nullptr;
+	}
+#endif
 
 	UIBackgroundShutdown();
+
+	delete g_gameInfoCache;
+	g_gameInfoCache = nullptr;
 
 	delete uiContext;
 	uiContext = nullptr;
@@ -887,7 +980,7 @@ void NativeShutdownGraphics() {
 		texColorPipeline = nullptr;
 	}
 
-	ILOG("NativeShutdownGraphics done");
+	INFO_LOG(SYSTEM, "NativeShutdownGraphics done");
 }
 
 void TakeScreenshot() {
@@ -922,7 +1015,7 @@ void TakeScreenshot() {
 	if (success) {
 		osm.Show(filename);
 	} else {
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		osm.Show(err->T("Could not save screenshot file"));
 	}
 }
@@ -957,6 +1050,12 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
 
+	if (GetUIState() != UISTATE_INGAME) {
+		// Note: We do this from NativeRender so that the graphics context is
+		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
+		g_BackgroundAudio.Update();
+	}
+
 	float xres = dp_xres;
 	float yres = dp_yres;
 
@@ -978,6 +1077,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	case GPUBackend::OPENGL:
+	default:
 		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	}
@@ -997,6 +1097,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
+		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
 		resized = false;
 
 		if (uiContext) {
@@ -1004,7 +1105,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 			// The UI now supports any offset but not the EmuScreen yet.
 			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
 			// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
-
 
 			// OSX 10.6 and SDL 1.2 bug.
 #if defined(__APPLE__) && !defined(USING_QT_UI)
@@ -1016,25 +1116,18 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #endif
 		}
 
-		// Test lost/restore on PC
-#if 0
-		if (gpu) {
-			gpu->DeviceLost();
-			gpu->DeviceRestore();
-		}
-#endif
-
 		graphicsContext->Resize();
 		screenManager->resized();
 
-		// TODO: Move this to new GraphicsContext objects for each backend.
-#ifndef _WIN32
-		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			PSP_CoreParameter().pixelWidth = pixel_xres;
-			PSP_CoreParameter().pixelHeight = pixel_yres;
-			NativeMessageReceived("gpu_resized", "");
-		}
+		// TODO: Move this to the GraphicsContext objects for each backend.
+#if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
+		PSP_CoreParameter().pixelWidth = pixel_xres;
+		PSP_CoreParameter().pixelHeight = pixel_yres;
+		NativeMessageReceived("gpu_resized", "");
 #endif
+	} else {
+		// INFO_LOG(G3D, "Polling graphics context");
+		graphicsContext->Poll();
 	}
 
 	ui_draw2d.PopDrawMatrix();
@@ -1050,19 +1143,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
 	}
-	if (msg == "inputbox_completed") {
-		SplitString(value, ':', inputboxValue);
-		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
-		if (inputboxValue[0] == "IP")
-			g_Config.proAdhocServer = setString;
-		else if (inputboxValue[0] == "nickname")
-			g_Config.sNickName = setString;
-		else if (inputboxValue[0] == "remoteiso_subdir")
-			g_Config.sRemoteISOSubdir = setString;
-		else if (inputboxValue[0] == "remoteiso_server")
-			g_Config.sLastRemoteISOServer = setString;
-		inputboxValue.clear();
-	}
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
 			std::string dest = GetSysDirectory(DIRECTORY_SYSTEM) + (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
@@ -1072,7 +1152,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		UIBackgroundInit(*uiContext);
 	}
 	if (msg == "savestate_displayslot") {
-		I18NCategory *sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
@@ -1086,8 +1166,8 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
-			I18NCategory *sy = GetI18NCategory("System");
-#ifdef __ANDROID__
+			auto sy = GetI18NCategory("System");
+#if PPSSPP_PLATFORM(ANDROID)
 			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
 			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
@@ -1096,14 +1176,20 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		Core_SetPowerSaving(value != "false");
 	}
 	if (msg == "permission_granted" && value == "storage") {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 		CreateDirectoriesAndroid();
 #endif
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.
-		ILOG("Reloading config after storage permission grant.");
-		g_Config.Load();
+		// NOTE: If graphics backend isn't what's in the config (due to error fallback, or not matching the default
+		// and then getting permission), it will get out of sync. So we save and restore g_Config.iGPUBackend.
+		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues
+		// and I can't risk it before 1.9.0.
+		int gpuBackend = g_Config.iGPUBackend;
+		INFO_LOG(IO, "Reloading config after storage permission grant.");
+		g_Config.Reload();
 		PostLoadConfig();
+		g_Config.iGPUBackend = gpuBackend;
 	}
 }
 
@@ -1111,36 +1197,44 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
+	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
+		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
+		pendingInputBoxes.clear();
 	}
 
-	for (size_t i = 0; i < toProcess.size(); i++) {
-		HandleGlobalMessage(toProcess[i].msg, toProcess[i].value);
-		screenManager->sendMessage(toProcess[i].msg.c_str(), toProcess[i].value.c_str());
+	for (const auto &item : toProcess) {
+		HandleGlobalMessage(item.msg, item.value);
+		screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
+	}
+	for (const auto &item : inputToProcess) {
+		item.cb(item.result, item.value);
 	}
 
 	g_DownloadManager.Update();
 	screenManager->update();
 
 	g_Discord.Update();
+
+	UI::SetSoundEnabled(g_Config.bUISound);
 }
 
 bool NativeIsAtTopLevel() {
 	// This might need some synchronization?
 	if (!screenManager) {
-		ELOG("No screen manager active");
+		ERROR_LOG(SYSTEM, "No screen manager active");
 		return false;
 	}
 	Screen *currentScreen = screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
-		ILOG("Screen toplevel: %i", (int)top);
+		INFO_LOG(SYSTEM, "Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
-		ELOG("No current screen");
+		ERROR_LOG(SYSTEM, "No current screen");
 		return false;
 	}
 }
@@ -1159,7 +1253,7 @@ bool NativeTouch(const TouchInput &touch) {
 }
 
 bool NativeKey(const KeyInput &key) {
-	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
 		static std::vector<int> pspKeys;
@@ -1266,13 +1360,19 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessages.push_back(pendingMessage);
 }
 
+void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
+	std::lock_guard<std::mutex> lock(pendingMutex);
+	PendingInputBox pendingMessage;
+	pendingMessage.cb = cb;
+	pendingMessage.result = result;
+	pendingMessage.value = value;
+	pendingInputBoxes.push_back(pendingMessage);
+}
+
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited) {
-		resized = true;
-	} else {
-		ILOG("NativeResized ignored, not initialized");
-	}
+	INFO_LOG(G3D, "NativeResized - setting flag");
+	resized = true;
 }
 
 void NativeSetRestarting() {
@@ -1297,15 +1397,9 @@ void NativeShutdown() {
 #endif
 	g_Config.Save("NativeShutdown");
 
-	// Avoid shutting this down when restarting core.
-	if (!restarting)
-		LogManager::Shutdown();
+	INFO_LOG(SYSTEM, "NativeShutdown called");
 
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
-
-	ILOG("NativeShutdown called");
+	ShutdownWebServer();
 
 	System_SendMessage("finish", "");
 
@@ -1313,17 +1407,17 @@ void NativeShutdown() {
 
 	g_Discord.Shutdown();
 
-	delete logger;
-	logger = nullptr;
+	ShaderTranslationShutdown();
+
+	// Avoid shutting this down when restarting core.
+	if (!restarting)
+		LogManager::Shutdown();
+
+	if (logger) {
+		delete logger;
+		logger = nullptr;
+	}
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
-}
-
-void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
-	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
-}
-
-void PushCameraImage(long long length, unsigned char* image) {
-	Camera::pushCameraImage(length, image);
 }

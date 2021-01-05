@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/basictypes.h"
+#include "Common/Common.h"
 #include "Core/System.h"
 #include "Windows/resource.h"
 #include "Windows/GEDebugger/GEDebugger.h"

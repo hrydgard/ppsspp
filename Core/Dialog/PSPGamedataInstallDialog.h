@@ -62,7 +62,7 @@ private:
 	u64 allReadSize;   // use this to calculate progress value.
 	int progressValue;
 
-	u32 currentInputFile;
+	int currentInputFile;
 	u32 currentInputBytesLeft;
-	u32 currentOutputFile;
+	int currentOutputFile;
 };

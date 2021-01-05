@@ -20,9 +20,9 @@
 #include <mutex>
 #include <vector>
 
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "net/url.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 

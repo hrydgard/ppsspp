@@ -12,22 +12,29 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "base/display.h"
-#include "base/timeutil.h"
-#include "file/zip_read.h"
-#include "input/input_state.h"
-#include "net/resolve.h"
-#include "ui/screen.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
-#include "input/keycodes.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Net/Resolve.h"
+#include "Common/UI/Screen.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Common/GraphicsContext.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
+#include "Core/Host.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -36,15 +43,16 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSGraphicsContext : public DummyGraphicsContext {
+class IOSGraphicsContext : public GraphicsContext {
 public:
 	IOSGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
-		_assert_msg_(G3D, success, "Failed to compile preset shaders");
+		_assert_msg_(success, "Failed to compile preset shaders");
 	}
 	~IOSGraphicsContext() {
 		delete draw_;
@@ -52,6 +60,12 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+
+	void SwapInterval(int interval) override {}
+	void SwapBuffers() override {}
+	void Resize() override {}
+	void Shutdown() override {}
+
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
 	}
@@ -68,6 +82,7 @@ public:
 		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
+
 private:
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_;
@@ -84,6 +99,8 @@ static bool threadStopped = false;
 
 __unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
+static CameraHelper *cameraHelper;
+static LocationHelper *locationHelper;
 
 @interface ViewController () {
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
@@ -143,11 +160,31 @@ static GraphicsContext *graphicsContext;
 - (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
 }
 
+- (void)shareText:(NSString *)text {
+	NSArray *items = @[text];
+	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self presentViewController:viewController animated:YES completion:nil];
+	});
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+	if (@available(iOS 11.0, *)) {
+		[super viewSafeAreaInsetsDidChange];
+		char safeArea[100];
+		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
+		snprintf(safeArea, sizeof(safeArea), "%f:%f:%f:%f",
+				self.view.safeAreaInsets.left, self.view.safeAreaInsets.right,
+				self.view.safeAreaInsets.top, 0.0f);
+		System_SendMessage("safe_insets", safeArea);
+	}
+}
+
 - (void)viewDidLoad {
 	[super viewDidLoad];
 	[[DisplayManager shared] setupDisplayListener];
 
-    UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
+	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
@@ -166,6 +203,10 @@ static GraphicsContext *graphicsContext;
 
 	graphicsContext = new IOSGraphicsContext();
 	
+	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+	}, nullptr);
+
 	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
@@ -202,23 +243,28 @@ static GraphicsContext *graphicsContext;
 	volume.delegate = self;
 	[self.view addSubview:volume];
 	[self.view bringSubviewToFront:volume];
+
+	cameraHelper = [[CameraHelper alloc] init];
+	[cameraHelper setDelegate:self];
+
+	locationHelper = [[LocationHelper alloc] init];
+	[locationHelper setDelegate:self];
 	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
-		ILOG("Emulation thread starting\n");
+		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
-			time_update();
 		}
 
 
-		ILOG("Emulation thread shutting down\n");
+		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
 		NativeShutdownGraphics();
 
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-		ILOG("Emulation thread stopping\n");
+		INFO_LOG(SYSTEM, "Emulation thread stopping\n");
 		graphicsContext->StopThread();
 		
 		threadStopped = true;
@@ -627,6 +673,38 @@ static GraphicsContext *graphicsContext;
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_10]; // Start
 	};
+
+#if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
+	if (extendedProfile.leftThumbstickButton != nil) {
+		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_11];
+		};
+	}
+	if (extendedProfile.rightThumbstickButton != nil) {
+		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_12];
+		};
+	}
+#endif
+#if defined(__IPHONE_13) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13
+	if (extendedProfile.buttonOptions != nil) {
+		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];
+		};
+	}
+	if (extendedProfile.buttonMenu != nil) {
+		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_14];
+		};
+	}
+#endif
+#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
+	if (extendedProfile.buttonHome != nil) {
+		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_15];
+		};
+	}
+#endif
 	
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
@@ -666,6 +744,39 @@ static GraphicsContext *graphicsContext;
 	};
 }
 #endif
+
+void setCameraSize(int width, int height) {
+	[cameraHelper setCameraSize: width h:height];
+}
+
+void startVideo() {
+	[cameraHelper startVideo];
+}
+
+void stopVideo() {
+	[cameraHelper stopVideo];
+}
+
+-(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+	Camera::pushCameraImage(len, data);
+}
+
+void startLocation() {
+	[locationHelper startLocationUpdates];
+}
+
+void stopLocation() {
+	[locationHelper stopLocationUpdates];
+}
+
+-(void) SetGpsDataIOS:(CLLocation *)newLocation {
+	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+					newLocation.horizontalAccuracy/5.0,
+					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+					newLocation.altitude,
+					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
+					0 /* bearing */);
+}
 
 @end
 

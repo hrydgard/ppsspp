@@ -20,11 +20,12 @@
 
 #include <algorithm>
 
+#include "Common/BitSet.h"
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
-#include "Common/CPUDetect.h"
 
 using namespace MIPSAnalyst;
 

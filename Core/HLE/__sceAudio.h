@@ -26,6 +26,7 @@ struct AudioDebugStats {
 	int underrunCount;
 	int overrunCount;
 	int instantSampleRate;
+	int targetSampleRate;
 	int lastPushSize;
 };
 
@@ -44,7 +45,7 @@ void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
 int __AudioMix(short *outstereo, int numSamples, int sampleRate);
-const AudioDebugStats *__AudioGetDebugStats();
+void __AudioGetDebugStats(char *buf, size_t bufSize);
 void __PushExternalAudio(const s32 *audio, int numSamples);  // Should not be used in-game, only at the menu!
 
 // Audio Dumping stuff

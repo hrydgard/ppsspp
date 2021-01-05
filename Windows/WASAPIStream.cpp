@@ -1,10 +1,12 @@
+#include "stdafx.h"
+
 #include "WindowsAudio.h"
 #include "WASAPIStream.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include <mutex>
 #include <Objbase.h>
@@ -35,8 +37,7 @@ public:
 	}
 
 	~CMMNotificationClient() {
-		if (currentDevice_)
-			CoTaskMemFree(currentDevice_);
+		CoTaskMemFree(currentDevice_);
 		currentDevice_ = nullptr;
 		SAFE_RELEASE(_pEnumerator)
 	}
@@ -44,9 +45,11 @@ public:
 	void SetCurrentDevice(IMMDevice *device) {
 		std::lock_guard<std::mutex> guard(lock_);
 
-		if (currentDevice_)
-			CoTaskMemFree(currentDevice_);
-		device->GetId(&currentDevice_);
+		CoTaskMemFree(currentDevice_);
+		currentDevice_ = nullptr;
+		if (!device || FAILED(device->GetId(&currentDevice_))) {
+			currentDevice_ = nullptr;
+		}
 		deviceChanged_ = false;
 	}
 
@@ -75,7 +78,7 @@ public:
 			AddRef();
 			*ppvInterface = (IMMNotificationClient*)this;
 		} else {
-			*ppvInterface = NULL;
+			*ppvInterface = nullptr;
 			return E_NOINTERFACE;
 		}
 		return S_OK;
@@ -91,7 +94,12 @@ public:
 			return S_OK;
 		}
 
-		if (!wcscmp(currentDevice_, pwstrDeviceId)) {
+		// pwstrDeviceId can be null. We consider that a new device, I think?
+		bool same = currentDevice_ == pwstrDeviceId;
+		if (!same && currentDevice_ && pwstrDeviceId) {
+			same = !wcscmp(currentDevice_, pwstrDeviceId);
+		}
+		if (same) {
 			// Already the current device, nothing to do.
 			return S_OK;
 		}
@@ -189,6 +197,8 @@ private:
 	bool InitAudioDevice();
 	void ShutdownAudioDevice();
 	bool DetectFormat();
+	bool ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt);
+	bool PrepareFormat();
 
 	std::atomic<int> &threadData_;
 	int &sampleRate_;
@@ -225,12 +235,14 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 }
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
+	_assert_(device_ == nullptr);
 	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || device_ == nullptr)
 		return false;
 
-	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&audioInterface_);
-	if (FAILED(hresult))
+	_assert_(audioInterface_ == nullptr);
+	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void **)&audioInterface_);
+	if (FAILED(hresult) || audioInterface_ == nullptr)
 		return false;
 
 	return true;
@@ -238,14 +250,27 @@ bool WASAPIAudioThread::ActivateDefaultDevice() {
 
 bool WASAPIAudioThread::InitAudioDevice() {
 	REFERENCE_TIME hnsBufferDuration = REFTIMES_PER_SEC;
+	_assert_(deviceFormat_ == nullptr);
 	HRESULT hresult = audioInterface_->GetMixFormat((WAVEFORMATEX **)&deviceFormat_);
-	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
-	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || !deviceFormat_)
 		return false;
 
-	hresult = audioInterface_->GetBufferSize(&numBufferFrames);
+	if (!DetectFormat()) {
+		// Format unsupported - let's not even try to initialize.
+		return false;
+	}
+
+	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
 	if (FAILED(hresult))
+		return false;
+	_assert_(renderClient_ == nullptr);
+	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
+	if (FAILED(hresult) || !renderClient_)
+		return false;
+
+	numBufferFrames = 0;
+	hresult = audioInterface_->GetBufferSize(&numBufferFrames);
+	if (FAILED(hresult) || numBufferFrames == 0)
 		return false;
 
 	sampleRate_ = deviceFormat_->Format.nSamplesPerSec;
@@ -262,45 +287,102 @@ void WASAPIAudioThread::ShutdownAudioDevice() {
 }
 
 bool WASAPIAudioThread::DetectFormat() {
+	if (!ValidateFormat(deviceFormat_)) {
+		// Last chance, let's try to ask for one we support instead.
+		WAVEFORMATEXTENSIBLE fmt{};
+		fmt.Format.cbSize = sizeof(fmt);
+		fmt.Format.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+		fmt.Format.nChannels = 2;
+		fmt.Format.nSamplesPerSec = 44100;
+		if (deviceFormat_->Format.nSamplesPerSec >= 22050 && deviceFormat_->Format.nSamplesPerSec <= 192000)
+			fmt.Format.nSamplesPerSec = deviceFormat_->Format.nSamplesPerSec;
+		fmt.Format.nBlockAlign = 2 * sizeof(float);
+		fmt.Format.nAvgBytesPerSec = fmt.Format.nSamplesPerSec * fmt.Format.nBlockAlign;
+		fmt.Format.wBitsPerSample = sizeof(float) * 8;
+		fmt.Samples.wReserved = 0;
+		fmt.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+		fmt.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+
+		WAVEFORMATEXTENSIBLE *closest = nullptr;
+		HRESULT hr = audioInterface_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, &fmt.Format, (WAVEFORMATEX **)&closest);
+		if (hr == S_OK) {
+			// Okay, great.  Let's just use ours.
+			CoTaskMemFree(closest);
+			CoTaskMemFree(deviceFormat_);
+			deviceFormat_ = (WAVEFORMATEXTENSIBLE *)CoTaskMemAlloc(sizeof(fmt));
+			memcpy(deviceFormat_, &fmt, sizeof(fmt));
+
+			// In case something above gets out of date.
+			return ValidateFormat(deviceFormat_);
+		} else if (hr == S_FALSE && closest != nullptr) {
+			// This means check closest.  We'll allow it only if it's less specific on channels.
+			if (ValidateFormat(closest)) {
+				CoTaskMemFree(deviceFormat_);
+				deviceFormat_ = closest;
+			} else {
+				ERROR_LOG_REPORT_ONCE(badfallbackclosest, SCEAUDIO, "WASAPI fallback and closest unsupported");
+				CoTaskMemFree(closest);
+				return false;
+			}
+		} else {
+			CoTaskMemFree(closest);
+			ERROR_LOG_REPORT_ONCE(badfallback, SCEAUDIO, "WASAPI fallback format was unsupported");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
 	format_ = Format::UNKNOWN;
 
-	if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-		if (!memcmp(&deviceFormat_->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(deviceFormat_->SubFormat))) {
-			format_ = Format::IEEE_FLOAT;
+	if (fmt->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+		if (!memcmp(&fmt->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(fmt->SubFormat))) {
+			if (fmt->Format.nChannels >= 2)
+				format_ = Format::IEEE_FLOAT;
 		} else {
 			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
-			if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+			if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 				format_ = Format::PCM16;
 			}
 		}
-	} else if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
-		format_ = Format::IEEE_FLOAT;
+	} else if (fmt->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
+		if (fmt->Format.nChannels >= 2)
+			format_ = Format::IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
-		if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+		if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 			format_ = Format::PCM16;
 		}
 	}
 
+	return format_ != Format::UNKNOWN;
+}
+
+bool WASAPIAudioThread::PrepareFormat() {
 	delete [] shortBuf_;
 	shortBuf_ = nullptr;
-	if (format_ == Format::UNKNOWN) {
-		return false;
-	}
 
-	BYTE *pData;
+	BYTE *pData = nullptr;
 	HRESULT hresult = renderClient_->GetBuffer(numBufferFrames, &pData);
+	if (FAILED(hresult) || !pData)
+		return false;
+
 	const int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
 	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
-		shortBuf_ = new short[numBufferFrames * deviceFormat_->Format.nChannels];
+		shortBuf_ = new short[numSamples];
 	} else if (format_ == Format::PCM16) {
 		memset(pData, 0, sizeof(short) * numSamples);
 	}
 
 	hresult = renderClient_->ReleaseBuffer(numBufferFrames, 0);
+	if (FAILED(hresult))
+		return false;
+
 	actualDuration_ = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * numBufferFrames / deviceFormat_->Format.nSamplesPerSec);
 	return true;
 }
@@ -308,10 +390,11 @@ bool WASAPIAudioThread::DetectFormat() {
 void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
+	_assert_(deviceEnumerator_ == nullptr);
 	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || deviceEnumerator_ == nullptr)
 		return;
 
 	if (!ActivateDefaultDevice()) {
@@ -332,18 +415,22 @@ void WASAPIAudioThread::Run() {
 		ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
 		return;
 	}
-	if (!DetectFormat()) {
+	if (!PrepareFormat()) {
 		ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
 		return;
 	}
 
 	hresult = audioInterface_->Start();
+	if (FAILED(hresult)) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+		return;
+	}
 
 	DWORD flags = 0;
 	while (flags != AUDCLNT_BUFFERFLAGS_SILENT) {
 		Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
-		uint32_t pNumPaddingFrames;
+		uint32_t pNumPaddingFrames = 0;
 		hresult = audioInterface_->GetCurrentPadding(&pNumPaddingFrames);
 		if (FAILED(hresult)) {
 			// What to do?
@@ -351,19 +438,19 @@ void WASAPIAudioThread::Run() {
 		}
 		uint32_t pNumAvFrames = numBufferFrames - pNumPaddingFrames;
 
-		BYTE *pData;
+		BYTE *pData = nullptr;
 		hresult = renderClient_->GetBuffer(pNumAvFrames, &pData);
-		if (FAILED(hresult)) {
+		if (FAILED(hresult) || pData == nullptr) {
 			// What to do?
 		} else if (pNumAvFrames) {
+			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, 2);
-				if (deviceFormat_->Format.nChannels == 2) {
-					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * deviceFormat_->Format.nChannels);
-				} else {
+				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, chans);
+				if (chans == 2) {
+					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * chans);
+				} else if (chans > 2) {
 					float *ptr = (float *)pData;
-					int chans = deviceFormat_->Format.nChannels;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
 					for (UINT32 i = 0; i < pNumAvFrames; i++) {
 						ptr[i * chans + 0] = (float)shortBuf_[i * 2] * (1.0f / 32768.0f);
@@ -372,7 +459,7 @@ void WASAPIAudioThread::Run() {
 				}
 				break;
 			case Format::PCM16:
-				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, 2);
+				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, chans);
 				break;
 			}
 		}
@@ -381,9 +468,11 @@ void WASAPIAudioThread::Run() {
 			flags = AUDCLNT_BUFFERFLAGS_SILENT;
 		}
 
-		hresult = renderClient_->ReleaseBuffer(pNumAvFrames, flags);
-		if (FAILED(hresult)) {
-			// Not much to do here either...
+		if (!FAILED(hresult) && pData) {
+			hresult = renderClient_->ReleaseBuffer(pNumAvFrames, flags);
+			if (FAILED(hresult)) {
+				// Not much to do here either...
+			}
 		}
 
 		// Check if we should use a new device.
@@ -400,12 +489,16 @@ void WASAPIAudioThread::Run() {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
 				return;
 			}
-			if (!DetectFormat()) {
+			if (!PrepareFormat()) {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
 				return;
 			}
 
 			hresult = audioInterface_->Start();
+			if (FAILED(hresult)) {
+				ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+				return;
+			}
 		}
 	}
 
@@ -413,6 +506,9 @@ void WASAPIAudioThread::Run() {
 	Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
 	hresult = audioInterface_->Stop();
+	if (FAILED(hresult)) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to stop audio stream");
+	}
 }
 
 int WASAPIAudioBackend::RunThread() {

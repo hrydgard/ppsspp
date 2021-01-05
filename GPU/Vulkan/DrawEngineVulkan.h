@@ -31,11 +31,7 @@
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
 // won't get any bone data, etc.
 
-#include <map>
-#include <unordered_map>
-
-#include "Common/Hashmaps.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -54,13 +50,6 @@ class ShaderManagerVulkan;
 class PipelineManagerVulkan;
 class TextureCacheVulkan;
 class FramebufferManagerVulkan;
-
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
 
 class VulkanContext;
 class VulkanPushBuffer;
@@ -91,7 +80,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	// These will probably always be the same, but whatever.
@@ -188,6 +177,11 @@ public:
 		return frame_[vulkan_->GetCurFrame()].pushUBO;
 	}
 
+	// Only use Allocate on this one.
+	VulkanPushBuffer *GetPushBufferLocal() {
+		return frame_[vulkan_->GetCurFrame()].pushLocal;
+	}
+
 	const DrawEngineVulkanStats &GetStats() const {
 		return stats_;
 	}
@@ -205,7 +199,7 @@ private:
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 	void BindShaderBlendTex();
-	void ResetShaderBlending();
+	void ResetFramebufferRead();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -257,6 +251,10 @@ private:
 		VulkanPushBuffer *pushUBO = nullptr;
 		VulkanPushBuffer *pushVertex = nullptr;
 		VulkanPushBuffer *pushIndex = nullptr;
+
+		// Special push buffer in GPU local memory, for texture data conversion and similar tasks.
+		VulkanPushBuffer *pushLocal;
+
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
@@ -293,4 +291,6 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
+
+	int lastRenderStepId_ = -1;
 };

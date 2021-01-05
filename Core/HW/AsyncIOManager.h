@@ -61,10 +61,10 @@ struct AsyncIOResult {
 		if (!s)
 			return;
 
-		p.Do(result);
-		p.Do(finishTicks);
+		Do(p, result);
+		Do(p, finishTicks);
 		if (s >= 2) {
-			p.Do(invalidateAddr);
+			Do(p, invalidateAddr);
 		} else {
 			invalidateAddr = 0;
 		}
@@ -91,7 +91,7 @@ public:
 protected:
 	void ProcessEvent(AsyncIOEvent ref) override;
 	bool ShouldExitEventLoop() override {
-		return coreState == CORE_ERROR || coreState == CORE_POWERDOWN;
+		return coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN;
 	}
 
 private:

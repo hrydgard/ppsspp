@@ -1,12 +1,8 @@
 #ifndef VULKAN_WIN32_H_
 #define VULKAN_WIN32_H_ 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
-** Copyright (c) 2015-2019 The Khronos Group Inc.
+** Copyright (c) 2015-2020 The Khronos Group Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -25,6 +21,11 @@ extern "C" {
 ** This header is generated from the Khronos Vulkan XML API Registry.
 **
 */
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 
@@ -246,7 +247,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetMemoryWin32HandleNV(
 
 
 #define VK_NV_win32_keyed_mutex 1
-#define VK_NV_WIN32_KEYED_MUTEX_SPEC_VERSION 1
+#define VK_NV_WIN32_KEYED_MUTEX_SPEC_VERSION 2
 #define VK_NV_WIN32_KEYED_MUTEX_EXTENSION_NAME "VK_NV_win32_keyed_mutex"
 typedef struct VkWin32KeyedMutexAcquireReleaseInfoNV {
     VkStructureType          sType;
@@ -263,7 +264,7 @@ typedef struct VkWin32KeyedMutexAcquireReleaseInfoNV {
 
 
 #define VK_EXT_full_screen_exclusive 1
-#define VK_EXT_FULL_SCREEN_EXCLUSIVE_SPEC_VERSION 3
+#define VK_EXT_FULL_SCREEN_EXCLUSIVE_SPEC_VERSION 4
 #define VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME "VK_EXT_full_screen_exclusive"
 
 typedef enum VkFullScreenExclusiveEXT {
@@ -271,9 +272,6 @@ typedef enum VkFullScreenExclusiveEXT {
     VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT = 1,
     VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT = 2,
     VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT = 3,
-    VK_FULL_SCREEN_EXCLUSIVE_BEGIN_RANGE_EXT = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT,
-    VK_FULL_SCREEN_EXCLUSIVE_END_RANGE_EXT = VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT,
-    VK_FULL_SCREEN_EXCLUSIVE_RANGE_SIZE_EXT = (VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT - VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT + 1),
     VK_FULL_SCREEN_EXCLUSIVE_MAX_ENUM_EXT = 0x7FFFFFFF
 } VkFullScreenExclusiveEXT;
 typedef struct VkSurfaceFullScreenExclusiveInfoEXT {

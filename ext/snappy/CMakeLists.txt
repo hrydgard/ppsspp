@@ -9,7 +9,9 @@ else()
     snappy-c.cpp
     snappy-c.h
     snappy-internal.h
+    snappy-sinksource.cpp
     snappy-sinksource.h
+    snappy-stubs-internal.cpp
     snappy-stubs-internal.h
     snappy-stubs-public.h
     snappy.cpp

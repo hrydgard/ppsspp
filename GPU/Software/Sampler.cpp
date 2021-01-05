@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <unordered_map>
 #include <mutex>
 #include "Common/ColorConv.h"
@@ -88,7 +89,7 @@ SamplerJitCache::SamplerJitCache()
 	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))
+#if defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64)) && !PPSSPP_PLATFORM(UWP)
 	using namespace Gen;
 	for (int i = 0; i < 100; i++) {
 		MOV(32, R(EAX), R(EBX));
@@ -214,8 +215,7 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 		Clear();
 	}
 
-	// TODO
-#ifdef _M_X64
+#if defined(_M_X64) && !PPSSPP_PLATFORM(UWP)
 	addresses_[id] = GetCodePointer();
 	NearestFunc func = Compile(id);
 	cache_[id] = func;
@@ -239,7 +239,7 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 	}
 
 	// TODO
-#ifdef _M_X64
+#if defined(_M_X64) && !PPSSPP_PLATFORM(UWP)
 	addresses_[id] = GetCodePointer();
 	LinearFunc func = CompileLinear(id);
 	cache_[id] = (NearestFunc)func;

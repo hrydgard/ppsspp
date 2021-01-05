@@ -22,7 +22,7 @@
 
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShaderD3D11 {

@@ -18,13 +18,14 @@
 #pragma once
 
 #include <functional>
-#include <vector>
+#include <memory>
 #include <mutex>
+#include <vector>
 
-#include "i18n/i18n.h"
-#include "ui/view.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "UI/MiscScreens.h"
 
 class ControlMapper;
@@ -51,7 +52,7 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
@@ -74,7 +75,7 @@ private:
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
@@ -105,6 +106,35 @@ public:
 protected:
 	virtual void CreateViews() override;
 
-	UI::TextView *lastKeyEvent_;
-	UI::TextView *lastLastKeyEvent_;
+	UI::TextView *lastKeyEvent_ = nullptr;
+	UI::TextView *lastLastKeyEvent_ = nullptr;
+};
+
+class TouchTestScreen : public UIDialogScreenWithBackground {
+public:
+	TouchTestScreen() {
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			touches_[i].id = -1;
+		}
+	}
+
+	bool touch(const TouchInput &touch) override;
+	void render() override;
+
+protected:
+	struct TrackedTouch {
+		int id;
+		float x;
+		float y;
+	};
+	enum {
+		MAX_TOUCH_POINTS = 10,
+	};
+	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	void CreateViews() override;
+
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
 };

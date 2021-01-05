@@ -19,7 +19,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {
 	FormatBuffer() { data = nullptr; }
@@ -44,13 +44,18 @@ struct FormatBuffer {
 	inline u32 Get32(int x, int y, int stride) {
 		return as32[x + y * stride];
 	}
+
+	inline u16 *Get16Ptr(int x, int y, int stride) {
+		return &as16[x + y * stride];
+	}
 };
 
+class PresentationCommon;
 class SoftwareDrawEngine;
 
 class SoftGPU : public GPUCommon {
 public:
-	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D);
+	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~SoftGPU();
 
 	void CheckGPUFeatures() override {}
@@ -58,7 +63,7 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
@@ -72,7 +77,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override {}
+	void Resized() override;
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";
@@ -97,6 +102,7 @@ public:
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
+	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData = nullptr);
 
 private:
 	bool framebufferDirty_;
@@ -104,19 +110,21 @@ private:
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
 
+	PresentationCommon *presentation_ = nullptr;
 	SoftwareDrawEngine *drawEngine_ = nullptr;
 
-	Draw::Texture *fbTex;
-	Draw::Pipeline *texColor;
-	std::vector<u32> fbTexBuffer;
-
-	Draw::SamplerState *samplerNearest = nullptr;
-	Draw::SamplerState *samplerLinear = nullptr;
-	Draw::Buffer *vdata = nullptr;
-	Draw::Buffer *idata = nullptr;
+	Draw::Texture *fbTex = nullptr;
+	std::vector<u32> fbTexBuffer_;
 };
 
 // TODO: These shouldn't be global.
 extern u32 clut[4096];
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
+
+// Type for the DarkStalkers stretch replacement.
+enum class DSStretch {
+	Off = 0,
+	Normal,
+	Wide,
+};

@@ -5,8 +5,9 @@
 
 #include <mutex>
 
-#include "input/input_state.h"
-#include "base/NativeApp.h"
+#include "Common/Input/InputState.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 
@@ -139,7 +140,7 @@ void App::OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Cor
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_MOVE, pointerId, X, Y, timestamp);
+	m_main->OnTouchEvent(TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 }
 
 void App::OnPointerEntered(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
@@ -156,7 +157,7 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, timestamp);
+	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->SetPointerCapture();
 	}
@@ -169,7 +170,7 @@ void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, timestamp);
+	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->ReleasePointerCapture();
 	}
@@ -180,7 +181,7 @@ void App::OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::U
 
 void App::OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
 	int pointerId = 0;  // irrelevant
-	float delta = args->CurrentPoint->GetCurrentPoint(args->CurrentPoint->PointerId)->Properties->MouseWheelDelta;
+	float delta = (float)args->CurrentPoint->GetCurrentPoint(args->CurrentPoint->PointerId)->Properties->MouseWheelDelta;
 	m_main->OnMouseWheel(delta);
 }
 
@@ -251,20 +252,19 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 	g_Config.bFullScreen = view->IsFullScreenMode;
 
-	int width = sender->Bounds.Width;
-	int height = sender->Bounds.Height;
+	float width = sender->Bounds.Width;
+	float height = sender->Bounds.Height;
 	float scale = m_deviceResources->GetDpi() / 96.0f;
 
 	m_deviceResources->SetLogicalSize(Size(width, height));
 	m_main->CreateWindowSizeDependentResources();
 
-	PSP_CoreParameter().pixelWidth = width * scale;
-	PSP_CoreParameter().pixelHeight = height * scale;
+	PSP_CoreParameter().pixelWidth = (int)(width * scale);
+	PSP_CoreParameter().pixelHeight = (int)(height * scale);
 
-	if (UpdateScreenScale(width, height)) {
+	if (UpdateScreenScale((int)width, (int)height)) {
 		NativeMessageReceived("gpu_resized", "");
 	}
-
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {

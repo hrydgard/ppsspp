@@ -15,19 +15,27 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <set>
 #include <mutex>
 #include <cstring>
 
-#include "file/file_util.h"
-#include "file/free.h"
-#include "util/text/utf8.h"
-#include "Common/FileUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/DiskFree.h"
+#include "Common/File/DirListing.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"
+
+#if PPSSPP_PLATFORM(SWITCH)
+// Far from optimal, but I guess it works...
+#define fseeko fseek
+#endif
 
 static const char *CACHEFILE_MAGIC = "ppssppDC";
 static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
@@ -392,7 +400,7 @@ u32 DiskCachingFileLoaderCache::AllocateBlock(u32 indexPos) {
 		}
 	}
 
-	_dbg_assert_msg_(LOADER, false, "Not enough free blocks");
+	_dbg_assert_msg_(false, "Not enough free blocks");
 	return INVALID_BLOCK;
 }
 

@@ -41,12 +41,12 @@ bool isInInterval(u32 start, u32 size, u32 value)
 }
 
 
-static u32 computeHash(u32 address, u32 size)
+static HashType computeHash(u32 address, u32 size)
 {
 #ifdef _M_X64
-	return XXH64(Memory::GetPointer(address), size, 0xBACD7814BACD7814LL);
+	return XXH3_64bits(Memory::GetPointer(address), size);
 #else
-	return XXH32(Memory::GetPointer(address), size, 0xBACD7814);
+	return XXH3_64bits(Memory::GetPointer(address), size) & 0xFFFFFFFF;
 #endif
 }
 

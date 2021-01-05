@@ -282,16 +282,16 @@ public:
 	int GetGrainSize() const { return grainSize; }
 	int EstimateMixUs();
 
-	int maxVoices;
-	int sampleRate;
-	int outputMode;
+	int maxVoices = PSP_SAS_VOICES_MAX;
+	int sampleRate = 44100;
+	int outputMode = PSP_SAS_OUTPUTMODE_MIXED;
 
-	int *mixBuffer;
-	int *sendBuffer;
-	s16 *sendBufferDownsampled;
-	s16 *sendBufferProcessed;
+	int *mixBuffer = nullptr;
+	int *sendBuffer = nullptr;
+	s16 *sendBufferDownsampled = nullptr;
+	s16 *sendBufferProcessed = nullptr;
 
-	FILE *audioDump;
+	FILE *audioDump = nullptr;
 
 	void Mix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0);
 	void MixVoice(SasVoice &voice);
@@ -310,6 +310,6 @@ public:
 
 private:
 	SasReverb reverb_;
-	int grainSize;
+	int grainSize = 0;
 	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
 };

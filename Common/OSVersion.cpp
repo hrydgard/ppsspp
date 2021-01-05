@@ -95,6 +95,25 @@ bool IsVistaOrHigher() {
 #endif
 }
 
+bool IsWin7OrHigher() {
+#if PPSSPP_PLATFORM(UWP)
+	return true;
+#else
+	OSVERSIONINFOEX osvi;
+	DWORDLONG dwlConditionMask = 0;
+	int op = VER_GREATER_EQUAL;
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;  // Win7 is 6.1
+	osvi.dwMinorVersion = 1;
+
+	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+
+	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
+#endif
+}
+
 std::string GetWindowsVersion() {
 	const bool IsWindowsXPSP2 = DoesVersionMatchWindows(5, 1, 2, 0, false);
 	const bool IsWindowsXPSP3 = DoesVersionMatchWindows(5, 1, 3, 0, false);

@@ -19,17 +19,19 @@
 
 #ifdef __ANDROID__
 
-#include "base/logging.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-#include "StringUtils.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
 #include <sys/ioctl.h>
 #include <linux/ashmem.h>
+#include <dlfcn.h>
+
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
+#include "Common/StringUtils.h"
+#include "Common/System/System.h"
 
 // Hopefully this ABI will never change...
 
@@ -41,9 +43,31 @@ bool MemArena::NeedsProbing() {
 
 // ashmem_create_region - creates a new ashmem region and returns the file
 // descriptor, or <0 on error
+// This function is defined in much later version of the ndk, so we can only access it via dlopen().
 // `name' is an optional label to give the region (visible in /proc/pid/maps)
 // `size' is the size of the region, in page-aligned bytes
 static int ashmem_create_region(const char *name, size_t size) {
+	static void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+	using type_ASharedMemory_create = int(*)(const char *name, size_t size);
+	static type_ASharedMemory_create function_create = nullptr;
+
+	if (handle != nullptr) {
+		function_create =
+			reinterpret_cast<type_ASharedMemory_create>(dlsym(handle, "ASharedMemory_create"));
+	}
+
+	if (function_create != nullptr) {
+		return function_create(name, size);
+	} else {
+		return -1;
+	}
+}
+
+// legacy_ashmem_create_region - creates a new ashmem region and returns the file
+// descriptor, or <0 on error
+// `name' is an optional label to give the region (visible in /proc/pid/maps)
+// `size' is the size of the region, in page-aligned bytes
+static int legacy_ashmem_create_region(const char *name, size_t size) {
 	int fd = open(ASHMEM_DEVICE, O_RDWR);
 	if (fd < 0)
 		return fd;
@@ -76,7 +100,14 @@ size_t MemArena::roundup(size_t x) {
 
 void MemArena::GrabLowMemSpace(size_t size) {
 	// Use ashmem so we don't have to allocate a file on disk!
-	fd = ashmem_create_region("PPSSPP_RAM", size);
+	const char* name = "PPSSPP_RAM";
+
+	// Since version 26 Android provides a new api for accessing SharedMemory.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26) {
+		fd = ashmem_create_region(name, size);
+	} else {
+		fd = legacy_ashmem_create_region(name, size);
+	}
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
 	if (fd < 0) {
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
@@ -109,15 +140,15 @@ u8* MemArena::Find4GBBase() {
 	// address by grabbing 8GB and aligning the pointer.
 	const uint64_t EIGHT_GIGS = 0x200000000ULL;
 	void *base = mmap(0, EIGHT_GIGS, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-	if (base) {
-		ILOG("base: %p", base);
+	if (base && base != MAP_FAILED) {
+		INFO_LOG(SYSTEM, "base: %p", base);
 		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
-		ILOG("aligned_base: %p", (void *)aligned_base);
+		INFO_LOG(SYSTEM, "aligned_base: %p", (void *)aligned_base);
 		munmap(base, EIGHT_GIGS);
 		return reinterpret_cast<u8 *>(aligned_base);
 	} else {
 		u8 *hardcoded_ptr = reinterpret_cast<u8*>(0x2300000000ULL);
-		ILOG("Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
+		INFO_LOG(SYSTEM, "Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
 		// Just grab some random 4GB...
 		// This has been known to fail lately though, see issue #12249.
 		return hardcoded_ptr;
@@ -125,10 +156,7 @@ u8* MemArena::Find4GBBase() {
 #else
 	// Address masking is used in 32-bit mode, so we can get away with less memory.
 	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
-		return 0;
-	}
+	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
 	munmap(base, 0x10000000);
 	return static_cast<u8*>(base);
 #endif

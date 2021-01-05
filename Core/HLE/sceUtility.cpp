@@ -18,9 +18,12 @@
 #include <algorithm>
 #include <set>
 
-#include "file/ini_file.h"
+#include "Common/Data/Format/IniFile.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/Serialize/SerializeSet.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -130,7 +133,7 @@ enum UtilityDialogType {
 
 // Only a single dialog is allowed at a time.
 static UtilityDialogType currentDialogType;
-static bool currentDialogActive;
+bool currentDialogActive;
 static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
@@ -140,9 +143,26 @@ static PSPGamedataInstallDialog gamedataInstallDialog;
 
 static std::map<int, u32> currentlyLoadedModules;
 
+static void ActivateDialog(UtilityDialogType type) {
+	if (!currentDialogActive) {
+		// TODO: Lock volatile RAM (see https://github.com/hrydgard/ppsspp/issues/8288)
+		// We don't have a virtual dialog thread unlike JPSCP. Not sure if it's OK to
+		// just do it on the current thread - it does seem dangerous to assume so...
+		currentDialogType = type;
+		currentDialogActive = true;
+	}
+}
+
+static void DeactivateDialog() {
+	if (currentDialogActive) {
+		// TODO: Unlock and zero volatile RAM.
+		currentDialogActive = false;
+	}
+}
+
 void __UtilityInit() {
 	currentDialogType = UTILITY_DIALOG_NONE;
-	currentDialogActive = false;
+	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
 }
@@ -153,8 +173,8 @@ void __UtilityDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(currentDialogType);
-	p.Do(currentDialogActive);
+	Do(p, currentDialogType);
+	Do(p, currentDialogActive);
 	saveDialog.DoState(p);
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
@@ -163,10 +183,10 @@ void __UtilityDoState(PointerWrap &p) {
 	gamedataInstallDialog.DoState(p);
 
 	if (s >= 2) {
-		p.Do(currentlyLoadedModules);
+		Do(p, currentlyLoadedModules);
 	} else {
 		std::set<int> oldModules;
-		p.Do(oldModules);
+		Do(p, oldModules);
 		for (auto it = oldModules.begin(), end = oldModules.end(); it != end; ++it) {
 			currentlyLoadedModules[*it] = 0;
 		}
@@ -197,8 +217,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 	}
 
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_SAVEDATA;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_SAVEDATA);
 	int ret = saveDialog.Init(paramAddr);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataInitStart(%08x)",ret,paramAddr);
 	return ret;
@@ -211,8 +230,9 @@ static int sceUtilitySavedataShutdownStart()
 		WARN_LOG(SCEUTILITY, "sceUtilitySavedataShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	
-	currentDialogActive = false;
+
+	DeactivateDialog();
+	DeactivateDialog();
 	int ret = saveDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataShutdownStart()",ret);
 	return ret;
@@ -358,7 +378,7 @@ static int sceUtilityMsgDialogShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = msgDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogShutdownStart()", ret);
 	return ret;
@@ -419,8 +439,7 @@ static int sceUtilityOskInitStart(u32 oskPtr)
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_OSK;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_OSK);
 	int ret = oskDialog.Init(oskPtr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", ret, oskPtr);
 	return ret;
@@ -434,7 +453,7 @@ static int sceUtilityOskShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = oskDialog.Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskShutdownStart()",ret);
 	return ret;
@@ -470,55 +489,45 @@ static int sceUtilityOskGetStatus()
 }
 
 
-static int sceUtilityNetconfInitStart(u32 paramsAddr)
-{
+static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_NET) {
-		WARN_LOG(SCEUTILITY, "sceUtilityNetconfInitStart(%08x): wrong dialog type", paramsAddr);
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_NET;
-	currentDialogActive = true;	
-	int ret = netDialog.Init(paramsAddr);
-	INFO_LOG(SCEUTILITY, "%08x=sceUtilityNetconfInitStart(%08x)", ret, paramsAddr);
-	return ret;
+	ActivateDialog(UTILITY_DIALOG_NET);
+	return hleLogSuccessInfoI(SCEUTILITY, netDialog.Init(paramsAddr));
 }
 
-static int sceUtilityNetconfShutdownStart()
-{
+static int sceUtilityNetconfShutdownStart() {
 	if (currentDialogType != UTILITY_DIALOG_NET) {
-		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	currentDialogActive = false;
-	int ret = netDialog.Shutdown();
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfShutdownStart()",ret);
-	return ret;
+	DeactivateDialog();
+	return hleLogSuccessI(SCEUTILITY, netDialog.Shutdown());
 }
 
-static int sceUtilityNetconfUpdate(int animSpeed)
-{
-	int ret = netDialog.Update(animSpeed);
-	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityNetconfUpdate(%i)", ret, animSpeed);
-	return ret;
-}
-
-static int sceUtilityNetconfGetStatus()
-{
-	// Spam in Danball Senki BOOST
+static int sceUtilityNetconfUpdate(int animSpeed) {
 	if (currentDialogType != UTILITY_DIALOG_NET) {
-		DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfGetStatus(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+
+	return hleLogSuccessI(SCEUTILITY, netDialog.Update(animSpeed));
+}
+
+static int sceUtilityNetconfGetStatus() {
+	if (currentDialogType != UTILITY_DIALOG_NET) {
+		// Spam in Danball Senki BOOST.
+		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
 	int status = netDialog.GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
-		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfGetStatus()", status);
+		return hleLogSuccessI(SCEUTILITY, status);
 	}
-	return status;
+	return hleLogSuccessVerboseI(SCEUTILITY, status);
 }
 
 static int sceUtilityCheckNetParam(int id)
@@ -541,8 +550,7 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr)
 	}
 	
 	oldStatus = 100;
-	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_SCREENSHOT);
 	u32 retval = screenshotDialog.Init(paramAddr);
 	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
@@ -556,7 +564,7 @@ static int sceUtilityScreenshotShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret  = screenshotDialog.Shutdown();
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotShutdownStart()", ret);
 	return ret;
@@ -611,9 +619,8 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallInitStart(%08x): wrong dialog type", paramsAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	
-	currentDialogType = UTILITY_DIALOG_GAMEDATAINSTALL;
-	currentDialogActive = true;	
+
+	ActivateDialog(UTILITY_DIALOG_GAMEDATAINSTALL);
 	int ret = gamedataInstallDialog.Init(paramsAddr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
 	return ret;
@@ -626,7 +633,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart()");
 	return gamedataInstallDialog.Shutdown();
 }
@@ -665,7 +672,7 @@ static int sceUtilityGamedataInstallAbort()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	int ret = gamedataInstallDialog.Abort();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallDialogAbort",ret);
 	return ret;
@@ -723,6 +730,15 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
+		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either, 
+			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
+			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED), 
+			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING), 
+			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
+			Memory::Write_U32(param, destaddr);
+			return 0x800ADF4;
+		}
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
 		param = g_Config.bWlanPowerSave?PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON:PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
@@ -731,7 +747,10 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.iDateFormat;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		if (g_Config.iTimeFormat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR)
+			param = PSP_SYSTEMPARAM_TIME_FORMAT_12HR;
+		else
+			param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;
@@ -767,6 +786,18 @@ static u32 sceUtilityUnloadNetModule(u32 module)
 {
 	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityUnloadNetModule(%i)", module);
 	return 0;
+}
+
+static int sceUtilityNpSigninInitStart(u32 paramsPtr) {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
+}
+
+static int sceUtilityNpSigninUpdate(int animSpeed) {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
+}
+
+static int sceUtilityNpSigninGetStatus() {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
 }
 
 static void sceUtilityInstallInitStart(u32 unknown)
@@ -806,7 +837,7 @@ static int sceUtilityGameSharingShutdownStart()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogActive = false;
+	DeactivateDialog();
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingShutdownStart()");
 	return 0;
 }
@@ -819,8 +850,7 @@ static int sceUtilityGameSharingInitStart(u32 paramsPtr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	currentDialogType = UTILITY_DIALOG_GAMESHARING;
-	currentDialogActive = true;
+	ActivateDialog(UTILITY_DIALOG_GAMESHARING);
 	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 	return 0;
 }
@@ -934,7 +964,7 @@ const HLEFunction sceUtility[] =
 
 	{0X0251B134, &WrapI_U<sceUtilityScreenshotInitStart>,          "sceUtilityScreenshotInitStart",          'i', "x"  },
 	{0XF9E0008C, &WrapI_V<sceUtilityScreenshotShutdownStart>,      "sceUtilityScreenshotShutdownStart",      'i', ""   },
-	{0XAB083EA9, &WrapI_U<sceUtilityScreenshotUpdate>,             "sceUtilityScreenshotUpdate",             'i', "x"  },
+	{0XAB083EA9, &WrapI_U<sceUtilityScreenshotUpdate>,             "sceUtilityScreenshotUpdate",             'i', "i"  },
 	{0XD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>,          "sceUtilityScreenshotGetStatus",          'i', ""   },
 	{0X86A03A27, &WrapI_U<sceUtilityScreenshotContStart>,          "sceUtilityScreenshotContStart",          'i', "x"  },
 
@@ -947,10 +977,10 @@ const HLEFunction sceUtility[] =
 	{0XB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>,     "sceUtilityGamedataInstallGetStatus",     'i', ""   },
 	{0X180F7B62, &WrapI_V<sceUtilityGamedataInstallAbort>,         "sceUtilityGamedataInstallAbort",         'i', ""   },
 
-	{0X16D02AF0, nullptr,                                          "sceUtilityNpSigninInitStart",            '?', ""   },
-	{0XE19C97D6, nullptr,                                          "sceUtilityNpSigninShutdownStart",        '?', ""   },
-	{0XF3FBC572, nullptr,                                          "sceUtilityNpSigninUpdate",               '?', ""   },
-	{0X86ABDB1B, nullptr,                                          "sceUtilityNpSigninGetStatus",            '?', ""   },
+	{0X16D02AF0, &WrapI_U<sceUtilityNpSigninInitStart>,            "sceUtilityNpSigninInitStart",            'i', "x"  },
+	{0XE19C97D6, nullptr,                                          "sceUtilityNpSigninShutdownStart",        'i', ""   },
+	{0XF3FBC572, &WrapI_I<sceUtilityNpSigninUpdate>,               "sceUtilityNpSigninUpdate",               'i', "i"  },
+	{0X86ABDB1B, &WrapI_V<sceUtilityNpSigninGetStatus>,            "sceUtilityNpSigninGetStatus",            'i', ""   },
 
 	{0X1281DA8E, &WrapV_U<sceUtilityInstallInitStart>,             "sceUtilityInstallInitStart",             'v', "x"  },
 	{0X5EF1C24A, nullptr,                                          "sceUtilityInstallShutdownStart",         '?', ""   },

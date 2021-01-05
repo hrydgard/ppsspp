@@ -21,7 +21,7 @@
 
 #include "Common/Common.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
-#include "math/fast/fast_matrix.h"
+#include "Common/Math/fast/fast_matrix.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -623,6 +623,10 @@ public:
 	void operator /= (const V& f)
 	{
 		*this = *this / f;
+	}
+
+	bool operator ==(const Vec4 &other) const {
+		return x == other.x && y == other.y && z == other.z && w == other.w;
 	}
 
 	T Length2() const

@@ -17,22 +17,28 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
-#include "profiler/profiler.h"
+#include "ppsspp_config.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -42,16 +48,13 @@
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
+#include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
-#if PPSSPP_API(D3DX9)
-int GetD3DXVersion();
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 int GetD3DCompilerVersion();
-#endif
 #endif
 
 static const char *logLevelList[] = {
@@ -65,8 +68,8 @@ static const char *logLevelList[] = {
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *sy = GetI18NCategory("System");
+	auto dev = GetI18NCategory("Developer");
+	auto sy = GetI18NCategory("System");
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
@@ -88,6 +91,8 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #ifdef USE_PROFILER
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
+	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenu::OnResetLimitedLogging);
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -103,6 +108,10 @@ UI::EventReturn DevMenu::OnToggleAudioDebug(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn DevMenu::OnResetLimitedLogging(UI::EventParams &e) {
+	Reporting::ResetCounts();
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
@@ -188,7 +197,7 @@ void LogScreen::update() {
 
 void LogScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	root_ = outer;
@@ -222,8 +231,8 @@ UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -293,7 +302,7 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 }
 
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
@@ -363,8 +372,8 @@ static const JitDisableFlag jitDisableFlags[] = {
 void JitDebugScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -416,9 +425,9 @@ void SystemInfoScreen::CreateViews() {
 	using namespace UI;
 
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *si = GetI18NCategory("SysInfo");
-	I18NCategory *gr = GetI18NCategory("Graphics");
+	auto di = GetI18NCategory("Dialog");
+	auto si = GetI18NCategory("SysInfo");
+	auto gr = GetI18NCategory("Graphics");
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
@@ -439,6 +448,9 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("System Information")));
 	deviceSpecs->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
+#if PPSSPP_PLATFORM(ANDROID)
+	deviceSpecs->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
+#endif
 	deviceSpecs->Add(new InfoItem(si->T("Lang/Region"), System_GetProperty(SYSPROP_LANGREGION)));
 	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
 	if (!board.empty())
@@ -452,7 +464,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
-#if defined(ARM) || defined(ARM64) || defined(MIPS)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 	deviceSpecs->Add(new InfoItem(si->T("Cores"), StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
@@ -476,11 +488,7 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-#if PPSSPP_API(D3DX9)
-		deviceSpecs->Add(new InfoItem(si->T("D3DX Version"), StringFromFormat("%d", GetD3DXVersion())));
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-#endif
 	}
 #endif
 #endif
@@ -488,16 +496,23 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 		int highp_int_min = gl_extensions.range[1][5][0];
 		int highp_int_max = gl_extensions.range[1][5][1];
+		int highp_float_min = gl_extensions.range[1][2][0];
+		int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
-			char highp_int_range[512];
-			snprintf(highp_int_range, sizeof(highp_int_range), "Highp int range: %d-%d", highp_int_min, highp_int_max);
-			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), highp_int_range));
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp int range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), temp));
+		}
+		if (highp_float_max != 0) {
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp float range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
 	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
-#ifdef ANDROID
+#if PPSSPP_PLATFORM(ANDROID)
 	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
 
@@ -507,28 +522,27 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	deviceSpecs->Add(new InfoItem(si->T("PPSSPP build"), build));
 
-#ifdef __ANDROID__
 	deviceSpecs->Add(new ItemHeader(si->T("Audio Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Sample rate"), StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
-	deviceSpecs->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER))));
+	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
+	if (framesPerBuffer > 0) {
+		deviceSpecs->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
+	}
+#if PPSSPP_PLATFORM(ANDROID)
 	deviceSpecs->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
 	deviceSpecs->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
+#endif
 
 	deviceSpecs->Add(new ItemHeader(si->T("Display Information")));
+#if PPSSPP_PLATFORM(ANDROID)
 	deviceSpecs->Add(new InfoItem(si->T("Native Resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
-	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f)));
 #endif
 
-#if 0
-	// For debugging, DO NOT translate
-	deviceSpecs->Add(new InfoItem("Resolution1",
-		StringFromFormat("dp: %dx%d px: %dx%d dpi_s: %0.1fx%0.1f",
-			dp_xres, dp_yres, pixel_xres, pixel_yres, g_dpi_scale_x, g_dpi_scale_y)));
-	deviceSpecs->Add(new InfoItem("Resolution2",
-		StringFromFormat("dpi_s_r: %0.1fx%0.1f px_in_dp: %0.1fx%0.1f",
-			g_dpi_scale_real_x, g_dpi_scale_real_y, pixel_in_dps_x, pixel_in_dps_y)));
+#if !PPSSPP_PLATFORM(WINDOWS)
+	// Don't show on Windows, since it's always treated as 60 there.
+	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 #endif
 
 	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
@@ -547,7 +561,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("API Version"), apiVersion));
 	deviceSpecs->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
 	if (moga.empty()) {
 		moga = si->T("(none detected)");
@@ -670,7 +684,7 @@ void SystemInfoScreen::CreateViews() {
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 
 	addrView_ = new TextView(dev->T("Enter address"), ALIGN_HCENTER, false);
 	parent->Add(addrView_);
@@ -724,7 +738,7 @@ void AddressPromptScreen::BackspaceDigit() {
 }
 
 void AddressPromptScreen::UpdatePreviewDigits() {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 
 	if (addr_ != 0) {
 		char temp[32];
@@ -757,8 +771,8 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
 
 	using namespace UI;
 	
@@ -803,7 +817,7 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
@@ -894,7 +908,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 
 	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
@@ -1038,7 +1052,7 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 void ShaderListScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -1067,7 +1081,7 @@ UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;

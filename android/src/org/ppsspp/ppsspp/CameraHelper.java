@@ -15,6 +15,7 @@ import android.view.WindowManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @TargetApi(23)
@@ -22,12 +23,17 @@ import java.util.List;
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();
 	private Display mDisplay;
+	private int mTargetWidth = 0;
+	private int mTargetHeight = 0;
 	private Camera mCamera = null;
 	private boolean mIsCameraRunning = false;
+	private int mCameraFacing = 0;
 	private int mCameraOrientation = 0;
 	private Camera.Size mPreviewSize = null;
 	private long mLastFrameTime = 0;
 	private SurfaceTexture mSurfaceTexture;
+
+	private static boolean firstRotation = true;
 
 	private int getCameraRotation() {
 		int displayRotation = mDisplay.getRotation();
@@ -38,11 +44,20 @@ class CameraHelper {
 			case Surface.ROTATION_180: displayDegrees = 180; break;
 			case Surface.ROTATION_270: displayDegrees = 270; break;
 		}
-		return (mCameraOrientation - displayDegrees + 360) % 360;
+		if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+			return (mCameraOrientation + displayDegrees) % 360;
+		} else {
+			return (mCameraOrientation - displayDegrees + 360) % 360;
+		}
 	}
 
+	// Does not work if the source is smaller than the destination!
 	static byte[] rotateNV21(final byte[] input, final int inWidth, final int inHeight,
 							 final int outWidth, final int outHeight, final int rotation) {
+		if (firstRotation) {
+			Log.i(TAG, "rotateNV21: in: " + inWidth + "x" + inHeight + " out: " + outWidth + "x" + outHeight + " rotation: " + rotation);
+			firstRotation = false;
+		}
 
 		final int inFrameSize = inWidth * inHeight;
 		final int outFrameSize = outWidth * outHeight;
@@ -51,6 +66,12 @@ class CameraHelper {
 		if (rotation == 0 || rotation == 180) {
 			final int crop_left = (inWidth - outWidth) / 2;
 			final int crop_top = (inHeight - outHeight) / 2;
+
+			if (crop_left < 0 || crop_top < 0) {
+				// Math will fail. Return a black image.
+				return output;
+			}
+
 			for (int j = 0; j < outHeight; j++) {
 				final int yInCol = (crop_top + j) * inWidth + crop_left;
 				final int uvInCol = inFrameSize + ((crop_top + j) >> 1) * inWidth + crop_left;
@@ -71,8 +92,14 @@ class CameraHelper {
 				}
 			}
 		} else if (rotation == 90 || rotation == 270) {
-			int crop_left = (inWidth - outHeight) / 2;
-			int crop_top  = (inHeight - outWidth) / 2;
+			final int crop_left = (inWidth - outHeight) / 2;
+			final int crop_top  = (inHeight - outWidth) / 2;
+
+			if (crop_left < 0 || crop_top < 0) {
+				// Math will fail. Return a black image.
+				return output;
+			}
+
 			for (int j = 0; j < outWidth; j++) {
 				final int yInCol = (crop_top + j) * inWidth + crop_left;
 				final int uvInCol = inFrameSize + ((crop_top + j) >> 1) * inWidth + crop_left;
@@ -90,6 +117,8 @@ class CameraHelper {
 					output[vOut] = input[vIn];
 				}
 			}
+		} else {
+			Log.e(TAG, "Unknown rotation " + rotation);
 		}
 		return output;
 	}
@@ -104,20 +133,16 @@ class CameraHelper {
 			}
 			mLastFrameTime = currentTime;
 
-			// the expected values arrives in sceUsbCamSetupVideo
-			int targetW = 480;
-			int targetH = 272;
-
 			int cameraRotation = getCameraRotation();
 			byte[] newPreviewData = rotateNV21(previewData, mPreviewSize.width, mPreviewSize.height,
-					targetW, targetH, cameraRotation);
-			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, targetW, targetH, null);
+					mTargetWidth, mTargetHeight, cameraRotation);
+			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, mTargetWidth, mTargetHeight, null);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
 			// convert to Jpeg
-			Rect crop = new Rect(0, 0, targetW, targetH);
+			Rect crop = new Rect(0, 0, mTargetWidth, mTargetHeight);
 			yuvImage.compressToJpeg(crop, 80, baos);
-			NativeApp.pushCameraImage(baos.toByteArray());
+			NativeApp.pushCameraImageAndroid(baos.toByteArray());
 			try {
 				baos.close();
 			} catch (IOException e) {
@@ -132,26 +157,70 @@ class CameraHelper {
 		mSurfaceTexture = new SurfaceTexture(10);
 	}
 
+	static ArrayList<String> getDeviceList() {
+		ArrayList<String> deviceList = new ArrayList<>();
+		int nrCam = Camera.getNumberOfCameras();
+		for (int index = 0; index < nrCam; index++) {
+			try {
+				Camera.CameraInfo info = new Camera.CameraInfo();
+				Camera.getCameraInfo(index, info);
+				String devName = index + ":" + (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK ? "Back Camera" : "Front Camera");
+				deviceList.add(devName);
+			} catch (Exception e) {
+				Log.e(TAG, "Failed to get camera info: " + e.toString());
+			}
+		}
+		return deviceList;
+	}
+
+	void setCameraSize(int width, int height) {
+		mTargetWidth = width;
+		mTargetHeight = height;
+	}
+
 	void startCamera() {
-		Log.d(TAG, "startCamera");
 		try {
-			Camera.CameraInfo info = new android.hardware.Camera.CameraInfo();
-			Camera.getCameraInfo(0, info);
+			int cameraId = NativeApp.getSelectedCamera();
+			Log.d(TAG, "startCamera [id=" + cameraId + ", res=" + mTargetWidth + "x" + mTargetHeight + "]");
+
+			Camera.CameraInfo info = new Camera.CameraInfo();
+			Camera.getCameraInfo(cameraId, info);
+			mCameraFacing = info.facing;
 			mCameraOrientation = info.orientation;
 
-			mCamera = Camera.open();
+			mCamera = Camera.open(cameraId);
 			Camera.Parameters param = mCamera.getParameters();
 
 			// Set preview size
 			List<Camera.Size> previewSizes = param.getSupportedPreviewSizes();
-			mPreviewSize = previewSizes.get(0);
+			mPreviewSize = null;
+
+			// Find the preview size that's the closest above or equal the requested size.
+			// We can not depend on the ordering of the incoming sizes.
 			for (int i = 0; i < previewSizes.size(); i++) {
-				Log.d(TAG, "getSupportedPreviewSizes[" + i + "]: " + previewSizes.get(i).height + " " + previewSizes.get(i).width);
-				if (previewSizes.get(i).width <= 640 && previewSizes.get(i).height <= 480) {
+				int width = previewSizes.get(i).width;
+				int height = previewSizes.get(i).height;
+				Log.d(TAG, "getSupportedPreviewSizes[" + i + "]: " + width + "x" + height);
+
+				// Reject too small preview sizes.
+				if (width < mTargetWidth || height < mTargetHeight) {
+					continue;
+				}
+
+				if (mPreviewSize == null) {
+					Log.i(TAG, "Selected first viable preview size: " + width + "x" + height);
 					mPreviewSize = previewSizes.get(i);
-					break;
+				} else if (width < mPreviewSize.width || height < mPreviewSize.height) {
+					// Only select the new size if it's smaller.
+					Log.i(TAG, "Selected better viable preview size: " + width + "x" + height);
+					mPreviewSize = previewSizes.get(i);
 				}
 			}
+
+			if (mPreviewSize == null) {
+				throw new Exception("Couldn't find a viable preview size");
+			}
+
 			Log.d(TAG, "setPreviewSize(" + mPreviewSize.width + ", " + mPreviewSize.height + ")");
 			param.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 
@@ -173,7 +242,7 @@ class CameraHelper {
 			mCamera.setPreviewCallback(mPreviewCallback);
 			mCamera.startPreview();
 			mIsCameraRunning = true;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			Log.e(TAG, "Cannot start camera: " + e.toString());
 		}
 	}

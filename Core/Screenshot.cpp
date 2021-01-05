@@ -18,15 +18,12 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
-#ifdef USING_QT_UI
-#include <QtGui/QImage>
-#else
-#include <libpng17/png.h>
+#include <png.h>
 #include "ext/jpge/jpge.h"
-#endif
 
 #include "Common/ColorConv.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
 #include "Core/Core.h"
@@ -34,7 +31,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#ifndef USING_QT_UI
 // This is used to make non-ASCII paths work for filename.
 // Technically only needed on Windows.
 class JPEGFileStream : public jpge::output_stream
@@ -71,13 +67,12 @@ private:
 static bool WriteScreenshotToJPEG(const char *filename, int width, int height, int num_channels, const uint8_t *image_data, const jpge::params &comp_params) {
 	JPEGFileStream dst_stream(filename);
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(SYSTEM, "Unable to open screenshot file for writing.");
+		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	jpge::jpeg_encoder dst_image;
 	if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params)) {
-		ERROR_LOG(SYSTEM, "Screenshot JPEG encode init failed.");
 		return false;
 	}
 
@@ -85,12 +80,10 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 		for (int i = 0; i < height; i++) {
 			const uint8_t *buf = image_data + i * width * num_channels;
 			if (!dst_image.process_scanline(buf)) {
-				ERROR_LOG(SYSTEM, "Screenshot JPEG encode scanline failed.");
 				return false;
 			}
 		}
 		if (!dst_image.process_scanline(NULL)) {
-			ERROR_LOG(SYSTEM, "Screenshot JPEG encode scanline flush failed.");
 			return false;
 		}
 	}
@@ -106,24 +99,20 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(SYSTEM, "Unable to open screenshot file for writing.");
+		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		if (fclose(fp) != 0) {
-			ERROR_LOG(SYSTEM, "Screenshot file write failed.");
-			return false;
-		}
+		fclose(fp);
 		return true;
 	} else {
-		ERROR_LOG(SYSTEM, "Screenshot PNG encode failed.");
+		ERROR_LOG(IO, "Screenshot PNG encode failed.");
 		fclose(fp);
 		remove(filename);
 		return false;
 	}
 }
-#endif
 
 static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, u8 &a, const void *buffer, int offset, bool rev) {
 	const u8 *buf8 = (const u8 *)buffer;
@@ -229,7 +218,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 		a = (src >> 8) & 0xFF;
 		break;
 	default:
-		_assert_msg_(SYSTEM, false, "Unsupported framebuffer format for screenshot: %d", fmt);
+		_assert_msg_(false, "Unsupported framebuffer format for screenshot: %d", fmt);
 		return false;
 	}
 
@@ -347,16 +336,12 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	delete [] flipbuffer;
 
 	if (!success) {
-		ERROR_LOG(SYSTEM, "Failed to write screenshot.");
+		ERROR_LOG(IO, "Failed to write screenshot.");
 	}
 	return success;
 }
 
 bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
-#ifdef USING_QT_UI
-	QImage image(bufferRGB888, w, h, QImage::Format_RGB888);
-	return image.save(filename, fmt == ScreenshotFormat::PNG ? "PNG" : "JPG");
-#else
 	if (fmt == ScreenshotFormat::PNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -368,7 +353,7 @@ bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *
 		png_image_free(&png);
 
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
+			ERROR_LOG(IO, "Saving screenshot to PNG produced errors.");
 			success = false;
 		}
 		return success;
@@ -379,14 +364,9 @@ bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *
 	} else {
 		return false;
 	}
-#endif
 }
 
 bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h) {
-#ifdef USING_QT_UI
-	QImage image(buffer, w, h, QImage::Format_RGBA8888);
-	return image.save(filename, "PNG");
-#else
 	png_image png;
 	memset(&png, 0, sizeof(png));
 	png.version = PNG_IMAGE_VERSION;
@@ -397,9 +377,8 @@ bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h
 	png_image_free(&png);
 
 	if (png.warning_or_error >= 2) {
-		ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
+		ERROR_LOG(IO, "Saving screenshot to PNG produced errors.");
 		success = false;
 	}
 	return success;
-#endif
 }

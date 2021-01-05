@@ -17,11 +17,11 @@
 
 #include <map>
 
-#include "base/logging.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
-#include "DepalettizeShaderGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
@@ -54,8 +54,10 @@ void main() {
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 	_assert_(draw);
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
+}
+
+void DepalShaderCacheGLES::Init() {
 	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
 		// Use the floating point path, it just can't handle the math.
 		useGL3_ = false;
@@ -92,17 +94,15 @@ GLRTexture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, con
 		return oldtex->second->texture;
 	}
 
-	GLuint dstFmt = getClutDestFormat(clutFormat);
+	Draw::DataFormat dstFmt = getClutDestFormat(clutFormat);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTexture *tex = new DepalTexture();
-	tex->texture = render_->CreateTexture(GL_TEXTURE_2D);
-	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	GLuint components2 = components;
+	tex->texture = render_->CreateTexture(GL_TEXTURE_2D, texturePixels, 1, 1);
 
 	uint8_t *clutCopy = new uint8_t[1024];
 	memcpy(clutCopy, rawClut, 1024);
-	render_->TextureImage(tex->texture, 0, texturePixels, 1, components, components2, dstFmt, clutCopy, GLRAllocType::NEW, false);
+	render_->TextureImage(tex->texture, 0, texturePixels, 1, dstFmt, clutCopy, GLRAllocType::NEW, false);
 
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[clutId] = tex;
@@ -162,7 +162,7 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 
 	char *buffer = new char[2048];
 
-	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_300 : GLSL_140);
+	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_3xx : GLSL_1xx);
 	
 	std::string src(buffer);
 	GLRShader *fragShader = render_->CreateShader(GL_FRAGMENT_SHADER, src, "depal");
@@ -178,8 +178,8 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	queries.push_back({ &depal->u_pal, "pal" });
 
 	std::vector<GLRProgram::Initializer> initializer;
-	initializer.push_back({ &depal->u_tex, 0, 0 });
-	initializer.push_back({ &depal->u_pal, 0, 3 });
+	initializer.push_back({ &depal->u_tex, 0, TEX_SLOT_PSP_TEXTURE });
+	initializer.push_back({ &depal->u_pal, 0, TEX_SLOT_CLUT });
 
 	std::vector<GLRShader *> shaders{ vertexShader_, fragShader };
 

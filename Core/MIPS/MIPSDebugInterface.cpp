@@ -18,6 +18,10 @@
 #include <string>
 #include <cstring>
 
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
+
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -211,7 +215,7 @@ unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 
 bool MIPSDebugInterface::isAlive()
 {
-	return PSP_IsInited() && coreState != CORE_ERROR && coreState != CORE_POWERDOWN;
+	return PSP_IsInited() && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN;
 }
 
 bool MIPSDebugInterface::isBreakpoint(unsigned int address) 

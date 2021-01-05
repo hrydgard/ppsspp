@@ -79,6 +79,7 @@ void __CtrlSetAnalogY(float value, int stick = CTRL_STICK_LEFT);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
 void __CtrlSetRapidFire(bool state);
+bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
@@ -86,3 +87,13 @@ void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
 
 void Register_sceCtrl_driver();
+
+u16 sceCtrlGetRightVibration();
+u16 sceCtrlGetLeftVibration();
+
+namespace SceCtrl {
+	void SetLeftVibration(u16 lVibration);
+	void SetRightVibration(u16 rVibration);
+	void SetVibrationLeftDropout(u8 vibrationLDropout);
+	void SetVibrationRightDropout(u8 vibrationRDropout);
+};

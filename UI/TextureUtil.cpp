@@ -1,31 +1,40 @@
 #include <algorithm>
 
-#include "thin3d/thin3d.h"
-#include "image/zim_load.h"
-#include "image/png_load.h"
-#include "math/math_util.h"
-#include "file/vfs.h"
+#include "Common/GPU/thin3d.h"
 #include "ext/jpge/jpgd.h"
-#include "UI/TextureUtil.h"
+#include "Common/UI/View.h"
+#include "Common/UI/Context.h"
+#include "Common/Render/DrawBuffer.h"
+
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Format/ZIMLoad.h"
+#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/curves.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
+#include "UI/TextureUtil.h"
+#include "UI/GameInfoCache.h"
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
-	case ZIM_ETC1: return Draw::DataFormat::ETC1;
 	case ZIM_RGBA8888: return Draw::DataFormat::R8G8B8A8_UNORM;
-	case ZIM_LUMINANCE: return Draw::DataFormat::R8_UNORM;
 	default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
 static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
+	if (size < 4) {
+		return TYPE_UNKNOWN;
+	}
 	if (!memcmp(data, "ZIMG", 4)) {
 		return ZIM;
 	}
 	else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
 		return PNG;
 	}
-	else if (!memcmp(data, "\xff\xd8\xff\xe0", 4)) {
+	else if (!memcmp(data, "\xff\xd8\xff\xe0", 4) || !memcmp(data, "\xff\xd8\xff\xe1", 4)) {
 		return JPEG;
 	}
 	else {
@@ -38,7 +47,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 		type = DetectImageFileType(data, size);
 	}
 	if (type == TYPE_UNKNOWN) {
-		ELOG("File (size: %d) has unknown format", (int)size);
+		ERROR_LOG(G3D, "File (size: %d) has unknown format", (int)size);
 		return false;
 	}
 
@@ -54,15 +63,15 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	break;
 
 	case PNG:
-		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0])) {
 			*num_levels = 1;
 			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			if (!image[0]) {
-				ELOG("WTF");
+				ERROR_LOG(IO, "WTF");
 				return false;
 			}
 		} else {
-			ELOG("PNG load failed");
+			ERROR_LOG(IO, "PNG load failed");
 			return false;
 		}
 		break;
@@ -80,14 +89,14 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	break;
 
 	default:
-		ELOG("Unsupported image format %d", (int)type);
+		ERROR_LOG(IO, "Unsupported image format %d", (int)type);
 		return false;
 	}
 
 	return *num_levels > 0;
 }
 
-bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips) {
+bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	generateMips_ = generateMips;
 	using namespace Draw;
 
@@ -101,12 +110,10 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		return false;
 	}
 
-	if (!image[0]) {
-		Crash();
-	}
+	_assert_(image[0] != nullptr);
 
 	if (num_levels < 0 || num_levels >= 16) {
-		ELOG("Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);
+		ERROR_LOG(IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);
 		num_levels = 1;
 	}
 
@@ -126,7 +133,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 	desc.depth = 1;
 	desc.mipLevels = generateMips ? potentialLevels : num_levels;
 	desc.generateMips = generateMips && potentialLevels > num_levels;
-	desc.tag = "LoadedFileData";
+	desc.tag = name;
 	for (int i = 0; i < num_levels; i++) {
 		desc.initData.push_back(image[i]);
 	}
@@ -144,15 +151,15 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
 	if (!buffer) {
 		filename_ = "";
-		ELOG("Failed to read file '%s'", filename.c_str());
+		ERROR_LOG(IO, "Failed to read file '%s'", filename.c_str());
 		return false;
 	}
-	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips);
+	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips, filename.c_str());
 	if (retval) {
 		filename_ = filename;
 	} else {
 		filename_ = "";
-		ELOG("Failed to load texture '%s'", filename.c_str());
+		ERROR_LOG(IO, "Failed to load texture '%s'", filename.c_str());
 	}
 	delete[] buffer;
 	return retval;
@@ -171,14 +178,14 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, c
 }
 
 void ManagedTexture::DeviceLost() {
-	ILOG("ManagedTexture::DeviceLost(%s)", filename_.c_str());
+	INFO_LOG(G3D, "ManagedTexture::DeviceLost(%s)", filename_.c_str());
 	if (texture_)
 		texture_->Release();
 	texture_ = nullptr;
 }
 
 void ManagedTexture::DeviceRestored(Draw::DrawContext *draw) {
-	ILOG("ManagedTexture::DeviceRestored(%s)", filename_.c_str());
+    INFO_LOG(G3D, "ManagedTexture::DeviceRestored(%s)", filename_.c_str());
 	_assert_(!texture_);
 	draw_ = draw;
 	// Vulkan: Can't load textures before the first frame has started.
@@ -189,7 +196,7 @@ void ManagedTexture::DeviceRestored(Draw::DrawContext *draw) {
 Draw::Texture *ManagedTexture::GetTexture() {
 	if (loadPending_) {
 		if (!LoadFromFile(filename_, ImageFileType::DETECT, generateMips_)) {
-			ELOG("ManagedTexture failed: '%s'", filename_.c_str());
+			ERROR_LOG(IO, "ManagedTexture failed: '%s'", filename_.c_str());
 		}
 		loadPending_ = false;
 	}
@@ -197,15 +204,52 @@ Draw::Texture *ManagedTexture::GetTexture() {
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips) {
+std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips, const char *name) {
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	ManagedTexture *mtex = new ManagedTexture(draw);
-	if (mtex->LoadFromFileData(data, size, type, generateMips)) {
+	if (mtex->LoadFromFileData(data, size, type, generateMips, name)) {
 		return std::unique_ptr<ManagedTexture>(mtex);
 	} else {
 		// Best to return a null pointer if we fail!
 		delete mtex;
 		return std::unique_ptr<ManagedTexture>();
 	}
+}
+
+void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = textureWidth_;
+	h = textureHeight_;
+}
+
+void GameIconView::Draw(UIContext &dc) {
+	using namespace UI;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+
+	if (!info->icon.texture) {
+		return;
+	}
+
+	textureWidth_ = info->icon.texture->Width() * scale_;
+	textureHeight_ = info->icon.texture->Height() * scale_;
+
+	// Fade icon with the backgrounds.
+	double loadTime = info->icon.timeLoaded;
+	if (info->pic1.texture) {
+		loadTime = std::max(loadTime, info->pic1.timeLoaded);
+	}
+	if (info->pic0.texture) {
+		loadTime = std::max(loadTime, info->pic0.timeLoaded);
+	}
+	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
+
+	// Adjust size so we don't stretch the image vertically or horizontally.
+	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
+
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, info->icon.texture->GetTexture());
+	dc.Draw()->Rect(bounds_.x, bounds_.y, nw, bounds_.h, color);
+	dc.Flush();
+	dc.RebindTexture();
 }

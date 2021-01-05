@@ -26,5 +26,6 @@ bool StartWebServer(WebServerFlags flags);
 bool StopWebServer(WebServerFlags flags);
 bool WebServerStopping(WebServerFlags flags);
 bool WebServerStopped(WebServerFlags flags);
+void ShutdownWebServer();
 
 bool RemoteISOFileSupported(const std::string &filename);

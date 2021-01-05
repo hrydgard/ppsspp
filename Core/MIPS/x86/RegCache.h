@@ -101,7 +101,7 @@ public:
 	{
 		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
 			return regs[preg].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - %i", preg); 
+		_assert_msg_(false, "Not so simple - %d", preg); 
 		return (Gen::X64Reg)-1;
 	}
 	Gen::OpArg GetDefaultLocation(MIPSGPReg reg) const;

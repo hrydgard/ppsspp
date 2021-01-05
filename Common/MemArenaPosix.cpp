@@ -19,17 +19,22 @@
 
 #if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
 
-#include <string>
-
-#include "FileUtil.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <string>
+
+#ifndef MAP_NORESERVE
+// Not implemented on BSDs
+#define MAP_NORESERVE 0
+#endif
+
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
 
 static const std::string tmpfs_location = "/dev/shm";
 static const std::string tmpfs_ram_temp_file = "/dev/shm/gc_mem.tmp";
@@ -103,17 +108,29 @@ void MemArena::ReleaseView(void* view, size_t size) {
 u8* MemArena::Find4GBBase() {
 	// Now, create views in high memory where there's plenty of space.
 #if PPSSPP_ARCH(64BIT) && !defined(USE_ADDRESS_SANITIZER)
-	// Very precarious - mmap cannot return an error when trying to map already used pages.
-	// This makes the Windows approach above unusable on Linux, so we will simply pray...
-	return reinterpret_cast<u8*>(0x2300000000ULL);
+	// We should probably just go look in /proc/self/maps for some free space.
+	// But let's try the anonymous mmap trick, just like on 32-bit, but bigger and
+	// aligned to 4GB for the movk trick. We can ensure that we get an aligned 4GB
+	// address by grabbing 8GB and aligning the pointer.
+	const uint64_t EIGHT_GIGS = 0x200000000ULL;
+	void *base = mmap(0, EIGHT_GIGS, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
+	if (base && base != MAP_FAILED) {
+		INFO_LOG(MEMMAP, "base: %p", base);
+		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
+		INFO_LOG(MEMMAP, "aligned_base: %p", (void *)aligned_base);
+		munmap(base, EIGHT_GIGS);
+		return reinterpret_cast<u8 *>(aligned_base);
+	} else {
+		u8 *hardcoded_ptr = reinterpret_cast<u8*>(0x2300000000ULL);
+		INFO_LOG(MEMMAP, "Failed to anonymously map 8GB. Fall back to the hardcoded pointer %p.", hardcoded_ptr);
+		// Just grab some random 4GB...
+		// This has been known to fail lately though, see issue #12249.
+		return hardcoded_ptr;
+	}
 #else
 	size_t size = 0x10000000;
-	void* base = mmap(0, size, PROT_READ | PROT_WRITE,
-		MAP_ANON | MAP_SHARED, -1, 0);
-	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
-		return 0;
-	}
+	void* base = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_NORESERVE, -1, 0);
+	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
 	munmap(base, size);
 	return static_cast<u8*>(base);
 #endif

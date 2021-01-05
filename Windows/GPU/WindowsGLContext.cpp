@@ -15,21 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cassert>
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
-#include "gfx/gl_common.h"
-#include "gfx/gl_debug_log.h"
-#include "gfx_es2/gpu_features.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
-#include "util/text/utf8.h"
-#include "i18n/i18n.h"
+#include "Core/Host.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 #include "UI/OnScreenDisplay.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 
@@ -132,8 +132,13 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 											GLsizei length, const GLchar *message, GLvoid *userParam) {
 	// Ignore buffer mapping messages from NVIDIA
-	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185)
+	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185) {
 		return;
+	}
+	// Ignore application messages
+	if (source == GL_DEBUG_SOURCE_APPLICATION) {
+		return;
+	}
 
 	(void)length;
 	FILE *outFile = (FILE *)userParam;
@@ -236,7 +241,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	// GL_VERSION                        GL_VENDOR        GL_RENDERER
 	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
-	I18NCategory *err = GetI18NCategory("Error");
+	auto err = GetI18NCategory("Error");
 
 	std::string glVersion = (const char *)glGetString(GL_VERSION);
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
@@ -289,6 +294,9 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 	// Unfortunately, glew will generate an invalid enum error, ignore.
 	glGetError();
+
+	// Reset in case we're in a backend switch.
+	ResetGLExtensions();
 
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
@@ -364,7 +372,14 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	hRC = m_hrc;
 
-	if (g_Config.bGfxDebugOutput) {
+	bool validation = g_Config.bGfxDebugOutput;
+
+	// Always run OpenGL validation in debug mode, just like we do with Vulkan if debug layers are installed.
+#ifdef _DEBUG
+	validation = true;
+#endif
+
+	if (validation) {
 		if (wglewIsSupported("GL_KHR_debug") == 1) {
 			glGetError();
 			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
@@ -396,16 +411,27 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	pauseRequested = false;
 	resumeRequested = false;
 
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
+	if (!success) {
+		delete draw_;
+		draw_ = nullptr;
+		ReleaseGLContext();
+		return false;
+	}
+
+	draw_->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+	}, nullptr);
+
 	// These are auto-reset events.
 	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
-	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
-	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
 	if (wglSwapIntervalEXT) {
 		// glew loads wglSwapIntervalEXT if available
@@ -426,14 +452,10 @@ void WindowsGLContext::Shutdown() {
 	glslang::FinalizeProcess();
 }
 
-void WindowsGLContext::ShutdownFromRenderThread() {
-	delete draw_;
-	draw_ = nullptr;
-	CloseHandle(pauseEvent);
-	CloseHandle(resumeEvent);
+void WindowsGLContext::ReleaseGLContext() {
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
-		if (!wglMakeCurrent(NULL,NULL)) {
+		if (!wglMakeCurrent(NULL, NULL)) {
 			MessageBox(NULL, L"Release of DC and RC failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 
@@ -452,6 +474,14 @@ void WindowsGLContext::ShutdownFromRenderThread() {
 		hDC = NULL;
 	}
 	hWnd_ = NULL;
+}
+
+void WindowsGLContext::ShutdownFromRenderThread() {
+	delete draw_;
+	draw_ = nullptr;
+	CloseHandle(pauseEvent);
+	CloseHandle(resumeEvent);
+	ReleaseGLContext();
 }
 
 void WindowsGLContext::Resize() {

@@ -1,12 +1,8 @@
 #ifndef VULKAN_XCB_H_
 #define VULKAN_XCB_H_ 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
-** Copyright (c) 2015-2019 The Khronos Group Inc.
+** Copyright (c) 2015-2020 The Khronos Group Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -25,6 +21,11 @@ extern "C" {
 ** This header is generated from the Khronos Vulkan XML API Registry.
 **
 */
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 

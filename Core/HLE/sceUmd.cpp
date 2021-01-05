@@ -17,9 +17,9 @@
 
 #include <vector>
 
-#include "file/file_util.h"
-
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -87,26 +87,26 @@ void __UmdDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(umdActivated);
-	p.Do(umdStatus);
-	p.Do(umdErrorStat);
-	p.Do(driveCBId);
-	p.Do(umdStatTimeoutEvent);
+	Do(p, umdActivated);
+	Do(p, umdStatus);
+	Do(p, umdErrorStat);
+	Do(p, driveCBId);
+	Do(p, umdStatTimeoutEvent);
 	CoreTiming::RestoreRegisterEvent(umdStatTimeoutEvent, "UmdTimeout", __UmdStatTimeout);
-	p.Do(umdStatChangeEvent);
+	Do(p, umdStatChangeEvent);
 	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
-	p.Do(umdWaitingThreads);
-	p.Do(umdPausedWaits);
+	Do(p, umdWaitingThreads);
+	Do(p, umdPausedWaits);
 
 	if (s > 1) {
-		p.Do(UMDReplacePermit);
+		Do(p, UMDReplacePermit);
 		if (UMDReplacePermit)
 			host->UpdateUI();
 	}
 	if (s > 2) {
-		p.Do(umdInsertChangeEvent);
+		Do(p, umdInsertChangeEvent);
 		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
-		p.Do(UMDInserted);
+		Do(p, UMDInserted);
 	}
 	else
 		UMDInserted = true;
@@ -189,7 +189,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		if (umdPausedWaits.find(pauseKey) != umdPausedWaits.end())
 			return;
 
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
 		if (cyclesLeft != 0)
 			umdPausedWaits[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
@@ -234,7 +234,7 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	else
 	{
-		_dbg_assert_msg_(SCEIO, umdStatTimeoutEvent != -1, "Must have a umd timer");
+		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		CoreTiming::ScheduleEvent(cyclesLeft, umdStatTimeoutEvent, __KernelGetCurThread());
 
 		umdWaitingThreads.push_back(threadID);
@@ -425,7 +425,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
 		return 0;
 	} else {
 		hleReSchedule("umd stat checked");
@@ -495,45 +495,17 @@ static u32 sceUmdGetErrorStat()
 }
 
 void __UmdReplace(std::string filepath) {
-	// TODO: This should really go through Loaders, no?  What if it's an invalid file?
-
-	// Only get system from disc0 seems have been enough.
-	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
-	IFileSystem* currentISOBlock = pspFileSystem.GetSystem("umd0:");
-	if (!currentUMD)
-		return;
-
-	FileLoader *loadedFile = ConstructFileLoader(filepath);
-
-	IFileSystem* umd2;
-	if (!loadedFile->Exists()) {
-		delete loadedFile;
+	std::string error = "";
+	if (!UmdReplace(filepath, error)) {
+		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
-	UpdateLoadedFile(loadedFile);
 
-	if (loadedFile->IsDirectory()) {
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
-	} else {
-		auto bd = constructBlockDevice(loadedFile);
-		if (!bd)
-			return;
-		umd2 = new ISOFileSystem(&pspFileSystem, bd);
-		pspFileSystem.Remount(currentUMD, umd2);
-
-		if (currentUMD != currentISOBlock) {
-			// We mounted an ISO block system separately.
-			IFileSystem *iso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
-			pspFileSystem.Remount(currentISOBlock, iso);
-			delete currentISOBlock;
-		}
-	}
-	delete currentUMD;
 	UMDInserted = false;
 	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
-	if (driveCBId != -1)
+	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 }
 
@@ -543,17 +515,21 @@ bool getUMDReplacePermit() {
 
 static u32 sceUmdReplaceProhibit()
 {
-	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
-	host->UpdateUI();
+	if (UMDReplacePermit) {
+		UMDReplacePermit = false;
+		host->NotifySwitchUMDUpdated();
+	}
 	return 0;
 }
 
 static u32 sceUmdReplacePermit()
 {
-	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
-	host->UpdateUI();
+	if (!UMDReplacePermit) {
+		UMDReplacePermit = true;
+		host->NotifySwitchUMDUpdated();
+	}
 	return 0;
 }
 

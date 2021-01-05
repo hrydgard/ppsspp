@@ -64,13 +64,15 @@ public:
 #endif
 	}
 	virtual bool AttemptLoadSymbolMap() override {
-		return false;
-		// TODO: Make this work with Qt and threaded GL... not sure what's so broken.
-		// auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
-		// return g_symbolMap->LoadSymbolMap(fn);
+		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
+		return g_symbolMap->LoadSymbolMap(fn.c_str());
 	}
+
+	virtual void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
+
 	void PrepareShutdown() {
-		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
+		g_symbolMap->SaveSymbolMap(fn.c_str());
 	}
 	void SetWindowTitle(const char *message) override {
 		std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
@@ -90,7 +92,9 @@ public:
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
 
+	void NotifySwitchUMDUpdated() override {}
+
 private:
-	const char* SymbolMapFilename(std::string currentFilename);
+	std::string SymbolMapFilename(std::string currentFilename);
 	MainWindow* mainWindow;
 };

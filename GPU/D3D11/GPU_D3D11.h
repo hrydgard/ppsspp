@@ -17,19 +17,19 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 #include <d3d11.h>
 
 #include "GPU/GPUCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-#include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 class LinkedShaderD3D11;
+class TextureCacheD3D11;
 
 class GPU_D3D11 : public GPUCommon {
 public:
@@ -71,7 +71,7 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
@@ -81,6 +81,4 @@ private:
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-
-	int lastVsync_;
 };

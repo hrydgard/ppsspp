@@ -18,9 +18,11 @@
 #include <cstdio>
 
 #include "ppsspp_config.h"
-#include "util/text/utf8.h"
-#include "file/file_util.h"
-#include "Common/FileUtil.h"
+
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
 #ifdef _WIN32
@@ -117,7 +119,12 @@ std::string LocalFileLoader::Path() const {
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(SWITCH)
+	// Toolchain has no fancy IO API.  We must lock.
+	std::lock_guard<std::mutex> guard(readLock_);
+	lseek(fd_, absolutePos, SEEK_SET);
+	return read(fd_, data, bytes * count) / bytes;
+#elif PPSSPP_PLATFORM(ANDROID)
 	// pread64 doesn't appear to actually be 64-bit safe, though such ISOs are uncommon.  See #10862.
 	if (absolutePos <= 0x7FFFFFFF) {
 #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64

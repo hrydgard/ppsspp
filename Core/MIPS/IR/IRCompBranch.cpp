@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -165,7 +165,7 @@ void IRFrontend::Comp_RelBranch(MIPSOpcode op) {
 	case 23: BranchRSZeroComp(op, IRComparison::LessEqual, false, true); break;//bgtzl
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -181,7 +181,7 @@ void IRFrontend::Comp_RelBranchRI(MIPSOpcode op) {
 	case 18: BranchRSZeroComp(op, IRComparison::GreaterEqual, true, true);  break;  //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
 	case 19: BranchRSZeroComp(op, IRComparison::Less, true, true);   break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -224,7 +224,7 @@ void IRFrontend::Comp_FPUBranch(MIPSOpcode op) {
 	case 2: BranchFPFlag(op, IRComparison::NotEqual, true);  break;  // bc1fl
 	case 3: BranchFPFlag(op, IRComparison::Equal, true);  break;  // bc1tl
 	default:
-		_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+		_dbg_assert_msg_( 0, "Trying to interpret instruction that can't be interpreted");
 		break;
 	}
 }
@@ -300,9 +300,8 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 			js.cancel = true;
 		else
 			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
-		js.compiling = false;
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
-		return;
+		// Continue so the block gets completed and crashes properly.
 	}
 
 	switch (op >> 26) {
@@ -316,7 +315,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 
@@ -380,7 +379,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	case 9: //jalr
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 

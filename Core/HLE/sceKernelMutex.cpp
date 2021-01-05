@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <map>
 #include <unordered_map>
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
@@ -62,10 +64,11 @@ struct NativeMutex
 	s32_le numWaitThreads;
 };
 
-struct Mutex : public KernelObject
+struct PSPMutex : public KernelObject
 {
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "Mutex"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mutex"; }
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
@@ -76,10 +79,10 @@ struct Mutex : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nm);
+		Do(p, nm);
 		SceUID dv = 0;
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeMutex nm;
@@ -130,7 +133,8 @@ struct NativeLwMutex
 struct LwMutex : public KernelObject
 {
 	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return "LwMutex"; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "LwMutex"; }
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_LwMutex; }
@@ -141,10 +145,10 @@ struct LwMutex : public KernelObject
 		if (!s)
 			return;
 
-		p.Do(nm);
+		Do(p, nm);
 		SceUID dv = 0;
-		p.Do(waitingThreads, dv);
-		p.Do(pausedWaits);
+		Do(p, waitingThreads, dv);
+		Do(p, pausedWaits);
 	}
 
 	NativeLwMutex nm;
@@ -180,16 +184,16 @@ void __KernelMutexDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(mutexWaitTimer);
+	Do(p, mutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
-	p.Do(lwMutexWaitTimer);
+	Do(p, lwMutexWaitTimer);
 	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
-	p.Do(mutexHeldLocks);
+	Do(p, mutexHeldLocks);
 }
 
 KernelObject *__KernelMutexObject()
 {
-	return new Mutex;
+	return new PSPMutex;
 }
 
 KernelObject *__KernelLwMutexObject()
@@ -202,12 +206,11 @@ void __KernelMutexShutdown()
 	mutexHeldLocks.clear();
 }
 
-static void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
-{
+static void __KernelMutexAcquireLock(PSPMutex *mutex, int count, SceUID thread) {
 #if defined(_DEBUG)
 	auto locked = mutexHeldLocks.equal_range(thread);
 	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
-		_dbg_assert_msg_(SCEKERNEL, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
+		_dbg_assert_msg_((*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
 #endif
 
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
@@ -216,13 +219,11 @@ static void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 	mutex->nm.lockThread = thread;
 }
 
-static void __KernelMutexAcquireLock(Mutex *mutex, int count)
-{
+static void __KernelMutexAcquireLock(PSPMutex *mutex, int count) {
 	__KernelMutexAcquireLock(mutex, count, __KernelGetCurThread());
 }
 
-static void __KernelMutexEraseLock(Mutex *mutex)
-{
+static void __KernelMutexEraseLock(PSPMutex *mutex) {
 	if (mutex->nm.lockThread != -1)
 	{
 		SceUID id = mutex->GetUID();
@@ -241,7 +242,7 @@ static void __KernelMutexEraseLock(Mutex *mutex)
 
 static std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &waiting)
 {
-	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
+	_dbg_assert_msg_(!waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
 
 	std::vector<SceUID>::iterator iter, end, best = waiting.end();
 	u32 best_prio = 0xFFFFFFFF;
@@ -255,12 +256,11 @@ static std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUI
 		}
 	}
 
-	_dbg_assert_msg_(SCEKERNEL, best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
+	_dbg_assert_msg_(best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
 	return best;
 }
 
-static bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int result)
-{
+static bool __KernelUnlockMutexForThread(PSPMutex *mutex, SceUID threadID, u32 &error, int result) {
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_MUTEX, mutex->GetUID()))
 		return false;
 
@@ -283,8 +283,7 @@ static bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &err
 	return true;
 }
 
-static bool __KernelUnlockMutexForThreadCheck(Mutex *mutex, SceUID threadID, u32 &error, int result, bool &wokeThreads)
-{
+static bool __KernelUnlockMutexForThreadCheck(PSPMutex *mutex, SceUID threadID, u32 &error, int result, bool &wokeThreads) {
 	if (mutex->nm.lockThread == -1 && __KernelUnlockMutexForThread(mutex, threadID, error, 0))
 		return true;
 	return false;
@@ -292,7 +291,7 @@ static bool __KernelUnlockMutexForThreadCheck(Mutex *mutex, SceUID threadID, u32
 
 void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitBeginCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<PSPMutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback");
 	else
@@ -301,7 +300,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer, __KernelUnlockMutexForThreadCheck);
+	auto result = HLEKernel::WaitEndCallback<PSPMutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer, __KernelUnlockMutexForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Resuming lock wait for callback");
 }
@@ -324,7 +323,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-	Mutex *mutex = new Mutex();
+	PSPMutex *mutex = new PSPMutex();
 	SceUID id = kernelObjects.Create(mutex);
 
 	mutex->nm.size = sizeof(mutex->nm);
@@ -357,7 +356,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 int sceKernelDeleteMutex(SceUID id)
 {
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 	if (mutex)
 	{
 		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteMutex(%i)", id);
@@ -373,7 +372,7 @@ int sceKernelDeleteMutex(SceUID id)
 		if (wokeThreads)
 			hleReSchedule("mutex deleted");
 
-		return kernelObjects.Destroy<Mutex>(id);
+		return kernelObjects.Destroy<PSPMutex>(id);
 	}
 	else
 	{
@@ -382,8 +381,7 @@ int sceKernelDeleteMutex(SceUID id)
 	}
 }
 
-static bool __KernelLockMutexCheck(Mutex *mutex, int count, u32 &error)
-{
+static bool __KernelLockMutexCheck(PSPMutex *mutex, int count, u32 &error) {
 	if (error)
 		return false;
 
@@ -411,8 +409,7 @@ static bool __KernelLockMutexCheck(Mutex *mutex, int count, u32 &error)
 	return false;
 }
 
-static bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
-{
+static bool __KernelLockMutex(PSPMutex *mutex, int count, u32 &error) {
 	if (!__KernelLockMutexCheck(mutex, count, error))
 		return false;
 
@@ -433,8 +430,7 @@ static bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 	return false;
 }
 
-static bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
-{
+static bool __KernelUnlockMutex(PSPMutex *mutex, u32 &error) {
 	__KernelMutexEraseLock(mutex);
 
 	bool wokeThreads = false;
@@ -459,7 +455,7 @@ static bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
 void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-	HLEKernel::WaitExecTimeout<Mutex, WAITTYPE_MUTEX>(threadID);
+	HLEKernel::WaitExecTimeout<PSPMutex, WAITTYPE_MUTEX>(threadID);
 }
 
 void __KernelMutexThreadEnd(SceUID threadID)
@@ -470,7 +466,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	SceUID waitingMutexID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
 	if (waitingMutexID)
 	{
-		Mutex *mutex = kernelObjects.Get<Mutex>(waitingMutexID, error);
+		PSPMutex *mutex = kernelObjects.Get<PSPMutex>(waitingMutexID, error);
 		if (mutex)
 			HLEKernel::RemoveWaitingThread(mutex->waitingThreads, threadID);
 	}
@@ -481,7 +477,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	{
 		// Need to increment early so erase() doesn't invalidate.
 		SceUID mutexID = (*iter++).second;
-		Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
+		PSPMutex *mutex = kernelObjects.Get<PSPMutex>(mutexID, error);
 
 		if (mutex)
 		{
@@ -491,8 +487,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	}
 }
 
-static void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
-{
+static void __KernelWaitMutex(PSPMutex *mutex, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || mutexWaitTimer == -1)
 		return;
 
@@ -511,7 +506,7 @@ static void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 {
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(uid, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(uid, error);
 	if (mutex)
 	{
 		bool lockable = count <= 0 || __KernelLockMutexCheck(mutex, count, error);
@@ -566,7 +561,7 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
 		return 0;
@@ -591,7 +586,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (!__KernelLockMutexCheck(mutex, count, error))
 	{
@@ -630,7 +625,7 @@ int sceKernelTryLockMutex(SceUID id, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockMutex(%i, %i)", id, count);
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
 		return 0;
@@ -645,7 +640,7 @@ int sceKernelUnlockMutex(SceUID id, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelUnlockMutex(%i, %i)", id, count);
 	u32 error;
-	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (error)
 		return error;
@@ -672,7 +667,7 @@ int sceKernelUnlockMutex(SceUID id, int count)
 int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 {
 	u32 error;
-	Mutex *m = kernelObjects.Get<Mutex>(id, error);
+	PSPMutex *m = kernelObjects.Get<PSPMutex>(id, error);
 	if (!m)
 	{
 		ERROR_LOG(SCEKERNEL, "sceKernelReferMutexStatus(%i, %08x): invalid mutex id", id, infoAddr);

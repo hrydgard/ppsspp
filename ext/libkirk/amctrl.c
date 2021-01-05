@@ -30,7 +30,7 @@ static u8 kirk_buf[0x0814]; // 1DC0 1DD4
 
 /*************************************************************/
 
-static int kirk4(u8 *buf, int size, int type)
+static int do_kirk4(u8 *buf, int size, int type)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -41,7 +41,7 @@ static int kirk4(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
 
 	if(retv)
 		return 0x80510311;
@@ -49,7 +49,7 @@ static int kirk4(u8 *buf, int size, int type)
 	return 0;
 }
 
-static int kirk7(u8 *buf, int size, int type)
+static int do_kirk7(u8 *buf, int size, int type)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -60,7 +60,7 @@ static int kirk7(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
 	if(retv)
 		return 0x80510311;
 
@@ -78,7 +78,7 @@ static int kirk5(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
 	if(retv)
 		return 0x80510312;
 
@@ -96,7 +96,7 @@ static int kirk8(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
 	if(retv)
 		return 0x80510312;
 
@@ -107,7 +107,7 @@ static int kirk14(u8 *buf)
 {
 	int retv;
 
-	retv = sceUtilsBufferCopyWithRange(buf, 0x14, 0, 0, 14);
+	retv = kirk_sceUtilsBufferCopyWithRange(buf, 0x14, 0, 0, 14);
 	if(retv)
 		return 0x80510315;
 
@@ -126,7 +126,7 @@ static int sub_158(u8 *buf, int size, u8 *key, int key_type)
 		buf[0x14+i] ^= key[i];
 	}
 
-	retv = kirk4(buf, size, key_type);
+	retv = do_kirk4(buf, size, key_type);
 	if(retv)
 		return retv;
 
@@ -213,7 +213,7 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 	kbuf = kirk_buf+0x14;
 
 	memset(kbuf, 0, 16);
-	retv = kirk4(kirk_buf, 16, code);
+	retv = do_kirk4(kirk_buf, 16, code);
 	if(retv)
 		goto _exit;
 	memcpy(tmp, kbuf, 16);
@@ -277,7 +277,7 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 		if(retv)
 			goto _exit;
 
-		retv = kirk4(kirk_buf, 0x10, code);
+		retv = do_kirk4(kirk_buf, 0x10, code);
 		if(retv)
 			goto _exit;
 
@@ -290,7 +290,7 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 		}
 		memcpy(kbuf, tmp1, 16);
 
-		retv = kirk4(kirk_buf, 0x10, code);
+		retv = do_kirk4(kirk_buf, 0x10, code);
 		if(retv)
 			goto _exit;
 
@@ -325,7 +325,7 @@ int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey)
 	// decrypt bbmac
 	if(type==3){
 		memcpy(kbuf, out, 0x10);
-		kirk7(kirk_buf, 0x10, 0x63);
+		do_kirk7(kirk_buf, 0x10, 0x63);
 	}else{
 		memcpy(kirk_buf, out, 0x10);
 	}
@@ -357,7 +357,7 @@ int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
 	// decrypt bbmac
 	if(type==3){
 		memcpy(kbuf, bbmac, 0x10);
-		kirk7(kirk_buf, 0x10, 0x63);
+		do_kirk7(kirk_buf, 0x10, 0x63);
 	}else{
 		memcpy(kirk_buf, bbmac, 0x10);
 	}
@@ -366,7 +366,7 @@ int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
 	memcpy(kbuf, tmp1, 16);
 
 	code = (type==2)? 0x3A : 0x38;
-	kirk7(kirk_buf, 0x10, code);
+	do_kirk7(kirk_buf, 0x10, code);
 
 	for(i=0; i<0x10; i++){
 		vkey[i] = tmp[i] ^ kirk_buf[i];
@@ -385,7 +385,7 @@ static int sub_1F8(u8 *buf, int size, u8 *key, int key_type)
 	// copy last 16 bytes to tmp
 	memcpy(tmp, buf+size+0x14-16, 16);
 
-	retv = kirk7(buf, size, key_type);
+	retv = do_kirk7(buf, size, key_type);
 	if(retv)
 		return retv;
 
@@ -414,7 +414,7 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 	if(ckey->type==2)
 		retv = kirk8(kbuf, 16);
 	else
-		retv = kirk7(kbuf, 16, 0x39);
+		retv = do_kirk7(kbuf, 16, 0x39);
 	if(retv)
 		return retv;
 
@@ -491,7 +491,7 @@ int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CE4[i];
 			}
-			retv = kirk4(kirk_buf, 0x10, 0x39);
+			retv = do_kirk4(kirk_buf, 0x10, 0x39);
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CF4[i];
 			}

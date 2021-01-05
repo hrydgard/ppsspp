@@ -23,7 +23,8 @@
 
 #include <time.h>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
@@ -31,6 +32,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "StringUtils.h"
 
 // The time when the game started.
@@ -39,6 +41,14 @@ static time_t start_time;
 void __KernelTimeInit()
 {
 	time(&start_time);
+	if (PSP_CoreParameter().compat.flags().DateLimited) {
+		// Car Jack Streets(NPUZ00043) requires that the date cannot exceed a certain time.
+		// 2011 year makes it work fine.
+		tm *tm;
+		tm = localtime(&start_time);
+		tm->tm_year = 111;// 2011 year.
+		start_time = mktime(tm);
+	}
 }
 
 void __KernelTimeDoState(PointerWrap &p)
@@ -48,10 +58,10 @@ void __KernelTimeDoState(PointerWrap &p)
 		return;
 
 	if (s < 2) {
-		p.Do(start_time);
+		Do(p, start_time);
 	} else {
 		u64 t = start_time;
-		p.Do(t);
+		Do(p, t);
 		start_time = (time_t)t;
 	}
 }

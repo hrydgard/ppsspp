@@ -58,10 +58,6 @@
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
     #define PPSSPP_ARCH_ARM_NEON 1
-    //TODO: Remove this compat define
-    #ifndef ARM64
-        #define ARM64 1
-    #endif
 #endif
 
 #if defined(__mips64__)
@@ -110,6 +106,8 @@
     #else
         #error "Unknown Apple platform"
     #endif
+#elif defined(__SWITCH__)
+    #define PPSSPP_PLATFORM_SWITCH 1
 #elif defined(__ANDROID__)
     #define PPSSPP_PLATFORM_ANDROID 1
     #define PPSSPP_PLATFORM_LINUX 1
@@ -125,10 +123,7 @@
 #if PPSSPP_PLATFORM(WINDOWS)
 #if !PPSSPP_PLATFORM(UWP)
 #define PPSSPP_API_D3D9 1
-
-// Comment this and uncomment PPSSPP_API_D3DX9 if D3DX9 is prefered.
-#define PPSSPP_API_D3D9_D3DCOMPILER 1
-// #define PPSSPP_API_D3DX9 1
 #endif
 #define PPSSPP_API_D3D11 1
 #endif
+

@@ -21,7 +21,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
 #include "UI/MiscScreens.h"
 
 class SettingInfoMessage;
@@ -34,22 +34,22 @@ public:
 
 	void update() override;
 	void onFinish(DialogResult result) override;
-	void sendMessage(const char *message, const char *value) override;
 	std::string tag() const override { return "settings"; }
-
-	UI::Event OnRecentChanged;
 
 protected:
 	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
+	void CallbackInflightFrames(bool yes);
 #if PPSSPP_PLATFORM(ANDROID)
 	void CallbackMemstickFolder(bool yes);
 #endif
 	bool UseVerticalLayout() const;
 
 private:
+	void TriggerRestart(const char *why);
+
 	std::string gameID_;
 	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
@@ -80,14 +80,19 @@ private:
 	UI::EventReturn OnLanguage(UI::EventParams &e);
 	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
-	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
+	UI::EventReturn OnTextureShader(UI::EventParams &e);
+	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteISO(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat0(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat1(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat2(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat3(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat4(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
-	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
@@ -97,6 +102,10 @@ private:
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
+	UI::EventReturn OnInflightFramesChoice(UI::EventParams &e);
+	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
+	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
+	UI::EventReturn OnAudioDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 #if PPSSPP_PLATFORM(ANDROID)
 	UI::EventReturn OnChangeMemStickDir(UI::EventParams &e);
@@ -116,20 +125,16 @@ private:
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
-	// Temporaries to convert setting types.
+	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
+	int prevInflightFrames_;
 	bool enableReports_;
+	bool tessHWEnable_;
+	std::string shaderNames_[256];
 
 	//edit the game-specific settings and restore the global settings after exiting
 	bool editThenRestore_;
-
-	// Cached booleans
-	bool vtxCacheEnable_;
-	bool postProcEnable_;
-	bool resolutionEnable_;
-	bool bloomHackEnable_;
-	bool tessHWEnable_;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	std::string pendingMemstickFolder_;
@@ -173,6 +178,8 @@ private:
 	UI::EventReturn OnJitDebugTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteDebugger(UI::EventParams &e);
 	UI::EventReturn OnGPUDriverTest(UI::EventParams &e);
+	UI::EventReturn OnTouchscreenTest(UI::EventParams &e);
+	UI::EventReturn OnCopyStatesToRoot(UI::EventParams &e);
 
 	bool allowDebugger_ = false;
 	bool canAllowDebugger_ = true;
@@ -205,6 +212,9 @@ private:
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnEditClick(UI::EventParams& e);
+	UI::EventReturn OnShowIPListClick(UI::EventParams& e);
+	UI::EventReturn OnIPClick(UI::EventParams& e);
 
 	enum class ResolverState {
 		WAITING,
@@ -218,6 +228,7 @@ private:
 	UI::TextEdit *addrView_ = nullptr;
 	UI::TextView *errorView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
+	UI::LinearLayout *ipRows_ = nullptr;
 
 	std::thread resolver_;
 	ResolverState resolverState_ = ResolverState::WAITING;

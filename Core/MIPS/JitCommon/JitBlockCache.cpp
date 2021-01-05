@@ -186,7 +186,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
-	b.checkedEntry = (u8 *)codePtr;  // Ugh, casting away const..
+	b.checkedEntry = codePtr;
 	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
 	AddBlockMap(num_blocks_);
 
@@ -420,7 +420,7 @@ void JitBlockCache::LinkBlock(int i) {
 	if (ppp.first == ppp.second)
 		return;
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
-		// PanicAlert("Linking block %i to block %i", iter->second, i);
+		// INFO_LOG(JIT, "Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
@@ -541,7 +541,8 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (b->checkedEntry) {
 		// We can skip this if we're clearing anyway, which cuts down on protect back and forth on WX exclusive.
 		if (type != DestroyType::CLEAR) {
-			MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+			u8 *writableEntry = codeBlock_->GetWritablePtrFromCodePtr(b->checkedEntry);
+			MIPSComp::jit->UnlinkBlock(writableEntry, b->originalAddress);
 		}
 	} else {
 		ERROR_LOG(JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
@@ -600,12 +601,12 @@ void JitBlockCache::InvalidateChangedBlocks() {
 }
 
 int JitBlockCache::GetBlockExitSize() {
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
-#elif defined(_M_IX86) || defined(_M_X64)
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	return 15;
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
 #else
@@ -653,11 +654,11 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 		debugInfo.origDisasm.push_back(mipsDis);
 	}
 
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 	debugInfo.targetDisasm = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
-#elif defined(_M_IX86) || defined(_M_X64)
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
 

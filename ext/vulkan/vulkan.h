@@ -2,7 +2,7 @@
 #define VULKAN_H_ 1
 
 /*
-** Copyright (c) 2015-2019 The Khronos Group Inc.
+** Copyright (c) 2015-2020 The Khronos Group Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -81,6 +81,11 @@
 #ifdef VK_USE_PLATFORM_GGP
 #include <ggp_c/vulkan_types.h>
 #include "vulkan_ggp.h"
+#endif
+
+
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+#include "vulkan_beta.h"
 #endif
 
 #endif // VULKAN_H_

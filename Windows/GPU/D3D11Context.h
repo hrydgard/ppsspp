@@ -67,4 +67,5 @@ private:
 	HMODULE hD3D11;
 	int width;
 	int height;
+	int swapInterval_ = 0;
 };

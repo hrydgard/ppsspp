@@ -20,7 +20,7 @@
 #include <functional>
 
 #include "UI/MiscScreens.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/UIScreen.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
@@ -62,7 +62,6 @@ private:
 	UI::EventReturn OnSetBackground(UI::EventParams &e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextureView *texvGameIcon_;
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;

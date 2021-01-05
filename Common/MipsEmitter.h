@@ -22,7 +22,6 @@
 #include <stdint.h>
 
 #include "Common.h"
-#include "MsgHandler.h"
 
 namespace MIPSGen {
 

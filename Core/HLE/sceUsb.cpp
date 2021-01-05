@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/NativeApp.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceUsb.h"
 
 // TODO: Map by driver name
@@ -53,13 +53,13 @@ void __UsbDoState(PointerWrap &p)
 		return;
 
 	if (s >= 2) {
-		p.Do(usbStarted);
-		p.Do(usbConnected);
+		Do(p, usbStarted);
+		Do(p, usbConnected);
 	} else {
 		usbStarted = false;
 		usbConnected = true;
 	}
-	p.Do(usbActivated);
+	Do(p, usbActivated);
 }
 
 static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
@@ -83,7 +83,7 @@ static int sceUsbGetState() {
 			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
 			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
 	}
-	INFO_LOG(HLE, "sceUsbGetState: 0x%x", state);
+	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
 	return state;
 }
 
@@ -99,6 +99,16 @@ static int sceUsbDeactivate(u32 pid) {
 	return 0;
 }
 
+static int sceUsbWaitState(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStat(%i, %i, %08x)", state, waitMode, timeoutAddr);
+	return sceUsbGetState();
+}
+
+static int sceUsbWaitStateCB(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutAddr);
+	return 0;
+}
+
 const HLEFunction sceUsb[] =
 {
 	{0XAE5DE6AF, &WrapI_CUU<sceUsbStart>,            "sceUsbStart",                             'i', "sxx"},
@@ -108,8 +118,8 @@ const HLEFunction sceUsb[] =
 	{0X112CC951, nullptr,                            "sceUsbGetDrvState",                       '?', ""   },
 	{0X586DB82C, &WrapI_U<sceUsbActivate>,           "sceUsbActivate",                          'i', "x"  },
 	{0XC572A9C8, &WrapI_U<sceUsbDeactivate>,         "sceUsbDeactivate",                        'i', "x"  },
-	{0X5BE0E002, nullptr,                            "sceUsbWaitState",                         '?', ""   },
-	{0X616F2B61, nullptr,                            "sceUsbWaitStateCB",                       '?', ""   },
+	{0X5BE0E002, &WrapI_IIU<sceUsbWaitState>,        "sceUsbWaitState",                         '?', "xxx"},
+	{0X616F2B61, &WrapI_IIU<sceUsbWaitStateCB>,      "sceUsbWaitStateCB",                       '?', "xxx"},
 	{0X1C360735, nullptr,                            "sceUsbWaitCancel",                        '?', ""   },
 };
 

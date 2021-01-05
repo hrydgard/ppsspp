@@ -2,10 +2,13 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "ppsspp_config.h"
 #include "Common/GL/GLInterfaceBase.h"
 
 #ifdef __ANDROID__
 #include "Common/GL/GLInterface/EGLAndroid.h"
+#elif PPSSPP_PLATFORM(SWITCH)
+#include "Common/GL/GLInterface/EGLSwitch.h"
 #elif defined(__APPLE__)
 #include "Common/GL/GLInterface/AGL.h"
 #elif defined(_WIN32)
@@ -23,6 +26,8 @@
 cInterfaceBase* HostGL_CreateGLInterface(){
 	#ifdef __ANDROID__
 		return new cInterfaceEGLAndroid;
+	#elif if PPSSPP_PLATFORM(SWITCH)
+		return new cInterfaceEGLSwitch;
 	#elif defined(__APPLE__)
 		return new cInterfaceAGL;
 	#elif defined(_WIN32)

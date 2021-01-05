@@ -74,7 +74,8 @@ protected:
 		return false;
 	}
 
-private :
+private:
+	void FormatErrorCode(uint32_t code);
 	void DisplayMessage(std::string text, bool hasYesNo = false, bool hasOK = false);
 
 	enum Flags
@@ -98,5 +99,8 @@ private :
 
 	char msgText[512];
 	int yesnoChoice;
+	float scrollPos_ = 0.0f;
+	int framesUpHeld_ = 0;
+	int framesDownHeld_ = 0;
 };
 

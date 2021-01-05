@@ -17,17 +17,17 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DepalettizeShaderGLES.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 
 class ShaderManagerGLES;
+class TextureCacheGLES;
 class LinkedShader;
 
 class GPU_GLES : public GPUCommon {
@@ -76,10 +76,8 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 	void Reinitialize() override;
-
-	inline void UpdateVsyncInterval(bool force);
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;
@@ -89,8 +87,4 @@ private:
 	ShaderManagerGLES *shaderManagerGL_;
 
 	std::string shaderCachePath_;
-
-#ifdef _WIN32
-	int lastVsync_;
-#endif
 };

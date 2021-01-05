@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "BreakpointWindow.h"
 #include "../resource.h"

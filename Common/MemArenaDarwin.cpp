@@ -20,12 +20,7 @@
 #if defined(__APPLE__)
 
 #include <string>
-#include <inttypes.h>
-
-#include "FileUtil.h"
-#include "MemoryUtil.h"
-#include "MemArena.h"
-
+#include <cstdint>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -34,6 +29,11 @@
 
 #include <mach/mach.h>
 #include <mach/vm_map.h>
+
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/MemoryUtil.h"
+#include "Common/MemArena.h"
 
 size_t MemArena::roundup(size_t x) {
 	return x;

@@ -22,15 +22,12 @@
 #include <memory>
 #include <algorithm>
 
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "base/stringutil.h"
-#include "file/file_util.h"
-#include "file/zip_read.h"
-#include "thin3d/thin3d.h"
-#include "thread/prioritizedworkqueue.h"
-#include "Common/FileUtil.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Thread/PrioritizedWorkQueue.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -265,6 +262,7 @@ void GameInfo::ParseParamSFO() {
 		case 'J': region = GAMEREGION_JAPAN; break;
 		case 'H': region = GAMEREGION_HONGKONG; break;
 		case 'A': region = GAMEREGION_ASIA; break;
+		case 'K': region = GAMEREGION_KOREA; break;
 		}
 		/*
 		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||
@@ -301,7 +299,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	}
 
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
-	if (!handle) {
+	if (handle < 0) {
 		return false;
 	}
 
@@ -633,7 +631,7 @@ handleELF:
 
 		info_->pending = false;
 		info_->working = false;
-		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
+		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
 	float priority() override {
@@ -734,6 +732,7 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 
 
 // Runs on the main thread. Only call from render() and similar, not update()!
+// Can also be called from the audio thread for menu background music.
 std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 
@@ -787,7 +786,7 @@ void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawCont
 	using namespace Draw;
 	if (tex.data.size()) {
 		if (!tex.texture) {
-			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT);
+			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, info->GetTitle().c_str());
 			if (tex.texture) {
 				tex.timeLoaded = time_now_d();
 			} else {

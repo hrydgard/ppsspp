@@ -19,19 +19,19 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "i18n/i18n.h"
-#include "ui/ui_screen.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
 class DevMenu : public PopupScreen {
 public:
-	DevMenu(I18NCategory *i18n) : PopupScreen(i18n->T("Dev Tools")) {}
+	DevMenu(std::shared_ptr<I18NCategory> i18n) : PopupScreen(i18n->T("Dev Tools")) {}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
@@ -45,6 +45,7 @@ protected:
 	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
+	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 };
 
 class JitDebugScreen : public UIDialogScreenWithBackground {
@@ -181,3 +182,4 @@ private:
 };
 
 void DrawProfile(UIContext &ui);
+const char *GetCompilerABI();

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
@@ -131,6 +132,8 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_videoStream = -1;
 	m_audioStream = -1;
 
+	m_expectedVideoStreams = 0;
+
 	m_desWidth = 0;
 	m_desHeight = 0;
 	m_decodingsize = 0;
@@ -168,29 +171,34 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p) {
-	auto s = p.Section("MediaEngine", 1, 5);
+	auto s = p.Section("MediaEngine", 1, 6);
 	if (!s)
 		return;
 
-	p.Do(m_videoStream);
-	p.Do(m_audioStream);
+	Do(p, m_videoStream);
+	Do(p, m_audioStream);
 
-	p.DoArray(m_mpegheader, sizeof(m_mpegheader));
+	DoArray(p, m_mpegheader, sizeof(m_mpegheader));
 	if (s >= 4) {
-		p.Do(m_mpegheaderSize);
+		Do(p, m_mpegheaderSize);
 	} else {
 		m_mpegheaderSize = sizeof(m_mpegheader);
 	}
 	if (s >= 5) {
-		p.Do(m_mpegheaderReadPos);
+		Do(p, m_mpegheaderReadPos);
 	} else {
 		m_mpegheaderReadPos = m_mpegheaderSize;
 	}
+	if (s >= 6) {
+		Do(p, m_expectedVideoStreams);
+	} else {
+		m_expectedVideoStreams = 0;
+	}
 
-	p.Do(m_ringbuffersize);
+	Do(p, m_ringbuffersize);
 
 	u32 hasloadStream = m_pdata != NULL;
-	p.Do(hasloadStream);
+	Do(p, hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
 		reloadStream();
 #ifdef USE_FFMPEG
@@ -198,29 +206,29 @@ void MediaEngine::DoState(PointerWrap &p) {
 #else
 	u32 hasopencontext = false;
 #endif
-	p.Do(hasopencontext);
+	Do(p, hasopencontext);
 	if (m_pdata)
 		m_pdata->DoState(p);
 	if (m_demux)
 		m_demux->DoState(p);
 
-	p.Do(m_videopts);
-	p.Do(m_audiopts);
+	Do(p, m_videopts);
+	Do(p, m_audiopts);
 
 	if (s >= 2) {
-		p.Do(m_firstTimeStamp);
-		p.Do(m_lastTimeStamp);
+		Do(p, m_firstTimeStamp);
+		Do(p, m_lastTimeStamp);
 	}
 
 	if (hasopencontext && p.mode == p.MODE_READ) {
 		openContext(true);
 	}
 
-	p.Do(m_isVideoEnd);
+	Do(p, m_isVideoEnd);
 	bool noAudioDataRemoved;
-	p.Do(noAudioDataRemoved);
+	Do(p, noAudioDataRemoved);
 	if (s >= 3) {
-		p.Do(m_audioType);
+		Do(p, m_audioType);
 	} else {
 		m_audioType = PSP_CODEC_AT3PLUS;
 	}
@@ -257,20 +265,22 @@ bool MediaEngine::SetupStreams() {
 	}
 
 	// Looking good.  Let's add those streams.
-	const AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+	int videoStreamNum = -1;
 	for (int i = 0; i < numStreams; i++) {
 		const u8 *const currentStreamAddr = m_mpegheader + 0x82 + i * 16;
 		int streamId = currentStreamAddr[0];
 
 		// We only set video streams.  We demux the audio stream separately.
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			AVStream *stream = avformat_new_stream(m_pFormatCtx, h264_codec);
-			stream->id = 0x00000100 | streamId;
-			stream->request_probe = 0;
-			stream->need_parsing = AVSTREAM_PARSE_FULL;
-			// We could set the width here, but we don't need to.
+			++videoStreamNum;
+			addVideoStream(videoStreamNum, streamId);
 		}
 	}
+	// Add the streams to meet the expectation.
+	for (int i = videoStreamNum + 1; i < m_expectedVideoStreams; i++) {
+		addVideoStream(i);
+	}
+
 
 #endif
 	return true;
@@ -383,6 +393,38 @@ bool MediaEngine::loadStream(const u8 *buffer, int readSize, int RingbufferSize)
 bool MediaEngine::reloadStream()
 {
 	return loadStream(m_mpegheader, 2048, m_ringbuffersize);
+}
+
+bool MediaEngine::addVideoStream(int streamNum, int streamId) {
+#ifdef USE_FFMPEG
+	if (m_pFormatCtx) {
+		// no need to add an existing stream.
+		if ((u32)streamNum < m_pFormatCtx->nb_streams)
+			return true;
+		const AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+		if (!h264_codec)
+			return false;
+		AVStream *stream = avformat_new_stream(m_pFormatCtx, h264_codec);
+		if (stream) {
+			// Reference ISO/IEC 13818-1.
+			if (streamId == -1)
+				streamId = PSMF_VIDEO_STREAM_ID | streamNum;
+
+			stream->id = 0x00000100 | streamId;
+			stream->request_probe = 0;
+			stream->need_parsing = AVSTREAM_PARSE_FULL;
+			// We could set the width here, but we don't need to.
+			if (streamNum >= m_expectedVideoStreams) {
+				++m_expectedVideoStreams;
+			}
+			return true;
+		}
+	}
+#endif
+	if (streamNum >= m_expectedVideoStreams) {
+		++m_expectedVideoStreams;
+	}
+	return false;
 }
 
 int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
@@ -968,6 +1010,10 @@ bool MediaEngine::IsNoAudioData() {
 	// Let's double check.  Here should be a safe enough place to demux.
 	m_demux->demux(m_audioStream);
 	return !m_demux->hasNextAudioFrame(NULL, NULL, NULL, NULL);
+}
+
+bool MediaEngine::IsActuallyPlayingAudio() {
+	return getAudioTimeStamp() >= 0;
 }
 
 s64 MediaEngine::getVideoTimeStamp() {

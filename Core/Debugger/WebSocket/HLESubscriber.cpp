@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/stringutil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DisassemblyManager.h"

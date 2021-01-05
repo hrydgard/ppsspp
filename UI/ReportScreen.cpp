@@ -16,21 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
-#include "base/display.h"
-// TODO: For text align flags, probably shouldn';t be in gfx_es2/...
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "thin3d/thin3d.h"
-#include "ui/ui_context.h"
+
+// TODO: For text align flags, probably shouldn't be in gfx_es2/...
+#include "Common/Render/DrawBuffer.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/UI/Context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
-#include "Common/FileUtil.h"
-#include "Common/Log.h"
 
 using namespace UI;
 
@@ -66,7 +69,7 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 		: LinearLayout(ORIENT_VERTICAL, layoutParams), value_(value) {
 	SetSpacing(0.0f);
 
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 	group_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Add(new TextView(rp->T(captionKey), FLAG_WRAP_TEXT, false))->SetShadow(true);
 	Add(group_);
@@ -98,7 +101,7 @@ RatingChoice *RatingChoice::SetEnabledPtr(bool *ptr) {
 }
 
 void RatingChoice::SetupChoices() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 	AddChoice(0, rp->T("Bad"));
 	AddChoice(1, rp->T("OK"));
 	AddChoice(2, rp->T("Great"));
@@ -146,7 +149,7 @@ CompatRatingChoice::CompatRatingChoice(const char *captionKey, int *value, Layou
 }
 
 void CompatRatingChoice::SetupChoices() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 	group_->Clear();
 	AddChoice(0, rp->T("Perfect"));
 	AddChoice(1, rp->T("Plays"));
@@ -159,6 +162,28 @@ ReportScreen::ReportScreen(const std::string &gamePath)
 	: UIDialogScreenWithGameBackground(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
+}
+
+void ReportScreen::postRender() {
+	// We do this after render because we need it to be within the frame (so the screenshot works).
+	// We could do it mid frame, but then we have to reapply viewport/scissor.
+	if (!tookScreenshot_) {
+		std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+		if (!File::Exists(path)) {
+			File::CreateDir(path);
+		}
+		screenshotFilename_ = path + ".reporting.jpg";
+		if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+			// Redo the views already, now with a screenshot included.
+			RecreateViews();
+		} else {
+			// Good news (?), the views are good as-is without a screenshot.
+			screenshotFilename_.clear();
+		}
+		tookScreenshot_ = true;
+	}
+
+	UIDialogScreenWithGameBackground::postRender();
 }
 
 void ReportScreen::update() {
@@ -219,9 +244,9 @@ EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
 }
 
 void ReportScreen::CreateViews() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *sy = GetI18NCategory("System");
+	auto rp = GetI18NCategory("Reporting");
+	auto di = GetI18NCategory("Dialog");
+	auto sy = GetI18NCategory("System");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -252,18 +277,13 @@ void ReportScreen::CreateViews() {
 	}
 #endif
 
-	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-	if (!File::Exists(path)) {
-		File::CreateDir(path);
-	}
-	screenshotFilename_ = path + ".reporting.jpg";
-	int shotWidth = 0, shotHeight = 0;
-	if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, &shotWidth, &shotHeight, 4)) {
-		float scale = 340.0f * (1.0f / g_dpi_scale_y) * (1.0f / shotHeight);
+	if (tookScreenshot_ && !screenshotFilename_.empty()) {
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
 		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	} else {
-		includeScreenshot_ = false;
+		if (tookScreenshot_) {
+			includeScreenshot_ = false;
+		}
 		screenshot_ = nullptr;
 	}
 
@@ -301,7 +321,7 @@ void ReportScreen::UpdateSubmit() {
 }
 
 void ReportScreen::UpdateOverallDescription() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 	const char *desc;
 	uint32_t c = 0xFFFFFFFF;
 	switch (overall_) {
@@ -333,7 +353,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 		g_Config.Save("ReportScreen::HandleSubmit");
 	}
 
-	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
+	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_ : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
@@ -351,8 +371,8 @@ ReportFinishScreen::ReportFinishScreen(const std::string &gamePath, ReportingOve
 }
 
 void ReportFinishScreen::CreateViews() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto rp = GetI18NCategory("Reporting");
+	auto di = GetI18NCategory("Dialog");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -386,7 +406,7 @@ void ReportFinishScreen::CreateViews() {
 }
 
 void ReportFinishScreen::update() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 
 	if (!setStatus_) {
 		Reporting::ReportStatus status = Reporting::GetStatus();
@@ -412,7 +432,7 @@ void ReportFinishScreen::update() {
 }
 
 void ReportFinishScreen::ShowSuggestions() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
+	auto rp = GetI18NCategory("Reporting");
 
 	auto suggestions = Reporting::CompatibilitySuggestions();
 	if (score_ == ReportingOverallScore::PERFECT || score_ == ReportingOverallScore::PLAYABLE) {

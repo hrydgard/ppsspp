@@ -1,7 +1,7 @@
 #include <string>
 #include <sstream>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
@@ -23,12 +23,12 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM)) {
+	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
+	if (uvgMode == GE_TEXMAP_TEXTURE_MATRIX) {
 		int uvprojMode = id.Bits(VS_BIT_UVPROJ_MODE, 2);
 		const char *uvprojModes[4] = { "TexProjPos ", "TexProjUV ", "TexProjNNrm ", "TexProjNrm " };
 		desc << uvprojModes[uvprojMode];
 	}
-	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -56,14 +56,14 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
 	if (id.Bit(VS_BIT_HAS_NORMAL_TESS)) desc << "TessN ";
 	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
+	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "Cull ";
 
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
@@ -71,25 +71,23 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
-	bool doBezier = gstate_c.bezier;
-	bool doSpline = gstate_c.spline;
-	// These are the original vertType's values (normalized will always have colors, etc.)
-	bool hasColorTess = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 && (doBezier || doSpline);
-	bool hasTexcoordTess = (gstate.vertType & GE_VTYPE_TC_MASK) != 0 && (doBezier || doSpline);
-	bool hasNormalTess = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && (doBezier || doSpline);
+	bool doBezier = gstate_c.submitType == SubmitType::HW_BEZIER;
+	bool doSpline = gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool enableFog = gstate.isFogEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
+	bool vertexRangeCulling = gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING) &&
+		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
 
 	VShaderID id;
 	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_ENABLE_FOG, enableFog);
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
+	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
-		id.SetBit(VS_BIT_DO_TEXTURE_TRANSFORM, doTextureTransform);
 	}
 
 	if (useHWTransform) {
@@ -100,7 +98,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
-		if (doTextureTransform) {
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
 			id.SetBits(VS_BIT_UVPROJ_MODE, 2, gstate.getUVProjMode());
 		} else if (doShadeMapping) {
 			id.SetBits(VS_BIT_LS0, 2, gstate.getUVLS0());
@@ -135,12 +133,15 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
 
-		if (g_Config.bHardwareTessellation) {
+		if (useHWTessellation) {
 			id.SetBit(VS_BIT_BEZIER, doBezier);
 			id.SetBit(VS_BIT_SPLINE, doSpline);
-			id.SetBit(VS_BIT_HAS_COLOR_TESS, hasColorTess);
-			id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, hasTexcoordTess);
-			id.SetBit(VS_BIT_HAS_NORMAL_TESS, hasNormalTess);
+			if (doBezier || doSpline) {
+				// These are the original vertType's values (normalized will always have colors, etc.)
+				id.SetBit(VS_BIT_HAS_COLOR_TESS, (gstate.vertType & GE_VTYPE_COL_MASK) != 0);
+				id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, (gstate.vertType & GE_VTYPE_TC_MASK) != 0);
+				id.SetBit(VS_BIT_HAS_NORMAL_TESS, (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled());
+			}
 			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
 		}
 	}
@@ -148,7 +149,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
 
 	// These two bits cannot be combined, otherwise havoc occurs. We get reports that indicate this happened somehow... "ERROR: 0:14: 'u_proj' : undeclared identifier"
-	_dbg_assert_msg_(G3D, !id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
+	_dbg_assert_msg_(!id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
 
 	*id_out = id;
 }
@@ -174,6 +175,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
+	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
 		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
@@ -242,8 +244,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		bool useShaderDepal = gstate_c.useShaderDepal;
+		bool colorWriteMask = IsColorWriteMaskComplex(gstate_c.allowFramebufferRead);
 
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
+		// Note how we here recompute some of the work already done in state mapping.
+		// Not ideal! At least we share the code.
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowFramebufferRead, gstate.FrameBufFormat());
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -264,6 +269,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
+			id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
@@ -309,7 +315,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 
-		id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
+		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
 		if (g_Config.bVendorBugChecksEnabled) {
 			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {

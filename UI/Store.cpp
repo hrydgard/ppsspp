@@ -17,16 +17,15 @@
 
 #include <functional>
 
-#include "base/basictypes.h"
-#include "json/json_reader.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "i18n/i18n.h"
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/viewgroup.h"
-#include "gfx_es2/draw_buffer.h"
-
+#include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -43,7 +42,7 @@ std::string ResolveUrl(std::string baseUrl, std::string url) {
 		return baseUrl;
 	} else if (url[0] == '/') {
 		return baseUrl + url.substr(1);
-	} else if (url.substr(0, 7) == "http://") {
+	} else if (startsWith(url, "http://") || startsWith(url, "https://")) {
 		return url;
 	} else {
 		// Huh.
@@ -139,7 +138,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 
 	if (!textureData_.empty()) {
-		texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
+		texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT, false, "store_icon");
 		if (!texture_)
 			textureFailed_ = true;
 		textureData_.clear();
@@ -240,10 +239,11 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
 
-	I18NCategory *st = GetI18NCategory("Store");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto st = GetI18NCategory("Store");
+	auto di = GetI18NCategory("Dialog");
 	wasInstalled_ = IsGameInstalled();
 	if (!wasInstalled_) {
+		launchButton_ = nullptr;
 		installButton_ = Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
@@ -369,7 +369,7 @@ void StoreScreen::update() {
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
-			ELOG("Download failed : error code %d", listing_->ResultCode());
+			ERROR_LOG(IO, "Download failed : error code %d", listing_->ResultCode());
 			connectionError_ = true;
 			loading_ = false;
 			RecreateViews();
@@ -397,7 +397,7 @@ void StoreScreen::ParseListing(std::string json) {
 	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
-		ELOG("Error parsing JSON from store");
+		ERROR_LOG(IO, "Error parsing JSON from store");
 		connectionError_ = true;
 		RecreateViews();
 		return;
@@ -431,8 +431,8 @@ void StoreScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *st = GetI18NCategory("Store");
+	auto di = GetI18NCategory("Dialog");
+	auto st = GetI18NCategory("Store");
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));

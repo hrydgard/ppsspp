@@ -25,7 +25,6 @@
 
 #if !defined(_WIN32)
 
-
 #include <unistd.h>
 #include <errno.h>
 
@@ -77,17 +76,5 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define ftello _ftelli64
 	#define atoll _atoi64
 #endif
-	#if _M_IX86
-		#define Crash() {__asm int 3}
-	#else
-		#define Crash() {__debugbreak();}
-	#endif // M_IX86
+	#define Crash() {__debugbreak();}
 #endif // WIN32 ndef
-
-// Generic function to get last error message.
-// Call directly after the command or use the error num.
-// This function might change the error code.
-// Defined in Misc.cpp.
-const char *GetLastErrorMsg();
-const char *GetStringErrorMsg(int errCode);
-

@@ -17,13 +17,12 @@
 
 #include <algorithm>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/TextureDecoder.h"  // for ReliableHash
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -37,6 +36,8 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	useHWTransform_ = g_Config.bHardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -101,7 +102,7 @@ void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
 		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
+		indexGen.AddPrim(GE_PRIM_POINTS, 0, true);
 	}
 }
 
@@ -171,6 +172,9 @@ void DrawEngineCommon::Resized() {
 	});
 	decoderMap_.Clear();
 	ClearTrackedVertexArrays();
+
+	useHWTransform_ = g_Config.bHardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
@@ -476,8 +480,9 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
 
-bool DrawEngineCommon::ApplyShaderBlending() {
+bool DrawEngineCommon::ApplyFramebufferRead(bool *fboTexNeedsBind) {
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+		*fboTexNeedsBind = false;
 		return true;
 	}
 
@@ -498,7 +503,7 @@ bool DrawEngineCommon::ApplyShaderBlending() {
 		return false;
 	}
 
-	fboTexNeedBind_ = true;
+	*fboTexNeedsBind = true;
 
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 	return true;
@@ -602,7 +607,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 		size_t step = sz / 4;
 		u32 hash = 0;
 		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
+			hash += XXH3_64bits(p + i, 100);
 		}
 		return hash;
 	} else {
@@ -637,8 +642,8 @@ u32 DrawEngineCommon::ComputeMiniHash() {
 	return fullhash;
 }
 
-ReliableHashType DrawEngineCommon::ComputeHash() {
-	ReliableHashType fullhash = 0;
+uint64_t DrawEngineCommon::ComputeHash() {
+	uint64_t fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = IndexSize(dec_->VertexType());
 
@@ -647,7 +652,7 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 		if (!dc.inds) {
-			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+			fullhash += XXH3_64bits((const char *)dc.verts, vertexSize * dc.vertexCount);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
@@ -662,15 +667,15 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
-				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
+			fullhash += XXH3_64bits((const char *)dc.verts + vertexSize * indexLowerBound,
+				vertexSize * (indexUpperBound - indexLowerBound));
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			fullhash += XXH3_64bits((const char *)dc.inds, indexSize * dc.vertexCount);
 			i = lastMatch;
 		}
 	}
 
-	fullhash += DoReliableHash(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls, 0x0123e658);
+	fullhash += XXH3_64bits(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls);
 	return fullhash;
 }
 
@@ -694,6 +699,8 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 
 	*bytesRead = vertexCount * dec_->VertexSize();
+
+	// Check that we have enough vertices to form the requested primitive.
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
 		return;
 
@@ -735,6 +742,19 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
 	}
+}
+
+bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
+	if (!useHWTransform_)
+		return false;
+	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
+}
+
+bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
+	if (useHWTessellation_) {
+		return CanUseHardwareTransform(PatchPrimToPrim(prim));
+	}
+	return false;
 }
 
 void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {

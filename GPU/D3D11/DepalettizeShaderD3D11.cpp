@@ -18,8 +18,7 @@
 #include <map>
 #include <d3d11.h>
 
-#include "base/basictypes.h"
-#include "base/logging.h"
+#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"
 #include "Common/StringUtils.h"
@@ -94,7 +93,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 			ConvertRGBA5551ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
 			break;
 		case GE_CMODE_16BIT_BGR5650:
-			ConvertRGBA565ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			ConvertRGB565ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
 			break;
 		}
 		rawClut = expanded;

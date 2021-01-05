@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 // Init is done differently on each platform, and done close to the creation, so it's
 // expected to be implemented by subclasses.
@@ -34,15 +34,9 @@ public:
 	virtual void ThreadEnd() {}
 	virtual void StopThread() {}
 
+	// Useful for checks that need to be performed every frame.
+	// Should strive to get rid of these.
+	virtual void Poll() {}
+
 	virtual Draw::DrawContext *GetDrawContext() = 0;
-};
-
-class DummyGraphicsContext : public GraphicsContext {
-public:
-	void Shutdown() override {}
-	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
-	void Resize() override {}
-
-	Draw::DrawContext *GetDrawContext() override { return nullptr; }
 };

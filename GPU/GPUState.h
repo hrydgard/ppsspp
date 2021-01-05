@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <cmath>
-
 #include "Common/Common.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"
@@ -482,20 +480,20 @@ enum {
 	GPU_SUPPORTS_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_SUPPORTS_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_SUPPORTS_32BIT_INT_FSHADER = FLAG_BIT(15),
-	GPU_SUPPORTS_LARGE_VIEWPORTS = FLAG_BIT(16),
+	GPU_SUPPORTS_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_SUPPORTS_VAO = FLAG_BIT(18),
-	GPU_SUPPORTS_ANY_COPY_IMAGE = FLAG_BIT(19),
+	// Free bit: 18,
+	GPU_SUPPORTS_COPY_IMAGE = FLAG_BIT(19),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
-	GPU_SUPPORTS_FBO = FLAG_BIT(25),
-	GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT = FLAG_BIT(26),
-	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(27),
-	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(28),
-	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
+	GPU_SUPPORTS_FRAMEBUFFER_BLIT = FLAG_BIT(26),
+	GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH = FLAG_BIT(27),
+	GPU_SUPPORTS_TEXTURE_NPOT = FLAG_BIT(28),
+	GPU_NEEDS_Z_EQUAL_W_HACK = FLAG_BIT(29),
+	// Free bit: 30
 	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
 };
 
@@ -504,6 +502,14 @@ struct KnownVertexBounds {
 	u16 minV;
 	u16 maxU;
 	u16 maxV;
+};
+
+enum class SubmitType {
+	DRAW,
+	BEZIER,
+	SPLINE,
+	HW_BEZIER,
+	HW_SPLINE,
 };
 
 struct GPUStateCache {
@@ -542,9 +548,9 @@ struct GPUStateCache {
 				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
-	void SetAllowShaderBlend(bool allow) {
-		if (allowShaderBlend != allow) {
-			allowShaderBlend = allow;
+	void SetAllowFramebufferRead(bool allow) {
+		if (allowFramebufferRead != allow) {
+			allowFramebufferRead = allow;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -566,7 +572,7 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool allowShaderBlend;
+	bool allowFramebufferRead;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;
@@ -604,8 +610,8 @@ struct GPUStateCache {
 	}
 	u32 curRTOffsetX;
 
-	bool bezier;
-	bool spline;
+	// Set if we are doing hardware bezier/spline.
+	SubmitType submitType;
 	int spline_num_points_u;
 
 	bool useShaderDepal;

@@ -5,11 +5,19 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
-#include "file/zip_read.h"
-#include "profiler/profiler.h"
-#include "Common/FileUtil.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -18,11 +26,9 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -32,10 +38,14 @@
 #include "SDLHeadlessHost.h"
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
+
+jclass findClass(const char *name) {
+	return nullptr;
+}
 #endif
 
 class PrintfLogger : public LogListener {
@@ -74,11 +84,14 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
+float System_GetPropertyFloat(SystemProperty prop) {
+	return -1;
+}
 bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
 void System_SendMessage(const char *command, const char *parameter) {}
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
@@ -115,7 +128,7 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPUCORE_NULL:
+	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
 	default:
@@ -129,10 +142,8 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
-	if (teamCityMode) {
-		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = GetTestName(coreParameter.fileToStart);
-	}
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	currentTestName = GetTestName(coreParameter.fileToStart);
 
 	std::string output;
 	if (autoCompare)
@@ -142,29 +153,29 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
+		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
 		return false;
 	}
 
-	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
+	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
 	host->BootDone();
 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
-	time_update();
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
 	static double deadline;
-	deadline = time_now() + timeout;
+	deadline = time_now_d() + timeout;
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
-	if (coreParameter.thin3d)
-		coreParameter.thin3d->BeginFrame();
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -177,21 +188,21 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
-		time_update();
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
 			passed = false;
 
 			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
+			GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			Core_Stop();
 		}
 	}
 	PSP_EndHostFrame();
 
-	if (coreParameter.thin3d)
-		coreParameter.thin3d->EndFrame();
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->EndFrame();
 
 	PSP_Shutdown();
 
@@ -200,7 +211,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
-	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
+	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
 }
@@ -213,19 +224,13 @@ int main(int argc, const char* argv[])
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-#ifdef ANDROID_NDK_PROFILER
-	setenv("CPUPROFILE_FREQUENCY", "500", 1);
-	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
-	monstartup("ppsspp_headless");
-#endif
-
 	bool fullLog = false;
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPUCORE_NULL;
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
-	
+
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
 	const char *mountRoot = 0;
@@ -263,7 +268,8 @@ int main(int argc, const char* argv[])
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
 				gpuCore = GPUCORE_GLES;
-			else if (!strcasecmp(gpuName, "software"))
+			// There used to be a separate "null" rendering core - just use software.
+			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
@@ -271,8 +277,6 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
-			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
@@ -311,17 +315,9 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
-
-	std::string error_string;
-	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
-
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
-	
+
 	PrintfLogger *printfLogger = new PrintfLogger();
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
@@ -331,17 +327,25 @@ int main(int argc, const char* argv[])
 	}
 	logman->AddListener(printfLogger);
 
+	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
+	host = headlessHost;
+
+	std::string error_string;
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
+
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
-	coreParameter.thin3d = graphicsContext ? graphicsContext->GetDrawContext() : nullptr;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
+	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
 	coreParameter.pixelWidth = 480;
@@ -367,7 +371,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
@@ -376,10 +380,15 @@ int main(int argc, const char* argv[])
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
+	g_Config.iMemStickSizeGB = 16;
 	g_Config.bFragmentTestCache = true;
-	g_Config.iAudioLatency = 1;
+	g_Config.bEnableWlan = true;
+	g_Config.sMACAddress = "12:34:56:78:9A:BC";
+	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
+	g_Config.internalDataDirectory = "";
 	InitSysDirectories();
 #endif
 
@@ -388,9 +397,10 @@ int main(int argc, const char* argv[])
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 3; ++i)
-	{
-		if (!File::Exists(g_Config.flash0Directory))
+	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
+		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
+			g_Config.flash0Directory += "../assets/flash0/";
+		else
 			g_Config.flash0Directory += "../../flash0/";
 	}
 	// Or else, maybe in the executable's dir.
@@ -411,7 +421,7 @@ int main(int argc, const char* argv[])
 #endif
 
 	if (stateToLoad != NULL)
-		SaveState::Load(stateToLoad);
+		SaveState::Load(stateToLoad, -1);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
@@ -454,10 +464,6 @@ int main(int argc, const char* argv[])
 	VFSShutdown();
 	LogManager::Shutdown();
 	delete printfLogger;
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
 
 	return 0;
 }

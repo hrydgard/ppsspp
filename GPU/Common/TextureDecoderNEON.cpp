@@ -41,13 +41,14 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER)
+#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);
 
 		const u32 *p = (const u32 *)checkp;
-		for (u32 i = 0; i < size / 16; i += 4) {
+		const u32 *pend = p + size / 4;
+		while (p < pend) {
 			cursor = vreinterpretq_u32_u16(vmlaq_u16(vreinterpretq_u16_u32(cursor), vreinterpretq_u16_u32(vld1q_u32(&p[4 * 0])), cursor2));
 			cursor = veorq_u32(cursor, vld1q_u32(&p[4 * 1]));
 			cursor = vaddq_u32(cursor, vld1q_u32(&p[4 * 2]));
@@ -58,10 +59,12 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 		}
 
 		cursor = vaddq_u32(cursor, vreinterpretq_u32_u16(cursor2));
-		check = vgetq_lane_u32(cursor, 0) + vgetq_lane_u32(cursor, 1) + vgetq_lane_u32(cursor, 2) + vgetq_lane_u32(cursor, 3);
+		uint32x2_t mixed = vadd_u32(vget_high_u32(cursor), vget_low_u32(cursor));
+		check = vget_lane_u32(mixed, 0) + vget_lane_u32(mixed, 1);
 #else
 		// TODO: Why does this crash on iOS, but only certain devices?
 		// It's faster than the above, but I guess it sucks to be using an iPhone.
+		// As of 2020 clang, it's still faster by ~1.4%.
 
 		// d0/d1 (q0) - cursor
 		// d2/d3 (q1) - cursor2
@@ -160,107 +163,6 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 		}
 		ydestp += pitchBy32 * 8;
 	}
-}
-
-// NOTE: This is just a NEON version of xxhash.
-// GCC sucks at making things NEON and can't seem to handle it.
-
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
-# include <stdint.h>
-  typedef uint8_t  BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
-#else
-  typedef unsigned char      BYTE;
-  typedef unsigned short     U16;
-  typedef unsigned int       U32;
-  typedef   signed int       S32;
-  typedef unsigned long long U64;
-#endif
-
-#define PRIME32_1   2654435761U
-#define PRIME32_2   2246822519U
-#define PRIME32_3   3266489917U
-#define PRIME32_4    668265263U
-#define PRIME32_5    374761393U
-
-#if defined(_MSC_VER)
-#  define XXH_rotl32(x,r) _rotl(x,r)
-#else
-#  define XXH_rotl32(x,r) ((x << r) | (x >> (32 - r)))
-#endif
-
-u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
-	if (((uintptr_t)input & 3) != 0) {
-		// Cannot handle misaligned data. Fall back to XXH32.
-		return XXH32(input, len, seed);
-	}
-
-	const u8 *p = (const u8 *)input;
-	const u8 *const bEnd = p + len;
-	U32 h32;
-
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-	if (p==NULL) { len=0; p=(const BYTE*)(size_t)16; }
-#endif
-
-	if (len>=16)
-	{
-		const BYTE* const limit = bEnd - 16;
-		U32 v1 = seed + PRIME32_1 + PRIME32_2;
-		U32 v2 = seed + PRIME32_2;
-		U32 v3 = seed + 0;
-		U32 v4 = seed - PRIME32_1;
-
-		uint32x4_t prime32_1q = vdupq_n_u32(PRIME32_1);
-		uint32x4_t prime32_2q = vdupq_n_u32(PRIME32_2);
-		uint32x4_t vq = vcombine_u32(vcreate_u32(v1 | ((U64)v2 << 32)), vcreate_u32(v3 | ((U64)v4 << 32)));
-
-		do {
-			__builtin_prefetch(p + 0xc0, 0, 0);
-			vq = vmlaq_u32(vq, vld1q_u32((const U32*)p), prime32_2q);
-			vq = vorrq_u32(vshlq_n_u32(vq, 13), vshrq_n_u32(vq, 32 - 13));
-			p += 16;
-			vq = vmulq_u32(vq, prime32_1q);
-		} while (p<=limit);
-
-		v1 = vgetq_lane_u32(vq, 0);
-		v2 = vgetq_lane_u32(vq, 1);
-		v3 = vgetq_lane_u32(vq, 2);
-		v4 = vgetq_lane_u32(vq, 3);
-
-		h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
-	}
-	else
-	{
-		h32  = seed + PRIME32_5;
-	}
-
-	h32 += (U32) len;
-
-	while (p<=bEnd-4)
-	{
-		h32 += *(const U32*)p * PRIME32_3;
-		h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
-		p+=4;
-	}
-
-	while (p<bEnd)
-	{
-		h32 += (*p) * PRIME32_5;
-		h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
-		p++;
-	}
-
-	h32 ^= h32 >> 15;
-	h32 *= PRIME32_2;
-	h32 ^= h32 >> 13;
-	h32 *= PRIME32_3;
-	h32 ^= h32 >> 16;
-
-	return h32;
 }
 
 static inline bool VectorIsNonZeroNEON(const uint32x4_t &v) {

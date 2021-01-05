@@ -18,28 +18,29 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/colorutil.h"
-#include "base/timeutil.h"
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "math/curves.h"
-#include "thread/prioritizedworkqueue.h"
-#include "util/text/utf8.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/curves.h"
+#include "Common/Thread/PrioritizedWorkQueue.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "UI/SavedataScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
-#include "UI/ui_atlas.h"
 #include "UI/PauseScreen.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUtility.h"
 
 class SavedataButton;
 
@@ -47,8 +48,19 @@ std::string GetFileDateAsString(std::string filename) {
 	tm time;
 	if (File::GetModifTime(filename, time)) {
 		char buf[256];
-		// TODO: Use local time format? Americans and some others might not like ISO standard :)
-		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+		switch (g_Config.iDateFormat) {
+		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+			break;
+		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+			strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+			break;
+		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+			strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+			break;
+		default: // Should never happen
+			return "";
+		}
 		return std::string(buf);
 	}
 	return "";
@@ -80,18 +92,18 @@ public:
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
-		I18NCategory *sa = GetI18NCategory("Savedata");
+		auto sa = GetI18NCategory("Savedata");
 		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
 			if (ginfo->icon.texture) {
-				toprow->Add(new TextureView(ginfo->icon.texture->GetTexture(), IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new GameIconView(savePath_, 2.0f, new LinearLayoutParams(Margins(10, 5))));
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
 			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetTextColor(textStyle.fgColor);
-			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(StringFromFormat("%lld kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
 			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
 			toprow->Add(topright);
 			content->Add(new Spacer(3.0));
@@ -108,7 +120,7 @@ public:
 			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 		}
 
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
 		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
@@ -248,7 +260,7 @@ void SavedataButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
 			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {
@@ -280,7 +292,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	}
 	if (subtitle_.empty() && ginfo->gameSize > 0) {
 		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%d kB)", ginfo->gameSize / 1024);
+		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSize / 1024);
 	}
 
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
@@ -394,8 +406,8 @@ void SavedataBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	I18NCategory *mm = GetI18NCategory("MainMenu");
-	I18NCategory *sa = GetI18NCategory("Savedata");
+	auto mm = GetI18NCategory("MainMenu");
+	auto sa = GetI18NCategory("Savedata");
 
 	SortedLinearLayout *gl = new SortedLinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	gl->SetSpacing(4.0f);
@@ -458,8 +470,8 @@ SavedataScreen::~SavedataScreen() {
 
 void SavedataScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *sa = GetI18NCategory("Savedata");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto sa = GetI18NCategory("Savedata");
+	auto di = GetI18NCategory("Dialog");
 	std::string savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 

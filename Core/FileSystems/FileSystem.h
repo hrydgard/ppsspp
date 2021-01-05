@@ -20,7 +20,9 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <ctime>
 
+#include "Common.h"
 #include "Core/HLE/sceKernel.h"
 
 enum FileAccess {
@@ -44,15 +46,24 @@ enum FileType {
 	FILETYPE_DIRECTORY = 2
 };
 
-enum DevType {
-	PSP_DEV_TYPE_BLOCK = 0x04,
-	PSP_DEV_TYPE_FILE  = 0x10,
-	PSP_DEV_TYPE_ALIAS = 0x20,
+enum class PSPDevType {
+	INVALID = 0,
+	BLOCK = 0x04,
+	FILE  = 0x10,
+	ALIAS = 0x20,
+	EMU_MASK = 0xFF,
+	EMU_LBN = 0x10000,
 };
+ENUM_CLASS_BITOPS(PSPDevType);
 
-enum FileSystemFlags {
-	FILESYSTEM_SIMULATE_FAT32 = 1,
+enum class FileSystemFlags {
+	NONE = 0,
+	SIMULATE_FAT32 = 1,
+	UMD = 2,
+	CARD = 4,
+	FLASH = 8,
 };
+ENUM_CLASS_BITOPS(FileSystemFlags);
 
 class IHandleAllocator {
 public:
@@ -67,7 +78,8 @@ public:
 	virtual u32 GetNewHandle() override {
 		u32 res = handle_++;
 		if (handle_ < 0) {
-			handle_ = 0;
+			// Some code assumes it'll never become 0.
+			handle_ = 1;
 		}
 		return res;
 	}
@@ -77,29 +89,25 @@ private:
 };
 
 struct PSPFileInfo {
-	PSPFileInfo()
-		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0), sectorSize(0) {
-		memset(&ctime, 0, sizeof(ctime));
-		memset(&atime, 0, sizeof(atime));
-		memset(&mtime, 0, sizeof(mtime));
+	PSPFileInfo() {
 	}
 
 	void DoState(PointerWrap &p);
 
 	std::string name;
-	s64 size;
-	u32 access; //unix 777
-	bool exists;
-	FileType type;
+	s64 size = 0;
+	u32 access = 0; //unix 777
+	bool exists = false;
+	FileType type = FILETYPE_NORMAL;
 
-	tm atime;
-	tm ctime;
-	tm mtime;
+	tm atime{};
+	tm ctime{};
+	tm mtime{};
 
-	bool isOnSectorSystem;
-	u32 startSector;
-	u32 numSectors;
-	u32 sectorSize;
+	bool isOnSectorSystem = false;
+	u32 startSector = 0;
+	u32 numSectors = 0;
+	u32 sectorSize = 0;
 };
 
 
@@ -109,7 +117,7 @@ public:
 
 	virtual void DoState(PointerWrap &p) = 0;
 	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
-	virtual u32      OpenFile(std::string filename, FileAccess access, const char *devicename=nullptr) = 0;
+	virtual int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) = 0;
@@ -124,8 +132,8 @@ public:
 	virtual bool     RemoveFile(const std::string &filename) = 0;
 	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
-	virtual int      DevType(u32 handle) = 0;
-	virtual int      Flags() = 0;
+	virtual PSPDevType DevType(u32 handle) = 0;
+	virtual FileSystemFlags Flags() = 0;
 	virtual u64      FreeSpace(const std::string &path) = 0;
 };
 
@@ -135,7 +143,7 @@ class EmptyFileSystem : public IFileSystem
 public:
 	virtual void DoState(PointerWrap &p) override {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override {std::vector<PSPFileInfo> vec; return vec;}
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=nullptr) override {return 0;}
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override {return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;}
 	void     CloseFile(u32 handle) override {}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override {return 0;}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override {return 0;}
@@ -150,8 +158,8 @@ public:
 	virtual bool RemoveFile(const std::string &filename) override {return false;}
 	virtual bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
-	virtual int DevType(u32 handle) override { return 0; }
-	virtual int Flags() override { return 0; }
+	virtual PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
+	virtual FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	virtual u64 FreeSpace(const std::string &path) override { return 0; }
 };
 

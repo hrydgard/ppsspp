@@ -18,19 +18,11 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace Draw {
 	class DrawContext;
 }
-
-enum ShaderLanguage {
-	GLSL_140,
-	GLSL_300,
-	GLSL_VULKAN,
-	HLSL_DX9,
-	HLSL_D3D11,
-	HLSL_D3D11_LEVEL9,
-};
 
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
@@ -49,7 +41,7 @@ enum DebugShaderStringType {
 };
 
 // Shared between the backends. Not all are necessarily used by each backend, but this lets us share
-// more code than before.
+// more code than before. TODO: Can probably cut the number of these down without too much slowdown.
 enum : uint64_t {
 	DIRTY_PROJMATRIX = 1ULL << 0,
 	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
@@ -94,17 +86,18 @@ enum : uint64_t {
 	DIRTY_CULLRANGE = 1ULL << 34,
 
 	DIRTY_DEPAL = 1ULL << 35,
+	DIRTY_COLORWRITEMASK = 1ULL << 36,
 
-	// space for 5 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
+	// space for 4 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0xFFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!
 	DIRTY_FRAMEBUF = 1ULL << 40,
-	DIRTY_TEXTURE_IMAGE = 1ULL << 41,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 41,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
 	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
 
 	// Render State
@@ -127,6 +120,38 @@ public:
 
 protected:
 	Draw::DrawContext *draw_ = nullptr;
+};
+
+enum DoLightComputation {
+	LIGHT_OFF,
+	LIGHT_SHADE,
+	LIGHT_FULL,
+};
+
+// PSP vertex format.
+enum class PspAttributeLocation {
+	POSITION = 0,
+	TEXCOORD = 1,
+	NORMAL = 2,
+	W1 = 3,
+	W2 = 4,
+	COLOR0 = 5,
+	COLOR1 = 6,
+
+	COUNT
+};
+
+// Pre-fetched attrs and uniforms (used by GL only).
+enum {
+	ATTR_POSITION = 0,
+	ATTR_TEXCOORD = 1,
+	ATTR_NORMAL = 2,
+	ATTR_W1 = 3,
+	ATTR_W2 = 4,
+	ATTR_COLOR0 = 5,
+	ATTR_COLOR1 = 6,
+
+	ATTR_COUNT,
 };
 
 struct TBuiltInResource;

@@ -19,6 +19,7 @@
 #include "Core/HLE/sceKernel.h"
 
 class PointerWrap;
+enum WaitType : int;
 
 class HLEHelperThread {
 public:
@@ -31,6 +32,16 @@ public:
 
 	void Start(u32 a0, u32 a1);
 	void Terminate();
+	bool Stopped();
+	void ChangePriority(u32 prio);
+	void Resume(WaitType waitType, SceUID uid, int result);
+
+	// For savestates.
+	void Forget();
+
+	u32 Entry() {
+		return entry_;
+	}
 
 private:
 	void AllocEntry(u32 size);

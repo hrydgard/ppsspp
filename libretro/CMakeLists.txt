@@ -3,6 +3,7 @@ set(LIBRETRO_SRCS
 	libretro.cpp
 	LibretroGraphicsContext.cpp
 	LibretroGLContext.cpp
+	LibretroGLCoreContext.cpp
 	LibretroVulkanContext.cpp
 	libretro_vulkan.cpp)
 

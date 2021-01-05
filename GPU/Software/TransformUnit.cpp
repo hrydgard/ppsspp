@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
-#include "math/math_util.h"
+#include <algorithm>
+
+#include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -27,6 +29,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Lighting.h"
+#include "GPU/Software/RasterizerRectangle.h"
 
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
@@ -53,7 +56,7 @@ void SoftwareDrawEngine::DispatchFlush() {
 }
 
 void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(G3D, cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
@@ -319,8 +322,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
-	const int max_vtcs_per_prim = 3;
-	static VertexData data[max_vtcs_per_prim];
+	static VertexData data[4];  // Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	static int data_index = 0;
 
@@ -398,7 +400,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					break;
 
 				default:
-					_dbg_assert_msg_(G3D, false, "Unexpected prim type: %d", prim_type);
+					_dbg_assert_msg_(false, "Unexpected prim type: %d", prim_type);
 				}
 			}
 			break;
@@ -438,6 +440,26 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		{
 			// Don't draw a triangle when loading the first two vertices.
 			int skip_count = data_index >= 2 ? 0 : 2 - data_index;
+
+			// If index count == 4, check if we can convert to a rectangle.
+			// This is for Darkstalkers (and should speed up many 2D games).
+			if (vertex_count == 4 && gstate.isModeThrough()) {
+				for (int vtx = 0; vtx < 4; ++vtx) {
+					if (indices) {
+						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+					}
+					else {
+						vreader.Goto(vtx);
+					}
+					data[vtx] = ReadVertex(vreader);
+				}
+
+				// If a strip is effectively a rectangle, draw it as such!
+				if (Rasterizer::DetectRectangleFromThroughModeStrip(data)) {
+					Clipper::ProcessRect(data[0], data[3]);
+					break;
+				}
+			}
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {

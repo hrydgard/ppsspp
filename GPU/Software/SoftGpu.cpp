@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/System/Display.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -22,34 +25,30 @@
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Core/Core.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
 
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PresentationCommon.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-
-struct Vertex {
-	float x, y, z;
-	float u, v;
-	uint32_t rgba;
-};
 
 u32 clut[4096];
 FormatBuffer fb;
@@ -58,43 +57,6 @@ FormatBuffer depthbuf;
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
-	using namespace Draw;
-	fbTex = nullptr;
-	InputLayoutDesc inputDesc = {
-		{
-			{ sizeof(Vertex), false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
-		},
-	};
-
-	ShaderModule *vshader = draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-
-	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
-
-	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
-	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
-	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
-	RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-	samplerNearest = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
-	samplerLinear = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
-
-	PipelineDesc pipelineDesc{
-		Primitive::TRIANGLE_LIST,
-		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
-	};
-	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
-	inputLayout->Release();
-	depth->Release();
-	blendstateOff->Release();
-	rasterNoCull->Release();
-
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
@@ -107,32 +69,55 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
+
+	if (gfxCtx && draw) {
+		presentation_ = new PresentationCommon(draw_);
+
+		switch (GetGPUBackend()) {
+		case GPUBackend::OPENGL:
+			presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
+			break;
+		case GPUBackend::DIRECT3D9:
+			presentation_->SetLanguage(HLSL_D3D9);
+			break;
+		case GPUBackend::DIRECT3D11:
+			presentation_->SetLanguage(HLSL_D3D11);
+			break;
+		case GPUBackend::VULKAN:
+			presentation_->SetLanguage(GLSL_VULKAN);
+			break;
+		}
+	}
+	Resized();
 }
 
 void SoftGPU::DeviceLost() {
-	// Handled by thin3d.
-}
-
-void SoftGPU::DeviceRestore() {
-	// Handled by thin3d.
-}
-
-SoftGPU::~SoftGPU() {
-	texColor->Release();
-	texColor = nullptr;
-
+	if (presentation_)
+		presentation_->DeviceLost();
+	draw_ = nullptr;
 	if (fbTex) {
 		fbTex->Release();
 		fbTex = nullptr;
 	}
-	vdata->Release();
-	vdata = nullptr;
-	idata->Release();
-	idata = nullptr;
-	samplerNearest->Release();
-	samplerNearest = nullptr;
-	samplerLinear->Release();
-	samplerLinear = nullptr;
+}
+
+void SoftGPU::DeviceRestore() {
+	if (PSP_CoreParameter().graphicsContext)
+		draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	if (presentation_)
+		presentation_->DeviceRestore(draw_);
+	PPGeSetDrawContext(draw_);
+}
+
+SoftGPU::~SoftGPU() {
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
+
+	if (presentation_) {
+		delete presentation_;
+	}
 
 	Sampler::Shutdown();
 }
@@ -146,12 +131,49 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
+DSStretch g_DarkStalkerStretch;
+
+void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData) {
+	// TODO: This should probably be converted in a shader instead..
+	fbTexBuffer_.resize(srcwidth * srcheight);
+	FormatBuffer displayBuffer;
+	displayBuffer.data = overrideData ? overrideData : Memory::GetPointer(displayFramebuf_);
+	for (int y = 0; y < srcheight; ++y) {
+		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
+		const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
+
+		switch (displayFormat_) {
+		case GE_FORMAT_565:
+			ConvertRGB565ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		case GE_FORMAT_5551:
+			ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		case GE_FORMAT_4444:
+			ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
+			break;
+		}
+	}
+
+	desc.width = srcwidth;
+	desc.height = srcheight;
+	desc.initData.push_back((uint8_t *)fbTexBuffer_.data());
+}
+
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
-	if (!draw_)
+	if (!draw_ || !presentation_)
 		return;
 	float u0 = 0.0f;
 	float u1;
+	float v0 = 0.0f;
+	float v1 = 1.0f;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -161,6 +183,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	// For accuracy, try to handle 0 stride - sometimes used.
 	if (displayStride_ == 0) {
 		srcheight = 1;
+		u1 = 1.0f;
+	} else {
+		u1 = (float)srcwidth / displayStride_;
 	}
 
 	Draw::TextureDesc desc{};
@@ -170,7 +195,37 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.mipLevels = 1;
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
-	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
+
+	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
+	bool hasPostShader = presentation_ && presentation_->HasPostShader();
+
+	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
+		u8 *data = Memory::GetPointer(0x04088000);
+		bool fillDesc = true;
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// The perfect one.
+			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
+		} else if (!hasPostShader && (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE)) {
+			// RB swapped, compensate with a shader.
+			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+			outputFlags |= OutputFlags::RB_SWIZZLE;
+		} else {
+			ConvertTextureDescFrom16(desc, srcwidth, srcheight, data);
+			fillDesc = false;
+		}
+		if (fillDesc) {
+			desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+			desc.height = srcheight;
+			desc.initData.push_back(data);
+		}
+		u0 = 64.5f / (float)desc.width;
+		u1 = 447.5f / (float)desc.width;
+		v0 = 16.0f / (float)desc.height;
+		v1 = 240.0f / (float)desc.height;
+		if (g_DarkStalkerStretch == DSStretch::Normal) {
+			outputFlags |= OutputFlags::PILLARBOX;
+		}
+	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
@@ -179,126 +234,60 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		if (displayStride_ != 0) {
-			u1 = (float)srcwidth / displayStride_;
+	} else if (displayFormat_ == GE_FORMAT_5551) {
+		u8 *data = Memory::GetPointer(displayFramebuf_);
+		bool fillDesc = true;
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// The perfect one.
+			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
+		} else if (!hasPostShader && (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE)) {
+			// RB swapped, compensate with a shader.
+			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+			outputFlags |= OutputFlags::RB_SWIZZLE;
 		} else {
+			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
 			u1 = 1.0f;
+			fillDesc = false;
+		}
+		if (fillDesc) {
+			desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+			desc.height = srcheight;
+			desc.initData.push_back(data);
 		}
 	} else {
-		// TODO: This should probably be converted in a shader instead..
-		fbTexBuffer.resize(srcwidth * srcheight);
-		FormatBuffer displayBuffer;
-		displayBuffer.data = Memory::GetPointer(displayFramebuf_);
-		for (int y = 0; y < srcheight; ++y) {
-			u32 *buf_line = &fbTexBuffer[y * srcwidth];
-			const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
-
-			switch (displayFormat_) {
-			case GE_FORMAT_565:
-				ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			case GE_FORMAT_5551:
-				ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			case GE_FORMAT_4444:
-				ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
-			}
-		}
-
-		desc.width = srcwidth;
-		desc.height = srcheight;
-		desc.initData.push_back((uint8_t *)fbTexBuffer.data());
+		ConvertTextureDescFrom16(desc, srcwidth, srcheight);
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "CopyToCurrentFboFromDisplayRam");
 		return;
 	}
 
 	fbTex = draw_->CreateTexture(desc);
 
-	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
-	float dstheight = (float)PSP_CoreParameter().pixelHeight;
-
-	float x, y, w, h;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
-
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		x += 0.5f;
-		y += 0.5f;
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
+		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
+		break;
+	case GPUBackend::DIRECT3D9:
+	case GPUBackend::DIRECT3D11:
+		outputFlags |= OutputFlags::POSITION_FLIPPED;
+		break;
+	case GPUBackend::VULKAN:
+		break;
 	}
 
-	x /= 0.5f * dstwidth;
-	y /= 0.5f * dstheight;
-	w /= 0.5f * dstwidth;
-	h /= 0.5f * dstheight;
-	float x2 = x + w;
-	float y2 = y + h;
-	x -= 1.0f;
-	y -= 1.0f;
-	x2 -= 1.0f;
-	y2 -= 1.0f;
-
-	float v0 = 1.0f;
-	float v1 = 0.0f;
-
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		std::swap(v0, v1);
-	}
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
-	draw_->SetViewports(1, &viewport);
-	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
-
-	Draw::SamplerState *sampler;
-	if (g_Config.iBufFilter == SCALE_NEAREST) {
-		sampler = samplerNearest;
-	} else {
-		sampler = samplerLinear;
-	}
-	draw_->BindSamplerStates(0, 1, &sampler);
-
-	const Vertex verts[4] = {
-		{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
-		{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
-		{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
-		{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
-	};
-	draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
-
-	int indexes[] = { 0, 1, 2, 0, 2, 3 };
-	draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
-
-	draw_->BindTexture(0, fbTex);
-
-	static const float identity4x4[16] = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f,
-	};
-
-	Draw::VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
-	draw_->BindPipeline(texColor);
-	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
-	draw_->BindIndexBuffer(idata, 0);
-	draw_->DrawIndexed(6, 0);
-	draw_->BindIndexBuffer(nullptr, 0);
+	presentation_->SourceTexture(fbTex, desc.width, desc.height);
+	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1);
 }
 
-void SoftGPU::CopyDisplayToOutput() {
+void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
+}
 
+void SoftGPU::Resized() {
 	// Force the render params to 480x272 so other things work.
 	if (g_Config.IsPortrait()) {
 		PSP_CoreParameter().renderWidth = 272;
@@ -306,6 +295,11 @@ void SoftGPU::CopyDisplayToOutput() {
 	} else {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
+	}
+
+	if (presentation_) {
+		presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		presentation_->UpdatePostShader();
 	}
 }
 

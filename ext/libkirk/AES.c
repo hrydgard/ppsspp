@@ -1304,7 +1304,7 @@ void xor_128(const unsigned char *a, const unsigned char *b, unsigned char *out)
 }
 
 //No IV support!
-void AES_cbc_encrypt(AES_ctx *ctx, u8 *src, u8 *dst, int size)
+void AES_cbc_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size)
 {
 	u8 block_buff[16];
 	
@@ -1325,7 +1325,7 @@ void AES_cbc_encrypt(AES_ctx *ctx, u8 *src, u8 *dst, int size)
 	}
 }
 
-void AES_cbc_decrypt(AES_ctx *ctx, u8 *src, u8 *dst, int size)
+void AES_cbc_decrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size)
 {
 	u8 block_buff[16];
 	u8 block_buff_previous[16];

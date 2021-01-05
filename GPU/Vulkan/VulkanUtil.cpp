@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/basictypes.h"
 #include "Common/Log.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/StringUtils.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
@@ -36,35 +36,35 @@ void Vulkan2D::DestroyDeviceObjects() {
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
-			frameData_[i].descPool = VK_NULL_HANDLE;
 		}
 	}
 	for (auto it : pipelines_) {
 		vulkan_->Delete().QueueDeletePipeline(it.second);
 	}
 	pipelines_.clear();
+	for (auto pipeline : keptPipelines_) {
+		vulkan_->Delete().QueueDeletePipeline(pipeline);
+	}
+	keptPipelines_.clear();
 
 	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-		descriptorSetLayout_ = VK_NULL_HANDLE;
 	}
 	if (pipelineLayout_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
-		pipelineLayout_ = VK_NULL_HANDLE;
 	}
 
 	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
 	if (pipelineCache_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
-		pipelineCache_ = VK_NULL_HANDLE;
 	}
 }
 
 void Vulkan2D::InitDeviceObjects() {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	// Texture.
@@ -84,7 +84,7 @@ void Vulkan2D::InitDeviceObjects() {
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
 	dpTypes[0].descriptorCount = 3000;
@@ -95,9 +95,9 @@ void Vulkan2D::InitDeviceObjects() {
 	dp.maxSets = 3000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 
 	VkPushConstantRange push = {};
@@ -112,7 +112,7 @@ void Vulkan2D::InitDeviceObjects() {
 	pl.pSetLayouts = &descriptorSetLayout_;
 	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 }
 
 void Vulkan2D::DeviceLost() {
@@ -132,6 +132,36 @@ void Vulkan2D::BeginFrame() {
 }
 
 void Vulkan2D::EndFrame() {
+}
+
+void Vulkan2D::PurgeVertexShader(VkShaderModule s, bool keepPipeline) {
+	for (auto it = pipelines_.begin(); it != pipelines_.end(); ) {
+		if (it->first.vs == s) {
+			if (keepPipeline) {
+				keptPipelines_.push_back(it->second);
+			} else {
+				vulkan_->Delete().QueueDeletePipeline(it->second);
+			}
+			it = pipelines_.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+void Vulkan2D::PurgeFragmentShader(VkShaderModule s, bool keepPipeline) {
+	for (auto it = pipelines_.begin(); it != pipelines_.end(); ) {
+		if (it->first.fs == s) {
+			if (keepPipeline) {
+				keptPipelines_.push_back(it->second);
+			} else {
+				vulkan_->Delete().QueueDeletePipeline(it->second);
+			}
+			it = pipelines_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2) {
@@ -157,7 +187,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
-	assert(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
 	VkWriteDescriptorSet writes[2]{};
@@ -165,12 +195,8 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	int n = 0;
 	VkDescriptorImageInfo image1{};
 	VkDescriptorImageInfo image2{};
-	if (tex1) {
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-		image1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-#else
+	if (tex1 && sampler1) {
 		image1.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-#endif
 		image1.imageView = tex1;
 		image1.sampler = sampler1;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -181,13 +207,9 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 		writes[n].dstSet = desc;
 		n++;
 	}
-	if (tex2) {
+	if (tex2 && sampler2) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-		image2.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-#else
 		image2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-#endif
 		image2.imageView = tex2;
 		image2.sampler = sampler2;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -346,7 +368,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {
 	std::vector<uint32_t> spirv;
-	bool success = GLSLtoSPV(stage, code, spirv, error);
+	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, error);
 	if (!error->empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -354,7 +376,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 			ERROR_LOG(G3D, "Error in shader compilation!");
 		}
 		ERROR_LOG(G3D, "Messages: %s", error->c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(error->c_str());
 		return VK_NULL_HANDLE;
@@ -366,4 +388,173 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 			return VK_NULL_HANDLE;
 		}
 	}
+}
+
+VulkanComputeShaderManager::VulkanComputeShaderManager(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(8) {
+}
+VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
+
+void VulkanComputeShaderManager::InitDeviceObjects() {
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	_assert_(VK_SUCCESS == res);
+
+	VkDescriptorSetLayoutBinding bindings[3] = {};
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[0].binding = 0;
+	bindings[1].descriptorCount = 1;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[1].binding = 1;
+	bindings[2].descriptorCount = 1;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[2].binding = 2;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	dsl.bindingCount = ARRAY_SIZE(bindings);
+	dsl.pBindings = bindings;
+	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	_assert_(VK_SUCCESS == res);
+
+	VkDescriptorPoolSize dpTypes[2];
+	dpTypes[0].descriptorCount = 8192;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	dpTypes[1].descriptorCount = 4096;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
+	dp.maxSets = 4096;  // GTA can end up creating more than 1000 textures in the first frame!
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
+		_assert_(VK_SUCCESS == res);
+	}
+
+	VkPushConstantRange push = {};
+	push.offset = 0;
+	push.size = 16;
+	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	pl.pPushConstantRanges = &push;
+	pl.pushConstantRangeCount = 1;
+	pl.setLayoutCount = 1;
+	pl.pSetLayouts = &descriptorSetLayout_;
+	pl.flags = 0;
+	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
+	_assert_(VK_SUCCESS == res);
+}
+
+void VulkanComputeShaderManager::DestroyDeviceObjects() {
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+		if (frameData_[i].descPool) {
+			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		}
+	}
+	if (descriptorSetLayout_) {
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	}
+	pipelines_.Iterate([&](const PipelineKey &key, VkPipeline pipeline) {
+		vulkan_->Delete().QueueDeletePipeline(pipeline);
+	});
+	pipelines_.Clear();
+
+	if (pipelineLayout_) {
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	}
+	if (pipelineCache_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+	}
+}
+
+VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2) {
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frameData = frameData_[curFrame];
+	frameData_[curFrame].numDescriptors++;
+	VkDescriptorSet desc;
+	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+	descAlloc.pSetLayouts = &descriptorSetLayout_;
+	descAlloc.descriptorPool = frameData.descPool;
+	descAlloc.descriptorSetCount = 1;
+	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	_assert_(result == VK_SUCCESS);
+
+	VkWriteDescriptorSet writes[2]{};
+	int n = 0;
+	VkDescriptorImageInfo imageInfo = {};
+	VkDescriptorBufferInfo bufferInfo[2] = {};
+	if (image) {
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo.imageView = image;
+		imageInfo.sampler = VK_NULL_HANDLE;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 0;
+		writes[n].pImageInfo = &imageInfo;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		writes[n].dstSet = desc;
+		n++;
+	}
+	bufferInfo[0].buffer = buffer;
+	bufferInfo[0].offset = offset;
+	bufferInfo[0].range = range;
+	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[n].dstBinding = 1;
+	writes[n].pBufferInfo = &bufferInfo[0];
+	writes[n].descriptorCount = 1;
+	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	writes[n].dstSet = desc;
+	n++;
+	if (buffer2) {
+		bufferInfo[1].buffer = buffer2;
+		bufferInfo[1].offset = offset2;
+		bufferInfo[1].range = range2;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 2;
+		writes[n].pBufferInfo = &bufferInfo[1];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+	}
+	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
+	return desc;
+}
+
+VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
+	PipelineKey key{ cs };
+	VkPipeline pipeline = pipelines_.Get(key);
+	if (pipeline)
+		return pipeline;
+
+	VkComputePipelineCreateInfo pci{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+	pci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	pci.stage.module = cs;
+	pci.stage.pName = "main";
+	pci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	pci.layout = pipelineLayout_;
+	pci.flags = 0;
+
+	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+	_assert_(res == VK_SUCCESS);
+
+	pipelines_.Insert(key, pipeline);
+	return pipeline;
+}
+
+void VulkanComputeShaderManager::BeginFrame() {
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
+	frameData_[curFrame].numDescriptors = 0;
+	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
+}
+
+void VulkanComputeShaderManager::EndFrame() {
 }

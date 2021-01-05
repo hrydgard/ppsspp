@@ -17,12 +17,11 @@
 
 #include <set>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
-#include "base/NativeApp.h"
-#include "base/logging.h"
-#include "profiler/profiler.h"
-#include "i18n/i18n.h"
+#include "Common/System/System.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -32,17 +31,17 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 
@@ -58,8 +57,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-	lastVsync_ = g_Config.bVSync ? 1 : 0;
-	dxstate.SetVSyncInterval(g_Config.bVSync);
 
 	shaderManagerDX9_ = new ShaderManagerDX9(draw, device_);
 	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
@@ -72,10 +69,10 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetShaderManager(shaderManagerDX9_);
 	drawEngine_.SetTextureCache(textureCacheDX9_);
 	drawEngine_.SetFramebufferManager(framebufferManagerDX9_);
-	framebufferManagerDX9_->Init();
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
 	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
+	framebufferManagerDX9_->Init();
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
 	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);
@@ -99,9 +96,8 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation bacause DX9 is still unsupported.
-		g_Config.bHardwareTessellation = false;
 		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
 	}
 }
@@ -168,15 +164,14 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
+
+	// Accurate depth is required because the Direct3D API does not support inverse Z.
+	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
+	// TODO: Breaks text in PaRappa for some reason?
+	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 	auto vendor = draw_->GetDeviceCaps().vendor;
-	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
-	}
-
-	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 		// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
 		// Also causes problems on old NVIDIA.
 		switch (vendor) {
@@ -209,7 +204,7 @@ void GPU_DX9::CheckGPUFeatures() {
 		if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1)
 			features |= GPU_SUPPORTS_ANISOTROPY;
 		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
-			features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+			features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	}
 
 	if (!g_Config.bHighQualityDepth) {
@@ -247,19 +242,18 @@ void GPU_DX9::BuildReportingInfo() {
 
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
 	shaderManagerDX9_->ClearCache(false);
 	textureCacheDX9_->Clear(false);
-	framebufferManagerDX9_->DeviceLost();
+	GPUCommon::DeviceLost();
 }
 
 void GPU_DX9::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 
 void GPU_DX9::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
+	if (!framebufferManager_->UseBufferedRendering()) {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
@@ -285,17 +279,8 @@ void GPU_DX9::ReapplyGfxState() {
 }
 
 void GPU_DX9::BeginFrame() {
-	// Turn off vsync when unthrottled
-	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().unthrottle || PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL)
-		desiredVSyncInterval = 0;
-	if (desiredVSyncInterval != lastVsync_) {
-		dxstate.SetVSyncInterval(desiredVSyncInterval);
-		lastVsync_ = desiredVSyncInterval;
-	}
-
 	textureCacheDX9_->StartFrame();
-	drawEngine_.DecimateTrackedVertexArrays();
+	drawEngine_.BeginFrame();
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
@@ -310,13 +295,13 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_DX9::CopyDisplayToOutput() {
+void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 
 	drawEngine_.Flush();
 
-	framebufferManagerDX9_->CopyDisplayToOutput();
+	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerDX9_->EndFrame();
 
 	// shaderManager_->EndFrame();
@@ -358,38 +343,13 @@ void GPU_DX9::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	snprintf(buffer, bufsize - 1,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d, uploads: %d\n"
+	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
+	buffer += offset;
+	bufsize -= offset;
+	if ((int)bufsize < 0)
+		return;
+	snprintf(buffer, bufsize,
 		"Vertex, Fragment shaders loaded: %i, %i\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManagerDX9_->NumVFBs(),
-		(int)textureCacheDX9_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);
@@ -409,11 +369,12 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCacheDX9_->Clear(true);
+		textureCache_->Clear(true);
+		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerDX9_->DestroyAllFBOs();
+		framebufferManager_->DestroyAllFBOs();
 	}
 }
 

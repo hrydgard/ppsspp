@@ -18,10 +18,11 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Host.h"
@@ -335,7 +336,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		{
 		case CC_E: immBranchNotTaken = rsImm == rtImm; break;
 		case CC_NE: immBranchNotTaken = rsImm != rtImm; break;
-		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		default: immBranchNotTaken = false; _dbg_assert_msg_(false, "Bad cc flag in BranchRSRTComp().");
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
@@ -411,7 +412,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		case CC_GE: immBranchNotTaken = imm >= 0; break;
 		case CC_L: immBranchNotTaken = imm < 0; break;
 		case CC_LE: immBranchNotTaken = imm <= 0; break;
-		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		default: immBranchNotTaken = false; _dbg_assert_msg_(false, "Bad cc flag in BranchRSZeroComp().");
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
@@ -478,7 +479,7 @@ void Jit::Comp_RelBranch(MIPSOpcode op)
 	case 23: BranchRSZeroComp(op, CC_LE, false, true); break;//bgtzl
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -496,7 +497,7 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op)
 	case 18: BranchRSZeroComp(op, CC_GE, true, true);  break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
 	case 19: BranchRSZeroComp(op, CC_L, true, true);   break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 }
@@ -535,7 +536,7 @@ void Jit::Comp_FPUBranch(MIPSOpcode op)
 	case 2: BranchFPFlag(op, CC_NZ, true);	break; //bc1fl
 	case 3: BranchFPFlag(op, CC_Z,	true);	break; //bc1tl
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 		break;
 	}
 }
@@ -586,9 +587,13 @@ void Jit::Comp_VBranch(MIPSOpcode op)
 	case 2: BranchVFPUFlag(op, CC_NZ, true);	break; //bvfl
 	case 3: BranchVFPUFlag(op, CC_Z,	true);	break; //bvtl
 	default:
-		_dbg_assert_msg_(CPU,0,"Comp_VBranch: Invalid instruction");
+		_dbg_assert_msg_(false,"Comp_VBranch: Invalid instruction");
 		break;
 	}
+}
+
+static void HitInvalidJump(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc - 8, ExecExceptionType::JUMP);
 }
 
 void Jit::Comp_Jump(MIPSOpcode op) {
@@ -608,6 +613,12 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 8));
+		ABI_CallFunctionC(&HitInvalidJump, targetAddr);
+		WriteSyscallExit();
 		return;
 	}
 
@@ -654,7 +665,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 	js.compiling = false;
@@ -688,7 +699,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 
 		// Syscalls write the exit code for us.
-		_dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
+		_dbg_assert_msg_(!js.compiling, "Expected syscall to write an exit code.");
 		return;
 	}
 	else if (delaySlotIsNice)
@@ -742,7 +753,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	case 9: //jalr
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(false,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 

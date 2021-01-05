@@ -19,14 +19,13 @@
 
 #include <d3d9.h>
 
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -77,7 +76,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	ReliableHashType hash;
+	uint64_t hash;
 	u32 minihash;
 
 	LPDIRECT3DVERTEXBUFFER9 vbo;
@@ -123,7 +122,8 @@ public:
 	void DestroyDeviceObjects();
 
 	void ClearTrackedVertexArrays() override;
-	void DecimateTrackedVertexArrays();
+
+	void BeginFrame();
 
 	// So that this can be inlined
 	void Flush() {
@@ -140,18 +140,24 @@ public:
 
 	void DispatchFlush() override { Flush(); }
 
+protected:
+	// Not currently supported.
+	bool UpdateUseHWTessellation(bool enable) override { return false; }
+	void DecimateTrackedVertexArrays();
+
 private:
 	void DoFlush();
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	void ResetShaderBlending();
+	void ResetFramebufferRead();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
 	LPDIRECT3DDEVICE9 device_ = nullptr;
+	Draw::DrawContext *draw_;
 
 	PrehashMap<VertexArrayInfoDX9 *, nullptr> vai_;
 	DenseHashMap<u32, IDirect3DVertexDeclaration9 *, nullptr> vertexDeclMap_;
@@ -166,6 +172,8 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferDX9 *tessDataTransferDX9;
+
+	int lastRenderStepId_ = -1;
 };
 
 }  // namespace

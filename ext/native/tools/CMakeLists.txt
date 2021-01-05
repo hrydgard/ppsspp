@@ -27,8 +27,8 @@ include_directories(..)
 include_directories(../ext)
 include_directories(../math/lin)
 include_directories(../image)
-include_directories(../ext/rg_etc1)
 include_directories(/usr/local/include)
+include_directories(../../..)
 
 link_directories(/opt/local/lib)
 
@@ -44,12 +44,11 @@ add_subdirectory(../file file)
 add_subdirectory(../image image)
 add_subdirectory(../math math)
 add_subdirectory(../util util)
-add_subdirectory(../ext/rg_etc1 rg_etc1)
 add_subdirectory(../ext/libpng17 png17)
 
 
 add_executable(atlastool atlastool.cpp)
-target_link_libraries(atlastool freetype util image png17 z rg_etc1 file base)
+target_link_libraries(atlastool freetype util image png17 z file base)
 
 add_executable(zimtool zimtool.cpp)
-target_link_libraries(zimtool freetype image png17 z rg_etc1 file base)
+target_link_libraries(zimtool freetype image png17 z file base)

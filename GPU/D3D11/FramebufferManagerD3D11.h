@@ -24,9 +24,8 @@
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "Core/Config.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "Common/GPU/thin3d.h"
 
 class TextureCacheD3D11;
 class DrawEngineD3D11;
@@ -42,18 +41,9 @@ public:
 	void SetDrawEngine(DrawEngineD3D11 *td);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
-	void DestroyAllFBOs();
-
 	void EndFrame();
-	void Resized() override;
-	void DeviceLost();
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
-
-	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
-
-	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
+	virtual bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
 	// TODO: Remove
 	ID3D11Buffer *GetDynamicQuadBuffer() {
@@ -62,16 +52,10 @@ public:
 
 protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
-
-	bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
-	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
 
 private:
-	void CompilePostShader();
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
@@ -81,12 +65,6 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
-
-	// Used by DrawPixels
-	ID3D11Texture2D *drawPixelsTex_ = nullptr;
-	ID3D11ShaderResourceView *drawPixelsTexView_ = nullptr;
-	int drawPixelsTexW_ = 0;
-	int drawPixelsTexH_ = 0;
 
 	ID3D11VertexShader *quadVertexShader_;
 	ID3D11PixelShader *quadPixelShader_;
@@ -98,9 +76,6 @@ private:
 	const UINT quadOffset_ = 0;
 	static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[2];
 
-	u8 *convBuf = nullptr;
-
-	int plainColorLoc_;
 	ID3D11PixelShader *stencilUploadPS_ = nullptr;
 	ID3D11VertexShader *stencilUploadVS_ = nullptr;
 	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
@@ -113,12 +88,4 @@ private:
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngineD3D11_;
-
-	// Used by post-processing shader
-	// Postprocessing
-	ID3D11VertexShader *postVertexShader_ = nullptr;
-	ID3D11PixelShader *postPixelShader_ = nullptr;
-	ID3D11InputLayout *postInputLayout_ = nullptr;
-	ID3D11Buffer *postConstants_ = nullptr;
-	static const D3D11_INPUT_ELEMENT_DESC g_PostVertexElements[2];
 };

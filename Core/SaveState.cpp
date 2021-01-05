@@ -20,13 +20,15 @@
 #include <thread>
 #include <mutex>
 
-#include "base/timeutil.h"
-#include "i18n/i18n.h"
-#include "thread/threadutil.h"
-#include "util/text/parsers.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Text/Parsers.h"
 
-#include "Common/FileUtil.h"
-#include "Common/ChunkFile.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/SaveState.h"
 #include "Core/Config.h"
@@ -41,6 +43,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -70,14 +73,16 @@ namespace SaveState
 
 	struct Operation
 	{
-		Operation(OperationType t, const std::string &f, Callback cb, void *cbUserData_)
-			: type(t), filename(f), callback(cb), cbUserData(cbUserData_)
+		// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
+		Operation(OperationType t, const std::string &f, int slot_, Callback cb, void *cbUserData_)
+			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_)
 		{
 		}
 
 		OperationType type;
 		std::string filename;
 		Callback callback;
+		int slot;
 		void *cbUserData;
 	};
 
@@ -89,9 +94,9 @@ namespace SaveState
 		return CChunkFileReader::SavePtr(&data[0], state);
 	}
 
-	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data) {
+	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
 		SaveStart state;
-		return CChunkFileReader::LoadPtr(&data[0], state);
+		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
 	}
 
 	struct StateRingbuffer
@@ -133,7 +138,7 @@ namespace SaveState
 			return err;
 		}
 
-		CChunkFileReader::Error Restore()
+		CChunkFileReader::Error Restore(std::string *errorString)
 		{
 			std::lock_guard<std::mutex> guard(lock_);
 
@@ -147,16 +152,17 @@ namespace SaveState
 
 			static std::vector<u8> buffer;
 			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
-			return LoadFromRam(buffer);
+			return LoadFromRam(buffer, errorString);
 		}
 
 		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
 		{
-			auto th = new std::thread([=]{
+			if (compressThread_.joinable())
+				compressThread_.join();
+			compressThread_ = std::thread([=]{
 				setCurrentThreadName("SaveStateCompress");
 				Compress(*result, *state, *base);
 			});
-			th->detach();
 		}
 
 		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
@@ -207,6 +213,9 @@ namespace SaveState
 
 		void Clear()
 		{
+			if (compressThread_.joinable())
+				compressThread_.join();
+
 			// This lock is mainly for shutdown.
 			std::lock_guard<std::mutex> guard(lock_);
 			first_ = 0;
@@ -232,6 +241,7 @@ namespace SaveState
 		StateBuffer bases_[2];
 		std::vector<int> baseMapping_;
 		std::mutex lock_;
+		std::thread compressThread_;
 
 		int base_;
 		int baseUsage_;
@@ -254,7 +264,7 @@ namespace SaveState
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: Any reason for this to be configurable?
 	const static float rewindMaxWallFrequency = 1.0f;
-	static float rewindLastTime = 0.0f;
+	static double rewindLastTime = 0.0f;
 	const int StateRingbuffer::BLOCK_SIZE = 8192;
 	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
 
@@ -267,11 +277,11 @@ namespace SaveState
 		if (s >= 2) {
 			// This only increments on save, of course.
 			++saveStateGeneration;
-			p.Do(saveStateGeneration);
+			Do(p, saveStateGeneration);
 			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())
 				saveStateInitialGitVersion = PPSSPP_GIT_VERSION;
-			p.Do(saveStateInitialGitVersion);
+			Do(p, saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
 		}
@@ -311,29 +321,29 @@ namespace SaveState
 		Core_UpdateSingleStep();
 	}
 
-	void Load(const std::string &filename, Callback callback, void *cbUserData)
+	void Load(const std::string &filename, int slot, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_LOAD, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
-	void Save(const std::string &filename, Callback callback, void *cbUserData)
+	void Save(const std::string &filename, int slot, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_SAVE, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
 	void Verify(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), -1, callback, cbUserData));
 	}
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), -1, callback, cbUserData));
 	}
 
 	void SaveScreenshot(const std::string &filename, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, callback, cbUserData));
 	}
 
 	bool CanRewind()
@@ -376,7 +386,7 @@ namespace SaveState
 			return StringFromFormat("%s (%c)", title.c_str(), slotChar);
 		}
 		if (detectSlot(UNDO_STATE_EXTENSION)) {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			// Allow the number to be positioned where it makes sense.
 			std::string undo = sy->T("undo %c");
 			return title + " (" + StringFromFormat(undo.c_str(), slotChar) + ")";
@@ -397,7 +407,7 @@ namespace SaveState
 		}
 
 		// The file can't be loaded - let's note that.
-		I18NCategory *sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory("System");
 		return File::GetFilename(filename) + " " + sy->T("(broken)");
 	}
 
@@ -430,9 +440,9 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
-			Load(fn, callback, cbUserData);
+			Load(fn, slot, callback, cbUserData);
 		} else {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			if (callback)
 				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
 		}
@@ -487,9 +497,9 @@ namespace SaveState
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
-			Save(fn + ".tmp", renameCallback, cbUserData);
+			Save(fn + ".tmp", slot, renameCallback, cbUserData);
 		} else {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			if (callback)
 				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), cbUserData);
 		}
@@ -609,7 +619,19 @@ namespace SaveState
 			if (File::GetModifTime(fn, time)) {
 				char buf[256];
 				// TODO: Use local time format? Americans and some others might not like ISO standard :)
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				switch (g_Config.iDateFormat) {
+				case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+					strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+					break;
+				case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+					strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+					break;
+				default: // Should never happen
+					return "";
+				}
 				return std::string(buf);
 			}
 		}
@@ -625,14 +647,15 @@ namespace SaveState
 		return copy;
 	}
 
-	bool HandleFailure()
+	bool HandleLoadFailure()
 	{
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
 		CChunkFileReader::Error result;
-		do
-			result = rewindStates.Restore();
-		while (result == CChunkFileReader::ERROR_BROKEN_STATE);
+		do {
+			std::string errorString;
+			result = rewindStates.Restore(&errorString);
+		} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
 		if (result == CChunkFileReader::ERROR_NONE) {
 			return true;
@@ -653,23 +676,21 @@ namespace SaveState
 		return false;
 	}
 
-#ifndef MOBILE_DEVICE
 	static inline void CheckRewindState()
 	{
 		if (gpuStats.numFlips % g_Config.iRewindFlipFrequency != 0)
 			return;
 
 		// For fast-forwarding, otherwise they may be useless and too close.
-		time_update();
-		float diff = time_now() - rewindLastTime;
+		double now = time_now_d();
+		float diff = now - rewindLastTime;
 		if (diff < rewindMaxWallFrequency)
 			return;
 
-		rewindLastTime = time_now();
-		DEBUG_LOG(BOOT, "saving rewind state");
+		rewindLastTime = now;
+		DEBUG_LOG(BOOT, "Saving rewind state");
 		rewindStates.Save();
 	}
-#endif
 
 	bool HasLoadedState() {
 		return hasLoadedState;
@@ -696,10 +717,8 @@ namespace SaveState
 
 	void Process()
 	{
-#ifndef MOBILE_DEVICE
 		if (g_Config.iRewindFlipFrequency != 0 && gpuStats.numFlips != 0)
 			CheckRewindState();
-#endif
 
 		if (!needsProcess)
 			return;
@@ -721,10 +740,9 @@ namespace SaveState
 			Status callbackResult;
 			bool tempResult;
 			std::string callbackMessage;
-			std::string reason;
 			std::string title;
 
-			I18NCategory *sc = GetI18NCategory("Screen");
+			auto sc = GetI18NCategory("Screen");
 			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
 			const char *i18nSaveFailure = sc->T("Save State Failed", "");
 			if (strlen(i18nLoadFailure) == 0)
@@ -732,14 +750,17 @@ namespace SaveState
 			if (strlen(i18nSaveFailure) == 0)
 				i18nSaveFailure = sc->T("Failed to save state");
 
+			std::string slot_prefix = op.slot >= 0 ? StringFromFormat("(%d) ", op.slot + 1) : "";
+			std::string errorString;
+
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Loading state from '%s'", op.filename.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
-				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
+				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = sc->T("Loaded State");
+					callbackMessage = slot_prefix + sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 
@@ -748,11 +769,11 @@ namespace SaveState
 						// Using save states instead of saves simulates many hour play sessions.
 						// Sometimes this exposes game bugs that were rarely seen on real devices,
 						// because few people played on a real PSP for 10 hours straight.
-						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
 						// Save states also preserve bugs from old PPSSPP versions, so warn.
-						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					}
 
@@ -768,12 +789,12 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
-					callbackMessage = i18nLoadFailure;
-					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
+					HandleLoadFailure();
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
+					ERROR_LOG(SAVESTATE, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
+					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
 				break;
@@ -789,7 +810,7 @@ namespace SaveState
 				}
 				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = sc->T("Saved State");
+					callbackMessage = slot_prefix + sc->T("Saved State");
 					callbackResult = Status::SUCCESS;
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
@@ -803,9 +824,9 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleFailure();
+					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Save state failure");
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -825,24 +846,24 @@ namespace SaveState
 
 			case SAVESTATE_REWIND:
 				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
-				result = rewindStates.Restore();
+				result = rewindStates.Restore(&errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					if (HandleFailure()) {
+					if (HandleLoadFailure()) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
 					} else {
-						callbackMessage = i18nLoadFailure;
+						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 						callbackResult = Status::FAILURE;
 					}
 				} else {
-					callbackMessage = i18nLoadFailure;
+					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 					callbackResult = Status::FAILURE;
 				}
 				break;

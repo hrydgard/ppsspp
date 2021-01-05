@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "ppsspp_config.h"
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 #include "Common/Common.h"
 #include "Common/BitScan.h"
 
@@ -708,7 +708,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
 			break;
 		case IROp::FMul:
-			mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+			if ((my_isinf(mips->f[inst->src1]) && mips->f[inst->src2] == 0.0f) || (my_isinf(mips->f[inst->src2]) && mips->f[inst->src1] == 0.0f)) {
+				mips->fi[inst->dest] = 0x7fc00000;
+			} else {
+				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+			}
 			break;
 		case IROp::FDiv:
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
@@ -943,10 +947,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		}
 
 		case IROp::Break:
-			if (!g_Config.bIgnoreBadMemAccess) {
-				Core_EnableStepping(true);
-				host->SetDebugMode(true);
-			}
+			Core_Break();
 			return mips->pc + 4;
 
 		case IROp::SetCtrlVFPU:

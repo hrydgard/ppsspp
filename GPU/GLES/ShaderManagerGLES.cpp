@@ -23,19 +23,20 @@
 #include <cstdio>
 #include <map>
 
-#include "math/dataconv.h"
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "gfx/gl_debug_log.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/Shader.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
-#include "Common/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -47,6 +48,8 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
+
+using namespace Lin;
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
 	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
@@ -99,6 +102,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
 	queries.push_back({ &u_alphacolorref, "u_alphacolorref" });
 	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
+	queries.push_back({ &u_colorWriteMask, "u_colorWriteMask" });
 	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
 	queries.push_back({ &u_testtex, "testtex" });
 
@@ -164,7 +168,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
 	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
 	queries.push_back({ &u_spline_counts, "u_spline_counts" });
-	queries.push_back({ &u_depal, "u_depal" });
+	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -262,13 +266,13 @@ static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data
 
 static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x4, m4x3);
+	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
-static inline void ScaleProjMatrix(Matrix4x4 &in) {
+static inline void ScaleProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 	float yOffset = gstate_c.vpYOffset;
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+	if (!useBufferedRendering) {
 		// GL upside down is a pain as usual.
 		yOffset = -yOffset;
 	}
@@ -282,7 +286,7 @@ void LinkedShader::use(const ShaderID &VSID) {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
+void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid, bool useBufferedRendering) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
@@ -296,15 +300,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 		// Poke in a bilinear filter flag in the top bit.
 		val |= gstate.isMagnifyFilteringEnabled() << 31;
-		render_->SetUniformI1(&u_depal, val);
+		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, val);
 	}
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 		if (invertedY) {
@@ -353,14 +355,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			}
 		}
 
-		ScaleProjMatrix(flippedMatrix);
+		ScaleProjMatrix(flippedMatrix, useBufferedRendering);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
-		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 		if (useBufferedRendering) {
 			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
 		} else {
@@ -376,6 +377,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
 		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+	}
+	if (dirty & DIRTY_COLORWRITEMASK) {
+		render_->SetUniformUI1(&u_colorWriteMask, ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF)));
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
@@ -405,7 +409,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 		float uvscaleoff[4];
-		if (gstate_c.bezier || gstate_c.spline) {
+		if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
 			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
 			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
 			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
@@ -484,7 +488,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 	if (dirty & DIRTY_CULLRANGE) {
 		float minValues[4], maxValues[4];
-		CalcCullRange(minValues, maxValues, g_Config.iRenderingMode == FB_NON_BUFFERED_MODE, true);
+		CalcCullRange(minValues, maxValues, !useBufferedRendering, true);
 		SetFloatUniform4(render_, &u_cullRangeMin, minValues);
 		SetFloatUniform4(render_, &u_cullRangeMax, maxValues);
 	}
@@ -496,7 +500,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
 			render_->SetUniformM4x4(&u_bone[i], bonetemp);
 		}
 	}
@@ -572,7 +576,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
-		: ShaderManagerCommon(draw), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+	  : ShaderManagerCommon(draw), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
@@ -630,7 +634,9 @@ void ShaderManagerGLES::DirtyLastShader() {
 
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
-	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
+	std::string errorString;
+	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
@@ -641,29 +647,24 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	uint32_t attrMask;
 	uint64_t uniformMask;
-	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
+	std::string errorString;
+	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &errorString)) {
+		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
+		return nullptr;
+	}
 	std::string desc = VertexShaderDesc(VSID);
 	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *VSID) {
-	uint64_t dirty = gstate_c.GetDirtyUniforms();
-	if (dirty) {
-		if (lastShader_)
-			lastShader_->dirtyUniforms |= dirty;
-		shaderSwitchDirtyUniforms_ |= dirty;
-		gstate_c.CleanUniforms();
-	}
-
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		bool useHWTransform = CanUseHardwareTransform(prim);
-		ComputeVertexShaderID(VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(VSID, vertType, useHWTransform, useHWTessellation);
 	} else {
 		*VSID = lastVSID_;
 	}
 
-	if (lastShader_ != 0 && *VSID == lastVSID_) {
+	if (lastShader_ != nullptr && *VSID == lastVSID_) {
 		lastVShaderSame_ = true;
 		return lastShader_->vs_;  	// Already all set.
 	} else {
@@ -676,7 +677,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 		// Vertex shader not in cache. Let's compile it.
 		vs = CompileVertexShader(*VSID);
 		if (vs->Failed()) {
-			I18NCategory *gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			if (!g_Config.bHideSlowWarnings) {
 				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
@@ -689,7 +690,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 
 			// Can still work with software transform.
 			VShaderID vsidTemp;
-			ComputeVertexShaderID(&vsidTemp, vertType, false);
+			ComputeVertexShaderID(&vsidTemp, vertType, false, false);
 			vs = CompileVertexShader(vsidTemp);
 		}
 
@@ -699,7 +700,15 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, int prim) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, bool useBufferedRendering) {
+	uint64_t dirty = gstate_c.GetDirtyUniforms();
+	if (dirty) {
+		if (lastShader_)
+			lastShader_->dirtyUniforms |= dirty;
+		shaderSwitchDirtyUniforms_ |= dirty;
+		gstate_c.CleanUniforms();
+	}
+
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
@@ -709,7 +718,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType, VSID);
+		lastShader_->UpdateUniforms(vertType, VSID, useBufferedRendering);
 		return lastShader_;
 	}
 
@@ -718,6 +727,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	Shader *fs = fsCache_.Get(FSID);
 	if (!fs)	{
 		// Fragment shader not in cache. Let's compile it.
+		// Can't really tell if we succeeded since the compile is on the GPU thread later.
 		fs = CompileFragmentShader(FSID);
 		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
@@ -738,10 +748,10 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	shaderSwitchDirtyUniforms_ = 0;
 
 	if (ls == nullptr) {
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
-		_dbg_assert_(G3D, FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+		_dbg_assert_(FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
+		_dbg_assert_(FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
+		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 		// Check if we can link these.
 		ls = new LinkedShader(render_, VSID, vs, FSID, fs, vs->UseHWTransform());
@@ -751,7 +761,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(vertType, VSID);
+	ls->UpdateUniforms(vertType, VSID, useBufferedRendering);
 
 	lastShader_ = ls;
 	return ls;
@@ -828,7 +838,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 14
+#define CACHE_VERSION 15
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
@@ -852,7 +862,6 @@ void ShaderManagerGLES::Load(const std::string &filename) {
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
 		return;
 	}
-	time_update();
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
@@ -910,12 +919,12 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 
 	PSP_SetLoading("Compiling shaders...");
 
-	double start = real_time_now();
+	double start = time_now_d();
 	// Let's try to keep it under sliceTime if possible.
 	double end = start + sliceTime;
 
 	for (size_t &i = pending.vertPos; i < pending.vert.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -945,7 +954,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.fragPos; i < pending.frag.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -959,7 +968,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	for (size_t &i = pending.linkPos; i < pending.link.size(); i++) {
-		if (real_time_now() >= end) {
+		if (time_now_d() >= end) {
 			// We'll finish later.
 			return false;
 		}
@@ -976,10 +985,9 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	}
 
 	// Okay, finally done.  Time to report status.
-	time_update();
 	double finish = time_now_d();
 
-	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
+	NOTICE_LOG(G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
 	pending.Clear();
 
 	return true;

@@ -19,11 +19,10 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
-#include "gfx/gl_debug_log.h"
-#include "i18n/i18n.h"
-#include "math/math_util.h"
-#include "profiler/profiler.h"
-#include "thin3d/GLRenderManager.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
@@ -34,7 +33,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/GLES/DepalettizeShaderGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
@@ -47,7 +46,6 @@
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
-	lastBoundTexture = nullptr;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	SetupTextureDecoder();
@@ -73,7 +71,6 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 }
 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %08x", entry->addr);
 	if (delete_them) {
 		if (entry->textureName) {
 			render_->DeleteTexture(entry->textureName);
@@ -86,18 +83,18 @@ void TextureCacheGLES::Clear(bool delete_them) {
 	TextureCacheCommon::Clear(delete_them);
 }
 
-GLenum getClutDestFormat(GEPaletteFormat format) {
+Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4;
+		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 	case GE_CMODE_16BIT_ABGR5551:
-		return GL_UNSIGNED_SHORT_5_5_5_1;
+		return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
 	case GE_CMODE_16BIT_BGR5650:
-		return GL_UNSIGNED_SHORT_5_6_5;
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case GE_CMODE_32BIT_ABGR8888:
-		return GL_UNSIGNED_BYTE;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	return 0;
+	return Draw::DataFormat::UNDEFINED;;
 }
 
 static const GLuint MinFiltGL[8] = {
@@ -116,90 +113,33 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// This should not have to be done per texture! OpenGL is silly yo
-void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
-
+void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		float minLod = 0.0f;
-		float maxLod = 0.0f;
-		if (maxLevel != 0) {
-			// TODO: What about a swap of autoMip mode?
-			if (true) {
-				if (mode == GE_TEXLEVEL_MODE_AUTO) {
-					minLod = 0.0f;
-					maxLod = (float)maxLevel;
-				} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-					minLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
-					maxLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
-				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
-					// It's incorrect to use the slope as a bias. Instead it should be passed
-					// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
-					// lodBias in this mode, working around #9772.
-#ifndef USING_GLES2
-					lodBias = 0.0f;
-#endif
-					minLod = 0.0f;
-					maxLod = (float)maxLevel;
-				}
-			}
-		} else {
-			minLod = 0.0f;
-			maxLod = 0.0f;
-		}
+		float minLod = (float)key.minLevel / 256.0f;
+		float maxLod = (float)key.maxLevel / 256.0f;
+		float lodBias = (float)key.lodBias / 256.0f;
 		render_->SetTextureLod(0, minLod, maxLod, lodBias);
 	}
 
 	float aniso = 0.0f;
-	render_->SetTextureSampler(0, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
+	int minKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.minFilt);
+	render_->SetTextureSampler(0,
+		key.sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, key.tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT,
+		key.magFilt ? GL_LINEAR : GL_NEAREST, MinFiltGL[minKey], aniso);
 }
 
-void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint) {
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
-
-	minFilt &= 1;  // framebuffers can't mipmap.
-	if (forcePoint) {
-		minFilt &= ~1;
-		magFilt &= ~1;
-	}
-
-	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
-	// This happens whether we have OES_texture_npot or not.
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	if (w != bufferWidth || h != bufferHeight) {
-		sClamp = true;
-		tClamp = true;
-	}
-	float aniso = 0.0f;
-	render_->SetTextureSampler(TEX_SLOT_PSP_TEXTURE, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
-}
-
-static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
+static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
 	switch (dstFmt) {
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
 		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	// Final Fantasy 2 uses this heavily in animated textures.
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
 		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
 		break;
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	default:
@@ -219,7 +159,7 @@ void TextureCacheGLES::StartFrame() {
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
 
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		if (standardScaleFactor_ > 1) {
 			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
@@ -228,7 +168,7 @@ void TextureCacheGLES::StartFrame() {
 	}
 
 	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 	texelsScaledThisFrame_ = 0;
 	if (clearCacheNextFrame_) {
@@ -250,7 +190,10 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
 
 	// Avoid a copy when we don't need to convert colors.
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
@@ -280,54 +223,14 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-// #define DEBUG_TEXTURES
-
-#ifdef DEBUG_TEXTURES
-bool SetDebugTexture() {
-	static const int highlightFrames = 30;
-
-	static int numTextures = 0;
-	static int lastFrames = 0;
-	static int mostTextures = 1;
-
-	if (lastFrames != gpuStats.numFlips) {
-		mostTextures = std::max(mostTextures, numTextures);
-		numTextures = 0;
-		lastFrames = gpuStats.numFlips;
-	}
-
-	static GLuint solidTexture = 0;
-
-	bool changed = false;
-	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFlips % highlightFrames == 0) {
-			NOTICE_LOG(G3D, "Highlighting texture # %d / %d", numTextures, mostTextures);
-		}
-		static const u32 solidTextureData[] = {0x99AA99FF};
-
-		if (solidTexture == 0) {
-			glGenTextures(1, &solidTexture);
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-			glPixelStorei(GL_PACK_ALIGNMENT, 1);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
-		} else {
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-		}
-		changed = true;
-	}
-
-	++numTextures;
-	return changed;
-}
-#endif
-
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (entry->textureName != lastBoundTexture) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	UpdateSamplingParams(*entry, false);
+	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(false);
 }
 
@@ -439,22 +342,28 @@ protected:
 	int renderH_;
 };
 
-void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+void TextureCacheGLES::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) {
 	DepalShader *depal = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+	bool need_depalettize = IsClutFormat(texFormat);
 
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) || gstate_c.Supports(GPU_SUPPORTS_GLSL_330));
 	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
 		useShaderDepal = false;
 	}
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+
+	if (need_depalettize && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 			GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
 			render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
-			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, true);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			samplerKey.magFilt = false;
+			samplerKey.minFilt = false;
+			samplerKey.mipEnable = false;
+			ApplySamplingParams(samplerKey);
 			InvalidateLastTexture();
 
 			// Since we started/ended render passes, might need these.
@@ -468,6 +377,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 			return;
 		}
 
+		gstate_c.SetUseShaderDepal(false);
 		depal = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
 	}
 	if (depal) {
@@ -475,8 +385,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight);
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 
 		render_->SetScissor(GLRect2D{ 0, 0, (int)framebuffer->renderWidth, (int)framebuffer->renderHeight });
 		render_->SetViewport(GLRViewport{ 0.0f, 0.0f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f });
@@ -498,38 +408,37 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
+		gstate_c.SetUseShaderDepal(false);
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	framebufferManagerGL_->RebindFramebuffer();
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, false);
+	framebufferManagerGL_->RebindFramebuffer("ApplyTextureFramebuffer");
 
-	InvalidateLastTexture();
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	ApplySamplingParams(samplerKey);
 
 	// Since we started/ended render passes, might need these.
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
-ReplacedTextureFormat FromGLESFormat(GLenum fmt) {
+ReplacedTextureFormat FromDataFormat(Draw::DataFormat fmt) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
-	case GL_UNSIGNED_SHORT_5_6_5: return ReplacedTextureFormat::F_0565_ABGR;
-	case GL_UNSIGNED_SHORT_5_5_5_1: return ReplacedTextureFormat::F_1555_ABGR;
-	case GL_UNSIGNED_SHORT_4_4_4_4: return ReplacedTextureFormat::F_4444_ABGR;
-	case GL_UNSIGNED_BYTE: default: return ReplacedTextureFormat::F_8888;
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
-GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
+Draw::DataFormat ToDataFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return GL_UNSIGNED_SHORT_5_6_5;
-	case ReplacedTextureFormat::F_5551: return GL_UNSIGNED_SHORT_5_5_5_1;
-	case ReplacedTextureFormat::F_4444: return GL_UNSIGNED_SHORT_4_4_4_4;
-	case ReplacedTextureFormat::F_8888: default: return GL_UNSIGNED_BYTE;
+	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
+	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+	case ReplacedTextureFormat::F_8888: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -538,16 +447,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-	if (entry->framebuffer) {
-		// Nothing else to do here.
-		return;
-	}
-
-	// Always generate a texture name unless it's a framebuffer, we might need it if the texture is replaced later.
-	if (!entry->textureName) {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
-	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
@@ -592,7 +491,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	GLenum dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 
@@ -635,9 +534,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 	}
 
-	// glBindTexture(GL_TEXTURE_2D, entry->textureName);
-	lastBoundTexture = entry->textureName;
-	
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -648,10 +544,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
-	} else
+	} else {
 		LoadTextureLevel(*entry, replaced, 0, scaleFactor, dstFmt);
+	}
 
-	// Mipmapping only enable when texture scaling disable
+	// Mipmapping is only enabled when texture scaling is disabled.
 	int texMaxLevel = 0;
 	bool genMips = false;
 	if (maxLevel > 0 && scaleFactor == 1) {
@@ -693,14 +590,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
-
-	// This will rebind it, but that's okay.
-	// Need to actually bind it now - it might only have gotten bound in the init phase.
-	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, entry->textureName);
-	UpdateSamplingParams(*entry, true);
 }
 
-GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
@@ -708,30 +600,30 @@ GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_CLUT32:
 		return getClutDestFormat(clutFormat);
 	case GE_TFMT_4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4;
+		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 	case GE_TFMT_5551:
-		return GL_UNSIGNED_SHORT_5_5_5_1;
+		return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
 	case GE_TFMT_5650:
-		return GL_UNSIGNED_SHORT_5_6_5;
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case GE_TFMT_8888:
 	case GE_TFMT_DXT1:
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 	default:
-		return GL_UNSIGNED_BYTE;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
 		res = CheckAlphaABGR4444Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
 		res = CheckAlphaABGR1555Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		// Never has any alpha.
 		res = CHECKALPHA_FULL;
 		break;
@@ -743,13 +635,21 @@ TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, 
 	return (TexCacheEntry::TexStatus)res;
 }
 
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, GLenum dstFmt) {
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	uint8_t *pixelData;
 	int decPitch = 0;
 
 	gpuStats.numTexturesDecoded++;
+
+	if (!entry.textureName) {
+		// TODO: Actually pass in correct size here. The size here is not yet used for anything else
+		// than determining if we can wrap this texture size, that is, it's pow2 or not on very old hardware, else true.
+		// This will be easy after .. well, yet another refactoring, where I hoist the size calculation out of LoadTextureLevel
+		// and unify BuildTexture.
+		entry.textureName = render_->CreateTexture(GL_TEXTURE_2D, 16, 16, 1);
+	}
 
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
@@ -760,7 +660,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		replaced.Load(level, rearrange, decPitch);
 		pixelData = rearrange;
 
-		dstFmt = ToGLESFormat(replaced.Format(level));
+		dstFmt = ToDataFormat(replaced.Format(level));
 	} else {
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -768,7 +668,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
 
-		int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
+		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
 		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
 		decPitch = std::max(w * pixelSize, 4);
 
@@ -785,7 +685,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
+			u32 dFmt = (u32)dstFmt;
+			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dFmt, w, h, scaleFactor);
+			dstFmt = (Draw::DataFormat)dFmt;
 			FreeAlignedMemory(pixelData);
 			pixelData = rearrange;
 			decPitch = w * 4;
@@ -799,25 +701,20 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromGLESFormat(dstFmt);
+			replacedInfo.fmt = FromDataFormat(dstFmt);
 
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
-
-	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-
-	GLuint components2 = components;
-
+	
 	PROFILE_THIS_SCOPE("loadtex");
 	if (IsFakeMipmapChange())
-		render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
+		render_->TextureImage(entry.textureName, 0, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 	else
-		render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
+		render_->TextureImage(entry.textureName, level, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-#ifndef USING_GLES2
 	GPUgstate saved;
 	if (level != 0) {
 		saved = gstate;
@@ -828,28 +725,33 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 		gstate.texbufwidth[0] = gstate.texbufwidth[level];
 	}
 
-	SetTexture(true);
-	if (!nextTexture_)
-		return false;
+	InvalidateLastTexture();
+	SetTexture();
+
+	if (!nextTexture_) {
+		if (nextFramebufferTexture_) {
+			VirtualFramebuffer *vfb = nextFramebufferTexture_;
+			buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+			bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
+			// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+			// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+			// We may have blitted to a temp FBO.
+			framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
+			if (!retval)
+				ERROR_LOG(G3D, "Failed to get debug texture: copy to memory failed");
+			return retval;
+		} else {
+			ERROR_LOG(G3D, "Failed to get debug texture: no texture set");
+			return false;
+		}
+	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
-	framebufferManagerGL_->RebindFramebuffer();
+	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 	ApplyTexture();
-
-	// TODO: Centralize?
-	if (entry->framebuffer) {
-		VirtualFramebuffer *vfb = entry->framebuffer;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
-		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
-		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer();
-		return retval;
-	}
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -862,15 +764,17 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 		gstate = saved;
 	}
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, false);
-	renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w);
+	bool result = entry->textureName != nullptr;
+	if (result) {
+		buffer.Allocate(w, h, GE_FORMAT_8888, false);
+		renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
+	} else {
+		ERROR_LOG(G3D, "Failed to get debug texture: texture is null");
+	}
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	framebufferManager_->RebindFramebuffer();
+	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 
-	return true;
-#else
-	return false;
-#endif
+	return result;
 }
 
 void TextureCacheGLES::DeviceLost() {

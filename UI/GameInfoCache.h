@@ -23,7 +23,6 @@
 #include <mutex>
 #include <atomic>
 
-#include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
 #include "UI/TextureUtil.h"
 
@@ -46,6 +45,7 @@ enum GameRegion {
 	GAMEREGION_EUROPE,
 	GAMEREGION_HONGKONG,
 	GAMEREGION_ASIA,
+	GAMEREGION_KOREA,
 	GAMEREGION_OTHER,
 	GAMEREGION_MAX,
 };
@@ -61,12 +61,6 @@ class FileLoader;
 enum class IdentifiedFileType;
 
 struct GameInfoTex {
-	GameInfoTex() {}
-	~GameInfoTex() {
-		if (texture) {
-			ELOG("LEAKED GameInfoTex");
-		}
-	}
 	std::string data;
 	std::unique_ptr<ManagedTexture> texture;
 	// The time at which the Icon and the BG were loaded.
@@ -81,8 +75,6 @@ struct GameInfoTex {
 		}
 		texture.reset(nullptr);
 	}
-private:
-	DISALLOW_COPY_AND_ASSIGN(GameInfoTex);
 };
 
 class GameInfo {

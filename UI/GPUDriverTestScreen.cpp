@@ -1,9 +1,10 @@
 #include "GPUDriverTestScreen.h"
-#include "i18n/i18n.h"
-#include "ui/view.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/View.h"
+#include "Common/GPU/Shader.h"
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {
-	{Draw::ShaderLanguage::GLSL_ES_200,
+	{ShaderLanguage::GLSL_1xx,
 	R"(
 	#ifdef GL_ES
 	precision lowp float;
@@ -17,14 +18,18 @@ static const std::vector<Draw::ShaderSource> fsDiscard = {
 	varying vec2 oTexCoord0;
 	uniform sampler2D Sampler0;
 	void main() {
+	#if __VERSION__ >= 130
+		vec4 color = texture(Sampler0, oTexCoord0) * oColor0;
+	#else
 		vec4 color = texture2D(Sampler0, oTexCoord0) * oColor0;
+	#endif
 		if (color.a <= 0.0)
 			discard;
 		gl_FragColor = color;
 	})"
 	},
-	{Draw::ShaderLanguage::GLSL_VULKAN,
-	R"(#version 140
+	{ShaderLanguage::GLSL_VULKAN,
+	R"(#version 450
 	#extension GL_ARB_separate_shader_objects : enable
 	#extension GL_ARB_shading_language_420pack : enable
 	layout(location = 0) in vec4 oColor0;
@@ -78,8 +83,8 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 void GPUDriverTestScreen::CreateViews() {
 	// Don't bother with views for now.
 	using namespace UI;
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *cr = GetI18NCategory("PSPCredits");
+	auto di = GetI18NCategory("Dialog");
+	auto cr = GetI18NCategory("PSPCredits");
 
 	AnchorLayout *anchor = new AnchorLayout();
 	root_ = anchor;
@@ -101,7 +106,7 @@ void GPUDriverTestScreen::DiscardTest() {
 
 		// Create the special shader module.
 
-		discardFragShader_ = CreateShader(draw, Draw::ShaderStage::FRAGMENT, fsDiscard);
+		discardFragShader_ = CreateShader(draw, ShaderStage::Fragment, fsDiscard);
 
 		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
 		BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
@@ -232,7 +237,6 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
-	const Bounds &bounds = dc.GetBounds();
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
 	Pipeline *writePipelines[] = { discardWriteDepthStencil_, discardWriteStencil_, discardWriteDepth_ };
@@ -263,14 +267,16 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	// If everything is OK, both the background and the text should be OK.
 
+	Bounds layoutBounds = dc.GetLayoutBounds();
+
 	dc.Begin();
 	dc.SetFontScale(1.0f, 1.0f);
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName.c_str(), bounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor.c_str(), bounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver.c_str(), bounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(apiName.c_str(), layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(vendor.c_str(), layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(driver.c_str(), layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float testW = 170.f;
@@ -279,9 +285,9 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	float y = 150;
 	for (int j = 0; j < numWriteModes; j++, y += 120.f + padding) {
-		float x = (dc.GetBounds().w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
+		float x = layoutBounds.x + (layoutBounds.w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
 		dc.Begin();
-		dc.DrawText(writeModeNames[j], padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		dc.DrawText(writeModeNames[j], layoutBounds.x + padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 		dc.Flush();
 		for (int i = 0; i < numTests; i++, x += testW + padding) {
 			if (!validCombinations[j][i])

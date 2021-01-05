@@ -33,7 +33,7 @@ public:
 
 	void DoState(PointerWrap &p) override;
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
@@ -41,8 +41,8 @@ public:
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int      DevType(u32 handle) override;
-	int      Flags() override { return 0; }
+	PSPDevType DevType(u32 handle) override;
+	FileSystemFlags Flags() override;
 	u64      FreeSpace(const std::string &path) override { return 0; }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
@@ -110,7 +110,7 @@ public:
 	}
 
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override { return std::vector<PSPFileInfo>(); }
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override {
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override {
 		return isoFileSystem_->OpenFile("", access, devicename);
 	}
 	void     CloseFile(u32 handle) override {
@@ -134,10 +134,10 @@ public:
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {
 		return isoFileSystem_->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	}
-	int      DevType(u32 handle) override {
+	PSPDevType DevType(u32 handle) override {
 		return isoFileSystem_->DevType(handle);
 	}
-	int      Flags() override { return isoFileSystem_->Flags(); }
+	FileSystemFlags Flags() override { return isoFileSystem_->Flags(); }
 	u64      FreeSpace(const std::string &path) override { return isoFileSystem_->FreeSpace(path); }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override {

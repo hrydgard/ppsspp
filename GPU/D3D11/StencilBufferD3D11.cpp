@@ -17,13 +17,12 @@
 
 #include <d3d11.h>
 
-#include "base/logging.h"
+#include "Common/GPU/thin3d.h"
 
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
-#include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
@@ -70,7 +69,7 @@ VS_OUT main(VS_IN In) {
 )";
 
 // TODO : If SV_StencilRef is available (D3D11.3) then this can be done in a single pass.
-bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -117,7 +116,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	}
 
 	if (usedBits == 0) {
-		if (skipZero) {
+		if (flags == StencilUpload::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.  We're done.
 			return false;
 		}
@@ -160,9 +159,13 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	u16 h = dstBuffer->renderHeight;
 	float u1 = 1.0f;
 	float v1 = 1.0f;
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	if (!tex)
+		return false;
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		// Typically, STENCIL_IS_ZERO means it's already bound.
+		Draw::RPAction stencilAction = flags == StencilUpload::STENCIL_IS_ZERO ? Draw::RPAction::KEEP : Draw::RPAction::CLEAR;
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, stencilAction }, "Stencil");
 	} else {
 		// something is wrong...
 	}
@@ -189,13 +192,12 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->IASetInputLayout(stencilUploadInputLayout_);
 	context_->PSSetShader(stencilUploadPS_, nullptr, 0);
 	context_->VSSetShader(stencilUploadVS_, nullptr, 0);
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	draw_->BindTextures(0, 1, &tex);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
 	context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
 	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -237,6 +239,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		context_->PSSetConstantBuffers(0, 1, &stencilValueBuffer_);
 		context_->Draw(4, 0);
 	}
-	RebindFramebuffer();
+
+	tex->Release();
+	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

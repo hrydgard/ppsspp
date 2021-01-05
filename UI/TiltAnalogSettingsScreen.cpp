@@ -18,13 +18,13 @@
 #include "TiltAnalogSettingsScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *co = GetI18NCategory("Controls");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 	root_->SetTag("TiltAnalogSettings");
@@ -41,6 +41,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(),"%"));
 	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
 	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone Radius"), 0.01f, screenManager(),"/ 1.0"));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
 
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");

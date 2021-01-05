@@ -15,18 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef USING_QT_UI
-#include <QtGui/QImage>
-#else
-#include <libpng17/png.h>
-#endif
+#include <png.h>
 
 #include <algorithm>
-#include "i18n/i18n.h"
+
 #include "ext/xxhash.h"
-#include "file/ini_file.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/ColorConv.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -80,6 +80,8 @@ bool TextureReplacer::LoadIni() {
 	allowVideo_ = false;
 	ignoreAddress_ = false;
 	reduceHash_ = false;
+	// Prevents dumping the mipmaps.
+	ignoreMipmap_ = false;
 
 	if (File::Exists(basePath_ + INI_FILENAME)) {
 		IniFile ini;
@@ -128,6 +130,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	options->Get("ignoreAddress", &ignoreAddress_, ignoreAddress_);
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
 	options->Get("reduceHash", &reduceHash_, reduceHash_);
+	options->Get("ignoreMipmap", &ignoreMipmap_, ignoreMipmap_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -168,7 +171,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	}
 
 	if (filenameWarning) {
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
 	}
 
@@ -219,7 +222,7 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
-	_dbg_assert_msg_(G3D, enabled_, "Replacement not enabled");
+	_dbg_assert_msg_(enabled_, "Replacement not enabled");
 
 	if (!LookupHashRange(addr, w, h)) {
 		// There wasn't any hash range, let's fall back to maxSeenV logic.
@@ -241,9 +244,9 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		case ReplacedTextureHash::QUICK:
 			return StableQuickTexHash(checkp, sizeInRAM);
 		case ReplacedTextureHash::XXH32:
-			return DoReliableHash32(checkp, sizeInRAM, 0xBACD7814);
+			return XXH32(checkp, sizeInRAM, 0xBACD7814);
 		case ReplacedTextureHash::XXH64:
-			return DoReliableHash64(checkp, sizeInRAM, 0xBACD7814);
+			return XXH64(checkp, sizeInRAM, 0xBACD7814);
 		default:
 			return 0;
 		}
@@ -264,7 +267,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 
 		case ReplacedTextureHash::XXH32:
 			for (int y = 0; y < h; ++y) {
-				u32 rowHash = DoReliableHash32(checkp, bytesPerLine, 0xBACD7814);
+				u32 rowHash = XXH32(checkp, bytesPerLine, 0xBACD7814);
 				result = (result * 11) ^ rowHash;
 				checkp += stride;
 			}
@@ -272,7 +275,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 
 		case ReplacedTextureHash::XXH64:
 			for (int y = 0; y < h; ++y) {
-				u32 rowHash = DoReliableHash64(checkp, bytesPerLine, 0xBACD7814);
+				u32 rowHash = XXH64(checkp, bytesPerLine, 0xBACD7814);
 				result = (result * 11) ^ rowHash;
 				checkp += stride;
 			}
@@ -327,16 +330,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		level.fmt = ReplacedTextureFormat::F_8888;
 		level.file = filename;
 
-#ifdef USING_QT_UI
-		QImage image(filename.c_str(), "PNG");
-		if (image.isNull()) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s", filename.c_str());
-		} else {
-			level.w = (image.width() * w) / newW;
-			level.h = (image.height() * h) / newH;
-			good = true;
-		}
-#else
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 		FILE *fp = File::OpenCFile(filename, "rb");
@@ -351,7 +344,6 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		fclose(fp);
 
 		png_image_free(&png);
-#endif
 
 		if (good && i != 0) {
 			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
@@ -371,19 +363,15 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
-#ifndef USING_QT_UI
 static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(SYSTEM, "Unable to open texture file for writing.");
+		ERROR_LOG(IO, "Unable to open texture file for writing.");
 		return false;
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		if (fclose(fp) != 0) {
-			ERROR_LOG(SYSTEM, "Texture file write failed.");
-			return false;
-		}
+		fclose(fp);
 		return true;
 	} else {
 		ERROR_LOG(SYSTEM, "Texture PNG encode failed.");
@@ -392,10 +380,9 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 		return false;
 	}
 }
-#endif
 
 void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
-	_assert_msg_(G3D, enabled_, "Replacement not enabled");
+	_assert_msg_(enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
 		// Ignore.
 		return;
@@ -410,6 +397,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	u64 cachekey = replacedInfo.cachekey;
 	if (ignoreAddress_) {
 		cachekey = cachekey & 0xFFFFFFFFULL;
+	}
+	if (ignoreMipmap_ && level > 0) {
+		return;
 	}
 
 	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
@@ -453,14 +443,11 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		h = lookupH * replacedInfo.scaleFactor;
 	}
 
-#ifdef USING_QT_UI
-	ERROR_LOG(G3D, "Replacement texture saving not implemented for Qt");
-#else
 	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
 		case ReplacedTextureFormat::F_5650:
-			ConvertRGBA565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertRGB565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_5551:
 			ConvertRGBA5551ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
@@ -469,7 +456,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_0565_ABGR:
-			ConvertABGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertBGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_1555_ABGR:
 			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
@@ -506,7 +493,6 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	} else if (success) {
 		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfo.hash, w, h);
 	}
-#endif
 
 	// Remember that we've saved this for next time.
 	ReplacedTextureLevel saved;
@@ -589,39 +575,11 @@ bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
 }
 
 void ReplacedTexture::Load(int level, void *out, int rowPitch) {
-	_assert_msg_(G3D, (size_t)level < levels_.size(), "Invalid miplevel");
-	_assert_msg_(G3D, out != nullptr && rowPitch > 0, "Invalid out/pitch");
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	const ReplacedTextureLevel &info = levels_[level];
 
-#ifdef USING_QT_UI
-	QImage image(info.file.c_str(), "PNG");
-	if (image.isNull()) {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s", info.file.c_str());
-		return;
-	}
-
-	image = image.convertToFormat(QImage::Format_ARGB32);
-	bool alphaFull = true;
-	for (int y = 0; y < image.height(); ++y) {
-		const QRgb *src = (const QRgb *)image.constScanLine(y);
-		uint8_t *outLine = (uint8_t *)out + y * rowPitch;
-		for (int x = 0; x < image.width(); ++x) {
-			outLine[x * 4 + 0] = qRed(src[x]);
-			outLine[x * 4 + 1] = qGreen(src[x]);
-			outLine[x * 4 + 2] = qBlue(src[x]);
-			outLine[x * 4 + 3] = qAlpha(src[x]);
-			// We're already scanning each pixel...
-			if (qAlpha(src[x]) != 255) {
-				alphaFull = false;
-			}
-		}
-	}
-
-	if (level == 0 || !alphaFull) {
-		alphaStatus_ = alphaFull ? ReplacedTextureAlpha::FULL : ReplacedTextureAlpha::UNKNOWN;
-	}
-#else
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
 
@@ -656,7 +614,6 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	fclose(fp);
 	png_image_free(&png);
-#endif
 }
 
 bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *generatedFilename) {
@@ -687,6 +644,8 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fs << "[options]\n";
 		fs << "version = 1\n";
 		fs << "hash = quick\n";
+		fs << "ignoreMipmap = false\n";
+		fs << "\n";
 		fs << "[games]\n";
 		fs << "# Used to make it easier to install, and override settings for other regions.\n";
 		fs << "# Files still have to be copied to each TEXTURES folder.";

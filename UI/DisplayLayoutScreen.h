@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "MiscScreens.h"
 #include <vector>
 
@@ -39,20 +39,16 @@ protected:
 	virtual UI::EventReturn OnZoomTypeChange(UI::EventParams &e);
 
 private:
-	DragDropDisplay *picked_;
-	DragDropDisplay *displayRepresentation_;
-	UI::ChoiceStrip *mode_;
-	UI::PopupMultiChoice *zoom_;
-	UI::PopupMultiChoice *rotation_;
-	bool displayRotEnable_;
-	bool bRotated;
-	bool stickToEdgeX;
-	bool stickToEdgeY;
+	DragDropDisplay *displayRepresentation_ = nullptr;
+	UI::ChoiceStrip *mode_ = nullptr;
+	bool dragging_ = false;
+	bool bRotated_ = false;
+	bool stickToEdgeX_ = false;
+	bool stickToEdgeY_ = false;
 	// Touch down state for drag to resize etc
-	float startX_;
-	float startY_;
-	float startScale_, scaleUpdate_;
-	float displayRepresentationScale_;
-	int offsetTouchX, offsetTouchY;
+	float startY_ = 0.0f;
+	float startScale_ = 1.0f;
+	int offsetTouchX_ = 0;
+	int offsetTouchY_ = 0;
 	
 };
