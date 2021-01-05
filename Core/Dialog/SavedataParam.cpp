@@ -1485,19 +1485,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				}
 
 				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
-				DEBUG_LOG(SCEUTILITY, "Name : %s", thisSaveName.c_str());
 
 				std::string fileDataDir = savePath + GetGameName(param) + thisSaveName;
 				PSPFileInfo info = GetSaveInfo(fileDataDir);
 				if (info.exists) {
 					SetFileInfo(realCount, info, thisSaveName);
-					DEBUG_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
+					DEBUG_LOG(SCEUTILITY, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 					realCount++;
 				} else {
 					if (listEmptyFile) {
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
-						DEBUG_LOG(SCEUTILITY,"Don't Exist");
+						DEBUG_LOG(SCEUTILITY, "Listing missing save data: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 						realCount++;
+					} else {
+						DEBUG_LOG(SCEUTILITY, "Save data not found: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 					}
 				}
 			}
@@ -1513,18 +1514,18 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		saveDataListCount = 1;
 
 		// get and stock file info for each file
-		DEBUG_LOG(SCEUTILITY,"Name : %s",GetSaveName(param).c_str());
-
 		std::string fileDataDir = savePath + GetGameName(param) + GetSaveName(param);
 		PSPFileInfo info = GetSaveInfo(fileDataDir);
 		if (info.exists) {
 			SetFileInfo(0, info, GetSaveName(param));
-			ERROR_LOG(SCEUTILITY,"%s Exist",fileDataDir.c_str());
+			DEBUG_LOG(SCEUTILITY, "Save data exists: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			saveNameListDataCount = 1;
 		} else {
 			if (listEmptyFile) {
 				ClearFileInfo(saveDataList[0], GetSaveName(param));
-				DEBUG_LOG(SCEUTILITY,"Don't Exist");
+				DEBUG_LOG(SCEUTILITY, "Listing missing save data: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
+			} else {
+				DEBUG_LOG(SCEUTILITY, "Save data not found: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			}
 			saveNameListDataCount = 0;
 			return 0;
@@ -1631,7 +1632,6 @@ PSPFileInfo SavedataParam::GetSaveInfo(std::string saveDir) {
 			}
 		}
 	}
-	ERROR_LOG(HLE, "size = %d", info.size);
 	return info;
 }
 
