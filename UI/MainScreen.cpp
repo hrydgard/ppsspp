@@ -1274,6 +1274,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
+	g_Config.Save("MainScreen::OnGameSelected");
 #ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
@@ -1328,6 +1329,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
+	g_Config.Save("MainScreen::OnGameSelectedInstant");
 #ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
