@@ -546,8 +546,17 @@ UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
-	// TODO: Get the SD card directory on Android.
-	SetPath("");
+	std::vector<std::string> storageDirs = System_GetPropertyStringVec(SYSPROP_ADDITIONAL_STORAGE_DIRS);
+	if (storageDirs.empty()) {
+		// Shouldn't happen - this button shouldn't be clickable.
+		return UI::EVENT_DONE;
+	}
+	if (storageDirs.size() == 1) {
+		SetPath(storageDirs[0]);
+	} else {
+		// TODO: We should popup a dialog letting the user choose one.
+		SetPath(storageDirs[0]);
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -672,7 +681,7 @@ void GameBrowser::Refresh() {
 			} else {
 				topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 			}
-			if (System_GetPropertyBool(SYSPROP_HAS_EXTERNAL_STORAGE)) {
+			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
 			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);

@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <vector>
 #include <string>
 #include <sstream>
 #if defined(ANDROID)
@@ -58,7 +59,9 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
