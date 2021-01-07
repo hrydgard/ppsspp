@@ -243,9 +243,9 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	// Unofficial hacks to get a list of SD cards that are not the main "external storage".
-	private static List<String> getSdCardPaths(final Context context) {
+	private static ArrayList<String> getSdCardPaths(final Context context) {
 		// Q is the last version that will support normal file access.
-		List<String> list = null;
+		ArrayList<String> list = null;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
 			Log.i(TAG, "getSdCardPaths: Trying KitKat method");
 			list = getSdCardPaths19(context);
@@ -277,7 +277,7 @@ public abstract class NativeActivity extends Activity {
 	 * returns a list of all available sd cards paths, or null if not found.
 	 */
 	@TargetApi(Build.VERSION_CODES.KITKAT)
-	private static List<String> getSdCardPaths19(final Context context)
+	private static ArrayList<String> getSdCardPaths19(final Context context)
 	{
 		final File[] externalCacheDirs = context.getExternalCacheDirs();
 		if (externalCacheDirs == null || externalCacheDirs.length==0)
@@ -291,15 +291,15 @@ public abstract class NativeActivity extends Activity {
 			if (Environment.isExternalStorageEmulated())
 				return null;
 		}
-		final List<String> result = new ArrayList<>();
+		final ArrayList<String> result = new ArrayList<>();
 		if (externalCacheDirs.length == 1)
 			result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
 		for (int i = 1; i < externalCacheDirs.length; ++i)
 		{
-			final File file=externalCacheDirs[i];
+			final File file = externalCacheDirs[i];
 			if (file == null)
 				continue;
-			final String storageState=Environment.getStorageState(file);
+			final String storageState = Environment.getStorageState(file);
 			if (Environment.MEDIA_MOUNTED.equals(storageState))
 				result.add(getRootOfInnerSdCardFolder(externalCacheDirs[i]));
 		}
@@ -384,11 +384,19 @@ public abstract class NativeActivity extends Activity {
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 
-		List<String> sdCards = getSdCardPaths(this);
-		for (String sdcard: sdCards) {
-			Log.i(TAG, "SD card: " + sdcard);
+		ArrayList<String> sdCards = getSdCardPaths(this);
+
+		// String.join doesn't exist on old devices (???).
+		StringBuilder s = new StringBuilder();
+		for (int i = 0; i < sdCards.size(); i++) {
+			String sdCard = sdCards.get(i);
+			Log.i(TAG, "SD card: " + sdCard);
+			s.append(sdCard);
+			if (i != sdCards.size() - 1) {
+				s.append(":");
+			}
 		}
-		String additionalStorageDirs = String.join(":", sdCards);
+		String additionalStorageDirs = s.toString();
 
 		Log.i(TAG, "End of storage paths");
 
