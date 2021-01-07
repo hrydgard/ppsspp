@@ -40,6 +40,8 @@ void System_SendMessage(const char *command, const char *parameter);
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 
+std::vector<std::string> System_GetExternalStorageDirs();
+
 // This will get muddy with multi-screen support :/ But this will always be the type of the main device.
 enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads
@@ -54,6 +56,11 @@ enum SystemProperty {
 	SYSPROP_BOARDNAME,
 	SYSPROP_CLIPBOARD_TEXT,
 	SYSPROP_GPUDRIVER_VERSION,
+
+	// Separate SD cards or similar.
+	// Need hacky solutions to get at this.
+	SYSPROP_HAS_ADDITIONAL_STORAGE,
+	SYSPROP_ADDITIONAL_STORAGE_DIRS,
 
 	SYSPROP_HAS_FILE_BROWSER,
 	SYSPROP_HAS_FOLDER_BROWSER,
@@ -95,6 +102,7 @@ enum SystemProperty {
 };
 
 std::string System_GetProperty(SystemProperty prop);
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);

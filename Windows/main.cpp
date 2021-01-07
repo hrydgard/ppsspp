@@ -216,6 +216,13 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	switch (prop) {
+	default:
+		return std::vector<std::string>();
+	}
+}
+
 // Ugly!
 extern WindowsAudioBackend *winAudioBackend;
 

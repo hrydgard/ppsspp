@@ -81,15 +81,11 @@ void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) {
-	return -1;
-}
-float System_GetPropertyFloat(SystemProperty prop) {
-	return -1;
-}
-bool System_GetPropertyBool(SystemProperty prop) {
-	return false;
-}
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
+float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
+bool System_GetPropertyBool(SystemProperty prop) { return false; }
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
