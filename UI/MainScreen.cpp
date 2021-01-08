@@ -67,8 +67,6 @@
 #ifdef _WIN32
 // Unfortunate, for undef DrawText...
 #include "Common/CommonWindows.h"
-// For fullscreen toggle
-#include "Windows/MainWindow.h"
 #endif
 
 #include <sstream>
@@ -1102,7 +1100,7 @@ void MainScreen::CreateViews() {
 	}
 	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#if !defined(MOBILE_DEVICE)
 	if (!g_Config.bFullScreen) {
 		fullscreenButton_ = logos->Add(new Button(ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
@@ -1270,9 +1268,9 @@ UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
 	if (fullscreenButton_) {
 		fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
 	}
-	// TODO: Need to abstract this more.
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	MainWindow::SendToggleFullscreen(!g_Config.bFullScreen);
+#if !defined(MOBILE_DEVICE)
+	g_Config.bFullScreen = !g_Config.bFullScreen;
+	System_SendMessage("toggle_fullscreen", "");
 #endif
 	return UI::EVENT_DONE;
 }
