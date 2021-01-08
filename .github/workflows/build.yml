@@ -215,6 +215,7 @@ jobs:
           cp -r build*/PPSSPPSDL.app ppsspp/
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
+          cp -r assets ppsspp/assets
         fi
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/
