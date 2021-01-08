@@ -257,9 +257,11 @@ public abstract class NativeActivity extends Activity {
 			String removableStoragePath;
 			list = new ArrayList<String>();
 			File fileList[] = new File("/storage/").listFiles();
-			for (File file : fileList) {
-				if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
-					list.add(file.getAbsolutePath());
+			if (fileList != null) {
+				for (File file : fileList) {
+					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
+						list.add(file.getAbsolutePath());
+					}
 				}
 			}
 		}
@@ -300,8 +302,12 @@ public abstract class NativeActivity extends Activity {
 			if (file == null)
 				continue;
 			final String storageState = Environment.getStorageState(file);
-			if (Environment.MEDIA_MOUNTED.equals(storageState))
-				result.add(getRootOfInnerSdCardFolder(externalCacheDirs[i]));
+			if (Environment.MEDIA_MOUNTED.equals(storageState)) {
+				String root = getRootOfInnerSdCardFolder(externalCacheDirs[i]);
+				if (root != null) {
+					result.add(root);
+				}
+			}
 		}
 		if (result.isEmpty())
 			return null;
@@ -314,6 +320,9 @@ public abstract class NativeActivity extends Activity {
 		if (file == null)
 			return null;
 		final long totalSpace = file.getTotalSpace();
+		if (totalSpace <= 0) {
+			return null;
+		}
 		while (true) {
 			final File parentFile = file.getParentFile();
 			if (parentFile == null || !parentFile.canRead()) {
@@ -384,19 +393,25 @@ public abstract class NativeActivity extends Activity {
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 
-		ArrayList<String> sdCards = getSdCardPaths(this);
+		String additionalStorageDirs = "";
+		try {
+			ArrayList<String> sdCards = getSdCardPaths(this);
 
-		// String.join doesn't exist on old devices (???).
-		StringBuilder s = new StringBuilder();
-		for (int i = 0; i < sdCards.size(); i++) {
-			String sdCard = sdCards.get(i);
-			Log.i(TAG, "SD card: " + sdCard);
-			s.append(sdCard);
-			if (i != sdCards.size() - 1) {
-				s.append(":");
+			// String.join doesn't exist on old devices (???).
+			StringBuilder s = new StringBuilder();
+			for (int i = 0; i < sdCards.size(); i++) {
+				String sdCard = sdCards.get(i);
+				Log.i(TAG, "SD card: " + sdCard);
+				s.append(sdCard);
+				if (i != sdCards.size() - 1) {
+					s.append(":");
+				}
 			}
+			additionalStorageDirs = s.toString();
 		}
-		String additionalStorageDirs = s.toString();
+		catch (Exception e) {
+			Log.e(TAG, "Failed to get SD storage dirs: " + e.toString());
+		}
 
 		Log.i(TAG, "End of storage paths");
 
