@@ -40,8 +40,6 @@ void System_SendMessage(const char *command, const char *parameter);
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 
-std::vector<std::string> System_GetExternalStorageDirs();
-
 // This will get muddy with multi-screen support :/ But this will always be the type of the main device.
 enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads

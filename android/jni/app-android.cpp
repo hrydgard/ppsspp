@@ -579,15 +579,15 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	EARLY_LOG("NativeApp.init(): device name: '%s'", systemName.c_str());
 
-    std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
-    std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
+	std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
+	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
 
-    if (!additionalStorageDirsString.empty()) {
-        SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
-        for (auto &str : g_additionalStorageDirs) {
+	if (!additionalStorageDirsString.empty()) {
+		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
+		for (auto &str : g_additionalStorageDirs) {
 			EARLY_LOG("Additional storage: %s", str.c_str());
-        }
-    }
+		}
+	}
 
 	std::string user_data_path = GetJavaString(env, jdataDir);
 	if (user_data_path.size() > 0)
