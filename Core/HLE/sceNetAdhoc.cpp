@@ -103,6 +103,7 @@ u32_le matchingThreadCode[3];
 
 int matchingEventThread(int matchingId); 
 int matchingInputThread(int matchingId); 
+void sendBulkDataPacket(SceNetAdhocMatchingContext* context, SceNetEtherAddr* mac, int datalen, void* data);
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 int FlushPtpSocket(int socketId);
@@ -5279,7 +5280,7 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 							peer->sending = 1;
 
 							// Send Data to Peer
-							sendBulkData(context, peer, dataLen, data);
+							sendBulkDataPacket(context, &peer->mac, dataLen, data);
 
 							// Return Success
 							return 0;
@@ -5518,7 +5519,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 		after->SetData(args[0], args[1], args[2]);
 		hleEnqueueCall(args[5], 5, args, after);
 		matchingEvents.pop_front();
-		delayus = (adhocMatchingEventDelay + adhocExtraDelay); // Added an extra delay to prevent I/O Timing method from causing disconnection
+		delayus = adhocMatchingEventDelay; // Add extra delay to prevent I/O Timing method from causing disconnection, but delaying too long may cause matchingEvents to pile up
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
