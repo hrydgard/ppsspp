@@ -5519,7 +5519,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 		after->SetData(args[0], args[1], args[2]);
 		hleEnqueueCall(args[5], 5, args, after);
 		matchingEvents.pop_front();
-		delayus = (adhocMatchingEventDelay + adhocExtraDelay); // Added an extra delay to prevent I/O Timing method from causing disconnection
+		delayus = adhocMatchingEventDelay; // Add extra delay to prevent I/O Timing method from causing disconnection, but delaying too long may cause matchingEvents to pile up
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
