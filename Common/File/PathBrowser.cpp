@@ -273,7 +273,7 @@ bool PathBrowser::CanNavigateUp() {
 	}
 #endif
 */
-	if (path_ == "/") {
+	if (path_ == "/" || path_ == "") {
 		return false;
 	}
 	return true;

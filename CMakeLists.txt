@@ -775,7 +775,7 @@ if(NOT MSVC)
 endif()
 
 
-find_package(LibZip)
+find_package(LIBZIP)
 if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()

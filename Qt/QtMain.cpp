@@ -149,6 +149,13 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	switch (prop) {
+	default:
+		return std::vector<std::string>();
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 #if defined(SDL)

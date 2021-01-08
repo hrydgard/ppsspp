@@ -803,6 +803,10 @@ void TextView::Draw(UIContext &dc) {
 		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1.0f, 1.0f), shadowColor, textAlign_);
 	}
 	dc.DrawTextRect(text_.c_str(), bounds_, textColor, textAlign_);
+	if (small_) {
+		// If we changed font style, reset it.
+		dc.SetFontStyle(dc.theme->uiFont);
+	}
 	if (clip) {
 		dc.PopScissor();
 	}

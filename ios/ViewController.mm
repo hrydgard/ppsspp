@@ -686,7 +686,7 @@ static LocationHelper *locationHelper;
 		};
 	}
 #endif
-#if defined(__IPHONE_13) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13
+#if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
 	if (extendedProfile.buttonOptions != nil) {
 		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];

@@ -905,6 +905,8 @@ float System_GetPropertyFloat(SystemProperty prop)
 }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
