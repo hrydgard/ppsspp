@@ -125,9 +125,11 @@ protected:
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
+	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
+	UI::Button *fullscreenButton_ = nullptr;
 
 	std::string restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;
