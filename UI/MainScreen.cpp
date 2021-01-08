@@ -1094,13 +1094,13 @@ void MainScreen::CreateViews() {
 	char versionString[256];
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	rightColumnItems->SetSpacing(0.0f);
-	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
+	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (!g_Config.bFullScreen) {
