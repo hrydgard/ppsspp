@@ -33,6 +33,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/PathBrowser.h"
 #include "Common/Math/curves.h"
+#include "Common/Net/URL.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -66,6 +67,8 @@
 #ifdef _WIN32
 // Unfortunate, for undef DrawText...
 #include "Common/CommonWindows.h"
+// For fullscreen toggle
+#include "Windows/MainWindow.h"
 #endif
 
 #include <sstream>
@@ -1091,17 +1094,18 @@ void MainScreen::CreateViews() {
 	char versionString[256];
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	rightColumnItems->SetSpacing(0.0f);
-	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
+	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (!g_Config.bFullScreen) {
-		logos->Add(new ImageView(ImageID("I_FULLSCREEN"), IS_DEFAULT, new AnchorLayoutParams(64, 64, NONE, 0, 0, NONE, false)));
+		fullscreenButton_ = logos->Add(new Button(ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 	}
 #endif
 
@@ -1210,9 +1214,26 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 			LaunchFile(screenManager(), std::string(value));
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
+			std::string filename;
+#if PPSSPP_PLATFORM(ANDROID)
+			std::string url = value;
+			const char *prefix = "content://com.android.externalstorage.documents/tree/";
+			if (startsWith(url, prefix)) {
+				url = url.substr(strlen(prefix));
+				url = UriDecode(url);
+			} else {
+				// It's not gonna work.
+				// TODO: Show an error message?
+				return;
+			}
+			filename = url;
+#else
+			filename = value;
+#endif
+			INFO_LOG(SYSTEM, "Got folder: %s", filename.c_str());
 			int tab = tabHolder_->GetCurrentTab();
 			if (tab >= 0 && tab < (int)gameBrowsers_.size()) {
-				gameBrowsers_[tab]->SetPath(value);
+				gameBrowsers_[tab]->SetPath(filename);
 			}
 		}
 	}
@@ -1242,6 +1263,17 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		System_SendMessage("browse_file", "");
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
+	if (fullscreenButton_) {
+		fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
+	}
+	// TODO: Need to abstract this more.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	MainWindow::SendToggleFullscreen(!g_Config.bFullScreen);
+#endif
 	return UI::EVENT_DONE;
 }
 

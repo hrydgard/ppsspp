@@ -266,7 +266,18 @@ public abstract class NativeActivity extends Activity {
 			}
 		}
 
-		// TODO: On older devices, try System.getenv(“EXTERNAL_SDCARD_STORAGE”)
+		if (list == null) {
+			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
+			for (String var : varNames) {
+				Log.i(TAG, "getSdCardPaths: Checking env " + var);
+				String secStore = System.getenv("SECONDARY_STORAGE");
+				if (secStore != null && secStore.length() > 0) {
+					list = new ArrayList<String>();
+					list.add(secStore);
+					break;
+				}
+			}
+		}
 
 		if (list == null) {
 			return new ArrayList<String>();
@@ -275,9 +286,6 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	/**
-	 * returns a list of all available sd cards paths, or null if not found.
-	 */
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	private static ArrayList<String> getSdCardPaths19(final Context context)
 	{
