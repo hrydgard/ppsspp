@@ -447,11 +447,16 @@ void System_SendMessage(const char *command, const char *parameter) {
 		});
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+		bool flag = !view->IsFullScreenMode;
 		if (strcmp(parameter, "0") == 0) {
-			view->ExitFullScreenMode();
+			flag = false;
+		} else if (strcmp(parameter, "1") == 0){
+			flag = true;
 		}
-		else if (strcmp(parameter, "1") == 0){
+		if (flag) {
 			view->TryEnterFullScreenMode();
+		} else {
+			view->ExitFullScreenMode();
 		}
 	}
 }
