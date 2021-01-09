@@ -126,7 +126,7 @@ std::string UriDecode(const std::string & sSrc)
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 	const unsigned char * const SRC_LAST_DEC = SRC_END - 2;   // last decodable '%' 
 
-	char * const pStart = new char[SRC_LEN];
+	char * const pStart = new char[SRC_LEN];  // Output will be shorter.
 	char * pEnd = pStart;
 
 	while (pSrc < SRC_LAST_DEC)
