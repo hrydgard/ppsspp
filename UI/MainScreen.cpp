@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <sstream>
 
 #include "ppsspp_config.h"
 
@@ -64,13 +65,6 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 
-#ifdef _WIN32
-// Unfortunate, for undef DrawText...
-#include "Common/CommonWindows.h"
-#endif
-
-#include <sstream>
-
 bool MainScreen::showHomebrewTab = false;
 
 bool LaunchFile(ScreenManager *screenManager, std::string path) {
@@ -97,8 +91,13 @@ bool LaunchFile(ScreenManager *screenManager, std::string path) {
 
 static bool IsTempPath(const std::string &str) {
 	std::string item = str;
+#ifdef _WIN32
+	// Normalize slashes.
+	item = ReplaceAll(str, "/", "\\");
+#endif
 
-	const auto testPath = [&](std::string temp) {
+	std::vector<std::string> tempPaths = System_GetPropertyStringVec(SYSPROP_TEMP_DIRS);
+	for (auto temp : tempPaths) {
 #ifdef _WIN32
 		temp = ReplaceAll(temp, "/", "\\");
 		if (!temp.empty() && temp[temp.size() - 1] != '\\')
@@ -107,37 +106,9 @@ static bool IsTempPath(const std::string &str) {
 		if (!temp.empty() && temp[temp.size() - 1] != '/')
 			temp += "/";
 #endif
-		return startsWith(item, temp);
-	};
-
-	const auto testCPath = [&](const char *temp) {
-		if (temp && temp[0])
-			return testPath(temp);
-		return false;
-	};
-
-#ifdef _WIN32
-	// Normalize slashes.
-	item = ReplaceAll(str, "/", "\\");
-
-	std::wstring tempPath(MAX_PATH, '\0');
-	size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
-	if (sz >= tempPath.size()) {
-		tempPath.resize(sz);
-		sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		if (startsWith(item, temp))
+			return true;
 	}
-	// Need to resize off the null terminator either way.
-	tempPath.resize(sz);
-	if (testPath(ConvertWStringToUTF8(tempPath)))
-		return true;
-#endif
-
-	if (testCPath(getenv("TMPDIR")))
-		return true;
-	if (testCPath(getenv("TMP")))
-		return true;
-	if (testCPath(getenv("TEMP")))
-		return true;
 
 	return false;
 }

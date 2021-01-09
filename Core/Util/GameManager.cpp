@@ -28,6 +28,9 @@
 #else
 #include "ext/libzip/zip.h"
 #endif
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#endif
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
