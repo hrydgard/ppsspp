@@ -7,19 +7,6 @@
 
 #include "Common/Net/Resolve.h"
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#endif
-
 #include "Common/Buffer.h"
 
 namespace net {

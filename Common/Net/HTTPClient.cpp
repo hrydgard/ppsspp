@@ -4,13 +4,18 @@
 #include "Common/StringUtils.h"
 
 #ifndef _WIN32
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <netdb.h>
 #include <unistd.h>
 #define closesocket close
 #else
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
