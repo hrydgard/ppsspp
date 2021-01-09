@@ -993,7 +993,7 @@ namespace MIPSComp {
 						ir.Write(IROp::AndConst, IRTEMP_0, rt, ir.AddConstant(mask));
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
 					} else {
-						ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, rt);
 					}
 				}
 
