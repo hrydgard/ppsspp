@@ -372,6 +372,8 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_ADDITIONAL_STORAGE_DIRS:
 		return g_additionalStorageDirs;
+
+	case SYSPROP_TEMP_DIRS:
 	default:
 		return std::vector<std::string>();
 	}

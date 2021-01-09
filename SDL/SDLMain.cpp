@@ -326,9 +326,20 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	std::vector<std::string> result;
+
 	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
+			result.push_back(getenv("TMPDIR"));
+		if (getenv("TMPDIR") && strlen(getenv("TMP")) != 0)
+			result.push_back(getenv("TMP"));
+		if (getenv("TMPDIR") && strlen(getenv("TEMP")) != 0)
+			result.push_back(getenv("TEMP"));
+		return result;
+
 	default:
-		return std::vector<std::string>();
+		return result;
 	}
 }
 
