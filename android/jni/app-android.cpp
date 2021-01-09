@@ -430,9 +430,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
-		return true;
+		return false;  // We kind of have but needs more work.
 	case SYSPROP_HAS_FOLDER_BROWSER:
-		// Uses OPEN_DOCUMENT_TREE
+		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
 		return androidVersion >= 21;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD

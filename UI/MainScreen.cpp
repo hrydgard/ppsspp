@@ -1215,21 +1215,33 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		if (!strcmp(message, "browse_folderSelect")) {
 			std::string filename;
 #if PPSSPP_PLATFORM(ANDROID)
+			// Hacky way to get a normal path from a Android Storage Framework path.
+			// Is not gonna work forever, but ship-hack for 1.11.
 			std::string url = value;
 			const char *prefix = "content://com.android.externalstorage.documents/tree/";
+			const char *primaryPrefix = "/storage/primary/";
 			if (startsWith(url, prefix)) {
-				url = url.substr(strlen(prefix));
-				url = UriDecode(url);
+				url = UriDecode(url.substr(strlen(prefix)));
+				size_t colonPos = url.find(":");
+				if (colonPos != std::string::npos) {
+					url[colonPos] = '/';
+				}
+				url = "/storage/" + url;
+				if (startsWith(url, primaryPrefix)) {
+					url = g_Config.memStickDirectory + url.substr(strlen(primaryPrefix));
+				}
+				INFO_LOG(SYSTEM, "Translated '%s' into '%s'", value, url.c_str());
 			} else {
 				// It's not gonna work.
 				// TODO: Show an error message?
+				INFO_LOG(SYSTEM, "Failed to parse content string: '%s'", value);
 				return;
 			}
 			filename = url;
 #else
 			filename = value;
 #endif
-			INFO_LOG(SYSTEM, "Got folder: %s", filename.c_str());
+			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
 			int tab = tabHolder_->GetCurrentTab();
 			if (tab >= 0 && tab < (int)gameBrowsers_.size()) {
 				gameBrowsers_[tab]->SetPath(filename);

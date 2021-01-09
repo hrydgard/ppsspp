@@ -1149,8 +1149,9 @@ public abstract class NativeActivity extends Activity {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				// Convert URI to normal path. (This might not be possible in Android 12+)
-				// NativeApp.sendMessage("browse_folderSelect", selectedFile.toString());
-				Log.i(TAG, "Browse folder finished: " + selectedFile.toString());
+				String path = selectedFile.toString();
+				Log.i(TAG, "Browse folder finished: " + path);
+				NativeApp.sendMessage("browse_folderSelect", path);
 			}
 		}
 	}
@@ -1297,11 +1298,12 @@ public abstract class NativeActivity extends Activity {
 		} else if (command.equals("browse_folder")) {
 			try {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-				// intent.setType("application/octet-stream");
-				// intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
+				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
+				return true;
 			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 				return false;
