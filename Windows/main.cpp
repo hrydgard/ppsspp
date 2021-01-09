@@ -330,7 +330,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "bgImage_browse")) {
 		MainWindow::BrowseBackground();
 	} else if (!strcmp(command, "toggle_fullscreen")) {
-		bool flag = !g_Config.bFullScreen;
+		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {
 			flag = false;
 		} else if (strcmp(parameter, "1") == 0) {
