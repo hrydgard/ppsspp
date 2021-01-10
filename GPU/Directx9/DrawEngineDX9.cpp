@@ -324,7 +324,7 @@ void DrawEngineDX9::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	VSShader *vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_);
+	VSShader *vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
 
 	if (vshader->UseHWTransform()) {
 		LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
@@ -505,7 +505,7 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
-		vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_);
+		vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -568,7 +568,7 @@ rotateVBO:
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		ApplyDrawStateLate();
-		vshader = shaderManager_->ApplyShader(false, false, lastVType_);
+		vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
