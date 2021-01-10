@@ -8,6 +8,10 @@
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 
+// #define CONDITIONAL_DISABLE { for (IRInst inst : in.GetInstructions()) { out.Write(inst); } return false; }
+#define CONDITIONAL_DISABLE
+#define DISABLE { for (IRInst inst : in.GetInstructions()) { out.Write(inst); } return false; }
+
 u32 Evaluate(u32 a, u32 b, IROp op) {
 	switch (op) {
 	case IROp::Add: case IROp::AddConst: return a + b;
@@ -101,8 +105,11 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 }
 
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+
 	bool logBlocks = false;
 	IRInst prev{ IROp::Nop };
+
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		switch (inst.op) {
@@ -151,6 +158,8 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 
 // Might be useful later on x86.
 bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
@@ -201,6 +210,8 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 }
 
 bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+
 	bool logBlocks = false;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
 		const IRInst &inst = in.GetInstructions()[i];
@@ -366,6 +377,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 }
 
 bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
 	IRRegCache gpr(&out);
 
 	bool logBlocks = false;
@@ -784,6 +796,7 @@ bool IRMutatesDestGPR(const IRInst &inst, int reg) {
 }
 
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
 	std::vector<IRInst> insts;
 	insts.reserve(in.GetInstructions().size());
 
@@ -903,6 +916,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 }
 
 bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
 	// This tells us to skip an AND op that has been optimized out.
 	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
 	int nextSkip = -1;
@@ -1039,6 +1053,8 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 }
 
 bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+
 	bool logBlocks = false;
 
 	enum class RegState : u8 {
@@ -1234,6 +1250,8 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 }
 
 bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+
 	bool logBlocks = false;
 
 	auto opsCompatible = [&](const IRInst &a, const IRInst &b, int dist) {
