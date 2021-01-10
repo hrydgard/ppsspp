@@ -233,9 +233,9 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 
 		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
 			result.push_back(getenv("TMPDIR"));
-		if (getenv("TMPDIR") && strlen(getenv("TMP")) != 0)
+		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
 			result.push_back(getenv("TMP"));
-		if (getenv("TMPDIR") && strlen(getenv("TEMP")) != 0)
+		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
 			result.push_back(getenv("TEMP"));
 		return result;
 	}
