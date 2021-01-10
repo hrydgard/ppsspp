@@ -684,6 +684,7 @@ ifeq ($(UNITTEST),1)
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(SRC)/unittest/JitHarness.cpp \
+    $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp

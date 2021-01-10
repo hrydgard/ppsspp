@@ -2,10 +2,11 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
+#include "ppsspp_config.h"
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
 
@@ -38,7 +39,7 @@
 #include "SDLHeadlessHost.h"
 #endif
 
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
 }
@@ -46,6 +47,9 @@ JNIEnv *getEnv() {
 jclass findClass(const char *name) {
 	return nullptr;
 }
+
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {

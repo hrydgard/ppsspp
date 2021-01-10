@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include <algorithm>
 
 #include "Common/StringUtils.h"
@@ -13,11 +14,13 @@
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
 
+#if PPSSPP_PLATFORM(WINDOWS)
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/D3D11/D3D11Loader.h"
 
 #include "GPU/D3D9/D3DCompilerLoader.h"
 #include "GPU/D3D9/D3D9ShaderCompiler.h"
+#endif
 
 bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs bugs, std::string *errorString) {
 	uint64_t uniformMask;
@@ -89,6 +92,7 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std::string *errorMessage) {
 	std::vector<uint32_t> spirv;
 	switch (lang) {
+#if PPSSPP_PLATFORM(WINDOWS)
 	case ShaderLanguage::HLSL_D3D11:
 	{
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), vertex ? "vs_4_0" : "ps_4_0", 0);
@@ -104,6 +108,7 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, bool vertex, std
 			return false;
 		}
 	}
+#endif
 
 	case ShaderLanguage::GLSL_VULKAN:
 		return GLSLtoSPV(vertex ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT, buffer, GLSLVariant::VULKAN, spirv, errorMessage);
@@ -352,9 +357,13 @@ bool TestFragmentShaders() {
 }
 
 bool TestShaderGenerators() {
+#if PPSSPP_PLATFORM(WINDOWS)
 	LoadD3D11();
 	init_glslang();
 	LoadD3DCompilerDynamic();
+#else
+	init_glslang();
+#endif
 
 	if (!TestFragmentShaders()) {
 		return false;
