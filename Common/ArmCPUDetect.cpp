@@ -253,6 +253,9 @@ void CPUInfo::Detect()
 #endif // PPSSPP_PLATFORM(IOS)
 	size_t sz = 0x41; // char brand_string[0x41]
 	if (sysctlbyname("machdep.cpu.brand_string", brand_string, &sz, nullptr, 0) != 0) {
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+		strcpy(brand_string, "Unknown");
+#else
 		std::string board = System_GetProperty(SYSPROP_BOARDNAME);
 		if (!board.empty()) {
 			if (board.compare(1, 9, "universal") > 0) {
@@ -265,6 +268,7 @@ void CPUInfo::Detect()
 		else {
 			strcpy(brand_string, "Unknown");
 		}
+#endif
 	}
 	int num = 0;
 	sz = sizeof(num);
