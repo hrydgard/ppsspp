@@ -1953,6 +1953,17 @@ void ColorPickerScreen::onFinish(DialogResult result) {
 	*color_ = (alpha_ << 24)|(blue_ << 16)|(green_ << 8)|red_;
 }
 
+void ColorPickerScreen::render() {
+	PopupScreen::render();
+
+	UIContext *ctx = screenManager()->getUIContext();
+	ctx->Flush();
+	ctx->BeginNoTex();
+	ctx->Draw()->Rect(20, 100, 100, 70, (alpha_ << 24)|(blue_ << 16)|(green_ << 8)|red_);
+	ctx->Flush();
+	ctx->Begin();
+}
+
 void CustomizeFPSCounterScreen::CreateViews() {
 	using namespace UI;
 

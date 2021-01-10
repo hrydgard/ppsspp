@@ -237,6 +237,8 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void onFinish(DialogResult result) override;
 
+	void render() override;
+
 private:
 	uint32_t *color_;
 	int red_;
