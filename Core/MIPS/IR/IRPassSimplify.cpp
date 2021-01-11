@@ -835,6 +835,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
 					lastWrittenTo[inst.dest] = check.index;
 					check.reg = inst.dest;
+					// Update the read by exit flag to match the new reg.
+					check.readByExit = inst.dest < IRTEMP_0 || inst.dest > IRTEMP_LR_SHIFT;
 					// And swap the args for this mov, since we changed the other dest.  We'll optimize this out later.
 					std::swap(inst.dest, inst.src1);
 				} else {
