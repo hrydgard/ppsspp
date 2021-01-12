@@ -766,7 +766,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettingsScroll->Add(networkingSettings);
 	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
 
-	networkingSettings->Add(new ItemHeader(n->T("Networking")));
+	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
 	networkingSettings->Add(new Choice(n->T("Adhoc Multiplayer forum")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 

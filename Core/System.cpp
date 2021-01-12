@@ -493,7 +493,7 @@ void PSP_Shutdown() {
 	// Make sure things know right away that PSP memory, etc. is going away.
 	pspIsQuitting = true;
 	if (coreState == CORE_RUNNING)
-		Core_UpdateState(CORE_POWERDOWN);
+		Core_Stop();
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {

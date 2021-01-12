@@ -527,6 +527,9 @@ public:
 		paddingW_ = w;
 		paddingH_ = h;
 	}
+	void SetImageID(ImageID imageID) {
+		imageID_ = imageID;
+	}
 
 	// Needed an extra small button...
 	void SetScale(float f) {

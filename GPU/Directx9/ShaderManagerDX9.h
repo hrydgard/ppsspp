@@ -80,7 +80,7 @@ public:
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType);
+	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat);
 	void DirtyShader();
 	void DirtyLastShader() override;
 

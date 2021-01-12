@@ -372,6 +372,8 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_ADDITIONAL_STORAGE_DIRS:
 		return g_additionalStorageDirs;
+
+	case SYSPROP_TEMP_DIRS:
 	default:
 		return std::vector<std::string>();
 	}
@@ -429,6 +431,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
+	case SYSPROP_HAS_FILE_BROWSER:
+		return false;  // We kind of have but needs more work.
+	case SYSPROP_HAS_FOLDER_BROWSER:
+		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
+		return androidVersion >= 21;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

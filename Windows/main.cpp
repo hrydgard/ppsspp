@@ -217,9 +217,31 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	std::vector<std::string> result;
 	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+	{
+		std::wstring tempPath(MAX_PATH, '\0');
+		size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		if (sz >= tempPath.size()) {
+			tempPath.resize(sz);
+			sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		}
+		// Need to resize off the null terminator either way.
+		tempPath.resize(sz);
+		result.push_back(ConvertWStringToUTF8(tempPath));
+
+		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
+			result.push_back(getenv("TMPDIR"));
+		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
+			result.push_back(getenv("TMP"));
+		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
+			result.push_back(getenv("TEMP"));
+		return result;
+	}
+
 	default:
-		return std::vector<std::string>();
+		return result;
 	}
 }
 
@@ -330,7 +352,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "bgImage_browse")) {
 		MainWindow::BrowseBackground();
 	} else if (!strcmp(command, "toggle_fullscreen")) {
-		bool flag = !g_Config.bFullScreen;
+		bool flag = !MainWindow::IsFullscreen();
 		if (strcmp(parameter, "0") == 0) {
 			flag = false;
 		} else if (strcmp(parameter, "1") == 0) {
