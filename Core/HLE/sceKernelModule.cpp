@@ -557,17 +557,17 @@ void __KernelModuleShutdown()
 // Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
 // For multiple LO16's, we need the original (unrelocated) instruction data of the HI16.
 // For multiple HI16's, we just need to set each one.
-struct HI16RelocInfo
-{
+struct HI16RelocInfo {
 	u32 addr;
 	u32 data;
 };
-static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false)
-{
+static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false) {
 	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16ExportAddress = 0;
+	// This is just a list of recent HI16s for the same export address.
 	static std::vector<HI16RelocInfo> lastHI16Relocs;
 	static bool lastHI16Processed = true;
+	static bool lastHI16Reverse = false;
 
 	u32 relocData = Memory::Read_Instruction(relocAddress, true).encoding;
 
@@ -601,12 +601,13 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 	*/
 
 	case R_MIPS_HI16:
-		if (lastHI16ExportAddress != exportAddress) {
-			if (!lastHI16Processed && lastHI16Relocs.size() >= 1) {
+		if (lastHI16ExportAddress != exportAddress || lastHI16Reverse != reverse) {
+			if (!lastHI16Processed && !lastHI16Relocs.empty()) {
 				WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16Relocs[lastHI16Relocs.size() - 1].addr, relocAddress);
 			}
 
 			lastHI16ExportAddress = exportAddress;
+			lastHI16Reverse = reverse;
 			lastHI16Relocs.clear();
 		}
 
@@ -637,20 +638,21 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 			// Try to process at least the low relocation...
 			} else if (lastHI16ExportAddress != exportAddress) {
 				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress);
+			} else if (lastHI16Reverse != reverse) {
+				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports reversing mismatch");
 			} else {
 				// Process each of the HI16.  Usually there's only one.
-				for (auto it = lastHI16Relocs.begin(), end = lastHI16Relocs.end(); it != end; ++it)
-				{
+				for (auto &reloc : lastHI16Relocs) {
 					if (!reverse) {
-						full = (it->data << 16) + offsetLo + exportAddress;
+						full = (reloc.data << 16) + offsetLo + exportAddress;
 					} else {
-						full = (it->data << 16) + offsetLo - exportAddress;
+						full = (reloc.data << 16) + offsetLo - exportAddress;
 					}
 					// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
-					Memory::Write_U32((it->data & ~0xFFFF) | high, it->addr);
-					currentMIPS->InvalidateICache(it->addr, 4);
+					Memory::Write_U32((reloc.data & ~0xFFFF) | high, reloc.addr);
+					currentMIPS->InvalidateICache(reloc.addr, 4);
 				}
 				lastHI16Processed = true;
 			}
