@@ -778,10 +778,21 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) %s\n", discardStatement);
+					if (compat.shaderLanguage == GLSL_VULKAN) {
+						// Old workaround for Adreno driver bug. We could make this the main path actually
+						// since the math is roughly equivalent given the non-negative inputs.
+						WRITE(p, "  if (v.r + v.g + v.b < 0.002) %s\n", discardStatement);
+					} else {
+						WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) %s\n", discardStatement);
+					}
 				} else if (colorTestFunc != GE_COMP_NEVER) {
-					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);
+					if (compat.shaderLanguage == GLSL_VULKAN) {
+						// See the GE_COMP_NOTEQUAL case.
+						WRITE(p, "  if (v.r + v.g + v.b > 0.002) %s\n", discardStatement);
+					} else {
+						// Anything else is a test for == 0.
+						WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);
+					}
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
