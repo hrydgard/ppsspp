@@ -561,18 +561,18 @@ struct HI16RelocInfo {
 	u32 addr;
 	u32 data;
 };
-static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false) {
-	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
-	static u32 lastHI16ExportAddress = 0;
-	// This is just a list of recent HI16s for the same export address.
-	static std::vector<HI16RelocInfo> lastHI16Relocs;
-	static bool lastHI16Processed = true;
-	static bool lastHI16Reverse = false;
+// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
+// For that purpose, we use this state to track HI16s to adjust.
+struct WriteVarSymbolState {
+	u32 lastHI16ExportAddress = 0;
+	std::vector<HI16RelocInfo> lastHI16Relocs;
+	bool lastHI16Processed = true;
+};
 
+static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false) {
 	u32 relocData = Memory::Read_Instruction(relocAddress, true).encoding;
 
-	switch (type)
-	{
+	switch (type) {
 	case R_MIPS_NONE:
 		WARN_LOG_REPORT(LOADER, "Var relocation type NONE - %08x => %08x", exportAddress, relocAddress);
 		break;
@@ -601,14 +601,13 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 	*/
 
 	case R_MIPS_HI16:
-		if (lastHI16ExportAddress != exportAddress || lastHI16Reverse != reverse) {
-			if (!lastHI16Processed && !lastHI16Relocs.empty()) {
-				WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16Relocs[lastHI16Relocs.size() - 1].addr, relocAddress);
+		if (state.lastHI16ExportAddress != exportAddress) {
+			if (!state.lastHI16Processed && !state.lastHI16Relocs.empty()) {
+				WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", state.lastHI16Relocs[state.lastHI16Relocs.size() - 1].addr, relocAddress);
 			}
 
-			lastHI16ExportAddress = exportAddress;
-			lastHI16Reverse = reverse;
-			lastHI16Relocs.clear();
+			state.lastHI16ExportAddress = exportAddress;
+			state.lastHI16Relocs.clear();
 		}
 
 		// After this will be an R_MIPS_LO16.  If that addition overflows, we need to account for it in HI16.
@@ -616,8 +615,8 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 		HI16RelocInfo reloc;
 		reloc.addr = relocAddress;
 		reloc.data = Memory::Read_Instruction(relocAddress, true).encoding;
-		lastHI16Relocs.push_back(reloc);
-		lastHI16Processed = false;
+		state.lastHI16Relocs.push_back(reloc);
+		state.lastHI16Processed = false;
 		break;
 
 	case R_MIPS_LO16:
@@ -633,16 +632,14 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 			}
 
 			// The ABI requires that these come in pairs, at least.
-			if (lastHI16Relocs.empty()) {
+			if (state.lastHI16Relocs.empty()) {
 				ERROR_LOG_REPORT(LOADER, "LO16 without any HI16 variable import at %08x for %08x", relocAddress, exportAddress);
 			// Try to process at least the low relocation...
-			} else if (lastHI16ExportAddress != exportAddress) {
-				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress);
-			} else if (lastHI16Reverse != reverse) {
-				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports reversing mismatch");
+			} else if (state.lastHI16ExportAddress != exportAddress) {
+				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, state.lastHI16ExportAddress, exportAddress);
 			} else {
 				// Process each of the HI16.  Usually there's only one.
-				for (auto &reloc : lastHI16Relocs) {
+				for (auto &reloc : state.lastHI16Relocs) {
 					if (!reverse) {
 						full = (reloc.data << 16) + offsetLo + exportAddress;
 					} else {
@@ -654,7 +651,7 @@ static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool re
 					Memory::Write_U32((reloc.data & ~0xFFFF) | high, reloc.addr);
 					currentMIPS->InvalidateICache(reloc.addr, 4);
 				}
-				lastHI16Processed = true;
+				state.lastHI16Processed = true;
 			}
 
 			// With full set above (hopefully), now we just need to correct the low instruction.
@@ -690,9 +687,10 @@ void ImportVarSymbol(const VarSymbolImport &var) {
 		}
 
 		// Look for exports currently loaded modules already have.  Maybe it's available?
-		for (auto it = module->exportedVars.begin(), end = module->exportedVars.end(); it != end; ++it) {
-			if (it->Matches(var)) {
-				WriteVarSymbol(it->symAddr, var.stubAddr, var.type);
+		WriteVarSymbolState state;
+		for (const auto &exported : module->exportedVars) {
+			if (exported.Matches(var)) {
+				WriteVarSymbol(state, exported.symAddr, var.stubAddr, var.type);
 				return;
 			}
 		}
@@ -711,10 +709,11 @@ void ExportVarSymbol(const VarSymbolExport &var) {
 		}
 
 		// Look for imports currently loaded modules already have, hook it up right away.
-		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
-			if (var.Matches(*it)) {
+		WriteVarSymbolState state;
+		for (auto &imported : module->importedVars) {
+			if (var.Matches(imported)) {
 				INFO_LOG(LOADER, "Resolving var %s/%08x", var.moduleName, var.nid);
-				WriteVarSymbol(var.symAddr, it->stubAddr, it->type);
+				WriteVarSymbol(state, var.symAddr, imported.stubAddr, imported.type);
 			}
 		}
 	}
@@ -729,10 +728,11 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 		}
 
 		// Look for imports modules that are *still* loaded have, and reverse them.
-		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
-			if (var.Matches(*it)) {
+		WriteVarSymbolState state;
+		for (auto &imported : module->importedVars) {
+			if (var.Matches(imported)) {
 				INFO_LOG(LOADER, "Unresolving var %s/%08x", var.moduleName, var.nid);
-				WriteVarSymbol(var.symAddr, it->stubAddr, it->type, true);
+				WriteVarSymbol(state, var.symAddr, imported.stubAddr, imported.type, true);
 			}
 		}
 	}
