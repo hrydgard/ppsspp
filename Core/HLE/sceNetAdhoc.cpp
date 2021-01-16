@@ -300,15 +300,16 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 				CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocctlNotifyEvent, userdata);
 				return;
 			}
-			else
+			else if (req.opcode != OPCODE_LOGIN)
 				result = ERROR_NET_ADHOCCTL_BUSY;
 		}
 	}
 	else
 		result = ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF;
 
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - State: %d", waitID, error, (int)result, adhocctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Opcode: %d, State: %d", waitID, error, (int)result, waitVal, adhocctlState);
 
 	// We are done with this request
 	adhocctlRequests.erase(uid);
