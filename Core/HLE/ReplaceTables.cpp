@@ -1238,6 +1238,17 @@ static int Hook_motorstorm_pixel_read() {
 	return 0;
 }
 
+static int Hook_worms_copy_normalize_alpha() {
+	// At this point in the function (0x0CC), s1 is the framebuf and a2 is the size.
+	u32 fb_address = currentMIPS->r[MIPS_REG_S1];
+	u32 fb_size = currentMIPS->r[MIPS_REG_A2];
+	if (Memory::IsVRAMAddress(fb_address) && Memory::IsValidRange(fb_address, fb_size)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1350,6 +1361,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
 	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
+	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
 	{}
 };
 
