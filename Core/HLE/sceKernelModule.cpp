@@ -117,6 +117,8 @@ static const char * const blacklistedModules[] = {
 	"sceMD5_Library",
 };
 
+struct WriteVarSymbolState;
+
 struct VarSymbolImport {
 	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	u32 nid;
@@ -150,7 +152,7 @@ struct FuncSymbolExport {
 	u32 nid;
 };
 
-void ImportVarSymbol(const VarSymbolImport &var);
+void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
@@ -378,11 +380,11 @@ public:
 		ImportFuncSymbol(func, reimporting, GetName());
 	}
 
-	void ImportVar(const VarSymbolImport &var) {
+	void ImportVar(WriteVarSymbolState &state, const VarSymbolImport &var) {
 		// Keep track and actually hook it up if possible.
 		importedVars.push_back(var);
 		impExpModuleNames.insert(var.moduleName);
-		ImportVarSymbol(var);
+		ImportVarSymbol(state, var);
 	}
 
 	void ExportFunc(const FuncSymbolExport &func) {
@@ -667,7 +669,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 	currentMIPS->InvalidateICache(relocAddress, 4);
 }
 
-void ImportVarSymbol(const VarSymbolImport &var) {
+void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var) {
 	if (var.nid == 0) {
 		// TODO: What's the right thing for this?
 		ERROR_LOG_REPORT(LOADER, "Var import with nid = 0, type = %d", var.type);
@@ -687,7 +689,6 @@ void ImportVarSymbol(const VarSymbolImport &var) {
 		}
 
 		// Look for exports currently loaded modules already have.  Maybe it's available?
-		WriteVarSymbolState state;
 		for (const auto &exported : module->exportedVars) {
 			if (exported.Matches(var)) {
 				WriteVarSymbol(state, exported.symAddr, var.stubAddr, var.type);
@@ -1053,12 +1054,13 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 					continue;
 				}
 
+				WriteVarSymbolState state;
 				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
 					var.nid = nid;
 					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
 					var.type = *varRef >> 26;
-					module->ImportVar(var);
+					module->ImportVar(state, var);
 				}
 			}
 		} else if (entry->numVars > 0 && !reimporting) {
