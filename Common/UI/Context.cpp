@@ -237,8 +237,8 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	} 
 }
 
-void UIContext::FillRectVGradient(uint32_t color1, uint32_t color2, const Bounds &bounds) {
-	uidrawbuffer_->DrawImageStretchVGradient(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color1, color2);
+void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds) {
+	uidrawbuffer_->DrawImageStretchVGradient(image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color1, color2);
 }
 
 void UIContext::PushTransform(const UITransform &transform) {

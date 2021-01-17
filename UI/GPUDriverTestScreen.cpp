@@ -543,17 +543,17 @@ void GPUDriverTestScreen::ShaderTest() {
 	y += 100;
 
 	dc.Begin();
-	dc.DrawText("Flat shading", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.DrawText("Flat shaded tex", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.DrawText("(TEST OK if no gradient!)", x + 400, y, 0xFFFFFFFF, ALIGN_LEFT);
 	dc.Flush();
 
-	bounds = { x + 200, y, testW, 70 };
+	bounds = { x + 200, y, 100, 100 };
 
 	// Draw rectangle that should be flat shaded
 	dc.BeginPipeline(flatShadingPipeline_, samplerNearest_);
 	// There is a "provoking vertex" difference here between GL and Vulkan when using flat shading. One gets one color, one gets the other.
 	// Wherever possible we should reconfigure the GL provoking vertex to match Vulkan, probably.
-	dc.FillRectVGradient(bgColorOK, textColorOK, bounds);
+	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0x808080FF, bounds);
 	dc.Flush();
 }
 
