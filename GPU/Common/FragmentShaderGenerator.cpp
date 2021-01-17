@@ -394,7 +394,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (!strcmp(compat.fragColor0, "fragColor0")) {
 			const char *qualifierColor0 = "out";
-			if (compat.lastFragData && !strcmp(compat.lastFragData, compat.fragColor0)) {
+			if (readFramebuffer && compat.lastFragData && !strcmp(compat.lastFragData, compat.fragColor0)) {
 				qualifierColor0 = "inout";
 			}
 			// Output the output color definitions.
