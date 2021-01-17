@@ -281,11 +281,11 @@ if(NOT MSVC)
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 	#TODO: Remove this and include the file properly everywhere it makes sense
 	# First step is too use the macros everywhere
@@ -767,10 +767,10 @@ include_directories(ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
-	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O2")
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O2")
 	if(NOT ZLIB_FOUND)
-		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O2")
 	endif()
 endif()
 
