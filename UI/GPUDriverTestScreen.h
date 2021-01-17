@@ -51,6 +51,7 @@ private:
 
 	Draw::Pipeline *adrenoLogicDiscardPipeline_ = nullptr;
 	Draw::ShaderModule *adrenoLogicDiscardFragShader_ = nullptr;
+	Draw::ShaderModule *adrenoLogicDiscardVertShader_ = nullptr;
 	Draw::Pipeline *flatShadingPipeline_ = nullptr;
 	Draw::ShaderModule *flatFragShader_ = nullptr;
 	Draw::ShaderModule *flatVertShader_ = nullptr;

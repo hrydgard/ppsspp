@@ -98,7 +98,62 @@ static const std::vector<Draw::ShaderSource> fsAdrenoLogicTest = {
 	},
 };
 
+static const std::vector<Draw::ShaderSource> vsAdrenoLogicTest = {
+	{ GLSL_1xx,
+	"#if __VERSION__ >= 130\n"
+	"#define attribute in\n"
+	"#define varying out\n"
+	"#endif\n"
+	"attribute vec3 Position;\n"
+	"attribute vec4 Color0;\n"
+	"attribute vec2 TexCoord0;\n"
+	"varying vec4 oColor0;\n"
+	"varying vec2 oTexCoord0;\n"
+	"uniform mat4 WorldViewProj;\n"
+	"void main() {\n"
+	"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
+	"  oColor0 = Color0;\n"
+	"  oTexCoord0 = TexCoord0;\n"
+	"}\n"
+	},
+	{ ShaderLanguage::GLSL_VULKAN,
+	"#version 450\n"
+	"#extension GL_ARB_separate_shader_objects : enable\n"
+	"#extension GL_ARB_shading_language_420pack : enable\n"
+	"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
+	"    mat4 WorldViewProj;\n"
+	"} myBufferVals;\n"
+	"layout (location = 0) in vec4 pos;\n"
+	"layout (location = 1) in vec4 inColor;\n"
+	"layout (location = 2) in vec2 inTexCoord;\n"
+	"layout (location = 0) out lowp vec4 outColor;\n"
+	"layout (location = 1) out highp vec2 outTexCoord;\n"
+	"out gl_PerVertex { vec4 gl_Position; };\n"
+	"void main() {\n"
+	"   outColor = inColor;\n"
+	"   outTexCoord = inTexCoord;\n"
+	"   gl_Position = myBufferVals.WorldViewProj * pos;\n"
+	"}\n"
+	}
+};
+
 static const std::vector<Draw::ShaderSource> fsFlat = {
+	{ShaderLanguage::GLSL_3xx,
+	"#ifdef GL_ES\n"
+	"precision lowp float;\n"
+	"precision highp int;\n"
+	"#endif\n"
+	"uniform sampler2D Sampler0;\n"
+	"flat in lowp vec4 oColor0;\n"
+	"in mediump vec3 oTexCoord0;\n"
+	"out vec4 fragColor0;\n"
+	"void main() {\n"
+	"  vec4 t = texture(Sampler0, oTexCoord0.xy);\n"
+	"  vec4 p = oColor0;\n"
+	"  vec4 v = p * t;\n"
+	"  fragColor0 = v;\n"
+	"}\n"
+	},
 	{ShaderLanguage::GLSL_1xx,
 	"#ifdef GL_ES\n"
 	"precision lowp float;\n"
@@ -109,13 +164,13 @@ static const std::vector<Draw::ShaderSource> fsFlat = {
 	"#define gl_FragColor fragColor0\n"
 	"out vec4 fragColor0;\n"
 	"#endif\n"
-	"flat varying vec4 oColor0;\n"
+	"varying vec4 oColor0;\n"
 	"varying vec2 oTexCoord0;\n"
 	"uniform sampler2D Sampler0;\n"
 	"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0) * oColor0; }\n"
 	},
 	{ShaderLanguage::GLSL_VULKAN,
-	"#version 140\n"
+	"#version 450\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout(location = 0) flat in lowp vec4 oColor0;\n"
@@ -126,9 +181,23 @@ static const std::vector<Draw::ShaderSource> fsFlat = {
 	}
 };
 
-// shared with the adreno test
 static const std::vector<Draw::ShaderSource> vsFlat = {
-	{ GLSL_1xx,
+	{ GLSL_3xx,
+	"#version 300 es\n"
+	"in vec3 Position;\n"
+	"in vec2 TexCoord0;\n"
+	"in lowp vec4 Color0;\n"
+	"uniform mat4 WorldViewProj;\n"
+	"flat out lowp vec4 oColor0;\n"
+	"out mediump vec3 oTexCoord0;\n"
+	"void main() {\n"
+	"  oTexCoord0 = vec3(TexCoord0, 1.0);\n"
+	"  oColor0 = Color0;\n"
+	"  vec4 outPos = WorldViewProj * vec4(Position, 1.0);\n"
+	"  gl_Position = outPos;\n"
+	"}\n"
+	},
+	{ GLSL_1xx,  // Doesn't actually repro the problem since flat support isn't guaranteed
 	"#if __VERSION__ >= 130\n"
 	"#define attribute in\n"
 	"#define varying out\n"
@@ -136,7 +205,7 @@ static const std::vector<Draw::ShaderSource> vsFlat = {
 	"attribute vec3 Position;\n"
 	"attribute vec4 Color0;\n"
 	"attribute vec2 TexCoord0;\n"
-	"flat varying vec4 oColor0;\n"
+	"varying vec4 oColor0;\n"
 	"varying vec2 oTexCoord0;\n"
 	"uniform mat4 WorldViewProj;\n"
 	"void main() {\n"
@@ -206,6 +275,8 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 
 	if (adrenoLogicDiscardFragShader_)
 		adrenoLogicDiscardFragShader_->Release();
+	if (adrenoLogicDiscardVertShader_)
+		adrenoLogicDiscardVertShader_->Release();
 	if (flatFragShader_)
 		flatFragShader_->Release();
 	if (flatVertShader_)
@@ -472,6 +543,7 @@ void GPUDriverTestScreen::ShaderTest() {
 
 	if (!adrenoLogicDiscardPipeline_) {
 		adrenoLogicDiscardFragShader_ = CreateShader(draw, ShaderStage::Fragment, fsAdrenoLogicTest);
+		adrenoLogicDiscardVertShader_ = CreateShader(draw, ShaderStage::Vertex, vsAdrenoLogicTest);
 
 		flatFragShader_ = CreateShader(draw, ShaderStage::Fragment, fsFlat);
 		flatVertShader_ = CreateShader(draw, ShaderStage::Vertex, vsFlat);
@@ -490,7 +562,7 @@ void GPUDriverTestScreen::ShaderTest() {
 
 		PipelineDesc adrenoLogicDiscardDesc{
 			Primitive::TRIANGLE_LIST,
-			{ flatVertShader_, adrenoLogicDiscardFragShader_ },
+			{ adrenoLogicDiscardVertShader_, adrenoLogicDiscardFragShader_ },
 			inputLayout, depthStencilOff, blendOff, rasterNoCull, &vsColBufDesc,
 		};
 		adrenoLogicDiscardPipeline_ = draw->CreateGraphicsPipeline(adrenoLogicDiscardDesc);
@@ -544,7 +616,7 @@ void GPUDriverTestScreen::ShaderTest() {
 
 	dc.Begin();
 	dc.DrawText("Flat shaded tex", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-	dc.DrawText("(TEST OK if no gradient!)", x + 400, y, 0xFFFFFFFF, ALIGN_LEFT);
+	dc.DrawText("(TEST OK if logo but no gradient!)", x + 400, y, 0xFFFFFFFF, ALIGN_LEFT);
 	dc.Flush();
 
 	bounds = { x + 200, y, 100, 100 };
@@ -553,7 +625,7 @@ void GPUDriverTestScreen::ShaderTest() {
 	dc.BeginPipeline(flatShadingPipeline_, samplerNearest_);
 	// There is a "provoking vertex" difference here between GL and Vulkan when using flat shading. One gets one color, one gets the other.
 	// Wherever possible we should reconfigure the GL provoking vertex to match Vulkan, probably.
-	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0x808080FF, bounds);
+	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0xFF808080, bounds);
 	dc.Flush();
 }
 
