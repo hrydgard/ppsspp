@@ -55,6 +55,7 @@ void UIContext::BeginNoTex() {
 }
 
 void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
+	_assert_(pipeline != nullptr);
 	draw_->BindSamplerStates(0, 1, &samplerState);
 	RebindTexture();
 	UIBegin(pipeline);
@@ -234,6 +235,10 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	case UI::DRAW_NOTHING:
 		break;
 	} 
+}
+
+void UIContext::FillRectVGradient(uint32_t color1, uint32_t color2, const Bounds &bounds) {
+	uidrawbuffer_->DrawImageStretchVGradient(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color1, color2);
 }
 
 void UIContext::PushTransform(const UITransform &transform) {

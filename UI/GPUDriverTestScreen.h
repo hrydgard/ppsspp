@@ -20,6 +20,13 @@ public:
 
 private:
 	void DiscardTest();
+	void ShaderTest();
+
+	// Common objects
+	Draw::SamplerState *samplerNearest_ = nullptr;
+
+	// Discard/depth/stencil stuff
+	// ===========================
 
 	Draw::ShaderModule *discardFragShader_ = nullptr;
 	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
@@ -38,6 +45,15 @@ private:
 	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
 	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
 
-	Draw::SamplerState *samplerNearest_ = nullptr;
+
+	// Shader tests
+	// ============
+
+	Draw::Pipeline *adrenoLogicDiscardPipeline_ = nullptr;
+	Draw::ShaderModule *adrenoLogicDiscardFragShader_ = nullptr;
+	Draw::Pipeline *flatShadingPipeline_ = nullptr;
+	Draw::ShaderModule *flatFragShader_ = nullptr;
+	Draw::ShaderModule *flatVertShader_ = nullptr;
+
 	UI::TabHolder *tabHolder_ = nullptr;
 };
