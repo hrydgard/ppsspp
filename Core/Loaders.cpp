@@ -40,8 +40,14 @@ void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFac
 }
 
 FileLoader *ConstructFileLoader(const std::string &filename) {
-	if (filename.find("http://") == 0 || filename.find("https://") == 0)
-		return new CachingFileLoader(new DiskCachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename))));
+	if (filename.find("http://") == 0 || filename.find("https://") == 0) {
+		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
+		// For headless, avoid disk caching since it's usually used for tests that might mutate.
+		if (!PSP_CoreParameter().headLess) {
+			baseLoader = new DiskCachingFileLoader(baseLoader);
+		}
+		return new CachingFileLoader(baseLoader);
+	}
 
 	for (auto &iter : factories) {
 		if (startsWith(iter.first, filename)) {
