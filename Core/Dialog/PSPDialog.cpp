@@ -28,11 +28,7 @@
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
 
-PSPDialog::PSPDialog()
-	: status(SCE_UTILITY_STATUS_NONE), pendingStatus(SCE_UTILITY_STATUS_NONE),
-	  pendingStatusTicks(0), lastButtons(0), buttons(0)
-{
-
+PSPDialog::PSPDialog() {
 }
 
 PSPDialog::~PSPDialog() {

@@ -94,23 +94,23 @@ protected:
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
+	DialogStatus ReadStatus() {
+		return status;
+	}
 
 	// TODO: Remove this once all dialogs are updated.
-	virtual bool UseAutoStatus() {
-		return true;
-	}
+	virtual bool UseAutoStatus() = 0;
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	virtual void FinishFadeOut();
 	u32 CalcFadedColor(u32 inColor);
 
-	DialogStatus status;
-	DialogStatus pendingStatus;
-	u64 pendingStatusTicks;
+	DialogStatus pendingStatus = SCE_UTILITY_STATUS_NONE;
+	u64 pendingStatusTicks = 0;
 
-	unsigned int lastButtons;
-	unsigned int buttons;
+	unsigned int lastButtons = 0;
+	unsigned int buttons = 0;
 
 	float fadeTimer;
 	bool isFading;
@@ -121,4 +121,7 @@ protected:
 	ImageID cancelButtonImg;
 	int okButtonFlag;
 	int cancelButtonFlag;
+
+private:
+	DialogStatus status = SCE_UTILITY_STATUS_NONE;
 };

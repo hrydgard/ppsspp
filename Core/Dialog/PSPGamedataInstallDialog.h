@@ -46,6 +46,12 @@ public:
 	int Abort();
 	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
 
+protected:
+	// TODO: Manage status correctly.
+	bool UseAutoStatus() override {
+		return true;
+	}
+
 private:
 	void UpdateProgress();
 	void OpenNextFile();
