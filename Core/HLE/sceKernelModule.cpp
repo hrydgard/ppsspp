@@ -33,6 +33,7 @@
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
 #include "Core/Loaders.h"
@@ -1878,6 +1879,14 @@ void __KernelGPUReplay() {
 
 	std::string filename(filenamep, currentMIPS->r[MIPS_REG_S0]);
 	if (!GPURecord::RunMountedReplay(filename)) {
+		Core_Stop();
+	}
+
+	if (PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
+		PSPPointer<u8> topaddr;
+		u32 linesize = 512;
+		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
+		host->SendDebugScreenshot(topaddr, linesize, 272);
 		Core_Stop();
 	}
 }
