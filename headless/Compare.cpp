@@ -24,6 +24,7 @@
 #include "headless/Compare.h"
 
 #include "Common/ColorConv.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Host.h"
@@ -230,7 +231,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 	if (expect_loader->Exists()) {
 		std::string expect_results;
 		expect_results.resize(expect_loader->FileSize());
-		expect_loader->ReadAt(0, expect_loader->FileSize(), &expect_results[0]);
+		expect_results.resize(expect_loader->ReadAt(0, expect_loader->FileSize(), &expect_results[0]));
 
 		BufferedLineReader expected(expect_results);
 		BufferedLineReader actual(output);
@@ -294,16 +295,28 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 
 		return !failed;
 	} else {
-		fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
-		if (verbose) {
+		std::unique_ptr<FileLoader> screenshot(ConstructFileLoader(ExpectedScreenshotFromFilename(bootFilename)));
+		bool failed = true;
+		if (screenshot->Exists()) {
+			// Okay, just a screenshot then.  Allow a pass with no output (i.e. screenshot match.)
+			failed = output.find_first_not_of(" \r\n\t") != output.npos;
+			if (failed) {
+				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
+				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
+			}
+		} else {
+			fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
+			TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
+			GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
+		}
+
+		if (verbose || (screenshot->Exists() && failed)) {
 			BufferedLineReader actual(output);
 			while (actual.HasLines()) {
 				printf("+ %s\n", actual.Consume().c_str());
 			}
 		}
-		TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
-		GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
-		return false;
+		return !failed;
 	}
 }
 
@@ -377,29 +390,66 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	}
 
 	// We assume the bitmap is the specified size, not including whatever stride.
-	u32 *reference = (u32 *) calloc(stride * h, sizeof(u32));
+	u32 *reference = nullptr;
+	bool asBitmap = false;
 
-	FILE *bmp = File::OpenCFile(screenshotFilename, "rb");
-	if (bmp)
-	{
-		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
-		fseek(bmp, 14 + 40, SEEK_SET);
-		if (fread(reference, sizeof(u32), stride * h, bmp) != stride * h)
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(screenshotFilename));
+	if (loader->Exists()) {
+		uint8_t header[2];
+		if (loader->ReadAt(0, 2, header) != 2) {
 			error = "Unable to read screenshot data: " + screenshotFilename;
-		fclose(bmp);
-	}
-	else
-	{
+			return -1.0f;
+		}
+
+		if (header[0] == 'B' && header[1] == 'M') {
+			reference = (u32 *)calloc(stride * h, sizeof(u32));
+			asBitmap = true;
+			// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
+			if (reference && loader->ReadAt(14 + 40, sizeof(u32), stride * h, reference) != stride * h) {
+				error = "Unable to read screenshot data: " + screenshotFilename;
+				return -1.0f;
+			}
+		} else {
+			// For now, assume a PNG otherwise.
+			std::vector<uint8_t> compressed;
+			compressed.resize(loader->FileSize());
+			if (loader->ReadAt(0, compressed.size(), &compressed[0]) != compressed.size()) {
+				error = "Unable to read screenshot data: " + screenshotFilename;
+				return -1.0f;
+			}
+
+			int width, height;
+			if (!pngLoadPtr(&compressed[0], compressed.size(), &width, &height, (unsigned char **)&reference)) {
+				error = "Unable to read screenshot data: " + screenshotFilename;
+				return -1.0f;
+			}
+		}
+	} else {
 		error = "Unable to read screenshot: " + screenshotFilename;
-		free(reference);
+		return -1.0f;
+	}
+
+	if (!reference) {
+		error = "Unable to allocate screenshot data: " + screenshotFilename;
 		return -1.0f;
 	}
 
 	u32 errors = 0;
-	for (u32 y = 0; y < h; ++y)
-	{
-		for (u32 x = 0; x < w; ++x)
-			errors += ComparePixel(pixels[y * stride + x], reference[y * stride + x]);
+	if (asBitmap) {
+		// The reference is flipped and BGRA by default for the common BMP compare case.
+		for (u32 y = 0; y < h; ++y) {
+			u32 yoff = y * stride;
+			for (u32 x = 0; x < w; ++x)
+				errors += ComparePixel(pixels[y * stride + x], reference[yoff + x]);
+		}
+	} else {
+		// Just convert to BGRA for simplicity.
+		ConvertRGBA8888ToBGRA8888(reference, reference, h * stride);
+		for (u32 y = 0; y < h; ++y) {
+			u32 yoff = (h - y - 1) * stride;
+			for (u32 x = 0; x < w; ++x)
+				errors += ComparePixel(pixels[y * stride + x], reference[yoff + x]);
+		}
 	}
 
 	free(reference);

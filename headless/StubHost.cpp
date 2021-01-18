@@ -60,22 +60,19 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 		SendOrCollectDebugOutput(temp);
 	}
 
-	if (errors > 0 && !teamCityMode)
-	{
-		// Lazy, just read in the original header to output the failed screenshot.
-		u8 header[14 + 40] = {0};
-		FILE *bmp = File::OpenCFile(comparisonScreenshot_, "rb");
-		if (bmp)
-		{
-			if (fread(&header, sizeof(header), 1, bmp) != 1) {
-				SendOrCollectDebugOutput("Failed to read original screenshot header.\n");
-			}
-			fclose(bmp);
-		}
+	if (errors > 0 && !teamCityMode && !getenv("GITHUB_ACTIONS")) {
+		static const u8 header[14 + 40] = {
+			0x42, 0x4D, 0x38, 0x80, 0x08, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00,
+			0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x10, 0x01,
+			0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x02, 0x80, 0x08, 0x00, 0x12, 0x0B,
+			0x00, 0x00, 0x12, 0x0B, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		};
 
 		FILE *saved = File::OpenCFile("__testfailure.bmp", "wb");
-		if (saved)
-		{
+		if (saved) {
 			fwrite(&header, sizeof(header), 1, saved);
 			fwrite(pixels.data(), sizeof(u32), FRAME_STRIDE * FRAME_HEIGHT, saved);
 			fclose(saved);
