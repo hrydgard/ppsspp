@@ -471,8 +471,8 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
 		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
-		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > transformed[0].x;
-		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > transformed[0].y;
+		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
+		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > 0.0f && transformed[1].y > transformed[0].y;
 
 		if (startsZeroX && startsZeroY && (clearingColor || writingColor)) {
 			int scissorX2 = gstate.getScissorX2() + 1;
