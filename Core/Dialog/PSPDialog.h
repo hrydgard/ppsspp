@@ -123,5 +123,8 @@ protected:
 	int cancelButtonFlag;
 
 private:
+	void FinishVolatile();
+
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;
+	bool volatileLocked_ = false;
 };
