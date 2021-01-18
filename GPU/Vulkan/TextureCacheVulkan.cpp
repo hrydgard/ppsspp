@@ -394,6 +394,9 @@ void TextureCacheVulkan::CompileScalingShader() {
 		if (copyCS_ != VK_NULL_HANDLE)
 			vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
 		textureShader_.clear();
+	} else if (uploadCS_ || copyCS_) {
+		// No need to recreate.
+		return;
 	}
 	if (!g_Config.bTexHardwareScaling)
 		return;
