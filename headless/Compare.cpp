@@ -15,22 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "headless/Compare.h"
-
-#include "Common/ColorConv.h"
-#include "Common/File/FileUtil.h"
-#include "Core/Host.h"
-
-#include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/Common/TextureDecoder.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include "headless/Compare.h"
+
+#include "Common/ColorConv.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
+#include "Core/Host.h"
+#include "Core/Loaders.h"
+
+#include "GPU/GPUState.h"
+#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/TextureDecoder.h"
+
 
 bool teamCityMode = false;
 std::string currentTestName = "";
@@ -221,14 +223,16 @@ std::string GetTestName(const std::string &bootFilename)
 	return ChopEnd(ChopFront(ChopFront(bootFilename, "tests/"), "pspautotests/tests/"), ".prx");
 }
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose)
-{
+bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose) {
 	std::string expect_filename = ExpectedFromFilename(bootFilename);
-	std::ifstream expect_f;
-	expect_f.open(expect_filename.c_str(), std::ios::in);
-	if (!expect_f.fail())
-	{
-		BufferedLineReaderFile expected(expect_f);
+	std::unique_ptr<FileLoader> expect_loader(ConstructFileLoader(expect_filename));
+
+	if (expect_loader->Exists()) {
+		std::string expect_results;
+		expect_results.resize(expect_loader->FileSize());
+		expect_loader->ReadAt(0, expect_loader->FileSize(), &expect_results[0]);
+
+		BufferedLineReader expected(expect_results);
 		BufferedLineReader actual(output);
 
 		bool failed = false;
@@ -267,7 +271,6 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 
 			printf("+ %s\n", actual.Consume().c_str());
 		}
-		expect_f.close();
 
 		if (verbose)
 		{
@@ -290,10 +293,14 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 		}
 
 		return !failed;
-	}
-	else
-	{
+	} else {
 		fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
+		if (verbose) {
+			BufferedLineReader actual(output);
+			while (actual.HasLines()) {
+				printf("+ %s\n", actual.Consume().c_str());
+			}
+		}
 		TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
 		return false;
