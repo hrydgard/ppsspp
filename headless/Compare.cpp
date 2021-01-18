@@ -187,14 +187,24 @@ protected:
 	std::ifstream &in_;
 };
 
-std::string ExpectedFromFilename(const std::string &bootFilename)
-{
-	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected";
+std::string ExpectedFromFilename(const std::string &bootFilename) {
+	size_t pos = bootFilename.find_last_of('.');
+	if (pos == bootFilename.npos) {
+		return bootFilename + ".expected";
+	}
+	return bootFilename.substr(0, pos) + ".expected";
 }
 
-std::string ExpectedScreenshotFromFilename(const std::string &bootFilename)
-{
-	return bootFilename.substr(0, bootFilename.length() - 4) + ".expected.bmp";
+std::string ExpectedScreenshotFromFilename(const std::string &bootFilename) {
+	size_t pos = bootFilename.find_last_of('.');
+	if (pos == bootFilename.npos) {
+		return bootFilename + ".bmp";
+	}
+	// Let's use pngs as the default for ppdmp tests.
+	if (bootFilename.substr(pos) == ".ppdmp") {
+		return bootFilename.substr(0, pos) + ".png";
+	}
+	return bootFilename.substr(0, pos) + ".expected.bmp";
 }
 
 static std::string ChopFront(std::string s, std::string front)
