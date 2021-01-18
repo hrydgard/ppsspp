@@ -33,12 +33,7 @@ void HeadlessHost::SendOrCollectDebugOutput(const std::string &data)
 		DEBUG_LOG(COMMON, "%s", data.c_str());
 }
 
-void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
-{
-	if (!gfx_) {
-		return;
-	}
-
+void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	// Only if we're actually comparing.
 	if (comparisonScreenshot_.empty()) {
 		return;
