@@ -356,6 +356,35 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	std::vector<std::string> result;
+	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+	{
+		std::wstring tempPath(MAX_PATH, '\0');
+		size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		if (sz >= tempPath.size()) {
+			tempPath.resize(sz);
+			sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		}
+		// Need to resize off the null terminator either way.
+		tempPath.resize(sz);
+		result.push_back(ConvertWStringToUTF8(tempPath));
+
+		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
+			result.push_back(getenv("TMPDIR"));
+		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
+			result.push_back(getenv("TMP"));
+		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
+			result.push_back(getenv("TEMP"));
+		return result;
+	}
+
+	default:
+		return result;
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -440,11 +469,16 @@ void System_SendMessage(const char *command, const char *parameter) {
 		});
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+		bool flag = !view->IsFullScreenMode;
 		if (strcmp(parameter, "0") == 0) {
-			view->ExitFullScreenMode();
+			flag = false;
+		} else if (strcmp(parameter, "1") == 0){
+			flag = true;
 		}
-		else if (strcmp(parameter, "1") == 0){
+		if (flag) {
 			view->TryEnterFullScreenMode();
+		} else {
+			view->ExitFullScreenMode();
 		}
 	}
 }

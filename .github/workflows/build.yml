@@ -121,22 +121,22 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a
+          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
         - os: ubuntu-latest
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a
+          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
         - os: ubuntu-latest
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86
+          args: cd android && ./ab.sh -j2 APP_ABI=x86 UNITTEST=1 HEADLESS=1
         - os: ubuntu-latest
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86_64
+          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
         - os: ubuntu-latest
           extra: android
           cc: clang
@@ -215,6 +215,7 @@ jobs:
           cp -r build*/PPSSPPSDL.app ppsspp/
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
+          cp -r assets ppsspp/assets
         fi
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
           cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/

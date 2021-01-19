@@ -420,6 +420,8 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			PSP_Shutdown();
 			bootPending_ = true;
 			gamePath_ = value;
+			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
+			Core_UpdateState(CORE_POWERUP);
 		}
 	} else if (!strcmp(message, "config_loaded")) {
 		// In case we need to position touch controls differently.

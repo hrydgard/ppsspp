@@ -55,6 +55,12 @@ enum SystemProperty {
 	SYSPROP_CLIPBOARD_TEXT,
 	SYSPROP_GPUDRIVER_VERSION,
 
+	// Separate SD cards or similar.
+	// Need hacky solutions to get at this.
+	SYSPROP_HAS_ADDITIONAL_STORAGE,
+	SYSPROP_ADDITIONAL_STORAGE_DIRS,
+	SYSPROP_TEMP_DIRS,
+
 	SYSPROP_HAS_FILE_BROWSER,
 	SYSPROP_HAS_FOLDER_BROWSER,
 	SYSPROP_HAS_IMAGE_BROWSER,
@@ -95,6 +101,7 @@ enum SystemProperty {
 };
 
 std::string System_GetProperty(SystemProperty prop);
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);

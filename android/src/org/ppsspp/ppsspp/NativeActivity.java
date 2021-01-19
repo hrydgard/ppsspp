@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.os.Vibrator;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
@@ -46,6 +47,7 @@ import android.widget.Toast;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -98,7 +100,10 @@ public abstract class NativeActivity extends Activity {
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
+
 	private static final int RESULT_LOAD_IMAGE = 1;
+	private static final int RESULT_BROWSE_FILE = 2;
+	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -241,6 +246,108 @@ public abstract class NativeActivity extends Activity {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
 	}
 
+	// Unofficial hacks to get a list of SD cards that are not the main "external storage".
+	private static ArrayList<String> getSdCardPaths(final Context context) {
+		// Q is the last version that will support normal file access.
+		ArrayList<String> list = null;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+			Log.i(TAG, "getSdCardPaths: Trying KitKat method");
+			list = getSdCardPaths19(context);
+		}
+
+		if (list == null) {
+			Log.i(TAG, "getSdCardPaths: Attempting fallback");
+			// Try another method.
+			String removableStoragePath;
+			list = new ArrayList<String>();
+			File fileList[] = new File("/storage/").listFiles();
+			if (fileList != null) {
+				for (File file : fileList) {
+					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
+						list.add(file.getAbsolutePath());
+					}
+				}
+			}
+		}
+
+		if (list == null) {
+			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
+			for (String var : varNames) {
+				Log.i(TAG, "getSdCardPaths: Checking env " + var);
+				String secStore = System.getenv("SECONDARY_STORAGE");
+				if (secStore != null && secStore.length() > 0) {
+					list = new ArrayList<String>();
+					list.add(secStore);
+					break;
+				}
+			}
+		}
+
+		if (list == null) {
+			return new ArrayList<String>();
+		} else {
+			return list;
+		}
+	}
+
+	@TargetApi(Build.VERSION_CODES.KITKAT)
+	private static ArrayList<String> getSdCardPaths19(final Context context)
+	{
+		final File[] externalCacheDirs = context.getExternalCacheDirs();
+		if (externalCacheDirs == null || externalCacheDirs.length==0)
+			return null;
+		if (externalCacheDirs.length == 1) {
+			if (externalCacheDirs[0] == null)
+				return null;
+			final String storageState = Environment.getStorageState(externalCacheDirs[0]);
+			if (!Environment.MEDIA_MOUNTED.equals(storageState))
+				return null;
+			if (Environment.isExternalStorageEmulated())
+				return null;
+		}
+		final ArrayList<String> result = new ArrayList<>();
+		if (externalCacheDirs.length == 1)
+			result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
+		for (int i = 1; i < externalCacheDirs.length; ++i)
+		{
+			final File file = externalCacheDirs[i];
+			if (file == null)
+				continue;
+			final String storageState = Environment.getStorageState(file);
+			if (Environment.MEDIA_MOUNTED.equals(storageState)) {
+				String root = getRootOfInnerSdCardFolder(externalCacheDirs[i]);
+				if (root != null) {
+					result.add(root);
+				}
+			}
+		}
+		if (result.isEmpty())
+			return null;
+		return result;
+	}
+
+	/** Given any file/folder inside an sd card, this will return the path of the sd card */
+	private static String getRootOfInnerSdCardFolder(File file)
+	{
+		if (file == null)
+			return null;
+		final long totalSpace = file.getTotalSpace();
+		if (totalSpace <= 0) {
+			return null;
+		}
+		while (true) {
+			final File parentFile = file.getParentFile();
+			if (parentFile == null || !parentFile.canRead()) {
+				break;
+			}
+			if (parentFile.getTotalSpace() != totalSpace) {
+				break;
+			}
+			file = parentFile;
+		}
+		return file.getAbsolutePath();
+	}
+
 	public void Initialize() {
 		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
@@ -292,9 +399,34 @@ public abstract class NativeActivity extends Activity {
 		isXperiaPlay = IsXperiaPlay();
 
 		String libraryDir = getApplicationLibraryDir(appInfo);
-		File sdcard = Environment.getExternalStorageDirectory();
 
-		String externalStorageDir = sdcard.getAbsolutePath();
+		String extStorageState = Environment.getExternalStorageState();
+		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+
+		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
+
+		String additionalStorageDirs = "";
+		try {
+			ArrayList<String> sdCards = getSdCardPaths(this);
+
+			// String.join doesn't exist on old devices (???).
+			StringBuilder s = new StringBuilder();
+			for (int i = 0; i < sdCards.size(); i++) {
+				String sdCard = sdCards.get(i);
+				Log.i(TAG, "SD card: " + sdCard);
+				s.append(sdCard);
+				if (i != sdCards.size() - 1) {
+					s.append(":");
+				}
+			}
+			additionalStorageDirs = s.toString();
+		}
+		catch (Exception e) {
+			Log.e(TAG, "Failed to get SD storage dirs: " + e.toString());
+		}
+
+		Log.i(TAG, "End of storage paths");
+
 		File filesDir = this.getFilesDir();
 		String dataDir = null;
 		if (filesDir != null) {
@@ -310,7 +442,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -993,7 +1125,10 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
+		if (resultCode != RESULT_OK || data == null) {
+			return;
+		}
+		if (requestCode == RESULT_LOAD_IMAGE) {
 			Uri selectedImage = data.getData();
 			if (selectedImage != null) {
 				String[] filePathColumn = {MediaStore.Images.Media.DATA};
@@ -1003,6 +1138,20 @@ public abstract class NativeActivity extends Activity {
 				String picturePath = cursor.getString(columnIndex);
 				cursor.close();
 				NativeApp.sendMessage("bgImage_updated", picturePath);
+			}
+		} else if (requestCode == RESULT_BROWSE_FILE) {
+			Uri selectedFile = data.getData();
+			if (selectedFile != null) {
+				// NativeApp.sendMessage("br");
+				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+			}
+		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+			Uri selectedFile = data.getData();
+			if (selectedFile != null) {
+				// Convert URI to normal path. (This might not be possible in Android 12+)
+				String path = selectedFile.toString();
+				Log.i(TAG, "Browse folder finished: " + path);
+				NativeApp.sendMessage("browse_folderSelect", path);
 			}
 		}
 	}
@@ -1132,6 +1281,30 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("browse_file")) {
+			try {
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+				intent.addCategory(Intent.CATEGORY_OPENABLE);
+				intent.setType("application/octet-stream");
+				//intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
+				startActivityForResult(intent, RESULT_BROWSE_FILE);
+			} catch (Exception e) {
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("browse_folder")) {
+			try {
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
+				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
+				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
+				return true;
+			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 				return false;
 			}

@@ -2,10 +2,11 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
+#include "ppsspp_config.h"
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
 
@@ -23,6 +24,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
+#include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
@@ -38,7 +40,7 @@
 #include "SDLHeadlessHost.h"
 #endif
 
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
 }
@@ -46,6 +48,9 @@ JNIEnv *getEnv() {
 jclass findClass(const char *name) {
 	return nullptr;
 }
+
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {
@@ -81,15 +86,11 @@ void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) {
-	return -1;
-}
-float System_GetPropertyFloat(SystemProperty prop) {
-	return -1;
-}
-bool System_GetPropertyBool(SystemProperty prop) {
-	return false;
-}
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
+float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
+bool System_GetPropertyBool(SystemProperty prop) { return false; }
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
@@ -106,6 +107,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
 	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
+	fprintf(stderr, " --debugger=PORT        enable websocket debugger and break at start\n");
 
 #if defined(HEADLESSHOST_CLASS)
 	{
@@ -177,8 +179,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
 		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
-	coreState = CORE_RUNNING;
-	while (coreState == CORE_RUNNING)
+	coreState = coreParameter.startBreak ? CORE_STEPPING : CORE_RUNNING;
+	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING)
 	{
 		int blockTicks = usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
@@ -187,6 +189,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		if (coreState == CORE_NEXTFRAME) {
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
+		}
+		if (coreState == CORE_STEPPING && !coreParameter.startBreak) {
+			break;
 		}
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
@@ -230,6 +235,7 @@ int main(int argc, const char* argv[])
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
+	int debuggerPort = -1;
 
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -291,6 +297,8 @@ int main(int argc, const char* argv[])
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
+		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
+			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
@@ -422,6 +430,14 @@ int main(int argc, const char* argv[])
 	}
 #endif
 
+	UpdateUIState(UISTATE_INGAME);
+
+	if (debuggerPort > 0) {
+		g_Config.iRemoteISOPort = debuggerPort;
+		coreParameter.startBreak = true;
+		StartWebServer(WebServerFlags::DEBUGGER);
+	}
+
 	if (stateToLoad != NULL)
 		SaveState::Load(stateToLoad, -1);
 
@@ -456,6 +472,10 @@ int main(int argc, const char* argv[])
 				printf("  %s\n", failedTests[i].c_str());
 			}
 		}
+	}
+
+	if (debuggerPort > 0) {
+		ShutdownWebServer();
 	}
 
 	host->ShutdownGraphics();

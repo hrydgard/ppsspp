@@ -64,6 +64,14 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+	default:
+		return std::vector<std::string>();
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:

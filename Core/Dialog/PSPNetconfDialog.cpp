@@ -347,7 +347,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC)
 				channel = "Automatic";
 
-			DisplayMessage(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), di->T("Channel") + std::string("  ") + di->T(channel));
+			DisplayMessage(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), di->T("Channel:") + std::string(" ") + di->T(channel));
 
 			// Only Join mode is showing Cancel button on KHBBS and the button will fade out before the dialog is fading out, probably because it's already connected thus can't be canceled anymore
 			if (request.netAction == NETCONF_JOIN_ADHOC)

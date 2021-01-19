@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <sstream>
 
 #include "ppsspp_config.h"
 
@@ -33,6 +34,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/PathBrowser.h"
 #include "Common/Math/curves.h"
+#include "Common/Net/URL.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -63,13 +65,6 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 
-#ifdef _WIN32
-// Unfortunate, for undef DrawText...
-#include "Common/CommonWindows.h"
-#endif
-
-#include <sstream>
-
 bool MainScreen::showHomebrewTab = false;
 
 bool LaunchFile(ScreenManager *screenManager, std::string path) {
@@ -96,8 +91,13 @@ bool LaunchFile(ScreenManager *screenManager, std::string path) {
 
 static bool IsTempPath(const std::string &str) {
 	std::string item = str;
+#ifdef _WIN32
+	// Normalize slashes.
+	item = ReplaceAll(str, "/", "\\");
+#endif
 
-	const auto testPath = [&](std::string temp) {
+	std::vector<std::string> tempPaths = System_GetPropertyStringVec(SYSPROP_TEMP_DIRS);
+	for (auto temp : tempPaths) {
 #ifdef _WIN32
 		temp = ReplaceAll(temp, "/", "\\");
 		if (!temp.empty() && temp[temp.size() - 1] != '\\')
@@ -106,37 +106,9 @@ static bool IsTempPath(const std::string &str) {
 		if (!temp.empty() && temp[temp.size() - 1] != '/')
 			temp += "/";
 #endif
-		return startsWith(item, temp);
-	};
-
-	const auto testCPath = [&](const char *temp) {
-		if (temp && temp[0])
-			return testPath(temp);
-		return false;
-	};
-
-#ifdef _WIN32
-	// Normalize slashes.
-	item = ReplaceAll(str, "/", "\\");
-
-	std::wstring tempPath(MAX_PATH, '\0');
-	size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
-	if (sz >= tempPath.size()) {
-		tempPath.resize(sz);
-		sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		if (startsWith(item, temp))
+			return true;
 	}
-	// Need to resize off the null terminator either way.
-	tempPath.resize(sz);
-	if (testPath(ConvertWStringToUTF8(tempPath)))
-		return true;
-#endif
-
-	if (testCPath(getenv("TMPDIR")))
-		return true;
-	if (testCPath(getenv("TMP")))
-		return true;
-	if (testCPath(getenv("TEMP")))
-		return true;
 
 	return false;
 }
@@ -540,13 +512,29 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_QT_UI) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
-	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-		System_SendMessage("browse_folder", "");
-	} else {
-		SetPath(g_Config.memStickDirectory);
+UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
+	System_SendMessage("browse_folder", "");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
+	std::vector<std::string> storageDirs = System_GetPropertyStringVec(SYSPROP_ADDITIONAL_STORAGE_DIRS);
+	if (storageDirs.empty()) {
+		// Shouldn't happen - this button shouldn't be clickable.
+		return UI::EVENT_DONE;
 	}
+	if (storageDirs.size() == 1) {
+		SetPath(storageDirs[0]);
+	} else {
+		// TODO: We should popup a dialog letting the user choose one.
+		SetPath(storageDirs[0]);
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
+	SetPath(g_Config.memStickDirectory);
 #else
 	SetPath(getenv("HOME"));
 #endif
@@ -656,10 +644,12 @@ void GameBrowser::Refresh() {
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
+			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
+				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
+			}
 			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-				topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
-			} else {
-				topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
+				topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 			}
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
@@ -762,6 +752,7 @@ void GameBrowser::Refresh() {
 			gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
+
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
@@ -1073,16 +1064,26 @@ void MainScreen::CreateViews() {
 	//sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	sprintf(versionString, "Luna Edition");
 	rightColumnItems->SetSpacing(0.0f);
-	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
-	logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
-	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
+	
+	logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
+
+#if !defined(MOBILE_DEVICE)
+	if (!g_Config.bFullScreen) {
+		fullscreenButton_ = logos->Add(new Button(ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
+	}
+#endif
+
 	rightColumnItems->Add(logos);
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP)
-	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
-#endif
+
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	}
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	if (!g_Config.bSimpleUIhide)
@@ -1180,9 +1181,38 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 			LaunchFile(screenManager(), std::string(value));
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
+			std::string filename;
+#if PPSSPP_PLATFORM(ANDROID)
+			// Hacky way to get a normal path from a Android Storage Framework path.
+			// Is not gonna work forever, but ship-hack for 1.11.
+			std::string url = value;
+			const char *prefix = "content://com.android.externalstorage.documents/tree/";
+			const char *primaryPrefix = "/storage/primary/";
+			if (startsWith(url, prefix)) {
+				url = UriDecode(url.substr(strlen(prefix)));
+				size_t colonPos = url.find(":");
+				if (colonPos != std::string::npos) {
+					url[colonPos] = '/';
+				}
+				url = "/storage/" + url;
+				if (startsWith(url, primaryPrefix)) {
+					url = g_Config.memStickDirectory + url.substr(strlen(primaryPrefix));
+				}
+				INFO_LOG(SYSTEM, "Translated '%s' into '%s'", value, url.c_str());
+			} else {
+				// It's not gonna work.
+				// TODO: Show an error message?
+				INFO_LOG(SYSTEM, "Failed to parse content string: '%s'", value);
+				return;
+			}
+			filename = url;
+#else
+			filename = value;
+#endif
+			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
 			int tab = tabHolder_->GetCurrentTab();
 			if (tab >= 0 && tab < (int)gameBrowsers_.size()) {
-				gameBrowsers_[tab]->SetPath(value);
+				gameBrowsers_[tab]->SetPath(filename);
 			}
 		}
 	}
@@ -1212,6 +1242,17 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		System_SendMessage("browse_file", "");
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
+	if (fullscreenButton_) {
+		fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
+	}
+#if !defined(MOBILE_DEVICE)
+	g_Config.bFullScreen = !g_Config.bFullScreen;
+	System_SendMessage("toggle_fullscreen", "");
+#endif
 	return UI::EVENT_DONE;
 }
 
@@ -1270,6 +1311,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
+	g_Config.Save("MainScreen::OnGameSelected");
 #ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
@@ -1324,6 +1366,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
+	g_Config.Save("MainScreen::OnGameSelectedInstant");
 #ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else

@@ -28,6 +28,9 @@ enum class ShaderStage {
 	Compute,
 };
 
+const char *ShaderStageAsString(ShaderStage lang);
+
+
 struct ShaderLanguageDesc {
 	ShaderLanguageDesc() {}
 	explicit ShaderLanguageDesc(ShaderLanguage lang);

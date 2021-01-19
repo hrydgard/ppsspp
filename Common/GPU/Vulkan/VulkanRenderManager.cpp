@@ -346,8 +346,8 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		vulkan_->Delete().QueueDeleteImageView(swapchainImages_[i].view);
+	for (auto &image : swapchainImages_) {
+		vulkan_->Delete().QueueDeleteImageView(image.view);
 	}
 	swapchainImages_.clear();
 

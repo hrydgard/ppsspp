@@ -68,6 +68,8 @@ private:
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn BrowseClick(UI::EventParams &e);
+	UI::EventReturn StorageClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 	UI::EventReturn GridSettingsClick(UI::EventParams &e);
@@ -124,9 +126,11 @@ protected:
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
+	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
+	UI::Button *fullscreenButton_ = nullptr;
 
 	std::string restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;

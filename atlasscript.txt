@@ -46,3 +46,7 @@ image I_FLAG_EU source_assets/image/flag_eu.png copy
 image I_FLAG_HK source_assets/image/flag_hk.png copy
 image I_FLAG_AS source_assets/image/flag_as.png copy
 image I_FLAG_KO source_assets/image/flag_ko.png copy
+image I_FULLSCREEN source_assets/image/fullscreen.png copy
+image I_RESTORE source_assets/image/restore.png copy
+image I_SDCARD source_assets/image/sdcard.png copy
+image I_HOME source_assets/image/home.png copy

@@ -27,16 +27,17 @@
 // To use, set command line parameter to one or more of the tests below, or "all".
 // Search for "availableTests".
 
+#include "ppsspp_config.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <vector>
 #include <string>
 #include <sstream>
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
 
-#include "ppsspp_config.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Input/InputState.h"
@@ -58,7 +59,9 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
@@ -69,7 +72,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
 
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
 }
@@ -77,6 +80,9 @@ JNIEnv *getEnv() {
 jclass findClass(const char *name) {
 	return nullptr;
 }
+
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 #endif
 
 #ifndef M_PI_2

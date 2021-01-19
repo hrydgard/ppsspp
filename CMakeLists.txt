@@ -91,7 +91,7 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT (ARM64 AND MACOSX))
+if(NOT ((ARM64 AND MACOSX) OR IOS))
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
 endif()
 
@@ -198,7 +198,7 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-if(NOT LIBRETRO)
+if(NOT LIBRETRO AND NOT IOS)
 	find_package(SDL2)
 endif()
 include(FindThreads)
@@ -281,11 +281,11 @@ if(NOT MSVC)
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 	#TODO: Remove this and include the file properly everywhere it makes sense
 	# First step is too use the macros everywhere
@@ -767,15 +767,15 @@ include_directories(ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
-	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O2")
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O2")
 	if(NOT ZLIB_FOUND)
-		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O2")
 	endif()
 endif()
 
 
-find_package(LibZip)
+find_package(LIBZIP)
 if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()
@@ -1037,7 +1037,7 @@ if(WIN32)
 	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
-if(TARGET SDL2::SDL2)
+if(TARGET SDL2::SDL2 AND NOT IOS)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
@@ -1492,6 +1492,10 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/GPURecordSubscriber.h
 	Core/Debugger/WebSocket/HLESubscriber.cpp
 	Core/Debugger/WebSocket/HLESubscriber.h
+	Core/Debugger/WebSocket/InputBroadcaster.cpp
+	Core/Debugger/WebSocket/InputBroadcaster.h
+	Core/Debugger/WebSocket/InputSubscriber.cpp
+	Core/Debugger/WebSocket/InputSubscriber.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
 	Core/Debugger/WebSocket/LogBroadcaster.h
 	Core/Debugger/WebSocket/MemorySubscriber.cpp
@@ -2168,11 +2172,12 @@ if(IOS)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
-	if(CMAKE_GENERATOR STREQUAL "Xcode")
-		set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
-	else()
+	#This breaks in modern XCode. Not sure when it worked...
+	#if(CMAKE_GENERATOR STREQUAL "Xcode")
+	#	set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
+	#else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
-	endif()
+	#endif()
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND mkdir -p \"${APP_DIR_NAME}\"
 		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
@@ -2185,7 +2190,6 @@ if(IOS)
 		RESOURCE "ios/Settings.bundle"
 		RESOURCE "MoltenVK/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"

@@ -13,6 +13,8 @@
 #include <thread>
 #include <atomic>
 
+#include <android/log.h>
+
 #ifndef _MSC_VER
 #include <jni.h>
 #include <android/native_window_jni.h>
@@ -121,6 +123,8 @@ std::string systemName;
 std::string langRegion;
 std::string mogaVersion;
 std::string boardName;
+
+std::vector<std::string> g_additionalStorageDirs;
 
 static float left_joystick_x_async;
 static float left_joystick_y_async;
@@ -364,6 +368,17 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_ADDITIONAL_STORAGE_DIRS:
+		return g_additionalStorageDirs;
+
+	case SYSPROP_TEMP_DIRS:
+	default:
+		return std::vector<std::string>();
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SYSTEMVERSION:
@@ -410,10 +425,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
+	case SYSPROP_HAS_ADDITIONAL_STORAGE:
+		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
+	case SYSPROP_HAS_FILE_BROWSER:
+		return false;  // We kind of have but needs more work.
+	case SYSPROP_HAS_FOLDER_BROWSER:
+		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
+		return androidVersion >= 21;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -530,16 +552,19 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 	}
 }
 
+// Need to use raw Android logging before NativeInit.
+#define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
+		jstring jdataDir, jstring jexternalStorageDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	setCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
 	ProcessFrameCommands(env);
 
-	INFO_LOG(SYSTEM, "NativeApp.init() -- begin");
+	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
 	renderer_inited = false;
@@ -559,9 +584,18 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
 
-	INFO_LOG(SYSTEM, "NativeApp.init(): device name: '%s'", systemName.c_str());
+	EARLY_LOG("NativeApp.init(): device name: '%s'", systemName.c_str());
 
-	std::string externalDir = GetJavaString(env, jexternalDir);
+	std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
+	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
+
+	if (!additionalStorageDirsString.empty()) {
+		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
+		for (auto &str : g_additionalStorageDirs) {
+			EARLY_LOG("Additional storage: %s", str.c_str());
+		}
+	}
+
 	std::string user_data_path = GetJavaString(env, jdataDir);
 	if (user_data_path.size() > 0)
 		user_data_path += "/";
@@ -570,8 +604,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string cacheDir = GetJavaString(env, jcacheDir);
 	std::string buildBoard = GetJavaString(env, jboard);
 	boardName = buildBoard;
-	INFO_LOG(SYSTEM, "NativeApp.init(): External storage path: %s", externalDir.c_str());
-	INFO_LOG(SYSTEM, "NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
+	EARLY_LOG("NativeApp.init(): External storage path: %s", externalStorageDir.c_str());
+	EARLY_LOG("NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
 
 	std::string app_name;
 	std::string app_nice_name;
@@ -600,7 +634,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		}
 	}
 
-	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
+	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	// No need to use EARLY_LOG anymore.
 
 retry:
 	// Now that we've loaded config, set javaGL.

@@ -236,6 +236,18 @@ void DrawBuffer::DrawImageStretch(ImageID atlas_image, float x1, float y1, float
 	V(x1,	y2, color, image->u1, image->v2);
 }
 
+void DrawBuffer::DrawImageStretchVGradient(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color1, Color color2) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+	V(x1, y1, color1, image->u1, image->v1);
+	V(x2, y1, color1, image->u2, image->v1);
+	V(x2, y2, color2, image->u2, image->v2);
+	V(x1, y1, color1, image->u1, image->v1);
+	V(x2, y2, color2, image->u2, image->v2);
+	V(x1, y2, color2, image->u1, image->v2);
+}
+
 inline void rot(float *v, float angle, float xc, float yc) {
 	const float x = v[0] - xc;
 	const float y = v[1] - yc;

@@ -1203,18 +1203,24 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 // Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args) {
 	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
-	MatchingArgs argsNew;
+	MatchingArgs argsNew = { 0 };
 	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
 	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
 	uint8_t * dataPtr = Memory::GetPointer(dataBufAddr);
-	memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
-	if (msg->optlen > 0) 
-		memcpy(dataPtr + 8, opt, msg->optlen);
-	argsNew.data[0] = context->id;
-	argsNew.data[1] = msg->opcode;
-	argsNew.data[2] = dataBufAddr;
-	argsNew.data[3] = msg->optlen;
-	argsNew.data[4] = dataBufAddr + 8; // OptData Addr
+	if (dataPtr) {
+		memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
+		if (msg->optlen > 0)
+			memcpy(dataPtr + 8, opt, msg->optlen);
+		
+		argsNew.data[1] = msg->opcode;
+		argsNew.data[2] = dataBufAddr;
+		argsNew.data[3] = msg->optlen;
+		argsNew.data[4] = dataBufAddr + 8; // OptData Addr
+	}
+	else {
+		argsNew.data[1] = PSP_ADHOC_MATCHING_EVENT_ERROR; // not sure where to put the error code for EVENT_ERROR tho
+	}
+	argsNew.data[0] = context->id;	
 	argsNew.data[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
 	
 	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt

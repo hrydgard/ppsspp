@@ -75,6 +75,7 @@
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"
+#include "Common/GPU/ShaderTranslation.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -437,6 +438,8 @@ static void ClearFailedGPUBackends() {
 
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
+
+	ShaderTranslationInit();
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
@@ -1403,6 +1406,8 @@ void NativeShutdown() {
 	net::Shutdown();
 
 	g_Discord.Shutdown();
+
+	ShaderTranslationShutdown();
 
 	// Avoid shutting this down when restarting core.
 	if (!restarting)

@@ -132,6 +132,7 @@ namespace MainWindow
 	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
+	static bool g_isFullscreen = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -355,6 +356,7 @@ namespace MainWindow
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
 		g_Config.bFullScreen = goingFullscreen;
+		g_isFullscreen = goingFullscreen;
 
 		g_IgnoreWM_SIZE = false;
 
@@ -1067,6 +1069,10 @@ namespace MainWindow
 
 	void SendToggleFullscreen(bool fullscreen) {
 		PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, fullscreen, 0);
+	}
+
+	bool IsFullscreen() {
+		return g_isFullscreen;
 	}
 
 }  // namespace

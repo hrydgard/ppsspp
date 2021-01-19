@@ -335,8 +335,10 @@ bool CwCheatScreen::RebuildCheatFile(int index) {
 		return false;
 	}
 
-	for (const auto &line : lines) {
-		fs << line << '\n';
+	for (int i = 0; i < lines.size(); ++i) {
+		fs << lines[i];
+		if (i != lines.size()-1)
+			fs << '\n';
 	}
 	fs.close();
 
