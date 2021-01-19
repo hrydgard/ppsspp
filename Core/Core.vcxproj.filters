@@ -965,6 +965,9 @@
     <ClCompile Include="ThreadPools.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1648,6 +1651,9 @@
     </ClInclude>
     <ClInclude Include="ThreadPools.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\InputSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

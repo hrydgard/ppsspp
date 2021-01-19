@@ -437,6 +437,7 @@
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemorySubscriber.cpp" />
@@ -981,6 +982,7 @@
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\InputSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />
