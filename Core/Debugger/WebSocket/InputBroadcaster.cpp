@@ -26,8 +26,9 @@
 //
 // Sent unexpectedly with these properties:
 //  - buttons: an object with button names as keys and bool press state as values.
+//  - changed: same as buttons, but only including changed states.
 //
-// See input.buttons.send in InputSubscriber for button names.  Only changed buttons are sent.
+// See input.buttons.send in InputSubscriber for button names.
 
 // Analog position change (input.analog)
 //
@@ -55,6 +56,11 @@ static std::string ButtonsEvent(uint32_t lastButtons, uint32_t newButtons) {
 	j.begin();
 	j.writeString("event", "input.buttons");
 	j.pushDict("buttons");
+	for (auto it : WebSocketInputButtonLookup()) {
+		j.writeBool(it.first, (newButtons & it.second) != 0);
+	}
+	j.pop();
+	j.pushDict("changed");
 	for (auto it : WebSocketInputButtonLookup()) {
 		if (pressed & it.second) {
 			j.writeBool(it.first, true);
