@@ -23,7 +23,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 
-static const std::unordered_map<std::string, uint32_t> buttonLookup = {
+// This is also used in InputBroadcaster.
+const std::unordered_map<std::string, uint32_t> buttonLookup = {
 	{ "cross", CTRL_CROSS },
 	{ "circle", CTRL_CIRCLE },
 	{ "triangle", CTRL_TRIANGLE },
@@ -52,9 +53,9 @@ static const std::unordered_map<std::string, uint32_t> buttonLookup = {
 };
 
 struct WebSocketInputState : public DebuggerSubscriber {
-	void Buttons(DebuggerRequest &req);
-	void Press(DebuggerRequest &req);
-	void Analog(DebuggerRequest &req);
+	void ButtonsSend(DebuggerRequest &req);
+	void ButtonsPress(DebuggerRequest &req);
+	void AnalogSend(DebuggerRequest &req);
 
 	void Broadcast(net::WebSocketServer *ws) override;
 
@@ -74,7 +75,7 @@ protected:
 std::string WebSocketInputState::PressInfo::Event() {
 	JsonWriter j;
 	j.begin();
-	j.writeString("event", "input.press");
+	j.writeString("event", "input.buttons.press");
 	if (!ticket.empty()) {
 		j.writeRaw("ticket", ticket);
 	}
@@ -82,16 +83,20 @@ std::string WebSocketInputState::PressInfo::Event() {
 	return j.str();
 }
 
+const std::unordered_map<std::string, uint32_t> &WebSocketInputButtonLookup() {
+	return buttonLookup;
+}
+
 DebuggerSubscriber *WebSocketInputInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketInputState();
-	map["input.buttons"] = std::bind(&WebSocketInputState::Buttons, p, std::placeholders::_1);
-	map["input.press"] = std::bind(&WebSocketInputState::Press, p, std::placeholders::_1);
-	map["input.analog"] = std::bind(&WebSocketInputState::Analog, p, std::placeholders::_1);
+	map["input.buttons.send"] = std::bind(&WebSocketInputState::ButtonsSend, p, std::placeholders::_1);
+	map["input.buttons.press"] = std::bind(&WebSocketInputState::ButtonsPress, p, std::placeholders::_1);
+	map["input.analog.send"] = std::bind(&WebSocketInputState::AnalogSend, p, std::placeholders::_1);
 
 	return p;
 }
 
-// Alter PSP button press flags (input.buttons)
+// Alter PSP button press flags (input.buttons.send)
 //
 // Parameters:
 //  - buttons: object containing button names as string keys, boolean press state as value.
@@ -124,7 +129,7 @@ DebuggerSubscriber *WebSocketInputInit(DebuggerEventHandlerMap &map) {
 //  - playpause: play/pause button on headset.
 //
 // Empty response.
-void WebSocketInputState::Buttons(DebuggerRequest &req) {
+void WebSocketInputState::ButtonsSend(DebuggerRequest &req) {
 	const JsonNode *jsonButtons = req.data.get("buttons");
 	if (!jsonButtons) {
 		return req.Fail("Missing 'buttons' parameter");
@@ -160,14 +165,14 @@ void WebSocketInputState::Buttons(DebuggerRequest &req) {
 	req.Respond();
 }
 
-// Press and release a button (input.press)
+// Press and release a button (input.buttons.press)
 //
 // Parameters:
-//  - button: required string indicating button name (see input.buttons.)
+//  - button: required string indicating button name (see input.buttons.send.)
 //  - duration: optional integer indicating frames to press for, defaults to 1.
 //
 // Empty response once released.
-void WebSocketInputState::Press(DebuggerRequest &req) {
+void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	std::string button;
 	if (!req.ParamString("button", &button))
 		return;
@@ -231,7 +236,7 @@ static bool AnalogValue(DebuggerRequest &req, float *value, const char *name) {
 	return true;
 }
 
-// Set coordinates of analog stick (input.analog)
+// Set coordinates of analog stick (input.analog.send)
 //
 // Parameters:
 //  - x: required number from -1.0 to 1.0.
@@ -239,7 +244,7 @@ static bool AnalogValue(DebuggerRequest &req, float *value, const char *name) {
 //  - stick: optional string, either "left" (default) or "right".
 //
 // Empty response.
-void WebSocketInputState::Analog(DebuggerRequest &req) {
+void WebSocketInputState::AnalogSend(DebuggerRequest &req) {
 	std::string stick = "left";
 	if (!req.ParamString("stick", &stick, DebuggerParamType::OPTIONAL))
 		return;

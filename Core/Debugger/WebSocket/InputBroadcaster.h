@@ -1,4 +1,4 @@
-// Copyright (c) 2021- PPSSPP Project.
+// Copyright (c) 2018- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,8 +18,31 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_map>
-#include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include <string>
 
-DebuggerSubscriber *WebSocketInputInit(DebuggerEventHandlerMap &map);
-const std::unordered_map<std::string, uint32_t> &WebSocketInputButtonLookup();
+namespace net {
+class WebSocketServer;
+}
+
+struct InputBroadcaster {
+public:
+	InputBroadcaster() {
+	}
+
+	void Broadcast(net::WebSocketServer *ws);
+
+private:
+	struct Analog {
+		float x = 0.0f;
+		float y = 0.0f;
+
+		bool Equals(const Analog &other) const {
+			return x == other.x && y == other.y;
+		}
+		std::string Event(const char *stick);
+	};
+
+	int lastCounter_ = -1;
+	uint32_t lastButtons_ = 0;
+	Analog lastAnalog_[2];
+};
