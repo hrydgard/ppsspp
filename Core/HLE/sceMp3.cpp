@@ -157,8 +157,6 @@ void __Mp3DoState(PointerWrap &p) {
 }
 
 static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
-	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
