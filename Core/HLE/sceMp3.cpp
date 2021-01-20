@@ -167,10 +167,12 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
+		DEBUG_LOG(ME, "%d = sceMp3Decode(%08x,%08x)", pcmBytes, mp3, outPcmPtr);
 		// decode data successfully, delay thread
 		return hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
 	}
-	return pcmBytes;
+	ERROR_LOG(ME, "%d = sceMp3Decode(%08x,%08x)", 0x807f00fd, mp3, outPcmPtr);
+	return ERROR_AVCODEC_INVALID_DATA;
 }
 
 static int sceMp3ResetPlayPosition(u32 mp3) {
