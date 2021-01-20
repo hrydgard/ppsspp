@@ -639,7 +639,7 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory("MainMenu");
 
 	// No topbar with SimpleUI
-	if (!g_Config.bSimpleUI) { //(DisplayTopBar()) { // No topbar on recent screen
+	if (!g_Config.bSimpleUI && DisplayTopBar()) { // No topbar on recent screen
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
