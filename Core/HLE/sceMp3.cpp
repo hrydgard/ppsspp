@@ -435,7 +435,6 @@ static int sceMp3Init(u32 mp3) {
 	// for mp3, reset resampling Frequency seems get better sound quality (e.g. Miku Custom BGM,Hanayaka Nari Wa ga Ichizoku)
 	// TODO: Isn't this backwards?  Woudln't we want to read as 48kHz and resample to 44.1kHz?
 	ctx->decoder->SetResampleFrequency(ctx->freq);
-	}
 
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
