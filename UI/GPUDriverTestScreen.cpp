@@ -627,6 +627,12 @@ void GPUDriverTestScreen::ShaderTest() {
 	// Wherever possible we should reconfigure the GL provoking vertex to match Vulkan, probably.
 	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0xFF808080, bounds);
 	dc.Flush();
+
+	y += 120;
+
+	dc.Begin();
+	dc.DrawText("Test done", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.Flush();
 }
 
 
