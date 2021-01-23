@@ -957,6 +957,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 	}
 
 	int zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
+	zoom = std::min(zoom, PSP_CoreParameter().renderScaleFactor);
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
 
 	if (HasTextDrawer()) {
