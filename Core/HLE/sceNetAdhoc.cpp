@@ -109,6 +109,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 int FlushPtpSocket(int socketId);
 int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
+int NetAdhoc_PtpConnect(int id, int timeout, int flag);
 static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
 static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
@@ -555,6 +556,10 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 
 		DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
 
+		// Set to Established on successful Send when an attempt to Connect was initiated
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+
 		// Return Success
 		result = 0;
 	}
@@ -603,6 +608,10 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		auto peer = findFriend(&ptpsocket.paddr);
 		if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 		peerlock.unlock();
+
+		// Set to Established on successful Recv when an attempt to Connect was initiated
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
 		result = 0;
 	}
@@ -3191,6 +3200,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(tcpsocket, 1);
 
+								// Initiate PtpConnect (ie. The Warrior seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+								NetAdhoc_PtpConnect(i + 1, rexmt_int, 1);
+
 								// Return PTP Socket Pointer
 								return hleLogDebug(SCENET, i + 1, "success");
 							}
@@ -3438,19 +3450,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
-/**
- * Adhoc Emulator PTP Connection Opener
- * @param id Socket File Descriptor
- * @param timeout Connect Timeout (in Microseconds)
- * @param flag Nonblocking Flag
- * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_CONNECTION_REFUSED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_OPENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
- */
-static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
-	INFO_LOG(SCENET, "sceNetAdhocPtpConnect(%i, %i, %i) at %08x", id, timeout, flag, currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
-		return -1;
-	}
-
+int NetAdhoc_PtpConnect(int id, int timeout, int flag) {
 	// Library is initialized
 	if (netAdhocInited)
 	{
@@ -3477,21 +3477,21 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				// Target Address
 				sockaddr_in sin;
 				memset(&sin, 0, sizeof(sin));
-				
+
 				// Setup Target Address
 				// sin.sin_len = sizeof(sin);
 				sin.sin_family = AF_INET;
 				sin.sin_port = htons(ptpsocket.pport + portOffset);
-				
+
 				// Grab Peer IP
-				if (resolveMAC(&ptpsocket.paddr, (uint32_t *)&sin.sin_addr.s_addr)) {
+				if (resolveMAC(&ptpsocket.paddr, (uint32_t*)&sin.sin_addr.s_addr)) {
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
 					sin.sin_port = htons(ptpsocket.pport + ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset));
 
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
-					int connectresult = connect(ptpsocket.id, (sockaddr *)&sin, sizeof(sin));
-					
+					int connectresult = connect(ptpsocket.id, (sockaddr*)&sin, sizeof(sin));
+
 					// Grab Error Code
 					int errorcode = errno;
 
@@ -3508,12 +3508,12 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-						
+
 						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, inet_ntoa(sin.sin_addr), ptpsocket.pport);
 						// Success
 						return 0;
 					}
-					
+
 					// Error handling
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress
@@ -3539,21 +3539,37 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						}
 					}
 				}
-				
+
 				// Peer not found
 				return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address"); // ERROR_NET_ADHOC_WOULD_BLOCK / ERROR_NET_ADHOC_TIMEOUT
 			}
-			
+
 			// Not a valid Client Socket
 			return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_OPENED, "not opened");
 		}
-		
+
 		// Invalid Socket
 		return hleLogDebug(SCENET, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
-	
+
 	// Library is uninitialized
 	return hleLogDebug(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
+}
+
+/**
+ * Adhoc Emulator PTP Connection Opener
+ * @param id Socket File Descriptor
+ * @param timeout Connect Timeout (in Microseconds)
+ * @param flag Nonblocking Flag
+ * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_CONNECTION_REFUSED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_OPENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
+ */
+static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
+	INFO_LOG(SCENET, "sceNetAdhocPtpConnect(%i, %i, %i) at %08x", id, timeout, flag, currentMIPS->pc);
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
+	return NetAdhoc_PtpConnect(id, timeout, flag);
 }
 
 int NetAdhocPtp_Close(int id, int unknown) {
@@ -3810,7 +3826,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 			socket->nonblocking = flag;
 			
 			// Connected Socket
-			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
+			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
 				// Valid Arguments
 				if (data != NULL && len != NULL && *len > 0) {
 					// Schedule Timeout Removal
@@ -3844,6 +3860,10 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 						DEBUG_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, ptpsocket.lport, sent, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
 						
+						// Set to Established on successful Send when an attempt to Connect was initiated
+						if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+							ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+
 						// Return Success
 						return 0;
 					}
@@ -3909,7 +3929,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 				auto& ptpsocket = socket->data.ptp;
 				socket->nonblocking = flag;
 
-				if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
+				if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
 					// Schedule Timeout Removal
 					//if (flag) timeout = 0;
 
@@ -3961,6 +3981,10 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						peerlock.unlock();
 
 						DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, ptpsocket.lport, received, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
+
+						// Set to Established on successful Recv when an attempt to Connect was initiated
+						if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+							ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
 						// Return Success
 						return 0;
