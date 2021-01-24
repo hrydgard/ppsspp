@@ -36,13 +36,14 @@ public:
 	void render() override;
 
 	std::string tag() const override { return "game"; }
+	std::string CRC32string = "";
 
 protected:
 	void CreateViews() override;
 	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(const std::string &gamePath);
+	bool isRecentGame(const std::string &gamePath);	
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);
@@ -60,6 +61,7 @@ private:
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 	UI::EventReturn OnSetBackground(UI::EventParams &e);
+	UI::EventReturn OnDoCRC32(UI::EventParams& e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;

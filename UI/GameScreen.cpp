@@ -40,6 +40,12 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
+#ifdef _WIN32
+#include "UI/windows_crc32.h"
+#include <Windows.h>
+#else
+#include "UI/linux_crc32.h"
+#endif
 
 GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
@@ -143,6 +149,7 @@ void GameScreen::CreateViews() {
 	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
+	rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("CRC32 CALC"), (const char*)nullptr))->OnClick.Handle(this, &GameScreen::OnDoCRC32);
 }
 
 UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
@@ -262,6 +269,30 @@ UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
 
 UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen(gamePath_));
+	return UI::EVENT_DONE;
+}
+
+template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
+	static const char* digits = "0123456789ABCDEF";
+	std::string rc(hex_len, '0');
+	for (size_t i = 0, j = (hex_len - 1) * 4; i < hex_len; ++i, j -= 4)
+		rc[i] = digits[(w >> j) & 0x0f];
+	return rc;
+}
+
+UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
+	init_crc32_tab();
+	unsigned int crcvalue;
+#ifdef _WIN32
+	TCHAR* param = new TCHAR[gamePath_.size() + 1];
+	param[gamePath_.size()] = 0;
+	std::copy(gamePath_.begin(), gamePath_.end(), param);
+	calc_img_crc(param, &crcvalue);		
+	
+#else
+	calc_img_crc(gamePath_.c_str(), &crcvalue);
+#endif
+	CRC32string = int2hexstr(crcvalue);
 	return UI::EVENT_DONE;
 }
 

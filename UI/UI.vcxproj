@@ -66,6 +66,7 @@
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
+    <ClCompile Include="windows_crc32.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BackgroundAudio.h" />
@@ -99,6 +100,7 @@
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
+    <ClInclude Include="windows_crc32.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">

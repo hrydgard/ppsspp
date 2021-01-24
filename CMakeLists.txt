@@ -1058,6 +1058,7 @@ list(APPEND NativeAppSource
 	UI/PauseScreen.cpp
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp
+	UI/linux_crc32.cpp
 	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.cpp
 	UI/TiltEventProcessor.cpp

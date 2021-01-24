@@ -613,6 +613,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
+  $(SRC)/UI/linux_crc32.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
   $(SRC)/UI/TiltEventProcessor.cpp \
