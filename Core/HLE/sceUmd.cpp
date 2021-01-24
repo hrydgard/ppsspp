@@ -40,7 +40,9 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 
-const u64 MICRO_DELAY_ACTIVATE = 4000;
+static constexpr u64 MICRO_DELAY_ACTIVATE = 4000;
+// Does not include PSP_UMD_CHANGED.
+static constexpr uint32_t UMD_STAT_ALLOW_WAIT = PSP_UMD_NOT_PRESENT | PSP_UMD_PRESENT | PSP_UMD_NOT_READY | PSP_UMD_READY | PSP_UMD_READABLE;
 
 static bool umdActivated = true;
 static u32 umdStatus = 0;
@@ -60,11 +62,11 @@ struct PspUmdInfo {
 	u32_le type;
 };
 
-void __UmdStatTimeout(u64 userdata, int cyclesLate);
-void __UmdStatChange(u64 userdata, int cyclesLate);
-void __UmdInsertChange(u64 userdata, int cyclesLate);
-void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId);
+static void __UmdStatTimeout(u64 userdata, int cyclesLate);
+static void __UmdStatChange(u64 userdata, int cyclesLate);
+static void __UmdInsertChange(u64 userdata, int cyclesLate);
+static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId);
+static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __UmdInit()
 {
@@ -187,7 +189,7 @@ static void __KernelUmdDeactivate()
 	__UmdStatChange(0, 0);
 }
 
-void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
+static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
@@ -213,7 +215,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(SCEIO, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
 }
 
-void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
+static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
@@ -352,7 +354,7 @@ static u32 sceUmdGetDriveStat()
 	return retVal;
 }
 
-void __UmdStatTimeout(u64 userdata, int cyclesLate)
+static void __UmdStatTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
 
@@ -384,7 +386,7 @@ static void __UmdWaitStat(u32 timeout)
 *
 */
 static int sceUmdWaitDriveStat(u32 stat) {
-	if (stat == 0) {
+	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
 		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
@@ -406,7 +408,7 @@ static int sceUmdWaitDriveStat(u32 stat) {
 }
 
 static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
-	if (stat == 0) {
+	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
 		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
@@ -431,7 +433,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
-	if (stat == 0) {
+	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
 		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
