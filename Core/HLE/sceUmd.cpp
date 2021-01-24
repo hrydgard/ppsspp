@@ -42,7 +42,7 @@
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
-static u8 umdActivated = 1;
+static bool umdActivated = true;
 static u32 umdStatus = 0;
 static u32 umdErrorStat = 0;
 static int driveCBId = 0;
@@ -71,7 +71,7 @@ void __UmdInit()
 	umdStatTimeoutEvent = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdStatChangeEvent = CoreTiming::RegisterEvent("UmdChange", __UmdStatChange);
 	umdInsertChangeEvent = CoreTiming::RegisterEvent("UmdInsertChange", __UmdInsertChange);
-	umdActivated = 1;
+	umdActivated = true;
 	umdStatus = 0;
 	umdErrorStat = 0;
 	driveCBId = 0;
@@ -87,7 +87,9 @@ void __UmdDoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	u8 activatedByte = umdActivated ? 1 : 0;
 	Do(p, umdActivated);
+	umdActivated = activatedByte != 0;
 	Do(p, umdStatus);
 	Do(p, umdErrorStat);
 	Do(p, driveCBId);
@@ -112,8 +114,11 @@ void __UmdDoState(PointerWrap &p)
 		UMDInserted = true;
 }
 
-static u8 __KernelUmdGetState()
-{
+static u8 __KernelUmdGetState() {
+	if (!UMDInserted) {
+		return PSP_UMD_NOT_PRESENT;
+	}
+
 	// Most games seem to expect the disc to be ready early on, active or not.
 	// It seems like the PSP sets this state when the disc is "ready".
 	u8 state = PSP_UMD_PRESENT | PSP_UMD_READY;
@@ -123,16 +128,7 @@ static u8 __KernelUmdGetState()
 	return state;
 }
 
-void __UmdInsertChange(u64 userdata, int cyclesLate)
-{
-	UMDInserted = true;
-}
-
-void __UmdStatChange(u64 userdata, int cyclesLate)
-{
-	// TODO: Why not a bool anyway?
-	umdActivated = userdata & 0xFF;
-
+static void UmdWakeThreads() {
 	// Wake anyone waiting on this.
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		const SceUID threadID = umdWaitingThreads[i];
@@ -140,17 +136,30 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 		u32 error;
 		u32 stat = __KernelGetWaitValue(threadID, error);
 		bool keep = false;
-		if (HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1)) {
-			if ((stat & __KernelUmdGetState()) != 0)
-				__KernelResumeThreadFromWait(threadID, 0);
+		if (!HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1)) {
 			// Only if they are still waiting do we keep them in the list.
-			else
-				keep = true;
+			keep = (stat & __KernelUmdGetState()) == 0;
+			if (!keep) {
+				__KernelResumeThreadFromWait(threadID, 0);
+			}
 		}
 
-		if (!keep)
+		if (!keep) {
 			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
+		}
 	}
+}
+
+static void __UmdStatChange(u64 userdata, int cyclesLate) {
+	umdActivated = userdata != 0;
+
+	UmdWakeThreads();
+}
+
+static void __UmdInsertChange(u64 userdata, int cyclesLate) {
+	UMDInserted = true;
+
+	UmdWakeThreads();
 }
 
 static void __KernelUmdActivate()
@@ -268,20 +277,16 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 }
 
-static int sceUmdActivate(u32 mode, const char *name)
-{
+static int sceUmdActivate(u32 mode, const char *name) {
 	if (mode < 1 || mode > 2)
-		return PSP_ERROR_UMD_INVALID_PARAM;
+		return hleLogWarning(SCEIO, PSP_ERROR_UMD_INVALID_PARAM);
 
 	__KernelUmdActivate();
 
-	if (mode == 1) {
-		DEBUG_LOG(SCEIO, "0=sceUmdActivate(%d, %s)", mode, name);
-	} else {
-		ERROR_LOG(SCEIO, "UNTESTED 0=sceUmdActivate(%d, %s)", mode, name);
+	if (mode != 1) {
+		return hleLogError(SCEIO, 0, "UNTESTED");
 	}
-
-	return 0;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static int sceUmdDeactivate(u32 mode, const char *name)
@@ -426,11 +431,6 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
-	if (!UMDInserted) {
-		WARN_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): UMD is taking out for switch UMD", stat, timeout);
-		return PSP_UMD_NOT_PRESENT;
-	}
-
 	if (stat == 0) {
 		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
@@ -487,6 +487,9 @@ void __UmdReplace(std::string filepath) {
 	}
 
 	UMDInserted = false;
+	// Wake any threads waiting for the disc to be removed.
+	UmdWakeThreads();
+
 	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
