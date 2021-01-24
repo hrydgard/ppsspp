@@ -235,13 +235,16 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
 		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		if (gstate.isModeClear()) {
 			// Depth Test
 			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
 			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF);
-			renderManager->SetStencilOp((~gstate.getStencilWriteMask()) & 0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			renderManager->SetStencilOp(stencilState.writeMask, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
@@ -250,8 +253,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				framebufferManager_->SetDepthUpdated();
 			}
 
-			GenericStencilFuncState stencilState;
-			ConvertStencilFuncState(stencilState);
 			// Stencil Test
 			if (stencilState.enabled) {
 				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
