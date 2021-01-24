@@ -36,7 +36,6 @@ public:
 	void render() override;
 
 	std::string tag() const override { return "game"; }
-	std::string CRC32string = "";
 
 protected:
 	void CreateViews() override;
@@ -44,6 +43,7 @@ protected:
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
 	bool isRecentGame(const std::string &gamePath);	
+	std::string CRC32string = "";
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);
