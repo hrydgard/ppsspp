@@ -183,7 +183,6 @@ static const std::vector<Draw::ShaderSource> fsFlat = {
 
 static const std::vector<Draw::ShaderSource> vsFlat = {
 	{ GLSL_3xx,
-	"#version 300 es\n"
 	"in vec3 Position;\n"
 	"in vec2 TexCoord0;\n"
 	"in lowp vec4 Color0;\n"
