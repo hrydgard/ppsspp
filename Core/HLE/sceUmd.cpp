@@ -378,22 +378,18 @@ static void __UmdWaitStat(u32 timeout)
 * @return < 0 on error
 *
 */
-static int sceUmdWaitDriveStat(u32 stat)
-{
+static int sceUmdWaitDriveStat(u32 stat) {
 	if (stat == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): bad status", stat);
-		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
-
 	if (!__KernelIsDispatchEnabled()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): dispatch disabled", stat);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): inside interrupt", stat);
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
+	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
@@ -401,26 +397,21 @@ static int sceUmdWaitDriveStat(u32 stat)
 		return 0;
 	}
 
-	DEBUG_LOG(SCEIO, "0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	return 0;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
-static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
-{
+static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 	if (stat == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): bad status", stat, timeout);
-		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
-
 	if (!__KernelIsDispatchEnabled()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): inside interrupt", stat, timeout);
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
+	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
@@ -431,34 +422,29 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 		hleReSchedule("umd stat checked");
 	}
 
-	DEBUG_LOG(SCEIO, "0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
-	return 0;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
-static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
-{
+static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	if (!UMDInserted) {
 		WARN_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): UMD is taking out for switch UMD", stat, timeout);
 		return PSP_UMD_NOT_PRESENT;
 	}
 
 	if (stat == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): bad status", stat, timeout);
-		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
-
 	if (!__KernelIsDispatchEnabled()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): inside interrupt", stat, timeout);
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
+	hleEatCycles(520);
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
+		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
 		if (timeout == 0) {
 			timeout = 8000;
 		}
@@ -470,8 +456,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 		hleReSchedule("umd stat waited");
 	}
 
-	DEBUG_LOG(SCEIO, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
-	return 0;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static u32 sceUmdCancelWaitDriveStat()
