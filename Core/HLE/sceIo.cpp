@@ -2017,20 +2017,22 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	return hleLogSuccessI(SCEIO, 0);
 }
 
-static int sceIoCloseAsync(int id)
-{
+static int sceIoCloseAsync(int id) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f) {
-		f->closePending = true;
-
-		auto &params = asyncParams[id];
-		params.op = IoAsyncOp::CLOSE;
-		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
-	} else {
+	if (!f) {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
+	if (f->asyncBusy()) {
+		return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+	}
+
+	f->closePending = true;
+
+	auto &params = asyncParams[id];
+	params.op = IoAsyncOp::CLOSE;
+	IoStartAsyncThread(id, f);
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
