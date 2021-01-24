@@ -359,9 +359,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform vec3 u_texenv;\n");
 		}
 
-		WRITE(p, "%s %s vec4 v_color0;\n", shading, compat.varying_fs);
+		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		if (lmode)
-			WRITE(p, "%s %s vec3 v_color1;\n", shading, compat.varying_fs);
+			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
