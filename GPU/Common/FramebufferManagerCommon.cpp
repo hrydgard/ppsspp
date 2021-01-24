@@ -517,6 +517,25 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
+// Can't easily dynamically create these strings, we just pass along the pointer.
+static const char *reinterpretStrings[3][3] = {
+	{
+		"self_reinterpret_565",
+		"reinterpret_565_to_5551",
+		"reinterpret_565_to_4444",
+	},
+	{
+		"reinterpret_5551_to_565",
+		"self_reinterpret_5551",
+		"reinterpret_5551_to_4444",
+	},
+	{
+		"reinterpret_4444_to_565",
+		"reinterpret_4444_to_5551",
+		"self_reinterpret_4444",
+	},
+};
+
 void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
@@ -617,7 +636,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "reinterpret");
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
 	draw_->BindPipeline(pipeline);
 	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
 	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
