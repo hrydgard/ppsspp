@@ -3884,16 +3884,16 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 					
-					// Disconnected
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+					// Disconnected or Not connected?
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
 				}
 				
 				// Invalid Arguments
 				return hleLogError(SCENET, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 			}
 			
-			// Not connected
-			return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
+			// Disconnected
+			return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 		}
 		
 		// Invalid Socket
@@ -3998,11 +3998,11 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 
-					// Disconnected
-					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
+					// Disconnected or Not connected?
+					return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected?");
 				}
 
-				return hleLogError(SCENET, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
+				return hleLogError(SCENET, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 			}
 
 			// Invalid Socket
