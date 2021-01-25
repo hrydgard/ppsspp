@@ -14,6 +14,7 @@
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
+    <ClCompile Include="..\..\UI\linux_crc32.cpp" />
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
     <ClInclude Include="..\..\UI\GameScreen.h" />
+    <ClInclude Include="..\..\UI\linux_crc32.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\HostTypes.h" />

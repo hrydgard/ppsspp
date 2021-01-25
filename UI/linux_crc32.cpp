@@ -6,7 +6,7 @@
  
 static unsigned int crc_table[256];  
  
-void init_crc_table(void)  
+void init_crc_table()
 {  
     unsigned int c;  
     unsigned int i, j;  
