@@ -126,10 +126,9 @@ namespace Reporting
 		return 0;
 	}
 
-	void QueueCRC() {
+	void QueueCRC(const std::string &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 
-		const std::string &gamePath = PSP_CoreParameter().fileToStart;
 		auto it = crcResults.find(gamePath);
 		if (it != crcResults.end()) {
 			// Nothing to do, we've already calculated it.
@@ -146,9 +145,15 @@ namespace Reporting
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
-	u32 RetrieveCRC() {
-		const std::string &gamePath = PSP_CoreParameter().fileToStart;
-		QueueCRC();
+	bool HasCRC(const std::string &gamePath) {
+		QueueCRC(gamePath);
+
+		std::lock_guard<std::mutex> guard(crcLock);
+		return crcResults.find(gamePath) != crcResults.end();
+	}
+
+	uint32_t RetrieveCRC(const std::string &gamePath) {
+		QueueCRC(gamePath);
 
 		std::unique_lock<std::mutex> guard(crcLock);
 		auto it = crcResults.find(gamePath);
@@ -468,7 +473,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
-			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC()));
+			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
