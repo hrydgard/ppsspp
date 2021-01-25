@@ -284,6 +284,9 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
@@ -307,7 +310,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				// We override this value in the pipeline from software transform for clear rectangles.
 				dynState_.stencilRef = 0xFF;
 				// But we still apply the stencil write mask.
-				keys_.depthStencil.stencilWriteMask = (~gstate.getStencilWriteMask()) & 0xFF;
+				keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
 				dynState_.useStencil = false;
@@ -328,9 +331,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.depthWriteEnable = false;
 				keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			}
-
-			GenericStencilFuncState stencilState;
-			ConvertStencilFuncState(stencilState);
 
 			// Stencil Test
 			if (stencilState.enabled) {

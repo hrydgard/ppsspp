@@ -253,6 +253,9 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
@@ -275,7 +278,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				// We override this value in the pipeline from software transform for clear rectangles.
 				dynState.stencilRef = 0xFF;
 				// But we still apply the stencil write mask.
-				dynState.stencilWriteMask = (~gstate.getStencilWriteMask()) & 0xFF;
+				dynState.stencilWriteMask = stencilState.writeMask;
 			} else {
 				key.stencilTestEnable = false;
 				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
@@ -298,9 +301,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.depthWriteEnable = false;
 				key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			}
-
-			GenericStencilFuncState stencilState;
-			ConvertStencilFuncState(stencilState);
 
 			// Stencil Test
 			if (stencilState.enabled) {
