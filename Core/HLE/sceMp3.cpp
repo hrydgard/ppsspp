@@ -403,7 +403,7 @@ static int sceMp3Init(u32 mp3) {
 	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(versionBits, layerBits);
 	ctx->freq = ctx->SamplingRate;
 
-	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps, layerBits=%d ,versionBits=%d", ctx->Channels, ctx->SamplingRate, ctx->BitRate, layerBits, versionBits);
 
 	if (layerBits != 1) {
 		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
