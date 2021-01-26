@@ -159,19 +159,21 @@ void __Mp3DoState(PointerWrap &p) {
 }
 
 static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
-	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 		
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
-		return hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
+		return hleDelayResult(hleLogSuccessI(ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
 	}
+	// Should already have logged.
 	return pcmBytes;
 }
 
@@ -719,7 +721,7 @@ const HLEFunction sceMp3[] = {
 	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
 	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
 	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xppp" },
-	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xx"   },
+	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xp"   },
 	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
 	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
 	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
