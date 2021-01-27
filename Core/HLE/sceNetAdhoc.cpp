@@ -181,8 +181,13 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 					int recvd = 0;
 					for (auto& gma : replicaGameModeAreas) {
 						// Either replicas new data has been received or that player has been disconnected
-						if (gma.dataUpdated || gma.updateTimestamp == 0)
+						if (gma.dataUpdated || gma.updateTimestamp == 0) {
 							recvd++;
+							// Since we're able to receive data, now we're certain that remote player is listening and ready to receive data, so we send initial data one more time in case they're not listening yet on previous attempt (ie. Pocket Pool)
+							if (gma.dataUpdated) {
+								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, ADHOC_GAMEMODE_PORT, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+							}
+						}
 					}
 					// Resume blocked thread
 					u64 now = CoreTiming::GetGlobalTimeUsScaled();
