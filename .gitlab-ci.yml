@@ -25,7 +25,7 @@ stages:
   - test
 
 #Desktop
-libretro-build-linux-x86_64:
+libretro-build-linux-x64:
   extends:
     - .libretro-linux-cmake-x86_64
     - .core-defs
