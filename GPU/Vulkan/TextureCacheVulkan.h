@@ -139,6 +139,7 @@ private:
 	Vulkan2D *vulkan2D_;
 
 	std::string textureShader_;
+	int maxScaleFactor_ = 255;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
 	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 

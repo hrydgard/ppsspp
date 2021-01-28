@@ -161,6 +161,7 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
 					section.Get("Compute", &temp, "");
+					section.Get("MaxScale", &info.maxScale, 255);
 					info.computeShaderFile = path + "/" + temp;
 
 					appendTextureShader(info);
