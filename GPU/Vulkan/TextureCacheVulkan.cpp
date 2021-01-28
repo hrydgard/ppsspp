@@ -394,6 +394,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 		if (copyCS_ != VK_NULL_HANDLE)
 			vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
 		textureShader_.clear();
+		maxScaleFactor_ = 255;
 	} else if (uploadCS_ || copyCS_) {
 		// No need to recreate.
 		return;
@@ -417,6 +418,7 @@ void TextureCacheVulkan::CompileScalingShader() {
 	_dbg_assert_msg_(copyCS_ != VK_NULL_HANDLE, "failed to compile copy shader");
 
 	textureShader_ = g_Config.sTextureShaderName;
+	maxScaleFactor_ = shaderInfo->maxScale;
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
@@ -762,6 +764,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
+	if (scaleFactor > maxScaleFactor_)
+		scaleFactor = maxScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {

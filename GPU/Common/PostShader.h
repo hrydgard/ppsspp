@@ -70,6 +70,7 @@ struct TextureShaderInfo {
 	std::string name;
 
 	std::string computeShaderFile;
+	int maxScale;
 
 	bool operator == (const std::string &other) {
 		return name == other;
