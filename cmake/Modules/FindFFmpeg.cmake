@@ -46,6 +46,15 @@ set(_FFmpeg_DEPS_postproc avutil)
 set(_FFmpeg_DEPS_swresample avutil)
 set(_FFmpeg_DEPS_swscale avutil)
 
+set(_FFmpeg_HEADER_avcodec avcodec)
+set(_FFmpeg_HEADER_avdevice avdevice)
+set(_FFmpeg_HEADER_avfilter avfilter)
+set(_FFmpeg_HEADER_avformat avformat)
+set(_FFmpeg_HEADER_avutil avutil)
+set(_FFmpeg_HEADER_postproc postprocess)
+set(_FFmpeg_HEADER_swresample swresample)
+set(_FFmpeg_HEADER_swscale swscale)
+
 function(find_ffmpeg LIBNAME)
   if(DEFINED ENV{FFMPEG_DIR})
     set(FFMPEG_DIR $ENV{FFMPEG_DIR})
@@ -84,7 +93,7 @@ function(find_ffmpeg LIBNAME)
     )
   endif()
 
-  find_path(FFmpeg_INCLUDE_${LIBNAME} lib${LIBNAME}/${LIBNAME}.h
+  find_path(FFmpeg_INCLUDE_${LIBNAME} lib${LIBNAME}/${_FFmpeg_HEADER_${LIBNAME}}.h
     HINTS ${INCLUDE_PATHS}
   )
 
@@ -92,12 +101,14 @@ function(find_ffmpeg LIBNAME)
     HINTS ${LIB_PATHS}
   )
 
-  if(NOT FFMPEG_DIR AND (NOT FFmpeg_LIBRARY_${LIBNAME} OR NOT FFmpeg_INCLUDE_${LIBNAME}))
+  if(NOT FFMPEG_DIR AND (
+    FFmpeg_LIBRARY_${LIBNAME} STREQUAL FFmpeg_LIBRARY_${LIBNAME}-NOTFOUND
+    OR FFmpeg_INCLUDE_${LIBNAME} STREQUAL FFmpeg_INCLUDE_${LIBNAME}-NOTFOUND))
     # Didn't find it in the usual paths, try pkg-config
     find_package(PkgConfig QUIET)
     pkg_check_modules(FFmpeg_PKGCONFIG_${LIBNAME} REQUIRED QUIET lib${LIBNAME})
 
-    find_path(FFmpeg_INCLUDE_${LIBNAME} lib${LIBNAME}/${LIBNAME}.h
+    find_path(FFmpeg_INCLUDE_${LIBNAME} lib${LIBNAME}/${_FFmpeg_HEADER_${LIBNAME}}.h
       ${FFmpeg_PKGCONFIG_${LIBNAME}_INCLUDE_DIRS}
     )
 
