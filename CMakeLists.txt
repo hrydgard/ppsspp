@@ -283,6 +283,14 @@ if(NOT MSVC)
 		message("Undefined behaviour sanitizer enabled (DEBUG only)")
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
 		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=undefined")
+
+		# UBSAN is a collection of sanitizers, including vtpr, which reqiuires RTTI.
+		# ext/glslang disables RTTI by default using the `ENABLE_RTTI` option.
+		# If RTTI is disabled, we must also disable the vtpr sanitizer.
+		if(NOT ENABLE_RTTI)
+			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-sanitize=vptr")
+			set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-sanitize=vptr")
+		endif()
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
