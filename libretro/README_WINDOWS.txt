@@ -13,7 +13,7 @@ pacman -S make
 Then use the following in msys:
 
 cd libretro
-make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores && rm nul
+make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores && rm null
 
 Note that the latter part copies the DLL/PDB into wherever retroarch reads it from. Might need to adjust the path,
 and adjust -j32 depending on your number of logical CPUs - might not need that many threads (or you might need more...).
