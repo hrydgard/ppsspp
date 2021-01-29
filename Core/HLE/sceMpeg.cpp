@@ -34,6 +34,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "CORE/HLE/sceKernelMemory.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
@@ -1584,8 +1585,8 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		ERROR_LOG_REPORT(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
+	int sdkver = sceKernelGetCompiledSdkVersion();
+	if ((sdkver >= 0x03000000) && (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES)) {
 		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 		ctx->mpegwarmUp++;
 		return ERROR_MPEG_NO_DATA;
@@ -1684,12 +1685,6 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// Would have crashed before, TODO test behavior.
 		WARN_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
-	}
-
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
 	}
 
 	SceMpegAu atracAu;
