@@ -34,6 +34,8 @@ std::atomic<bool> anyMemChecks_(false);
 
 static std::mutex breakPointsMutex_;
 std::vector<BreakPoint> CBreakPoints::breakPoints_;
+void (*CBreakPoints::breakpointCallbackFunc_)(u32 addr, void *userData) = NULL;
+void *CBreakPoints::breakpointCallbackFuncUserData_ = NULL;
 u32 CBreakPoints::breakSkipFirstAt_ = 0;
 u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 static std::mutex memCheckMutex_;
@@ -342,6 +344,12 @@ void CBreakPoints::ChangeBreakPointLogFormat(u32 addr, const std::string &fmt) {
 	}
 }
 
+void CBreakPoints::SetBreakpointCallback(void (*callbackFunc)(u32 addr, void *userData), void *userData)
+{
+	breakpointCallbackFunc_ = callbackFunc;
+	breakpointCallbackFuncUserData_ = userData;
+}
+
 BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr, false);
@@ -354,6 +362,12 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 			auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 			if (cond && !cond->Evaluate())
 				return BREAK_ACTION_IGNORE;
+		}
+
+		if (info.result & BREAK_ACTION_CALLBACK) {
+			if (breakpointCallbackFunc_) {
+				breakpointCallbackFunc_(addr, breakpointCallbackFuncUserData_);
+			}
 		}
 
 		if (info.result & BREAK_ACTION_LOG) {

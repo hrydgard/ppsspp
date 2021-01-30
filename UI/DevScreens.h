@@ -38,6 +38,9 @@ public:
 
 protected:
 	UI::EventReturn OnLogView(UI::EventParams &e);
+#if defined(PPSSPP_USE_PYTHON_SCRIPTING)
+	UI::EventReturn OnPythonScript(UI::EventParams &e);
+#endif /* defined(PPSSPP_USE_PYTHON_SCRIPTING) */
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnShaderView(UI::EventParams &e);

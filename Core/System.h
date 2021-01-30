@@ -51,6 +51,7 @@ enum PSPDirectories {
 	DIRECTORY_VIDEO,
 	DIRECTORY_AUDIO,
 	DIRECTORY_MEMSTICK_ROOT,
+	DIRECTORY_PYTHON,
 };
 
 class GraphicsContext;
