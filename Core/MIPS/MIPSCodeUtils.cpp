@@ -55,7 +55,7 @@ namespace MIPSCodeUtils
 			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
-				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
+				return addr + 4 + ((signed short)((op&0xFFFF)<<2));
 			}
 			else
 				return INVALIDTARGET;
@@ -77,7 +77,7 @@ namespace MIPSCodeUtils
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_CONDBRANCH) && !(info & OUT_RA))
 			{
-				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
+				return addr + 4 + ((signed short)((op&0xFFFF)<<2));
 			}
 			else
 				return INVALIDTARGET;
@@ -125,7 +125,7 @@ namespace MIPSCodeUtils
 				}
 
 				if (sure && takeBranch)
-					return addr + 4 + ((signed short)(op&0xFFFF)<<2);
+					return addr + 4 + ((signed short)((op&0xFFFF)<<2));
 				else if (sure && !takeBranch)
 					return addr + 8;
 				else
