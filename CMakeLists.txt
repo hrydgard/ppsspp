@@ -134,7 +134,8 @@ option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
-option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
+option(USE_ASAN "Use address sanitizer" OFF)
+option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
@@ -272,11 +273,24 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
 	endif()
 
-	if(USE_ADDRESS_SANITIZER)
+	if(USE_ASAN)
 		message("Address sanitizer enabled (DEBUG only)")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-		add_definitions(-DUSE_ADDRESS_SANITIZER)
+		add_definitions(-DUSE_ASAN)
+	endif()
+	if(USE_UBSAN)
+		message("Undefined behaviour sanitizer enabled (DEBUG only)")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
+		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=undefined")
+
+		# UBSAN is a collection of sanitizers, including vtpr, which reqiuires RTTI.
+		# ext/glslang disables RTTI by default using the `ENABLE_RTTI` option.
+		# If RTTI is disabled, we must also disable the vtpr sanitizer.
+		if(NOT ENABLE_RTTI)
+			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-sanitize=vptr")
+			set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-sanitize=vptr")
+		endif()
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")

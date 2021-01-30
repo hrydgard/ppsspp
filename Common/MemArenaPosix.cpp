@@ -107,7 +107,7 @@ void MemArena::ReleaseView(void* view, size_t size) {
 
 u8* MemArena::Find4GBBase() {
 	// Now, create views in high memory where there's plenty of space.
-#if PPSSPP_ARCH(64BIT) && !defined(USE_ADDRESS_SANITIZER)
+#if PPSSPP_ARCH(64BIT) && !defined(USE_ASAN)
 	// We should probably just go look in /proc/self/maps for some free space.
 	// But let's try the anonymous mmap trick, just like on 32-bit, but bigger and
 	// aligned to 4GB for the movk trick. We can ensure that we get an aligned 4GB
