@@ -28,72 +28,59 @@ namespace MIPSCodeUtils
 #define OP_SYSCALL_MASK 0xFC00003F
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
+#define TARGET16 ((int)((uint32_t)_IMM16 << 2))
+#define TARGET26 (_IMM26 << 2)
 
-	u32 GetJumpTarget(u32 addr)
-	{
+	u32 GetJumpTarget(u32 addr) {
 		MIPSOpcode op = Memory::Read_Instruction(addr, true);
-		if (op != 0)
-		{
+		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_JUMP) && (info & IN_IMM26))
-			{
-				u32 target = (addr & 0xF0000000) | ((op&0x03FFFFFF) << 2);
-				return target;
-			}
+				return (addr & 0xF0000000) | TARGET26;
 			else
 				return INVALIDTARGET;
-		}
-		else
+		} else {
 			return INVALIDTARGET;
+		}
 	}
 
-	u32 GetBranchTarget(u32 addr)
-	{
+	u32 GetBranchTarget(u32 addr) {
 		MIPSOpcode op = Memory::Read_Instruction(addr, true);
-		if (op != 0)
-		{
+		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
-			{
-				return addr + 4 + ((signed short)((op&0xFFFF)<<2));
-			}
+				return addr + 4 + TARGET16;
 			else
 				return INVALIDTARGET;
-		}
-		else
+		} else {
 			return INVALIDTARGET;
+		}
 	}
 
-	u32 GetBranchTargetNoRA(u32 addr)
-	{
+	u32 GetBranchTargetNoRA(u32 addr) {
 		MIPSOpcode op = Memory::Read_Instruction(addr, true);
 		return GetBranchTargetNoRA(addr, op);
 	}
 
-	u32 GetBranchTargetNoRA(u32 addr, MIPSOpcode op)
-	{
-		if (op != 0)
-		{
+	u32 GetBranchTargetNoRA(u32 addr, MIPSOpcode op) {
+		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_CONDBRANCH) && !(info & OUT_RA))
-			{
-				return addr + 4 + ((signed short)((op&0xFFFF)<<2));
-			}
+				return addr + 4 + TARGET16;
 			else
 				return INVALIDTARGET;
-		}
-		else
+		} else {
 			return INVALIDTARGET;
+		}
 	}
 
-	u32 GetSureBranchTarget(u32 addr)
-	{
+	u32 GetSureBranchTarget(u32 addr) {
 		MIPSOpcode op = Memory::Read_Instruction(addr, true);
-		if (op != 0)
-		{
+		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
-			if ((info & IS_CONDBRANCH) && !(info & (IN_FPUFLAG | IS_VFPU)))
-			{
+			if ((info & IS_CONDBRANCH) && !(info & (IN_FPUFLAG | IS_VFPU))) {
 				bool sure;
 				bool takeBranch;
 				switch (info & CONDTYPE_MASK)
@@ -125,17 +112,17 @@ namespace MIPSCodeUtils
 				}
 
 				if (sure && takeBranch)
-					return addr + 4 + ((signed short)((op&0xFFFF)<<2));
+					return addr + 4 + TARGET16;
 				else if (sure && !takeBranch)
 					return addr + 8;
 				else
 					return INVALIDTARGET;
-			}
-			else
+			} else {
 				return INVALIDTARGET;
-		}
-		else
+			}
+		} else {
 			return INVALIDTARGET;
+		}
 	}
 
 	bool IsVFPUBranch(MIPSOpcode op) {
