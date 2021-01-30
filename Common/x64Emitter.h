@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <cstring>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
@@ -361,9 +362,9 @@ private:
 
 protected:
 	inline void Write8(u8 value)   {*code++ = value;}
-	inline void Write16(u16 value) {*(u16*)code = (value); code += 2;}
-	inline void Write32(u32 value) {*(u32*)code = (value); code += 4;}
-	inline void Write64(u64 value) {*(u64*)code = (value); code += 8;}
+	inline void Write16(u16 value) {std::memcpy(code, &value, sizeof(u16)); code += 2;}
+	inline void Write32(u32 value) {std::memcpy(code, &value, sizeof(u32)); code += 4;}
+	inline void Write64(u64 value) {std::memcpy(code, &value, sizeof(u64)); code += 8;}
 
 public:
 	XEmitter() { code = nullptr; flags_locked = false; }

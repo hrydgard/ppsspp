@@ -501,7 +501,8 @@ void XEmitter::SetJumpTarget(const FixupBranch &branch)
 	{
 		s64 distance = (s64)(code - branch.ptr);
 		_assert_msg_(distance >= -0x80000000LL && distance < 0x80000000LL, "Jump target too far away, needs indirect register");
-		((s32*)branch.ptr)[-1] = (s32)distance;
+		const s32 distance32 = static_cast<s32>(distance);
+		std::memcpy(branch.ptr - sizeof(s32), &distance32, sizeof(s32));
 	}
 }
 
