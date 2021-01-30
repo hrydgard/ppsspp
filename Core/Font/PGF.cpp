@@ -53,8 +53,10 @@ static int getBits(int numBits, const u8 *buf, size_t pos) {
 
 		const u8 done = 32 - bitoff;
 		const u8 remaining = numBits - done;
-		const u32 mask = (1 << remaining) - 1;
-		v |= (wordbuf[wordpos + 1] & mask) << done;
+		if (remaining > 0) {
+			const u32 mask = (1 << remaining) - 1;
+			v |= (wordbuf[wordpos + 1] & mask) << done;
+		}
 		return v;
 	}
 }
