@@ -30,6 +30,7 @@
 
 #include <locale.h>
 #include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -585,6 +586,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				g_Config.bSaveSettings = false;
 				break;
 			case '-':
+				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
+					logLevel = static_cast<LogTypes::LOG_LEVELS>(std::atoi(argv[i] + strlen("--loglevel=")));
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
@@ -664,6 +667,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	if (fileToLog)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
+
+	LogManager::GetInstance()->SetAllLogLevels(logLevel);
 
 	PostLoadConfig();
 
