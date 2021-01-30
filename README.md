@@ -32,7 +32,6 @@ There's really too much to list this time.
 * New Browse... button to allow opening SD cards on Android 11
 * Countless AdHoc networking fixes by ANR2ME, too many to list
 * Graphics issue with car reflections fixed in Outrun, Dirt 2 (#13636, #13640, #13760)
-* Crashes fixed in Crazy Taxi (#13368), Spiderman: Friend or Foe (#13969)
 * Numerous fixes to the builtin fonts by nassau-tk
 * Workaround for rendering bugs with flat shading in iOS 14
 * Multiple fixes to the IR interpreter (#13897, ...)
@@ -44,11 +43,19 @@ There's really too much to list this time.
 * Autogenerate mipmaps for scaled textures (#13514) (Vulkan-only)
 * Depth texturing support in Vulkan and D3D11 (13667, ...)
 * Performance fix for Test Drive Unlimited (#13355, ...)
-* Namco Musem hang fixes (#13298, ...)
 * Allow rewind on mobile (#13866)
 * Added option to disable on-screen messages (#13695)
 * Added "Lower resolution for effects" on libretro (#13654)
-# Allow chaining multiple post-processing shaders (#12924)
+* Allow chaining multiple post-processing shaders (#12924)
+* Fixed games:
+    * Namco Museum - Battle Collection, Vol 2 (#9523, #13297, #13298)
+    * Dream Club Portable (#6025)
+    * Capcom Classic Collection Reloaded (stuck in return game) (#4671)
+    * Xyanide Resurrection (freezing) (#8526)
+    * Dissidia Final Fantasy Chinese (patched game, invalid address) (#13204)
+    * Crazy Taxi (#13368)
+    * Spiderman: Friend or Foe (#13969)
+
 
 and more...
 
