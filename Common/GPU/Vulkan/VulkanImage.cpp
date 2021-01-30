@@ -196,7 +196,8 @@ void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
 	vkCmdClearColorImage(cmd, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearVal, 1, &range);
 }
 
-void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
+// Low-quality mipmap generation by bilinear blit, but works okay.
+void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip, VkImageLayout imageLayout) {
 	_assert_msg_(mip != 0, "Cannot generate the first level");
 	_assert_msg_(mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
 	VkImageBlit blit{};
@@ -214,16 +215,20 @@ void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
 	blit.dstOffsets[1].y = height_ >> mip;
 	blit.dstOffsets[1].z = 1;
 
+	// TODO: We could do better with the image transitions - would be enough with one per level
+	// for the memory barrier, then one final one for the whole stack when done. This function
+	// currently doesn't have a global enough view, though.
+	// We should also coalesce barriers across multiple texture uploads in a frame and all kinds of other stuff, but...
+
 	TransitionImageLayout2(cmd, image_, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-	// Low-quality mipmap generation, but works okay.
-	vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+	vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_, imageLayout, 1, &blit, VK_FILTER_LINEAR);
 
 	TransitionImageLayout2(cmd, image_, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageLayout,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 }

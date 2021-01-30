@@ -755,7 +755,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		}
 		// Generate the rest of the mips automatically.
 		for (; i < mipLevels_; i++) {
-			vkTex_->GenerateMip(cmd, i);
+			vkTex_->GenerateMip(cmd, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 	}
 	vkTex_->EndCreate(cmd, false);

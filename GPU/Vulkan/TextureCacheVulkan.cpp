@@ -930,6 +930,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			void *data;
 			bool dataScaled = true;
 			if (replaced.Valid()) {
+				// Directly load the replaced image.
 				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 				replaced.Load(i, data, stride);
 				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
@@ -1010,7 +1011,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 		// Generate any additional mipmap levels.
 		for (int level = maxLevel + 1; level <= maxLevelToGenerate; level++) {
-			entry->vkTex->GenerateMip(cmdInit, level);
+			entry->vkTex->GenerateMip(cmdInit, level, computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 
 		if (maxLevel == 0) {
