@@ -222,8 +222,8 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
 		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)frac) >> 16;
-		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)frac) >> 16;
+		int sampleL = (static_cast<int>(static_cast<u16>(l1) << 16) + (l2 - l1) * (u16)frac) >> 16;
+		int sampleR = (static_cast<int>(static_cast<u16>(r1) << 16) + (r2 - r1) * (u16)frac) >> 16;
 		samples[currentSample] = sampleL;
 		samples[currentSample + 1] = sampleR;
 		frac += ratio;
