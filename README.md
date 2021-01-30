@@ -29,22 +29,27 @@ What's new in 1.11.0
 ====================
 There's really too much to list this time.
 * Lots of minor bug fixes, crash fixes, and performance fixes and improvements.
-* Graphics issue with car reflections fixed in Outrun, Dirt 2 ([#13636], [#13640], [#13760])
+* New Browse... button to allow opening SD cards on Android 11
 * Countless AdHoc networking fixes by ANR2ME, too many to list
-* Crashes fixed in Crazy Taxi ([#13368]), Spiderman: Friend or Foe ([#13969])
+* Graphics issue with car reflections fixed in Outrun, Dirt 2 (#13636, #13640, #13760)
+* Crashes fixed in Crazy Taxi (#13368), Spiderman: Friend or Foe (#13969)
 * Numerous fixes to the builtin fonts by nassau-tk
 * Workaround for rendering bugs with flat shading in iOS 14
-* Multiple fixes to the IR interpreter ([#13897], ...)
-* New Browse... button to allow opening SD cards on Android 11
-* UI: New fullscreen button on desktop platforms, optional navigation sounds
-* Audio and multiple hangs fixes in UWP version ([#13792], ...)
-* Partial microphone support ([#12336], ...)
-* Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 ([#13706], [#13526])
-* Added MMPX Vulkan texture upscaling shader ([#13986])
-* Autogenerate mipmaps for scaled textures ([#13514]) (Vulkan-only)
-* Depth texturing support in Vulkan and D3D11 ([13667], ...)
-* Performance fix for Test Drive Unlimited ([#13355], ...)
-* Namco Musem hangs fixes ([#13298], ...)
+* Multiple fixes to the IR interpreter (#13897, ...)
+* UI: New fullscreen button on desktop platforms, optional navigation sounds (#13239)
+* Audio and multiple hangs fixes in UWP version (#13792, ...)
+* Partial microphone support (#12336, ...)
+* Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 (#13706, #13526)
+* Added MMPX Vulkan texture upscaling shader (#13986)
+* Autogenerate mipmaps for scaled textures (#13514) (Vulkan-only)
+* Depth texturing support in Vulkan and D3D11 (13667, ...)
+* Performance fix for Test Drive Unlimited (#13355, ...)
+* Namco Musem hang fixes (#13298, ...)
+* Allow rewind on mobile (#13866)
+* Added option to disable on-screen messages (#13695)
+* Added "Lower resolution for effects" on libretro (#13654)
+# Allow chaining multiple post-processing shaders (#12924)
+
 and more...
 
 What's new in 1.10.3
