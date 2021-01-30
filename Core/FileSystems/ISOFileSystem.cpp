@@ -61,15 +61,35 @@ bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize) {
 	return true;
 }
 
+struct unaligned_u32_le {
+	u8 bytes[4];
+	u32 value() const { return bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24); }
+};
+
+struct unaligned_u32_be {
+	u8 bytes[4];
+	u32 value() const { return (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]; }
+};
+
+struct unaligned_u16_le {
+	u8 bytes[2];
+	u16 value() const { return bytes[0] + (bytes[1] << 8); }
+};
+
+struct unaligned_u16_be {
+	u8 bytes[2];
+	u16 value() const { return (bytes[0] << 8) + bytes[1]; }
+};
+
 #pragma pack(push)
 #pragma pack(1)
 struct DirectoryEntry {
 	u8 size;
 	u8 sectorsInExtendedRecord;
-	u32_le firstDataSectorLE;       // LBA
-	u32_be firstDataSectorBE;
-	u32_le dataLengthLE;            // Size
-	u32_be dataLengthBE;
+	unaligned_u32_le firstDataSectorLE;       // LBA
+	unaligned_u32_be firstDataSectorBE;
+	unaligned_u32_le dataLengthLE;            // Size
+	unaligned_u32_be dataLengthBE;
 	u8 years;
 	u8 month;
 	u8 day;
@@ -80,36 +100,36 @@ struct DirectoryEntry {
 	u8 flags;                       // 2 = directory
 	u8 fileUnitSize;
 	u8 interleaveGap;
-	u16_le volSeqNumberLE;
-	u16_be volSeqNumberBE;
+	unaligned_u16_le volSeqNumberLE;
+	unaligned_u16_be volSeqNumberBE;
 	u8 identifierLength;            //identifier comes right after
 	u8 firstIdChar;
 
 #if COMMON_LITTLE_ENDIAN
 	u32 firstDataSector() const
 	{
-		return firstDataSectorLE;
+		return firstDataSectorLE.value();
 	}
 	u32 dataLength() const
 	{
-		return dataLengthLE;
+		return dataLengthLE.value();
 	}
 	u32 volSeqNumber() const
 	{
-		return volSeqNumberLE;
+		return volSeqNumberLE.value();
 	}
 #else
 	u32 firstDataSector() const
 	{
-		return firstDataSectorBE;
+		return firstDataSectorBE.value();
 	}
 	u32 dataLength() const
 	{
-		return dataLengthBE;
+		return dataLengthBE.value();
 	}
 	u32 volSeqNumber() const
 	{
-		return volSeqNumberBE;
+		return volSeqNumberBE.value();
 	}
 #endif
 };
