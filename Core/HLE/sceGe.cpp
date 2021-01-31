@@ -563,12 +563,11 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 }
 
 static u32 sceGeGetCmd(int cmd) {
-	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
 	if (cmd >= 0 && cmd < (int)ARRAY_SIZE(gstate.cmdmem)) {
-		return gstate.cmdmem[cmd];  // Does not mask away the high bits.
-	} else {
-		return SCE_KERNEL_ERROR_INVALID_INDEX;
+		// Does not mask away the high bits.
+		return hleLogSuccessInfoX(SCEGE, gstate.cmdmem[cmd]);
 	}
+	return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX);
 }
 
 static int sceGeGetStack(int index, u32 stackPtr) {

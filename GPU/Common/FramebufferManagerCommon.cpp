@@ -28,7 +28,9 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -2146,9 +2148,10 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	const int dstSize = (h * vfb->fb_stride + w - 1) * dstBpp;
 
-	if (!Memory::IsValidRange(fb_address + dstByteOffset, ((h - 1) * vfb->fb_stride + w) * dstBpp)) {
-		ERROR_LOG(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
+	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
+		ERROR_LOG_REPORT(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
 		return;
 	}
 
@@ -2160,6 +2163,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	if (destPtr) {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
+		CBreakPoints::ExecMemCheck(fb_address + dstByteOffset, true, dstSize, currentMIPS->pc);
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}
