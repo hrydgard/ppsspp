@@ -161,6 +161,10 @@ void StereoResampler::Clear() {
 	memset(m_buffer, 0, m_maxBufsize * 2 * sizeof(int16_t));
 }
 
+inline int16_t MixSingleSample(int16_t s1, int16_t s2, uint16_t frac) {
+	return s1 + (((s2 - s1) * frac) >> 16);
+}
+
 // Executed from sound stream thread, pulling sound out of the buffer.
 unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sample_rate) {
 	if (!samples)
@@ -222,10 +226,8 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
 		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)frac) >> 16;
-		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)frac) >> 16;
-		samples[currentSample] = sampleL;
-		samples[currentSample + 1] = sampleR;
+		samples[currentSample] = MixSingleSample(l1, l2, (u16)frac);
+		samples[currentSample + 1] = MixSingleSample(r1, r2, (u16)frac);
 		frac += ratio;
 		indexR += 2 * (frac >> 16);
 		frac &= 0xffff;
