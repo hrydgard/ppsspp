@@ -182,7 +182,7 @@ private:
 	DebugShaderType type_;
 };
 
-class FrameDumpTestScreen : public UIScreenWithBackground {
+class FrameDumpTestScreen : public UIDialogScreenWithBackground {
 public:
 	FrameDumpTestScreen();
 	~FrameDumpTestScreen();
@@ -191,8 +191,11 @@ public:
 	void update() override;
 
 private:
+	UI::EventReturn OnLoadDump(UI::EventParams &e);
+
 	std::vector<std::string> files_;
 	std::shared_ptr<http::Download> listing_;
+	std::shared_ptr<http::Download> dumpDownload_;
 };
 
 void DrawProfile(UIContext &ui);
