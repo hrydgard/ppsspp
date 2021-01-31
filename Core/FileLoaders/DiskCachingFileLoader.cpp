@@ -98,6 +98,10 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 		// While in case the cache size is too small for the entire read.
 		while (readSize < bytes) {
 			readSize += cache_->SaveIntoCache(backend_, absolutePos + readSize, bytes - readSize, (u8 *)data + readSize, flags);
+			// We're done, nothing more to read.
+			if (readSize == bytes) {
+				break;
+			}
 			// If there are already-cached blocks afterward, we have to read them.
 			size_t bytesFromCache = cache_->ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
 			readSize += bytesFromCache;
@@ -440,6 +444,9 @@ s64 DiskCachingFileLoaderCache::GetBlockOffset(u32 block) {
 bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size) {
 	if (!f_) {
 		return false;
+	}
+	if (size == 0) {
+		return true;
 	}
 	s64 blockOffset = GetBlockOffset(info.block);
 

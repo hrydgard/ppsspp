@@ -119,6 +119,9 @@ std::string LocalFileLoader::Path() const {
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
+	if (bytes == 0)
+		return 0;
+
 #if PPSSPP_PLATFORM(SWITCH)
 	// Toolchain has no fancy IO API.  We must lock.
 	std::lock_guard<std::mutex> guard(readLock_);
