@@ -152,7 +152,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// this is only valid for some settings of uvGenMode
 	GETexProjMapMode uvProjMode = static_cast<GETexProjMapMode>(id.Bits(VS_BIT_UVPROJ_MODE, 2));
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
-	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER);
+
+	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
+	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
