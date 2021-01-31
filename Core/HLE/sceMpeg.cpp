@@ -1585,8 +1585,9 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		ERROR_LOG_REPORT(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
+
 	int sdkver = sceKernelGetCompiledSdkVersion();
-	if ((sdkver >= 0x03000000) && (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES)) {
+	if ((sdkver >= 0x03000000) || (sdkver == 0) && (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES)) {
 		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 		ctx->mpegwarmUp++;
 		return ERROR_MPEG_NO_DATA;
