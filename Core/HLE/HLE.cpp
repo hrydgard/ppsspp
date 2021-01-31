@@ -732,6 +732,7 @@ void CallSyscall(MIPSOpcode op)
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
 		double total = time_now_d() - start - hleSteppingTime;
+		_dbg_assert_msg_(total >= 0.0, "Time spent in syscall became negative");
 		hleSteppingTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
 	}

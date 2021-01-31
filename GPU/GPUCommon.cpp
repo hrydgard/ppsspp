@@ -954,7 +954,9 @@ void GPUCommon::NotifySteppingExit() {
 		if (timeSteppingStarted_ <= 0.0) {
 			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
 		}
-		timeSpentStepping_ += time_now_d() - timeSteppingStarted_;
+		double total = time_now_d() - timeSteppingStarted_;
+		_dbg_assert_msg_(total >= 0.0, "Time spent stepping became negative");
+		timeSpentStepping_ += total;
 		timeSteppingStarted_ = 0.0;
 	}
 }
@@ -1028,6 +1030,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	if (coreCollectDebugStats) {
 		double total = time_now_d() - start - timeSpentStepping_;
+		_dbg_assert_msg_(total >= 0.0, "Time spent DL processing became negative");
 		hleSetSteppingTime(timeSpentStepping_);
 		timeSpentStepping_ = 0.0;
 		gpuStats.msProcessingDisplayLists += total;
