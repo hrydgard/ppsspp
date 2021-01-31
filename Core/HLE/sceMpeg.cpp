@@ -1537,6 +1537,12 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		return 0;
 	}
 
+	int sdkver = sceKernelGetCompiledSdkVersion();
+	if (sdkver >= 0x03000000) {
+		if (numPackets + 32 < available)
+			numPackets += 32;
+	}
+
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	if (!ctx) {
 		WARN_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer->mpeg);
