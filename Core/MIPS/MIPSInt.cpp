@@ -298,8 +298,8 @@ namespace MIPSInt
 	void Int_IType(MIPSOpcode op)
 	{
 		u32 uimm = op & 0xFFFF;
-		u32 suimm = SignExtend16To32(op);
-		s32 simm = (s32)suimm;
+		u32 suimm = SignExtend16ToU32(op);
+		s32 simm = SignExtend16ToS32(op);
 
 		int rt = _RT;
 		int rs = _RS;
@@ -412,8 +412,8 @@ namespace MIPSInt
 
 		switch (op >> 26) 
 		{
-		case 32: R(rt) = SignExtend8To32(Memory::Read_U8(addr)); break; //lb
-		case 33: R(rt) = SignExtend16To32(Memory::Read_U16(addr)); break; //lh
+		case 32: R(rt) = SignExtend8ToU32(Memory::Read_U8(addr)); break; //lb
+		case 33: R(rt) = SignExtend16ToU32(Memory::Read_U16(addr)); break; //lh
 		case 35: R(rt) = Memory::Read_U32(addr); break; //lw
 		case 36: R(rt) = Memory::Read_U8 (addr); break; //lbu
 		case 37: R(rt) = Memory::Read_U16(addr); break; //lhu
@@ -739,7 +739,7 @@ namespace MIPSInt
 		switch((op>>6)&31)
 		{
 		case 16: // seb
-			R(rd) = SignExtend8To32(R(rt));
+			R(rd) = SignExtend8ToU32(R(rt));
 			break;
 
 		case 20: // bitrev
@@ -757,7 +757,7 @@ namespace MIPSInt
 			break;
 
 		case 24: // seh
-			R(rd) = SignExtend16To32(R(rt));
+			R(rd) = SignExtend16ToU32(R(rt));
 			break;
 
 		default:

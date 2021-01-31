@@ -74,8 +74,8 @@ void Arm64Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEm
 void Arm64Jit::Comp_IType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(ALU_IMM);
 	u32 uimm = op & 0xFFFF;
-	u32 suimm = SignExtend16To32(op);
-	s32 simm = (s32)suimm;
+	s32 simm = SignExtend16ToS32(op);
+	u32 suimm = SignExtend16ToU32(op);
 
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -489,9 +489,9 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 		return;
 
 	switch ((op >> 6) & 31) {
-	case 16: // seb	// R(rd) = SignExtend8To32(R(rt));
+	case 16: // seb	// R(rd) = SignExtend8ToU32(R(rt));
 		if (gpr.IsImm(rt)) {
-			gpr.SetImm(rd, SignExtend8To32(gpr.GetImm(rt)));
+			gpr.SetImm(rd, SignExtend8ToU32(gpr.GetImm(rt)));
 			return;
 		}
 		gpr.MapDirtyIn(rd, rt);
@@ -500,7 +500,7 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 
 	case 24: // seh
 		if (gpr.IsImm(rt)) {
-			gpr.SetImm(rd, SignExtend16To32(gpr.GetImm(rt)));
+			gpr.SetImm(rd, SignExtend16ToU32(gpr.GetImm(rt)));
 			return;
 		}
 		gpr.MapDirtyIn(rd, rt);

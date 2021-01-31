@@ -1812,7 +1812,7 @@ namespace MIPSComp {
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
 
-		s32 imm = (s32)SignExtend16To32(op);
+		s32 imm = SignExtend16ToS32(op);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
 		fp.MOVI2F(fpr.V(dreg), (float)imm, SCRATCH1);
 

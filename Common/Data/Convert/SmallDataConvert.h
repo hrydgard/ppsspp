@@ -181,15 +181,21 @@ inline uint32_t BytesToUint32(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 	return (a) | (b << 8) | (c << 16) | (d << 24);
 }
 
-constexpr uint32_t SignExtend8To32(uint32_t value) {
+constexpr int32_t SignExtend8ToS32(uint32_t value) {
 	// This extends this sign at the 8th bit to the other 24 bits.
-	int32_t signedValue = (int8_t)(value & 0xFF);
-	// We return as unsigned because we're likely just interested in the bits.
-	return (uint32_t)signedValue;
+	return (int8_t)(value & 0xFF);
 }
 
-constexpr uint32_t SignExtend16To32(uint32_t value) {
-	// Same as SignExtend8to32, but from the 16th bit.
-	int32_t signedValue = (int16_t)(value & 0xFFFF);
-	return (uint32_t)signedValue;
+constexpr uint32_t SignExtend8ToU32(uint32_t value) {
+	// Just treat the bits as unsigned.
+	return (uint32_t)SignExtend8ToS32(value);
+}
+
+constexpr int32_t SignExtend16ToS32(uint32_t value) {
+	// Same as SignExtend8toS32, but from the 16th bit.
+	return (int16_t)(value & 0xFFFF);
+}
+
+constexpr uint32_t SignExtend16ToU32(uint32_t value) {
+	return (uint32_t)SignExtend16ToS32(value);
 }

@@ -1778,7 +1778,7 @@ namespace MIPSComp {
 		// Vector integer immediate
 		// d[0] = float(imm)
 
-		s32 imm = (s32)SignExtend16To32(op);
+		s32 imm = SignExtend16ToS32(op);
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
 		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat((float)imm));

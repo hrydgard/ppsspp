@@ -3452,7 +3452,7 @@ void Jit::Comp_Viim(MIPSOpcode op) {
 	// Flush SIMD.
 	fpr.SimpleRegsV(&dreg, V_Single, MAP_NOINIT | MAP_DIRTY);
 
-	s32 imm = (s32)SignExtend16To32(op);
+	s32 imm = SignExtend16ToS32(op);
 	FP32 fp;
 	fp.f = (float)imm;
 	MOV(32, R(TEMPREG), Imm32(fp.u));

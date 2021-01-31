@@ -1348,7 +1348,7 @@ void ArmJit::CompNEON_Viim(MIPSOpcode op) {
 
 	DestARMReg vt = NEONMapPrefixD(_VT, V_Single, MAP_NOINIT | MAP_DIRTY);
 
-	s32 imm = (s32)SignExtend16To32(op);
+	s32 imm = SignExtend16ToS32(op);
 	// TODO: Optimize for low registers.
 	MOVI2F(S0, (float)imm, R0);
 	VMOV_neon(vt.rd, D0);

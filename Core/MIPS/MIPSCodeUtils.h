@@ -53,12 +53,20 @@
 #define MIPS_GET_VS(op) ((op>>8) & 0x7F)
 #define MIPS_GET_VT(op) ((op>>16) & 0x7F)
 
-inline uint32_t SignExtend8To32(MIPSOpcode op) {
-	return SignExtend8To32(op.encoding);
+inline int32_t SignExtend8ToS32(MIPSOpcode op) {
+	return SignExtend8ToS32(op.encoding);
 }
 
-inline uint32_t SignExtend16To32(MIPSOpcode op) {
-	return SignExtend16To32(op.encoding);
+inline uint32_t SignExtend8ToU32(MIPSOpcode op) {
+	return SignExtend8ToU32(op.encoding);
+}
+
+inline int32_t SignExtend16ToS32(MIPSOpcode op) {
+	return SignExtend16ToS32(op.encoding);
+}
+
+inline uint32_t SignExtend16ToU32(MIPSOpcode op) {
+	return SignExtend16ToU32(op.encoding);
 }
 
 namespace MIPSCodeUtils

@@ -173,8 +173,8 @@ namespace MIPSDis
 	void Dis_IType(MIPSOpcode op, char *out)
 	{
 		u32 uimm = op & 0xFFFF;
-		u32 suimm = SignExtend16To32(op);
-		s32 simm = (s32)suimm;
+		u32 suimm = SignExtend16ToU32(op);
+		s32 simm = SignExtend16ToS32(op);
 
 		int rt = _RT;
 		int rs = _RS;

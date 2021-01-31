@@ -42,7 +42,7 @@
 #define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
 #define _IMM26 (op & 0x03FFFFFF)
-#define TARGET16 ((int)(SignExtend16To32(op) << 2))
+#define TARGET16 ((int)(SignExtend16ToU32(op) << 2))
 #define TARGET26 (_IMM26 << 2)
 
 #define LOOPOPTIMIZATION 0
