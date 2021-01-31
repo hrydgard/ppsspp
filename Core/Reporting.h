@@ -87,7 +87,10 @@ namespace Reporting
 	// Get the latest compatibility result.  Only valid when GetStatus() is not BUSY.
 	std::vector<std::string> CompatibilitySuggestions();
 
-	// Queues game for CRC hash if needed, and returns true if the hash is available.
+	// Queues game for CRC hash if needed.
+	void QueueCRC(const std::string &gamePath);
+
+	// Returns true if the hash is available, does not queue if not.
 	bool HasCRC(const std::string &gamePath);
 
 	// Blocks until the CRC hash is available for game, and returns it.

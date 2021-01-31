@@ -146,8 +146,6 @@ namespace Reporting
 	}
 
 	bool HasCRC(const std::string &gamePath) {
-		QueueCRC(gamePath);
-
 		std::lock_guard<std::mutex> guard(crcLock);
 		return crcResults.find(gamePath) != crcResults.end();
 	}
@@ -165,6 +163,15 @@ namespace Reporting
 		if (crcThread.joinable())
 			crcThread.join();
 		return it->second;
+	}
+
+	static uint32_t RetrieveCRCUnlessPowerSaving(const std::string &gamePath) {
+		// It's okay to use it if we have it already.
+		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
+			return 0;
+		}
+
+		return RetrieveCRC(gamePath);
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -472,7 +479,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
-			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC(PSP_CoreParameter().fileToStart)));
+			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
