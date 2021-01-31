@@ -224,7 +224,7 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 
 	switch (drawable.type) {
 	case UI::DRAW_SOLID_COLOR:
-		uidrawbuffer_->DrawImageStretch(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
+		uidrawbuffer_->DrawImageCenterTexel(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
 		break;
 	case UI::DRAW_4GRID:
 		uidrawbuffer_->DrawImage4Grid(drawable.image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);

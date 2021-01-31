@@ -24,6 +24,7 @@
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -48,6 +49,7 @@
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
+#include "UI/MainScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
@@ -1104,4 +1106,91 @@ void ShaderViewScreen::CreateViews() {
 	}
 
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
+
+FrameDumpTestScreen::FrameDumpTestScreen() {
+
+}
+
+FrameDumpTestScreen::~FrameDumpTestScreen() {
+	g_DownloadManager.CancelAll();
+}
+
+void FrameDumpTestScreen::CreateViews() {
+	using namespace UI;
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	auto di = GetI18NCategory("Dialog");
+
+	TabHolder *tabHolder;
+	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	AddStandardBack(root_);
+	tabHolder->SetTag("DumpTypes");
+	root_->SetDefaultFocusView(tabHolder);
+
+	ViewGroup *dumpsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	dumpsScroll->SetTag("GameSettingsGraphics");
+	LinearLayout *dumps = new LinearLayout(ORIENT_VERTICAL);
+	dumps->SetSpacing(0);
+	dumpsScroll->Add(dumps);
+	tabHolder->AddTab("Dumps", dumps);
+
+	dumps->Add(new ItemHeader("GE Frame Dumps"));
+
+	for (auto &file : files_) {
+		std::string url = framedumpsBaseUrl + file;
+		Choice *c = dumps->Add(new Choice(file));
+		c->SetTag(url);
+		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
+	}
+}
+
+UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
+	std::string url = params.v->Tag();
+	INFO_LOG(COMMON, "Trying to launch '%s'", url.c_str());
+	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
+	// except for some reason the game ID.
+	// TODO: Fix that since it can be important for compat settings.
+	LaunchFile(screenManager(), url);
+	return UI::EVENT_DONE;
+}
+
+void FrameDumpTestScreen::update() {
+	UIScreen::update();
+
+	if (!listing_) {
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, "");
+	}
+
+	if (listing_ && listing_->Done() && files_.empty()) {
+		if (listing_->ResultCode() == 200) {
+			std::string listingHtml;
+			listing_->buffer().TakeAll(&listingHtml);
+
+			std::vector<std::string> lines;
+			// We rely slightly on nginx listing format here. Not great.
+			SplitString(listingHtml, '\n', lines);
+			for (auto &line : lines) {
+				std::string trimmed = StripSpaces(line);
+				if (startsWith(trimmed, "<a href=\"")) {
+					trimmed = trimmed.substr(strlen("<a href=\""));
+					size_t offset = trimmed.find('\"');
+					if (offset != std::string::npos) {
+						trimmed = trimmed.substr(0, offset);
+						if (endsWith(trimmed, ".ppdmp")) {
+							INFO_LOG(COMMON, "Found ppdmp: '%s'", trimmed.c_str());
+							files_.push_back(trimmed);
+						}
+					}
+				}
+			}
+		} else {
+			// something went bad. Too lazy to make UI, so let's just finish this screen.
+			TriggerFinish(DialogResult::DR_CANCEL);
+		}
+		RecreateViews();
+	}
 }
