@@ -224,6 +224,20 @@ void DrawBuffer::DrawImage(ImageID atlas_image, float x, float y, float scale, C
 	DrawImageStretch(atlas_image, x, y, x + w, y + h, color);
 }
 
+void DrawBuffer::DrawImageCenterTexel(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+	float centerU = (image->u1 + image->u2) * 0.5f;
+	float centerV = (image->v1 + image->v2) * 0.5f;
+	V(x1,	y1, color, centerU, centerV);
+	V(x2,	y1, color, centerU, centerV);
+	V(x2,	y2, color, centerU, centerV);
+	V(x1,	y1, color, centerU, centerV);
+	V(x2,	y2, color, centerU, centerV);
+	V(x1,	y2, color, centerU, centerV);
+}
+
 void DrawBuffer::DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color) {
 	const AtlasImage *image = atlas->getImage(atlas_image);
 	if (!image)
