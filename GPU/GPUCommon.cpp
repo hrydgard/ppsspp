@@ -1480,6 +1480,14 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		default:
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
+			// Since we marked done, we have to restore the context now before the next list runs.
+			if (currentList->started && currentList->context.IsValid()) {
+				gstate.Restore(currentList->context);
+				ReapplyGfxState();
+				// Don't restore the context again.
+				currentList->started = false;
+			}
+
 			if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 				currentList->pendingInterrupt = true;
 			} else {
@@ -1487,10 +1495,6 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				currentList->waitTicks = startingTicks + cyclesExecuted;
 				busyTicks = std::max(busyTicks, currentList->waitTicks);
 				__GeTriggerSync(GPU_SYNC_LIST, currentList->id, currentList->waitTicks);
-				if (currentList->started && currentList->context.IsValid()) {
-					gstate.Restore(currentList->context);
-					ReapplyGfxState();
-				}
 			}
 			break;
 		}
