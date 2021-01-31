@@ -185,7 +185,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Parameters automatically fall into place.
 
 	// This will align the stack properly to 16 bytes (the call of this function pushed RIP, which is 8 bytes).
-	const uint8_t STACK_FIXED_ALLOC = 64 + 8;
+	const uint8_t STACK_FIXED_ALLOC = 96 + 8;
 #endif
 
 	// Allocate temporary storage on the stack.
@@ -197,6 +197,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(MDisp(ESP, 16), XMM5);
 	MOVUPS(MDisp(ESP, 32), XMM6);
 	MOVUPS(MDisp(ESP, 48), XMM7);
+	MOVUPS(MDisp(ESP, 64), XMM8);
+	MOVUPS(MDisp(ESP, 80), XMM9);
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -273,6 +275,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(XMM5, MDisp(ESP, 16));
 	MOVUPS(XMM6, MDisp(ESP, 32));
 	MOVUPS(XMM7, MDisp(ESP, 48));
+	MOVUPS(XMM8, MDisp(ESP, 64));
+	MOVUPS(XMM9, MDisp(ESP, 80));
 	ADD(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 
 #ifdef _M_IX86
