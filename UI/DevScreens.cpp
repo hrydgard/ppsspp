@@ -24,6 +24,7 @@
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -1104,4 +1105,38 @@ void ShaderViewScreen::CreateViews() {
 	}
 
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+const std::string framedumpsBaseUrl = "http://framedumps.ppsspp.org/";
+
+FrameDumpTestScreen::FrameDumpTestScreen() {
+
+}
+
+FrameDumpTestScreen::~FrameDumpTestScreen() {
+	g_DownloadManager.CancelAll();
+}
+
+void FrameDumpTestScreen::CreateViews() {
+	for (auto &file : files_) {
+		std::string url = framedumpsBaseUrl + file;
+	}
+}
+
+void FrameDumpTestScreen::update() {
+	if (!listing_) {
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, "");
+	}
+
+	if (listing_ && listing_->Done() && files_.empty()) {
+		if (listing_->ResultCode() == 200) {
+			std::string listingHtml;
+			listing_->buffer().TakeAll(&listingHtml);
+			INFO_LOG(COMMON, "Listing: %s", listingHtml.c_str());
+		} else {
+			// something went bad. Too lazy to make UI, so let's just finish this screen.
+			TriggerFinish(DialogResult::DR_CANCEL);
+		}
+		RecreateViews();
+	}
 }

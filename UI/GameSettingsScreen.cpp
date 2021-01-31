@@ -1643,6 +1643,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
+	list->Add(new Choice(dev->T("Framedump tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnFramedumpTest);
 	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
@@ -1749,6 +1750,11 @@ UI::EventReturn DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	screenManager()->push(new GPUDriverTestScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
+	screenManager()->push(new FrameDumpTestScreen());
 	return UI::EVENT_DONE;
 }
 

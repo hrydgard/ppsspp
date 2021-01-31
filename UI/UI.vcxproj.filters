@@ -44,7 +44,6 @@
     <ClCompile Include="InstallZipScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="Store.cpp" />
     <ClCompile Include="BackgroundAudio.cpp" />
     <ClCompile Include="ReportScreen.cpp">
       <Filter>Screens</Filter>
@@ -74,6 +73,9 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="ChatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="Store.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
   </ItemGroup>
@@ -120,7 +122,6 @@
     <ClInclude Include="InstallZipScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="Store.h" />
     <ClInclude Include="BackgroundAudio.h" />
     <ClInclude Include="ReportScreen.h">
       <Filter>Screens</Filter>
@@ -151,6 +152,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ChatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Store.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
