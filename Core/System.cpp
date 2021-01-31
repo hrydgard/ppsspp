@@ -245,51 +245,48 @@ bool CPU_Init() {
 	MIPSAnalyst::Reset();
 	Replacement_Init();
 
-	std::string discID;
+	bool allowPlugins = true;
+	std::string geDumpDiscID;
 
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
-		discID = g_paramSFO.GetDiscID();
 		break;
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
 		InitMemoryForGamePBP(loadedFile);
-		discID = g_paramSFO.GetDiscID();
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
 			INFO_LOG(LOADER, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
-		discID = g_paramSFO.GetDiscID();
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
-		// Try to grab the disc ID from the filename, since unfortunately, we don't store
-		// it in the GE dump. This should probably be fixed, but as long as you don't rename the dumps,
-		// this will do the trick.
-		if (!DiscIDFromGEDumpPath(filename, loadedFile, &discID)) {
-			// Failed? Let the param SFO autogen a fake disc ID.
-			discID = g_paramSFO.GetDiscID();
+		// Try to grab the disc ID from the filenameor GE dump.
+		if (DiscIDFromGEDumpPath(filename, loadedFile, &geDumpDiscID)) {
+			// Store in SFO, otherwise it'll generate a fake disc ID.
+			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
 		}
+		allowPlugins = false;
 		break;
 	default:
-		discID = g_paramSFO.GetDiscID();
 		break;
 	}
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
-	coreParameter.compat.Load(discID);
+	coreParameter.compat.Load(g_paramSFO.GetDiscID());
 
 	InitVFPUSinCos(coreParameter.compat.flags().DoublePrecisionSinCos);
 
-	HLEPlugins::Init();
+	if (allowPlugins)
+		HLEPlugins::Init();
 	if (!Memory::Init()) {
 		// We're screwed.
 		return false;
