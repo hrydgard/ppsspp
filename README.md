@@ -33,20 +33,24 @@ There's really too much to list this time.
 * Countless AdHoc networking fixes by ANR2ME, too many to list
 * Graphics issue with car reflections fixed in Outrun, Dirt 2 (#13636, #13640, #13760)
 * Numerous fixes to the builtin fonts by nassau-tk
+* Added exception handler so PPSSPP stays alive if a game crashes (#11795/#13092)
+* Desktop: Support for multiple instance multiplayer (#13172, ...)
 * Workaround for rendering bugs with flat shading in iOS 14
 * Multiple fixes to the IR interpreter (#13897, ...)
 * UI: New fullscreen button on desktop platforms, optional navigation sounds (#13239)
 * Audio and multiple hangs fixes in UWP version (#13792, ...)
 * Partial microphone support (#12336, ...)
 * Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 (#13706, #13526)
+* Hardware texture upscaling for Vulkan, mipmap generation (#13235, #13514)
 * Added MMPX Vulkan texture upscaling shader (#13986)
-* Autogenerate mipmaps for scaled textures (#13514) (Vulkan-only)
 * Depth texturing support in Vulkan and D3D11 (13667, ...)
 * Performance fix for Test Drive Unlimited (#13355, ...)
 * Allow rewind on mobile (#13866)
 * Added option to disable on-screen messages (#13695)
 * Added "Lower resolution for effects" on libretro (#13654)
 * Allow chaining multiple post-processing shaders (#12924)
+* Support for loading game-specific plugins (#13335)
+
 * Fixed games:
     * Namco Museum - Battle Collection, Vol 2 (#9523, #13297, #13298)
     * Dream Club Portable (#6025)
@@ -55,9 +59,7 @@ There's really too much to list this time.
     * Dissidia Final Fantasy Chinese (patched game, invalid address) (#13204)
     * Crazy Taxi (#13368)
     * Spiderman: Friend or Foe (#13969)
-
-
-and more...
+    * Downstream Panic (US) (New Game crash) (#13633)
 
 What's new in 1.10.3
 --------------------
