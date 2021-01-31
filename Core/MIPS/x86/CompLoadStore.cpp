@@ -309,11 +309,11 @@ namespace MIPSComp {
 			CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
 			break;
 
-		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
+		case 32: //R(rt) = SignExtend8To32 (ReadMem8 (addr)); break; //lb
 			CompITypeMemRead(op, 8, &XEmitter::MOVSX, safeMemFuncs.readU8);
 			break;
 
-		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
+		case 33: //R(rt) = SignExtend16To32(ReadMem16(addr)); break; //lh
 			CompITypeMemRead(op, 16, &XEmitter::MOVSX, safeMemFuncs.readU16);
 			break;
 

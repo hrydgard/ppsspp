@@ -20,12 +20,13 @@
 
 #include <algorithm>
 
+#include "Common/BitSet.h"
+#include "Common/CPUDetect.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
-#include "Common/CPUDetect.h"
-#include "Common/BitSet.h"
 
 using namespace MIPSAnalyst;
 
@@ -75,9 +76,9 @@ namespace MIPSComp
 	void ArmJit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE(ALU_IMM);
-		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = op & 0xFFFF;
-		u32 suimm = (u32)(s32)simm;
+		u32 suimm = SignExtend16To32(op);
+		s32 simm = (s32)suimm;
 
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -601,9 +602,9 @@ namespace MIPSComp
 			return;
 
 		switch ((op >> 6) & 31) {
-		case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
+		case 16: // seb	// R(rd) = SignExtend8To32(R(rt));
 			if (gpr.IsImm(rt)) {
-				gpr.SetImm(rd, (s32)(s8)(u8)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend8To32(gpr.GetImm(rt)));
 				return;
 			}
 			gpr.MapDirtyIn(rd, rt);
@@ -612,7 +613,7 @@ namespace MIPSComp
 
 		case 24: // seh
 			if (gpr.IsImm(rt)) {
-				gpr.SetImm(rd, (s32)(s16)(u16)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend16To32(gpr.GetImm(rt)));
 				return;
 			}
 			gpr.MapDirtyIn(rd, rt);

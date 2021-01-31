@@ -274,7 +274,7 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 		return;
 
 	switch ((op >> 6) & 31) {
-	case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
+	case 16: // seb	// R(rd) = SignExtend8To32(R(rt));
 		ir.Write(IROp::Ext8to32, rd, rt);
 		break;
 

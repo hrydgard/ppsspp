@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "Common/BitSet.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
@@ -36,8 +37,8 @@ u32 Evaluate(u32 a, IROp op) {
 	case IROp::Neg: return -(s32)a;
 	case IROp::BSwap16: return ((a & 0xFF00FF00) >> 8) | ((a & 0x00FF00FF) << 8);
 	case IROp::BSwap32: return swap32(a);
-	case IROp::Ext8to32: return (u32)(s32)(s8)(u8)a;
-	case IROp::Ext16to32: return (u32)(s32)(s16)(u16)a;
+	case IROp::Ext8to32: return SignExtend8To32(a);
+	case IROp::Ext16to32: return SignExtend16To32(a);
 	case IROp::ReverseBits: return ReverseBits32(a);
 	case IROp::Clz: {
 		int x = 31;

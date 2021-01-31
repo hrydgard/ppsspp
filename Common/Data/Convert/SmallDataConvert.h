@@ -180,3 +180,16 @@ inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 inline uint32_t BytesToUint32(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 	return (a) | (b << 8) | (c << 16) | (d << 24);
 }
+
+constexpr uint32_t SignExtend8To32(uint32_t value) {
+	// This extends this sign at the 8th bit to the other 24 bits.
+	int32_t signedValue = (int8_t)(value & 0xFF);
+	// We return as unsigned because we're likely just interested in the bits.
+	return (uint32_t)signedValue;
+}
+
+constexpr uint32_t SignExtend16To32(uint32_t value) {
+	// Same as SignExtend8to32, but from the 16th bit.
+	int32_t signedValue = (int16_t)(value & 0xFFFF);
+	return (uint32_t)signedValue;
+}

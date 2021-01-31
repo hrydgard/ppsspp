@@ -798,10 +798,10 @@ namespace MIPSComp
 
 		switch ((op >> 6) & 31)
 		{
-		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
+		case 16: // seb  // R(rd) = SignExtend8To32(R(rt));
 			if (gpr.IsImm(rt))
 			{
-				gpr.SetImm(rd, (u32)(s32)(s8)(u8)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend8To32(gpr.GetImm(rt)));
 				break;
 			}
 
@@ -876,10 +876,10 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
-		case 24: // seh  // R(rd) = (u32)(s32)(s16)(u16)R(rt);
+		case 24: // seh  // R(rd) = SignExtend16To32(R(rt));
 			if (gpr.IsImm(rt))
 			{
-				gpr.SetImm(rd, (u32)(s32)(s16)(u16)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend16To32(gpr.GetImm(rt)));
 				break;
 			}
 

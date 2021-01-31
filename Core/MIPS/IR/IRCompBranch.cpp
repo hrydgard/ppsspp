@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Core/Reporting.h"
@@ -40,9 +41,8 @@
 #define _SA MIPS_GET_SA(op)
 #define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
-#define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
-#define TARGET16 ((int)((uint32_t)(int)_IMM16 << 2))
+#define TARGET16 ((int)(SignExtend16To32(op) << 2))
 #define TARGET26 (_IMM26 << 2)
 
 #define LOOPOPTIMIZATION 0

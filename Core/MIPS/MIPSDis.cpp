@@ -19,6 +19,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -171,9 +172,9 @@ namespace MIPSDis
 
 	void Dis_IType(MIPSOpcode op, char *out)
 	{
-		s32 simm = (s32)(s16)(op & 0xFFFF);
-		u32 uimm = (u32)(u16)(op & 0xFFFF);
-		u32 suimm = (u32)simm;
+		u32 uimm = op & 0xFFFF;
+		u32 suimm = SignExtend16To32(op);
+		s32 simm = (s32)suimm;
 
 		int rt = _RT;
 		int rs = _RS;
