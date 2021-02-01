@@ -18,9 +18,12 @@
 #include <map>
 #include <algorithm>
 
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
@@ -31,6 +34,7 @@ static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671001;
 static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
 static const u32 ERROR_MP3_NOT_YET_INIT_HANDLE = 0x80671103;
 static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
+static const u32 ERROR_MP3_BAD_SAMPLE_RATE = 0x80671302;
 static const u32 ERROR_MP3_BAD_RESET_FRAME = 0x80671501;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
 static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
@@ -70,24 +74,24 @@ public:
 		if (!s)
 			return;
 
-		p.Do(mp3StreamStart);
-		p.Do(mp3StreamEnd);
-		p.Do(mp3Buf);
-		p.Do(mp3BufSize);
-		p.Do(mp3PcmBuf);
-		p.Do(mp3PcmBufSize);
-		p.Do(readPosition);
-		p.Do(bufferRead);
-		p.Do(bufferWrite);
-		p.Do(bufferAvailable);
-		p.Do(mp3DecodedBytes);
-		p.Do(mp3LoopNum);
-		p.Do(mp3MaxSamples);
-		p.Do(mp3SumDecodedSamples);
-		p.Do(mp3Channels);
-		p.Do(mp3Bitrate);
-		p.Do(mp3SamplingRate);
-		p.Do(mp3Version);
+		Do(p, mp3StreamStart);
+		Do(p, mp3StreamEnd);
+		Do(p, mp3Buf);
+		Do(p, mp3BufSize);
+		Do(p, mp3PcmBuf);
+		Do(p, mp3PcmBufSize);
+		Do(p, readPosition);
+		Do(p, bufferRead);
+		Do(p, bufferWrite);
+		Do(p, bufferAvailable);
+		Do(p, mp3DecodedBytes);
+		Do(p, mp3LoopNum);
+		Do(p, mp3MaxSamples);
+		Do(p, mp3SumDecodedSamples);
+		Do(p, mp3Channels);
+		Do(p, mp3Bitrate);
+		Do(p, mp3SamplingRate);
+		Do(p, mp3Version);
 	};
 };
 
@@ -114,10 +118,10 @@ void __Mp3DoState(PointerWrap &p) {
 		return;
 
 	if (s >= 2) {
-		p.Do(mp3Map);
+		Do(p, mp3Map);
 	} else {
 		std::map<u32, Mp3Context *> mp3Map_old;
-		p.Do(mp3Map_old); // read old map
+		Do(p, mp3Map_old); // read old map
 		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
 			auto mp3 = new AuCtx;
 			u32 id = it->first;
@@ -147,7 +151,7 @@ void __Mp3DoState(PointerWrap &p) {
 	}
 
 	if (s >= 3) {
-		p.Do(resourceInited);
+		Do(p, resourceInited);
 	} else {
 		// Previous behavior acted as if it was already inited.
 		resourceInited = true;
@@ -155,19 +159,21 @@ void __Mp3DoState(PointerWrap &p) {
 }
 
 static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
-	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 		
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
-		return hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
+		return hleDelayResult(hleLogSuccessI(ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
 	}
+	// Should already have logged.
 	return pcmBytes;
 }
 
@@ -375,6 +381,7 @@ static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 }
 
 static int sceMp3Init(u32 mp3) {
+	int sdkver = sceKernelGetCompiledSdkVersion();
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		if (mp3 >= MP3_MAX_HANDLES)
@@ -395,30 +402,41 @@ static int sceMp3Init(u32 mp3) {
 	// Parse the Mp3 header
 	int layerBits = (header >> 17) & 0x3;
 	int versionBits = (header >> 19) & 0x3;
-	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, versionBits);
-	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
-	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, versionBits, layerBits);
-	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(versionBits, layerBits);
-	ctx->freq = ctx->SamplingRate;
+	int bitrate = __CalculateMp3Bitrates((header >> 12) & 0xF, versionBits, layerBits);
+	int samplerate = __CalculateMp3SampleRates((header >> 10) & 0x3, versionBits);;
+	int channels = __CalculateMp3Channels((header >> 6) & 0x3);
 
-	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps, layerBits=%d ,versionBits=%d,HEADER: %08x", channels, samplerate, bitrate, layerBits, versionBits, header);
 
 	if (layerBits != 1) {
 		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
 		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
 	}
+	if (bitrate == 0 || bitrate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+	}
+	if (samplerate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+	}
+
+	// Before we allow init, newer SDK versions next require at least 156 bytes.
+	// That happens to be the size of the first frame header for VBR.
+	if (sdkver >= 0x06000000 && ctx->readPos < 156) {
+		return hleDelayResult(hleLogError(ME, SCE_KERNEL_ERROR_INVALID_VALUE, "insufficient mp3 data for init"), "mp3 init", PARSE_DELAY_MS);
+	}
+
+	ctx->SamplingRate = samplerate;
+	ctx->Channels = channels;
+	ctx->BitRate = bitrate;
+	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(versionBits, layerBits);
+	ctx->freq = ctx->SamplingRate;
+
 	if (versionBits != 3) {
 		// TODO: Should return 0x80671301 (unsupported version?)
 		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
 	}
-	if (ctx->BitRate == 0 || ctx->BitRate == -1) {
-		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
-	}
-	if (ctx->SamplingRate == -1) {
-		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
-	} else if (ctx->SamplingRate != 44100) {
-		// TODO: Should return 0x80671302 (unsupported sample rate?)
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not 44.1kHz");
+	if (samplerate != 44100 && sdkver < 3090500) {
+		return hleDelayResult(hleLogError(ME, ERROR_MP3_BAD_SAMPLE_RATE, "invalid data: not 44.1kHz"), "mp3 init", PARSE_DELAY_MS);
 	}
 
 	// Based on bitrate, we can calculate the frame size in bytes.
@@ -430,11 +448,8 @@ static int sceMp3Init(u32 mp3) {
 
 	ctx->Version = versionBits;
 
-	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
-	// TODO: Isn't this backwards?  Woudln't we want to read as 48kHz and resample to 44.1kHz?
-	if (ctx->freq == 48000) {
-		ctx->decoder->SetResampleFrequency(ctx->freq);
-	}
+	// This tells us to resample to the same frequency it decodes to.
+	ctx->decoder->SetResampleFrequency(ctx->freq);
 
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
@@ -705,7 +720,7 @@ const HLEFunction sceMp3[] = {
 	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
 	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
 	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xppp" },
-	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xx"   },
+	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xp"   },
 	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
 	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
 	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },

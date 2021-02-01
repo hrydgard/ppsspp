@@ -34,6 +34,8 @@ public:
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
+	void ReleaseGLContext();
+
 	bool renderThread_;
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_;

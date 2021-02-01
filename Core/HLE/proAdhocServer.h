@@ -46,7 +46,7 @@
 #define SERVER_STATUS_XMLOUT "www/status.xml"
 
 // Server Shutdown Message
-#define SERVER_SHUTDOWN_MESSAGE "PROMETHEUS HUB IS SHUTTING DOWN!"
+#define SERVER_SHUTDOWN_MESSAGE "ADHOC SERVER HUB IS SHUTTING DOWN!"
 
 typedef struct db_crosslink{
 	char id_from[PRODUCT_CODE_LENGTH + 1]; //SceNetAdhocctlProductCode id_from;
@@ -298,7 +298,7 @@ void logout_user(SceNetAdhocctlUserNode * user);
 /**
  * Free Database Memory
  */
-void free_database(void);
+void free_database();
 
 /**
  * Connect User to Game Group
@@ -358,7 +358,7 @@ void game_product_override(SceNetAdhocctlProductCode * product);
 /**
  * Update Status Logfile
  */
-void update_status(void);
+void update_status();
 
 /**
 * Server Entry Point

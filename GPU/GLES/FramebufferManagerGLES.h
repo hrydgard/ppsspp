@@ -17,14 +17,14 @@
 
 #pragma once
 
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "thin3d/GLRenderManager.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
 
 struct GLSLProgram;
 class TextureCacheGLES;
@@ -46,23 +46,17 @@ public:
 	virtual void Init() override;
 	void EndFrame();
 	void Resized() override;
-	void DeviceLost();
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
-
-	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
-	void DeviceRestore(Draw::DrawContext *draw);
-
 protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
 
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 

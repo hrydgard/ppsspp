@@ -19,10 +19,10 @@
 
 #include <map>
 
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "Common/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -83,22 +83,15 @@ public:
 		push_ = push;
 	}
 
-	void ForgetLastTexture() override {
-		lastBoundTexture = nullptr;
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	}
+	void ForgetLastTexture() override {}
+	void InvalidateLastTexture() override {}
 
-	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
-		if (!entry || entry->vkTex == lastBoundTexture) {
-			lastBoundTexture = nullptr;
-		}
-	}
+	void NotifyConfigChanged() override;
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
 		imageView = imageView_;
 		sampler = curSampler_;
 	}
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
@@ -117,11 +110,13 @@ protected:
 private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
+	static TexCacheEntry::TexStatus CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, FramebufferNotificationChannel channel) override;
 	void BuildTexture(TexCacheEntry *const entry) override;
+
+	void CompileScalingShader();
 
 	VulkanContext *vulkan_ = nullptr;
 	VulkanDeviceAllocator *allocator_ = nullptr;
@@ -133,8 +128,6 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	VulkanTexture *lastBoundTexture = nullptr;
-
 	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;
 	int timesInvalidatedAllThisFrame_ = 0;
@@ -145,6 +138,8 @@ private:
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;
 
+	std::string textureShader_;
+	int maxScaleFactor_ = 255;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
 	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 

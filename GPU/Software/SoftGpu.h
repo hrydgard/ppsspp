@@ -19,7 +19,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {
 	FormatBuffer() { data = nullptr; }

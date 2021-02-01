@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "base/basictypes.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Core/System.h"
 
@@ -31,18 +30,17 @@ extern bool currentDialogActive;
 namespace Rasterizer {
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(u16 *pixel, const Vec4<int> &color_in) {
+inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
 	u32 new_color;
-	if (color_in.a() == 255) {
-		new_color = color_in.ToRGBA() & 0xFFFFFF;
+	if ((color_in >> 24) == 255) {
+		new_color = color_in & 0xFFFFFF;
 	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(color_in, dst);
+		Vec3<int> blended = AlphaBlendingResult(Vec4<int>::FromRGBA(color_in), dst);
 		// ToRGB() always automatically clamps.
 		new_color = blended.ToRGB();
 	}
-
 	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
 	*pixel = RGBA8888ToRGBA5551(new_color);
 }
@@ -98,7 +96,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	int z = pos0.z;
 	float fog = 1.0f;
 
-	bool isWhite = v0.color0 == Vec4<int>(255, 255, 255, 255);
+	bool isWhite = v1.color0 == Vec4<int>(255, 255, 255, 255);
 
 	if (gstate.isTextureMapEnabled()) {
 		// 1:1 (but with mirror support) texture mapping!
@@ -148,18 +146,18 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
 						if (tex_color & 0xFF000000) {
-							DrawSinglePixel5551(pixel, Vec4<int>::FromRGBA(tex_color));
+							DrawSinglePixel5551(pixel, tex_color);
 						}
 						s += ds;
 						pixel++;
 					}
 				} else {
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> prim_color = v0.color0;
+						Vec4<int> prim_color = v1.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = ModulateRGBA(prim_color, tex_color);
 						if (prim_color.a() > 0) {
-							DrawSinglePixel5551(pixel, prim_color);
+							DrawSinglePixel5551(pixel, prim_color.ToRGBA());
 						}
 						s += ds;
 						pixel++;
@@ -173,7 +171,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				int s = s_start;
 				// Not really that fast but faster than triangle.
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v0.color0;
+					Vec4<int> prim_color = v1.color0;
 					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 					prim_color = GetTextureFunctionOutput(prim_color, tex_color);
 					DrawingCoords pos(x, y, z);
@@ -201,21 +199,21 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			gstate.getColorMask() == 0x000000 &&
 			gstate.FrameBufFormat() == GE_FORMAT_5551) {
-			if (v0.color0.a() == 0)
+			if (v1.color0.a() == 0)
 				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
 				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v0.color0;
-					DrawSinglePixel5551(pixel, prim_color);
+					Vec4<int> prim_color = v1.color0;
+					DrawSinglePixel5551(pixel, prim_color.ToRGBA());
 					pixel++;
 				}
 			}
 		} else {
 			for (int y = pos0.y; y < pos1.y; y++) {
 				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v0.color0;
+					Vec4<int> prim_color = v1.color0;
 					DrawingCoords pos(x, y, z);
 					DrawSinglePixelNonClear(pos, (u16)z, fog, prim_color);
 				}
@@ -237,8 +235,10 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	bool coord_check =
 		(xdiff == udiff || xdiff == -udiff) &&
 		(ydiff == vdiff || ydiff == -vdiff);
+	// Currently only works for TL/BR, which is the most common but not required.
+	bool orient_check = xdiff >= 0 && ydiff >= 0;
 	bool state_check = !gstate.isModeClear();  // TODO: Add support for clear modes in Rasterizer::DrawSprite.
-	if ((coord_check || !gstate.isTextureMapEnabled()) && state_check) {
+	if ((coord_check || !gstate.isTextureMapEnabled()) && orient_check && state_check) {
 		Rasterizer::DrawSprite(v0, v1);
 		return true;
 	}
@@ -259,9 +259,9 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 				g_needsClearAfterDialog = false;
 				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
 				gstate.textureMapEnable &= ~1;
-				VertexData newV0 = v0;
-				newV0.color0 = Vec4<int>(0, 0, 0, 255);
-				Rasterizer::DrawSprite(newV0, v1);
+				VertexData newV1 = v1;
+				newV1.color0 = Vec4<int>(0, 0, 0, 255);
+				Rasterizer::DrawSprite(v0, newV1);
 				gstate.textureMapEnable |= 1;
 			}
 			return true;

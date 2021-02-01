@@ -260,6 +260,9 @@ public:
 	}
 
 protected:
+	void DeviceLost() override;
+	void DeviceRestore() override;
+
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
@@ -302,6 +305,8 @@ protected:
 			gstate_c.vertexAddr += bytesRead;
 		}
 	}
+
+	size_t FormatGPUStatsCommon(char *buf, size_t size);
 
 	FramebufferManagerCommon *framebufferManager_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
@@ -363,10 +368,7 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
-
-#ifdef _WIN32
 	int lastVsync_ = -1;
-#endif
 };
 
 struct CommonCommandTableEntry {

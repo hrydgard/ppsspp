@@ -5,8 +5,10 @@
 #pragma once
 
 #include <cstddef>
-#include "Common.h"
-#include "MemoryUtil.h"
+
+#include "Common/CommonTypes.h"
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
 
 // Everything that needs to generate code should inherit from this.
 // You get memory management for free, plus, you can use all emitter functions without
@@ -19,7 +21,7 @@ public:
 	CodeBlockCommon() {}
 	virtual ~CodeBlockCommon() {}
 
-	bool IsInSpace(const u8 *ptr) {
+	bool IsInSpace(const u8 *ptr) const {
 		return (ptr >= region) && (ptr < (region + region_size));
 	}
 
@@ -69,6 +71,9 @@ public:
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
 	void ClearCodeSpace(int offset) {
+		if (!region) {
+			return;
+		}
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
@@ -85,11 +90,8 @@ public:
 	// If you don't specify a size and we later encounter an executable non-writable block, we're screwed.
 	// These CANNOT be nested. We rely on the memory protection starting at READ|WRITE after start and reset.
 	void BeginWrite(size_t sizeEstimate = 1) {
-#ifdef _DEBUG
-		if (writeStart_) {
-			PanicAlert("Can't nest BeginWrite calls");
-		}
-#endif
+		_dbg_assert_msg_(!writeStart_, "Can't nest BeginWrite calls");
+
 		// In case the last block made the current page exec/no-write, let's fix that.
 		if (PlatformIsWXExclusive()) {
 			writeStart_ = GetCodePtr();

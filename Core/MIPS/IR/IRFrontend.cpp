@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-
-#include "Common/ChunkFile.h"
+#include "Common/Log.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
@@ -46,9 +46,9 @@ void IRFrontend::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;

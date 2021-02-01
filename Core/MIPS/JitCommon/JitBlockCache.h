@@ -22,12 +22,13 @@
 #include <vector>
 #include <string>
 
+#include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
 #include "Common/CodeBlock.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
 
-#if defined(ARM) || defined(ARM64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 const int MAX_JIT_BLOCK_EXITS = 2;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;

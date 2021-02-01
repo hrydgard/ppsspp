@@ -17,11 +17,10 @@
 
 #include <thread>
 
-#include "file/file_util.h"
-#include "util/text/utf8.h"
-#include "thread/threadutil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
 
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -268,7 +267,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	if (!pspFileSystem.GetFileInfo(bootpath).exists) {
 		// Can't tell for sure if it's PS1 or PS2, but doesn't much matter.
 		if (pspFileSystem.GetFileInfo("disc0:/SYSTEM.CNF;1").exists || pspFileSystem.GetFileInfo("disc0:/PSX.EXE;1").exists) {
-			*error_string = "PPSSPP plays PSP games, not Playstation 1 or 2 games.";
+			*error_string = "PPSSPP plays PSP games, not PlayStation 1 or 2 games.";
 		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_VIDEO/PLAYLIST.UMD").exists) {
 			*error_string = "PPSSPP doesn't support UMD Video.";
 		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_AUDIO/PLAYLIST.UMD").exists) {
@@ -278,7 +277,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			*error_string = "A PSP game couldn't be found on the disc.";
 		}
-		coreState = CORE_ERROR;
+		coreState = CORE_BOOT_ERROR;
 		return false;
 	}
 
@@ -303,7 +302,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}
@@ -340,10 +339,11 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
 			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
+			ISOBlockSystem *blockSystem = new ISOBlockSystem(umd2);
 
-			pspFileSystem.Mount("umd1:", umd2);
+			pspFileSystem.Mount("umd1:", blockSystem);
 			pspFileSystem.Mount("disc0:", umd2);
-			pspFileSystem.Mount("umd:", umd2);
+			pspFileSystem.Mount("umd:", blockSystem);
 		}
 	}
 
@@ -374,7 +374,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		// If root is not a subpath of path, we can't boot the game.
 		if (!startsWith(pathNorm, rootNorm)) {
 			*error_string = "Cannot boot ELF located outside mountRoot.";
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			return false;
 		}
 
@@ -386,7 +386,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
-	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
+	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file + extension;
@@ -433,7 +433,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}
@@ -457,7 +457,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}

@@ -18,7 +18,8 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Reporting.h"
@@ -163,13 +164,13 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		alignedPosition &= ~(grain_ - 1);
 
 		// Since the position was decreased, size must increase.
-		alignedSize += alignedPosition - position;
+		alignedSize += position - alignedPosition;
 	}
 
 	// Upalign size to grain.
 	alignedSize = (alignedSize + grain_ - 1) & ~(grain_ - 1);
 	// Tell the caller the allocated size from their requested starting position.
-	size = alignedSize - (alignedPosition - position);
+	size = alignedSize - (position - alignedPosition);
 
 	Block *bp = GetBlockFromAddress(alignedPosition);
 	if (bp != NULL)
@@ -389,13 +390,13 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr) const
 
 void BlockAllocator::ListBlocks() const
 {
-	INFO_LOG(SCEKERNEL,"-----------");
+	DEBUG_LOG(SCEKERNEL,"-----------");
 	for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
 		const Block &b = *bp;
-		INFO_LOG(SCEKERNEL, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
+		DEBUG_LOG(SCEKERNEL, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
-	INFO_LOG(SCEKERNEL,"-----------");
+	DEBUG_LOG(SCEKERNEL,"-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const
@@ -442,7 +443,7 @@ void BlockAllocator::DoState(PointerWrap &p)
 	if (p.mode == p.MODE_READ)
 	{
 		Shutdown();
-		p.Do(count);
+		Do(p, count);
 
 		bottom_ = new Block(0, 0, false, NULL, NULL);
 		bottom_->DoState(p);
@@ -460,7 +461,7 @@ void BlockAllocator::DoState(PointerWrap &p)
 	{
 		for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 			++count;
-		p.Do(count);
+		Do(p, count);
 
 		bottom_->DoState(p);
 		--count;
@@ -473,9 +474,9 @@ void BlockAllocator::DoState(PointerWrap &p)
 		}
 	}
 
-	p.Do(rangeStart_);
-	p.Do(rangeSize_);
-	p.Do(grain_);
+	Do(p, rangeStart_);
+	Do(p, rangeSize_);
+	Do(p, grain_);
 }
 
 BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
@@ -498,13 +499,13 @@ void BlockAllocator::Block::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(start);
-	p.Do(size);
-	p.Do(taken);
+	Do(p, start);
+	Do(p, size);
+	Do(p, taken);
 	// Since we use truncate_cpy, the empty space is not zeroed.  Zero it now.
 	// This avoids saving uninitialized memory.
 	size_t tagLen = strlen(tag);
 	if (tagLen != sizeof(tag))
 		memset(tag + tagLen, 0, sizeof(tag) - tagLen);
-	p.DoArray(tag, sizeof(tag));
+	DoArray(p, tag, sizeof(tag));
 }

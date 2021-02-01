@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceImpose.h"
@@ -22,7 +24,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "Common/ChunkFile.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
@@ -50,10 +51,10 @@ void __ImposeDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(language);
-	p.Do(buttonValue);
-	p.Do(umdPopup);
-	p.Do(backlightOffTime);
+	Do(p, language);
+	Do(p, buttonValue);
+	Do(p, umdPopup);
+	Do(p, backlightOffTime);
 }
 
 static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)

@@ -63,8 +63,8 @@ private:
 	static CRITICAL_SECTION criticalSection;
 
 	static char *logPending;
-	static std::atomic<u32> logPendingReadPos;
-	static std::atomic<u32> logPendingWritePos;
+	static std::atomic<uint32_t> logPendingReadPos;
+	static std::atomic<uint32_t> logPendingWritePos;
 
 	int openWidth_;
 	int openHeight_;

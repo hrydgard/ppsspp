@@ -16,14 +16,23 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include "ppsspp_config.h"
+
+#include <sstream>
+
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#include <sys/sysctl.h>
+#endif
+
+
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <ctype.h>
-#include "Common.h"
-#include "CPUDetect.h"
-#include "StringUtils.h"
-#include "FileUtil.h"
-#include "util/text/utf8.h"
+
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) 
 #if PPSSPP_PLATFORM(UWP)
@@ -234,14 +243,27 @@ void CPUInfo::Detect()
 #if !PPSSPP_PLATFORM(LINUX)
 	bool isVFP3 = false;
 	bool isVFP4 = false;
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 #if PPSSPP_PLATFORM(IOS)
 	isVFP3 = true;
 	// Check for swift arch (VFP4)
 #ifdef __ARM_ARCH_7S__
 	isVFP4 = true;
 #endif
-	strcpy(brand_string, "Apple A");
-	num_cores = 2;
+#endif // PPSSPP_PLATFORM(IOS)
+	size_t sz = 0x41; // char brand_string[0x41]
+	if (sysctlbyname("machdep.cpu.brand_string", brand_string, &sz, nullptr, 0) != 0) {
+		strcpy(brand_string, "Unknown");
+	}
+	int num = 0;
+	sz = sizeof(num);
+	if (sysctlbyname("hw.physicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+		num_cores = num;
+		sz = sizeof(num);
+		if (sysctlbyname("hw.logicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+			logical_cpu_count = num / num_cores;
+		}
+	}
 #elif PPSSPP_PLATFORM(WINDOWS)
 	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 	isVFP3 = true;
@@ -249,7 +271,7 @@ void CPUInfo::Detect()
 	SYSTEM_INFO sysInfo;
 	GetSystemInfo(&sysInfo);
 	num_cores = sysInfo.dwNumberOfProcessors;
-#else // !PPSSPP_PLATFORM(IOS)
+#else // !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(WINDOWS)
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;
 #endif

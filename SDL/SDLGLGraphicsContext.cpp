@@ -1,12 +1,16 @@
 #include <vector>
+
 #include "SDLGLGraphicsContext.h"
+
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/thin3d_create.h"
+
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/System/Display.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "base/NativeApp.h"
-#include "base/display.h"
-#include "gfx_es2/gpu_features.h"
-#include "thin3d/thin3d_create.h"
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
@@ -412,7 +416,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 	renderManager_->SetSwapFunction([&]() {
 #ifdef USING_EGL
 		if (useEGLSwap)
@@ -423,8 +427,17 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 		SDL_GL_SwapWindow(window_);
 #endif
 	});
+
+	renderManager_->SetSwapIntervalFunction([&](int interval) {
+		INFO_LOG(G3D, "SDL SwapInterval: %d", interval);
+		SDL_GL_SetSwapInterval(interval);
+	});
 	window_ = window;
 	return 0;
+}
+
+void SDLGLGraphicsContext::SwapInterval(int interval) {
+	renderManager_->SwapInterval(interval);
 }
 
 void SDLGLGraphicsContext::Shutdown() {

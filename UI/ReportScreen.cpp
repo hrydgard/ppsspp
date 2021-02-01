@@ -16,21 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
-#include "base/display.h"
+
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "thin3d/thin3d.h"
-#include "ui/ui_context.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/UI/Context.h"
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
-#include "Common/FileUtil.h"
-#include "Common/Log.h"
 
 using namespace UI;
 

@@ -60,6 +60,7 @@ struct CompatFlags {
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;
+	bool IntraVRAMBlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
@@ -68,6 +69,14 @@ struct CompatFlags {
 	bool MoreAccurateVMMUL;
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
+	bool ReportSmallMemstick;
+	bool MemstickFixedFree;
+	bool DateLimited;
+	bool ReinterpretFramebuffers;
+	bool DoublePrecisionSinCos;
+	bool ShaderColorBitmask;
+	bool DisableFirstFrameReadback;
+	bool DisableRangeCulling;
 };
 
 class IniFile;

@@ -14,8 +14,9 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 
-#include "base/NativeApp.h"
-#include "profiler/profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/Profiler/Profiler.h"
 
 #define	CS_OPS_STATUS		0	/* return status */
 #define CS_DEBUGGED 0x10000000  /* process is currently or has previously been debugged and allowed to run with invalid pages */
@@ -60,6 +61,14 @@ std::string System_GetProperty(SystemProperty prop) {
 			return "en_US";
 		default:
 			return "";
+	}
+}
+
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+	default:
+		return std::vector<std::string>();
 	}
 }
 

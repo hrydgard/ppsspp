@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=@TargetBin@
+Exec=@TargetBin@
+Icon=ppsspp
+Type=Application
+Comment=ppsspp (fast and portable PSP emulator)
+Categories=Game

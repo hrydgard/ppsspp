@@ -21,9 +21,12 @@
 #include <unordered_set>
 #include <mutex>
 
-#include "base/timeutil.h"
 #include "ext/cityhash/city.h"
-#include "Common/FileUtil.h"
+#include "ext/xxhash.h"
+
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -35,7 +38,6 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "ext/xxhash.h"
 
 using namespace MIPSCodeUtils;
 
@@ -924,13 +926,13 @@ skip:
 
 		// TODO: Load from cache file if available instead.
 
-		double st = real_time_now();
+		double st = time_now_d();
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			const AnalyzedFunction &f = *iter;
 
 			PrecompileFunction(f.start, f.end - f.start + 4);
 		}
-		double et = real_time_now();
+		double et = time_now_d();
 
 		NOTICE_LOG(JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
 	}

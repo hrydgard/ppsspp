@@ -23,9 +23,9 @@
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
 #include "Core/Config.h"
-#include "input/input_state.h"
-#include "base/NativeApp.h"
-#include "input/keycodes.h"
+#include "Common/Input/InputState.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Input/KeyCodes.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")
@@ -203,7 +203,7 @@ DinputDevice::~DinputDevice() {
 	}
 }
 
-void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
+void SendNativeAxis(int deviceId, int value, int &lastValue, int axisId) {
 	if (value == lastValue)
 		return;
 
@@ -216,11 +216,14 @@ void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
 	lastValue = value;
 }
 
-inline float Signs(short val) {
+inline int Signs(int val) {
 	return (0 < val) - (val < 0);
 }
 
-inline float LinearMaps(short val, short a0, short a1, short b0, short b1) {
+inline int LinearMaps(int val, int a0, int a1, int b0, int b1) {
+	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
+}
+inline float LinearMaps(float val, float a0, float a1, float b0, float b1) {
 	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
 }
 
@@ -244,11 +247,11 @@ int DinputDevice::UpdateState() {
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
 		// Circle to Square mapping, cribbed from XInputDevice
-		float sx = js.lX;
-		float sy = js.lY;
+		float sx = (float)js.lX;
+		float sy = (float)js.lY;
 		float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
-		js.lX = (short)(sx * scaleFactor);
-		js.lY = (short)(sy * scaleFactor);
+		js.lX = (int)(sx * scaleFactor);
+		js.lY = (int)(sy * scaleFactor);
 		
 		// Linear range mapping (used to invert deadzones)
 		float dz = g_Config.fDInputAnalogDeadzone;
@@ -257,20 +260,20 @@ int DinputDevice::UpdateState() {
 		float md = std::max(dz, idz);
 		float st = g_Config.fDInputAnalogSensitivity;
 
-		float magnitude = sqrtf(js.lX * js.lX + js.lY * js.lY);
+		float magnitude = sqrtf((float)(js.lX * js.lX + js.lY * js.lY));
 		if (magnitude > dz * 10000.0f) {
 			if (idzm == 1)
 			{
-				short xSign = Signs(js.lX);
-				if (xSign != 0.0f) {
-					js.lX = LinearMaps(js.lX, xSign * (short)(dz * 10000), xSign * 10000, xSign * (short)(md * 10000), xSign * 10000 * st);
+				int xSign = Signs(js.lX);
+				if (xSign != 0) {
+					js.lX = LinearMaps(js.lX, xSign * (int)(dz * 10000), xSign * 10000, xSign * (int)(md * 10000), xSign * (int)(st * 10000));
 				}
 			}
 			else if (idzm == 2)
 			{
-				short ySign = Signs(js.lY);
-				if (ySign != 0.0f) {
-					js.lY = LinearMaps(js.lY, ySign * (short)(dz * 10000.0f), ySign * 10000, ySign * (short)(md * 10000.0f), ySign * 10000 * st);
+				int ySign = Signs(js.lY);
+				if (ySign != 0) {
+					js.lY = LinearMaps(js.lY, ySign * (int)(dz * 10000.0f), ySign * 10000, ySign * (int)(md * 10000.0f), ySign * (int)(st * 10000));
 				}
 			}
 			else if (idzm == 3)

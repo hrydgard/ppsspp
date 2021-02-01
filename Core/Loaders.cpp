@@ -18,10 +18,8 @@
 #include <algorithm>
 #include <cstdio>
 
-#include "base/stringutil.h"
-#include "file/file_util.h"
-#include "Common/FileUtil.h"
-
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
@@ -42,8 +40,14 @@ void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFac
 }
 
 FileLoader *ConstructFileLoader(const std::string &filename) {
-	if (filename.find("http://") == 0 || filename.find("https://") == 0)
-		return new CachingFileLoader(new DiskCachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename))));
+	if (filename.find("http://") == 0 || filename.find("https://") == 0) {
+		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
+		// For headless, avoid disk caching since it's usually used for tests that might mutate.
+		if (!PSP_CoreParameter().headLess) {
+			baseLoader = new DiskCachingFileLoader(baseLoader);
+		}
+		return new CachingFileLoader(baseLoader);
+	}
 
 	for (auto &iter : factories) {
 		if (startsWith(iter.first, filename)) {
@@ -127,17 +131,13 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	u32 psar_offset = 0, psar_id = 0;
 	u32 _id = id;
-	switch (_id) {
-	case 'PBP\x00':
+	if (!memcmp(&_id, "PK\x03\x04", 4) || !memcmp(&_id, "PK\x05\x06", 4) || !memcmp(&_id, "PK\x07\x08", 4)) {
+		return IdentifiedFileType::ARCHIVE_ZIP;
+	} else if (!memcmp(&_id, "\x00PBP", 4)) {
 		fileLoader->ReadAt(0x24, 4, 1, &psar_offset);
 		fileLoader->ReadAt(psar_offset, 4, 1, &psar_id);
-		break;
-	case '!raR':
+	} else if (!memcmp(&_id, "Rar!", 4)) {
 		return IdentifiedFileType::ARCHIVE_RAR;
-	case '\x04\x03KP':
-	case '\x06\x05KP':
-	case '\x08\x07KP':
-		return IdentifiedFileType::ARCHIVE_ZIP;
 	}
 
 	if (id == 'FLE\x7F') {
@@ -258,7 +258,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				}
 				else if (ebootType == IdentifiedFileType::PSP_PS1_PBP) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
-					coreState = CORE_ERROR;
+					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
 				std::string path = fileLoader->Path();
@@ -270,7 +270,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
 				*error_string = "No EBOOT.PBP, misidentified game";
-				coreState = CORE_ERROR;
+				coreState = CORE_BOOT_ERROR;
 				return false;
 			}
 		}
@@ -352,7 +352,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 	}
 
-	coreState = CORE_ERROR;
+	coreState = CORE_BOOT_ERROR;
 	return false;
 }
 

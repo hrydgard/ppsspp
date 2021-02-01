@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include "math/math_util.h"
+#include "Common/Math/math_util.h"
 
 #include "ABI.h"
 #include "x64Emitter.h"
@@ -163,13 +163,13 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 #endif
 
 #ifdef _M_IX86
-			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
+			_assert_msg_( Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64
 			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
-			_assert_msg_(JIT, MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
+			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
 			SHR(32, R(EDX), Imm8(24));
 			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
 			FixupBranch notfound = J_CC(CC_NE);
@@ -206,10 +206,20 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		}
 		J_CC(CC_Z, outerLoop, true);
 
+	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
+
+	crashHandler = GetCodePtr();
+	if (RipAccessible((const void *)&coreState)) {
+		MOV(32, M(&coreState), Imm32(CORE_RUNTIME_ERROR));
+	} else {
+		MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+		MOV(32, MatR(RAX), Imm32(CORE_RUNTIME_ERROR));
+	}
+	JMP(quitLoop, true);
 
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	endOfPregeneratedCode = AlignCodePage();

@@ -1,0 +1,62 @@
+# libretro CI
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+
+.core-defs:
+  variables:
+    CORENAME: ppsspp
+    CORE_ARGS: -DLIBRETRO=ON
+
+.linux-defs:
+  variables:
+    EXTRA_PATH: lib
+
+.windows-defs:
+  variables:
+    MAKEFILE_PATH: libretro
+
+include:
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/android-cmake.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/linux-cmake.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/windows-x64-msvc19-msys2.yml'
+
+stages:
+  - build-prepare
+  - build-shared
+
+# Desktop
+libretro-build-linux-x64:
+  extends:
+    - .libretro-linux-cmake-x86_64
+    - .core-defs
+    - .linux-defs
+
+libretro-build-windows-x64:
+  extends:
+    - .libretro-windows-x64-msvc19-msys2-make-default
+    - .core-defs
+    - .windows-defs
+
+# Android
+libretro-build-android-armeabi-v7a:
+  extends:
+    - .libretro-android-cmake-armeabi-v7a
+    - .core-defs
+
+libretro-build-android-arm64-v8a:
+  extends:
+    - .libretro-android-cmake-arm64-v8a
+    - .core-defs
+
+libretro-build-android-x86_64:
+  extends:
+    - .libretro-android-cmake-x86_64
+    - .core-defs
+
+libretro-build-android-x86:
+  extends:
+    - .libretro-android-cmake-x86
+    - .core-defs

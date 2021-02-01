@@ -17,6 +17,8 @@
 
 #include <algorithm>
 
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
@@ -43,7 +45,7 @@ void __AACDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(aacMap);
+	Do(p, aacMap);
 }
 
 static u32 sceMp4Init()

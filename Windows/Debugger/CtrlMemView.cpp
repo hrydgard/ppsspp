@@ -9,7 +9,7 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
-#include "base/display.h"
+#include "Common/System/Display.h"
 
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"

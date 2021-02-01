@@ -17,14 +17,11 @@
 
 #include <d3d9.h>
 
-#include "base/logging.h"
-
-#include "gfx/d3d9_state.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
+#include "Common/GPU/thin3d.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
-#include "GPU/Directx9/FramebufferDX9.h"
-#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 
@@ -135,7 +132,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	// TODO: Helper with logging?
 	if (!stencilUploadPS_) {
 		std::string errorMessage;
-		bool success = CompilePixelShader(device_, stencil_ps, &stencilUploadPS_, NULL, errorMessage);
+		bool success = CompilePixelShaderD3D9(device_, stencil_ps, &stencilUploadPS_, &errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -157,7 +154,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	}
 	if (!stencilUploadVS_) {
 		std::string errorMessage;
-		bool success = CompileVertexShader(device_, stencil_vs, &stencilUploadVS_, NULL, errorMessage);
+		bool success = CompileVertexShaderD3D9(device_, stencil_vs, &stencilUploadVS_, &errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -187,7 +184,6 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	dxstate.colorMask.set(false, false, false, true);
 	dxstate.stencilTest.enable();
 	dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
@@ -199,7 +195,6 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	}
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
@@ -257,6 +252,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	dxstate.stencilMask.set(0xFF);
 	dxstate.viewport.restore();
 	RebindFramebuffer("RebindFramebuffer stencil");
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }
 

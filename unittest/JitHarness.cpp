@@ -17,8 +17,11 @@
 
 #include <algorithm>
 
-#include "base/timeutil.h"
-#include "base/NativeApp.h"
+#include "ppsspp_config.h"
+
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/TimeUtil.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -54,7 +57,7 @@ HLEFunction UnitTestFakeSyscalls[] = {
 double ExecCPUTest() {
 	int blockTicks = 1000000;
 	int total = 0;
-	double st = real_time_now();
+	double st = time_now_d();
 	do {
 		for (int j = 0; j < 1000; ++j) {
 			currentMIPS->pc = PSP_GetUserMemoryBase();
@@ -66,8 +69,8 @@ double ExecCPUTest() {
 			++total;
 		}
 	}
-	while (real_time_now() - st < 0.5);
-	double elapsed = real_time_now() - st;
+	while (time_now_d() - st < 0.5);
+	double elapsed = time_now_d() - st;
 
 	return total / elapsed;
 }
@@ -172,9 +175,9 @@ bool TestJit() {
 		// Disassemble
 		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
 		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);

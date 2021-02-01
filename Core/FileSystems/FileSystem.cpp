@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/FileSystems/FileSystem.h"
 
 void PSPFileInfo::DoState(PointerWrap &p) {
@@ -23,17 +24,17 @@ void PSPFileInfo::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(name);
-	p.Do(size);
-	p.Do(access);
-	p.Do(exists);
-	p.Do(type);
-	p.Do(atime);
-	p.Do(ctime);
-	p.Do(mtime);
-	p.Do(isOnSectorSystem);
-	p.Do(startSector);
-	p.Do(numSectors);
-	p.Do(sectorSize);
+	Do(p, name);
+	Do(p, size);
+	Do(p, access);
+	Do(p, exists);
+	Do(p, type);
+	Do(p, atime);
+	Do(p, ctime);
+	Do(p, mtime);
+	Do(p, isOnSectorSystem);
+	Do(p, startSector);
+	Do(p, numSectors);
+	Do(p, sectorSize);
 }
 

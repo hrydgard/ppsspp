@@ -21,10 +21,12 @@
 #include <set>
 #include <vector>
 #include <snappy-c.h>
-#include "base/stringutil.h"
+
 #include "Common/Common.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
@@ -115,8 +117,11 @@ static std::string WriteRecording() {
 	NOTICE_LOG(G3D, "Recording filename: %s", filename.c_str());
 
 	FILE *fp = File::OpenCFile(filename, "wb");
-	fwrite(HEADER, 8, 1, fp);
-	fwrite(&VERSION, sizeof(VERSION), 1, fp);
+	Header header{};
+	strncpy(header.magic, HEADER_MAGIC, sizeof(header.magic));
+	header.version = VERSION;
+	strncpy(header.gameID, g_paramSFO.GetDiscID().c_str(), sizeof(header.gameID));
+	fwrite(&header, sizeof(header), 1, fp);
 
 	u32 sz = (u32)commands.size();
 	fwrite(&sz, sizeof(sz), 1, fp);

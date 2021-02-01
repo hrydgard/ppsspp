@@ -18,16 +18,16 @@
 #pragma once
 
 #include <cstdio>
+#include <cstdint>
 
-#include "base/basictypes.h"
-#include "Common/Hashmaps.h"
-#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
+#include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "math/lin/matrix4x4.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
 
 class VulkanContext;
@@ -88,7 +88,7 @@ public:
 
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation);
+	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader() override;
@@ -131,6 +131,7 @@ private:
 	void Clear();
 
 	VulkanContext *vulkan_;
+	ShaderLanguageDesc compat_;
 
 	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;
 	FSCache fsCache_;
@@ -146,8 +147,8 @@ private:
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
 
-	VulkanFragmentShader *lastFShader_;
-	VulkanVertexShader *lastVShader_;
+	VulkanFragmentShader *lastFShader_ = nullptr;
+	VulkanVertexShader *lastVShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

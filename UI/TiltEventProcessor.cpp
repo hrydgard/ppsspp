@@ -1,11 +1,10 @@
 #define _USE_MATH_DEFINES
+
 #include <cmath>
-#include "UI/TiltEventProcessor.h"
+
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
-#include "math.h"
-#include "base/logging.h"
-
+#include "UI/TiltEventProcessor.h"
 
 using namespace TiltEventProcessor;
 

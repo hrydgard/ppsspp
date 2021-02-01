@@ -28,16 +28,14 @@
 
 #include <memory.h>
 #include <set>
-#include "base/logging.h"
-#include "base/basictypes.h"
-#include "file/file_util.h"
 
-#include "Common.h"
-#include "CPUDetect.h"
-#include "FileUtil.h"
-#include "StringUtils.h"
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 
 #if defined(_WIN32) && !defined(__MINGW32__)
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
@@ -56,7 +54,8 @@ void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 	__cpuid((int *)regs, cpuid_leaf);
 }
-#else
+
+#else  // _WIN32
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -71,7 +70,7 @@ static unsigned long long _xgetbv(unsigned int index)
 
 #else
 #define _XCR_XFEATURE_ENABLED_MASK 0
-#endif
+#endif  // _M_SSE
 
 #if !defined(MIPS)
 
@@ -95,8 +94,10 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 	do_cpuidex(regs, cpuid_leaf, 0);
 }
 
-#endif
-#endif
+#endif // !defined(MIPS)
+
+#endif  // !win32
+
 
 CPUInfo cpu_info;
 

@@ -18,12 +18,13 @@
 
 #include <thread>
 
-#include "base/logging.h"
-#include "base/timeutil.h"
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
-#include "Common/ChunkFile.h"
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -35,15 +36,15 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
-#include "thin3d/VulkanRenderManager.h"
-#include "thin3d/VulkanQueueRunner.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -72,10 +73,10 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetShaderManager(shaderManagerVulkan_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
 	framebufferManagerVulkan_->SetVulkan2D(&vulkan2D_);
-	framebufferManagerVulkan_->Init();
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
+	framebufferManagerVulkan_->Init();
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
@@ -140,7 +141,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 	}
 	fclose(f);
 	if (!result) {
-		WARN_LOG(G3D, "Bad Vulkan pipeline cache");
+		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
 		File::Delete(filename);
 	} else {
@@ -183,7 +184,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 
@@ -223,15 +224,18 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
-	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
-	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
+	features |= GPU_SUPPORTS_COPY_IMAGE;
+	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+
+	if (vulkan_->GetDeviceInfo().canBlitToPreferredDepthStencilFormat) {
+		features |= GPU_SUPPORTS_FRAMEBUFFER_BLIT_TO_DEPTH;
+	}
 
 	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
@@ -332,6 +336,8 @@ void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
 	framebufferManagerVulkan_->EndFrame();
 	textureCacheVulkan_->EndFrame();
+
+	draw_->InvalidateCachedState();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -471,10 +477,10 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
-	ILOG("GPU_Vulkan::InitDeviceObjects");
+	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		assert(!frameData_[i].push_);
+		_assert_(!frameData_[i].push_);
 		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024, usage);
 	}
@@ -495,7 +501,7 @@ void GPU_Vulkan::InitDeviceObjects() {
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
-	ILOG("GPU_Vulkan::DestroyDeviceObjects");
+	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
@@ -521,26 +527,25 @@ void GPU_Vulkan::DeviceLost() {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();
-	framebufferManagerVulkan_->DeviceLost();
 	vulkan2D_.DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
 	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
-	draw_ = nullptr;
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_Vulkan::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	InitDeviceObjects();
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	vulkan2D_.DeviceRestore(vulkan_);
 	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
@@ -550,43 +555,18 @@ void GPU_Vulkan::DeviceRestore() {
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
+	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
+	buffer += offset;
+	bufsize -= offset;
+	if ((int)bufsize < 0)
+		return;
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	char texStats[256];
 	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	snprintf(buffer, bufsize - 1,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d, uploads: %d\n"
+	snprintf(buffer, bufsize,
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
 		"%s\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManager_->NumVFBs(),
-		(int)textureCacheVulkan_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),

@@ -18,7 +18,6 @@
 //TODO: Doesn't build, FIXME!
 #if 0
 
-#include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

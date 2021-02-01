@@ -114,6 +114,10 @@ public:
 		return segments[segment].p_memsz;
 	}
 
+	u32 GetFirstSegmentAlign() const {
+		return firstSegAlign;
+	}
+
 	bool DidRelocate() const {
 		return bRelocate;
 	}
@@ -127,6 +131,7 @@ public:
 	}
 
 	u32 GetTotalTextSize() const;
+	u32 GetTotalTextSizeFromSeg() const;
 	u32 GetTotalDataSize() const;
 	u32 GetTotalSectionSizeByPrefix(const std::string &prefix) const;
 
@@ -151,4 +156,5 @@ private:
 	u32 vaddr = 0;
 	u32 segmentVAddr[32];
 	size_t size_ = 0;
+	u32 firstSegAlign = 0;
 };

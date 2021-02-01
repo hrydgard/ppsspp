@@ -52,6 +52,8 @@ public:
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
+	const u8 *GetCrashHandler() const override { return crashHandler; }
+	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
@@ -280,6 +282,8 @@ public:
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
 	const u8 *updateRoundingMode;
+
+	const u8 *crashHandler;
 
 	int jitStartOffset;
 

@@ -18,13 +18,17 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "Common/FileUtil.h"
+
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/FileUtil.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -38,7 +42,7 @@
 #include "UI/BackgroundAudio.h"
 
 GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
-	SetBackgroundAudioGame(gamePath);
+	g_BackgroundAudio.SetGame(gamePath);
 }
 
 GameScreen::~GameScreen() {
@@ -47,8 +51,9 @@ GameScreen::~GameScreen() {
 void GameScreen::CreateViews() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	if (info && !info->id.empty())
+	if (info && !info->id.empty()) {
 		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
+	}
 
 	auto di = GetI18NCategory("Dialog");
 	auto ga = GetI18NCategory("Game");
@@ -119,9 +124,7 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
 	btnDeleteSaveData_->SetVisibility(V_GONE);
 
-	if (info && !info->pending) {
-		otherChoices_.clear();
-	}
+	otherChoices_.clear();
 
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
@@ -200,29 +203,35 @@ void GameScreen::render() {
 
 	if (info->gameSize) {
 		char temp[256];
-		snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float) (info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
-		tvGameSize_->SetText(temp);
-		snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
-		tvSaveDataSize_->SetText(temp);
-		if (info->installDataSize > 0) {
+		if (tvGameSize_) {
+			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
+			tvGameSize_->SetText(temp);
+		}
+		if (tvSaveDataSize_) {
+			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("SaveData"), (float)(info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
+			tvSaveDataSize_->SetText(temp);
+		}
+		if (info->installDataSize > 0 && tvInstallDataSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvInstallDataSize_->SetText(temp);
 			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
 
-	if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
-		static const char *regionNames[GAMEREGION_MAX] = {
-			"Japan",
-			"USA",
-			"Europe",
-			"Hong Kong",
-			"Asia",
-			"Korea"
-		};
-		tvRegion_->SetText(ga->T(regionNames[info->region]));
-	} else if (info->region > GAMEREGION_MAX){
-		tvRegion_->SetText(ga->T("Homebrew"));
+	if (tvRegion_) {
+		if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
+			static const char *regionNames[GAMEREGION_MAX] = {
+				"Japan",
+				"USA",
+				"Europe",
+				"Hong Kong",
+				"Asia",
+				"Korea"
+			};
+			tvRegion_->SetText(ga->T(regionNames[info->region]));
+		} else if (info->region > GAMEREGION_MAX) {
+			tvRegion_->SetText(ga->T("Homebrew"));
+		}
 	}
 
 	if (!info->id.empty()) {

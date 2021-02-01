@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "Common/CommonTypes.h"
 
 #include "GPU/ge_constants.h"
@@ -25,12 +26,18 @@ enum ReplaceAlphaType {
 };
 
 enum ReplaceBlendType {
-	REPLACE_BLEND_NO,
+	REPLACE_BLEND_NO,  // Blend function handled directly with blend states.
+
 	REPLACE_BLEND_STANDARD,
+
+	// SRC part of blend function handled in-shader.
 	REPLACE_BLEND_PRE_SRC,
 	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
 	REPLACE_BLEND_2X_ALPHA,
 	REPLACE_BLEND_2X_SRC,
+
+	// Full blend equation runs in shader.
+	// We might have to make a copy of the framebuffer target to read from.
 	REPLACE_BLEND_COPY_FBO,
 };
 
@@ -46,6 +53,9 @@ bool IsColorTestTriviallyTrue();
 bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
 bool IsStencilTestOutputDisabled();
+
+// If not, we have to emulate it in the shader, similar to blend replace.
+bool IsColorMaskSimple(uint32_t colorMask);
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
@@ -72,7 +82,18 @@ struct ViewportAndScissor {
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 float ToScaledDepthFromIntegerScale(float z);
-float FromScaledDepth(float z);
+
+// Use like this: (z - offset) * scale
+struct DepthScaleFactors {
+	float offset;
+	float scale;
+
+	float Apply(float z) const {
+		return (z - offset) * scale;
+	}
+};
+DepthScaleFactors GetDepthScaleFactors();
+
 float DepthSliceFactor();
 
 // These are common to all modern APIs and can be easily converted with a lookup table.
@@ -110,9 +131,9 @@ enum class BlendEq : uint8_t {
 
 struct GenericBlendState {
 	bool enabled;
-	bool resetShaderBlending;
-	bool applyShaderBlending;
-	bool dirtyShaderBlend;
+	bool resetFramebufferRead;
+	bool applyFramebufferRead;
+	bool dirtyShaderBlendFixValues;
 	ReplaceAlphaType replaceAlphaWithStencil;
 
 	BlendFactor srcColor;
@@ -147,7 +168,16 @@ struct GenericBlendState {
 };
 
 void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+
+struct GenericMaskState {
+	bool applyFramebufferRead;
+	uint32_t uniformMask;  // For each bit, opposite to the PSP.
+	bool rgba[4];  // true = draw, false = don't draw this channel
+};
+
+void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead);
+bool IsColorWriteMaskComplex(bool allowFramebufferRead);
 
 struct GenericStencilFuncState {
 	bool enabled;

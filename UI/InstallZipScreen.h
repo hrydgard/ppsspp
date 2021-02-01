@@ -19,8 +19,8 @@
 
 #include <functional>
 
-#include "ui/view.h"
-#include "ui/ui_screen.h"
+#include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 

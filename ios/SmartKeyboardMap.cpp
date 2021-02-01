@@ -7,7 +7,7 @@
 //
 
 #include "SmartKeyboardMap.hpp"
-#include "input/keycodes.h"
+#include "Common/Input/KeyCodes.h"
 
 int getSmartKeyboardMap(int keycode) {
     switch(keycode) {

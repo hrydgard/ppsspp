@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "gfx_es2/glsl_program.h"
+#include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
@@ -109,7 +109,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 		values = 256;
 		break;
 	case GE_FORMAT_INVALID:
-		// Impossible.
+	case GE_FORMAT_DEPTH16:
+		// Inconceivable.
+		_assert_(false);
 		break;
 	}
 
@@ -156,7 +158,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 
 	shaderManagerGL_->DirtyLastShader();
 
-	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
@@ -168,7 +170,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
-		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h, Draw::FBO_8888);
+		blitFBO = GetTempFBO(TempFBO::STENCIL, w, h);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "NotifyStencilUpload_Blit");
 	} else if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE }, "NotifyStencilUpload_NoBlit");
@@ -212,11 +214,12 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, StencilUplo
 	}
 
 	if (useBlit) {
+		render_->SetScissor({ 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight });
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "NotifyStencilUpload_Blit");
 	}
 
 	tex->Release();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	RebindFramebuffer("RebindFramebuffer - Stencil");
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	return true;
 }

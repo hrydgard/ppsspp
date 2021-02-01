@@ -43,8 +43,8 @@ public:
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int      DevType(u32 handle) override;
-	int      Flags() override { return 0; }
+	PSPDevType DevType(u32 handle) override;
+	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
 
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;

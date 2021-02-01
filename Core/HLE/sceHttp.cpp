@@ -19,7 +19,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 
 #include "Core/HLE/sceHttp.h"
-#include "net/http_client.h"
+#include "Common/Net/HTTPClient.h"
 
 // If http isn't loaded (seems unlikely), most functions should return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND
 

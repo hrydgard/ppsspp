@@ -17,18 +17,18 @@
 
 #pragma once
 
-#include <list>
-#include <deque>
+#include <string>
+#include <vector>
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
-#include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
 class FramebufferManagerVulkan;
 class ShaderManagerVulkan;
 class LinkedShader;
+class TextureCacheVulkan;
 
 class GPU_Vulkan : public GPUCommon {
 public:

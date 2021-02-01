@@ -5,7 +5,6 @@
 #endif
 #import <QuartzCore/CAMetalLayer.h>
 
-#include "base/logging.h"
 #include "SDLCocoaMetalLayer.h"
 
 void *makeWindowMetalCompatible(void *window) {

@@ -36,12 +36,12 @@
 
 #include <set>
 
-#include "Common/ChunkFile.h"
+#include "Common/Log.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
-#include "base/NativeApp.h"
-#include "base/logging.h"
-#include "profiler/profiler.h"
-#include "i18n/i18n.h"
+#include "Common/System/System.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -53,7 +53,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"
@@ -87,10 +87,10 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetShaderManager(shaderManagerD3D11_);
 	drawEngine_.SetTextureCache(textureCacheD3D11_);
 	drawEngine_.SetFramebufferManager(framebufferManagerD3D11_);
-	framebufferManagerD3D11_->Init();
 	framebufferManagerD3D11_->SetTextureCache(textureCacheD3D11_);
 	framebufferManagerD3D11_->SetShaderManager(shaderManagerD3D11_);
 	framebufferManagerD3D11_->SetDrawEngine(&drawEngine_);
+	framebufferManagerD3D11_->Init();
 	textureCacheD3D11_->SetFramebufferManager(framebufferManagerD3D11_);
 	textureCacheD3D11_->SetDepalShaderCache(depalShaderCache_);
 	textureCacheD3D11_->SetShaderManager(shaderManagerD3D11_);
@@ -119,18 +119,16 @@ GPU_D3D11::~GPU_D3D11() {
 	shaderManagerD3D11_->ClearShaders();
 	delete shaderManagerD3D11_;
 	delete textureCacheD3D11_;
-	draw_->BindPipeline(nullptr);
 	stockD3D11.Destroy();
 }
 
 void GPU_D3D11::CheckGPUFeatures() {
 	u32 features = 0;
 
-	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling) {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
@@ -142,17 +140,16 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ANISOTROPY;
 #endif
 
-	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
-	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
+	features |= GPU_SUPPORTS_DEPTH_TEXTURE;
+	features |= GPU_SUPPORTS_TEXTURE_NPOT;
 	if (draw_->GetDeviceCaps().dualSourceBlend)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	if (draw_->GetDeviceCaps().depthClampSupported)
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
-	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
@@ -196,15 +193,18 @@ void GPU_D3D11::BuildReportingInfo() {
 }
 
 void GPU_D3D11::DeviceLost() {
+	draw_->InvalidateCachedState();
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManagerD3D11_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
 	textureCacheD3D11_->Clear(false);
-	framebufferManagerD3D11_->DeviceLost();
+
+	GPUCommon::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore() {
+	GPUCommon::DeviceRestore();
 	// Nothing needed.
 }
 
@@ -234,8 +234,8 @@ void GPU_D3D11::ReapplyGfxState() {
 }
 
 void GPU_D3D11::EndHostFrame() {
-	// Tell the DrawContext that it's time to reset everything.
-	draw_->BindPipeline(nullptr);
+	// Probably not really necessary.
+	draw_->InvalidateCachedState();
 }
 
 void GPU_D3D11::BeginFrame() {
@@ -307,38 +307,13 @@ void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	snprintf(buffer, bufsize - 1,
-		"DL processing time: %0.2f ms\n"
-		"Draw calls: %i, flushes %i, clears %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d, uploads: %d\n"
-		"Vertex, Fragment shaders loaded: %i, %i\n",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManagerD3D11_->NumVFBs(),
-		(int)textureCacheD3D11_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
+	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
+	buffer += offset;
+	bufsize -= offset;
+	if ((int)bufsize < 0)
+		return;
+	snprintf(buffer, bufsize,
+		"Vertex, Fragment shaders loaded: %d, %d\n",
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);

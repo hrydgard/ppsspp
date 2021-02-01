@@ -1,16 +1,14 @@
 #pragma once
 
-#include <algorithm>
-
-#include "base/display.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
+#include "Common/System/Display.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
 
 #include "Common/LogManager.h"
 #include "UI/MiscScreens.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class GPUDriverTestScreen : public UIDialogScreenWithBackground {
 public:
@@ -22,6 +20,13 @@ public:
 
 private:
 	void DiscardTest();
+	void ShaderTest();
+
+	// Common objects
+	Draw::SamplerState *samplerNearest_ = nullptr;
+
+	// Discard/depth/stencil stuff
+	// ===========================
 
 	Draw::ShaderModule *discardFragShader_ = nullptr;
 	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
@@ -40,6 +45,16 @@ private:
 	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
 	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
 
-	Draw::SamplerState *samplerNearest_ = nullptr;
+
+	// Shader tests
+	// ============
+
+	Draw::Pipeline *adrenoLogicDiscardPipeline_ = nullptr;
+	Draw::ShaderModule *adrenoLogicDiscardFragShader_ = nullptr;
+	Draw::ShaderModule *adrenoLogicDiscardVertShader_ = nullptr;
+	Draw::Pipeline *flatShadingPipeline_ = nullptr;
+	Draw::ShaderModule *flatFragShader_ = nullptr;
+	Draw::ShaderModule *flatVertShader_ = nullptr;
+
 	UI::TabHolder *tabHolder_ = nullptr;
 };

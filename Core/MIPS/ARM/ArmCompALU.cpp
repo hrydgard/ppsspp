@@ -19,11 +19,13 @@
 #if PPSSPP_ARCH(ARM)
 
 #include <algorithm>
+
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Common/CPUDetect.h"
+#include "Common/BitSet.h"
 
 using namespace MIPSAnalyst;
 
@@ -42,7 +44,7 @@ using namespace MIPSAnalyst;
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE(flag) { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 

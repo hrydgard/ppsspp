@@ -20,35 +20,28 @@
 #include <functional>
 #include <vector>
 
-#include "ui/view.h"
-#include "ui/viewgroup.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "MiscScreens.h"
 
-class DragDropButton;
+class ControlLayoutView;
 
 class TouchControlLayoutScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlLayoutScreen();
 
 	virtual void CreateViews() override;
-	virtual bool touch(const TouchInput &touch) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 	virtual void onFinish(DialogResult reason) override;
+	virtual void update() override;
 	virtual void resized() override;
 
 protected:
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
 	virtual UI::EventReturn OnVisibility(UI::EventParams &e);
+	virtual UI::EventReturn OnMode(UI::EventParams &e);
 
 private:
-	DragDropButton *pickedControl_;
-	std::vector<DragDropButton *> controls_;
-	UI::ChoiceStrip *mode_;
-	DragDropButton *getPickedControl(const int x, const int y);
-
-	// Touch down state for drag to resize etc
-	float startX_;
-	float startY_;
-	float startScale_;
-	float startSpacing_;
+	UI::ChoiceStrip *mode_ = nullptr;
+	ControlLayoutView *layoutView_ = nullptr;
 };

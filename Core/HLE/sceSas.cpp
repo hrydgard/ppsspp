@@ -32,9 +32,9 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "base/basictypes.h"
-#include "profiler/profiler.h"
-#include "thread/threadutil.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -204,10 +204,10 @@ void __SasDoState(PointerWrap &p) {
 		__SasDrain();
 	}
 
-	p.DoClass(sas);
+	DoClass(p, sas);
 
 	if (s >= 2) {
-		p.Do(sasMixEvent);
+		Do(p, sasMixEvent);
 	} else {
 		sasMixEvent = -1;
 		__SasDisableThread();

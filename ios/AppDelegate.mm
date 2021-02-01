@@ -1,6 +1,7 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
-#import "base/NativeApp.h"
+#import "Common/System/System.h"
+#import "Common/System/NativeApp.h"
 #import "Core/System.h"
 #import "Core/Config.h"
 #import "Common/Log.h"

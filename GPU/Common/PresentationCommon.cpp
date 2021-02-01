@@ -15,17 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cassert>
 #include <cmath>
 #include <set>
 #include <cstdint>
 
-#include "base/display.h"
-#include "base/timeutil.h"
-#include "base/NativeApp.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Host.h"
@@ -33,7 +33,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 
 struct Vertex {
 	float x, y, z;
@@ -41,7 +41,7 @@ struct Vertex {
 	uint32_t rgba;
 };
 
-FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
+FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
@@ -49,17 +49,21 @@ FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	// Remove the DPI scale to get back to pixels.
-	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
-	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
-	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
-	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
+	bool applyInset = !g_Config.bIgnoreScreenInsets;
 
-	// Adjust left edge to compensate for cutouts (notches) if any.
-	rc.x += left;
-	rc.w -= (left + right);
-	rc.y += top;
-	rc.h -= (top + bottom);
+	if (applyInset) {
+		// Remove the DPI scale to get back to pixels.
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
+
+		// Adjust left edge to compensate for cutouts (notches) if any.
+		rc.x += left;
+		rc.w -= (left + right);
+		rc.y += top;
+		rc.h -= (top + bottom);
+	}
 	return rc;
 }
 
@@ -174,7 +178,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	float v_pixel_delta = 1.0f / targetHeight;
 	int flipCount = __DisplayGetFlipCount();
 	int vCount = __DisplayGetVCount();
-	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+	float time[4] = { (float)time_now_d(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
 
 	uniforms->texelDelta[0] = u_delta;
 	uniforms->texelDelta[1] = v_delta;
@@ -200,16 +204,16 @@ static std::string ReadShaderSrc(const std::string &filename) {
 		return "";
 
 	std::string src(data, sz);
-	free(data);
+	delete[] data;
 	return src;
 }
 
 // Note: called on resize and settings changes.
 bool PresentationCommon::UpdatePostShader() {
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	DestroyPostShader();
@@ -235,28 +239,32 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		return false;
 	}
 
-	std::string vsError, fsError;
-	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_140, vsSourceGLSL, &vsError);
-	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_140, fsSourceGLSL, &fsError);
+	std::string vsError;
+	std::string fsError;
+
+	// All post shaders are written in GLSL 1.0 so that's what we pass in here as a "from" language.
+	Draw::ShaderModule *vs = CompileShaderModule(ShaderStage::Vertex, GLSL_1xx, vsSourceGLSL, &vsError);
+	Draw::ShaderModule *fs = CompileShaderModule(ShaderStage::Fragment, GLSL_1xx, fsSourceGLSL, &fsError);
 
 	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
 	if (!fs || !vs) {
 		std::string errorString = vsError + "\n" + fsError;
-		// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+		// DO NOT turn this into an ERROR_LOG_REPORT, as it will pollute our logs with all kinds of
 		// user shader experiments.
 		ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 		ShowPostShaderError(errorString);
 		return false;
 	}
 
-	Draw::UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
-		{ "gl_HalfPixel", 0, -1, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
-		{ "u_texelDelta", 1, 1, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
-		{ "u_pixelDelta", 2, 2, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
-		{ "u_time", 3, 3, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
-		{ "u_setting", 4, 4, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
-		{ "u_video", 5, 5, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+	UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
+		{ "gl_HalfPixel", 0, -1, UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
+		{ "u_texelDelta", 1, 1, UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
+		{ "u_pixelDelta", 2, 2, UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
+		{ "u_time", 3, 3, UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
+		{ "u_setting", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
+		{ "u_video", 5, 5, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
 	} };
+
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
 	if (!pipeline)
 		return false;
@@ -281,23 +289,45 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		} else if (shaderInfo->outputResolution) {
 			// If the current shader uses output res (not next), we will use output res for it.
 			FRect rc;
-			FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+			FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
 			CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
 		}
 
-		// No depth/stencil for post processing
-		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ nextWidth, nextHeight, 1, 1, false, Draw::FBO_8888 });
-		if (!fbo) {
+		if (!AllocateFramebuffer(nextWidth, nextHeight)) {
 			pipeline->Release();
 			return false;
 		}
-		postShaderFramebuffers_.push_back(fbo);
 	}
 
 	postShaderPipelines_.push_back(pipeline);
 	postShaderInfo_.push_back(*shaderInfo);
+	return true;
+}
+
+bool PresentationCommon::AllocateFramebuffer(int w, int h) {
+	using namespace Draw;
+
+	// First, let's try to find a framebuffer of the right size that is NOT the most recent.
+	Framebuffer *last = postShaderFramebuffers_.empty() ? nullptr : postShaderFramebuffers_.back();
+	for (const auto &prev : postShaderFBOUsage_) {
+		if (prev.w == w && prev.h == h && prev.fbo != last) {
+			// Great, this one's perfect.  Ref it for when we release.
+			prev.fbo->AddRef();
+			postShaderFramebuffers_.push_back(prev.fbo);
+			return true;
+		}
+	}
+
+	// No depth/stencil for post processing
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, "presentation" });
+	if (!fbo) {
+		return false;
+	}
+
+	postShaderFBOUsage_.push_back({ fbo, w, h });
+	postShaderFramebuffers_.push_back(fbo);
 	return true;
 }
 
@@ -325,7 +355,7 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 		}
 	}
 	if (!firstLine.empty()) {
-		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+		host->NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
 	} else {
 		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
@@ -340,13 +370,13 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc) {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) {
 	using namespace Draw;
 
 	Semantic pos = SEM_POSITION;
 	Semantic tc = SEM_TEXCOORD0;
 	// Shader translation marks these both as "TEXCOORDs" on HLSL...
-	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D11_LEVEL9 || lang_ == HLSL_DX9)) {
+	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D9)) {
 		pos = SEM_TEXCOORD0;
 		tc = SEM_TEXCOORD1;
 	}
@@ -381,11 +411,11 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
-	assert(vdata_ == nullptr);
+	_assert_(vdata_ == nullptr);
 
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
-	// TODO: Use 4 and a strip?
+	// TODO: Use a triangle strip? Makes the UV rotation slightly more complex.
 	idata_ = draw_->CreateBuffer(sizeof(uint16_t) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 	uint16_t indexes[] = { 0, 1, 2, 0, 2, 3 };
 	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
@@ -436,43 +466,21 @@ void PresentationCommon::DestroyPostShader() {
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
 	postShaderInfo_.clear();
+	postShaderFBOUsage_.clear();
 }
 
-Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
 	std::string translated = src;
 	bool translationFailed = false;
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
-		if (!TranslateShader(&translated, lang_, nullptr, src, lang, stage, errorString)) {
-			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader: %s", errorString->c_str());
+		if (!TranslateShader(&translated, lang_, draw_->GetShaderLanguageDesc(), nullptr, src, lang, stage, errorString)) {
+			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader. Error string: '%s'\nSource code:\n%s\n", errorString->c_str(), src.c_str());
 			return nullptr;
 		}
 	}
 
-	Draw::ShaderLanguage mappedLang;
-	// These aren't exact, unfortunately, but we just need the type Draw will accept.
-	switch (lang_) {
-	case GLSL_140:
-		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
-		break;
-	case GLSL_300:
-		mappedLang = Draw::ShaderLanguage::GLSL_410;
-		break;
-	case GLSL_VULKAN:
-		mappedLang = Draw::ShaderLanguage::GLSL_VULKAN;
-		break;
-	case HLSL_DX9:
-		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
-		break;
-	case HLSL_D3D11:
-	case HLSL_D3D11_LEVEL9:
-		mappedLang = Draw::ShaderLanguage::HLSL_D3D11;
-		break;
-	default:
-		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
-		break;
-	}
-	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, mappedLang, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
+	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
 	if (shader)
 		postShaderModules_.push_back(shader);
 	return shader;
@@ -498,13 +506,13 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 	srcHeight_ = bufferHeight;
 }
 
-void PresentationCommon::BindSource() {
+void PresentationCommon::BindSource(int binding) {
 	if (srcTexture_) {
-		draw_->BindTexture(0, srcTexture_);
+		draw_->BindTexture(binding, srcTexture_);
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
 	} else {
-		assert(false);
+		_assert_(false);
 	}
 }
 
@@ -513,8 +521,7 @@ void PresentationCommon::UpdateUniforms(bool hasVideo) {
 }
 
 void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
-	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
-	draw_->BindPipeline(nullptr);
+	draw_->InvalidateCachedState();
 
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
@@ -528,7 +535,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int lastHeight = srcHeight_;
 
 	// These are the output coordinates.
-	FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+	FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
 	FRect rc;
 	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 
@@ -623,11 +630,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			Draw::Framebuffer *postShaderFramebuffer = postShaderFramebuffers_[i];
 
 			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
+
 			if (usePostShaderOutput) {
 				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
 			} else {
-				BindSource();
+				BindSource(0);
 			}
+			BindSource(1);
 
 			int nextWidth, nextHeight;
 			draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -643,6 +652,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 			Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
 			draw_->BindSamplerStates(0, 1, &sampler);
+			draw_->BindSamplerStates(1, 1, &sampler);
 
 			draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
 			draw_->BindIndexBuffer(idata_, 0);
@@ -673,8 +683,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	if (usePostShaderOutput) {
 		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
 	} else {
-		BindSource();
+		BindSource(0);
 	}
+	BindSource(1);
 
 	if (isFinalAtOutputResolution) {
 		PostShaderUniforms uniforms;
@@ -691,6 +702,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 	draw_->BindSamplerStates(0, 1, &sampler);
+	draw_->BindSamplerStates(1, 1, &sampler);
 
 	auto setViewport = [&](float x, float y, float w, float h) {
 		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };
@@ -717,15 +729,16 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	DoRelease(srcFramebuffer_);
 	DoRelease(srcTexture_);
 
+	// Unbinds all textures and samplers too, needed since sometimes a MakePixelTexture is deleted etc.
 	draw_->BindPipeline(nullptr);
 }
 
-void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa) {
+void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
-	if (g_Config.sPostShaderName != "Off") {
+	if (!g_Config.vPostShaderNames.empty() && g_Config.vPostShaderNames[0] != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+		shaderInfo = GetFullPostShadersChain(g_Config.vPostShaderNames);
 	}
 
 	bool firstIsUpscalingFilter = shaderInfo.empty() ? false : shaderInfo.front()->isUpscalingFilter;
@@ -767,4 +780,6 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool
 		*width = 480 * zoom;
 		*height = 272 * zoom;
 	}
+
+	*scaleFactor = zoom;
 }

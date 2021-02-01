@@ -19,12 +19,15 @@
 #include <list>
 #include <map>
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
-#include "Common/ChunkFile.h"
 
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/sceKernel.h"
@@ -59,7 +62,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(savedCpu);
+		Do(p, savedCpu);
 	}
 
 	PSPThreadContext savedCpu;
@@ -213,8 +216,8 @@ void IntrHandler::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(intrNumber);
-	p.Do<int, SubIntrHandler>(subIntrHandlers);
+	Do(p, intrNumber);
+	Do<int, SubIntrHandler>(p, subIntrHandlers);
 }
 
 void PendingInterrupt::DoState(PointerWrap &p)
@@ -223,8 +226,8 @@ void PendingInterrupt::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(intr);
-	p.Do(subintr);
+	Do(p, intr);
+	Do(p, subintr);
 }
 
 void __InterruptsInit()
@@ -244,7 +247,7 @@ void __InterruptsDoState(PointerWrap &p)
 		return;
 
 	int numInterrupts = PSP_NUMBER_INTERRUPTS;
-	p.Do(numInterrupts);
+	Do(p, numInterrupts);
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
 		p.SetError(p.ERROR_FAILURE);
@@ -254,10 +257,10 @@ void __InterruptsDoState(PointerWrap &p)
 
 	intState.DoState(p);
 	PendingInterrupt pi(0, 0);
-	p.Do(pendingInterrupts, pi);
-	p.Do(interruptsEnabled);
-	p.Do(inInterrupt);
-	p.Do(threadBeforeInterrupt);
+	Do(p, pendingInterrupts, pi);
+	Do(p, interruptsEnabled);
+	Do(p, inInterrupt);
+	Do(p, threadBeforeInterrupt);
 }
 
 void __InterruptsDoStateLate(PointerWrap &p)
@@ -678,6 +681,8 @@ const HLEFunction Kernel_Library[] =
 	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""     },
 	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx"  },
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"    },
+	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""     },
+	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"    },
 };
 
 static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {	

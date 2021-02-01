@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
+
 #include <d3d11.h>
 
 class PushBufferD3D11 {
@@ -70,6 +72,8 @@ private:
 	size_t size_;
 	bool nextMapDiscard_ = false;
 };
+
+std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeSize, const char *target, UINT flags);
 
 ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
 ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);

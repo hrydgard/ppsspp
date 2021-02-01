@@ -41,7 +41,7 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE(flag) { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
@@ -116,7 +116,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 		break;
 	case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break;  //F(fd) = F(fs) / F(ft); //div
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile FPU3Op instruction that can't be interpreted");
+		_dbg_assert_msg_(false,"Trying to compile FPU3Op instruction that can't be interpreted");
 		break;
 	}
 }
@@ -169,7 +169,7 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret FPULS instruction that can't be interpreted");
+		_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");
 		break;
 	}
 }

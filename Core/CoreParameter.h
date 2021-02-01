@@ -23,7 +23,6 @@
 #include "Core/Config.h"
 
 enum GPUCore {
-	GPUCORE_NULL,
 	GPUCORE_GLES,
 	GPUCORE_SOFTWARE,
 	GPUCORE_DIRECTX9,
@@ -66,11 +65,12 @@ struct CoreParameter {
 	std::string *collectEmuLog = nullptr;
 	bool headLess;   // Try to avoid messageboxes etc
 
-	// Internal PSP resolution
+	// Internal PSP rendering resolution and scale factor.
+	int renderScaleFactor;
 	int renderWidth;
 	int renderHeight;
 
-	// Actual pixel output resolution (for use by glViewport and the like)
+	// Actual output resolution in pixels.
 	int pixelWidth;
 	int pixelHeight;
 

@@ -18,10 +18,9 @@
 #pragma once
 
 #include <vector>
-#include <unordered_map>
 
 #include "Common/CommonTypes.h"
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -35,13 +34,6 @@ enum {
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 64,
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
 };
-
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
 
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
@@ -115,12 +107,12 @@ protected:
 
 	// Utility for vertex caching
 	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();
+	uint64_t ComputeHash();
 
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	bool ApplyShaderBlending();
+	bool ApplyFramebufferRead(bool *fboTexNeedsBind);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -177,7 +169,7 @@ protected:
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
-	bool fboTexNeedBind_ = false;
+	bool fboTexNeedsBind_ = false;
 	bool fboTexBound_ = false;
 
 	// Hardware tessellation

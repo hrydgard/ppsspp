@@ -2,8 +2,7 @@
 
 #include <android/native_window_jni.h>
 
-#include "thin3d/thin3d.h"
-
+#include "Common/GPU/thin3d.h"
 #include "Common/GraphicsContext.h"
 
 enum {

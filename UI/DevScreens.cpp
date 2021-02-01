@@ -17,22 +17,29 @@
 
 #include <algorithm>
 
-#include "base/display.h"
-#include "gfx_es2/gpu_features.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "ui/viewgroup.h"
-#include "ui/ui.h"
-#include "profiler/profiler.h"
+#include "ppsspp_config.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/UI.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -42,17 +49,14 @@
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
+#include "UI/MainScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
-#if PPSSPP_API(D3DX9)
-int GetD3DXVersion();
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 int GetD3DCompilerVersion();
-#endif
 #endif
 
 static const char *logLevelList[] = {
@@ -90,6 +94,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
 	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenu::OnResetLimitedLogging);
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -105,6 +110,10 @@ UI::EventReturn DevMenu::OnToggleAudioDebug(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn DevMenu::OnResetLimitedLogging(UI::EventParams &e) {
+	Reporting::ResetCounts();
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
@@ -457,7 +466,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
 	deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
-#if defined(ARM) || defined(ARM64) || defined(MIPS)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 	deviceSpecs->Add(new InfoItem(si->T("Cores"), StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
@@ -481,11 +490,7 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-#if PPSSPP_API(D3DX9)
-		deviceSpecs->Add(new InfoItem(si->T("D3DX Version"), StringFromFormat("%d", GetD3DXVersion())));
-#elif PPSSPP_API(D3D9_D3DCOMPILER)
 		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-#endif
 	}
 #endif
 #endif
@@ -493,10 +498,17 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 		int highp_int_min = gl_extensions.range[1][5][0];
 		int highp_int_max = gl_extensions.range[1][5][1];
+		int highp_float_min = gl_extensions.range[1][2][0];
+		int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
-			char highp_int_range[512];
-			snprintf(highp_int_range, sizeof(highp_int_range), "Highp int range: %d-%d", highp_int_min, highp_int_max);
-			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), highp_int_range));
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp int range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), temp));
+		}
+		if (highp_float_max != 0) {
+			char temp[512];
+			snprintf(temp, sizeof(temp), "Highp float range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
@@ -535,16 +547,6 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 #endif
 
-#if 0
-	// For debugging, DO NOT translate
-	deviceSpecs->Add(new InfoItem("Resolution1",
-		StringFromFormat("dp: %dx%d px: %dx%d dpi_s: %0.1fx%0.1f",
-			dp_xres, dp_yres, pixel_xres, pixel_yres, g_dpi_scale_x, g_dpi_scale_y)));
-	deviceSpecs->Add(new InfoItem("Resolution2",
-		StringFromFormat("dpi_s_r: %0.1fx%0.1f px_in_dp: %0.1fx%0.1f",
-			g_dpi_scale_real_x, g_dpi_scale_real_y, pixel_in_dps_x, pixel_in_dps_y)));
-#endif
-
 	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
 	std::string apiVersion;
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
@@ -561,7 +563,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("API Version"), apiVersion));
 	deviceSpecs->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
 	if (moga.empty()) {
 		moga = si->T("(none detected)");
@@ -585,8 +587,8 @@ void SystemInfoScreen::CreateViews() {
 #else
 	buildConfig->Add(new InfoItem("NDEBUG", ""));
 #endif
-#ifdef USE_ADDRESS_SANITIZER
-	buildConfig->Add(new InfoItem("USE_ADDRESS_SANITIZER", ""));
+#ifdef USE_ASAN
+	buildConfig->Add(new InfoItem("USE_ASAN", ""));
 #endif
 #ifdef USING_GLES2
 	buildConfig->Add(new InfoItem("USING_GLES2", ""));
@@ -1104,4 +1106,91 @@ void ShaderViewScreen::CreateViews() {
 	}
 
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
+
+FrameDumpTestScreen::FrameDumpTestScreen() {
+
+}
+
+FrameDumpTestScreen::~FrameDumpTestScreen() {
+	g_DownloadManager.CancelAll();
+}
+
+void FrameDumpTestScreen::CreateViews() {
+	using namespace UI;
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	auto di = GetI18NCategory("Dialog");
+
+	TabHolder *tabHolder;
+	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	AddStandardBack(root_);
+	tabHolder->SetTag("DumpTypes");
+	root_->SetDefaultFocusView(tabHolder);
+
+	ViewGroup *dumpsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	dumpsScroll->SetTag("GameSettingsGraphics");
+	LinearLayout *dumps = new LinearLayout(ORIENT_VERTICAL);
+	dumps->SetSpacing(0);
+	dumpsScroll->Add(dumps);
+	tabHolder->AddTab("Dumps", dumps);
+
+	dumps->Add(new ItemHeader("GE Frame Dumps"));
+
+	for (auto &file : files_) {
+		std::string url = framedumpsBaseUrl + file;
+		Choice *c = dumps->Add(new Choice(file));
+		c->SetTag(url);
+		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
+	}
+}
+
+UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
+	std::string url = params.v->Tag();
+	INFO_LOG(COMMON, "Trying to launch '%s'", url.c_str());
+	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
+	// except for some reason the game ID.
+	// TODO: Fix that since it can be important for compat settings.
+	LaunchFile(screenManager(), url);
+	return UI::EVENT_DONE;
+}
+
+void FrameDumpTestScreen::update() {
+	UIScreen::update();
+
+	if (!listing_) {
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, "");
+	}
+
+	if (listing_ && listing_->Done() && files_.empty()) {
+		if (listing_->ResultCode() == 200) {
+			std::string listingHtml;
+			listing_->buffer().TakeAll(&listingHtml);
+
+			std::vector<std::string> lines;
+			// We rely slightly on nginx listing format here. Not great.
+			SplitString(listingHtml, '\n', lines);
+			for (auto &line : lines) {
+				std::string trimmed = StripSpaces(line);
+				if (startsWith(trimmed, "<a href=\"")) {
+					trimmed = trimmed.substr(strlen("<a href=\""));
+					size_t offset = trimmed.find('\"');
+					if (offset != std::string::npos) {
+						trimmed = trimmed.substr(0, offset);
+						if (endsWith(trimmed, ".ppdmp")) {
+							INFO_LOG(COMMON, "Found ppdmp: '%s'", trimmed.c_str());
+							files_.push_back(trimmed);
+						}
+					}
+				}
+			}
+		} else {
+			// something went bad. Too lazy to make UI, so let's just finish this screen.
+			TriggerFinish(DialogResult::DR_CANCEL);
+		}
+		RecreateViews();
+	}
 }

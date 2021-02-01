@@ -3,12 +3,11 @@
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <WinError.h>
-#include <cassert>
 
-#include "base/logging.h"
-#include "Base/display.h"
-#include "util/text/utf8.h"
-#include "i18n/i18n.h"
+#include "Common/Log.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -16,9 +15,9 @@
 #include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/d3d11_loader.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/D3D11/D3D11Loader.h"
 
 #ifdef __MINGW32__
 #undef __uuidof
@@ -55,7 +54,7 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	// D3D11 has no need for display rotation.
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-#if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
+#if defined(_DEBUG) && !PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 	UINT createDeviceFlags = 0;
@@ -75,9 +74,6 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_1,
 		D3D_FEATURE_LEVEL_10_0,
-		D3D_FEATURE_LEVEL_9_3,
-		D3D_FEATURE_LEVEL_9_2,
-		D3D_FEATURE_LEVEL_9_1,
 	};
 	const UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
@@ -140,7 +136,6 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	if (FAILED(hr)) {
-
 		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
 		auto err = GetI18NCategory("Error");
 
@@ -187,7 +182,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
-	_assert_msg_(G3D, success, "Failed to compile preset shaders");
+	_assert_msg_(success, "Failed to compile preset shaders");
 
 	int width;
 	int height;
@@ -289,12 +284,20 @@ void D3D11Context::Shutdown() {
 	context_ = nullptr;
 
 #ifdef _DEBUG
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
-	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
-	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
-	d3dDebug_->Release();
-	d3dInfoQueue_->Release();
+	if (d3dInfoQueue_) {
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
+		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
+	}
+	if (d3dDebug_) {
+		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+		d3dDebug_->Release();
+		d3dDebug_ = nullptr;
+	}
+	if (d3dInfoQueue_) {
+		d3dInfoQueue_->Release();
+		d3dInfoQueue_ = nullptr;
+	}
 #endif
 
 	hWnd_ = nullptr;

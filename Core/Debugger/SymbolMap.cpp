@@ -31,10 +31,12 @@
 #include <algorithm>
 #include <memory>
 
-#include "util/text/utf8.h"
 #include "zlib.h"
+
 #include "Common/CommonTypes.h"
-#include "Common/FileUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Log.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"

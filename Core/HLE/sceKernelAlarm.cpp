@@ -15,14 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <list>
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeList.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelAlarm.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Common/ChunkFile.h"
-#include <list>
 
 const int NATIVEALARM_SIZE = 20;
 
@@ -39,7 +41,8 @@ struct NativeAlarm
 
 struct PSPAlarm : public KernelObject {
 	const char *GetName() override {return "[Alarm]";}
-	const char *GetTypeName() override {return "Alarm";}
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Alarm"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Alarm; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Alarm; }
@@ -49,7 +52,7 @@ struct PSPAlarm : public KernelObject {
 		if (!s)
 			return;
 
-		p.Do(alm);
+		Do(p, alm);
 	}
 
 	NativeAlarm alm;
@@ -135,8 +138,8 @@ void __KernelAlarmDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(alarmTimer);
-	p.Do(triggeredAlarm);
+	Do(p, alarmTimer);
+	Do(p, triggeredAlarm);
 	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
 }
 

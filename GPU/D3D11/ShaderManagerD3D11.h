@@ -21,10 +21,11 @@
 
 #include <d3d11.h>
 
-#include "base/basictypes.h"
+#include "Common/Common.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 
 class D3D11Context;
 class D3D11PushBuffer;
@@ -84,7 +85,7 @@ public:
 	ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel);
 	~ShaderManagerD3D11();
 
-	void GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform, bool useHWTessellation);
+	void GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat);
 	void ClearShaders();
 	void DirtyLastShader() override;
 
@@ -128,8 +129,8 @@ private:
 	ID3D11Buffer *push_lights;
 	ID3D11Buffer *push_bones;
 
-	D3D11FragmentShader *lastFShader_;
-	D3D11VertexShader *lastVShader_;
+	D3D11FragmentShader *lastFShader_ = nullptr;
+	D3D11VertexShader *lastVShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

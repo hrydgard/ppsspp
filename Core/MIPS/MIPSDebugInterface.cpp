@@ -215,7 +215,7 @@ unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 
 bool MIPSDebugInterface::isAlive()
 {
-	return PSP_IsInited() && coreState != CORE_ERROR && coreState != CORE_POWERDOWN;
+	return PSP_IsInited() && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN;
 }
 
 bool MIPSDebugInterface::isBreakpoint(unsigned int address) 

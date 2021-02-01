@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "thin3d/thin3d.h"
-#include "gfx/gl_debug_log.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Core/Config.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GPUState.h"
@@ -144,7 +144,7 @@ GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4]
 		}
 	}
 
-	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D);
+	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D, 256, 1, 1);
 	render_->TextureImage(tex, 0, 256, 1, Draw::DataFormat::R8G8B8A8_UNORM, data);
 	return tex;
 }

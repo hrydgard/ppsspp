@@ -121,8 +121,10 @@ namespace MIPSComp {
 	public:
 		virtual ~JitInterface() {}
 
+		virtual bool CodeInRange(const u8 *ptr) const = 0;
 		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 		virtual const u8 *GetDispatcher() const = 0;
+		virtual const u8 *GetCrashHandler() const = 0;
 		virtual JitBlockCache *GetBlockCache() = 0;
 		virtual JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;

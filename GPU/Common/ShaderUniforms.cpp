@@ -2,26 +2,26 @@
 #include <cmath>
 
 #include "ShaderUniforms.h"
-#include "base/display.h"
-#include "math/dataconv.h"
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/lin/vec3.h"
+#include "Common/System/Display.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Math/lin/vec3.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Math3D.h"
 
 using namespace Lin;
 
 static void ConvertProjMatrixToVulkan(Matrix4x4 &in) {
-	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
 
 static void ConvertProjMatrixToD3D11(Matrix4x4 &in) {
-	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 trans(gstate_c.vpXOffset, -gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, -gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
@@ -203,6 +203,10 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		Uint8x3ToFloat4_AlphaUint8(ub->matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 
+	if (dirtyUniforms & DIRTY_COLORWRITEMASK) {
+		ub->colorWriteMask = ~((gstate.pmska << 24) | (gstate.pmskc & 0xFFFFFF));
+	}
+
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -211,7 +215,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		const int h = gstate.getTextureHeight(0);
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
-		if (gstate_c.bezier || gstate_c.spline) {
+		if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
 			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
 			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
 			ub->uvScaleOffset[0] = gstate_c.uv.uScale * widthFactor;

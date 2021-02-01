@@ -44,6 +44,7 @@ public:
 
 	bool IsDebuggingEnabled() override { return false; }
 	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
+	void NotifySymbolMapUpdated() override {}
 
 	bool ShouldSkipUI() override { return true; }
 
@@ -70,6 +71,8 @@ public:
 	}
 
 	void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
+
+	void NotifySwitchUMDUpdated() override {}
 
 	// Unique for HeadlessHost
 	virtual void SwapBuffers() {}

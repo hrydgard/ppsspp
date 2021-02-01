@@ -21,7 +21,8 @@
 #include "ext/udis86/udis86.h"
 
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Util/DisArm64.h"
 #include "Core/Config.h"
@@ -55,10 +56,10 @@ namespace MIPSComp {
 			return;
 
 		bool dummy = false;
-		p.Do(dummy);
+		Do(p, dummy);
 		if (s >= 2) {
 			dummy = true;
-			p.Do(dummy);
+			Do(p, dummy);
 		}
 	}
 
@@ -77,7 +78,7 @@ namespace MIPSComp {
 	}
 
 }
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__)
 #define DISASM_ALL 1
 #endif
 
@@ -246,7 +247,12 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 
 	int int3_count = 0;
 	while (ud_disassemble(&ud_obj) != 0) {
-		std::string str = ud_insn_asm(&ud_obj);
+		const char *buf = ud_insn_asm(&ud_obj);
+		if (!buf) {
+			lines.push_back("[bad]");
+			continue;
+		}
+		std::string str = buf;
 		if (str == "int3") {
 			int3_count++;
 		} else {

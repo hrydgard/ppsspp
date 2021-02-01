@@ -20,7 +20,7 @@
 #include <png.h>
 #include <zlib.h>
 #endif
-#include "data/base64.h"
+#include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -113,7 +113,7 @@ static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &bu
 			req.ws->AddFragment(false, Base64Encode(ctx->buf, ctx->bufSize));
 			ctx->bufSize = 0;
 		}
-		assert(ctx->bufSize == 0 || length == 0);
+		_assert_(ctx->bufSize == 0 || length == 0);
 
 		// Save bytes that would result in padding for next time.
 		size_t toBuffer = length % 3;
@@ -241,7 +241,7 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 	if (!func(buf)) {
 		return req.Fail("Could not download output");
 	}
-	assert(buf != nullptr);
+	_assert_(buf != nullptr);
 
 	if (type == "base64") {
 		StreamBufferToBase64(req, *buf);
@@ -344,7 +344,7 @@ void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 	});
 }
 
-// Retrieve current stencil texture (gpu.buffer.texture)
+// Retrieve current texture (gpu.buffer.texture)
 //
 // Parameters:
 //  - type: either 'uri' or 'base64'.
@@ -372,7 +372,7 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 	});
 }
 
-// Retrieve current stencil texture (gpu.buffer.texture)
+// Retrieve current CLUT (gpu.buffer.clut)
 //
 // Parameters:
 //  - type: either 'uri' or 'base64'.

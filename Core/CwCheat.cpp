@@ -1,11 +1,11 @@
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cstdint>
-#include "i18n/i18n.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
-#include "Common/ChunkFile.h"
-#include "Common/FileUtil.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/File/FileUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
@@ -19,7 +19,7 @@
 #include "GPU/Common/PostShader.h"
 
 #ifdef _WIN32
-#include "util/text/utf8.h"
+#include "Common/Data/Encoding/Utf8.h"
 #endif
 
 static int CheatEvent = -1;
@@ -304,7 +304,7 @@ void __CheatDoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(CheatEvent);
+	Do(p, CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
 	if (s < 2) {
@@ -776,7 +776,7 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 
 CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
 	// TODO
-	assert(false);
+	_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -786,7 +786,7 @@ CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i)
 	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
 		return InterpretNextTempAR(cheat, i);
 	else
-		assert(false);
+		_assert_(false);
 	return { CheatOp::Invalid };
 }
 
@@ -950,7 +950,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::PostShader:
 		{
-			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
 			if (op.PostShaderUniform.shader < shaderChain.size()) {
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
 				if (shaderName != "Off")
@@ -961,7 +961,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::PostShaderFromMemory:
 		{
-			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			auto shaderChain = GetFullPostShadersChain(g_Config.vPostShaderNames);
 			if (Memory::IsValidAddress(op.addr) && op.PostShaderUniform.shader < shaderChain.size()) {
 				union {
 					float f;
@@ -1177,7 +1177,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	default:
-		assert(false);
+		_assert_(false);
 	}
 }
 

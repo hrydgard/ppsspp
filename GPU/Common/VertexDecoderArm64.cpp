@@ -18,13 +18,8 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
-// This allows highlighting to work.  Yay.
-#ifdef __INTELLISENSE__
-#define ARM64
-#endif
-
-#include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Common/Arm64Emitter.h"
@@ -287,12 +282,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	if (log) {
 		char temp[1024] = { 0 };
 		dec.ToString(temp);
-		ILOG("=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
+		INFO_LOG(JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
 		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
-			ILOG("%s", line.c_str());
+			INFO_LOG(JIT, "%s", line.c_str());
 		}
-		ILOG("==========");
+		INFO_LOG(JIT, "==========");
 	}
 
 	*jittedSize = (int)(GetCodePtr() - start);

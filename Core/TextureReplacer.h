@@ -48,7 +48,6 @@ enum class ReplacedTextureAlpha {
 
 // For forward comatibility, we specify the hash.
 enum class ReplacedTextureHash {
-	// TODO: Maybe only support crc32c for now?
 	QUICK,
 	XXH32,
 	XXH64,

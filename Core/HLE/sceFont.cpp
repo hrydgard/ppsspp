@@ -1,13 +1,15 @@
 #include "sceFont.h"
 
-#include "base/timeutil.h"
+#include "Common/TimeUtil.h"
 
 #include <cmath>
 #include <vector>
 #include <map>
 #include <algorithm>
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceFont.h"
@@ -89,30 +91,31 @@ struct FontRegistryEntry {
 	int expireDate;
 	int shadow_option;
 	u32 fontFileSize;
+	u32 stingySize; // for the FONT_OPEN_INTERNAL_STINGY mode, from pspautotests.
 	bool ignoreIfMissing;
 };
 
 static const FontRegistryEntry fontRegistry[] = {
 	// This was added for Chinese translations and is not normally loaded on a PSP.
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, true },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0, 69108 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0, 65124 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72948 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0, 67700},
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72828 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0, 68220 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0, 77032 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0, 71144 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0, 41000 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0, 40164 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0, 42692 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0, 41488 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0, 43136 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0, 41772 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0, 45184 },
-	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0, 43044 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, 394192 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, 145844, true },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, 145844 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0, 69108, 16680 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0, 65124, 16920 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72948, 16872 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0, 67700, 17112 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0, 72828, 16648 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0, 68220, 16928 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0, 77032, 16792 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0, 71144, 17160 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0, 41000, 16192 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0, 40164, 16476 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0, 42692, 16300 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0, 41488, 16656 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0, 43136, 16176 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0, 41772, 16436 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0, 45184, 16272 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0, 43044, 16704 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, 394192, 51856 },
 };
 
 static const float pointDPI = 72.f;
@@ -212,6 +215,7 @@ public:
 	PGF *GetPGF() { return &pgf_; }
 	const PGF *GetPGF() const { return &pgf_; }
 	u32 getSize() const { return dataSize_; }
+	u32 getStingySize() const { return stingySize_; }
 	bool IsValid() const { return valid_; }
 
 	void DoState(PointerWrap &p) {
@@ -219,12 +223,12 @@ public:
 		if (!s)
 			return;
 
-		p.Do(pgf_);
-		p.Do(style_);
+		Do(p, pgf_);
+		Do(p, style_);
 		if (s < 2) {
 			valid_ = true;
 		} else {
-			p.Do(valid_);
+			Do(p, valid_);
 		}
 	}
 
@@ -237,6 +241,7 @@ private:
 		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
 		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
 		this->dataSize_ = (u32)dataSize;
+		this->stingySize_ = 0; // Unused
 	}
 
 	void Init(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
@@ -257,12 +262,14 @@ private:
 		style_.fontAttributes = entry.extraAttributes;
 		style_.fontExpire = entry.expireDate;
 		this->dataSize_ = entry.fontFileSize;
+		this->stingySize_ = entry.stingySize;
 	}
 
 	PGF pgf_;
 	PGFFontStyle style_;
 	bool valid_;
 	u32 dataSize_;
+	u32 stingySize_;
 	DISALLOW_COPY_AND_ASSIGN(Font);
 };
 
@@ -312,29 +319,29 @@ public:
 			return;
 
 		int numInternalFonts = (int)internalFonts.size();
-		p.Do(numInternalFonts);
+		Do(p, numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		int internalFont = GetInternalFontIndex(font_);
-		p.Do(internalFont);
+		Do(p, internalFont);
 		if (internalFont == -1) {
-			p.Do(font_);
+			Do(p, font_);
 		} else if (p.mode == p.MODE_READ) {
 			font_ = internalFonts[internalFont];
 		}
-		p.Do(handle_);
+		Do(p, handle_);
 		if (s >= 2) {
-			p.Do(open_);
+			Do(p, open_);
 		} else {
 			open_ = fontLibID_ != (u32)-1;
 		}
 		if (s >= 3) {
-			p.Do(mode_);
+			Do(p, mode_);
 		} else {
 			mode_ = FONT_OPEN_INTERNAL_FULL;
 		}
@@ -358,9 +365,11 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 		if (s >= 2) {
-			p.Do(errorCodePtr_);
+			Do(p, errorCodePtr_);
+		} else {
+			errorCodePtr_ = 0;
 		}
 	}
 	void run(MipsCall &call) override;
@@ -380,7 +389,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -398,9 +407,9 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
-		p.Do(fontHandle_);
-		p.Do(fontIndex_);
+		Do(p, fontLibID_);
+		Do(p, fontHandle_);
+		Do(p, fontIndex_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -421,7 +430,7 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
+		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -439,8 +448,8 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fontLibID_);
-		p.Do(charInfo_);
+		Do(p, fontLibID_);
+		Do(p, charInfo_);
 	}
 	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
@@ -611,7 +620,7 @@ public:
 
 		u32 allocSize = 12;
 		if (mode == FONT_OPEN_INTERNAL_STINGY) {
-			allocSize = 0x239B4;
+			allocSize = loadedFont->GetFont()->getStingySize();
 		} else if (mode == FONT_OPEN_INTERNAL_FULL) {
 			allocSize += loadedFont->GetFont()->getSize();
 		}
@@ -655,23 +664,23 @@ public:
 		if (!s)
 			return;
 
-		p.Do(fonts_);
-		p.Do(isfontopen_);
-		p.Do(params_);
-		p.Do(fontHRes_);
-		p.Do(fontVRes_);
-		p.Do(fileFontHandle_);
-		p.Do(handle_);
-		p.Do(altCharCode_);
+		Do(p, fonts_);
+		Do(p, isfontopen_);
+		Do(p, params_);
+		Do(p, fontHRes_);
+		Do(p, fontVRes_);
+		Do(p, fileFontHandle_);
+		Do(p, handle_);
+		Do(p, altCharCode_);
 		if (s >= 2) {
-			p.Do(nfl_);
+			Do(p, nfl_);
 		} else {
 			nfl_ = 0;
 		}
 
 		if (s >= 3) {
-			p.Do(openAllocatedAddresses_);
-			p.Do(charInfoBitmapAddress_);
+			Do(p, openAllocatedAddresses_);
+			Do(p, charInfoBitmapAddress_);
 		} else {
 			openAllocatedAddresses_.resize(params_.numFonts);
 			charInfoBitmapAddress_ = 0;
@@ -721,7 +730,8 @@ void PostAllocCallback::run(MipsCall &call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (v0 == 0) {
 		// TODO: Who deletes fontLib?
-		Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
+		if (errorCodePtr_)
+			Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
 		call.setReturnValue(0);
 	} else {
 		FontLib *fontLib = fontLibList[fontLibID_];
@@ -909,20 +919,20 @@ void __FontDoState(PointerWrap &p) {
 
 	__LoadInternalFonts();
 
-	p.Do(fontLibList);
-	p.Do(fontLibMap);
-	p.Do(fontMap);
+	Do(p, fontLibList);
+	Do(p, fontLibMap);
+	Do(p, fontMap);
 
-	p.Do(actionPostAllocCallback);
+	Do(p, actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
-	p.Do(actionPostOpenCallback);
+	Do(p, actionPostOpenCallback);
 	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 	if (s >= 2) {
-		p.Do(actionPostOpenAllocCallback);
+		Do(p, actionPostOpenAllocCallback);
 		__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
-		p.Do(actionPostCharInfoAllocCallback);
+		Do(p, actionPostCharInfoAllocCallback);
 		__KernelRestoreActionType(actionPostCharInfoAllocCallback, PostCharInfoAllocCallback::Create);
-		p.Do(actionPostCharInfoFreeCallback);
+		Do(p, actionPostCharInfoFreeCallback);
 		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
 	} else {
 		useAllocCallbacks = false;

@@ -18,7 +18,7 @@
 #include <string.h>
 #include <algorithm>
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "Common/CPUDetect.h"
 

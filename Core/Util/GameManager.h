@@ -23,7 +23,7 @@
 #pragma once
 
 #include <thread>
-#include "net/http_client.h"
+#include "Common/Net/HTTPClient.h"
 
 enum class GameManagerState {
 	IDLE,

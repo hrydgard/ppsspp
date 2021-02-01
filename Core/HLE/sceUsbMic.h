@@ -16,4 +16,75 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include "sceKernel.h"
+#include <mutex>
+
 void Register_sceUsbMic();
+
+void __UsbMicInit();
+void __UsbMicShutdown();
+void __UsbMicDoState(PointerWrap &p);
+
+enum MICTYPE {
+	AUDIOINPUT,
+	USBMIC,
+	CAMERAMIC
+};
+
+struct MicWaitInfo {
+	SceUID threadID;
+	u32 addr;
+	u32 needSize;
+	u32 sampleRate;
+};
+
+class QueueBuf {
+public:
+	QueueBuf(u32 size);
+	~QueueBuf();
+
+	QueueBuf(const QueueBuf &buf);
+	QueueBuf& operator=(const QueueBuf &buf);
+
+	u32 push(u8 *buf, u32 size);
+	u32 pop(u8 *buf, u32 size);
+	void resize(u32 newSize);
+	void flush();
+	u32 getAvailableSize();
+	u32 getRemainingSize();
+	u32 getStartPos();
+	u32 getCapacity() const {
+		return capacity;
+	}
+
+private:
+	u32 available;
+	u32 end;
+	u32 capacity;
+	u8 *buf_;
+	std::mutex mutex;
+};
+
+namespace Microphone {
+	int startMic(void *param);
+	int stopMic();
+	bool isHaveDevice();
+	bool isMicStarted();
+	u32 numNeedSamples();
+	u32 availableAudioBufSize();
+	u32 getReadMicDataLength();
+
+
+	int addAudioData(u8 *buf, u32 size);
+	u32 getAudioData(u8 *buf, u32 size);
+	void flushAudioData();
+
+	std::vector<std::string> getDeviceList();
+	void onMicDeviceChange();
+
+	// Deprecated.
+	bool isNeedInput();
+}
+
+u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block = true);

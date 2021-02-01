@@ -2,10 +2,10 @@
 #include "SDL_syswm.h"
 
 #include "Common/GraphicsContext.h"
-#include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanDebug.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanDebug.h"
 
-#include "thin3d/thin3d.h"
+#include "Common/GPU/thin3d.h"
 
 class VulkanRenderManager;
 

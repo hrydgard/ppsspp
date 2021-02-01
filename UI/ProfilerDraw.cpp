@@ -18,10 +18,10 @@
 #include <algorithm>
 #include <inttypes.h>
 
-#include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
-#include "profiler/profiler.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
+#include "Common/Profiler/Profiler.h"
 
 static const uint32_t nice_colors[] = {
 	0xFF8040,

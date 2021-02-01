@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/NativeApp.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceUsb.h"
 
 // TODO: Map by driver name
@@ -53,13 +53,13 @@ void __UsbDoState(PointerWrap &p)
 		return;
 
 	if (s >= 2) {
-		p.Do(usbStarted);
-		p.Do(usbConnected);
+		Do(p, usbStarted);
+		Do(p, usbConnected);
 	} else {
 		usbStarted = false;
 		usbConnected = true;
 	}
-	p.Do(usbActivated);
+	Do(p, usbActivated);
 }
 
 static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
@@ -83,7 +83,7 @@ static int sceUsbGetState() {
 			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
 			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
 	}
-	INFO_LOG(HLE, "sceUsbGetState: 0x%x", state);
+	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
 	return state;
 }
 

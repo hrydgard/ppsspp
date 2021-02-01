@@ -48,6 +48,7 @@ public:
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap();
 	virtual void SaveSymbolMap() {}
+	virtual void NotifySymbolMapUpdated() {}
 	virtual void SetWindowTitle(const char *message) {}
 
 	virtual bool CanCreateShortcut() {return false;}
@@ -55,6 +56,8 @@ public:
 
 	virtual void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) {}
 	virtual void SendUIMessage(const std::string &message, const std::string &value) {}
+
+	virtual void NotifySwitchUMDUpdated() {}
 
 	// Used for headless.
 	virtual bool ShouldSkipUI() { return false; }

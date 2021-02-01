@@ -23,9 +23,9 @@
 #include <string>
 #include <vector>
 
-#include "file/file_util.h"
-#include "i18n/i18n.h"
-#include "ui/ui_screen.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -46,6 +46,7 @@ protected:
 	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
+	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 };
 
 class JitDebugScreen : public UIDialogScreenWithBackground {
@@ -181,4 +182,21 @@ private:
 	DebugShaderType type_;
 };
 
+class FrameDumpTestScreen : public UIDialogScreenWithBackground {
+public:
+	FrameDumpTestScreen();
+	~FrameDumpTestScreen();
+
+	void CreateViews() override;
+	void update() override;
+
+private:
+	UI::EventReturn OnLoadDump(UI::EventParams &e);
+
+	std::vector<std::string> files_;
+	std::shared_ptr<http::Download> listing_;
+	std::shared_ptr<http::Download> dumpDownload_;
+};
+
 void DrawProfile(UIContext &ui);
+const char *GetCompilerABI();

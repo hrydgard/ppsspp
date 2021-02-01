@@ -12,24 +12,29 @@
 #import <GLKit/GLKit.h>
 #include <cassert>
 
-#include "base/display.h"
-#include "base/timeutil.h"
-#include "file/zip_read.h"
-#include "input/input_state.h"
-#include "net/resolve.h"
-#include "ui/screen.h"
-#include "thin3d/thin3d.h"
-#include "thin3d/thin3d_create.h"
-#include "thin3d/GLRenderManager.h"
-#include "input/keycodes.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/Net/Resolve.h"
+#include "Common/UI/Screen.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/GPU/thin3d_create.h"
+#include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
+
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/System/NativeApp.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
+#include "Common/Input/InputState.h"
+#include "Common/Input/KeyCodes.h"
+#include "Common/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
-#include "Common/GraphicsContext.h"
+#include "Core/Host.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -38,7 +43,7 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSGraphicsContext : public DummyGraphicsContext {
+class IOSGraphicsContext : public GraphicsContext {
 public:
 	IOSGraphicsContext() {
 		CheckGLExtensions();
@@ -47,7 +52,7 @@ public:
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
-		_assert_msg_(G3D, success, "Failed to compile preset shaders");
+		_assert_msg_(success, "Failed to compile preset shaders");
 	}
 	~IOSGraphicsContext() {
 		delete draw_;
@@ -55,6 +60,12 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+
+	void SwapInterval(int interval) override {}
+	void SwapBuffers() override {}
+	void Resize() override {}
+	void Shutdown() override {}
+
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
 	}
@@ -71,6 +82,7 @@ public:
 		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
+
 private:
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_;
@@ -184,6 +196,7 @@ static LocationHelper *locationHelper;
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
+	view.drawableStencilFormat = GLKViewDrawableStencilFormat8;
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;
 
@@ -191,6 +204,10 @@ static LocationHelper *locationHelper;
 
 	graphicsContext = new IOSGraphicsContext();
 	
+	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+	}, nullptr);
+
 	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
@@ -237,19 +254,18 @@ static LocationHelper *locationHelper;
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
-		ILOG("Emulation thread starting\n");
+		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
-			time_update();
 		}
 
 
-		ILOG("Emulation thread shutting down\n");
+		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
 		NativeShutdownGraphics();
 
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-		ILOG("Emulation thread stopping\n");
+		INFO_LOG(SYSTEM, "Emulation thread stopping\n");
 		graphicsContext->StopThread();
 		
 		threadStopped = true;
@@ -658,6 +674,38 @@ static LocationHelper *locationHelper;
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_10]; // Start
 	};
+
+#if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
+	if (extendedProfile.leftThumbstickButton != nil) {
+		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_11];
+		};
+	}
+	if (extendedProfile.rightThumbstickButton != nil) {
+		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_12];
+		};
+	}
+#endif
+#if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
+	if (extendedProfile.buttonOptions != nil) {
+		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];
+		};
+	}
+	if (extendedProfile.buttonMenu != nil) {
+		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_14];
+		};
+	}
+#endif
+#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
+	if (extendedProfile.buttonHome != nil) {
+		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_15];
+		};
+	}
+#endif
 	
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;

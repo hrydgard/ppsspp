@@ -16,7 +16,8 @@
 class CDisasm : public Dialog
 {
 private:
-	int minWidth,minHeight;
+	int minWidth;
+	int minHeight;
 	DebugInterface *cpu;
 	u64 lastTicks;
 
@@ -29,10 +30,11 @@ private:
 	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
-	bool keepStatusBarText;
-	bool hideBottomTabs;
+	bool keepStatusBarText = false;
+	bool hideBottomTabs = false;
+	bool deferredSymbolFill_ = false;
 
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void updateThreadLabel(bool clear);
@@ -40,17 +42,16 @@ private:
 	void stepOver();
 	void stepOut();
 	void runToLine();
+
 public:
-	int index; //helper 
+	int index;
 
 	CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu);
 	~CDisasm();
-	//
-	// --- tools ---
-	//
-	
-	virtual void Update()
-	{
+
+	void Show(bool bShow) override;
+
+	void Update() override {
 		UpdateDialog(true);
 		SetDebugMode(Core_IsStepping(), false);
 		breakpointList->reloadBreakpoints();
@@ -58,7 +59,7 @@ public:
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
 	void SetDebugMode(bool _bDebug, bool switchPC);
-	// show dialog
+
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
 };

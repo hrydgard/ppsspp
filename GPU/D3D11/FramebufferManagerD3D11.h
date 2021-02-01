@@ -24,8 +24,8 @@
 // pixel data.
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "ext/native/thin3d/thin3d.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "Common/GPU/thin3d.h"
 
 class TextureCacheD3D11;
 class DrawEngineD3D11;
@@ -42,12 +42,6 @@ public:
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
 	void EndFrame();
-	void DeviceLost();
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
-
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
-
-	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
@@ -58,9 +52,7 @@ public:
 
 protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
-
-	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, const char *tag) override;
 
 private:
 	void Bind2DShader() override;

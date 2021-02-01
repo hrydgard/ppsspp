@@ -1,28 +1,33 @@
 #include "pch.h"
 #include "PPSSPP_UWPMain.h"
 
-#include <cassert>
 #include <mutex>
 
-#include "base/basictypes.h"
-#include "Common/FileUtil.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/GPU/thin3d_create.h"
+
+#include "Common/Common.h"
+#include "Common/Input/InputState.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/DirectXHelper.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
 #include "Core/System.h"
 #include "Core/Loaders.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
-#include "input/input_state.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
-#include "file/file_util.h"
-#include "net/http_client.h"
-#include "net/resolve.h"
-#include "base/display.h"
-#include "thread/threadutil.h"
-#include "thin3d/thin3d_create.h"
-#include "util/text/utf8.h"
-#include "Common/DirectXHelper.h"
+#include "Core/Config.h"
+
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"
@@ -100,7 +105,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
@@ -167,9 +172,7 @@ bool PPSSPP_UWPMain::Render() {
 		hasSetThreadName = true;
 	}
 
-	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
-
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
 	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
@@ -320,7 +323,7 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	draw_ = Draw::T3DCreateD3D11Context(
 		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	_assert_(success);
 }
 
 void UWPGraphicsContext::Shutdown() {
@@ -350,6 +353,35 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "";
 	default:
 		return "";
+	}
+}
+
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
+	std::vector<std::string> result;
+	switch (prop) {
+	case SYSPROP_TEMP_DIRS:
+	{
+		std::wstring tempPath(MAX_PATH, '\0');
+		size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		if (sz >= tempPath.size()) {
+			tempPath.resize(sz);
+			sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+		}
+		// Need to resize off the null terminator either way.
+		tempPath.resize(sz);
+		result.push_back(ConvertWStringToUTF8(tempPath));
+
+		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
+			result.push_back(getenv("TMPDIR"));
+		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
+			result.push_back(getenv("TMP"));
+		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
+			result.push_back(getenv("TEMP"));
+		return result;
+	}
+
+	default:
+		return result;
 	}
 }
 
@@ -395,6 +427,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
+	case SYSPROP_HAS_FOLDER_BROWSER:
+		return false;  // at least I don't know a usable one
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return false;
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -435,11 +469,16 @@ void System_SendMessage(const char *command, const char *parameter) {
 		});
 	} else if (!strcmp(command, "toggle_fullscreen")) {
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+		bool flag = !view->IsFullScreenMode;
 		if (strcmp(parameter, "0") == 0) {
-			view->ExitFullScreenMode();
+			flag = false;
+		} else if (strcmp(parameter, "1") == 0){
+			flag = true;
 		}
-		else if (strcmp(parameter, "1") == 0){
+		if (flag) {
 			view->TryEnterFullScreenMode();
+		} else {
+			view->ExitFullScreenMode();
 		}
 	}
 }
@@ -505,7 +544,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		ILOG("%s", what);
+		INFO_LOG(SYSTEM, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -527,7 +566,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			ILOG("%s", what);
+			INFO_LOG(SYSTEM, "%s", what);
 		}
 	}
 

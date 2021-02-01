@@ -15,13 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-
+#include "Common/Log.h"
+#include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
-#include "Common/MemoryUtil.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 

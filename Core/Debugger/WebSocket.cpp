@@ -17,7 +17,7 @@
 
 #include <mutex>
 #include <condition_variable>
-#include "thread/threadutil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MemMap.h"
@@ -45,6 +45,7 @@
 // For other events, look inside Core/Debugger/WebSocket/ for details on each event.
 
 #include "Core/Debugger/WebSocket/GameBroadcaster.h"
+#include "Core/Debugger/WebSocket/InputBroadcaster.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
@@ -55,6 +56,8 @@
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
+#include "Core/Debugger/WebSocket/InputSubscriber.h"
+#include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
 typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
@@ -66,6 +69,8 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketGPUBufferInit,
 	&WebSocketGPURecordInit,
 	&WebSocketHLEInit,
+	&WebSocketInputInit,
+	&WebSocketMemoryInit,
 	&WebSocketSteppingInit,
 });
 
@@ -123,8 +128,9 @@ void HandleDebuggerRequest(const http::Request &request) {
 	UpdateConnected(1);
 	SetupDebuggerLock();
 
-	LogBroadcaster logger;
 	GameBroadcaster game;
+	LogBroadcaster logger;
+	InputBroadcaster input;
 	SteppingBroadcaster stepping;
 
 	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
@@ -173,6 +179,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		logger.Broadcast(ws);
 		game.Broadcast(ws);
 		stepping.Broadcast(ws);
+		input.Broadcast(ws);
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {
 			if (subscriberData[i]) {
@@ -194,6 +201,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	}
 
 	delete ws;
+	request.In()->Discard();
 	UpdateConnected(-1);
 }
 

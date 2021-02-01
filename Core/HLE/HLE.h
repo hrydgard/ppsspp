@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <cstdio>
 #include <cstdarg>
 #include <type_traits>
+
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"

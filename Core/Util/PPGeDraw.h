@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 
-#include "gfx/texture_atlas.h"
+#include "Common/Render/TextureAtlas.h"
 
 #include "Common/CommonTypes.h"
 
@@ -28,8 +28,15 @@ class PointerWrap;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // PPGeDraw: Super simple internal drawing API for 2D overlays like sceUtility messageboxes
-// etc. Goes through the Ge emulation so that it's 100% portable - will work
-// splendidly on any existing GPU backend, including the future software backend.
+// etc. Goes through the Ge emulation so that it doesn't need to care about backends.
+//
+// It does need a thin3d Draw-context but only for text rendering.
+
+namespace Draw {
+class DrawContext;
+}
+
+void PPGeSetDrawContext(Draw::DrawContext *draw);
 
 // Uploads the necessary texture atlas and other data to kernel RAM, and reserves
 // space for the display list. The PSP must be inited.
@@ -58,9 +65,7 @@ enum class PPGeAlign {
 
 	ANY = 0xFF,
 };
-inline bool operator &(const PPGeAlign &lhs, const PPGeAlign &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(PPGeAlign);
 
 enum {
 	PPGE_LINE_NONE         = 0,
@@ -69,21 +74,37 @@ enum {
 	PPGE_LINE_WRAP_CHAR    = 4,
 };
 
+struct PPGeStyle {
+	PPGeAlign align = PPGeAlign::BOX_LEFT;
+	float scale = 1.0f;
+	uint32_t color = 0xFFFFFFFF;
+	bool hasShadow = false;
+	uint32_t shadowColor = 0x80000000;
+};
+
+struct PPGeImageStyle {
+	uint32_t color = 0xFFFFFFFF;
+};
+
 // Get the metrics of the bounding box of the text without changing the buffer or state.
 void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
-void PPGeDrawText(const char *text, float x, float y, PPGeAlign align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, PPGeAlign align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style);
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style);
 
 // Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
-void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
-void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const PPGeStyle &style);
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, const PPGeImageStyle &style);
+
+// Note: x2/y2 are exclusive.
+void PPGeScissor(int x1, int y1, int x2, int y2);
+void PPGeScissorReset();
 
 void PPGeNotifyFrame();
 

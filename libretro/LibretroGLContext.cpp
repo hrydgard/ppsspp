@@ -3,7 +3,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "libretro/LibretroGLContext.h"
 
@@ -16,18 +16,26 @@ bool LibretroGLContext::Init() {
 }
 
 void LibretroGLContext::CreateDrawContext() {
-	if (!glewInitDone) {
-#if !defined(IOS) && !defined(USING_GLES2)
-		if (glewInit() != GLEW_OK) {
-			ERROR_LOG(G3D, "glewInit() failed.\n");
-			return;
-		}
+
+#ifndef USING_GLES2
+    // Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+    // glewExperimental allows us to force GLEW to search for the pointers anyway.
+    if (gl_extensions.IsCoreContext)
+        glewExperimental = true;
+    if (GLEW_OK != glewInit()) {
+        printf("Failed to initialize glew!\n");
+    }
+    // Unfortunately, glew will generate an invalid enum error, ignore.
+    if (gl_extensions.IsCoreContext)
+        glGetError();
 #endif
-		glewInitDone = true;
-		CheckGLExtensions();
-	}
-	draw_ = Draw::T3DCreateGLContext();
-	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+    CheckGLExtensions();
+    draw_ = Draw::T3DCreateGLContext();
+    renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+    renderManager_->SetInflightFrames(g_Config.iInflightFrames);
+    SetGPUBackend(GPUBackend::OPENGL);
+    draw_->CreatePresets();
 }
 
 void LibretroGLContext::DestroyDrawContext() {

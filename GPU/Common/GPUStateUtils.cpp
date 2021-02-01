@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <limits>
 
-#include "base/display.h"
+#include "Common/System/Display.h"
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -28,7 +28,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -226,6 +226,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	case GE_FORMAT_4444:
 	case GE_FORMAT_8888:
 	case GE_FORMAT_INVALID:
+	case GE_FORMAT_DEPTH16:
 		switch (gstate.getStencilOpZPass()) {
 		case GE_STENCILOP_REPLACE:
 			// TODO: Could detect zero here and force ZERO - less uniform updates?
@@ -252,7 +253,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat) {
+ReplaceBlendType ReplaceBlendWithShader(bool allowFramebufferRead, GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
@@ -261,14 +262,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
 		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	default:
@@ -291,19 +292,19 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_2X_ALPHA;
 			// Can't double, we need the source color to be correct.
 			// Doubling only alpha would clamp the src alpha incorrectly.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			if (bufferFormat == GE_FORMAT_565)
 				return REPLACE_BLEND_2X_ALPHA;
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+				return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -330,7 +331,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_STANDARD;
 			}
 			// Can't double, we need the source color to be correct.
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
@@ -339,7 +340,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				// Doubling will have no effect here.
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -348,7 +349,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			}
 			// Double both src (for dst alpha) and alpha (for dst factor.)
 			// But to be accurate (clamping), we need to read the dst color.
-			return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -360,7 +361,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 				return REPLACE_BLEND_STANDARD;
 			}
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
@@ -374,14 +375,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_2X_ALPHA;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_SRCALPHA:
 		case GE_DSTBLEND_INVSRCALPHA:
@@ -392,7 +393,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -400,7 +401,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Doubling alpha is safe for the inverse, will clamp to zero either way.
@@ -411,7 +412,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
 		default:
@@ -445,14 +446,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return !allowFramebufferRead ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH))
-					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+					return !allowFramebufferRead ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
@@ -469,7 +470,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowFramebufferRead ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			return REPLACE_BLEND_STANDARD;
@@ -531,14 +532,20 @@ float ToScaledDepthFromIntegerScale(float z) {
 	}
 }
 
-float FromScaledDepth(float z) {
+// See struct DepthScaleFactors for how to apply.
+DepthScaleFactors GetDepthScaleFactors() {
+	DepthScaleFactors factors;
 	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-		return z * 65535.0f;
+		factors.offset = 0;
+		factors.scale = 65535.0f;
+		return factors;
 	}
 
 	const float depthSliceFactor = DepthSliceFactor();
 	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	return (z - offset) * depthSliceFactor * 65535.0f;
+	factors.scale = depthSliceFactor * 65535.0f;
+	factors.offset = offset;
+	return factors;
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
@@ -557,7 +564,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		FRect frame = GetInsetScreenFrame(pixelW, pixelH);
+		FRect frame = GetScreenFrame(pixelW, pixelH);
 		FRect rc;
 		CenterDisplayOutputRect(&rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
 		displayOffsetX = rc.x;
@@ -568,7 +575,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
+	_assert_(renderWidthFactor > 0.0);
+	_assert_(renderHeightFactor > 0.0);
+
+	renderX = gstate_c.curRTOffsetX;
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -576,8 +586,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
-	// This is a bit of a hack as the render buffer isn't always that size
-	// We always scissor on non-buffered so that clears don't spill outside the frame.
 	out.scissorEnable = true;
 	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
 		out.scissorX = 0;
@@ -585,8 +593,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.scissorW = 0;
 		out.scissorH = 0;
 	} else {
-		out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorX = (renderX * renderWidthFactor) + displayOffsetX + scissorX1 * renderWidthFactor;
+		out.scissorY = (renderY * renderHeightFactor) + displayOffsetY + scissorY1 * renderHeightFactor;
 		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
 		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 	}
@@ -598,8 +606,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		out.viewportX = renderX + displayOffsetX;
-		out.viewportY = renderY + displayOffsetY;
+		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
+		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
 		out.depthRangeMin = ToScaledDepthFromIntegerScale(0);
@@ -629,15 +637,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
-		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
-		vpX0 *= renderWidthFactor;
-		vpY0 *= renderHeightFactor;
-		vpWidth *= renderWidthFactor;
-		vpHeight *= renderHeightFactor;
-
-		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
-		// This may mean some games won't work, or at least won't work at higher render resolutions.
-		// So we apply it in the shader instead.
 		float left = renderX + vpX0;
 		float top = renderY + vpY0;
 		float right = left + vpWidth;
@@ -648,27 +647,46 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_LARGE_VIEWPORTS)) {
-			// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-			if (left < 0.0f || right > renderWidth) {
-				float overageLeft = std::max(-left, 0.0f);
-				float overageRight = std::max(right - renderWidth, 0.0f);
-				// Our center drifted by the difference in overages.
-				float drift = overageRight - overageLeft;
+		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+		{
+			float overageLeft = std::max(-left, 0.0f);
+			float overageRight = std::max(right - bufferWidth, 0.0f);
 
+			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
+			if (right < scissorX2) {
+				overageRight -= scissorX2 - right;
+			}
+			if (left > scissorX1) {
+				overageLeft += scissorX1 - left;
+			}
+
+			// Our center drifted by the difference in overages.
+			float drift = overageRight - overageLeft;
+
+			if (overageLeft != 0.0f || overageRight != 0.0f) {
 				left += overageLeft;
 				right -= overageRight;
 
 				wScale = vpWidth / (right - left);
 				xOffset = drift / (right - left);
 			}
+		}
 
-			if (top < 0.0f || bottom > renderHeight) {
-				float overageTop = std::max(-top, 0.0f);
-				float overageBottom = std::max(bottom - renderHeight, 0.0f);
-				// Our center drifted by the difference in overages.
-				float drift = overageBottom - overageTop;
+		{
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - bufferHeight, 0.0f);
 
+			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
+			if (bottom < scissorY2) {
+				overageBottom -= scissorY2 - bottom;
+			}
+			if (top > scissorY1) {
+				overageTop += scissorY1 - top;
+			}
+			// Our center drifted by the difference in overages.
+			float drift = overageBottom - overageTop;
+
+			if (overageTop != 0.0f || overageBottom != 0.0f) {
 				top += overageTop;
 				bottom -= overageBottom;
 
@@ -677,10 +695,13 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			}
 		}
 
-		out.viewportX = left + displayOffsetX;
-		out.viewportY = top + displayOffsetY;
-		out.viewportW = right - left;
-		out.viewportH = bottom - top;
+		out.viewportX = left * renderWidthFactor + displayOffsetX;
+		out.viewportY = top * renderHeightFactor + displayOffsetY;
+
+		// The calculations should end up with zero or positive values, but let's protect against any
+		// precision issues. See #13921.
+		out.viewportW = std::max(0.0f, (right - left) * renderWidthFactor);
+		out.viewportH = std::max(0.0f, (bottom - top) * renderHeightFactor);
 
 		// The depth viewport parameters are the same, but we handle it a bit differently.
 		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
@@ -891,7 +912,7 @@ static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &
 }
 
 // Try to simulate some common logic ops.
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
 		stencilType = ReplaceAlphaWithStencilType();
@@ -941,9 +962,72 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 	}
 }
 
-// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+bool IsColorWriteMaskComplex(bool allowFramebufferRead) {
+	// Restrict to Outrun temporarily (by uglily reusing the ReinterpretFramebuffers flag)
+	// This check must match the one in ConvertMaskState.
+	if (!allowFramebufferRead || !PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
+		// Don't have a choice - we'll make do but it won't always be right.
+		return false;
+	}
 
-void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
+	uint32_t colorMask = (gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24);
+
+	for (int i = 0; i < 4; i++) {
+		switch (colorMask & 0xFF) {
+		case 0x0:
+		case 0xFF:
+			break;
+		default:
+			return true;
+		}
+		colorMask >>= 8;
+	}
+	return false;
+}
+
+// If we can we emulate the colorMask by simply toggling the full R G B A masks offered
+// by modern hardware, we do that. This is 99.9% of the time.
+// When that's not enough, we fall back on a technique similar to shader blending,
+// we read from the framebuffer (or a copy of it).
+void ConvertMaskState(GenericMaskState &maskState, bool allowFramebufferRead) {
+	// Invert to convert masks from the PSP's format where 1 is don't draw to PC where 1 is draw.
+	uint32_t colorMask = ~((gstate.pmskc & 0xFFFFFF) | (gstate.pmska << 24));
+
+	maskState.applyFramebufferRead = false;
+	for (int i = 0; i < 4; i++) {
+		int channelMask = colorMask & 0xFF;
+		switch (channelMask) {
+		case 0x0:
+			maskState.rgba[i] = false;
+			break;
+		case 0xFF:
+			maskState.rgba[i] = true;
+			break;
+		default:
+			if (allowFramebufferRead) {
+				// Instead of just 'true', restrict shader bitmasks to Outrun temporarily.
+				// TODO: This check must match the one in IsColorWriteMaskComplex.
+				maskState.applyFramebufferRead = PSP_CoreParameter().compat.flags().ShaderColorBitmask;
+				maskState.rgba[i] = true;
+			} else {
+				// Use the old heuristic.
+				maskState.rgba[i] = channelMask >= 128;
+			}
+		}
+		colorMask >>= 8;
+	}
+
+	// Let's not write to alpha if stencil isn't enabled.
+	if (IsStencilTestOutputDisabled()) {
+		maskState.rgba[3] = false;
+	} else if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+		maskState.rgba[3] = false;
+	}
+}
+
+// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -954,25 +1038,25 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 
-	blendState.applyShaderBlending = false;
-	blendState.dirtyShaderBlend = false;
+	blendState.applyFramebufferRead = false;
+	blendState.dirtyShaderBlendFixValues = false;
 	blendState.useBlendColor = false;
 	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend, gstate.FrameBufFormat());
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowFramebufferRead, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		blendState.resetShaderBlending = true;
+		blendState.resetFramebufferRead = true;
 		// We may still want to do something about stencil -> alpha.
-		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
+		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
-		blendState.applyShaderBlending = true;
-		blendState.resetShaderBlending = false;
+		blendState.applyFramebufferRead = true;
+		blendState.resetFramebufferRead = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
 		break;
 
@@ -988,7 +1072,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	}
 
 	blendState.enabled = true;
-	blendState.resetShaderBlending = true;
+	blendState.resetFramebufferRead = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
@@ -1056,7 +1140,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 		glBlendFuncA = BlendFactor::ONE;
 		// Need to pull in the fixed color. TODO: If it hasn't changed, no need to dirty.
 		if (blendFuncA == GE_SRCBLEND_FIXA) {
-			blendState.dirtyShaderBlend = true;
+			blendState.dirtyShaderBlendFixValues = true;
 		}
 	}
 
@@ -1219,8 +1303,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 }
 
 static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
-	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
-
 	// Flaws:
 	// - INVERT should convert 1, 5, 0xFF to 0.  Currently it won't always.
 	// - INCR twice shouldn't change the value.
@@ -1352,13 +1434,19 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	}
 }
 
-void ConvertStencilFuncState(GenericStencilFuncState &state) {
-	state.enabled = gstate.isStencilTestEnabled();
-	if (!state.enabled)
-		return;
+static void ConvertStencilMask5551(GenericStencilFuncState &state) {
+	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
+}
 
-	// The PSP's mask is reversed (bits not to write.)
+void ConvertStencilFuncState(GenericStencilFuncState &state) {
+	// The PSP's mask is reversed (bits not to write.)  Ignore enabled, used for clears too.
 	state.writeMask = (~gstate.getStencilWriteMask()) & 0xFF;
+	state.enabled = gstate.isStencilTestEnabled();
+	if (!state.enabled) {
+		if (gstate.FrameBufFormat() == GE_FORMAT_5551)
+			ConvertStencilMask5551(state);
+		return;
+	}
 
 	state.sFail = gstate.getStencilOpSFail();
 	state.zFail = gstate.getStencilOpZFail();
@@ -1374,6 +1462,7 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		break;
 
 	case GE_FORMAT_5551:
+		ConvertStencilMask5551(state);
 		ConvertStencilFunc5551(state);
 		break;
 

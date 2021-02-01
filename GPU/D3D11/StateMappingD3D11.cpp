@@ -18,7 +18,9 @@
 #include <d3d11.h>
 #include <d3d11_1.h>
 
-#include "math/dataconv.h"
+#include <algorithm>
+
+#include "Common/Data/Convert/SmallDataConvert.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -28,7 +30,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
@@ -120,7 +122,7 @@ static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_SET,
 };
 
-void DrawEngineD3D11::ResetShaderBlending() {
+void DrawEngineD3D11::ResetFramebufferRead() {
 	if (fboTexBound_) {
 		ID3D11ShaderResourceView *srv = nullptr;
 		context_->PSSetShaderResources(0, 1, &srv);
@@ -142,7 +144,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
+		gstate_c.SetAllowFramebufferRead(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
@@ -155,18 +157,24 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.blend.value = 0;
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
-			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-			if (blendState.applyShaderBlending) {
-				if (ApplyShaderBlending()) {
-					// We may still want to do something about stencil -> alpha.
-					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			ConvertBlendState(blendState, gstate_c.allowFramebufferRead);
+
+			GenericMaskState maskState;
+			ConvertMaskState(maskState, gstate_c.allowFramebufferRead);
+
+			if (blendState.applyFramebufferRead || maskState.applyFramebufferRead) {
+				if (ApplyFramebufferRead(&fboTexNeedsBind_)) {
+					// The shader takes over the responsibility for blending, so recompute.
+					ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 				} else {
 					// Until next time, force it off.
-					ResetShaderBlending();
-					gstate_c.SetAllowShaderBlend(false);
+					ResetFramebufferRead();
+					gstate_c.SetAllowFramebufferRead(false);
 				}
-			} else if (blendState.resetShaderBlending) {
-				ResetShaderBlending();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			} else if (blendState.resetFramebufferRead) {
+				ResetFramebufferRead();
+				gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 			}
 
 			if (blendState.enabled) {
@@ -178,7 +186,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.blend.srcAlpha = d3d11BlendFactorLookup[(size_t)blendState.srcAlpha];
 				keys_.blend.destColor = d3d11BlendFactorLookup[(size_t)blendState.dstColor];
 				keys_.blend.destAlpha = d3d11BlendFactorLookup[(size_t)blendState.dstAlpha];
-				if (blendState.dirtyShaderBlend) {
+				if (blendState.dirtyShaderBlendFixValues) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				dynState_.useBlendColor = blendState.useBlendColor;
@@ -201,38 +209,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 			}
 
-			// PSP color/alpha mask is per bit but we can only support per byte.
-			// But let's do that, at least. And let's try a threshold.
-			bool rmask = (gstate.pmskc & 0xFF) < 128;
-			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-			bool amask = (gstate.pmska & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-			u8 abits = (gstate.pmska >> 0) & 0xFF;
-			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-			}
-			if (abits != 0 && abits != 0xFF) {
-				// The stencil part of the mask is supported.
-				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-			}
-#endif
-
-			// Let's not write to alpha if stencil isn't enabled.
-			if (IsStencilTestOutputDisabled()) {
-				amask = false;
-			} else {
-				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-					amask = false;
-				}
-			}
-
-			keys_.blend.colorWriteMask = (rmask ? 1 : 0) | (gmask ? 2 : 0) | (bmask ? 4 : 0) | (amask ? 8 : 0);
+			keys_.blend.colorWriteMask = (maskState.rgba[0] ? 1 : 0) | (maskState.rgba[1] ? 2 : 0) | (maskState.rgba[2] ? 4 : 0) | (maskState.rgba[3] ? 8 : 0);
 		}
 
 		if (!device1_) {
@@ -276,14 +253,13 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		keys_.raster.value = 0;
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
+
 		if (gstate.isModeClear() || gstate.isModeThrough()) {
-			keys_.raster.cullMode = D3D11_CULL_NONE;
 			// TODO: Might happen in clear mode if not through...
 			keys_.raster.depthClipEnable = 1;
 		} else {
-			// Set cull
-			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...
@@ -308,6 +284,9 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
@@ -331,7 +310,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				// We override this value in the pipeline from software transform for clear rectangles.
 				dynState_.stencilRef = 0xFF;
 				// But we still apply the stencil write mask.
-				keys_.depthStencil.stencilWriteMask = (~gstate.getStencilWriteMask()) & 0xFF;
+				keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
 				dynState_.useStencil = false;
@@ -352,9 +331,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				keys_.depthStencil.depthWriteEnable = false;
 				keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			}
-
-			GenericStencilFuncState stencilState;
-			ConvertStencilFuncState(stencilState);
 
 			// Stencil Test
 			if (stencilState.enabled) {
@@ -445,11 +421,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
 	if (!gstate.isModeClear()) {
-		if (fboTexNeedBind_) {
+		if (fboTexNeedsBind_) {
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// No sampler required, we do a plain Load in the pixel shader.
 			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
+			fboTexNeedsBind_ = false;
 		}
 		textureCache_->ApplyTexture();
 	}

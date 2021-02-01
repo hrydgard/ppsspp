@@ -17,7 +17,16 @@
 
 #pragma once
 
-void __sceOpenPSIDInit();
+#define 	PSP_DNAS_USER_DATA_MAX_LEN   2048
+#define		PSP_OPENPSID_SIZE 16
+
+typedef struct SceOpenPSID {
+	u8 data[PSP_OPENPSID_SIZE];
+} SceOpenPSID;
+
+void __OpenPSIDInit();
+void __OpenPSIDShutdown();
 
 void Register_sceOpenPSID();
 void Register_sceOpenPSID_driver();
+void Register_sceDdrdb();

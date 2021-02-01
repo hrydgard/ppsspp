@@ -19,12 +19,15 @@
 
 #include <algorithm>
 #include <limits>
-#include "file/free.h"
-#include "file/zip_read.h"
-#include "i18n/i18n.h"
-#include "util/text/utf8.h"
-#include "Common/ChunkFile.h"
-#include "Common/FileUtil.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DiskFree.h"
+#include "Common/File/VFS/VFS.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
@@ -150,7 +153,7 @@ bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBeha
 
 #endif
 
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags) : basePath(_basePath), flags(_flags) {
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags) : basePath(_basePath), flags(_flags) {
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
@@ -663,8 +666,8 @@ int DirectoryFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u3
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int DirectoryFileSystem::DevType(u32 handle) {
-	return PSP_DEV_TYPE_FILE;
+PSPDevType DirectoryFileSystem::DevType(u32 handle) {
+	return PSPDevType::FILE;
 }
 
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
@@ -742,11 +745,6 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		File::FileDetails details;
 		if (!File::GetFileDetails(fullName, &details)) {
 			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
-			x.size = 0;
-			x.access = 0;
-			memset(&x.atime, 0, sizeof(x.atime));
-			memset(&x.ctime, 0, sizeof(x.ctime));
-			memset(&x.mtime, 0, sizeof(x.mtime));
 		} else {
 			x.size = details.size;
 			x.access = details.access;
@@ -874,7 +872,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = SimulateVFATBug(ConvertWStringToUTF8(findData.cFileName));
+		entry.name = ConvertWStringToUTF8(findData.cFileName);
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 
 		bool hideFile = false;
 		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
@@ -921,7 +921,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.type = FILETYPE_NORMAL;
 		entry.access = s.st_mode & 0x1FF;
-		entry.name = SimulateVFATBug(dirp->d_name);
+		entry.name = dirp->d_name;
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 		entry.size = s.st_size;
 
 		bool hideFile = false;
@@ -977,41 +979,41 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 	//     s64               current truncate position (v2+ only)
 
 	u32 num = (u32) entries.size();
-	p.Do(num);
+	Do(p, num);
 
 	if (p.mode == p.MODE_READ) {
 		CloseAll();
 		u32 key;
 		OpenFileEntry entry;
 		for (u32 i = 0; i < num; i++) {
-			p.Do(key);
-			p.Do(entry.guestFilename);
-			p.Do(entry.access);
+			Do(p, key);
+			Do(p, entry.guestFilename);
+			Do(p, entry.access);
 			u32 err;
 			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
 				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
 			u32 position;
-			p.Do(position);
+			Do(p, position);
 			if (position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
 				ERROR_LOG(FILESYS, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
 			if (s >= 2) {
-				p.Do(entry.hFile.needsTrunc_);
+				Do(p, entry.hFile.needsTrunc_);
 			}
 			entries[key] = entry;
 		}
 	} else {
 		for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
 			u32 key = iter->first;
-			p.Do(key);
-			p.Do(iter->second.guestFilename);
-			p.Do(iter->second.access);
+			Do(p, key);
+			Do(p, iter->second.guestFilename);
+			Do(p, iter->second.access);
 			u32 position = (u32)iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
-			p.Do(position);
-			p.Do(iter->second.hFile.needsTrunc_);
+			Do(p, position);
+			Do(p, iter->second.hFile.needsTrunc_);
 		}
 	}
 }
@@ -1090,6 +1092,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 		if (x.exists) {
 			x.size = fo.size;
 			x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+			x.access = fo.isWritable ? 0666 : 0444;
 		}
 	} else {
 		x.exists = false;
@@ -1117,8 +1120,8 @@ int VFSFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int VFSFileSystem::DevType(u32 handle) {
-	return PSP_DEV_TYPE_FILE;
+PSPDevType VFSFileSystem::DevType(u32 handle) {
+	return PSPDevType::FILE;
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
@@ -1186,7 +1189,7 @@ void VFSFileSystem::DoState(PointerWrap &p) {
 		return;
 
 	u32 num = (u32) entries.size();
-	p.Do(num);
+	Do(p, num);
 
 	if (num != 0) {
 		p.SetError(p.ERROR_WARNING);

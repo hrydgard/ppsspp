@@ -311,8 +311,6 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 QuickTexHashFunc StableQuickTexHash = &QuickTexHashNonSSE;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
-ReliableHash32Func DoReliableHash32 = &XXH32;
-ReliableHash64Func DoReliableHash64 = &XXH64;
 #endif
 
 // This has to be done after CPUDetect has done its magic.
@@ -322,10 +320,6 @@ void SetupTextureDecoder() {
 		DoQuickTexHash = &QuickTexHashNEON;
 		StableQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
-#if !PPSSPP_PLATFORM(IOS)
-		// Not sure if this is safe on iOS, it's had issues with xxhash.
-		DoReliableHash32 = &ReliableHash32NEON;
-#endif
 	}
 #endif
 }
@@ -614,7 +608,7 @@ CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w
 	if ((w & 3) == 0 && (stride & 3) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaRGBA8888SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM_NEON)
 		if (cpu_info.bNEON) {
 			return CheckAlphaRGBA8888NEON(pixelData, stride, w, h);
 		}
@@ -644,7 +638,7 @@ CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaABGR4444SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM_NEON)
 		if (cpu_info.bNEON) {
 			return CheckAlphaABGR4444NEON(pixelData, stride, w, h);
 		}
@@ -677,7 +671,7 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaABGR1555SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM_NEON)
 		if (cpu_info.bNEON) {
 			return CheckAlphaABGR1555NEON(pixelData, stride, w, h);
 		}
@@ -709,7 +703,7 @@ CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaRGBA4444SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM_NEON)
 		if (cpu_info.bNEON) {
 			return CheckAlphaRGBA4444NEON(pixelData, stride, w, h);
 		}
@@ -742,7 +736,7 @@ CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaRGBA5551SSE2(pixelData, stride, w, h);
-#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM_NEON)
 		if (cpu_info.bNEON) {
 			return CheckAlphaRGBA5551NEON(pixelData, stride, w, h);
 		}

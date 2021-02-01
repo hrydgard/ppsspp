@@ -23,7 +23,7 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
 
-#include "profiler/profiler.h"
+#include "Common/Profiler/Profiler.h"
 
 namespace Clipper {
 
@@ -206,7 +206,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		VertexData* bottomleft = &buf[2];
 		VertexData* bottomright = &buf[3];
 
-		// Um. Why is this stuff needed?
+		// DrawTriangle always culls, so sort out the drawing order.
 		for (int i = 0; i < 4; ++i) {
 			if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
 				topleft = &buf[i];
@@ -324,10 +324,11 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2, const Verte
 			indices[1] = SKIP_FLAG;
 			indices[2] = SKIP_FLAG;
 
-			POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
-			POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
-			POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
-			POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+			// The PSP doesn't clip on the sides (so, commented out) but it does appear to have a Z clipper.
+			// POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
+			// POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+			// POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+			// POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
 			POLY_CLIP(CLIP_POS_Z_BIT,  0,  0,  0, 1);
 			POLY_CLIP(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 

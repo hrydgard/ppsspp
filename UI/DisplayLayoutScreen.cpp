@@ -18,20 +18,21 @@
 #include <algorithm>
 #include <vector>
 
-#include "base/colorutil.h"
-#include "base/display.h"
-#include "gfx/texture_atlas.h"
-#include "gfx_es2/draw_buffer.h"
-#include "i18n/i18n.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
+#include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/DrawBuffer.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/View.h"
 
-#include "DisplayLayoutScreen.h"
+#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "UI/DisplayLayoutScreen.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "DisplayLayoutEditor.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 
 static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;
@@ -219,7 +220,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color);
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color);
 	}
 };
 

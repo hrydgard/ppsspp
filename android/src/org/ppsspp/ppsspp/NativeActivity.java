@@ -18,7 +18,6 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
-import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -26,6 +25,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.os.Vibrator;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
@@ -47,15 +47,17 @@ import android.widget.Toast;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@SuppressWarnings("ConstantConditions")
 public abstract class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
-	private static String TAG = "PPSSPPNativeActivity";
+	private static final String TAG = "PPSSPPNativeActivity";
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
@@ -98,7 +100,10 @@ public abstract class NativeActivity extends Activity {
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
-	private static int RESULT_LOAD_IMAGE = 1;
+
+	private static final int RESULT_LOAD_IMAGE = 1;
+	private static final int RESULT_BROWSE_FILE = 2;
+	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -122,19 +127,19 @@ public abstract class NativeActivity extends Activity {
 	private static final String[] permissionsForCamera = {
 		Manifest.permission.CAMERA
 	};
+	private static final String[] permissionsForMicrophone = {
+		Manifest.permission.RECORD_AUDIO
+	};
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
 	public static final int REQUEST_CODE_LOCATION_PERMISSION = 2;
 	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
+	public static final int REQUEST_CODE_MICROPHONE_PERMISSION = 4;
 
 	// Functions for the app activity to override to change behaviour.
 
 	public native void registerCallbacks();
 	public native void unregisterCallbacks();
-
-	public boolean useLowProfileButtons() {
-		return true;
-	}
 
 	NativeRenderer getRenderer() {
 		return nativeRenderer;
@@ -209,7 +214,7 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, String [] permissions, int[] grantResults) {
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {
@@ -228,12 +233,119 @@ public abstract class NativeActivity extends Activity {
 				mCameraHelper.startCamera();
 			}
 			break;
+		case REQUEST_CODE_MICROPHONE_PERMISSION:
+			if (permissionsGranted(permissions, grantResults)) {
+				NativeApp.audioRecording_Start();
+			}
+			break;
 		default:
 		}
 	}
 
 	public void setShortcutParam(String shortcutParam) {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
+	}
+
+	// Unofficial hacks to get a list of SD cards that are not the main "external storage".
+	private static ArrayList<String> getSdCardPaths(final Context context) {
+		// Q is the last version that will support normal file access.
+		ArrayList<String> list = null;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+			Log.i(TAG, "getSdCardPaths: Trying KitKat method");
+			list = getSdCardPaths19(context);
+		}
+
+		if (list == null) {
+			Log.i(TAG, "getSdCardPaths: Attempting fallback");
+			// Try another method.
+			String removableStoragePath;
+			list = new ArrayList<String>();
+			File fileList[] = new File("/storage/").listFiles();
+			if (fileList != null) {
+				for (File file : fileList) {
+					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
+						list.add(file.getAbsolutePath());
+					}
+				}
+			}
+		}
+
+		if (list == null) {
+			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
+			for (String var : varNames) {
+				Log.i(TAG, "getSdCardPaths: Checking env " + var);
+				String secStore = System.getenv("SECONDARY_STORAGE");
+				if (secStore != null && secStore.length() > 0) {
+					list = new ArrayList<String>();
+					list.add(secStore);
+					break;
+				}
+			}
+		}
+
+		if (list == null) {
+			return new ArrayList<String>();
+		} else {
+			return list;
+		}
+	}
+
+	@TargetApi(Build.VERSION_CODES.KITKAT)
+	private static ArrayList<String> getSdCardPaths19(final Context context)
+	{
+		final File[] externalCacheDirs = context.getExternalCacheDirs();
+		if (externalCacheDirs == null || externalCacheDirs.length==0)
+			return null;
+		if (externalCacheDirs.length == 1) {
+			if (externalCacheDirs[0] == null)
+				return null;
+			final String storageState = Environment.getStorageState(externalCacheDirs[0]);
+			if (!Environment.MEDIA_MOUNTED.equals(storageState))
+				return null;
+			if (Environment.isExternalStorageEmulated())
+				return null;
+		}
+		final ArrayList<String> result = new ArrayList<>();
+		if (externalCacheDirs.length == 1)
+			result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
+		for (int i = 1; i < externalCacheDirs.length; ++i)
+		{
+			final File file = externalCacheDirs[i];
+			if (file == null)
+				continue;
+			final String storageState = Environment.getStorageState(file);
+			if (Environment.MEDIA_MOUNTED.equals(storageState)) {
+				String root = getRootOfInnerSdCardFolder(externalCacheDirs[i]);
+				if (root != null) {
+					result.add(root);
+				}
+			}
+		}
+		if (result.isEmpty())
+			return null;
+		return result;
+	}
+
+	/** Given any file/folder inside an sd card, this will return the path of the sd card */
+	private static String getRootOfInnerSdCardFolder(File file)
+	{
+		if (file == null)
+			return null;
+		final long totalSpace = file.getTotalSpace();
+		if (totalSpace <= 0) {
+			return null;
+		}
+		while (true) {
+			final File parentFile = file.getParentFile();
+			if (parentFile == null || !parentFile.canRead()) {
+				break;
+			}
+			if (parentFile.getTotalSpace() != totalSpace) {
+				break;
+			}
+			file = parentFile;
+		}
+		return file.getAbsolutePath();
 	}
 
 	public void Initialize() {
@@ -248,7 +360,7 @@ public abstract class NativeActivity extends Activity {
 		}
 		powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-			if (powerManager.isSustainedPerformanceModeSupported()) {
+			if (powerManager != null && powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
 				NativeApp.sendMessage("sustained_perf_supported", "1");
 			}
@@ -259,10 +371,10 @@ public abstract class NativeActivity extends Activity {
 		Log.d(TAG, "Landscape: " + landscape);
 
 		// Get system information
-		ApplicationInfo appInfo = null;
-
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
+
+		ApplicationInfo appInfo;
 		try {
 			appInfo = packMgmr.getApplicationInfo(packageName, 0);
 		} catch (NameNotFoundException e) {
@@ -287,9 +399,34 @@ public abstract class NativeActivity extends Activity {
 		isXperiaPlay = IsXperiaPlay();
 
 		String libraryDir = getApplicationLibraryDir(appInfo);
-		File sdcard = Environment.getExternalStorageDirectory();
 
-		String externalStorageDir = sdcard.getAbsolutePath();
+		String extStorageState = Environment.getExternalStorageState();
+		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+
+		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
+
+		String additionalStorageDirs = "";
+		try {
+			ArrayList<String> sdCards = getSdCardPaths(this);
+
+			// String.join doesn't exist on old devices (???).
+			StringBuilder s = new StringBuilder();
+			for (int i = 0; i < sdCards.size(); i++) {
+				String sdCard = sdCards.get(i);
+				Log.i(TAG, "SD card: " + sdCard);
+				s.append(sdCard);
+				if (i != sdCards.size() - 1) {
+					s.append(":");
+				}
+			}
+			additionalStorageDirs = s.toString();
+		}
+		catch (Exception e) {
+			Log.e(TAG, "Failed to get SD storage dirs: " + e.toString());
+		}
+
+		Log.i(TAG, "End of storage paths");
+
 		File filesDir = this.getFilesDir();
 		String dataDir = null;
 		if (filesDir != null) {
@@ -305,7 +442,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -345,22 +482,20 @@ public abstract class NativeActivity extends Activity {
 	private void updateSustainedPerformanceMode() {
 		if (sustainedPerfSupported) {
 			// Query the native application on the desired rotation.
-			int enable = 0;
 			String str = NativeApp.queryConfig("sustainedPerformanceMode");
 			try {
-				enable = Integer.parseInt(str);
+				int enable = Integer.parseInt(str);
+				getWindow().setSustainedPerformanceMode(enable != 0);
 			} catch (NumberFormatException e) {
 				Log.e(TAG, "Invalid perf mode: " + str);
-				return;
 			}
-			getWindow().setSustainedPerformanceMode(enable != 0);
 		}
 	}
 
 	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
-		int rot = 0;
+		int rot;
 		String rotString = NativeApp.queryConfig("screenRotation");
 		try {
 			rot = Integer.parseInt(rotString);
@@ -407,12 +542,11 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		// Compute our _desired_ systemUiVisibility
-		int flags = 0;
-		if (useLowProfileButtons()) {
-			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
-		}
+		int flags = View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+			flags |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
+			flags |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 		}
 
 		View decorView = getWindow().peekDecorView();
@@ -434,7 +568,7 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	private Runnable mEmulationRunner = new Runnable() {
+	private final Runnable mEmulationRunner = new Runnable() {
 		@Override
 		public void run() {
 			Log.i(TAG, "Starting the render loop: " + mSurface);
@@ -536,6 +670,9 @@ public abstract class NativeActivity extends Activity {
 	public void onWindowFocusChanged(boolean hasFocus) {
 		super.onWindowFocusChanged(hasFocus);
 		updateSustainedPerformanceMode();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+		}
 	}
 
 	public void notifySurface(Surface surface) {
@@ -611,6 +748,7 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		Log.i(TAG, "onDestroy");
 		if (javaGL) {
 			if (nativeRenderer.isRenderingFrame()) {
 				Log.i(TAG, "Waiting for renderer to finish.");
@@ -623,21 +761,23 @@ public abstract class NativeActivity extends Activity {
 					tries--;
 				} while (nativeRenderer.isRenderingFrame() && tries > 0);
 			}
-			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
-			audioFocusChangeListener = null;
-			audioManager = null;
 		} else {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+
+		// Probably vain attempt to help the garbage collector...
+		audioFocusChangeListener = null;
+		audioManager = null;
+
 		sizeManager.setSurfaceView(null);
 		if (mPowerSaveModeReceiver != null) {
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
 		}
+
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
@@ -692,6 +832,7 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
+
 		// OK, config should be initialized, we can query for screen rotation.
 		if (javaGL || Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 			updateScreenRotation("onResume");
@@ -984,32 +1125,48 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
+		if (resultCode != RESULT_OK || data == null) {
+			return;
+		}
+		if (requestCode == RESULT_LOAD_IMAGE) {
 			Uri selectedImage = data.getData();
-			String[] filePathColumn = {MediaStore.Images.Media.DATA};
-			Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-			cursor.moveToFirst();
-			int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-			String picturePath = cursor.getString(columnIndex);
-			cursor.close();
-			NativeApp.sendMessage("bgImage_updated", picturePath);
+			if (selectedImage != null) {
+				String[] filePathColumn = {MediaStore.Images.Media.DATA};
+				Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+				cursor.moveToFirst();
+				int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+				String picturePath = cursor.getString(columnIndex);
+				cursor.close();
+				NativeApp.sendMessage("bgImage_updated", picturePath);
+			}
+		} else if (requestCode == RESULT_BROWSE_FILE) {
+			Uri selectedFile = data.getData();
+			if (selectedFile != null) {
+				// NativeApp.sendMessage("br");
+				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+			}
+		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+			Uri selectedFile = data.getData();
+			if (selectedFile != null) {
+				// Convert URI to normal path. (This might not be possible in Android 12+)
+				String path = selectedFile.toString();
+				Log.i(TAG, "Browse folder finished: " + path);
+				NativeApp.sendMessage("browse_folderSelect", path);
+			}
 		}
 	}
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
 	}
 
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1060,7 +1217,7 @@ public abstract class NativeActivity extends Activity {
 		else
 			bld = createDialogBuilderNew();
 
-		AlertDialog dlg = bld
+		AlertDialog.Builder builder = bld
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
@@ -1076,15 +1233,17 @@ public abstract class NativeActivity extends Activity {
 					NativeApp.sendInputBox(seqID, false, "");
 					d.cancel();
 				}
-			})
-			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			});
+		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
 					NativeApp.sendInputBox(seqID, false, "");
 					updateSystemUiVisibility();
 				}
-			})
-			.create();
+			});
+		}
+		AlertDialog dlg = builder.create();
 
 		dlg.setCancelable(true);
 		dlg.show();
@@ -1122,6 +1281,30 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("browse_file")) {
+			try {
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+				intent.addCategory(Intent.CATEGORY_OPENABLE);
+				intent.setType("application/octet-stream");
+				//intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
+				startActivityForResult(intent, RESULT_BROWSE_FILE);
+			} catch (Exception e) {
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("browse_folder")) {
+			try {
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);  // not yet used properly
+				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
+				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
+				return true;
+			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1183,11 +1366,10 @@ public abstract class NativeActivity extends Activity {
 			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
-			String seqID = "";
 			String title = "Input";
 			String defString = "";
 			String[] param = params.split(":@:", 3);
-			seqID = param[0];
+			String seqID = param[0];
 			if (param.length > 1 && param[1].length() > 0)
 				title = param[1];
 			if (param.length > 2)
@@ -1197,7 +1379,7 @@ public abstract class NativeActivity extends Activity {
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;
-			if (params != "") {
+			if (!params.equals("")) {
 				try {
 					milliseconds = Integer.parseInt(params);
 				} catch (NumberFormatException e) {
@@ -1288,6 +1470,16 @@ public abstract class NativeActivity extends Activity {
 				}
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
+			}
+		} else if (command.equals("microphone_command")) {
+			if (params.startsWith("startRecording:")) {
+				int sampleRate = Integer.parseInt(params.replace("startRecording:", ""));
+				NativeApp.audioRecording_SetSampleRate(sampleRate);
+				if (!askForPermissions(permissionsForMicrophone, REQUEST_CODE_MICROPHONE_PERMISSION)) {
+					NativeApp.audioRecording_Start();
+				}
+			} else if (params.equals("stopRecording")) {
+				NativeApp.audioRecording_Stop();
 			}
 		} else if (command.equals("uistate")) {
 			Window window = this.getWindow();

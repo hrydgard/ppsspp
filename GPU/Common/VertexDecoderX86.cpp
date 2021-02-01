@@ -53,7 +53,7 @@ alignas(16) static const float by16384[4] = {
 	1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f,
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 static const X64Reg tempReg1 = RAX;
 static const X64Reg tempReg2 = R9;
@@ -167,7 +167,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	BeginWrite();
 	const u8 *start = this->AlignCode16();
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	// Store register values
 	PUSH(ESI);
 	PUSH(EDI);
@@ -179,16 +179,28 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOV(32, R(srcReg), MDisp(ESP, 16 + offset + 0));
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
+
+	const uint8_t STACK_FIXED_ALLOC = 64;
+#else
+	// Parameters automatically fall into place.
+
+	// This will align the stack properly to 16 bytes (the call of this function pushed RIP, which is 8 bytes).
+	const uint8_t STACK_FIXED_ALLOC = 96 + 8;
 #endif
 
+	// Allocate temporary storage on the stack.
+	SUB(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 	// Save XMM4/XMM5 which apparently can be problematic?
 	// Actually, if they are, it must be a compiler bug because they SHOULD be ok.
 	// So I won't bother.
-	SUB(PTRBITS, R(ESP), Imm8(64));
 	MOVUPS(MDisp(ESP, 0), XMM4);
 	MOVUPS(MDisp(ESP, 16), XMM5);
 	MOVUPS(MDisp(ESP, 32), XMM6);
 	MOVUPS(MDisp(ESP, 48), XMM7);
+#if PPSSPP_ARCH(AMD64)
+	MOVUPS(MDisp(ESP, 64), XMM8);
+	MOVUPS(MDisp(ESP, 80), XMM9);
+#endif
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -265,9 +277,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(XMM5, MDisp(ESP, 16));
 	MOVUPS(XMM6, MDisp(ESP, 32));
 	MOVUPS(XMM7, MDisp(ESP, 48));
-	ADD(PTRBITS, R(ESP), Imm8(64));
+#if PPSSPP_ARCH(AMD64)
+	MOVUPS(XMM8, MDisp(ESP, 64));
+	MOVUPS(XMM9, MDisp(ESP, 80));
+#endif
+	ADD(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	// Restore register values
 	POP(EBP);
 	POP(EBX);
@@ -454,7 +470,7 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (dec_->nweights > 4) {
 		// This reads 8 bytes, we split the top 4 so we can expand each set of 4.
 		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
@@ -506,7 +522,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 
 	for (int j = 0; j < dec_->nweights; j++) {
 		X64Reg weight = XMM1;
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
 		if (j == 3 || j == dec_->nweights - 1) {
 			// In the previous iteration, we already spread this value to all lanes.
@@ -564,7 +580,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (dec_->nweights > 6) {
 		// Since this is probably not aligned, two MOVQs are better than one MOVDQU.
 		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
@@ -620,7 +636,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 
 	for (int j = 0; j < dec_->nweights; j++) {
 		X64Reg weight = XMM1;
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
 		if (j == 3 || j == dec_->nweights - 1) {
 			// In the previous iteration, we already spread this value to all lanes.
@@ -718,7 +734,7 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(64, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 #else
@@ -899,7 +915,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(64, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 #else
@@ -1452,8 +1468,8 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
-	_dbg_assert_msg_(JIT, bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
+	_dbg_assert_msg_((bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
+	_dbg_assert_msg_(bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));
@@ -1484,8 +1500,8 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
-	_dbg_assert_msg_(JIT, (bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
-	_dbg_assert_msg_(JIT, bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
+	_dbg_assert_msg_((bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
+	_dbg_assert_msg_(bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
 
 	if (!cpu_info.bSSE4_1) {
 		PXOR(XMM3, R(XMM3));

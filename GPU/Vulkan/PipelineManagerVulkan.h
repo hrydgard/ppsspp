@@ -18,25 +18,15 @@
 #pragma once
 
 #include <cstring>
-#include "Common/Hashmaps.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 
-// PSP vertex format.
-enum class PspAttributeLocation {
-	POSITION = 0,
-	TEXCOORD = 1,
-	NORMAL = 2,
-	W1 = 3,
-	W2 = 4,
-	COLOR0 = 5,
-	COLOR1 = 6,
-
-	COUNT
-};
+#include "GPU/Vulkan/VulkanQueueRunner.h"
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
@@ -56,19 +46,14 @@ struct VulkanPipelineKey {
 	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
-enum PipelineFlags {
-	PIPELINE_FLAG_USES_LINES = (1 << 2),
-	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
-};
-
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VkPipeline pipeline;
 	int flags;  // PipelineFlags enum above.
 
-	// Convenience.
 	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
 	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
+	bool UsesDepthStencil() const { return (flags & PIPELINE_FLAG_USES_DEPTH_STENCIL) != 0; }
 };
 
 class VulkanContext;

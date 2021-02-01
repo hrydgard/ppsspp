@@ -4,32 +4,31 @@
 
 class Dialog
 {
+public:
+	Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent);
+	virtual ~Dialog();
+
+	virtual void Show(bool _bShow);
+	virtual void Update() {}
+
+	HWND GetDlgHandle() {
+		return m_hDlg;
+	}
 protected:
-	HINSTANCE m_hInstance;
+	virtual void Create();
+	void Destroy();
+
 	HWND m_hParent;
 	HWND m_hDlg;
 	LPCSTR m_hResource;
 	bool m_bValid;
+	UINT m_bShowState = SW_HIDE;
 
-	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) 
-	{
-		MessageBox(0,L"WTF? Pure Call",0,0);	
-		return 0;
-	}
+	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) = 0;
 	static INT_PTR CALLBACK DlgProcStatic(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-	virtual void Create();
-	void Destroy();
-public:
-	Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent);
-	virtual ~Dialog();
-	void Show(bool _bShow);
 
-	virtual void Update() {}
-
-	HWND GetDlgHandle()
-	{
-		return m_hDlg;
-	}
+private:
+	HINSTANCE m_hInstance;
 };
 
 

@@ -17,7 +17,8 @@
 
 #include <algorithm>
 #include "Common/Common.h"
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -260,25 +261,25 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 
 	// This was included in version 1 and higher.
 	PSPDialog::DoState(p);
-	p.Do(request);
+	Do(p, request);
 
 	// This was included in version 2 and higher, but for BC reasons we use 3+.
 	if (s >= 3) {
-		p.Do(param.ptr);
-		p.Do(inFileNames);
-		p.Do(numFiles);
-		p.Do(readFiles);
-		p.Do(allFilesSize);
-		p.Do(allReadSize);
-		p.Do(progressValue);
+		Do(p, param.ptr);
+		Do(p, inFileNames);
+		Do(p, numFiles);
+		Do(p, readFiles);
+		Do(p, allFilesSize);
+		Do(p, allReadSize);
+		Do(p, progressValue);
 	} else {
 		param.ptr = 0;
 	}
 
 	if (s >= 4) {
-		p.Do(currentInputFile);
-		p.Do(currentInputBytesLeft);
-		p.Do(currentOutputFile);
+		Do(p, currentInputFile);
+		Do(p, currentInputBytesLeft);
+		Do(p, currentOutputFile);
 	} else {
 		currentInputFile = 0;
 		currentInputBytesLeft = 0;

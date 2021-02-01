@@ -17,16 +17,15 @@
 
 #include <functional>
 
-#include "base/basictypes.h"
-#include "json/json_reader.h"
+#include "Common/UI/Screen.h"
+#include "Common/UI/Context.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/Render/DrawBuffer.h"
 
-#include "i18n/i18n.h"
-#include "ui/screen.h"
-#include "ui/ui_context.h"
-#include "ui/viewgroup.h"
-#include "gfx_es2/draw_buffer.h"
-
+#include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -139,7 +138,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 
 	if (!textureData_.empty()) {
-		texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
+		texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT, false, "store_icon");
 		if (!texture_)
 			textureFailed_ = true;
 		textureData_.clear();
@@ -370,7 +369,7 @@ void StoreScreen::update() {
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
-			ELOG("Download failed : error code %d", listing_->ResultCode());
+			ERROR_LOG(IO, "Download failed : error code %d", listing_->ResultCode());
 			connectionError_ = true;
 			loading_ = false;
 			RecreateViews();
@@ -398,7 +397,7 @@ void StoreScreen::ParseListing(std::string json) {
 	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
-		ELOG("Error parsing JSON from store");
+		ERROR_LOG(IO, "Error parsing JSON from store");
 		connectionError_ = true;
 		RecreateViews();
 		return;

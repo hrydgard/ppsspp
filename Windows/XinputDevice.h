@@ -17,6 +17,6 @@ private:
 	int check_delay[4]{};
 	XINPUT_STATE prevState[4]{};
 	XINPUT_VIBRATION prevVibration[4]{};
-	int prevVibrationTime = 0;
+	double prevVibrationTime = 0.0;
 	u32 prevButtons[4]{};
 };

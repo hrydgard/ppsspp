@@ -66,25 +66,18 @@ inline u32 RGB565ToRGBA8888(u16 src) {
 }
 
 inline u16 RGBA8888ToRGB565(u32 value) {
-	u8 r = value & 0xFF;
-	u8 g = (value >> 8) & 0xFF;
-	u8 b = (value >> 16) & 0xFF;
-	r >>= 3;
-	g >>= 2;
-	b >>= 3;
-	return (u16)r | ((u16)g << 5) | ((u16)b << 11);
+	u32 r = (value >> 3) & 0x1F;
+	u32 g = (value >> 5) & (0x3F << 5);
+	u32 b = (value >> 8) & (0x1F << 11);
+	return (u16)(r | g | b);
 }
 
 inline u16 RGBA8888ToRGBA5551(u32 value) {
-	u8 r = value & 0xFF;
-	u8 g = (value >> 8) & 0xFF;
-	u8 b = (value >> 16) & 0xFF;
-	u8 a = (value >> 24) & 0xFF;
-	r >>= 3;
-	g >>= 3;
-	b >>= 3;
-	a >>= 7;
-	return (u16)r | ((u16)g << 5) | ((u16)b << 10) | ((u16)a << 15);
+	u32 r = (value >> 3) & 0x1F;
+	u32 g = (value >> 6) & (0x1F << 5);
+	u32 b = (value >> 9) & (0x1F << 10);
+	u32 a = (value >> 16) & 0x8000;
+	return (u16)(r | g | b | a);
 }
 
 inline u16 RGBA8888ToRGBA4444(u32 value) {

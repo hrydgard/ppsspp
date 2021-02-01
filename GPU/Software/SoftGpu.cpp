@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/display.h"
-#include "gfx_es2/gpu_features.h"
+#include "Common/System/Display.h"
+#include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -25,15 +25,16 @@
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Core/Core.h"
-#include "profiler/profiler.h"
-#include "thin3d/thin3d.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/GPU/thin3d.h"
 
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
@@ -41,7 +42,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
@@ -68,29 +69,31 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
-	presentation_ = new PresentationCommon(draw_);
 
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
-		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
-		break;
-	case GPUBackend::DIRECT3D9:
-		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_DX9);
-		break;
-	case GPUBackend::DIRECT3D11:
-		ShaderTranslationInit();
-		presentation_->SetLanguage(HLSL_D3D11);
-		break;
-	case GPUBackend::VULKAN:
-		presentation_->SetLanguage(GLSL_VULKAN);
-		break;
+	if (gfxCtx && draw) {
+		presentation_ = new PresentationCommon(draw_);
+
+		switch (GetGPUBackend()) {
+		case GPUBackend::OPENGL:
+			presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
+			break;
+		case GPUBackend::DIRECT3D9:
+			presentation_->SetLanguage(HLSL_D3D9);
+			break;
+		case GPUBackend::DIRECT3D11:
+			presentation_->SetLanguage(HLSL_D3D11);
+			break;
+		case GPUBackend::VULKAN:
+			presentation_->SetLanguage(GLSL_VULKAN);
+			break;
+		}
 	}
 	Resized();
 }
 
 void SoftGPU::DeviceLost() {
-	presentation_->DeviceLost();
+	if (presentation_)
+		presentation_->DeviceLost();
 	draw_ = nullptr;
 	if (fbTex) {
 		fbTex->Release();
@@ -99,8 +102,11 @@ void SoftGPU::DeviceLost() {
 }
 
 void SoftGPU::DeviceRestore() {
-	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
-	presentation_->DeviceRestore(draw_);
+	if (PSP_CoreParameter().graphicsContext)
+		draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	if (presentation_)
+		presentation_->DeviceRestore(draw_);
+	PPGeSetDrawContext(draw_);
 }
 
 SoftGPU::~SoftGPU() {
@@ -109,15 +115,8 @@ SoftGPU::~SoftGPU() {
 		fbTex = nullptr;
 	}
 
-	delete presentation_;
-	switch (GetGPUBackend()) {
-	case GPUBackend::DIRECT3D9:
-	case GPUBackend::DIRECT3D11:
-		ShaderTranslationShutdown();
-		break;
-	case GPUBackend::OPENGL:
-	case GPUBackend::VULKAN:
-		break;
+	if (presentation_) {
+		delete presentation_;
 	}
 
 	Sampler::Shutdown();
@@ -169,7 +168,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
-	if (!draw_)
+	if (!draw_ || !presentation_)
 		return;
 	float u0 = 0.0f;
 	float u1;
@@ -198,7 +197,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	bool hasImage = true;
 
 	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
-	bool hasPostShader = presentation_->HasPostShader();
+	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
 		u8 *data = Memory::GetPointer(0x04088000);
@@ -298,8 +297,10 @@ void SoftGPU::Resized() {
 		PSP_CoreParameter().renderHeight = 272;
 	}
 
-	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-	presentation_->UpdatePostShader();
+	if (presentation_) {
+		presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		presentation_->UpdatePostShader();
+	}
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {

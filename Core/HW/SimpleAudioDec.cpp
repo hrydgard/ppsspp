@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -326,9 +327,8 @@ size_t AuCtx::FindNextMp3Sync() {
 
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
-	if (!Memory::IsValidAddress(pcmAddr)){
-		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
-		return -1;
+	if (!Memory::GetPointer(PCMBuf)) {
+		return hleLogError(ME, -1, "ctx output bufferAddress %08x is invalid", PCMBuf);
 	}
 
 	auto outbuf = Memory::GetPointer(PCMBuf);
@@ -375,7 +375,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		memset(outbuf + outpcmbufsize, 0, PCMBufSize - outpcmbufsize);
 	}
 
-	Memory::Write_U32(PCMBuf, pcmAddr);
+	if (pcmAddr)
+		Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
 }
 
@@ -393,7 +394,7 @@ u32 AuCtx::AuSetLoopNum(int loop)
 // return 1 to read more data stream, 0 don't read
 int AuCtx::AuCheckStreamDataNeeded() {
 	// If we would ask for bytes, then some are needed.
-	if (AuStreamBytesNeeded() != 0) {
+	if (AuStreamBytesNeeded() > 0) {
 		return 1;
 	}
 	return 0;
@@ -500,25 +501,25 @@ void AuCtx::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	p.Do(startPos);
-	p.Do(endPos);
-	p.Do(AuBuf);
-	p.Do(AuBufSize);
-	p.Do(PCMBuf);
-	p.Do(PCMBufSize);
-	p.Do(freq);
-	p.Do(SumDecodedSamples);
-	p.Do(LoopNum);
-	p.Do(Channels);
-	p.Do(MaxOutputSample);
-	p.Do(readPos);
-	p.Do(audioType);
-	p.Do(BitRate);
-	p.Do(SamplingRate);
-	p.Do(askedReadSize);
+	Do(p, startPos);
+	Do(p, endPos);
+	Do(p, AuBuf);
+	Do(p, AuBufSize);
+	Do(p, PCMBuf);
+	Do(p, PCMBufSize);
+	Do(p, freq);
+	Do(p, SumDecodedSamples);
+	Do(p, LoopNum);
+	Do(p, Channels);
+	Do(p, MaxOutputSample);
+	Do(p, readPos);
+	Do(p, audioType);
+	Do(p, BitRate);
+	Do(p, SamplingRate);
+	Do(p, askedReadSize);
 	int dummy = 0;
-	p.Do(dummy);
-	p.Do(FrameNum);
+	Do(p, dummy);
+	Do(p, FrameNum);
 
 	if (p.mode == p.MODE_READ) {
 		decoder = new SimpleAudio(audioType);

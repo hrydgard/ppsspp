@@ -15,17 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/logging.h"
-#include "base/timeutil.h"
+#include <algorithm>
 
+#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "gfx/d3d9_state.h"
+#include "Common/GPU/D3D9/D3D9StateCache.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -314,7 +315,7 @@ void DrawEngineDX9::DoFlush() {
 	int curRenderStepId = draw_->GetCurrentStepId();
 	if (lastRenderStepId_ != curRenderStepId) {
 		// Dirty everything that has dynamic state that will need re-recording.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		lastRenderStepId_ = curRenderStepId;
 	}
 
@@ -323,7 +324,7 @@ void DrawEngineDX9::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	VSShader *vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_);
+	VSShader *vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
 
 	if (vshader->UseHWTransform()) {
 		LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
@@ -351,7 +352,7 @@ void DrawEngineDX9::DoFlush() {
 			case VertexArrayInfoDX9::VAI_NEW:
 				{
 					// Haven't seen this one before.
-					ReliableHashType dataHash = ComputeHash();
+					uint64_t dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoDX9::VAI_HASHING;
@@ -376,7 +377,7 @@ void DrawEngineDX9::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						// Let's try to skip a full hash if mini would fail.
 						const u32 newMiniHash = ComputeMiniHash();
-						ReliableHashType newHash = vai->hash;
+						uint64_t newHash = vai->hash;
 						if (newMiniHash == vai->minihash) {
 							newHash = ComputeHash();
 						}
@@ -417,7 +418,7 @@ void DrawEngineDX9::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
-						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
@@ -504,7 +505,7 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
-		vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_);
+		vshader = shaderManager_->ApplyShader(CanUseHardwareTransform(prim), useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -552,7 +553,7 @@ rotateVBO:
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
-		params.allowSeparateAlphaClear = true;
+		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
@@ -563,8 +564,11 @@ rotateVBO:
 			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
 		}
 
+		if (result.setSafeSize)
+			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
+
 		ApplyDrawStateLate();
-		vshader = shaderManager_->ApplyShader(false, false, lastVType_);
+		vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
@@ -598,15 +602,13 @@ rotateVBO:
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
 
-			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
 			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
 
-			int scissorX2 = gstate.getScissorX2() + 1;
-			int scissorY2 = gstate.getScissorY2() + 1;
-			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
+				int scissorX2 = gstate.getScissorX2() + 1;
+				int scissorY2 = gstate.getScissorY2() + 1;
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}

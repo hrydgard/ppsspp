@@ -3,7 +3,7 @@
 
 #include "libretro/libretro.h"
 #include "Common/GraphicsContext.h"
-#include "thin3d/thin3d_create.h"
+#include "Common/GPU/thin3d_create.h"
 
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -51,9 +51,7 @@ public:
 	bool Init(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
-		if (gstate_c.skipDrawReason) {
-			video_cb(NULL, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
-		} else {
+		if (!gstate_c.skipDrawReason) {
 			video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
 		}
 	}
@@ -87,16 +85,6 @@ public:
 	void SwapBuffers() override { video_cb(NULL, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0); }
 	GPUCore GetGPUCore() override { return GPUCORE_SOFTWARE; }
 	const char *Ident() override { return "Software"; }
-};
-
-class LibretroNullContext : public LibretroGraphicsContext {
-public:
-	LibretroNullContext() {}
-
-	bool Init() override { return true; }
-	void SwapBuffers() override { video_cb(NULL, 0, 0, 0); }
-	GPUCore GetGPUCore() override { return GPUCORE_NULL; }
-	const char *Ident() override { return "NULL"; }
 };
 
 namespace Libretro {

@@ -23,7 +23,6 @@
 #include <mutex>
 #include <atomic>
 
-#include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
 #include "UI/TextureUtil.h"
 

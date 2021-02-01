@@ -16,21 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-#define SHADERLOG
+//#define SHADERLOG
 #endif
 
 #include <cmath>
 #include <map>
-#include "gfx/d3d9_shader.h"
-#include "base/logging.h"
-#include "i18n/i18n.h"
-#include "math/lin/matrix4x4.h"
-#include "math/math_util.h"
-#include "math/dataconv.h"
-#include "thin3d/thin3d.h"
-#include "util/text/utf8.h"
+
+#include "Common/Data/Text/I18n.h"
+#include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Common.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -38,9 +41,10 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 
 using namespace Lin;
 
@@ -54,7 +58,7 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 	bool success;
 	std::string errorMessage;
 
-	success = CompilePixelShader(device, code, &shader, NULL, errorMessage);
+	success = CompilePixelShaderD3D9(device, code, &shader, &errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -104,7 +108,7 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(device, code, &shader, NULL, errorMessage);
+	success = CompileVertexShaderD3D9(device, code, &shader, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -220,13 +224,6 @@ void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float e
 	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
-// Utility
-void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
-	float m4x4[16];
-	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
-	device_->SetVertexShaderConstantF(creg, m4x4, 4);
-}
-
 void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 	float m3x4[12];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
@@ -234,9 +231,7 @@ void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 }
 
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
-	float transp[16];
-	Transpose4x4(transp, pMatrix);
-	device_->SetVertexShaderConstantF(creg, transp, 4);
+	device_->SetVertexShaderConstantF(creg, pMatrix, 4);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
@@ -251,9 +246,9 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 
 	float yoff = -1.0f / gstate_c.curRTRenderHeight;
 	if (invertedY) {
-		yoff = gstate_c.vpYOffset - yoff;
-	} else {
 		yoff = -gstate_c.vpYOffset - yoff;
+	} else {
+		yoff = gstate_c.vpYOffset - yoff;
 	}
 
 	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
@@ -507,8 +502,8 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 ShaderManagerDX9::ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device)
-	: ShaderManagerCommon(draw), device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
-	codeBuffer_ = new char[16384];
+	: ShaderManagerCommon(draw), device_(device) {
+	codeBuffer_ = new char[32768];
 }
 
 ShaderManagerDX9::~ShaderManagerDX9() {
@@ -546,15 +541,15 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat) {
 	// Always use software for flat shading to fix the provoking index.
-	bool tess = gstate_c.bezier || gstate_c.spline;
+	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 	useHWTransform = useHWTransform && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -581,28 +576,39 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	}
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
-	VSShader *vs;
+	VSShader *vs = nullptr;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderHLSL(VSID, codeBuffer_);
-		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
-
-		if (vs->Failed()) {
+		std::string genErrorString;
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &genErrorString)) {
+			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
+		}
+		if (!vs || vs->Failed()) {
 			auto gr = GetI18NCategory("Graphics");
-			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			if (!vs) {
+				// TODO: Report this?
+				ERROR_LOG(G3D, "Shader generation failed, falling back to software transform");
+			} else {
+				ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			}
 			if (!g_Config.bHideSlowWarnings) {
 				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, vertType, false, false);
+			ComputeVertexShaderID(&VSID, vertType, false, false, weightsAsFloat);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderHLSL(VSID, codeBuffer_);
+			uint32_t attrMask;
+			uint64_t uniformMask;
+			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &genErrorString);
+			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 
@@ -616,7 +622,11 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderHLSL(FSID, codeBuffer_);
+		std::string errorString;
+		uint64_t uniformMask;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &errorString);
+		// We're supposed to handle all possible cases.
+		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {

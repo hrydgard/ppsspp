@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/ChunkFile.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
@@ -73,8 +74,8 @@ void HLEHelperThread::DoState(PointerWrap &p) {
 		return;
 	}
 
-	p.Do(id_);
-	p.Do(entry_);
+	Do(p, id_);
+	Do(p, entry_);
 }
 
 void HLEHelperThread::Start(u32 a0, u32 a1) {

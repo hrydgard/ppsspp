@@ -2,30 +2,35 @@
 // See headless.txt.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 
+#include "ppsspp_config.h"
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
 
-#include "file/zip_read.h"
-#include "profiler/profiler.h"
-#include "Common/FileUtil.h"
+#include "Common/Profiler/Profiler.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
+
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
+#include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "base/NativeApp.h"
-#include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -35,13 +40,7 @@
 #include "SDLHeadlessHost.h"
 #endif
 
-// https://github.com/richq/android-ndk-profiler
-#ifdef ANDROID_NDK_PROFILER
-#include <stdlib.h>
-#include "android/android-ndk-profiler/prof.h"
-#endif
-
-#if defined(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
 }
@@ -49,6 +48,9 @@ JNIEnv *getEnv() {
 jclass findClass(const char *name) {
 	return nullptr;
 }
+
+bool audioRecording_Available() { return false; }
+bool audioRecording_State() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {
@@ -84,15 +86,11 @@ void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) {
-	return -1;
-}
-float System_GetPropertyFloat(SystemProperty prop) {
-	return -1;
-}
-bool System_GetPropertyBool(SystemProperty prop) {
-	return false;
-}
+std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
+float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
+bool System_GetPropertyBool(SystemProperty prop) { return false; }
+
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
@@ -109,6 +107,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
 	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
+	fprintf(stderr, " --debugger=PORT        enable websocket debugger and break at start\n");
 
 #if defined(HEADLESSHOST_CLASS)
 	{
@@ -131,7 +130,7 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPUCORE_NULL:
+	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
 	default:
@@ -145,10 +144,8 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
-	if (teamCityMode) {
-		// Kinda ugly, trying to guesstimate the test name from filename...
-		teamCityName = GetTestName(coreParameter.fileToStart);
-	}
+	// Kinda ugly, trying to guesstimate the test name from filename...
+	currentTestName = GetTestName(coreParameter.fileToStart);
 
 	std::string output;
 	if (autoCompare)
@@ -158,23 +155,23 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']\n", teamCityName.c_str());
+		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
+		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
 		return false;
 	}
 
-	TeamCityPrint("##teamcity[testStarted name='%s' captureStandardOutput='true']\n", teamCityName.c_str());
+	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
 	host->BootDone();
 
 	if (autoCompare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
-	time_update();
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
 	// This gets trashed if it's not static.
 	static double deadline;
-	deadline = time_now() + timeout;
+	deadline = time_now_d() + timeout;
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
@@ -182,8 +179,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
 		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
-	coreState = CORE_RUNNING;
-	while (coreState == CORE_RUNNING)
+	coreState = coreParameter.startBreak ? CORE_STEPPING : CORE_RUNNING;
+	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING)
 	{
 		int blockTicks = usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
@@ -193,14 +190,17 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			coreState = CORE_RUNNING;
 			headlessHost->SwapBuffers();
 		}
-		time_update();
+		if (coreState == CORE_STEPPING && !coreParameter.startBreak) {
+			break;
+		}
 		if (time_now_d() > deadline) {
 			// Don't compare, print the output at least up to this point, and bail.
 			printf("%s", output.c_str());
 			passed = false;
 
 			host->SendDebugOutput("TIMEOUT\n");
-			TeamCityPrint("##teamcity[testFailed name='%s' message='Test timeout']\n", teamCityName.c_str());
+			TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
+			GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			Core_Stop();
 		}
 	}
@@ -216,7 +216,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	if (autoCompare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
-	TeamCityPrint("##teamcity[testFinished name='%s']\n", teamCityName.c_str());
+	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
 }
@@ -229,18 +229,13 @@ int main(int argc, const char* argv[])
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-#ifdef ANDROID_NDK_PROFILER
-	setenv("CPUPROFILE_FREQUENCY", "500", 1);
-	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
-	monstartup("ppsspp_headless");
-#endif
-
 	bool fullLog = false;
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPUCORE_NULL;
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
+	int debuggerPort = -1;
 
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -279,7 +274,8 @@ int main(int argc, const char* argv[])
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
 				gpuCore = GPUCORE_GLES;
-			else if (!strcasecmp(gpuName, "software"))
+			// There used to be a separate "null" rendering core - just use software.
+			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
@@ -287,8 +283,6 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
-			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
@@ -303,6 +297,8 @@ int main(int argc, const char* argv[])
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
+		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
+			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
@@ -327,15 +323,7 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
-
-	std::string error_string;
-	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
-
-	LogManager::Init();
+	LogManager::Init(&g_Config.bEnableLogging);
 	LogManager *logman = LogManager::GetInstance();
 
 	PrintfLogger *printfLogger = new PrintfLogger();
@@ -347,9 +335,17 @@ int main(int argc, const char* argv[])
 	}
 	logman->AddListener(printfLogger);
 
+	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
+	host = headlessHost;
+
+	std::string error_string;
+	GraphicsContext *graphicsContext = nullptr;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
+
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
@@ -357,6 +353,7 @@ int main(int argc, const char* argv[])
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
+	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
 	coreParameter.renderHeight = 272;
 	coreParameter.pixelWidth = 480;
@@ -382,7 +379,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
@@ -391,9 +388,12 @@ int main(int argc, const char* argv[])
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
+	g_Config.iMemStickSizeGB = 16;
 	g_Config.bFragmentTestCache = true;
 	g_Config.bEnableWlan = true;
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
+	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
+	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory = "";
@@ -427,6 +427,14 @@ int main(int argc, const char* argv[])
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
 	}
 #endif
+
+	UpdateUIState(UISTATE_INGAME);
+
+	if (debuggerPort > 0) {
+		g_Config.iRemoteISOPort = debuggerPort;
+		coreParameter.startBreak = true;
+		StartWebServer(WebServerFlags::DEBUGGER);
+	}
 
 	if (stateToLoad != NULL)
 		SaveState::Load(stateToLoad, -1);
@@ -464,6 +472,10 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	if (debuggerPort > 0) {
+		ShutdownWebServer();
+	}
+
 	host->ShutdownGraphics();
 	delete host;
 	host = nullptr;
@@ -472,10 +484,6 @@ int main(int argc, const char* argv[])
 	VFSShutdown();
 	LogManager::Shutdown();
 	delete printfLogger;
-
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
 
 	return 0;
 }

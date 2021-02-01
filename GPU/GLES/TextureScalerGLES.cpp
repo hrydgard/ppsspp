@@ -15,20 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-#if _MSC_VER == 1700
-// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012.. 
-#include "../native/base/basictypes.h"
-#endif
-
 #include <algorithm>
-#include "gfx/gl_common.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
-#include "Common/ThreadPools.h"
-#include "thin3d/DataFormat.h"
+#include "Core/ThreadPools.h"
+#include "Common/GPU/DataFormat.h"
 
 int TextureScalerGLES::BytesPerPixel(u32 format) {
 	return ((Draw::DataFormat)format == Draw::DataFormat::R8G8B8A8_UNORM) ? 4 : 2;
