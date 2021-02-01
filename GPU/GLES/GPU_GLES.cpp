@@ -222,7 +222,7 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
 	if (draw_->GetDeviceCaps().depthClampSupported) {
-		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+		features |= GPU_SUPPORTS_DEPTH_CLAMP | GPU_SUPPORTS_ACCURATE_DEPTH;
 		// Our implementation of depth texturing needs simple Z range, so can't
 		// use the extension hacks (yet).
 		if (gl_extensions.GLES3)

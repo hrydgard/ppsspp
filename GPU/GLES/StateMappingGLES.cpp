@@ -236,7 +236,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			// TODO: Might happen in clear mode if not through...
 			depthClampEnable = false;
 		} else {
-			// Set cull
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
 				// But the alternate is not clamping in either direction...

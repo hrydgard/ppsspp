@@ -536,6 +536,8 @@ OpenGLContext::OpenGLContext() {
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
+	// This will induce a performance penalty on many architectures though so a blanket enable of this
+	// is probably not a good idea.
 	// https://stackoverflow.com/questions/5960757/how-to-emulate-gl-depth-clamp-nv
 
 	switch (gl_extensions.gpuVendor) {
