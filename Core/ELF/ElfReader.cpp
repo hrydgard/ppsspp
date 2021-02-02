@@ -170,11 +170,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			break;
 
 		case R_MIPS_16:
-			{
-				char temp[256];
-				op = (op & 0xFFFF0000) | (((int)(op & 0xFFFF) + (int)relocateTo) & 0xFFFF);
-				MIPSDisAsm(MIPSOpcode(op), 0, temp);
-			}
+			op = (op & 0xFFFF0000) | (((int)(op & 0xFFFF) + (int)relocateTo) & 0xFFFF);
 			break;
 
 		case R_MIPS_NONE:
@@ -190,6 +186,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			break;
 		}
 		Memory::Write_U32(op, addr);
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
 	}
 	if (numErrors) {
 		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
@@ -348,6 +345,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			Memory::Write_U32(op, rel_offset);
+			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation2");
 			rcount += 1;
 		}
 	}
