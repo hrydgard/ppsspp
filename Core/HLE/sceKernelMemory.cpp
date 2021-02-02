@@ -1965,6 +1965,7 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 
 		// Whenever freeing a block, clear it (even if it's not going to wake anyone.)
 		Memory::Memset(freedAddress, 0, tls->ntls.blockSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, freedAddress, tls->ntls.blockSize, "TlsFree");
 
 		// First, let's remove the end check for the freeing thread.
 		auto freeingLocked = tlsplThreadEndChecks.equal_range(threadID);
@@ -2239,8 +2240,10 @@ int sceKernelGetTlsAddr(SceUID uid)
 		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, allocAddress, tls->ntls.blockSize, "TlsAddr");
 
 		// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
-		if (needsClear)
+		if (needsClear) {
 			Memory::Memset(allocAddress, 0, tls->ntls.blockSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, allocAddress, tls->ntls.blockSize, "TlsAddr");
+		}
 
 		return allocAddress;
 	}

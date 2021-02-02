@@ -857,6 +857,7 @@ void PSPModule::Cleanup() {
 			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
 		}
 		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, nm.text_addr + nm.text_size, nm.data_size + nm.bss_size, "ModuleClear");
 
 		// Let's also invalidate, just to make sure it's cleared out for any future data.
 		currentMIPS->InvalidateICache(memoryBlockAddr, memoryBlockSize);

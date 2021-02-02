@@ -475,10 +475,11 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			if (srcSize < dstSize)
 			{
 				memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
+				NotifyMemInfo(MemBlockFlags::WRITE, writeAddr + srcSize, dstSize - srcSize, "ELFZero");
 			}
 
 			memcpy(dst, src, srcSize);
-			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, dstSize, "ELFLoad");
+			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, srcSize, "ELFLoad");
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
