@@ -38,7 +38,7 @@
 
 #include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -468,7 +468,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
 
-	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, "Memset");
 }
 
 } // namespace

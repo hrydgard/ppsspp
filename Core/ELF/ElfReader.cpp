@@ -19,7 +19,7 @@
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/ELF/ElfReader.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
@@ -478,7 +478,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			}
 
 			memcpy(dst, src, srcSize);
-			CBreakPoints::ExecMemCheck(writeAddr, true, dstSize, currentMIPS->pc);
+			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, dstSize, "ELFLoad");
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}

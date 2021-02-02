@@ -433,6 +433,7 @@ public:
 		// Fill the stack.
 		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
 			Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadFillStack");
 		}
 		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
 		currentStack.end = context.r[MIPS_REG_SP];
@@ -457,6 +458,7 @@ public:
 
 			if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
 				Memory::Memset(nt.initialStack, 0, nt.stackSize);
+				NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadFreeStack");
 			}
 
 			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
@@ -483,6 +485,7 @@ public:
 		// We still drop the threadID at the bottom and fill it, but there's no k0.
 		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
 		Memory::Write_U32(GetUID(), nt.initialStack);
+		NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadExtendStack");
 		return true;
 	}
 
@@ -2043,8 +2046,10 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	}
 
 	// Now copy argument to stack.
-	if (!forceArgs && Memory::IsValidAddress(argBlockPtr))
+	if (!forceArgs && Memory::IsValidAddress(argBlockPtr)) {
 		Memory::Memcpy(sp, argBlockPtr, argSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, argBlockPtr, argSize, "ThreadStartArgs");
+	}
 
 	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
 	// This could be stack overflow safety, or just stack eaten by the kernel entry func.

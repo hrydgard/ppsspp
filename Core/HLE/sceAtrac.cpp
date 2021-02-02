@@ -26,7 +26,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
@@ -1222,7 +1222,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-								CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
@@ -1244,7 +1244,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
 						if (outbuf != nullptr) {
 							memset(outbuf, 0, outBytes);
-							CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+							NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 						}
 					}
 				}
@@ -2447,7 +2447,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 			int avret = swr_convert(atrac->swrCtx_, &out, numSamples,
 				(const u8**)atrac->frame_->extended_data, numSamples);
 			u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-			CBreakPoints::ExecMemCheck(samplesAddr, true, outBytes, currentMIPS->pc);
+			NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "AtracLowLevelDecode");
 			if (avret < 0) {
 				ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 			}

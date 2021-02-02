@@ -429,6 +429,7 @@
     <ClCompile Include="..\ext\udis86\syn.c" />
     <ClCompile Include="..\ext\udis86\udis86.c" />
     <ClCompile Include="AVIDump.cpp" />
+    <ClCompile Include="Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp" />
@@ -977,6 +978,7 @@
     <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
+    <ClInclude Include="Debugger\MemBlockInfo.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />

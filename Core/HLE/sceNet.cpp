@@ -678,15 +678,14 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 		addr[0] &= 0xfc;
-	}
-	else
-	// Read MAC Address from config
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
-		Memory::Memset(addrAddr, 0, 6);
 	} else {
-		CBreakPoints::ExecMemCheck(addrAddr, true, 6, currentMIPS->pc);
+		// Read MAC Address from config
+		if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
+			ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+			Memory::Memset(addrAddr, 0, 6);
+		}
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
 	return hleLogSuccessI(SCENET, hleDelayResult(0, "get ether mac", 200));
 }

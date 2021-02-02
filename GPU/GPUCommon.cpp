@@ -17,6 +17,7 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -25,7 +26,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
-#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -2720,14 +2720,17 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
-	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstBasePtr + (dstY * dstStride + dstX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcBasePtr + (srcY * srcStride + srcX) * bpp, height * srcStride * bpp, "GPUBlockTransfer");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, "GPUBlockTransfer");
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
+	NotifyMemInfo(MemBlockFlags::READ, src, size, "GPUMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemcpy");
+
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
@@ -2749,6 +2752,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 }
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemset");
+
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);

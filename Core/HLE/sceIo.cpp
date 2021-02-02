@@ -29,7 +29,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
@@ -1026,7 +1026,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
-			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
+			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, "IoRead");
 			u8 *data = (u8 *)Memory::GetPointer(data_addr);
 			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
@@ -1162,7 +1162,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 
-		CBreakPoints::ExecMemCheck(data_addr, false, size, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, "IoWrite");
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {

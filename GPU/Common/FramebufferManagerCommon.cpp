@@ -28,7 +28,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
@@ -1690,10 +1690,14 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	const int stride = gstate.FrameBufStride();
 	const int width = x2 - x1;
 
+	const int byteStride = stride * bpp;
+	const int byteWidth = width * bpp;
+	for (int y = y1; y < y2; ++y) {
+		NotifyMemInfo(MemBlockFlags::WRITE, gstate.getFrameBufAddress() + x1 * bpp + y * byteStride, byteWidth, "FramebufferClear");
+	}
+
 	// Can use memset for simple cases. Often alpha is different and gums up the works.
 	if (singleByteClear) {
-		const int byteStride = stride * bpp;
-		const int byteWidth = width * bpp;
 		addr += x1 * bpp;
 		for (int y = y1; y < y2; ++y) {
 			memset(addr + y * byteStride, clearBits, byteWidth);
@@ -2166,7 +2170,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	if (destPtr) {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
-		CBreakPoints::ExecMemCheck(fb_address + dstByteOffset, true, dstSize, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, "FramebufferPack");
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}

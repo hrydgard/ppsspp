@@ -21,7 +21,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -118,8 +118,8 @@ static int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, utf.byteIndex(), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, utf.byteIndex(), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 
@@ -154,8 +154,8 @@ static int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, utf.byteIndex(), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, utf.byteIndex(), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 
@@ -185,8 +185,8 @@ static int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, utf.shortIndex() * sizeof(uint16_t), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, utf.shortIndex() * sizeof(uint16_t), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 
@@ -221,8 +221,8 @@ static int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, utf.shortIndex() * sizeof(uint16_t), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, utf.shortIndex() * sizeof(uint16_t), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 
@@ -257,8 +257,8 @@ static int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, sjis.byteIndex(), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, sjis.byteIndex(), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 
@@ -293,8 +293,8 @@ static int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	if (dst < dstEnd)
 		*dst++ = 0;
 
-	CBreakPoints::ExecMemCheck(srcAddr, false, sjis.byteIndex(), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcAddr, sjis.byteIndex(), "sceCcc");
+	NotifyMemInfo(MemBlockFlags::WRITE, dstAddr, dst.ptr - dstAddr, "sceCcc");
 	return n;
 }
 

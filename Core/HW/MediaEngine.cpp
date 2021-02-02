@@ -17,7 +17,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -816,7 +816,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		delete [] imgbuf;
 	}
 
-	CBreakPoints::ExecMemCheck(bufferPtr, true, videoImageSize, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, videoImageSize, "VideoDecode");
 
 	return videoImageSize;
 #endif // USE_FFMPEG
@@ -871,7 +871,6 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
 			imgbuf += videoLineSize;
-			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
 		}
 		break;
 
@@ -881,7 +880,6 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 		}
 		break;
 
@@ -891,7 +889,6 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 		}
 		break;
 
@@ -901,7 +898,6 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 		}
 		break;
 
@@ -921,6 +917,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
 		delete [] imgbuf;
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, videoImageSize, "VideoDecodeRange");
 
 	return videoImageSize;
 #endif // USE_FFMPEG
@@ -995,7 +992,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 
-		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, outbytes, "VideoDecodeAudio");
 	}
 
 	return 0x2000;
