@@ -27,8 +27,8 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	// TODO
 
 	if (flags & MemBlockFlags::WRITE) {
-		CBreakPoints::ExecMemCheck(start, true, size, pc);
+		CBreakPoints::ExecMemCheck(start, true, size, pc, tag);
 	} else if (flags & MemBlockFlags::READ) {
-		CBreakPoints::ExecMemCheck(start, false, size, pc);
+		CBreakPoints::ExecMemCheck(start, false, size, pc, tag);
 	}
 }
