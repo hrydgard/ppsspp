@@ -19,18 +19,36 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 #include "Common/Common.h"
 
+class PointerWrap;
+
 enum class MemBlockFlags {
-	FREE = 0,
 	ALLOC = 1,
 	SUB_ALLOC = 2,
 	WRITE = 4,
 	// Not actually logged.
 	READ = 8,
-	SUB_FREE = 16,
+	FREE = 16,
+	SUB_FREE = 32,
 };
 ENUM_CLASS_BITOPS(MemBlockFlags);
 
+struct MemBlockInfo {
+	MemBlockFlags flags;
+	uint32_t start;
+	uint32_t size;
+	uint32_t pc;
+	std::string tag;
+	bool allocated;
+};
+
 void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &tag);
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const std::string &tag);
+
+std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
+
+void MemBlockInfoInit();
+void MemBlockInfoShutdown();
+void MemBlockInfoDoState(PointerWrap &p);

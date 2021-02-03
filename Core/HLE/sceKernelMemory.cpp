@@ -427,6 +427,7 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMemoryInit()
 {
+	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
 	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
@@ -472,6 +473,8 @@ void __KernelMemoryDoState(PointerWrap &p)
 	if (s >= 2) {
 		Do(p, tlsplThreadEndChecks);
 	}
+
+	MemBlockInfoDoState(p);
 }
 
 void __KernelMemoryShutdown()
@@ -487,6 +490,7 @@ void __KernelMemoryShutdown()
 #endif
 	kernelMemory.Shutdown();
 	tlsplThreadEndChecks.clear();
+	MemBlockInfoShutdown();
 }
 
 enum SceKernelFplAttr
