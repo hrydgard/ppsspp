@@ -965,7 +965,7 @@ static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 	}
 	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
 	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
-	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20);
+	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
 	DEBUG_LOG(ME, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	return 0;
 }
@@ -1656,7 +1656,7 @@ static int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
 		if (psmfplayer->totalAudioStreams > 0 && (s64)psmfplayer->psmfPlayerAvcAu.pts < (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
 			// Write zeros for any missing trailing frames so it syncs with the video.
-			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes, "PsmfAudioClear");
 		} else {
 			ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
 		}

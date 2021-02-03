@@ -55,7 +55,7 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len)
 	NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, "Memcpy");
 }
 
-void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
+void Memset(const u32 _Address, const u8 _Data, const u32 _iLength, const std::string &tag = "Memset");
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)

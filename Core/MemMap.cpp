@@ -459,7 +459,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
+void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const std::string &tag) {
 	if (IsValidRange(_Address, _iLength)) {
 		uint8_t *ptr = GetPointerUnchecked(_Address);
 		memset(ptr, _iValue, _iLength);
@@ -468,7 +468,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
 
-	NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, "Memset");
+	NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag);
 }
 
 } // namespace

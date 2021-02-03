@@ -432,8 +432,7 @@ public:
 	bool FillStack() {
 		// Fill the stack.
 		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
-			Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
-			NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadFillStack");
+			Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadFillStack");
 		}
 		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
 		currentStack.end = context.r[MIPS_REG_SP];
@@ -441,7 +440,7 @@ public:
 		context.r[MIPS_REG_SP] -= 256;
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
 		u32 k0 = context.r[MIPS_REG_K0];
-		Memory::Memset(k0, 0, 0x100);
+		Memory::Memset(k0, 0, 0x100, "ThreadK0");
 		Memory::Write_U32(GetUID(),        k0 + 0xc0);
 		Memory::Write_U32(nt.initialStack, k0 + 0xc8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
@@ -457,8 +456,7 @@ public:
 			DEBUG_LOG(SCEKERNEL, "Freeing thread stack %s", nt.name);
 
 			if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
-				Memory::Memset(nt.initialStack, 0, nt.stackSize);
-				NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadFreeStack");
+				Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
 			}
 
 			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
@@ -483,9 +481,8 @@ public:
 		nt.stackSize = currentStack.end - currentStack.start;
 
 		// We still drop the threadID at the bottom and fill it, but there's no k0.
-		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadExtendStack");
 		Memory::Write_U32(GetUID(), nt.initialStack);
-		NotifyMemInfo(MemBlockFlags::WRITE, currentStack.start, nt.stackSize, "ThreadExtendStack");
 		return true;
 	}
 
@@ -1294,7 +1291,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)));
 		// TODO: What is this value?  Basic tests show 0...
 		if (wantedSize > sizeof(t->nt))
-			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));
+			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt), "ThreadStatus");
 	} else {
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);

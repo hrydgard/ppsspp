@@ -430,8 +430,8 @@ void __KernelMemoryInit()
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
-	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
-	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
+	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
+	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), "MemInit");
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
@@ -1968,8 +1968,7 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, freedAddress, tls->ntls.blockSize, "TlsFree");
 
 		// Whenever freeing a block, clear it (even if it's not going to wake anyone.)
-		Memory::Memset(freedAddress, 0, tls->ntls.blockSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, freedAddress, tls->ntls.blockSize, "TlsFree");
+		Memory::Memset(freedAddress, 0, tls->ntls.blockSize, "TlsFree");
 
 		// First, let's remove the end check for the freeing thread.
 		auto freeingLocked = tlsplThreadEndChecks.equal_range(threadID);
@@ -2245,8 +2244,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 
 		// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
 		if (needsClear) {
-			Memory::Memset(allocAddress, 0, tls->ntls.blockSize);
-			NotifyMemInfo(MemBlockFlags::WRITE, allocAddress, tls->ntls.blockSize, "TlsAddr");
+			Memory::Memset(allocAddress, 0, tls->ntls.blockSize, "TlsAddr");
 		}
 
 		return allocAddress;

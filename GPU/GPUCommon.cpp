@@ -2728,8 +2728,6 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "GPUMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemcpy");
 
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
@@ -2746,23 +2744,24 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 		return true;
 	}
 
+	NotifyMemInfo(MemBlockFlags::READ, src, size, "GPUMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemcpy");
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemcpy(dest, src, size);
 	return false;
 }
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
-	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemset");
-
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		Memory::Memset(dest, v, size);
+		Memory::Memset(dest, v, size, "GPUMemset");
 		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
 			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		}
 		return true;
 	}
 
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemset");
 	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemset(dest, v, size);

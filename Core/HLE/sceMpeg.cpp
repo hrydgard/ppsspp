@@ -1960,7 +1960,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	// We kept track of the stream number here in sceMpegGetAtracAu().
 	ctx->mediaengine->setAudioStream(atracAu.esBuffer);
 
-	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
+	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE, "MpegAtracClear");
 	ctx->mediaengine->getAudioSamples(bufferAddr);
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 

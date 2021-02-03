@@ -2310,7 +2310,7 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		u32 contextsize = 256;
 		atrac->context_ = kernelMemory.Alloc(contextsize, false, "Atrac Context");
 		if (atrac->context_.IsValid())
-			Memory::Memset(atrac->context_.ptr, 0, 256);
+			Memory::Memset(atrac->context_.ptr, 0, 256, "AtracContextClear");
 
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
 	}

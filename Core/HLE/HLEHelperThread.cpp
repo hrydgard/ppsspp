@@ -59,8 +59,8 @@ HLEHelperThread::~HLEHelperThread() {
 }
 
 void HLEHelperThread::AllocEntry(u32 size) {
-	entry_ = kernelMemory.Alloc(size);
-	Memory::Memset(entry_, 0, size);
+	entry_ = kernelMemory.Alloc(size, false, "HLEHelper");
+	Memory::Memset(entry_, 0, size, "HLEHelperClear");
 	currentMIPS->InvalidateICache(entry_, size);
 }
 
