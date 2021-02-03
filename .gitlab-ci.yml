@@ -22,6 +22,8 @@ include:
     file: '/linux-cmake.yml'
   - project: 'libretro-infrastructure/ci-templates'
     file: '/windows-x64-msvc19-msys2.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/windows-i686-msvc19-msys2.yml'
 
 stages:
   - build-prepare
@@ -34,9 +36,21 @@ libretro-build-linux-x64:
     - .core-defs
     - .linux-defs
 
+libretro-build-linux-i686:
+  extends:
+    - .libretro-linux-cmake-x86
+    - .core-defs
+    - .linux-defs
+
 libretro-build-windows-x64:
   extends:
     - .libretro-windows-x64-msvc19-msys2-make-default
+    - .core-defs
+    - .windows-defs
+
+libretro-build-windows-i686:
+  extends:
+    - .libretro-windows-i686-msvc19-msys2-make-default
     - .core-defs
     - .windows-defs
 
