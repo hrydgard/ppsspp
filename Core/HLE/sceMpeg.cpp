@@ -524,8 +524,8 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 	Memory::Write_U32(mpegHandle, mpegAddr);
 
 	// Initialize fake mpeg struct.
-	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
-	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
+	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8, "Mpeg");
+	Memory::Memcpy(mpegHandle + 8, "001\0", 4, "Mpeg");
 	Memory::Write_U32(-1, mpegHandle + 12);
 	if (ringbuffer.IsValid()) {
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);

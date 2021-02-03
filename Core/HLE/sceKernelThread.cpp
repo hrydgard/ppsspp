@@ -940,7 +940,7 @@ void __KernelThreadingInit()
 	lastSwitchCycles = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 
-	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
+	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode), "ThreadMIPS");
 
 	u32 pos = idleThreadHackAddr + sizeof(idleThreadCode);
 	for (size_t i = 0; i < ARRAY_SIZE(threadHacks); ++i) {
@@ -1288,7 +1288,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
-			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)));
+			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)), "ThreadStatus");
 		// TODO: What is this value?  Basic tests show 0...
 		if (wantedSize > sizeof(t->nt))
 			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt), "ThreadStatus");
@@ -1296,7 +1296,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
 		if (sz != 0)
-			Memory::Memcpy(statusPtr, &t->nt, sz);
+			Memory::Memcpy(statusPtr, &t->nt, sz, "ThreadStatus");
 	}
 
 	hleEatCycles(1400);
@@ -1939,7 +1939,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	u32 location = currentMIPS->r[MIPS_REG_SP];
 	currentMIPS->r[MIPS_REG_A1] = location;
 	if (argp)
-		Memory::Memcpy(location, argp, args);
+		Memory::Memcpy(location, argp, args, "ThreadParam");
 	// Let's assume same as starting a new thread, 64 bytes for safety/kernel.
 	currentMIPS->r[MIPS_REG_SP] -= 64;
 
@@ -2044,8 +2044,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 
 	// Now copy argument to stack.
 	if (!forceArgs && Memory::IsValidAddress(argBlockPtr)) {
-		Memory::Memcpy(sp, argBlockPtr, argSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, argBlockPtr, argSize, "ThreadStartArgs");
+		Memory::Memcpy(sp, argBlockPtr, argSize, "ThreadStartArgs");
 	}
 
 	// On the PSP, there's an extra 64 bytes of stack eaten after the args.

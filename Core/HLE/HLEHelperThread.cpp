@@ -33,7 +33,7 @@ HLEHelperThread::HLEHelperThread(const char *threadName, u32 instructions[], u32
 	u32 instrBytes = instrCount * sizeof(u32);
 	u32 totalBytes = instrBytes + sizeof(u32) * 2;
 	AllocEntry(totalBytes);
-	Memory::Memcpy(entry_, instructions, instrBytes);
+	Memory::Memcpy(entry_, instructions, instrBytes, "HelperMIPS");
 
 	// Just to simplify things, we add the return here.
 	Memory::Write_U32(MIPS_MAKE_JR_RA(), entry_ + instrBytes + 0);

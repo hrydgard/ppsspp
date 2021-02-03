@@ -50,7 +50,8 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 	if (!skip) {
-		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		// TODO: InvalidateICache src before copy?
+		Memory::Memcpy(dst, Memory::GetPointer(src), size, "DmacMemcpy");
 		currentMIPS->InvalidateICache(dst, size);
 	}
 

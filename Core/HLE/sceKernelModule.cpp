@@ -1738,13 +1738,13 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (param.args > 0) {
 		u32 argpAddr = param.argp;
 		param_argp = new u8[param.args];
-		Memory::Memcpy(param_argp, argpAddr, param.args);
+		Memory::Memcpy(param_argp, argpAddr, param.args, "KernelLoadParam");
 	}
 	if (param.keyp != 0) {
 		u32 keyAddr = param.keyp;
 		size_t keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
 		param_key = new u8[keylen];
-		Memory::Memcpy(param_key, keyAddr, (u32)keylen);
+		Memory::Memcpy(param_key, keyAddr, (u32)keylen, "KernelLoadParam");
 	}
 
 	__KernelLoadReset();

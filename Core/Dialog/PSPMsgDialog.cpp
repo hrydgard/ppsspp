@@ -344,7 +344,7 @@ int PSPMsgDialog::Update(int animSpeed) {
 		messageDialog.result = 0;
 	}
 
-	Memory::Memcpy(messageDialogAddr, &messageDialog ,messageDialog.common.size);
+	Memory::Memcpy(messageDialogAddr, &messageDialog, messageDialog.common.size, "MsgDialogParam");
 	return 0;
 }
 
