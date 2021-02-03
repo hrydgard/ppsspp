@@ -30,8 +30,10 @@ What's new in 1.11.0
 There's really too much to list this time.
 * Lots of minor bug fixes, crash fixes, and performance fixes and improvements.
 * New Browse... button to allow opening SD cards on Android 11
-* Countless AdHoc networking fixes by ANR2ME, too many to list
+* Countless AdHoc networking fixes by ANR2ME, for example Dragon Ball Shin Budokai, PowerStone,
+  Bleach Heat The Soul 7, Kingdom Hearts, GTA: VCS and many more.
 * Graphics issue with car reflections fixed in Outrun, Dirt 2 (#13636, #13640, #13760)
+* Cut-off cards in Yu Gi Oh fixed (#7124).
 * Numerous fixes to the builtin fonts by nassau-tk
 * Added exception handler so PPSSPP stays alive if a game crashes (#11795/#13092)
 * Desktop: Support for multiple instance multiplayer (#13172, ...)
@@ -50,10 +52,11 @@ There's really too much to list this time.
 * Added "Lower resolution for effects" on libretro (#13654)
 * Allow chaining multiple post-processing shaders (#12924)
 * Support for loading game-specific plugins (#13335)
-
+* Fixed Assassin's Creed: Bloodlines Save issue on Android (#12761)
+* Hanayaka Nari Wa ga Ichizoku: mono voices fixed (#5213)
 * Fixed games:
     * Namco Museum - Battle Collection, Vol 2 (#9523, #13297, #13298)
-    * Dream Club Portable (#6025)
+    * Dream Club Portable (graphics bugs, GL and Vulkan) (#6025)
     * Capcom Classic Collection Reloaded (stuck in return game) (#4671)
     * Xyanide Resurrection (freezing) (#8526)
     * Dissidia Final Fantasy Chinese (patched game, invalid address) (#13204)
