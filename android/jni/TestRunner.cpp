@@ -84,6 +84,10 @@ bool RunTests() {
 	}
 #endif
 
+	GraphicsContext *tempCtx = PSP_CoreParameter().graphicsContext;
+	// Clear the context during tests.  We set it back later.
+	PSP_CoreParameter().graphicsContext = nullptr;
+
 	CoreParameter coreParam;
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
 	coreParam.gpuCore = GPUCORE_SOFTWARE;
@@ -175,6 +179,8 @@ bool RunTests() {
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 	PSP_CoreParameter().headLess = false;
+	PSP_CoreParameter().graphicsContext = tempCtx;
+
 	g_Config.sReportHost = savedReportHost;
 	return true;  // Managed to execute the tests. Says nothing about the result.
 }
