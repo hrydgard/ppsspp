@@ -1896,13 +1896,35 @@ uint16_t getLocalPort(int sock) {
 	return ntohs(localAddr.sin_port);
 }
 
-u_long getAvailToRecv(int sock) {
+u_long getAvailToRecv(int sock, int udpBufferSize) {
 	u_long n = 0; // Typical MTU size is 1500
+	int err = -1;
 #if defined(_WIN32) // May not be available on all platform
-	ioctlsocket(sock, FIONREAD, &n);
+	err = ioctlsocket(sock, FIONREAD, &n);
 #else
-	ioctl(sock, FIONREAD, &n);
+	err = ioctl(sock, FIONREAD, &n);
 #endif
+	if (err < 0)
+		return 0;
+
+	if (udpBufferSize > 0 && n > 0) {
+		// Cap number of bytes of full DGRAM message(s?) up to buffer size
+		static int lastUdpBufSize = 0;
+		static char* buf = NULL;
+		if (udpBufferSize > lastUdpBufSize) {
+			// Reusing temp buffer to prevent causing too many fragmentation due to repeated alloc -> free (was getting out of memory issue)
+			char *tmp = (char*)realloc(buf, udpBufferSize);
+			if (tmp) {
+				buf = tmp;
+				lastUdpBufSize = udpBufferSize;
+			}
+		}
+		// Does each recv can only received one message?
+		err = recvfrom(sock, buf, udpBufferSize, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, NULL, NULL);
+		//free(buf); // Repeated alloc -> free seems to cause too many fragmentation and ended getting out of memory due to too many alloc -> free
+		if (err >= 0)
+			return (u_long)err;
+	}
 	return n;
 }
 
