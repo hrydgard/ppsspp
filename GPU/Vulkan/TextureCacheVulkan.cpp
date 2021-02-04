@@ -862,7 +862,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		char texName[128]{};
-		snprintf(texName, sizeof(texName), "texture_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format));
+		snprintf(texName, sizeof(texName), "texture_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
 		image->SetTag(texName);
 
 		bool allocSuccess = image->CreateDirect(cmdInit, allocator_, w * scaleFactor, h * scaleFactor, maxLevelToGenerate + 1, actualFmt, imageLayout, usage, mapping);

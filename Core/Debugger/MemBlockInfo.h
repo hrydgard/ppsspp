@@ -25,13 +25,14 @@
 class PointerWrap;
 
 enum class MemBlockFlags {
-	ALLOC = 1,
-	SUB_ALLOC = 2,
-	WRITE = 4,
+	ALLOC = 0x0001,
+	SUB_ALLOC = 0x0002,
+	WRITE = 0x0004,
+	TEXTURE = 0x0008,
 	// Not actually logged.
-	READ = 8,
-	FREE = 16,
-	SUB_FREE = 32,
+	READ = 0x0800,
+	FREE = 0x1000,
+	SUB_FREE = 0x2000,
 };
 ENUM_CLASS_BITOPS(MemBlockFlags);
 

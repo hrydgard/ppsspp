@@ -21,7 +21,9 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -1110,6 +1112,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					}
 				}
 			}
+
+			NotifyMemInfo(MemBlockFlags::ALLOC, clutAddr, loadBytes, "CLUT");
 		}
 
 		// It's possible for a game to (successfully) access outside valid memory.
@@ -1294,6 +1298,9 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
+	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
+
+	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, StringFromFormat("Texture_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat)));
 
 	switch (format) {
 	case GE_TFMT_CLUT4:

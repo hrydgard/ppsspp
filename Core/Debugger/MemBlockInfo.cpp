@@ -59,6 +59,7 @@ private:
 static MemSlabMap allocMap;
 static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
+static MemSlabMap textureMap;
 
 MemSlabMap::MemSlabMap() {
 	Reset();
@@ -268,6 +269,9 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		// Maintain the previous allocation tag for debugging.
 		suballocMap.Mark(start, size, 0, false, "");
 	}
+	if (flags & MemBlockFlags::TEXTURE) {
+		textureMap.Mark(start, size, pc, true, tag);
+	}
 	if (flags & MemBlockFlags::WRITE) {
 		CBreakPoints::ExecMemCheck(start, true, size, pc, tag);
 		writeMap.Mark(start, size, pc, true, tag);
@@ -281,6 +285,7 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
 	suballocMap.Find(MemBlockFlags::SUB_ALLOC, start, size, results);
 	writeMap.Find(MemBlockFlags::WRITE, start, size, results);
+	textureMap.Find(MemBlockFlags::TEXTURE, start, size, results);
 	return results;
 }
 
@@ -291,6 +296,7 @@ void MemBlockInfoShutdown() {
 	allocMap.Reset();
 	suballocMap.Reset();
 	writeMap.Reset();
+	textureMap.Reset();
 }
 
 void MemBlockInfoDoState(PointerWrap &p) {
@@ -301,4 +307,5 @@ void MemBlockInfoDoState(PointerWrap &p) {
 	allocMap.DoState(p);
 	suballocMap.DoState(p);
 	writeMap.DoState(p);
+	textureMap.DoState(p);
 }
