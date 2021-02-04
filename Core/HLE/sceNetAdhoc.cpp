@@ -4661,8 +4661,10 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 		// Create PDP Socket
 		int sock = sceNetAdhocPdpCreate((const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
 		item->socket = sock;
-		if (sock < 1)
+		if (sock < 1) {
+			peerlock.unlock();
 			return hleLogError(SCENET, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
+		}
 
 		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
 		netAdhocValidateLoopMemory();
