@@ -131,7 +131,7 @@ void DrawBackground(UIContext &dc, float alpha) {
 	// jitter we accumulate time instead.
 	static int frameCount = 0.0;
 	frameCount++;
-	double t = (double)frameCount / 60.0;
+	double t = (double)frameCount / System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 #else
 	double t = time_now_d();
 #endif
@@ -472,10 +472,15 @@ void LogoScreen::Next() {
 
 const float logoScreenSeconds = 2.5f;
 
+LogoScreen::LogoScreen(bool gotoGameSettings)
+	: gotoGameSettings_(gotoGameSettings) {
+	startTime_ = time_now_d();
+}
+
 void LogoScreen::update() {
 	UIScreen::update();
-	frames_++;
-	if (frames_ > 60 * logoScreenSeconds) {
+	double t = time_now_d() - startTime_;
+	if (t > logoScreenSeconds) {
 		Next();
 	}
 }
@@ -514,7 +519,10 @@ void LogoScreen::render() {
 	float yres = dc.GetBounds().h;
 
 	dc.Begin();
-	float t = (float)frames_ / (60.0f * logoScreenSeconds / 3.0f);
+
+	float sinceStart = time_now_d() - startTime_;
+
+	float t = (float)sinceStart / (logoScreenSeconds / 3.0f);
 
 	float alpha = t;
 	if (t > 1.0f)
@@ -639,10 +647,13 @@ UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+CreditsScreen::CreditsScreen() {
+	startTime_ = time_now_d();
+}
+
 void CreditsScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
-	frames_++;
 }
 
 void CreditsScreen::render() {
@@ -797,7 +808,10 @@ void CreditsScreen::render() {
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
 	int totalHeight = numItems * itemHeight + bounds.h + 200;
-	int y = bounds.y2() - (frames_ % totalHeight);
+
+	float t = (float)(time_now_d() - startTime_) * 60.0;
+
+	float y = bounds.y2() - fmodf(t, (float)totalHeight);
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
