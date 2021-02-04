@@ -18,6 +18,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MIPS/MIPS.h"
@@ -34,13 +35,14 @@ public:
 
 private:
 	struct Slab {
-		uint32_t start;
-		uint32_t size;
-		uint32_t pc;
-		bool allocated;
+		uint32_t start = 0;
+		uint32_t size = 0;
+		uint64_t ticks = 0;
+		uint32_t pc = 0;
+		bool allocated = false;
 		std::string tag;
-		Slab *prev;
-		Slab *next;
+		Slab *prev = nullptr;
+		Slab *next = nullptr;
 
 		void DoState(PointerWrap &p);
 	};
@@ -82,8 +84,10 @@ bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint32_t pc, bool allocated,
 		}
 
 		slab->allocated = allocated;
-		if (pc != 0)
+		if (pc != 0) {
+			slab->ticks = CoreTiming::GetTicks();
 			slab->pc = pc;
+		}
 		if (!tag.empty())
 			slab->tag = tag;
 
@@ -116,7 +120,8 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 void MemSlabMap::Reset() {
 	Clear();
 
-	first_ = new Slab{ 0, UINT_MAX, 0, false, "", nullptr, nullptr };
+	first_ = new Slab();
+	first_->size = UINT_MAX;
 }
 
 void MemSlabMap::DoState(PointerWrap &p) {
@@ -166,6 +171,7 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 
 	Do(p, start);
 	Do(p, size);
+	Do(p, ticks);
 	Do(p, pc);
 	Do(p, allocated);
 	Do(p, tag);
@@ -192,9 +198,16 @@ MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 }
 
 MemSlabMap::Slab *MemSlabMap::Split(Slab *slab, uint32_t size) {
-	uint32_t nextStart = slab->start + size;
-	uint32_t nextSize = slab->size - size;
-	Slab *next = new Slab{ nextStart, nextSize, slab->pc, slab->allocated, slab->tag, slab, slab->next };
+	Slab *next = new Slab();
+	next->start = slab->start + size;
+	next->size = slab->size - size;
+	next->ticks = slab->ticks;
+	next->pc = slab->pc;
+	next->allocated = slab->allocated;
+	next->tag = slab->tag;
+	next->prev = slab;
+	next->next = slab->next;
+
 	slab->next = next;
 	if (next->next)
 		next->next->prev = next;
