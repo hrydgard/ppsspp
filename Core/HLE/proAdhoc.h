@@ -1271,8 +1271,10 @@ bool isPrivateIP(uint32_t ip);
 
 /*
  * Get Number of bytes available in buffer to be Received
+ * @param sock fd
+ * @param udpBufferSize (UDP only)
  */
-u_long getAvailToRecv(int sock);
+u_long getAvailToRecv(int sock, int udpBufferSize = 0);
 
 /*
  * Get UDP Socket Max Message Size

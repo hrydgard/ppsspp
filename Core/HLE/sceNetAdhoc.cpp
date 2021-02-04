@@ -2943,10 +2943,9 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 				auto sock = adhocSockets[j];
 				if (sock != NULL && sock->type == SOCK_PDP) {
 					// Set available bytes to be received. With FIONREAD There might be ghosting 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2) Attempting to recv this ghost 1 byte will result to socket error 10054 (may need to disable SIO_UDP_CONNRESET error)
-					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id);
-					// TODO: It seems real PSP respecting the socket buffer size arg, so we may need to cap the value to the buffer size arg since we use larger buffer, but may cause Warriors Orochi 2 to get slower performance.
-					// Note: Capping available data on UDP/PDP can causes data loss if the game tried to read the whole capped buffer size while containing partial/truncated message.
-					//sock->data.pdp.rcv_sb_cc = std::min(sock->data.pdp.rcv_sb_cc, (u32_le)sock->buffer_size); 
+					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
+					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
+					sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
 
 					// Copy Socket Data from Internal Memory
 					memcpy(&buf[i], &sock->data.pdp, sizeof(SceNetAdhocPdpStat));
