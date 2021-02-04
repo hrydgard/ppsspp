@@ -82,11 +82,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 
 	if (language == HLSL_D3D11) {
 		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
-		if (pixelFormat == GE_FORMAT_DEPTH16) {
-			WRITE(p, "  float color = tex.Sample(texSamp, v_texcoord0).x;\n");
-		} else {
-			WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
-		}
+		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
 		WRITE(p, "void main() {\n");
 		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
