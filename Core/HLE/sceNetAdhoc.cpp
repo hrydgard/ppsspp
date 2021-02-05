@@ -1808,14 +1808,16 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	adhocSockets[id - 1]->flags = flg;
 	adhocSockets[id - 1]->alerted_flags = 0;
 
-	return hleDelayResult(0, "set socket alert delay", 1000);
+	return 0;
 }
 
 // Flags seems to be bitmasks of ADHOC_F_ALERT... (need more games to test this)
 int sceNetAdhocSetSocketAlert(int id, int flag) {
  	WARN_LOG_REPORT_ONCE(sceNetAdhocSetSocketAlert, SCENET, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
-	return hleLogDebug(SCENET, NetAdhoc_SetSocketAlert(id, flag), "");
+	int retval = NetAdhoc_SetSocketAlert(id, flag);
+	hleDelayResult(retval, "set socket alert delay", 1000);
+	return hleLogDebug(SCENET, retval, "");
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
