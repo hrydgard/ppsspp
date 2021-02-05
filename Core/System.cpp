@@ -412,6 +412,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 
 	if (!CPU_Init()) {
 		*error_string = "Failed initializing CPU/Memory";
+		pspIsIniting = false;
 		return false;
 	}
 
