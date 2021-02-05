@@ -87,6 +87,7 @@ std::map<int, AdhocctlHandler> adhocctlHandlers;
 std::vector<SceUID> matchingThreads;
 int IsAdhocctlInCB = 0;
 
+int adhocMatchingEvent = -1;
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
 int adhocSocketNotifyEvent = -1;
@@ -110,6 +111,7 @@ int FlushPtpSocket(int socketId);
 int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect = true);
+int NetAdhocPdp_Delete(int id, int unknown);
 static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
 static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
@@ -350,6 +352,72 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
 }
 
+void DoBlockingMatchingStop(SceNetAdhocMatchingContext* ctx) {
+	if (ctx != NULL) {
+		// Stop fake PSP Thread.
+		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
+		if (matchingThreads[ctx->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[ctx->matching_thid]), "ERROR") != 0) {
+			__KernelStopThread(matchingThreads[ctx->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
+			__KernelDeleteThread(matchingThreads[ctx->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
+		}
+		matchingThreads[ctx->matching_thid] = 0;
+
+		// Make sure nobody locking/using the socket
+		ctx->socketlock->lock();
+		// Delete the socket
+		NetAdhocPdp_Delete(ctx->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
+		ctx->socketlock->unlock();
+
+		// Multithreading Lock
+		peerlock.lock();
+
+		// Remove your own MAC, or All members, or don't remove at all or we should do this on MatchingDelete ?
+		clearPeerList(ctx); //deleteAllMembers(item);
+
+		ctx->running = 0;
+		netAdhocMatchingStarted--;
+
+		// Multithreading Unlock
+		peerlock.unlock();
+	}
+}
+
+static void __AdhocMatchingNotify(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+	int contextId = uid >> 8;
+
+	s64 result = 0;
+	u32 error = 0;
+	SceNetAdhocMatchingContext* ctx = findMatchingContext(contextId);
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetAdhocMatchingStop WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		// We probably need to continue to Stop AdhochocMatching too in order to cleanup properly
+		DoBlockingMatchingStop(ctx);
+		return;
+	}
+
+	std::unique_lock<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+	int cnt = std::count_if(matchingEvents.begin(), matchingEvents.end(),
+		[contextId](MatchingArgs el) { return el.data[0] == contextId; });
+	adhocGuard.unlock();
+
+	// Wait until all Matching Event's callbacks have been fully executed to make sure their AfterActions are done.
+	if (cnt > 0 || IsMatchingInCallback(ctx)) {
+		// Try again in another 0.5ms
+		CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocMatchingEvent, userdata);
+		return;
+	}
+
+	// Continue to Stop AdhochocMatching
+	DoBlockingMatchingStop(ctx);
+
+	__KernelResumeThreadFromWait(threadID, result);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocMatchingStop - ID: %d", waitID, error, (int)result, contextId);
+}
+
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
 int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
 	int uid = (metasocket <= 0) ? 1 : metasocket;
@@ -382,6 +450,19 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
+
+	return 0;
+}
+
+int WaitBlockingAdhocMatching(int contextId, int usec, const char* reason) {
+	int uid = contextId << 8;
+
+	if (adhocMatchingEvent < 0)
+		adhocMatchingEvent = CoreTiming::RegisterEvent("__AdhocMatchingNotify", __AdhocMatchingNotify);
+
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
+	CoreTiming::ScheduleEvent(usToCycles(usec), adhocMatchingEvent, param);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, 0, 0, false, reason);
 
 	return 0;
 }
@@ -965,7 +1046,7 @@ void netAdhocValidateLoopMemory() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 8);
+	auto s = p.Section("sceNetAdhoc", 1, 9);
 	if (!s)
 		return;
 
@@ -1057,6 +1138,15 @@ void __NetAdhocDoState(PointerWrap &p) {
 		isAdhocctlBusy = false;
 		netAdhocGameModeEntered = false;
 		netAdhocEnterGameModeTimeout = 15000000;
+	}
+	if (s >= 9) {
+		Do(p, adhocMatchingEvent);
+		if (adhocMatchingEvent != -1) {
+			CoreTiming::RestoreRegisterEvent(adhocMatchingEvent, "__AdhocMatchingNotify", __AdhocMatchingNotify);
+		}
+	}
+	else {
+		adhocMatchingEvent = -1;
 	}
 	
 	if (p.mode == p.MODE_READ) {
@@ -4364,32 +4454,9 @@ int NetAdhocMatching_Stop(int matchingId) {
 			item->eventThread.join();
 		}
 
-		// Stop fake PSP Thread.
-		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
-		if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
-			__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
-			__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
-		}
-		matchingThreads[item->matching_thid] = 0;
-
-		// Make sure nobody locking/using the socket
-		item->socketlock->lock();
-		// Delete the socket
-		NetAdhocPdp_Delete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
-		item->socketlock->unlock();
-
-		// Multithreading Lock
-		peerlock.lock();
-
-		// Remove your own MAC, or All members, or don't remove at all or we should do this on MatchingDelete ?
-		clearPeerList(item); //deleteAllMembers(item);
-
-		item->running = 0;
-		netAdhocMatchingStarted--;
-
-		// Multithreading Unlock
-		peerlock.unlock();
-
+		// Block current thread to wait until all pending events to be processed before stopping matching threads.
+		DEBUG_LOG(SCENET, "sceNetAdhocMatchingStop(%d): Blocking Thread %d to wait for %d Events completion", matchingId, __KernelGetCurThread(), matchingEvents.size());
+		return WaitBlockingAdhocMatching(matchingId, 0, "matching stop");
 	}
 
 	return 0;
@@ -5349,7 +5416,7 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)mac).c_str());
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingAbortSendData(%i, %s) at %08x", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), currentMIPS->pc);
 	if (!g_Config.bEnableWlan)
 		return -1;
 	
@@ -5546,18 +5613,19 @@ void __NetMatchingCallbacks() //(int matchingId)
 	if (params != matchingEvents.end())
 	{
 		u32_le* args = (u32_le*)&(*params);
-		//auto context = findMatchingContext(args[0]);
+		auto context = findMatchingContext(args[0]);
 
 		if (actionAfterMatchingMipsCall < 0) {
 			actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
 		}
 
-		DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
+		DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][OptLen=%d][%s]", args[0], args[1], args[3], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
+		SetMatchingInCallback(context, true);
 		AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
-		after->SetData(args[0], args[1], args[2]);
+		after->SetData(args[0], args[1], args[2], args[3]);
 		hleEnqueueCall(args[5], 5, args, after);
 		matchingEvents.pop_front();
-		delayus = adhocMatchingEventDelay; // Add extra delay to prevent I/O Timing method from causing disconnection, but delaying too long may cause matchingEvents to pile up
+		delayus = adhocMatchingEventDelay; // Add adhocExtraDelay to prevent I/O Timing method from causing disconnection, but delaying too long may cause matchingEvents to pile up
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?

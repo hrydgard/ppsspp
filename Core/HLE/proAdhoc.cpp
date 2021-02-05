@@ -1096,7 +1096,7 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 }
 
 void AfterMatchingMipsCall::DoState(PointerWrap & p) {
-	auto s = p.Section("AfterMatchingMipsCall", 1, 4);
+	auto s = p.Section("AfterMatchingMipsCall", 1, 5);
 	if (!s)
 		return;
 	if (s >= 1) {
@@ -1111,6 +1111,12 @@ void AfterMatchingMipsCall::DoState(PointerWrap & p) {
 		contextID = -1;
 		bufAddr = 0;
 	}
+	if (s >= 5) {
+		Do(p, OptLen);
+	}
+	else {
+		OptLen = 0;
+	}
 }
 
 // It seems After Actions being called in reverse order of Mipscall order (ie. MipsCall order of ACCEPT(6)->ESTABLISH(7) getting AfterAction order of ESTABLISH(7)->ACCEPT(6)
@@ -1121,17 +1127,17 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 		peerlock.unlock();
 	}
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
-	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", contextID, EventID);
-	//SetMatchingInCallback(context, false);
-	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d][%s] [cbId: %u][retV0: %08x]", contextID, EventID, mac2str((SceNetEtherAddr*)Memory::GetPointer(bufAddr)).c_str(), call.cbId, v0);
+	SetMatchingInCallback(context, false);
+	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d][OptLen=%d][%s] [cbId: %u][retV0: %08x]", contextID, EventID, OptLen, mac2str((SceNetEtherAddr*)Memory::GetPointer(bufAddr)).c_str(), call.cbId, v0);
 	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 	//call.setReturnValue(v0);
 }
 
-void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr) {
+void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr, int OptSize) {
 	contextID = ContextID;
 	EventID = eventId;
 	bufAddr = BufAddr;
+	OptLen = OptSize;
 	peerlock.lock();
 	context = findMatchingContext(ContextID);
 	peerlock.unlock();

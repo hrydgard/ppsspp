@@ -876,11 +876,12 @@ public:
 	static PSPAction *Create() { return new AfterMatchingMipsCall(); }
 	void DoState(PointerWrap &p) override;
 	void run(MipsCall &call) override;
-	void SetData(int ContextID, int eventId, u32_le BufAddr);
+	void SetData(int ContextID, int eventId, u32_le BufAddr, int OptSize);
 
 private:
 	int contextID = -1;
 	int EventID = -1;
+	int OptLen = 0;
 	u32_le bufAddr = 0;
 	SceNetAdhocMatchingContext* context = nullptr;
 };
