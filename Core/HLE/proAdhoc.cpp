@@ -1214,7 +1214,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
 	MatchingArgs argsNew = { 0 };
 	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
-	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
+	u32_le dataBufAddr = userMemory.Alloc(dataBufLen, true, "adhoc matching"); // We will free this memory after returning from mipscall
 	uint8_t * dataPtr = Memory::GetPointer(dataBufAddr);
 	if (dataPtr) {
 		memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
