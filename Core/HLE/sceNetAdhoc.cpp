@@ -109,7 +109,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 int FlushPtpSocket(int socketId);
 int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
-int NetAdhoc_PtpConnect(int id, int timeout, int flag, bool allowForcedConnect = true);
+int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect = true);
 static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
 static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
@@ -3210,7 +3210,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								changeBlockingMode(tcpsocket, 1);
 
 								// Initiate PtpConnect (ie. The Warrior seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
-								NetAdhoc_PtpConnect(i + 1, rexmt_int, 1, false);
+								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
 								// Return PTP Socket Pointer
 								return hleLogDebug(SCENET, i + 1, "success");
@@ -3459,7 +3459,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
-int NetAdhoc_PtpConnect(int id, int timeout, int flag, bool allowForcedConnect) {
+int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) {
 	// Library is initialized
 	if (netAdhocInited)
 	{
@@ -3578,7 +3578,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 		return -1;
 	}
 
-	return NetAdhoc_PtpConnect(id, timeout, flag);
+	return NetAdhocPtp_Connect(id, timeout, flag);
 }
 
 int NetAdhocPtp_Close(int id, int unknown) {
