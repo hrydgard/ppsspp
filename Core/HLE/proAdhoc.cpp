@@ -1908,20 +1908,10 @@ u_long getAvailToRecv(int sock, int udpBufferSize) {
 		return 0;
 
 	if (udpBufferSize > 0 && n > 0) {
-		// Cap number of bytes of full DGRAM message(s?) up to buffer size
-		static int lastUdpBufSize = 0;
-		static char* buf = NULL;
-		if (udpBufferSize > lastUdpBufSize) {
-			// Reusing temp buffer to prevent causing too many fragmentation due to repeated alloc -> free (was getting out of memory issue)
-			char *tmp = (char*)realloc(buf, udpBufferSize);
-			if (tmp) {
-				buf = tmp;
-				lastUdpBufSize = udpBufferSize;
-			}
-		}
-		// Does each recv can only received one message?
-		err = recvfrom(sock, buf, udpBufferSize, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, NULL, NULL);
-		//free(buf); // Repeated alloc -> free seems to cause too many fragmentation and ended getting out of memory due to too many alloc -> free
+		// TODO: Cap number of bytes of full DGRAM message(s) up to buffer size
+		char buf[8];
+		// Each recv can only received one message, not sure how to read the next pending msg without actually receiving the first one
+		err = recvfrom(sock, buf, sizeof(buf), MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, NULL, NULL);
 		if (err >= 0)
 			return (u_long)err;
 	}
