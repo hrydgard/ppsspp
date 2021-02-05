@@ -261,7 +261,8 @@ void WindowsHost::PollControllers() {
 }
 
 void WindowsHost::BootDone() {
-	g_symbolMap->SortSymbols();
+	if (g_symbolMap)
+		g_symbolMap->SortSymbols();
 	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
@@ -295,6 +296,8 @@ static std::string SymbolMapFilename(const char *currentFilename, const char* ex
 }
 
 bool WindowsHost::AttemptLoadSymbolMap() {
+	if (!g_symbolMap)
+		return false;
 	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 	// Load the old-style map file.
 	if (!result1)
@@ -304,11 +307,13 @@ bool WindowsHost::AttemptLoadSymbolMap() {
 }
 
 void WindowsHost::SaveSymbolMap() {
-	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	if (g_symbolMap)
+		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
 void WindowsHost::NotifySymbolMapUpdated() {
-	g_symbolMap->SortSymbols();
+	if (g_symbolMap)
+		g_symbolMap->SortSymbols();
 	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 }
 
