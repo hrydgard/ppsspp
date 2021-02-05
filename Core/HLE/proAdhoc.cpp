@@ -1139,18 +1139,18 @@ void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr) 
 
 bool SetMatchingInCallback(SceNetAdhocMatchingContext* context, bool IsInCB) {
 	if (context == NULL) return false;
-	context->eventlock->lock(); //peerlock.lock();
+	peerlock.lock();
 	context->IsMatchingInCB = IsInCB;
-	context->eventlock->unlock(); //peerlock.unlock();
+	peerlock.unlock();
 	return IsInCB;
 }
 
 bool IsMatchingInCallback(SceNetAdhocMatchingContext* context) {
 	bool inCB = false;
 	if (context == NULL) return inCB;
-	context->eventlock->lock(); //peerlock.lock();
+	peerlock.lock();
 	inCB = (context->IsMatchingInCB);
-	context->eventlock->unlock(); //peerlock.unlock();
+	peerlock.unlock();
 	return inCB;
 }
 
