@@ -913,8 +913,10 @@ void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 
 	if (HasTextDrawer()) {
 		PPGeTextDrawerImage im = PPGeGetTextImage(text, style, 480.0f - x, false);
-		PPGeDrawTextImage(im, x, y, style);
-		return;
+		if (im.ptr) {
+			PPGeDrawTextImage(im, x, y, style);
+			return;
+		}
 	}
 
 	if (style.hasShadow) {
@@ -988,8 +990,10 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 		}
 
 		PPGeTextDrawerImage im = PPGeGetTextImage(s.c_str(), adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
-		PPGeDrawTextImage(im, x, y, adjustedStyle);
-		return;
+		if (im.ptr) {
+			PPGeDrawTextImage(im, x, y, adjustedStyle);
+			return;
+		}
 	}
 
 	int sx = style.hasShadow ? 1 : 0;
