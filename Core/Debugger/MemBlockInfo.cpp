@@ -47,6 +47,10 @@ private:
 		void DoState(PointerWrap &p);
 	};
 
+	static constexpr uint32_t MAX_SIZE = 0x40000000;
+	static constexpr uint32_t SLICES = 16384;
+	static constexpr uint32_t SLICE_SIZE = MAX_SIZE / SLICES;
+
 	Slab *FindSlab(uint32_t addr);
 	void Clear();
 	// Returns the new slab after size.
@@ -54,8 +58,10 @@ private:
 	void MergeAdjacent(Slab *slab);
 	bool Same(const Slab *a, const Slab *b) const;
 	void Merge(Slab *a, Slab *b);
+	void FillHeads(Slab *slab);
 
 	Slab *first_ = nullptr;
+	std::vector<Slab *> heads_;
 };
 
 static MemSlabMap allocMap;
@@ -121,7 +127,9 @@ void MemSlabMap::Reset() {
 	Clear();
 
 	first_ = new Slab();
-	first_->size = UINT_MAX;
+	first_->size = MAX_SIZE;
+
+	heads_.resize(SLICES, first_);
 }
 
 void MemSlabMap::DoState(PointerWrap &p) {
@@ -136,17 +144,20 @@ void MemSlabMap::DoState(PointerWrap &p) {
 
 		first_ = new Slab();
 		first_->DoState(p);
-		first_->prev = nullptr;
-		first_->next = nullptr;
 		--count;
+
+		heads_.resize(SLICES, nullptr);
+		FillHeads(first_);
 
 		Slab *slab = first_;
 		for (int i = 0; i < count; ++i) {
 			slab->next = new Slab();
-			slab->DoState(p);
+			slab->next->DoState(p);
 
 			slab->next->prev = slab;
 			slab = slab->next;
+
+			FillHeads(slab);
 		}
 	} else {
 		for (Slab *slab = first_; slab != nullptr; slab = slab->next)
@@ -185,10 +196,12 @@ void MemSlabMap::Clear() {
 		s = next;
 	}
 	first_ = nullptr;
+	heads_.clear();
 }
 
 MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
-	Slab *slab = first_;
+	// Jump ahead using our index.
+	Slab *slab = heads_[addr / SLICE_SIZE];
 	while (slab != nullptr && slab->start <= addr) {
 		if (slab->start + slab->size > addr)
 			return slab;
@@ -211,6 +224,9 @@ MemSlabMap::Slab *MemSlabMap::Split(Slab *slab, uint32_t size) {
 	slab->next = next;
 	if (next->next)
 		next->next->prev = next;
+
+	// If the split is big, we might have to update our index.
+	FillHeads(next);
 
 	slab->size = size;
 	return next;
@@ -255,7 +271,24 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 		_assert_(false);
 	}
 	a->size += b->size;
+	// Take over index entries b had.
+	FillHeads(a);
 	delete b;
+}
+
+void MemSlabMap::FillHeads(Slab *slab) {
+	uint32_t slice = slab->start / SLICE_SIZE;
+	uint32_t endSlice = (slab->start + slab->size - 1) / SLICE_SIZE;
+
+	// For the first slice, only replace if it's the one we're removing.
+	if (slab->start == slice * SLICE_SIZE) {
+		heads_[slice] = slab;
+	}
+
+	// Now replace all the rest - we definitely cover the start of them.
+	for (uint32_t i = slice + 1; i <= endSlice; ++i) {
+		heads_[i] = slab;
+	}
 }
 
 void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &tag) {
