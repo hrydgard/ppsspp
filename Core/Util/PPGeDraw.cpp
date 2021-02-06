@@ -125,7 +125,7 @@ struct PPGeTextDrawerImage {
 	TextStringEntry entry;
 	u32 ptr;
 };
-std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
+static std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
 
 void PPGeSetDrawContext(Draw::DrawContext *draw) {
 	g_draw = draw;
@@ -364,6 +364,10 @@ void __PPGeShutdown()
 
 	delete textDrawer;
 	textDrawer = nullptr;
+
+	for (auto im : textDrawerImages)
+		kernelMemory.Free(im.second.ptr);
+	textDrawerImages.clear();
 }
 
 void PPGeBegin()
