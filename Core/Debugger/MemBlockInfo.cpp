@@ -28,7 +28,7 @@ public:
 	MemSlabMap();
 	~MemSlabMap();
 
-	bool Mark(uint32_t addr, uint32_t size, uint32_t pc, bool allocated, const std::string &tag);
+	bool Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const std::string &tag);
 	bool Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::vector<MemBlockInfo> &results);
 	void Reset();
 	void DoState(PointerWrap &p);
@@ -64,10 +64,21 @@ private:
 	std::vector<Slab *> heads_;
 };
 
+struct PendingNotifyMem {
+	MemBlockFlags flags;
+	uint32_t start;
+	uint32_t size;
+	uint64_t ticks;
+	uint32_t pc;
+	std::string tag;
+};
+
+static constexpr size_t MAX_PENDING_NOTIFIES = 4096;
 static MemSlabMap allocMap;
 static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
 static MemSlabMap textureMap;
+static std::vector<PendingNotifyMem> pendingNotifies;
 
 MemSlabMap::MemSlabMap() {
 	Reset();
@@ -77,7 +88,7 @@ MemSlabMap::~MemSlabMap() {
 	Clear();
 }
 
-bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint32_t pc, bool allocated, const std::string &tag) {
+bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const std::string &tag) {
 	uint32_t end = addr + size;
 	Slab *slab = FindSlab(addr);
 	Slab *firstMatch = nullptr;
@@ -91,7 +102,7 @@ bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint32_t pc, bool allocated,
 
 		slab->allocated = allocated;
 		if (pc != 0) {
-			slab->ticks = CoreTiming::GetTicks();
+			slab->ticks = ticks;
 			slab->pc = pc;
 		}
 		if (!tag.empty())
@@ -291,6 +302,31 @@ void MemSlabMap::FillHeads(Slab *slab) {
 	}
 }
 
+void FlushPendingMemInfo() {
+	for (auto info : pendingNotifies) {
+		if (info.flags & MemBlockFlags::ALLOC) {
+			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+		} else if (info.flags & MemBlockFlags::FREE) {
+			// Maintain the previous allocation tag for debugging.
+			allocMap.Mark(info.start, info.size, info.ticks, 0, false, "");
+			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, "");
+		}
+		if (info.flags & MemBlockFlags::SUB_ALLOC) {
+			suballocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+		} else if (info.flags & MemBlockFlags::SUB_FREE) {
+			// Maintain the previous allocation tag for debugging.
+			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, "");
+		}
+		if (info.flags & MemBlockFlags::TEXTURE) {
+			textureMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+		}
+		if (info.flags & MemBlockFlags::WRITE) {
+			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+		}
+	}
+	pendingNotifies.clear();
+}
+
 void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &tag) {
 	NotifyMemInfoPC(flags, start, size, currentMIPS->pc, tag);
 }
@@ -302,31 +338,26 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	// Clear the uncached and kernel bits.
 	start &= ~0xC0000000;
 
-	if (flags & MemBlockFlags::ALLOC) {
-		allocMap.Mark(start, size, pc, true, tag);
-	} else if (flags & MemBlockFlags::FREE) {
-		// Maintain the previous allocation tag for debugging.
-		allocMap.Mark(start, size, 0, false, "");
-		suballocMap.Mark(start, size, 0, false, "");
+	PendingNotifyMem info{ flags, start, size };
+	info.ticks = CoreTiming::GetTicks();
+	info.pc = pc;
+	info.tag = tag;
+	pendingNotifies.push_back(info);
+
+	if (pendingNotifies.size() > MAX_PENDING_NOTIFIES) {
+		FlushPendingMemInfo();
 	}
-	if (flags & MemBlockFlags::SUB_ALLOC) {
-		suballocMap.Mark(start, size, pc, true, tag);
-	} else if (flags & MemBlockFlags::SUB_FREE) {
-		// Maintain the previous allocation tag for debugging.
-		suballocMap.Mark(start, size, 0, false, "");
-	}
-	if (flags & MemBlockFlags::TEXTURE) {
-		textureMap.Mark(start, size, pc, true, tag);
-	}
+
 	if (flags & MemBlockFlags::WRITE) {
 		CBreakPoints::ExecMemCheck(start, true, size, pc, tag);
-		writeMap.Mark(start, size, pc, true, tag);
 	} else if (flags & MemBlockFlags::READ) {
 		CBreakPoints::ExecMemCheck(start, false, size, pc, tag);
 	}
 }
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
+	FlushPendingMemInfo();
+
 	std::vector<MemBlockInfo> results;
 	allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
 	suballocMap.Find(MemBlockFlags::SUB_ALLOC, start, size, results);
@@ -336,6 +367,7 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 }
 
 void MemBlockInfoInit() {
+	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
 }
 
 void MemBlockInfoShutdown() {
@@ -343,6 +375,7 @@ void MemBlockInfoShutdown() {
 	suballocMap.Reset();
 	writeMap.Reset();
 	textureMap.Reset();
+	pendingNotifies.clear();
 }
 
 void MemBlockInfoDoState(PointerWrap &p) {
@@ -350,6 +383,7 @@ void MemBlockInfoDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	FlushPendingMemInfo();
 	allocMap.DoState(p);
 	suballocMap.DoState(p);
 	writeMap.DoState(p);
