@@ -2728,13 +2728,10 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
-
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-			// TODO: What? Why would a game copy between the mirrors? This check seems entirely
-			// superfluous.
-			// We use a little hack for Download/Upload using a VRAM mirror.
+			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
 				Memory::Memcpy(dest, src, size);
