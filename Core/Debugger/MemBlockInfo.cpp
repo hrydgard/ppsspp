@@ -61,6 +61,7 @@ private:
 	void FillHeads(Slab *slab);
 
 	Slab *first_ = nullptr;
+	Slab *lastFind_ = nullptr;
 	std::vector<Slab *> heads_;
 };
 
@@ -139,6 +140,7 @@ void MemSlabMap::Reset() {
 
 	first_ = new Slab();
 	first_->end = MAX_SIZE;
+	lastFind_ = first_;
 
 	heads_.resize(SLICES, first_);
 }
@@ -155,6 +157,7 @@ void MemSlabMap::DoState(PointerWrap &p) {
 
 		first_ = new Slab();
 		first_->DoState(p);
+		lastFind_ = first_;
 		--count;
 
 		heads_.resize(SLICES, nullptr);
@@ -207,15 +210,22 @@ void MemSlabMap::Clear() {
 		s = next;
 	}
 	first_ = nullptr;
+	lastFind_ = nullptr;
 	heads_.clear();
 }
 
 MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 	// Jump ahead using our index.
 	Slab *slab = heads_[addr / SLICE_SIZE];
+	// We often move forward, so check the last find.
+	if (lastFind_->start > slab->start && lastFind_->start <= addr)
+		slab = lastFind_;
+
 	while (slab != nullptr && slab->start <= addr) {
-		if (slab->end > addr)
+		if (slab->end > addr) {
+			lastFind_ = slab;
 			return slab;
+		}
 		slab = slab->next;
 	}
 	return nullptr;
@@ -284,6 +294,8 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 	}
 	// Take over index entries b had.
 	FillHeads(a);
+	if (lastFind_ == b)
+		lastFind_ = a;
 	delete b;
 }
 
