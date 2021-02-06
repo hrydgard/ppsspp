@@ -36,7 +36,7 @@ public:
 private:
 	struct Slab {
 		uint32_t start = 0;
-		uint32_t size = 0;
+		uint32_t end = 0;
 		uint64_t ticks = 0;
 		uint32_t pc = 0;
 		bool allocated = false;
@@ -96,7 +96,7 @@ bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc,
 		if (slab->start < addr)
 			slab = Split(slab, addr - slab->start);
 		// Don't replace slab, the return is the after part.
-		if (slab->start + slab->size > end) {
+		if (slab->end > end) {
 			Split(slab, end - slab->start);
 		}
 
@@ -127,7 +127,7 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 	Slab *slab = FindSlab(addr);
 	bool found = false;
 	while (slab != nullptr && slab->start < end) {
-		results.push_back({ flags, slab->start, slab->size, slab->pc, slab->tag, slab->allocated });
+		results.push_back({ flags, slab->start, slab->end - slab->start, slab->pc, slab->tag, slab->allocated });
 		found = true;
 		slab = slab->next;
 	}
@@ -138,7 +138,7 @@ void MemSlabMap::Reset() {
 	Clear();
 
 	first_ = new Slab();
-	first_->size = MAX_SIZE;
+	first_->end = MAX_SIZE;
 
 	heads_.resize(SLICES, first_);
 }
@@ -192,7 +192,7 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, start);
-	Do(p, size);
+	Do(p, end);
 	Do(p, ticks);
 	Do(p, pc);
 	Do(p, allocated);
@@ -214,7 +214,7 @@ MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 	// Jump ahead using our index.
 	Slab *slab = heads_[addr / SLICE_SIZE];
 	while (slab != nullptr && slab->start <= addr) {
-		if (slab->start + slab->size > addr)
+		if (slab->end > addr)
 			return slab;
 		slab = slab->next;
 	}
@@ -224,7 +224,7 @@ MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 MemSlabMap::Slab *MemSlabMap::Split(Slab *slab, uint32_t size) {
 	Slab *next = new Slab();
 	next->start = slab->start + size;
-	next->size = slab->size - size;
+	next->end = slab->end;
 	next->ticks = slab->ticks;
 	next->pc = slab->pc;
 	next->allocated = slab->allocated;
@@ -239,7 +239,7 @@ MemSlabMap::Slab *MemSlabMap::Split(Slab *slab, uint32_t size) {
 	// If the split is big, we might have to update our index.
 	FillHeads(next);
 
-	slab->size = size;
+	slab->end = slab->start + size;
 	return next;
 }
 
@@ -264,13 +264,14 @@ bool MemSlabMap::Same(const Slab *a, const Slab *b) const {
 
 void MemSlabMap::Merge(Slab *a, Slab *b) {
 	if (a->next == b) {
-		_assert_(a->start + a->size == b->start);
+		_assert_(a->end == b->start);
+		a->end = b->end;
 		a->next = b->next;
 
 		if (a->next)
 			a->next->prev = a;
 	} else if (a->prev == b) {
-		_assert_(b->start + b->size == a->start);
+		_assert_(b->end == a->start);
 		a->start = b->start;
 		a->prev = b->prev;
 
@@ -281,7 +282,6 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 	} else {
 		_assert_(false);
 	}
-	a->size += b->size;
 	// Take over index entries b had.
 	FillHeads(a);
 	delete b;
@@ -289,7 +289,7 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 
 void MemSlabMap::FillHeads(Slab *slab) {
 	uint32_t slice = slab->start / SLICE_SIZE;
-	uint32_t endSlice = (slab->start + slab->size - 1) / SLICE_SIZE;
+	uint32_t endSlice = (slab->end - 1) / SLICE_SIZE;
 
 	// For the first slice, only replace if it's the one we're removing.
 	if (slab->start == slice * SLICE_SIZE) {
