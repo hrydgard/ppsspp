@@ -851,17 +851,17 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 
 void CDisasm::Show(bool bShow) {
 	if (deferredSymbolFill_ && bShow) {
-		if (g_symbolMap)
+		if (g_symbolMap) {
 			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
-		deferredSymbolFill_ = false;
+			deferredSymbolFill_ = false;
+		}
 	}
 	Dialog::Show(bShow);
 }
 
 void CDisasm::NotifyMapLoaded() {
-	if (m_bShowState == SW_SHOW) {
-		if (g_symbolMap)
-			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+	if (m_bShowState != SW_HIDE && g_symbolMap) {
+		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 	} else {
 		deferredSymbolFill_ = true;
 	}
