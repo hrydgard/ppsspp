@@ -566,8 +566,7 @@ void ForceCheck()
 #endif
 }
 
-void Advance()
-{
+void Advance() {
 	PROFILE_THIS_SCOPE("advance");
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
@@ -577,17 +576,14 @@ void Advance()
 		MoveEvents();
 	ProcessFifoWaitEvents();
 
-	if (!first)
-	{
+	if (!first) {
 		// This should never happen in PPSSPP.
 		// WARN_LOG_REPORT(TIME, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
 		if (slicelength < 10000) {
 			slicelength += 10000;
-			currentMIPS->downcount += slicelength;
+			currentMIPS->downcount += 10000;
 		}
-	}
-	else
-	{
+	} else {
 		// Note that events can eat cycles as well.
 		int target = (int)(first->time - globalTimer);
 		if (target > MAX_SLICE_LENGTH)
@@ -599,35 +595,30 @@ void Advance()
 	}
 }
 
-void LogPendingEvents()
-{
+void LogPendingEvents() {
 	Event *ptr = first;
-	while (ptr)
-	{
+	while (ptr) {
 		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }
 
-void Idle(int maxIdle)
-{
+void Idle(int maxIdle) {
 	int cyclesDown = currentMIPS->downcount;
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
-	if (first && cyclesDown > 0)
-	{
+	if (first && cyclesDown > 0) {
 		int cyclesExecuted = slicelength - currentMIPS->downcount;
 		int cyclesNextEvent = (int) (first->time - globalTimer);
 
 		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
-		{
 			cyclesDown = cyclesNextEvent - cyclesExecuted;
-			// Now, now... no time machines, please.
-			if (cyclesDown < 0)
-				cyclesDown = 0;
-		}
 	}
+
+	// Now, now... no time machines, please.
+	if (cyclesDown < 0)
+		cyclesDown = 0;
 
 	// VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
