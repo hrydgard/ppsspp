@@ -1795,7 +1795,7 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 	}
 
 	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
+	if (!g_Config.bTextureBackoffCache && type != GPU_INVALIDATE_FORCE) {
 		return;
 	}
 
@@ -1806,28 +1806,34 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 	}
 
 	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
-		u32 texAddr = iter->second->addr;
-		u32 texEnd = iter->second->addr + iter->second->sizeInRAM;
+		auto &entry = iter->second;
+		u32 texAddr = entry->addr;
+		u32 texEnd = entry->addr + entry->sizeInRAM;
 
 		// Quick check for overlap. Yes the check is right.
 		if (addr < texEnd && addr_end > texAddr) {
-			if (iter->second->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				iter->second->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+			}
+			if (type == GPU_INVALIDATE_FORCE) {
+				// Just random values to force the hash not to match.
+				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
+				entry->hash = (entry->hash ^ 0x89ABCDEF) + 89;
 			}
 			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.numTextureInvalidations++;
 				// Start it over from 0 (unless it's safe.)
-				iter->second->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
+				entry->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				if (type == GPU_INVALIDATE_SAFE) {
-					u32 diff = gpuStats.numFlips - iter->second->lastFrame;
+					u32 diff = gpuStats.numFlips - entry->lastFrame;
 					// We still need to mark if the texture is frequently changing, even if it's safely changing.
 					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						iter->second->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
 					}
 				}
-				iter->second->framesUntilNextFullHash = 0;
+				entry->framesUntilNextFullHash = 0;
 			} else {
-				iter->second->invalidHint++;
+				entry->invalidHint++;
 			}
 		}
 	}
