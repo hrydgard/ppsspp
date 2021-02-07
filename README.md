@@ -45,7 +45,7 @@ There's really too much to list this time.
 * Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 ([#13706], [#13526])
 * Hardware texture upscaling for Vulkan, mipmap generation ([#13235], [#13514])
 * Added MMPX Vulkan texture upscaling shader ([#13986])
-* Depth texturing support in Vulkan and D3D11 (13667, ...)
+* Depth texturing support in Vulkan and D3D11 ([#13262], [#13556], ...)
 * Performance fix for Test Drive Unlimited ([#13355], ...)
 * Allow rewind on mobile ([#13866])
 * Added option to disable on-screen messages ([#13695])
@@ -416,3 +416,6 @@ Credit goes to:
 [#13368]: https://github.com/hrydgard/ppsspp/issues/13368 "Reschedule after resuming thread from suspend."
 [#13969]: https://github.com/hrydgard/ppsspp/issues/13969 "Io: Don't allow async close while async busy"
 [#13633]: https://github.com/hrydgard/ppsspp/issues/13633 "Downstream Panic (US) New Game crashes"
+[#13667]: https://github.com/hrydgard/ppsspp/issues/13667 "Dynasty Warriors Multi Raid 2: Online questions"
+[#13262]: https://github.com/hrydgard/ppsspp/issues/13262 "Implement texturing from depth buffers (Vulkan only so far)"
+[#13556]: https://github.com/hrydgard/ppsspp/issues/13556 "D3D11 depth texture support"
