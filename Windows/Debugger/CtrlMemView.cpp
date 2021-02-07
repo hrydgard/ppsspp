@@ -642,6 +642,10 @@ std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 		return searchResAddrs;
 
 	size_t queryLength = searchQuery.length();
+	if (queryLength == 0)
+		return searchResAddrs;
+
+	// TODO: Scratchpad, VRAM?
 	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
 	const u32 segmentEnd = PSP_GetUserMemoryEnd() - (u32)queryLength; //RAM end
 	u8* ptr;
