@@ -565,13 +565,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
-	int voicesPlayingCount = 0;
-
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
-		voicesPlayingCount++;
 		MixVoice(voice);
 	}
 
