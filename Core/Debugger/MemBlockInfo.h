@@ -40,6 +40,7 @@ struct MemBlockInfo {
 	MemBlockFlags flags;
 	uint32_t start;
 	uint32_t size;
+	uint64_t ticks;
 	uint32_t pc;
 	std::string tag;
 	bool allocated;

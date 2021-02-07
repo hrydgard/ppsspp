@@ -2,6 +2,7 @@
 
 #include "Windows/stdafx.h"
 #include <windowsx.h>
+#include <commctrl.h>
 #include "..\resource.h"
 
 #include "Common/Data/Encoding/Utf8.h"
@@ -80,6 +81,8 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 	ComboBox_AddString(layerDropdown_, L"Show textures");
 	ComboBox_SetItemData(layerDropdown_, 3, MemBlockFlags::TEXTURE);
 	ComboBox_SetCurSel(layerDropdown_, 0);
+
+	status_ = GetDlgItem(m_hDlg, IDC_MEMVIEW_STATUS);
 
 	memView = CtrlMemView::getFrom(memViewHdl);
 	memView->setDebugger(_cpu);
@@ -220,6 +223,10 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		Update();
 		return TRUE;
 
+	case WM_DEB_SETSTATUSBARTEXT:
+		SendMessage(status_, SB_SETTEXT, 0, (LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+		break;
+
 	case WM_INITDIALOG:
 		return TRUE;
 
@@ -250,11 +257,11 @@ void CMemoryDlg::Size()
 	int dlg_w = winRect.right - winRect.left;
 	int dlg_h = winRect.bottom - winRect.top;
 
-
 	int wf = slRect.right-slRect.left;
 	int w = dlg_w - 3 * fontScale - wf*2;
-	int top = 48 * fontScale;
-	int height = dlg_h - top;
+	int top = 40 * fontScale;
+	int bottom = 24 * fontScale;
+	int height = dlg_h - top - bottom;
 	//HWND, X, Y, width, height, repaint
 	MoveWindow(symListHdl, 0    ,top, wf, height, TRUE);
 	MoveWindow(memViewHdl, wf+4 ,top, w, height, TRUE);

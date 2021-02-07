@@ -18,6 +18,7 @@ private:
 	CtrlMemView *memView;
 	HWND memViewHdl, symListHdl, editWnd, searchBoxHdl, srcListHdl;
 	HWND layerDropdown_;
+	HWND status_;
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
 public:

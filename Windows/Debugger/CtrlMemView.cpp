@@ -555,11 +555,17 @@ void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 }	
 
-void CtrlMemView::updateStatusBarText()
-{
-	char text[64];
-	sprintf(text,"%08X",curAddress);
-	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+void CtrlMemView::updateStatusBarText() {
+	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress, 1);
+
+	char text[512];
+	snprintf(text, sizeof(text), "%08X", curAddress);
+	// There should only be one.
+	for (MemBlockInfo info : memRangeInfo) {
+		snprintf(text, sizeof(text), "%08X - %s (at PC %08X / %lld ticks)", curAddress, info.tag.c_str(), info.pc, info.ticks);
+	}
+
+	SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM)text);
 }
 
 void CtrlMemView::gotoPoint(int x, int y)

@@ -129,7 +129,7 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 	bool found = false;
 	while (slab != nullptr && slab->start < end) {
 		if (slab->pc != 0 || !slab->tag.empty()) {
-			results.push_back({ flags, slab->start, slab->end - slab->start, slab->pc, slab->tag, slab->allocated });
+			results.push_back({ flags, slab->start, slab->end - slab->start, slab->ticks, slab->pc, slab->tag, slab->allocated });
 			found = true;
 		}
 		slab = slab->next;
