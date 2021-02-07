@@ -591,7 +591,7 @@ u32 Net_Term() {
 }
 
 static u32 sceNetTerm() {
-	WARN_LOG(SCENET, "sceNetTerm()");
+	WARN_LOG(SCENET, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
