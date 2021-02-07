@@ -1212,7 +1212,15 @@ bool KernelIsThreadDormant(SceUID threadID) {
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
 	if (t)
 		return (t->nt.status & (THREADSTATUS_DEAD | THREADSTATUS_DORMANT)) != 0;
-	return 0;
+	return false;
+}
+
+bool KernelIsThreadWaiting(SceUID threadID) {
+	u32 error;
+	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
+	if (t)
+		return (t->nt.status & (THREADSTATUS_WAITSUSPEND)) != 0;
+	return false;
 }
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error) {
