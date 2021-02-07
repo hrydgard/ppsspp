@@ -797,3 +797,10 @@ void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 	updateStatusBarText();
 	redraw();
 }
+
+void CtrlMemView::setHighlightType(MemBlockFlags flags) {
+	if (highlightFlags_ != flags) {
+		highlightFlags_ = flags;
+		redraw();
+	}
+}
