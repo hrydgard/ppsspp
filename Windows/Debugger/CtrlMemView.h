@@ -17,6 +17,7 @@
 //
 //To get a class instance to be able to access it, just use getFrom(HWND wnd).
 
+#include <cstdint>
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/MemBlockInfo.h"
 
@@ -69,6 +70,7 @@ class CtrlMemView
 
 	void updateStatusBarText();
 	void search(bool continueSearch);
+	uint32_t pickTagColor(const std::string &tag);
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
