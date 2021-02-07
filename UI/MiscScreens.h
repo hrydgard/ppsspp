@@ -136,7 +136,7 @@ public:
 
 private:
 	void Next();
-	double startTime_ = 0.0;
+	int frames_ = 0;
 	bool switched_ = false;
 	bool gotoGameSettings_ = false;
 };

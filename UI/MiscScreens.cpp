@@ -474,15 +474,16 @@ const float logoScreenSeconds = 2.5f;
 
 LogoScreen::LogoScreen(bool gotoGameSettings)
 	: gotoGameSettings_(gotoGameSettings) {
-	startTime_ = time_now_d();
 }
 
 void LogoScreen::update() {
 	UIScreen::update();
-	double t = time_now_d() - startTime_;
-	if (t > logoScreenSeconds) {
+	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
+
+	if ((double)frames_ / rate > logoScreenSeconds) {
 		Next();
 	}
+	frames_++;
 }
 
 void LogoScreen::sendMessage(const char *message, const char *value) {
@@ -520,7 +521,8 @@ void LogoScreen::render() {
 
 	dc.Begin();
 
-	float sinceStart = time_now_d() - startTime_;
+	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
+	double sinceStart = (double)frames_ / rate;
 
 	float t = (float)sinceStart / (logoScreenSeconds / 3.0f);
 
