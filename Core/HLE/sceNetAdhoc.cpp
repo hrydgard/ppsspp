@@ -2386,7 +2386,7 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		INFO_LOG(SCENET, "sceNetAdhocctlDelHandler(%d)", handlerID);
+		INFO_LOG(SCENET, "sceNetAdhocctlDelHandler(%d) at %08x", handlerID, currentMIPS->pc);
 	} else {
 		WARN_LOG(SCENET, "sceNetAdhocctlDelHandler(%d): Invalid Handler ID", handlerID);
 	}
@@ -2443,7 +2443,7 @@ int NetAdhocctl_Term() {
 
 int sceNetAdhocctlTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
+	INFO_LOG(SCENET, "sceNetAdhocctlTerm() at %08x", currentMIPS->pc);
 
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
 	int retval = NetAdhocctl_Term();
