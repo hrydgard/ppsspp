@@ -158,10 +158,10 @@ void __Mp3DoState(PointerWrap &p) {
 	}
 }
 
-static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
+static int sceMp3Decode(int mp3, u32 outPcmPtr) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
@@ -177,10 +177,10 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	return pcmBytes;
 }
 
-static int sceMp3ResetPlayPosition(u32 mp3) {
+static int sceMp3ResetPlayPosition(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
@@ -190,10 +190,10 @@ static int sceMp3ResetPlayPosition(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuResetPlayPosition());
 }
 
-static int sceMp3CheckStreamDataNeeded(u32 mp3) {
+static int sceMp3CheckStreamDataNeeded(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -380,11 +380,11 @@ static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 	return -1;
 }
 
-static int sceMp3Init(u32 mp3) {
+static int sceMp3Init(int mp3) {
 	int sdkver = sceKernelGetCompiledSdkVersion();
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -454,10 +454,10 @@ static int sceMp3Init(u32 mp3) {
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
 
-static int sceMp3GetLoopNum(u32 mp3) {
+static int sceMp3GetLoopNum(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -467,10 +467,10 @@ static int sceMp3GetLoopNum(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetLoopNum());
 }
 
-static int sceMp3GetMaxOutputSample(u32 mp3) {
+static int sceMp3GetMaxOutputSample(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0) {
@@ -482,10 +482,10 @@ static int sceMp3GetMaxOutputSample(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetMaxOutputSample());
 }
 
-static int sceMp3GetSumDecodedSample(u32 mp3) {
+static int sceMp3GetSumDecodedSample(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -495,10 +495,10 @@ static int sceMp3GetSumDecodedSample(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetSumDecodedSample());
 }
 
-static int sceMp3SetLoopNum(u32 mp3, int loop) {
+static int sceMp3SetLoopNum(int mp3, int loop) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -511,10 +511,10 @@ static int sceMp3SetLoopNum(u32 mp3, int loop) {
 	return hleLogSuccessI(ME, ctx->AuSetLoopNum(loop));
 }
 
-static int sceMp3GetMp3ChannelNum(u32 mp3) {
+static int sceMp3GetMp3ChannelNum(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0) {
@@ -526,10 +526,10 @@ static int sceMp3GetMp3ChannelNum(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetChannelNum());
 }
 
-static int sceMp3GetBitRate(u32 mp3) {
+static int sceMp3GetBitRate(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0) {
@@ -541,10 +541,10 @@ static int sceMp3GetBitRate(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetBitRate());
 }
 
-static int sceMp3GetSamplingRate(u32 mp3) {
+static int sceMp3GetSamplingRate(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0) {
@@ -556,10 +556,10 @@ static int sceMp3GetSamplingRate(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetSamplingRate());
 }
 
-static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
+static int sceMp3GetInfoToAddStreamData(int mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -569,10 +569,10 @@ static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32
 	return hleLogSuccessI(ME, ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr));
 }
 
-static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
+static int sceMp3NotifyAddStreamData(int mp3, int size) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -582,13 +582,13 @@ static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	return hleLogSuccessI(ME, ctx->AuNotifyAddStreamData(size));
 }
 
-static int sceMp3ReleaseMp3Handle(u32 mp3) {
+static int sceMp3ReleaseMp3Handle(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (ctx) {
 		delete ctx;
 		mp3Map.erase(mp3);
 		return hleLogSuccessI(ME, 0);
-	} else if (mp3 >= MP3_MAX_HANDLES) {
+	} else if (mp3 >= MP3_MAX_HANDLES || mp3 < 0) {
 		return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 	}
 
@@ -606,10 +606,10 @@ static u32 sceMp3StartEntry() {
 	return 0;
 }
 
-static u32 sceMp3GetFrameNum(u32 mp3) {
+static u32 sceMp3GetFrameNum(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
@@ -619,10 +619,10 @@ static u32 sceMp3GetFrameNum(u32 mp3) {
 	return hleLogSuccessI(ME, ctx->AuGetFrameNum());
 }
 
-static u32 sceMp3GetMPEGVersion(u32 mp3) {
+static u32 sceMp3GetMPEGVersion(int mp3) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0) {
@@ -636,10 +636,10 @@ static u32 sceMp3GetMPEGVersion(u32 mp3) {
 	return hleReportDebug(ME, ctx->AuGetVersion());
 }
 
-static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
+static u32 sceMp3ResetPlayPositionByFrame(int mp3, u32 frame) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 >= MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES || mp3 < 0)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
@@ -706,27 +706,27 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 
 const HLEFunction sceMp3[] = {
 	{0X07EC321A, &WrapU_U<sceMp3ReserveMp3Handle>,          "sceMp3ReserveMp3Handle",         'x', "x"    },
-	{0X0DB149F4, &WrapI_UI<sceMp3NotifyAddStreamData>,      "sceMp3NotifyAddStreamData",      'i', "xi"   },
-	{0X2A368661, &WrapI_U<sceMp3ResetPlayPosition>,         "sceMp3ResetPlayPosition",        'i', "x"    },
-	{0X354D27EA, &WrapI_U<sceMp3GetSumDecodedSample>,       "sceMp3GetSumDecodedSample",      'i', "x"    },
+	{0X0DB149F4, &WrapI_II<sceMp3NotifyAddStreamData>,      "sceMp3NotifyAddStreamData",      'i', "ii"   },
+	{0X2A368661, &WrapI_I<sceMp3ResetPlayPosition>,         "sceMp3ResetPlayPosition",        'i', "i"    },
+	{0X354D27EA, &WrapI_I<sceMp3GetSumDecodedSample>,       "sceMp3GetSumDecodedSample",      'i', "i"    },
 	{0X35750070, &WrapI_V<sceMp3InitResource>,              "sceMp3InitResource",             'i', ""     },
 	{0X3C2FA058, &WrapI_V<sceMp3TermResource>,              "sceMp3TermResource",             'i', ""     },
-	{0X3CEF484F, &WrapI_UI<sceMp3SetLoopNum>,               "sceMp3SetLoopNum",               'i', "xi"   },
-	{0X44E07129, &WrapI_U<sceMp3Init>,                      "sceMp3Init",                     'i', "x"    },
+	{0X3CEF484F, &WrapI_II<sceMp3SetLoopNum>,               "sceMp3SetLoopNum",               'i', "ii"   },
+	{0X44E07129, &WrapI_I<sceMp3Init>,                      "sceMp3Init",                     'i', "i"    },
 	{0X732B042A, &WrapU_V<sceMp3EndEntry>,                  "sceMp3EndEntry",                 'x', ""     },
-	{0X7F696782, &WrapI_U<sceMp3GetMp3ChannelNum>,          "sceMp3GetMp3ChannelNum",         'i', "x"    },
-	{0X87677E40, &WrapI_U<sceMp3GetBitRate>,                "sceMp3GetBitRate",               'i', "x"    },
-	{0X87C263D1, &WrapI_U<sceMp3GetMaxOutputSample>,        "sceMp3GetMaxOutputSample",       'i', "x"    },
+	{0X7F696782, &WrapI_I<sceMp3GetMp3ChannelNum>,          "sceMp3GetMp3ChannelNum",         'i', "i"    },
+	{0X87677E40, &WrapI_I<sceMp3GetBitRate>,                "sceMp3GetBitRate",               'i', "i"    },
+	{0X87C263D1, &WrapI_I<sceMp3GetMaxOutputSample>,        "sceMp3GetMaxOutputSample",       'i', "i"    },
 	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
-	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
-	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xppp" },
-	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xp"   },
-	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
-	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
-	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
-	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
-	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'i', "x"    },
-	{0X0840E808, &WrapU_UU<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'i', "xi"   },
+	{0X8F450998, &WrapI_I<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
+	{0XA703FE0F, &WrapI_IUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "ippp" },
+	{0XD021C0FB, &WrapI_IU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "ip"   },
+	{0XD0A56296, &WrapI_I<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "i"    },
+	{0XD8F54A51, &WrapI_I<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "i"    },
+	{0XF5478233, &WrapI_I<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "i"    },
+	{0XAE6D2027, &WrapU_I<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "i"    },
+	{0X3548AEC8, &WrapU_I<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'i', "i"    },
+	{0X0840E808, &WrapU_IU<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'i', "ii"   },
 	{0X1B839B83, &WrapU_UU<sceMp3LowLevelInit>,             "sceMp3LowLevelInit",             'x', "xx"   },
 	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
 };
