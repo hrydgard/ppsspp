@@ -267,6 +267,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 
 			COLORREF hexBGCol = standardBG;
 			COLORREF hexTextCol = 0x000000;
+			COLORREF continueBGCol = standardBG;
 			COLORREF asciiBGCol = standardBG;
 			COLORREF asciiTextCol = 0x000000;
 			int underline = -1;
@@ -284,23 +285,29 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 					asciiTextCol = 0x000000;
 					underline = selectedNibble;
 				}
+				if (!tag.empty() && tagContinues) {
+					continueBGCol = pickTagColor(tag);
+				}
 			} else if (!tag.empty()) {
 				hexBGCol = pickTagColor(tag);
+				continueBGCol = hexBGCol;
 				asciiBGCol = pickTagColor(tag);
 				hexLen = tagContinues ? 3 : 2;
 			}
 
 			setTextColors(hexTextCol, hexBGCol);
-			if (underline == 0) {
-				SelectObject(hdc, (HGDIOBJ)underlineFont);
+			if (underline >= 0) {
+				SelectObject(hdc, underline == 0 ? (HGDIOBJ)underlineFont : (HGDIOBJ)font);
 				TextOutA(hdc, hexX, rowY, &temp[0], 1);
-				SelectObject(hdc, (HGDIOBJ)font);
-				TextOutA(hdc, hexX + charWidth, rowY, &temp[1], 1);
-			} else if (underline == 1) {
-				TextOutA(hdc, hexX, rowY, &temp[0], 1);
-				SelectObject(hdc, (HGDIOBJ)underlineFont);
+				SelectObject(hdc, underline == 0 ? (HGDIOBJ)font : (HGDIOBJ)underlineFont);
 				TextOutA(hdc, hexX + charWidth, rowY, &temp[1], 1);
 				SelectObject(hdc, (HGDIOBJ)font);
+
+				// If the tag keeps going, draw the BG too.
+				if (continueBGCol != standardBG) {
+					setTextColors(0x000000, continueBGCol);
+					TextOutA(hdc, hexX + charWidth * 2, rowY, &temp[2], 1);
+				}
 			} else {
 				TextOutA(hdc, hexX, rowY, temp, hexLen);
 			}
