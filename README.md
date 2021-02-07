@@ -27,7 +27,6 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.11.0
 ====================
-There's really too much to list this time.
 * Lots of minor bug fixes, crash fixes, and performance fixes and improvements.
 * New Browse... button to allow opening SD cards on Android 11
 * Countless AdHoc networking fixes by ANR2ME, for example Dragon Ball Shin Budokai, PowerStone,
@@ -54,7 +53,7 @@ There's really too much to list this time.
 * Support for loading game-specific plugins ([#13335])
 * Fixed Assassin's Creed: Bloodlines Save issue on Android ([#12761])
 * Hanayaka Nari Wa ga Ichizoku: mono voices fixed ([#5213])
-* Fixed games:
+* Additional fixed games:
     * Namco Museum - Battle Collection, Vol 2 ([#9523], [#13297], [#13298])
     * Dream Club Portable (graphics bugs, GL and Vulkan) ([#6025])
     * Capcom Classic Collection Reloaded (stuck in return game) ([#4671])
