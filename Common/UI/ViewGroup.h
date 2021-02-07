@@ -269,6 +269,17 @@ class ViewPager : public ScrollView {
 public:
 };
 
+class CascadeList : public LinearLayout {
+public:
+	CascadeList(const std::string &title, Orientation orientation, bool collapsed = true);
+	void Update() override;
+
+	EventReturn OnToggleCollapse(EventParams &e);
+
+private:
+	CascadeHeader* header_;
+	bool collapsed_;
+};
 
 class ChoiceStrip : public LinearLayout {
 public:

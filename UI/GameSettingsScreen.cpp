@@ -221,11 +221,13 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
+	CascadeList* renderingModeSettings = new CascadeList(gr->T("Rendering Mode"), ORIENT_VERTICAL, false);
+	renderingModeSettings->SetSpacing(0);
+	graphicsSettings->Add(renderingModeSettings);
 
 #if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
-	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+	PopupMultiChoice *renderingBackendChoice = renderingModeSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
@@ -249,13 +251,13 @@ void GameSettingsScreen::CreateViews() {
 	if (draw->GetDeviceList().size() > 1) {
 		std::string *deviceNameSetting = GPUDeviceNameSetting();
 		if (deviceNameSetting) {
-			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
+			PopupMultiChoiceDynamic *deviceChoice = renderingModeSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
 			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingDevice);
 		}
 	}
 
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering" };
-	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
+	PopupMultiChoice *renderingModeChoice = renderingModeSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 		switch (g_Config.iRenderingMode) {
 		case FB_NON_BUFFERED_MODE:
@@ -268,7 +270,7 @@ void GameSettingsScreen::CreateViews() {
 	});
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
+	CheckBox *blockTransfer = renderingModeSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
 	blockTransfer->OnClick.Add([=](EventParams &e) {
 		if (!g_Config.bBlockTransferGPU)
 			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
@@ -283,7 +285,7 @@ void GameSettingsScreen::CreateViews() {
 	showSoftGPU = g_Config.bSoftwareRendering;
 #endif
 	if (showSoftGPU) {
-		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+		CheckBox *softwareGPU = renderingModeSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
 		softwareGPU->OnClick.Add([=](EventParams &e) {
 			if (g_Config.bSoftwareRendering)
 				settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
@@ -293,31 +295,36 @@ void GameSettingsScreen::CreateViews() {
 		softwareGPU->SetEnabled(!PSP_IsInited());
 	}
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
+	CascadeList* frameRateSettings = new CascadeList(gr->T("Frame Rate Control"), ORIENT_VERTICAL, true);
+	frameRateSettings->SetSpacing(0);
+	graphicsSettings->Add(frameRateSettings);
+
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
+	frameRateSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
 	static const char *frameSkipType[] = {"Number of Frames", "Percent of FPS"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkipType, gr->T("Frame Skipping Type"), frameSkipType, 0, ARRAY_SIZE(frameSkipType), gr->GetName(), screenManager()));
-	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
+	frameRateSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkipType, gr->T("Frame Skipping Type"), frameSkipType, 0, ARRAY_SIZE(frameSkipType), gr->GetName(), screenManager()));
+	frameSkipAuto_ = frameRateSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
 	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
 
-	PopupSliderChoice *altSpeed1 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	PopupSliderChoice *altSpeed1 = frameRateSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
 	altSpeed1->SetFormat("%i%%");
 	altSpeed1->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed1->SetNegativeDisable(gr->T("Disabled"));
 
-	PopupSliderChoice *altSpeed2 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent2_, 0, 1000, gr->T("Alternative Speed 2", "Alternative speed 2 (in %, 0 = unlimited)"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	PopupSliderChoice *altSpeed2 = frameRateSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent2_, 0, 1000, gr->T("Alternative Speed 2", "Alternative speed 2 (in %, 0 = unlimited)"), 5, screenManager(), gr->T("%, 0:unlimited")));
 	altSpeed2->SetFormat("%i%%");
 	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
+	CascadeList* postProcessingSettings = new CascadeList(gr->T("Postprocessing effect"), ORIENT_VERTICAL, false);
+	postProcessingSettings->SetSpacing(0);
+	graphicsSettings->Add(postProcessingSettings);
 
 	std::vector<std::string> alreadyAddedShader;
 	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
 		shaderNames_[i] = g_Config.vPostShaderNames[i];
-		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
+		postProcChoice_ = postProcessingSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
 			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i);
@@ -342,10 +349,10 @@ void GameSettingsScreen::CreateViews() {
 					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
 					if (duplicated) {
 						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
-						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = postProcessingSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {
-						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						PopupSliderChoiceFloat *settingValue = postProcessingSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
 						settingValue->SetEnabledFunc([] {
 							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 						});
@@ -355,17 +362,20 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
+	CascadeList* screenLayoutSettings = new CascadeList(gr->T("Screen layout"), ORIENT_VERTICAL, false);
+	screenLayoutSettings->SetSpacing(0);
+	graphicsSettings->Add(screenLayoutSettings);
+
 #if !defined(MOBILE_DEVICE)
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+	screenLayoutSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
 		fullscreenMulti->SetEnabledPtr(&g_Config.bFullScreen);
-		graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+		screenLayoutSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	}
 #endif
 	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-	displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
+	displayEditor_ = screenLayoutSettings->Add(new Choice(gr->T("Display layout editor")));
 	displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -375,19 +385,22 @@ void GameSettingsScreen::CreateViews() {
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
+		screenLayoutSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 	}
 
 	// Hide Immersive Mode on pre-kitkat Android
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
 		// Let's reuse the Fullscreen translation string from desktop.
-		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+		screenLayoutSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
 #endif
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
+	CascadeList* performanceSettings = new CascadeList(gr->T("Performance"), ORIENT_VERTICAL, false);
+	performanceSettings->SetSpacing(0);
+	graphicsSettings->Add(performanceSettings);
+
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
-	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
+	resolutionChoice_ = performanceSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	resolutionChoice_->SetEnabledFunc([] {
 		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
@@ -400,20 +413,20 @@ void GameSettingsScreen::CreateViews() {
 		if (max_res_temp == 3)
 			max_res_temp = 4;  // At least allow 2x
 		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
-		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
+		UI::PopupMultiChoice *hwscale = performanceSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
 		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 	}
 #endif
 
 #if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
-	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	CheckBox *vSync = performanceSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 	vSync->OnClick.Add([=](EventParams &e) {
 		NativeResized();
 		return UI::EVENT_CONTINUE;
 	});
 #endif
 
-	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
+	CheckBox *frameDuplication = performanceSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
 	frameDuplication->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
 		return UI::EVENT_CONTINUE;
@@ -424,22 +437,22 @@ void GameSettingsScreen::CreateViews() {
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
-		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		PopupMultiChoice *inflightChoice = performanceSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
 	}
 
-	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
+	CheckBox *hwTransform = performanceSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
+	CheckBox *swSkin = performanceSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
+	CheckBox *vtxCache = performanceSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
 	vtxCache->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
 		return UI::EVENT_CONTINUE;
@@ -448,7 +461,7 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	});
 
-	CheckBox *clearHack = graphicsSettings->Add(new CheckBox(&g_Config.bClearFramebuffersOnFirstUseHack, gr->T("Clear Speedhack", "Clear framebuffers on first use (speedhack)")));
+	CheckBox *clearHack = performanceSettings->Add(new CheckBox(&g_Config.bClearFramebuffersOnFirstUseHack, gr->T("Clear Speedhack", "Clear framebuffers on first use (speedhack)")));
 	clearHack->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("ClearSpeedhack Tip", "Sometimes faster (mostly on mobile devices), may cause glitches"), e.v);
 		return UI::EVENT_CONTINUE;
@@ -457,17 +470,17 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering;
 	});
 
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
+	CheckBox *texBackoff = performanceSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
+	CheckBox *texSecondary_ = performanceSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
 	texSecondary_->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
+	CheckBox *framebufferSlowEffects = performanceSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// Seems solid, so we hide the setting.
@@ -478,7 +491,7 @@ void GameSettingsScreen::CreateViews() {
 	}*/
 
 	static const char *quality[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
+	PopupMultiChoice *beziersChoice = performanceSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
 			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
@@ -486,7 +499,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+	CheckBox *tessellationHW = performanceSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
 		return UI::EVENT_CONTINUE;
@@ -496,14 +509,18 @@ void GameSettingsScreen::CreateViews() {
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
-	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
+
+	CascadeList* textureScalingSettings = new CascadeList(gr->T("Texture Scaling"), ORIENT_VERTICAL, false);
+	textureScalingSettings->SetSpacing(0);
+	graphicsSettings->Add(textureScalingSettings);
+
 #ifndef MOBILE_DEVICE
 	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
 #else
 	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x"};
 #endif
 
-	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 0, ARRAY_SIZE(texScaleLevels), gr->GetName(), screenManager()));
+	PopupMultiChoice *texScalingChoice = textureScalingSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 0, ARRAY_SIZE(texScaleLevels), gr->GetName(), screenManager()));
 	// TODO: Better check?  When it won't work, it scales down anyway.
 	if (!gl_extensions.OES_texture_npot && GetGPUBackend() == GPUBackend::OPENGL) {
 		texScalingChoice->HideChoice(3); // 3x
@@ -518,12 +535,12 @@ void GameSettingsScreen::CreateViews() {
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
+	PopupMultiChoice *texScalingType = textureScalingSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
 	texScalingType->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
 
-	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
+	CheckBox *deposterize = textureScalingSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
 		if (g_Config.bTexDeposterize == true) {
 			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), e.v);
@@ -534,22 +551,25 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
 
-	ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("Texture Shader"), &TextureTranslateName));
+	ChoiceWithValueDisplay *textureShaderChoice = textureScalingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("Texture Shader"), &TextureTranslateName));
 	textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
 	textureShaderChoice->SetEnabledFunc([]() {
 		return GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
 	});
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
+	CascadeList* textureFilteringSettings = new CascadeList(gr->T("Texture Filtering"), ORIENT_VERTICAL, false);
+	textureFilteringSettings->SetSpacing(0);
+	graphicsSettings->Add(textureFilteringSettings);
+
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
-	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
+	PopupMultiChoice *anisoFiltering = textureFilteringSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
+	textureFilteringSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+	textureFilteringSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = true;
@@ -558,39 +578,53 @@ void GameSettingsScreen::CreateViews() {
 	bool showCardboardSettings = g_Config.bEnableCardboardVR;
 #endif
 	if (showCardboardSettings) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		CascadeList* cardboardSettings = new CascadeList(gr->T("Cardboard VR Settings"), ORIENT_VERTICAL, false);
+		cardboardSettings->SetSpacing(0);
+		graphicsSettings->Add(cardboardSettings);
+
+		cardboardSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = cardboardSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
 		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		PopupSliderChoice *cardboardXShift = cardboardSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		PopupSliderChoice *cardboardYShift = cardboardSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 	}
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
 	if (cameraList.size() >= 1) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
+		CascadeList* cameraSettings = new CascadeList(gr->T("Camera"), ORIENT_VERTICAL, false);
+		cameraSettings->SetSpacing(0);
+		graphicsSettings->Add(cameraSettings);
+
+		PopupMultiChoiceDynamic *cameraChoice = cameraSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
 		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
 	}
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
+	CascadeList* hackSettings = new CascadeList(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)"), ORIENT_VERTICAL, false);
+	hackSettings->SetSpacing(0);
+	graphicsSettings->Add(hackSettings);
 
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
-	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
+	PopupMultiChoice *bloomHack = hackSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
 	bloomHack->SetEnabledFunc([] {
 		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
 	});
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
+	CascadeList* overlaySettings = new CascadeList(gr->T("Overlay Information"), ORIENT_VERTICAL, false);
+	overlaySettings->SetSpacing(0);
+	graphicsSettings->Add(overlaySettings);
+
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	overlaySettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
+	overlaySettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Developer tools are not accessible ingame, so it goes here.
-	graphicsSettings->Add(new ItemHeader(gr->T("Debugging")));
-	Choice *dump = graphicsSettings->Add(new Choice(gr->T("Dump next frame to log")));
+	CascadeList* debuggingSettings = new CascadeList(gr->T("Debugging"), ORIENT_VERTICAL, false);
+	debuggingSettings->SetSpacing(0);
+	graphicsSettings->Add(debuggingSettings);
+
+	Choice *dump = debuggingSettings->Add(new Choice(gr->T("Dump next frame to log")));
 	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);

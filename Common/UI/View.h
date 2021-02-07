@@ -706,6 +706,16 @@ protected:
 	bool IsSticky() const override { return true; }
 };
 
+class CascadeHeader : public Choice {
+public:
+	CascadeHeader(const std::string &text, bool collapsed, LayoutParams *layoutParams = 0);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void SetCollapsed(bool c);
+private:
+	bool collapsed_;
+};
+
 class InfoItem : public Item {
 public:
 	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = nullptr);

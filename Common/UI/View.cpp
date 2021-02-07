@@ -572,6 +572,44 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
+CascadeHeader::CascadeHeader(const std::string &text, bool collapsed, LayoutParams *layoutParams)
+	: Choice(text, layoutParams), collapsed_(collapsed) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = 40;
+}
+
+void CascadeHeader::Draw(UIContext &dc) {
+	if (HasFocus()) {
+		DrawBG(dc, dc.theme->itemFocusedStyle);
+	}
+	if (down_) {
+		DrawBG(dc, dc.theme->itemDownStyle);
+	}
+
+	dc.SetFontStyle(dc.theme->uiFontSmall);
+	dc.DrawText(text_.c_str(), bounds_.x + 4, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
+
+	dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x2() - 40, bounds_.centerY(), 1.0f, collapsed_ ? PI/2 : 3*PI/2, dc.theme->headerStyle.fgColor, ALIGN_CENTER);
+}
+
+void CascadeHeader::SetCollapsed(bool c) {
+	collapsed_ = c;
+}
+
+void CascadeHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
 void PopupHeader::Draw(UIContext &dc) {
 	const float paddingHorizontal = 12;
 	const float availableWidth = bounds_.w - paddingHorizontal * 2;

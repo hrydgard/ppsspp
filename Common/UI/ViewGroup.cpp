@@ -1417,4 +1417,26 @@ bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventRe
 	return EVENT_DONE;
 }
 
+CascadeList::CascadeList(const std::string &title, Orientation orientation, bool collapsed) : 
+	LinearLayout(orientation), header_(new CascadeHeader(title, collapsed)), collapsed_(collapsed) {
+	header_->OnClick.Handle(this, &CascadeList::OnToggleCollapse);
+	Add(header_);
+}
+
+void CascadeList::Update() {
+	ViewGroup::Update();
+	if (visibility_ == V_VISIBLE) {
+		header_->SetCollapsed(collapsed_);
+		for (View *view : views_) {
+			if (view != header_)
+				view->SetVisibility(collapsed_ ? V_GONE : V_VISIBLE);
+		}
+	}
+}
+
+EventReturn CascadeList::OnToggleCollapse(EventParams &e) {
+	collapsed_ = !collapsed_;
+	return EVENT_CONTINUE;
+}
+
 }  // namespace UI
