@@ -49,6 +49,7 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const std::string &tag);
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
+std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
 
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();

@@ -128,8 +128,10 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 	Slab *slab = FindSlab(addr);
 	bool found = false;
 	while (slab != nullptr && slab->start < end) {
-		results.push_back({ flags, slab->start, slab->end - slab->start, slab->pc, slab->tag, slab->allocated });
-		found = true;
+		if (slab->pc != 0 || !slab->tag.empty()) {
+			results.push_back({ flags, slab->start, slab->end - slab->start, slab->pc, slab->tag, slab->allocated });
+			found = true;
+		}
 		slab = slab->next;
 	}
 	return found;
@@ -375,6 +377,21 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	suballocMap.Find(MemBlockFlags::SUB_ALLOC, start, size, results);
 	writeMap.Find(MemBlockFlags::WRITE, start, size, results);
 	textureMap.Find(MemBlockFlags::TEXTURE, start, size, results);
+	return results;
+}
+
+std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
+	FlushPendingMemInfo();
+
+	std::vector<MemBlockInfo> results;
+	if (flags & MemBlockFlags::ALLOC)
+		allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
+	if (flags & MemBlockFlags::SUB_ALLOC)
+		suballocMap.Find(MemBlockFlags::SUB_ALLOC, start, size, results);
+	if (flags & MemBlockFlags::WRITE)
+		writeMap.Find(MemBlockFlags::WRITE, start, size, results);
+	if (flags & MemBlockFlags::TEXTURE)
+		textureMap.Find(MemBlockFlags::TEXTURE, start, size, results);
 	return results;
 }
 
