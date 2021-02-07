@@ -32,37 +32,37 @@ There's really too much to list this time.
 * New Browse... button to allow opening SD cards on Android 11
 * Countless AdHoc networking fixes by ANR2ME, for example Dragon Ball Shin Budokai, PowerStone,
   Bleach Heat The Soul 7, Kingdom Hearts, GTA: VCS and many more.
-* Graphics issue with car reflections fixed in Outrun, Dirt 2 (#13636, #13640, #13760)
-* Cut-off cards in Yu Gi Oh fixed (#7124).
+* Graphics issue with car reflections fixed in Outrun, Dirt 2 ([#13636], [#13640], [#13760])
+* Cut-off cards in Yu Gi Oh fixed ([#7124]).
 * Numerous fixes to the builtin fonts by nassau-tk
-* Added exception handler so PPSSPP stays alive if a game crashes (#11795/#13092)
-* Desktop: Support for multiple instance multiplayer (#13172, ...)
+* Added exception handler so PPSSPP stays alive if a game crashes ([#11795]/[#13092])
+* Desktop: Support for multiple instance multiplayer ([#13172], ...)
 * Workaround for rendering bugs with flat shading in iOS 14
-* Multiple fixes to the IR interpreter (#13897, ...)
-* UI: New fullscreen button on desktop platforms, optional navigation sounds (#13239)
-* Audio and multiple hangs fixes in UWP version (#13792, ...)
-* Partial microphone support (#12336, ...)
-* Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 (#13706, #13526)
-* Hardware texture upscaling for Vulkan, mipmap generation (#13235, #13514)
-* Added MMPX Vulkan texture upscaling shader (#13986)
+* Multiple fixes to the IR interpreter ([#13897], ...)
+* UI: New fullscreen button on desktop platforms, optional navigation sounds ([#13239])
+* Audio and multiple hangs fixes in UWP version ([#13792], ...)
+* Partial microphone support ([#12336], ...)
+* Workaround for wacky action mirroring bug in Hitman Reborn Battle Arena 2 ([#13706], [#13526])
+* Hardware texture upscaling for Vulkan, mipmap generation ([#13235], [#13514])
+* Added MMPX Vulkan texture upscaling shader ([#13986])
 * Depth texturing support in Vulkan and D3D11 (13667, ...)
-* Performance fix for Test Drive Unlimited (#13355, ...)
-* Allow rewind on mobile (#13866)
-* Added option to disable on-screen messages (#13695)
-* Added "Lower resolution for effects" on libretro (#13654)
-* Allow chaining multiple post-processing shaders (#12924)
-* Support for loading game-specific plugins (#13335)
-* Fixed Assassin's Creed: Bloodlines Save issue on Android (#12761)
-* Hanayaka Nari Wa ga Ichizoku: mono voices fixed (#5213)
+* Performance fix for Test Drive Unlimited ([#13355], ...)
+* Allow rewind on mobile ([#13866])
+* Added option to disable on-screen messages ([#13695])
+* Added "Lower resolution for effects" on libretro ([#13654])
+* Allow chaining multiple post-processing shaders ([#12924])
+* Support for loading game-specific plugins ([#13335])
+* Fixed Assassin's Creed: Bloodlines Save issue on Android ([#12761])
+* Hanayaka Nari Wa ga Ichizoku: mono voices fixed ([#5213])
 * Fixed games:
-    * Namco Museum - Battle Collection, Vol 2 (#9523, #13297, #13298)
-    * Dream Club Portable (graphics bugs, GL and Vulkan) (#6025)
-    * Capcom Classic Collection Reloaded (stuck in return game) (#4671)
-    * Xyanide Resurrection (freezing) (#8526)
-    * Dissidia Final Fantasy Chinese (patched game, invalid address) (#13204)
-    * Crazy Taxi (#13368)
-    * Spiderman: Friend or Foe (#13969)
-    * Downstream Panic (US) (New Game crash) (#13633)
+    * Namco Museum - Battle Collection, Vol 2 ([#9523], [#13297], [#13298])
+    * Dream Club Portable (graphics bugs, GL and Vulkan) ([#6025])
+    * Capcom Classic Collection Reloaded (stuck in return game) ([#4671])
+    * Xyanide Resurrection (freezing) ([#8526])
+    * Dissidia Final Fantasy Chinese (patched game, invalid address) ([#13204])
+    * Crazy Taxi ([#13368])
+    * Spiderman: Friend or Foe ([#13969])
+    * Downstream Panic (US) (New Game crash) ([#13633])
 
 What's new in 1.10.3
 --------------------
@@ -382,3 +382,37 @@ Credit goes to:
 [#10909]: https://github.com/hrydgard/ppsspp/issues/10909 "WebSocket based debugger interface"
 [#11447]: https://github.com/hrydgard/ppsspp/issues/11447 "Avoid calling any GL calls during shutdown on Android. Should help #11063"
 [#11350]: https://github.com/hrydgard/ppsspp/issues/11350 "TexCache: Optimize DXT3/DXT5 decode to single pass"
+[#13636]: https://github.com/hrydgard/ppsspp/issues/13636 "Reinterpret framebuffer formats as needed. Outrun reflections partial fix"
+[#13640]: https://github.com/hrydgard/ppsspp/issues/13640 "Fix car reflections in Outrun"
+[#13760]: https://github.com/hrydgard/ppsspp/issues/13760 "Fix car lighting issues in DiRT 2."
+[#7124]: https://github.com/hrydgard/ppsspp/issues/7124 "Yu-Gi-Oh! GX Tag Force Card summoning (card cut-off / cropped)"
+[#11795]: https://github.com/hrydgard/ppsspp/issues/11795 "Exception handler - catch bad memory accesses"
+[#13092]: https://github.com/hrydgard/ppsspp/issues/13092 "Bad memory access handling improvements"
+[#13172]: https://github.com/hrydgard/ppsspp/issues/13172 "Generalized multi-instance"
+[#13897]: https://github.com/hrydgard/ppsspp/issues/13897 "LittleBigPlanet - Game Not Loading, Blue Screen (iOS, Unplayable)"
+[#13239]: https://github.com/hrydgard/ppsspp/issues/13239 "Add sound effects for PPSSPP interface navigation"
+[#13792]: https://github.com/hrydgard/ppsspp/issues/13792 "Fix UWP audio and a hang bug"
+[#12336]: https://github.com/hrydgard/ppsspp/issues/12336 "Microphone support"
+[#13706]: https://github.com/hrydgard/ppsspp/issues/13706 "Add back the old implementation of vfpu_sin/cos/sincos."
+[#13526]: https://github.com/hrydgard/ppsspp/issues/13526 "VFPU: Compute sines and cosines in double precision."
+[#13235]: https://github.com/hrydgard/ppsspp/issues/13235 "Vulkan: Allow custom texture upscaling shaders"
+[#13514]: https://github.com/hrydgard/ppsspp/issues/13514 "Vulkan: Automatically generate mipmaps for replaced/scaled textures"
+[#13986]: https://github.com/hrydgard/ppsspp/issues/13986 "Vulkan: Add MMPX upscaling texture shader"
+[#13355]: https://github.com/hrydgard/ppsspp/issues/13355 "Refactor framebuffer attachment. Fixes Test Drive Unlimited performance"
+[#13866]: https://github.com/hrydgard/ppsspp/issues/13866 "SaveState: Allow rewind on mobile"
+[#13695]: https://github.com/hrydgard/ppsspp/issues/13695 "Add developer setting \"Show on-screen messages\". Uncheck to hide them."
+[#13654]: https://github.com/hrydgard/ppsspp/issues/13654 "Expose the \"Lower resolution for effects\" setting in libretro."
+[#12924]: https://github.com/hrydgard/ppsspp/issues/12924 "Postprocessing: User chain support"
+[#13335]: https://github.com/hrydgard/ppsspp/issues/13335 "Support for loading game-specific plugins"
+[#12761]: https://github.com/hrydgard/ppsspp/issues/12761 "[Android][OpenGL&Vulkan][Save issue] Assassin's Creed : Bloodlines (ULJM05571)"
+[#5213]: https://github.com/hrydgard/ppsspp/issues/5213 "Hanayaka Nari Wa ga Ichizoku strange MP3 mono voice"
+[#9523]: https://github.com/hrydgard/ppsspp/issues/9523 "Namco Museum - Battle Collection - ULUS100035 loading problem"
+[#13297]: https://github.com/hrydgard/ppsspp/issues/13297 "Namco Museum Vol. 2 - ULJS00047 infinite loading in some game"
+[#13298]: https://github.com/hrydgard/ppsspp/issues/13298 "Fix sceKernelExitThread"
+[#6025]: https://github.com/hrydgard/ppsspp/issues/6025 "Dream Club Portable crash after select girl"
+[#4671]: https://github.com/hrydgard/ppsspp/issues/4671 "Capcom Classic Collection Reloaded stuck in return game"
+[#8526]: https://github.com/hrydgard/ppsspp/issues/8526 "Xyanide Resurrection freezing"
+[#13204]: https://github.com/hrydgard/ppsspp/issues/13204 "Dissidia Final Fantasy Chinese patch invalid address"
+[#13368]: https://github.com/hrydgard/ppsspp/issues/13368 "Reschedule after resuming thread from suspend."
+[#13969]: https://github.com/hrydgard/ppsspp/issues/13969 "Io: Don't allow async close while async busy"
+[#13633]: https://github.com/hrydgard/ppsspp/issues/13633 "Downstream Panic (US) New Game crashes"
