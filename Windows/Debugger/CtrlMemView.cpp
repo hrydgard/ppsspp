@@ -3,6 +3,7 @@
 #include <tchar.h>
 #include <math.h>
 #include <iomanip>
+#include "ext/xxhash.h"
 #include "Core/Config.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
@@ -241,17 +242,21 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 		for (int j = 0; j < rowSize; j++) {
 			uint32_t byteAddress = address + j;
 			std::string tag;
+			bool tagContinues = false;
 			for (auto info : memRangeInfo) {
-				if (info.start <= byteAddress && info.start + info.size > byteAddress)
+				if (info.start <= byteAddress && info.start + info.size > byteAddress) {
 					tag = info.tag;
+					tagContinues = byteAddress + 1 < info.start + info.size;
+				}
 			}
 
 			int hexX = hexStart + j * 3 * charWidth;
+			int hexLen = 2;
 			int asciiX = asciiStart + j * (charWidth + 2);
 
 			char c;
 			if (valid) {
-				sprintf(temp, "%02X", memory.bytes[j]);
+				sprintf(temp, "%02X ", memory.bytes[j]);
 				c = (char)memory.bytes[j];
 				if (memory.bytes[j] < 32 || memory.bytes[j] >= 128)
 					c = '.';
@@ -282,6 +287,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			} else if (!tag.empty()) {
 				hexBGCol = pickTagColor(tag);
 				asciiBGCol = pickTagColor(tag);
+				hexLen = tagContinues ? 3 : 2;
 			}
 
 			setTextColors(hexTextCol, hexBGCol);
@@ -296,7 +302,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 				TextOutA(hdc, hexX + charWidth, rowY, &temp[1], 1);
 				SelectObject(hdc, (HGDIOBJ)font);
 			} else {
-				TextOutA(hdc, hexX, rowY, temp, 2);
+				TextOutA(hdc, hexX, rowY, temp, hexLen);
 			}
 
 			setTextColors(asciiTextCol, asciiBGCol);
@@ -830,5 +836,7 @@ void CtrlMemView::setHighlightType(MemBlockFlags flags) {
 }
 
 uint32_t CtrlMemView::pickTagColor(const std::string &tag) {
-	return 0xFFFFFF;
+	int colors[6] = { 0xe0FFFF, 0xFFE0E0, 0xE8E8FF, 0xFFE0FF, 0xE0FFE0, 0xFFFFE0 };
+	int which = XXH3_64bits(tag.c_str(), tag.length()) % ARRAY_SIZE(colors);
+	return colors[which];
 }
