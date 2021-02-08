@@ -489,7 +489,7 @@ BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, B
 }
 
 void BlockAllocator::Block::SetAllocated(const char *_tag, bool suballoc) {
-	NotifyMemInfo(suballoc ? MemBlockFlags::SUB_ALLOC : MemBlockFlags::ALLOC, start, size, _tag);
+	NotifyMemInfo(suballoc ? MemBlockFlags::SUB_ALLOC : MemBlockFlags::ALLOC, start, size, _tag ? _tag : "");
 	if (_tag)
 		truncate_cpy(tag, _tag);
 	else
