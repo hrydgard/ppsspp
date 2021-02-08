@@ -125,7 +125,7 @@ struct PPGeTextDrawerImage {
 	TextStringEntry entry;
 	u32 ptr;
 };
-std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
+static std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
 
 void PPGeSetDrawContext(Draw::DrawContext *draw) {
 	g_draw = draw;
@@ -199,9 +199,16 @@ static void EndVertexDataAndDraw(int prim) {
 
 static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
-	// Didn't get it.
-	if (ptr == (u32)-1)
-		return 0;
+	// Didn't get it, try again after decimating images.
+	if (ptr == (u32)-1) {
+		PPGeDecimateTextImages(4);
+		PPGeImage::Decimate(4);
+
+		ptr = kernelMemory.Alloc(size, fromTop, name);
+		if (ptr == (u32)-1) {
+			return 0;
+		}
+	}
 	return ptr;
 }
 
@@ -1283,9 +1290,8 @@ void PPGeImage::CompatLoad(u32 texture, int width, int height) {
 	height_ = height;
 }
 
-void PPGeImage::Decimate() {
-	static const int TOO_OLD_AGE = 30;
-	int tooOldFrame = gpuStats.numFlips - TOO_OLD_AGE;
+void PPGeImage::Decimate(int age) {
+	int tooOldFrame = gpuStats.numFlips - age;
 	for (size_t i = 0; i < loadedTextures_.size(); ++i) {
 		if (loadedTextures_[i]->lastFrame_ < tooOldFrame) {
 			loadedTextures_[i]->Free();

@@ -133,7 +133,7 @@ public:
 		return height_;
 	}
 
-	static void Decimate();
+	static void Decimate(int age = 30);
 
 private:
 	static std::vector<PPGeImage *> loadedTextures_;
