@@ -110,7 +110,7 @@ bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc,
 			slab->tag = tag;
 
 		// Move on to the next one.
-		if (firstMatch != nullptr)
+		if (firstMatch == nullptr)
 			firstMatch = slab;
 		slab = slab->next;
 	}
@@ -296,6 +296,11 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 	}
 	// Take over index entries b had.
 	FillHeads(a);
+	if (b->ticks > a->ticks) {
+		a->ticks = b->ticks;
+		// In case we ignore PC for same.
+		a->pc = b->pc;
+	}
 	if (lastFind_ == b)
 		lastFind_ = a;
 	delete b;
