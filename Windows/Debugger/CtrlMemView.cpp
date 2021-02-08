@@ -562,7 +562,7 @@ void CtrlMemView::updateStatusBarText() {
 	snprintf(text, sizeof(text), "%08X", curAddress);
 	// There should only be one.
 	for (MemBlockInfo info : memRangeInfo) {
-		snprintf(text, sizeof(text), "%08X - %s (at PC %08X / %lld ticks)", curAddress, info.tag.c_str(), info.pc, info.ticks);
+		snprintf(text, sizeof(text), "%08X - %s %08X-%08X (at PC %08X / %lld ticks)", curAddress, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
 	}
 
 	SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM)text);
@@ -634,6 +634,7 @@ void CtrlMemView::scrollWindow(int lines)
 {
 	windowStart += lines*rowSize;
 	curAddress += lines*rowSize;
+	updateStatusBarText();
 	redraw();
 }
 
