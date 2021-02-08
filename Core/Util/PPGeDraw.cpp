@@ -141,6 +141,8 @@ void PPGePrepareText(const char *text, float x, float y, PPGeAlign align, float 
 // Clears the buffer and state when done.
 void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
 
+static void PPGeDecimateTextImages(int age = 97);
+
 void PPGeSetTexture(u32 dataAddr, int width, int height);
 
 //only 0xFFFFFF of data is used
@@ -906,6 +908,18 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PP
 	PPGeSetDefaultTexture();
 }
 
+static void PPGeDecimateTextImages(int age) {
+	// Do this always, in case the platform has no TextDrawer but save state did.
+	for (auto it = textDrawerImages.begin(); it != textDrawerImages.end(); ) {
+		if (gpuStats.numFlips - it->second.entry.lastUsedFrame >= age) {
+			kernelMemory.Free(it->second.ptr);
+			it = textDrawerImages.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
 void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	if (!text || !strlen(text)) {
 		return;
@@ -1300,15 +1314,6 @@ void PPGeNotifyFrame() {
 		textDrawer->OncePerFrame();
 	}
 
-	// Do this always, in case the platform has no TextDrawer but save state did.
-	for (auto it = textDrawerImages.begin(); it != textDrawerImages.end(); ) {
-		if (it->second.entry.lastUsedFrame - gpuStats.numFlips >= 97) {
-			kernelMemory.Free(it->second.ptr);
-			it = textDrawerImages.erase(it);
-		} else {
-			++it;
-		}
-	}
-
+	PPGeDecimateTextImages();
 	PPGeImage::Decimate();
 }
