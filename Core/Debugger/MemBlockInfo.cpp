@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <mutex>
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -80,6 +81,7 @@ static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
 static MemSlabMap textureMap;
 static std::vector<PendingNotifyMem> pendingNotifies;
+static std::mutex pendingMutex;
 
 MemSlabMap::MemSlabMap() {
 	Reset();
@@ -322,6 +324,7 @@ void MemSlabMap::FillHeads(Slab *slab) {
 }
 
 void FlushPendingMemInfo() {
+	std::lock_guard<std::mutex> guard(pendingMutex);
 	for (auto info : pendingNotifies) {
 		if (info.flags & MemBlockFlags::ALLOC) {
 			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
@@ -361,9 +364,15 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	info.ticks = CoreTiming::GetTicks();
 	info.pc = pc;
 	info.tag = tag;
-	pendingNotifies.push_back(info);
 
-	if (pendingNotifies.size() > MAX_PENDING_NOTIFIES) {
+	bool needFlush = false;
+	{
+		std::lock_guard<std::mutex> guard(pendingMutex);
+		pendingNotifies.push_back(info);
+		needFlush = pendingNotifies.size() > MAX_PENDING_NOTIFIES;
+	}
+
+	if (needFlush) {
 		FlushPendingMemInfo();
 	}
 
@@ -403,10 +412,12 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 }
 
 void MemBlockInfoInit() {
+	std::lock_guard<std::mutex> guard(pendingMutex);
 	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
 }
 
 void MemBlockInfoShutdown() {
+	std::lock_guard<std::mutex> guard(pendingMutex);
 	allocMap.Reset();
 	suballocMap.Reset();
 	writeMap.Reset();
