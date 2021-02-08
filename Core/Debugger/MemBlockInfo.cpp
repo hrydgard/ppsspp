@@ -371,6 +371,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	FlushPendingMemInfo();
+	start &= ~0xC0000000;
 
 	std::vector<MemBlockInfo> results;
 	allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
@@ -382,6 +383,7 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
 	FlushPendingMemInfo();
+	start &= ~0xC0000000;
 
 	std::vector<MemBlockInfo> results;
 	if (flags & MemBlockFlags::ALLOC)

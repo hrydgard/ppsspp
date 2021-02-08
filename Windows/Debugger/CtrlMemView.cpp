@@ -240,7 +240,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 		}
 
 		for (int j = 0; j < rowSize; j++) {
-			uint32_t byteAddress = address + j;
+			const uint32_t byteAddress = (address + j) & ~0xC0000000;
 			std::string tag;
 			bool tagContinues = false;
 			for (auto info : memRangeInfo) {
@@ -272,7 +272,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			COLORREF asciiTextCol = 0x000000;
 			int underline = -1;
 
-			if (byteAddress == curAddress && searching == false) {
+			if (address + j == curAddress && searching == false) {
 				if (asciiSelected) {
 					hexBGCol = 0xC0C0C0;
 					hexTextCol = 0x000000;
