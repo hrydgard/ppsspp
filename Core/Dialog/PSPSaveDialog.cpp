@@ -380,6 +380,8 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			tw = fileInfo.texture->Width();
 			th = fileInfo.texture->Height();
 			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
+		} else {
+			PPGeDrawRect(x, y, x + w, y + h, 0x88666666);
 		}
 		PPGeSetDefaultTexture();
 	}
@@ -463,11 +465,13 @@ static void FormatSaveDate(char *date, size_t sz, const tm &t) {
 void PSPSaveDialog::DisplaySaveDataInfo1() {
 	std::lock_guard<std::mutex> guard(paramLock);
 	const SaveFileInfo &saveInfo = param.GetFileInfo(currentSelectedSave);
+	PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
 
 	if (saveInfo.broken) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 		PPGeDrawText(di->T("Corrupted Data"), 180, 136, textStyle);
+		PPGeDrawText(saveInfo.title, 175, 159, saveTitleStyle);
 	} else if (saveInfo.size == 0) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
@@ -488,7 +492,6 @@ void PSPSaveDialog::DisplaySaveDataInfo1() {
 		std::string saveDetailTxt = saveInfo.saveDetail;
 
 		PPGeStyle titleStyle = FadedStyle(PPGeAlign::BOX_BOTTOM, 0.6f);
-		PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
 		titleStyle.color = CalcFadedColor(0xFFC0C0C0);
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
 
