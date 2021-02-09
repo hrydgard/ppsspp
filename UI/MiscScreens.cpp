@@ -516,8 +516,8 @@ void LogoScreen::render() {
 
 	const Bounds &bounds = dc.GetBounds();
 
-	float xres = dc.GetBounds().w;
-	float yres = dc.GetBounds().h;
+	float xres = bounds.w;
+	float yres = bounds.h;
 
 	dc.Begin();
 

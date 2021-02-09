@@ -302,7 +302,7 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[8];
+	GLint samplerLocs_[8]{};
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
@@ -1038,8 +1038,8 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
-	if ((int)desc.prim >= (int)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ERROR_LOG(G3D,  "Invalid primitive type");
+	if ((uint32_t)desc.prim >= (uint32_t)Primitive::PRIMITIVE_TYPE_COUNT) {
+		ERROR_LOG(G3D, "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster) {
