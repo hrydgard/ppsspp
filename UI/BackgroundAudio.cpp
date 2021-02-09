@@ -343,14 +343,12 @@ int BackgroundAudio::Play() {
 	int sz = lastPlaybackTime_ <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime_) * 44100);
 	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader_) {
-		if (sz >= 16) {
-			if (at3Reader_->Read(buffer, sz)) {
-				if (fadingOut_) {
-					for (int i = 0; i < sz*2; i += 2) {
-						buffer[i] *= volume_;
-						buffer[i + 1] *= volume_;
-						volume_ += delta_;
-					}
+		if (at3Reader_->Read(buffer, sz)) {
+			if (fadingOut_) {
+				for (int i = 0; i < sz*2; i += 2) {
+					buffer[i] *= volume_;
+					buffer[i + 1] *= volume_;
+					volume_ += delta_;
 				}
 			}
 		}

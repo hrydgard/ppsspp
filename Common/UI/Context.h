@@ -99,7 +99,7 @@ public:
 	Bounds TransformBounds(const Bounds &bounds);
 
 private:
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
 
 	float fontScaleX_ = 1.0f;
@@ -107,7 +107,7 @@ private:
 	UI::FontStyle *fontStyle_ = nullptr;
 	TextDrawer *textDrawer_ = nullptr;
 
-	Draw::SamplerState *sampler_;
+	Draw::SamplerState *sampler_ = nullptr;
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
 	std::unique_ptr<ManagedTexture> uitexture_;
