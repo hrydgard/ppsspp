@@ -189,7 +189,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	g_lastMemoryExceptionType = type;
 
-	if (success && !isAtDispatch && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
+	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
