@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include "Common.h"
+#include "Common/CodeBlock.h"
 
 // VCVT flags
 #define TO_FLOAT      0
@@ -167,7 +168,7 @@ public:
 	Operand2(FakeReg base, ShiftType type, FakeReg shift) // RSR
 	{
 		Type = TYPE_RSR;
-		_assert_msg_(JIT, type != ST_RRX, "Invalid Operand2: RRX does not take a register shift amount");
+		_assert_msg_(type != ST_RRX, "Invalid Operand2: RRX does not take a register shift amount");
 		IndexOrShift = shift;
 		Shift = type;
 		Value = base;
@@ -179,29 +180,29 @@ public:
 		switch (type)
 		{
 		case ST_LSL:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: LSL %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: LSL %u", shift);
 			break;
 		case ST_LSR:
-			_assert_msg_(JIT, shift <= 32, "Invalid Operand2: LSR %u", shift);
+			_assert_msg_(shift <= 32, "Invalid Operand2: LSR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			if (shift == 32)
 				shift = 0;
 			break;
 		case ST_ASR:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: ASR %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: ASR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			if (shift == 32)
 				shift = 0;
 			break;
 		case ST_ROR:
-			_assert_msg_(JIT, shift < 32, "Invalid Operand2: ROR %u", shift);
+			_assert_msg_(shift < 32, "Invalid Operand2: ROR %u", shift);
 			if (!shift)
 				type = ST_LSL;
 			break;
 		case ST_RRX:
-			_assert_msg_(JIT, shift == 0, "Invalid Operand2: RRX does not take an immediate shift amount");
+			_assert_msg_(shift == 0, "Invalid Operand2: RRX does not take an immediate shift amount");
 			type = ST_ROR;
 			break;
 		}
@@ -223,45 +224,45 @@ public:
 		case TYPE_RSR:
 			return RSR();
 		default:
-			_assert_msg_(JIT, false, "GetData with Invalid Type");
+			_assert_msg_(false, "GetData with Invalid Type");
 			return 0;
 		}
 	}
 	u32 IMMSR() // IMM shifted register
 	{
-		_assert_msg_(JIT, Type == TYPE_IMMSREG, "IMMSR must be imm shifted register");
+		_assert_msg_(Type == TYPE_IMMSREG, "IMMSR must be imm shifted register");
 		return ((IndexOrShift & 0x1f) << 7 | (Shift << 5) | Value);
 	}
 	u32 RSR() // Register shifted register
 	{
-		_assert_msg_(JIT, Type == TYPE_RSR, "RSR must be RSR Of Course");
+		_assert_msg_(Type == TYPE_RSR, "RSR must be RSR Of Course");
 		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Value;
 	}
 	u32 Rm()
 	{
-		_assert_msg_(JIT, Type == TYPE_REG, "Rm must be with Reg");
+		_assert_msg_(Type == TYPE_REG, "Rm must be with Reg");
 		return Value;
 	}
 
 	u32 Imm5()
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm5 not IMM value");
+		_assert_msg_(Type == TYPE_IMM, "Imm5 not IMM value");
 		return ((Value & 0x0000001F) << 7);
 	}
 	u32 Imm8()
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
+		_assert_msg_(Type == TYPE_IMM, "Imm8Rot not IMM value");
 		return Value & 0xFF;
 	}
 	u32 Imm8Rot() // IMM8 with Rotation
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
-		_assert_msg_(JIT, (Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
+		_assert_msg_(Type == TYPE_IMM, "Imm8Rot not IMM value");
+		_assert_msg_((Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
 		return (1 << 25) | (Rotation << 7) | (Value & 0x000000FF);
 	}
 	u32 Imm12()
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12 not IMM");
+		_assert_msg_(Type == TYPE_IMM, "Imm12 not IMM");
 		return (Value & 0x00000FFF);
 	}
 
@@ -272,12 +273,12 @@ public:
 		// expand a 8bit IMM to a 32bit value and gives you some rotation as
 		// well.
 		// Each rotation rotates to the right by 2 bits
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12Mod not IMM");
+		_assert_msg_(Type == TYPE_IMM, "Imm12Mod not IMM");
 		return ((Rotation & 0xF) << 8) | (Value & 0xFF);
 	}
 	u32 Imm16()
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_(Type == TYPE_IMM, "Imm16 not IMM");
 		return ( (Value & 0xF000) << 4) | (Value & 0x0FFF);
 	}
 	u32 Imm16Low()
@@ -286,12 +287,12 @@ public:
 	}
 	u32 Imm16High() // Returns high 16bits
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_(Type == TYPE_IMM, "Imm16 not IMM");
 		return ( ((Value >> 16) & 0xF000) << 4) | ((Value >> 16) & 0x0FFF);
 	}
 	u32 Imm24()
 	{
-		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
+		_assert_msg_(Type == TYPE_IMM, "Imm16 not IMM");
 		return (Value & 0x0FFFFFFF);
 	}
 };
@@ -380,6 +381,9 @@ public:
 	}
 	virtual ~FakeXEmitter() {}
 
+	void SetCodePointer(u8 *ptr, u8 *writePtr) {}
+	const u8 *GetCodePointer() const { return nullptr; }
+
 	void SetCodePtr(u8 *ptr) {}
 	void ReserveCodeSpace(u32 bytes) {}
 	const u8 *AlignCode16() { return nullptr; }
@@ -411,52 +415,9 @@ public:
 // Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class FakeXCodeBlock : public FakeXEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
-
+class FakeXCodeBlock : public CodeBlock<FakeXEmitter> {
 public:
-	FakeXCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~FakeXCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size) { }
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace() { }
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace() { }
-
-	bool IsInSpace(const u8 *ptr) const
-	{
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect() { }
-	void UnWriteProtect() { }
-
-	void ResetCodePtr()
-	{
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const
-	{
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
+	void PoisonMemory(int offset) override {
 	}
 };
 

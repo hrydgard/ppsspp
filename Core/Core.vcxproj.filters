@@ -88,6 +88,9 @@
     <Filter Include="Ext\libzip">
       <UniqueIdentifier>{0201ff27-4fa8-4cf3-bbb9-accfdc0c7046}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\fake">
+      <UniqueIdentifier>{678fa299-0ff7-4983-982d-2da47b52e238}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -971,6 +974,9 @@
     <ClCompile Include="Debugger\WebSocket\InputBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\fake\FakeJit.cpp">
+      <Filter>MIPS\fake</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1660,6 +1666,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\fake\FakeJit.h">
+      <Filter>MIPS\fake</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

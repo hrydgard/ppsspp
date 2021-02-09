@@ -82,7 +82,7 @@ void MipsJit::FlushPrefixV()
 void MipsJit::ClearCache()
 {
 	blocks.Clear();
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 	//GenerateFixedCode();
 }
 
