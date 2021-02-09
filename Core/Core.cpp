@@ -398,7 +398,6 @@ const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::READ_BLOCK: return "Read Block";
 	case MemoryExceptionType::WRITE_BLOCK: return "Read/Write Block";
-	case MemoryExceptionType::EXEC_ADDR: return "Bad Exec Addr";
 	default:
 		return "N/A";
 	}
@@ -461,17 +460,15 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
 	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 
-	if (!g_Config.bIgnoreBadMemAccess) {
-		ExceptionInfo &e = g_exceptionInfo;
-		e = {};
-		e.type = ExceptionType::BAD_EXEC_ADDR;
-		e.info = "";
-		e.exec_type = type;
-		e.address = address;
-		e.pc = pc;
-		Core_EnableStepping(true);
-		host->SetDebugMode(true);
-	}
+	ExceptionInfo &e = g_exceptionInfo;
+	e = {};
+	e.type = ExceptionType::BAD_EXEC_ADDR;
+	e.info = "";
+	e.exec_type = type;
+	e.address = address;
+	e.pc = pc;
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
 }
 
 void Core_Break() {

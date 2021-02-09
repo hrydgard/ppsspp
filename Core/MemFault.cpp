@@ -53,7 +53,7 @@ void MemFault_Init() {
 }
 
 bool MemFault_MayBeResumable() {
-	return g_lastCrashAddress != nullptr && g_lastMemoryExceptionType != MemoryExceptionType::EXEC_ADDR;
+	return g_lastCrashAddress != nullptr;
 }
 
 void MemFault_IgnoreLastCrash() {
@@ -166,7 +166,17 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	}
 
 	if (isAtDispatch) {
-		type = MemoryExceptionType::EXEC_ADDR;
+		u32 targetAddr = currentMIPS->pc;  // bad approximation
+#if PPSSPP_ARCH(AMD64)
+		// We know which register the address is in, look in Asm.cpp.
+		targetAddr = context->Rax;
+#endif
+		// TODO: Do the other archs.
+		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
+		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
+		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+		return true;
 	} else if (success) {
 		if (info.isMemoryWrite) {
 			type = MemoryExceptionType::WRITE_WORD;
