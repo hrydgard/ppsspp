@@ -35,6 +35,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/Core.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
@@ -1586,11 +1587,12 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 	
-	int sdkver = sceKernelGetCompiledSdkVersion();
-	if ((sdkver >= 0x06000000) && (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES)) {
-		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
+	if (PSP_CoreParameter().compat.flags().MpegWarmUpForGodEaterSeries) {
+		if (ctx->mpegwarmUp == 0) {
+			DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
+			ctx->mpegwarmUp++;
+			return ERROR_MPEG_NO_DATA;
+		}
 	}
 
 	SceMpegAu avcAu;
