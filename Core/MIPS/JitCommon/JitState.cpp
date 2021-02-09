@@ -47,7 +47,11 @@ namespace MIPSComp {
 
 		// We can get block linking to work with W^X by doing even more unprotect/re-protect, but let's try without first.
 		// enableBlocklink = !PlatformIsWXExclusive();  // Revert to this line if block linking is slow in W^X mode
+#if PPSSPP_ARCH(MIPS)
+		enableBlocklink = false;
+#else
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
+#endif
 		immBranches = false;
 		continueBranches = false;
 		continueJumps = false;
