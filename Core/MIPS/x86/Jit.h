@@ -298,6 +298,11 @@ private:
 		}
 		return true;
 	}
+
+	bool IsAtDispatchFetch(const u8 *codePtr) const override {
+		return codePtr == dispatcherFetch;
+	}
+
 	void SaveFlags();
 	void LoadFlags();
 
@@ -321,6 +326,7 @@ private:
 	const u8 *dispatcherCheckCoreState;
 	const u8 *dispatcherNoCheck;
 	const u8 *dispatcherInEAXNoCheck;
+	const u8 *dispatcherFetch;
 
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;

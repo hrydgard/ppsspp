@@ -250,6 +250,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 #ifdef MASKED_PSP_MEMORY
 			ANDI2R(SCRATCH1, SCRATCH1, 0x3FFFFFFF);
 #endif
+			dispatcherFetch = GetCodePtr();
 			LDR(SCRATCH1, MEMBASEREG, SCRATCH1_64);
 			LSR(SCRATCH2, SCRATCH1, 24);   // or UBFX(SCRATCH2, SCRATCH1, 24, 8)
 			ANDI2R(SCRATCH1, SCRATCH1, 0x00FFFFFF);

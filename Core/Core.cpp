@@ -398,6 +398,7 @@ const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::READ_BLOCK: return "Read Block";
 	case MemoryExceptionType::WRITE_BLOCK: return "Read/Write Block";
+	case MemoryExceptionType::EXEC_ADDR: return "Bad Exec Addr";
 	default:
 		return "N/A";
 	}

@@ -41,16 +41,19 @@ namespace Memory {
 
 static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
+MemoryExceptionType g_lastMemoryExceptionType;
+
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
 void MemFault_Init() {
 	g_numReportedBadAccesses = 0;
 	g_lastCrashAddress = nullptr;
+	g_lastMemoryExceptionType = MemoryExceptionType::NONE;
 	g_ignoredAddresses.clear();
 }
 
 bool MemFault_MayBeResumable() {
-	return g_lastCrashAddress != nullptr;
+	return g_lastCrashAddress != nullptr && g_lastMemoryExceptionType != MemoryExceptionType::EXEC_ADDR;
 }
 
 void MemFault_IgnoreLastCrash() {
@@ -122,10 +125,14 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	std::string infoString = "";
 
+	bool isAtDispatch = false;
 	if (MIPSComp::jit) {
 		std::string desc;
 		if (MIPSComp::jit->DescribeCodePtr(codePtr, desc)) {
 			infoString += desc + "\n";
+		}
+		if (MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
+			isAtDispatch = true;
 		}
 	}
 
@@ -158,7 +165,9 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		infoString += disassembly + "\n";
 	}
 
-	if (success) {
+	if (isAtDispatch) {
+		type = MemoryExceptionType::EXEC_ADDR;
+	} else if (success) {
 		if (info.isMemoryWrite) {
 			type = MemoryExceptionType::WRITE_WORD;
 		} else {
@@ -168,7 +177,9 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		type = MemoryExceptionType::UNKNOWN;
 	}
 
-	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
+	g_lastMemoryExceptionType = type;
+
+	if (success && !isAtDispatch && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
