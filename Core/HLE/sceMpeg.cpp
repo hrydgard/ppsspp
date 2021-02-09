@@ -1587,7 +1587,7 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 	
-	if (PSP_CoreParameter().compat.flags().MpegWarmUpForGodEaterSeries) {
+	if (PSP_CoreParameter().compat.flags().MpegAvcWarmUp) {
 		if (ctx->mpegwarmUp == 0) {
 			DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 			ctx->mpegwarmUp++;
