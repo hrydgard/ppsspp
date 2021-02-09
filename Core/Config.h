@@ -182,6 +182,7 @@ public:
 	bool bVertexCache;
 	bool bTextureBackoffCache;
 	bool bTextureSecondaryCache;
+	bool bOldTextureSecondaryCache = false; // issue #14090
 	bool bVertexDecoderJit;
 	bool bFullScreen;
 	bool bFullScreenMulti;

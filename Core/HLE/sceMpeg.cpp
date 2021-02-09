@@ -509,6 +509,8 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 		return ERROR_MPEG_NO_MEMORY;
 	}
 
+	g_Config.bOldTextureSecondaryCache = g_Config.bTextureSecondaryCache; // issue #14090
+
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 	if (ringbuffer.IsValid()) {
 		if (ringbuffer->packetSize == 0) {
@@ -1668,6 +1670,7 @@ static u32 sceMpegFinish()
 	}
 	isMpegInit = false;
 	//__MpegFinish();
+	g_Config.bTextureSecondaryCache = g_Config.bOldTextureSecondaryCache;
 	return hleDelayResult(0, "mpeg finish", 250);
 }
 
