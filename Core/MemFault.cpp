@@ -167,11 +167,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	if (isAtDispatch) {
 		u32 targetAddr = currentMIPS->pc;  // bad approximation
-#if PPSSPP_ARCH(AMD64)
+		// TODO: Do the other archs and platforms.
+#if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS)
 		// We know which register the address is in, look in Asm.cpp.
 		targetAddr = context->Rax;
 #endif
-		// TODO: Do the other archs.
 		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
