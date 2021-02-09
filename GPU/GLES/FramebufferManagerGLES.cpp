@@ -103,9 +103,8 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 {
 	needBackBufferYSwap_ = true;
 	needGLESRebinds_ = true;
-	CreateDeviceObjects();
-	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
+	CreateDeviceObjects();
 }
 
 void FramebufferManagerGLES::Init() {
@@ -344,8 +343,8 @@ void FramebufferManagerGLES::DeviceLost() {
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	FramebufferManagerCommon::DeviceRestore(draw);
-	CreateDeviceObjects();
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	CreateDeviceObjects();
 }
 
 void FramebufferManagerGLES::Resized() {
