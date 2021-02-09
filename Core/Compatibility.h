@@ -77,6 +77,7 @@ struct CompatFlags {
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
 	bool DisableRangeCulling;
+	bool MpegWarmUpForGodEaterSeries;
 };
 
 class IniFile;
