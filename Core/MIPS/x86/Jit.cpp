@@ -274,6 +274,11 @@ void Jit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
+	if (!Memory::IsValidAddress(em_address)) {
+		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
+		return;
+	}
+
 	BeginWrite();
 
 	int block_num = blocks.AllocateBlock(em_address);
