@@ -917,6 +917,8 @@ extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
+extern char* dummyPeekBuf64k;
+extern int dummyPeekBuf64kSize;
 extern int one;                 
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;

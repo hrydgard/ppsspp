@@ -60,6 +60,8 @@ uint16_t portOffset;
 uint32_t minSocketTimeoutUS;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
+char* dummyPeekBuf64k                 = NULL;
+int dummyPeekBuf64kSize               = 65536;
 int one                               = 1;
 bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
@@ -1908,12 +1910,7 @@ u_long getAvailToRecv(int sock, int udpBufferSize) {
 		return 0;
 
 	if (udpBufferSize > 0 && n > 0) {
-		// TODO: Cap number of bytes of full DGRAM message(s) up to buffer size
-		char buf[8];
-		// Each recv can only received one message, not sure how to read the next pending msg without actually receiving the first one
-		err = recvfrom(sock, buf, sizeof(buf), MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, NULL, NULL);
-		if (err >= 0)
-			return (u_long)err;
+		// TODO: Cap number of bytes of full DGRAM message(s) up to buffer size, but may cause Warriors Orochi 2 to get FPS drops
 	}
 	return n;
 }
