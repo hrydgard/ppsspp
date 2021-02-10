@@ -66,6 +66,7 @@
 #undef EISCONN
 #undef EALREADY
 #undef ETIMEDOUT
+#undef EOPNOTSUPP
 #define errno WSAGetLastError()
 #define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
@@ -77,6 +78,7 @@
 #define EISCONN WSAEISCONN
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
+#define EOPNOTSUPP WSAEOPNOTSUPP
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
 inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else

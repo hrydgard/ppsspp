@@ -412,6 +412,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
 
+	// On Windows: Using MSG_TRUNC can sometimes getting socket error WSAEOPNOTSUPP, may be the socket wasn't ready to received anything right after created & binded?
 	int ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, (sockaddr*)&sin, &sinlen);
 	int sockerr = errno;
 
@@ -452,7 +453,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
-	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
+	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET || sockerr == EOPNOTSUPP) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
@@ -483,6 +484,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		}
 		result = ERROR_NET_ADHOC_NOT_ENOUGH_SPACE;
 	}
+	// FIXME: Blocking operation with infinite timeout(0) should never get a TIMEOUT error, right? May be we should return INVALID_ARG instead if it was infinite timeout (0)?
 	else
 		result = ERROR_NET_ADHOC_TIMEOUT; // ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_DISCONNECTED
 
@@ -1689,6 +1691,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				
 				// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
 				// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
+				// On Windows: Using MSG_TRUNC can sometimes getting socket error WSAEOPNOTSUPP, may be the socket wasn't ready to received anything right after created & binded?
 				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, (sockaddr*)&sin, &sinlen);
 				if (received != SOCKET_ERROR && *len < received) {
 					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
@@ -1719,7 +1722,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				error = errno;
 
 				// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
-				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
+				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET || error == EOPNOTSUPP)) {
 					if (flag == 0) {
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
