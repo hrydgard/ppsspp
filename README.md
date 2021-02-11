@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.11.1
+====================
+* A few crash fixes ([#14085], [#14089], [#14091], [#14092]), a few adhoc fixes
+* Glitchy menu audio on some devices ([#14101]), in-game UI font memory leak ([#14078])
+* Couple of adhoc fixes ([#14106], [#14117])
+
 What's new in 1.11.0
 ====================
 * Lots of minor bug fixes, crash fixes, and performance fixes and improvements.
@@ -418,3 +424,11 @@ Credit goes to:
 [#13667]: https://github.com/hrydgard/ppsspp/issues/13667 "Dynasty Warriors Multi Raid 2: Online questions"
 [#13262]: https://github.com/hrydgard/ppsspp/issues/13262 "Implement texturing from depth buffers (Vulkan only so far)"
 [#13556]: https://github.com/hrydgard/ppsspp/issues/13556 "D3D11 depth texture support"
+[#14085]: https://github.com/hrydgard/ppsspp/issues/14085 "Handle exec addr errors better - don't let IgnoreBadMemoryAccesses skip dispatcher exceptions"
+[#14089]: https://github.com/hrydgard/ppsspp/issues/14089 "GL: Call CreateDeviceObjects *after* updating render_."
+[#14091]: https://github.com/hrydgard/ppsspp/issues/14091 "Only allow sceMpegGetAvcAu warmup for God Eater Series"
+[#14092]: https://github.com/hrydgard/ppsspp/issues/14092 "SaveState: Prevent crash on bad cookie marker"
+[#14101]: https://github.com/hrydgard/ppsspp/issues/14101 "Menu audio glitchfix"
+[#14078]: https://github.com/hrydgard/ppsspp/issues/14078 "PPGe: Decimate text images properly"
+[#14106]: https://github.com/hrydgard/ppsspp/issues/14106 "[Adhoc] Fix frozen (0 FPS) issue on Kao Challengers and Asterix & Obelix XX"
+[#14117]: https://github.com/hrydgard/ppsspp/issues/14117 "[Adhoc] Fix lob"
