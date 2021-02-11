@@ -572,7 +572,7 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 		// Return Success
 		result = 0;
 	}
-	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
+	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -624,7 +624,7 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 		result = 0;
 	}
-	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
+	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -3225,6 +3225,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Initiate PtpConnect (ie. The Warrior seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
+								// Workaround to give some time to get connected before returning from PtpOpen over high latency
+								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1)
+									hleDelayResult(i + 1, "delayed ptpopen", rexmt_int);
+
 								// Return PTP Socket Pointer
 								return hleLogDebug(SCENET, i + 1, "success");
 							}
@@ -3891,7 +3895,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					}
 					
 					// Non-Critical Error
-					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
+					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						// Non-Blocking
 						if (flag) 
 							return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
@@ -3976,7 +3980,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					received = recv(ptpsocket.id, (char*)buf, *len, MSG_NOSIGNAL);
 					error = errno;
 
-					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK)) {
+					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						if (flag == 0) {
 							// Simulate blocking behaviour with non-blocking socket
 							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
