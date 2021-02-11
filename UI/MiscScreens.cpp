@@ -484,6 +484,7 @@ void LogoScreen::update() {
 		Next();
 	}
 	frames_++;
+	sinceStart_ = (double)frames_ / rate;
 }
 
 void LogoScreen::sendMessage(const char *message, const char *value) {
@@ -521,10 +522,7 @@ void LogoScreen::render() {
 
 	dc.Begin();
 
-	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
-	double sinceStart = (double)frames_ / rate;
-
-	float t = (float)sinceStart / (logoScreenSeconds / 3.0f);
+	float t = (float)sinceStart_ / (logoScreenSeconds / 3.0f);
 
 	float alpha = t;
 	if (t > 1.0f)

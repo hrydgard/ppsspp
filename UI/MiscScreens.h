@@ -137,6 +137,7 @@ public:
 private:
 	void Next();
 	int frames_ = 0;
+	double sinceStart_ = 0.0;
 	bool switched_ = false;
 	bool gotoGameSettings_ = false;
 };
