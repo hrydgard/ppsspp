@@ -412,8 +412,11 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
 
-	int ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, (sockaddr*)&sin, &sinlen);
+	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
+	int ret = recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 	int sockerr = errno;
+	if (ret > 0 && *req.length > 0)
+		memcpy(req.buffer, dummyPeekBuf64k, std::min(ret, *req.length));
 
 	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
 	if (ret >= 0 && ret <= *req.length) {
@@ -483,6 +486,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		}
 		result = ERROR_NET_ADHOC_NOT_ENOUGH_SPACE;
 	}
+	// FIXME: Blocking operation with infinite timeout(0) should never get a TIMEOUT error, right? May be we should return INVALID_ARG instead if it was infinite timeout (0)?
 	else
 		result = ERROR_NET_ADHOC_TIMEOUT; // ERROR_NET_ADHOC_INVALID_ARG; // ERROR_NET_ADHOC_DISCONNECTED
 
@@ -1689,7 +1693,11 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				
 				// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
 				// Should peek first for the available data size if it's more than len return ERROR_NET_ADHOC_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
-				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_PEEK | MSG_NOSIGNAL | MSG_TRUNC, (sockaddr*)&sin, &sinlen);
+				// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
+				received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
+				if (received > 0 && *len > 0)
+					memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
+
 				if (received != SOCKET_ERROR && *len < received) {
 					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 					*len = received;

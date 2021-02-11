@@ -203,6 +203,7 @@ void __NetInit() {
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
 
+	dummyPeekBuf64k = (char*)malloc(dummyPeekBuf64kSize);
 	InitLocalhostIP();
 
 	SceNetEtherAddr mac;
@@ -235,6 +236,8 @@ void __NetShutdown() {
 
 	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
 	__UPnPShutdown();
+
+	free(dummyPeekBuf64k);
 }
 
 static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 error) {
