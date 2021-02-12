@@ -2079,7 +2079,7 @@ set(NativeAssets
 
 
 if(HEADLESS)
-	add_executable(PPSSPPHeadless
+	set(HeadlessSource
 		headless/Headless.cpp
 		headless/StubHost.cpp
 		headless/StubHost.h
@@ -2088,6 +2088,25 @@ if(HEADLESS)
 		headless/SDLHeadlessHost.cpp
 		headless/SDLHeadlessHost.h
 	)
+	if(WIN32)
+		list(APPEND HeadlessSource
+			headless/WindowsHeadlessHost.cpp
+			headless/WindowsHeadlessHost.h
+			Windows/GPU/D3D9Context.cpp
+			Windows/GPU/D3D9Context.h
+			Windows/GPU/D3D11Context.cpp
+			Windows/GPU/D3D11Context.h
+			Windows/GPU/WindowsGLContext.cpp
+			Windows/GPU/WindowsVulkanContext.cpp
+			Windows/W32Util/ShellUtil.cpp
+			Windows/W32Util/ShellUtil.h
+			Windows/CaptureDevice.cpp
+			Windows/CaptureDevice.h
+			Windows/W32Util/Misc.cpp
+			Windows/W32Util/Misc.h
+		)
+	endif()
+	add_executable(PPSSPPHeadless ${HeadlessSource})
 	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
