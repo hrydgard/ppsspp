@@ -26,6 +26,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GPUState.h"
+#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 
 static const char preview_fs[] =

@@ -1332,8 +1332,6 @@ set(GPU_D3D9
 	GPU/Directx9/TextureCacheDX9.h
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
-	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
-	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_D3D11
@@ -1977,8 +1975,6 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_MemoryDlg.h
 	Windows/Debugger/Debugger_Lists.cpp
 	Windows/Debugger/Debugger_Lists.h
-	Windows/Debugger/Debugger_Misc.cpp
-	Windows/Debugger/Debugger_Misc.h
 	Windows/Debugger/Debugger_SymbolMap.h
 	Windows/Debugger/Debugger_VFPUDlg.cpp
 	Windows/Debugger/Debugger_VFPUDlg.h
