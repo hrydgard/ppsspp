@@ -1060,6 +1060,9 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 }
 
 void NativeRender(GraphicsContext *graphicsContext) {
+	_assert_(graphicsContext != nullptr);
+	_assert_(screenManager != nullptr);
+
 	g_GameManager.Update();
 
 	if (GetUIState() != UISTATE_INGAME) {

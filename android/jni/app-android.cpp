@@ -174,6 +174,7 @@ static float dp_yscale = 1.0f;
 
 static bool renderer_inited = false;
 static bool sustainedPerfSupported = false;
+static std::mutex renderLock;
 
 // See NativeQueryConfig("androidJavaGL") to change this value.
 static bool javaGL = true;
@@ -567,6 +568,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
+	std::lock_guard<std::mutex> guard(renderLock);
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
@@ -776,9 +778,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		INFO_LOG(G3D, "Not shutting down renderer - not initialized");
 	}
 
-	inputBoxCallbacks.clear();
-	NativeShutdown();
-	VFSShutdown();
+	{
+		std::lock_guard<std::mutex> guard(renderLock);
+		inputBoxCallbacks.clear();
+		NativeShutdown();
+		VFSShutdown();
+	}
+
+	std::lock_guard<std::mutex> guard(frameCommandLock);
 	while (frameCommands.size())
 		frameCommands.pop();
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- end");
@@ -929,10 +936,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *en
 	NativeInputBoxReceived(entry->second, result, value);
 }
 
-void UpdateRunLoopAndroid(JNIEnv *env) {
+void LockedNativeUpdateRender() {
+	std::lock_guard<std::mutex> renderGuard(renderLock);
 	NativeUpdate();
-
 	NativeRender(graphicsContext);
+}
+
+void UpdateRunLoopAndroid(JNIEnv *env) {
+	LockedNativeUpdateRender();
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -1352,10 +1363,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		}
 	} else {
 		while (!exitRenderLoop) {
-			NativeUpdate();
-
-			NativeRender(graphicsContext);
-
+			LockedNativeUpdateRender();
 			graphicsContext->SwapBuffers();
 
 			ProcessFrameCommands(env);
