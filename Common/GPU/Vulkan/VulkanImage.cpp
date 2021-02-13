@@ -31,6 +31,11 @@ static bool IsDepthStencilFormat(VkFormat format) {
 }
 
 bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *allocator, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+	if (w == 0 || h == 0 || numMips == 0) {
+		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
+		return false;
+	}
+
 	Wipe();
 
 	width_ = w;
