@@ -1027,10 +1027,11 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
 			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
-			u8 *data = (u8*) Memory::GetPointer(data_addr);
+			u8 *data = (u8 *)Memory::GetPointer(data_addr);
+			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
-				result = npdrmRead(f, data, size);
-				currentMIPS->InvalidateICache(data_addr, size);
+				result = npdrmRead(f, data, validSize);
+				currentMIPS->InvalidateICache(data_addr, validSize);
 				return true;
 			}
 
@@ -1046,17 +1047,17 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				AsyncIOEvent ev = IO_EVENT_READ;
 				ev.handle = f->handle;
 				ev.buf = data;
-				ev.bytes = size;
+				ev.bytes = validSize;
 				ev.invalidateAddr = data_addr;
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
 				if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
-					result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+					result = (int)pspFileSystem.ReadFile(f->handle, data, validSize);
 				} else {
-					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
+					result = (int)pspFileSystem.ReadFile(f->handle, data, validSize, us);
 				}
-				currentMIPS->InvalidateICache(data_addr, size);
+				currentMIPS->InvalidateICache(data_addr, validSize);
 				return true;
 			}
 		} else {
@@ -1136,12 +1137,13 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	}
 
 	const void *data_ptr = Memory::GetPointer(data_addr);
+	const u32 validSize = Memory::ValidSize(data_addr, size);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
-		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
+		const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
 		INFO_LOG(SCEIO, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
-		result = size;
+		result = validSize;
 		return true;
 	}
 	u32 error;
@@ -1174,15 +1176,15 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			AsyncIOEvent ev = IO_EVENT_WRITE;
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;
-			ev.bytes = size;
+			ev.bytes = validSize;
 			ev.invalidateAddr = 0;
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
 			if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
-				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
+				result = (int)pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, validSize);
 			} else {
-				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+				result = (int)pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, validSize, us);
 			}
 		}
 		return true;
