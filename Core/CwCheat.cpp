@@ -785,9 +785,13 @@ CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i)
 		return InterpretNextCwCheat(cheat, i);
 	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
 		return InterpretNextTempAR(cheat, i);
-	else
-		_assert_(false);
-	return { CheatOp::Invalid };
+	else {
+		// This shouldn't happen, but apparently does: #14082
+		// Either I'm missing a path or we have memory corruption.
+		// Not sure whether to log here though, feels like we could end up with a
+		// ton of logspam...
+		return { CheatOp::Invalid };
+	}
 }
 
 void CWCheatEngine::ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t)) {
