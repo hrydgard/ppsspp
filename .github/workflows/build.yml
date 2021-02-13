@@ -178,9 +178,19 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Cache Qt
+      uses: actions/cache@v1
+      if: matrix.extra == 'qt'
+      id: cache-qt
+      with:
+        path: ${{ runner.workspace }}/Qt
+        key: ${{ runner.os }}-QtCache
+
     - name: Install Qt
       uses: jurplel/install-qt-action@v2
       if: matrix.extra == 'qt'
+      with:
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
 
     - uses: nttld/setup-ndk@v1
       if: matrix.extra == 'android'
