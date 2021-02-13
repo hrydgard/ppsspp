@@ -551,6 +551,9 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
 		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
+	// Copy image required for now.
+	if (!gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE))
+		doReinterpret = false;
 	if (!doReinterpret) {
 		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
 		if (oldFormat == GE_FORMAT_565) {
