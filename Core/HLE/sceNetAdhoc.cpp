@@ -7072,6 +7072,7 @@ int matchingEventThread(int matchingId)
 int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is using sceNetAdhocPdpRecv & sceNetAdhocPdpSend functions so it might be better to run this on PSP thread instead of real thread
 {
 	setCurrentThreadName("MatchingInput");
+	auto n = GetI18NCategory("Networking");
 	// Multithreading Lock
 	peerlock.lock();
 	// Cast Context
@@ -7246,6 +7247,10 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BYE) actOnByePacket(context, &sendermac);
 
 					// Ignore Incoming Trash Data
+				}
+				else if (recvresult == 0 && rxbuflen > 0) {
+					WARN_LOG(SCENET, "InputLoop[%d]: Unknown Port[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
+					host->NotifyUserMessage(std::string(n->T("Data from incorrect Port")) + std::string(" [") + mac2str(&sendermac) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port), 1.0, 0x0080ff);
 				}
 
 				// Handle Peer Timeouts
