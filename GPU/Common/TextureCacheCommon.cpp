@@ -940,8 +940,8 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 		}
 
 		// This is either normal or we failed to generate a shader to depalettize
-		if (framebuffer->format == entry.format || matchingClutFormat) {
-			if (framebuffer->format != entry.format) {
+		if ((int)framebuffer->format == (int)entry.format || matchingClutFormat) {
+			if ((int)framebuffer->format != (int)entry.format) {
 				WARN_LOG_ONCE(diffFormat2, G3D, "Texturing from framebuffer with different formats %s != %s at %08x",
 					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
 				return fbInfo;
