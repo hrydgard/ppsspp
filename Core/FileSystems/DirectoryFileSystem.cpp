@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <ctime>
 #include <limits>
 
 #include "Common/Data/Text/I18n.h"

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "InputDevice.h"
-#include "Xinput.h"
+#include <XInput.h>
 #include "Core/HLE/sceCtrl.h"
+#include "Windows/InputDevice.h"
 
 class XinputDevice final : public InputDevice {
 public:

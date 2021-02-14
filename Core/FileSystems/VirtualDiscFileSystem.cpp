@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <ctime>
 
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"

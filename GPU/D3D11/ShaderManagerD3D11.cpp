@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <d3d11.h>
-#include <d3dcompiler.h>
+#include <D3Dcompiler.h>
 
 #include <map>
 

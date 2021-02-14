@@ -25,6 +25,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <ctime>
 #include <memory>
 
 #include "Common/Log.h"

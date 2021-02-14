@@ -4,7 +4,9 @@
 
 #include "WindowsAudio.h"
 #include <mmreg.h>
-#include <dsound.h>
+
+struct IDirectSound8;
+struct IDirectSoundBuffer;
 
 class DSoundAudioBackend : public WindowsAudioBackend {
 public:

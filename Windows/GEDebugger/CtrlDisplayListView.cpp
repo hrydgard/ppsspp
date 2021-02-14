@@ -2,7 +2,7 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"
-#include "Windows/Main.h"
+#include "Windows/main.h"
 #include "Core/Config.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"

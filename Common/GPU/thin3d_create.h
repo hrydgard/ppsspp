@@ -12,7 +12,7 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <d3dcommon.h>
+#include <D3Dcommon.h>
 struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;

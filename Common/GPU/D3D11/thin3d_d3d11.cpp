@@ -14,10 +14,10 @@
 #include "Common/Log.h"
 
 #include <cfloat>
-#include <D3DCommon.h>
+#include <D3Dcommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
-#include <d3dcompiler.h>
+#include <D3Dcompiler.h>
 
 #ifdef __MINGW32__
 #undef __uuidof

@@ -19,6 +19,7 @@
 #define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
 #endif
 
+#include <ctime>
 #include <thread>
 
 #include "Common/Data/Text/I18n.h"
