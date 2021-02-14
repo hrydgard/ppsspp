@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstdint>
-#include <ctime>
 
 #include "ppsspp_config.h"
 
@@ -18,6 +17,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #endif
+#include <ctime>
 
 static double curtime = 0;
 
