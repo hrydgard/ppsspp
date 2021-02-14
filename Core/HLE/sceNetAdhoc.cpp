@@ -1251,13 +1251,17 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 						getLocalIp(&addr);
 					}
 
-					addr.sin_port = htons(port + portOffset);
+					addr.sin_port = htons(static_cast<int>(port + static_cast<int>(portOffset)));
 					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?
 
 					// Bound Socket to local Port
 					int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
 
 					if (iResult == 0) {
+						// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending from incorrect port issue on MGS:PW on Android
+						addr.sin_addr.s_addr = g_adhocServerIP.in.sin_addr.s_addr;
+						addr.sin_port = 0;
+						sendto(usocket, dummyPeekBuf64k, 0, MSG_NOSIGNAL, (struct sockaddr*)&addr, sizeof(addr));
 						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
 						socklen_t len = sizeof(addr);
 						if (getsockname(usocket, (struct sockaddr*)&addr, &len) == 0) {
@@ -3155,7 +3159,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(sport + portOffset);
+					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
 
 					// Bound Socket to local Port
 					if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
@@ -3719,7 +3723,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					if (isLocalServer) {
 						getLocalIp(&addr);
 					}
-					addr.sin_port = htons(sport + portOffset);
+					addr.sin_port = htons(static_cast<int>(sport + static_cast<int>(portOffset)));
 
 					int iResult = 0;
 					// Bound Socket to local Port
