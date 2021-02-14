@@ -25,6 +25,11 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+
+What's new in 1.11.2
+====================
+* An additional few crash fixes ([#14129], [#14134], [#14132])
+
 What's new in 1.11.1
 ====================
 * A few crash fixes ([#14085], [#14089], [#14091], [#14092]), a few adhoc fixes
@@ -432,3 +437,6 @@ Credit goes to:
 [#14078]: https://github.com/hrydgard/ppsspp/issues/14078 "PPGe: Decimate text images properly"
 [#14106]: https://github.com/hrydgard/ppsspp/issues/14106 "[Adhoc] Fix frozen (0 FPS) issue on Kao Challengers and Asterix & Obelix XX"
 [#14117]: https://github.com/hrydgard/ppsspp/issues/14117 "[Adhoc] Fix lob"
+[#14129]: https://github.com/hrydgard/ppsspp/issues/14129 "GPU: Force reinterpret off without copy image"
+[#14134]: https://github.com/hrydgard/ppsspp/issues/14134 "Android: Ensure shutdown waits for render"
+[#14132]: https://github.com/hrydgard/ppsspp/issues/14132 "Io: Truncate reads/writes to valid memory"
