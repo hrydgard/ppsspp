@@ -401,8 +401,8 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 
 	sockaddr_in sin;
-	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
+	memset(&sin, 0, sinlen);
 
 	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
 	int ret = recvfrom(uid, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
@@ -412,6 +412,8 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
 	if (ret >= 0 && ret <= *req.length) {
+		sinlen = sizeof(sin);
+        memset(&sin, 0, sinlen);
 		ret = recvfrom(uid, (char*)req.buffer, *req.length, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
@@ -1662,6 +1664,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 				// Set Address Length (so we get the sender ip)
 				socklen_t sinlen = sizeof(sin);
+                memset(&sin, 0, sinlen);
 				//sin.sin_len = (uint8_t)sinlen;
 
 				// Acquire Network Lock
@@ -1703,6 +1706,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 					return hleLogSuccessVerboseI(SCENET, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space"); //received;
 				}
+				sinlen = sizeof(sin);
+				memset(&sin, 0, sinlen);
 				received = recvfrom(pdpsocket.id, (char*)buf, *len, MSG_NOSIGNAL, (sockaddr*)&sin, &sinlen);
 				error = errno;
 
