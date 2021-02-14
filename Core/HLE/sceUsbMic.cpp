@@ -33,7 +33,7 @@
 #endif
 
 #ifdef HAVE_WIN32_MICROPHONE
-#define NOMINMAX
+#include "Common/CommonWindows.h"
 #include "Windows/CaptureDevice.h"
 #endif
 

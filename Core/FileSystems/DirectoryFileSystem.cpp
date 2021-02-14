@@ -49,6 +49,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/stat.h>
+#undef FILE_OPEN
 #else
 #include <dirent.h>
 #include <unistd.h>

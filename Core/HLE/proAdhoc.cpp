@@ -22,6 +22,7 @@
 // All credit goes to him!
 
 #if defined(_WIN32)
+#include <WinSock2.h>
 #include "Common/CommonWindows.h"
 #endif
 

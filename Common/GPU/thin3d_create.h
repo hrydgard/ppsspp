@@ -7,11 +7,7 @@
 // Separated this stuff into its own file so we don't get Windows.h included if all we want is the thin3d declarations.
 
 #ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "Common/CommonWindows.h"
 #include <D3Dcommon.h>
 struct IDirect3DDevice9;
 struct IDirect3D9;

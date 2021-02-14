@@ -20,7 +20,7 @@
 #include <algorithm>
 
 // For shell links
-#include "windows.h"
+#include "Common/CommonWindows.h"
 #include "winnls.h"
 #include "shobjidl.h"
 #include "objbase.h"
