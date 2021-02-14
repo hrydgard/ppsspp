@@ -213,7 +213,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		dxstate.stencilMask.set(0xFF);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
+			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", (uint32_t)hr);
 		}
 	}
 
@@ -377,7 +377,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 					ConvertFromBGRA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
 					offscreen->UnlockRect();
 				} else {
-					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);
+					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, (int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom, vfb->renderWidth, vfb->renderHeight);
 				}
 			} else {
 				ERROR_LOG_REPORT(G3D, "Unable to download render target data from %08x", fb_address);
@@ -428,7 +428,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 				tex->UnlockRect(0);
 			} else {
-				ERROR_LOG_REPORT(G3D, "Unable to lock rect from depth %08x: %d,%d %dx%d of %dx%d", vfb->fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);
+				ERROR_LOG_REPORT(G3D, "Unable to lock rect from depth %08x: %d,%d %dx%d of %dx%d", vfb->fb_address, (int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom, vfb->renderWidth, vfb->renderHeight);
 			}
 		} else {
 			ERROR_LOG_REPORT(G3D, "Unable to download render target depth from %08x", vfb->fb_address);

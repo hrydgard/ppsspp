@@ -697,7 +697,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			size_t bufSize = sizeof(u32) * (mapRowPitch / bpp) * h;
 			mapData = (u32 *)AllocateAlignedMemory(bufSize, 16);
 			if (!mapData) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %d, %dx%d)", bufSize, mapRowPitch / sizeof(u32), h);
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %lld, %dx%d)", (unsigned long long)bufSize, mapRowPitch / (int)sizeof(u32), h);
 				return;
 			}
 			pixelData = (u32 *)mapData;

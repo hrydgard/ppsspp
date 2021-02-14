@@ -202,7 +202,7 @@ void MainThreadFunc() {
 		std::string full_error = StringFromFormat("%s\n\n%s", genericError, error_string.c_str());
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
-		ERROR_LOG(BOOT, full_error.c_str());
+		ERROR_LOG(BOOT, "%s", full_error.c_str());
 
 		if (yes) {
 			// Change the config to the alternative and restart.

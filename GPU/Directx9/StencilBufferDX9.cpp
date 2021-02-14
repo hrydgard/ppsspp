@@ -244,7 +244,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 		}
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Failed to draw stencil bit %x: %08x", i, hr);
+			ERROR_LOG_REPORT(G3D, "Failed to draw stencil bit %x: %08x", i, (uint32_t)hr);
 		}
 	}
 
