@@ -1817,11 +1817,11 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
 		serv.sin_port = htons(kDnsPort);
 
-		int err = connect(sock, (const sockaddr*)&serv, sizeof(serv));
+		int err = connect(sock, (struct sockaddr*)&serv, sizeof(serv));
 		if (err != SOCKET_ERROR) {
-			sockaddr_in name;
+			struct sockaddr_in name;
 			socklen_t namelen = sizeof(name);
-			err = getsockname(sock, (sockaddr*)&name, &namelen);
+			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 			if (err != SOCKET_ERROR) {
 				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
 				closesocket(sock);
@@ -2126,7 +2126,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 		g_localhostIP.in.sin_port = 0;
 		// Bind Local Address to Socket
-		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(sockaddr));
+		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
 		if (iResult == SOCKET_ERROR) {
 			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(g_localhostIP.in.sin_addr), iResult);
 			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(g_localhostIP.in.sin_addr), 2.0, 0x0000ff);
