@@ -116,6 +116,7 @@ static const char * const blacklistedModules[] = {
 	"sceSsl_Module",
 	"sceDEFLATE_Library",
 	"sceMD5_Library",
+	"jmpFont_Library",//from chinese transate team
 };
 
 struct WriteVarSymbolState;
