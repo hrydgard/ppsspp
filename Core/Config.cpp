@@ -522,7 +522,7 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
-	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
+	ReportedConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),
 	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, true, false),
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
