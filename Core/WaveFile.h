@@ -36,7 +36,6 @@ private:
 	File::IOFile file;
 	bool skip_silence = false;
 	uint32_t audio_size = 0;
-	std::array<short, BUFFER_SIZE> conv_buffer{};
 	void Write(uint32_t value);
 	void Write4(const char* ptr);
 };

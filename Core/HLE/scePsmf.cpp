@@ -795,7 +795,6 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 
 	int streamNum = 0;
 	for (auto it : psmf->streamMap) {
-		bool match = false;
 		if (it.second->matchesType(streamType)) {
 			streamNum++;
 		}

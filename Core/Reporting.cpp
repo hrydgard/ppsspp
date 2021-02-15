@@ -236,7 +236,6 @@ namespace Reporting
 
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
-		bool result = false;
 		http::Client http;
 		Buffer theVoid;
 

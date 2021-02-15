@@ -104,7 +104,7 @@ int TabControl::AppendPageToControl(const wchar_t *title)
 	tcItem.iImage		= 0;
 
 	int index = TabCtrl_GetItemCount(hwnd);
-	int result = TabCtrl_InsertItem(hwnd,index,&tcItem);
+	TabCtrl_InsertItem(hwnd, index, &tcItem);
 	return index;
 }
 

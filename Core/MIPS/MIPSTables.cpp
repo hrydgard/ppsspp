@@ -964,7 +964,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	while (coreState == CORE_RUNNING)
 	{
 		CoreTiming::Advance();
-		u32 lastPC = 0;
 
 		// NEVER stop in a delay slot!
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
@@ -974,17 +973,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				again:
 				MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
 				//MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
-				/*
-				// Choke on VFPU
-				MIPSInfo info = MIPSGetInfo(op);
-				if (info & IS_VFPU)
-				{
-					if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
-					{
-						Core_EnableStepping(true);
-						return;
-					}
-				}*/
 
 		//2: check for breakpoint (VERY SLOW)
 #if defined(_DEBUG)
@@ -1002,18 +990,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 #endif
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
-
-				/*
-				if (curMips->pc != lastPC + 4) {
-					if (blockCount > 0) {
-						MIPSState *mips_ = curMips;
-						fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
-						fflush(f);
-						blockCount--;
-					}
-				}
-				lastPC = curMips->pc;
-				*/
 				MIPSInterpret(op);
 
 				if (curMips->inDelaySlot)

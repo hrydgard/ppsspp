@@ -471,7 +471,6 @@ void PresentationCommon::DestroyPostShader() {
 
 Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
 	std::string translated = src;
-	bool translationFailed = false;
 	if (lang != lang_) {
 		// Gonna have to upconvert the shader.
 		if (!TranslateShader(&translated, lang_, draw_->GetShaderLanguageDesc(), nullptr, src, lang, stage, errorString)) {

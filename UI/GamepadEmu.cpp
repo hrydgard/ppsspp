@@ -273,7 +273,6 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 void PSPDpad::Touch(const TouchInput &input) {
-	int lastDown = down_;
 	GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
@@ -412,7 +411,6 @@ void PSPStick::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
-	uint32_t color = colorAlpha(0x808080, opacity);
 
 	if (centerX_ < 0.0f) {
 		centerX_ = bounds_.centerX();
@@ -511,7 +509,6 @@ void PSPCustomStick::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
-	uint32_t color = colorAlpha(0x808080, opacity);
 
 	if (centerX_ < 0.0f) {
 		centerX_ = bounds_.centerX();

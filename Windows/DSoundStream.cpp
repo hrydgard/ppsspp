@@ -20,9 +20,6 @@
 
 #include "DSoundStream.h"
 
-// TODO: Get rid of this
-static DSoundAudioBackend *g_dsound;
-
 inline int RoundDown128(int x) {
 	return x & (~127);
 }

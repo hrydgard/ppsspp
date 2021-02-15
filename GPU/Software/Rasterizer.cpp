@@ -1661,7 +1661,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				if (gstate.isAntiAliasEnabled()) {
 					// TODO: This is a niave and wrong implementation.
 					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
-					DrawingCoords p1 = TransformUnit::ScreenToDrawing(ScreenCoords((int)(x + xinc), (int)(y + yinc), (int)(z + zinc)));
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
 					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
 

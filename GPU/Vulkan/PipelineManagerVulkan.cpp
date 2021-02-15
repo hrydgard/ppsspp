@@ -246,7 +246,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	inputAssembly.primitiveRestartEnable = false;
 	int vertexStride = 0;
 
-	int offset = 0;
 	VkVertexInputAttributeDescription attrs[8];
 	int attributeCount;
 	if (useHwTransform) {
@@ -616,7 +615,6 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 
 	bool failed = false;
 	bool writeFailed = false;
-	int count = 0;
 	// Since we don't include the full pipeline key, there can be duplicates,
 	// caused by things like switching from buffered to non-buffered rendering.
 	// Make sure the set of pipelines we write is "unique".
@@ -724,6 +722,9 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		if (!pipelineCache_) {
 			VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 			VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+			if (res != VK_SUCCESS) {
+				return false;
+			}
 		}
 	}
 

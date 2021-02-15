@@ -866,7 +866,6 @@ void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	dontRedraw = false;
-	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
 
 	u32 newAddress = yToAddress(y);
@@ -921,7 +920,6 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
 	if (button == 1)
 	{
-		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
 		setCurAddress(yToAddress(y), KeyDownAsync(VK_SHIFT));
 		redraw();
@@ -1076,7 +1074,6 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 {
 	if ((button & 1) != 0)
 	{
-		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
 		setCurAddress(yToAddress(y), KeyDownAsync(VK_SHIFT));
 		// TODO: Perhaps don't do this every time, but on a timer?

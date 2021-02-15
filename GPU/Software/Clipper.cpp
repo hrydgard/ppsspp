@@ -105,7 +105,6 @@ inline float clip_dotprod(const VertexData &vert, float A, float B, float C, flo
 	if (mask & PLANE_BIT) {										\
 		float dp0 = clip_dotprod(*Vertices[0], A, B, C, D );	\
 		float dp1 = clip_dotprod(*Vertices[1], A, B, C, D );	\
-		int numVertices = 0;												\
 																\
 		if (mask0 & PLANE_BIT) {								\
 			if (dp0 < 0) {										\

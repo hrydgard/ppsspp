@@ -85,7 +85,6 @@ int HighestSetBit(int value) {
 }
 
 int LowestSetBit(int value, int maximum = 32) {
-	int lowest = 0;
 	for (int i = 0; i < maximum; i++) {
 		if (value & (1 << i))
 			return i;

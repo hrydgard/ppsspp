@@ -364,7 +364,6 @@ namespace MIPSInt
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
-		static bool has_warned = false;
 
 		// Don't change $zr.
 		if (rd == 0)

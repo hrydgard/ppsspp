@@ -28,15 +28,12 @@ class CtrlRegisterList
 
 	int rowHeight;
 	int selection = 0;
-	int marker = 0;
 	int category = 0;
 
 	int oldSelection = 0;
 	
-	bool selectionChanged = false;
 	bool selecting = false;
 	bool hasFocus = false;
-	bool showHex = false;
 	DebugInterface *cpu = nullptr;
 	static TCHAR szClassName[];
 

@@ -86,7 +86,6 @@ private:
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 
-	int decimationCounter_;
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 

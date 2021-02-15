@@ -417,6 +417,7 @@ static std::string GetDefaultLangRegion() {
 
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
+#ifndef _DEBUG
 static bool DetectVulkanInExternalProcess() {
 	std::wstring workingDirectory;
 	std::wstring moduleFilename;
@@ -447,6 +448,7 @@ static bool DetectVulkanInExternalProcess() {
 
 	return exitCode == EXIT_CODE_VULKAN_WORKS;
 }
+#endif
 
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
@@ -656,7 +658,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
-	HWND hwndDisplay = MainWindow::GetDisplayHWND();
 
 	//initialize custom controls
 	CtrlDisAsmView::init();

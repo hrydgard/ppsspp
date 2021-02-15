@@ -757,8 +757,6 @@ u32 __KernelInterruptReturnAddress() {
 }
 
 static void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
-	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
-
 	u32 error;
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
 	if (waitID == threadID) {

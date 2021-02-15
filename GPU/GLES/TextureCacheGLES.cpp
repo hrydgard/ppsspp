@@ -327,7 +327,6 @@ public:
 	}
 
 	void Shade(GLRenderManager *render) {
-		static const GLubyte indices[4] = { 0, 1, 3, 2 };
 		render->SetViewport(GLRViewport{ 0, 0, (float)renderW_, (float)renderH_, 0.0f, 1.0f });
 		render->Draw(GL_TRIANGLE_STRIP, 0, 4);
 	}

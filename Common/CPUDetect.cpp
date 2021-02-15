@@ -114,6 +114,7 @@ CPUInfo::CPUInfo() {
 	Detect();
 }
 
+#if PPSSPP_PLATFORM(LINUX)
 static std::vector<int> ParseCPUList(const std::string &filename) {
 	std::string data;
 	std::vector<int> results;
@@ -135,6 +136,7 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 
 	return results;
 }
+#endif
 
 // Detects the various cpu features
 void CPUInfo::Detect() {

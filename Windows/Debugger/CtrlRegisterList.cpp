@@ -312,7 +312,6 @@ void CtrlRegisterList::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	RECT rect;
 	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
 
 	if (ctrlDown && tolower(wParam) == 'c')
 	{

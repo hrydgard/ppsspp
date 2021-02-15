@@ -235,6 +235,7 @@ static const char *device_name_blacklist[] = {
 	"SDL:Horizon",
 };
 
+#ifndef _WIN32
 static const char *so_names[] = {
 #ifdef IOS
 	"@executable_path/Frameworks/libMoltenVK.dylib",
@@ -247,6 +248,7 @@ static const char *so_names[] = {
 #endif
 #endif
 };
+#endif
 
 void VulkanSetAvailable(bool available) {
 	g_vulkanAvailabilityChecked = true;

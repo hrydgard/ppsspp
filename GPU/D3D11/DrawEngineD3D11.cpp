@@ -317,10 +317,6 @@ VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
 		ebo->Release();
 }
 
-static uint32_t SwapRB(uint32_t c) {
-	return (c & 0xFF00FF00) | ((c >> 16) & 0xFF) | ((c << 16) & 0xFF0000);
-}
-
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
@@ -603,8 +599,6 @@ rotateVBO:
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
-			const int vertexSize = sizeof(transformed[0]);
-
 			ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 			D3D11VertexShader *vshader;

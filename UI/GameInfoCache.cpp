@@ -233,7 +233,6 @@ bool GameInfo::DeleteAllSaveData() {
 		std::vector<FileInfo> fileInfo;
 		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 
-		u64 totalSize = 0;
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::Delete(fileInfo[i].fullName.c_str());
 		}

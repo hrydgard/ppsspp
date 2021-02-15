@@ -252,8 +252,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-
 	if (g_Config.iInternalResolution == 0) {
 		coreParam.renderWidth = pixel_xres;
 		coreParam.renderHeight = pixel_yres;

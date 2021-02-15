@@ -188,7 +188,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	}
 	std::string line;
 	std::vector<std::string> title;
-	bool finished = false, skip = false;
+	bool finished = false;
 	std::vector<std::string> newList;
 
 	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";

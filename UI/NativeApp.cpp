@@ -149,7 +149,6 @@ static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
 
-static bool askedForStoragePermission = false;
 static int renderCounter = 0;
 
 struct PendingMessage {

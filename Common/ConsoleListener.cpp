@@ -517,8 +517,6 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 	// Check size
 	if (Width < 8 || Height < 12) return;
 
-	bool DBef = true;
-	bool DAft = true;
 	std::string SLog = "";
 
 	// Get console info

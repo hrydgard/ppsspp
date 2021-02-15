@@ -138,7 +138,6 @@ namespace MIPSComp {
 	void Jit::CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore)
 	{
 		CONDITIONAL_DISABLE(LSU);
-		int o = op>>26;
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -288,7 +287,6 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
-		MIPSGPReg rs = _RS;
 		int o = op>>26;
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
@@ -395,7 +393,7 @@ namespace MIPSComp {
 
 		default:
 			Comp_Generic(op);
-			return ;
+			return;
 		}
 
 	}

@@ -164,7 +164,6 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
-		const IRMeta *meta = GetIRMeta(inst.op);
 		switch (inst.op) {
 		case IROp::Sub:
 		case IROp::Slt:
