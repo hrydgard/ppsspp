@@ -1578,6 +1578,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 		}
 	} else {
 		saveInfo.broken = true;
+		truncate_cpy(saveInfo.title, saveDir.c_str());
 	}
 }
 

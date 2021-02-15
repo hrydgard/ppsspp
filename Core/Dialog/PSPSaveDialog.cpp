@@ -352,7 +352,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			imageStyle.color = CalcFadedColor(0xFF777777);
 
 		// Calc save image position on screen
-		float w, h , x, b;
+		float w, h, x;
 		float y = 97;
 		if (displayCount != currentSelectedSave) {
 			w = 81;
@@ -362,11 +362,6 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			w = 144;
 			h = 80;
 			x = 27;
-			b = 1.2f;
-			PPGeDrawRect(x-b, y-b, x+w+b, y, CalcFadedColor(0xD0FFFFFF)); // top border
-			PPGeDrawRect(x-b, y, x, y+h, CalcFadedColor(0xD0FFFFFF)); // left border
-			PPGeDrawRect(x-b, y+h, x+w+b, y+h+b, CalcFadedColor(0xD0FFFFFF)); //bottom border
-			PPGeDrawRect(x+w, y, x+w+b, y+h, CalcFadedColor(0xD0FFFFFF)); //right border
 		}
 		if (displayCount < currentSelectedSave)
 			y -= 13 + 45 * (currentSelectedSave - displayCount);
@@ -377,13 +372,27 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 		if (y > 472.0f || y < -200.0f)
 			continue;
 
-		int tw = 256;
-		int th = 256;
-		if (fileInfo.texture != NULL) {
+		int pad = 0;
+		if (fileInfo.texture != nullptr) {
 			fileInfo.texture->SetTexture();
-			tw = fileInfo.texture->Width();
-			th = fileInfo.texture->Height();
-			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
+			int tw = fileInfo.texture->Width();
+			int th = fileInfo.texture->Height();
+			float scale = (float)h / (float)th;
+			int scaledW = (int)(tw * scale);
+			pad = (w - scaledW) / 2;
+			w = scaledW;
+
+			PPGeDrawImage(x + pad, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
+		} else {
+			PPGeDrawRect(x, y, x + w, y + h, 0x88666666);
+		}
+		if (displayCount == currentSelectedSave) {
+			float b = 1.2f;
+			uint32_t bc = CalcFadedColor(0xD0FFFFFF);
+			PPGeDrawRect(x + pad - b, y - b, x + pad + w + b, y, bc); // top border
+			PPGeDrawRect(x + pad - b, y, x + pad, y + h, bc); // left border
+			PPGeDrawRect(x + pad - b, y + h, x + pad + w + b, y + h + b, bc); //bottom border
+			PPGeDrawRect(x + pad + w, y, x + pad + w + b, y + h, bc); //right border
 		}
 		PPGeSetDefaultTexture();
 	}
@@ -418,6 +427,10 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 		curSave.texture->SetTexture();
 		tw = curSave.texture->Width();
 		th = curSave.texture->Height();
+		float scale = (float)h / (float)th;
+		int scaledW = (int)(tw * scale);
+		x += (w - scaledW) / 2;
+		w = scaledW;
 	} else {
 		PPGeDisableTexture();
 	}
@@ -467,11 +480,13 @@ static void FormatSaveDate(char *date, size_t sz, const tm &t) {
 void PSPSaveDialog::DisplaySaveDataInfo1() {
 	std::lock_guard<std::mutex> guard(paramLock);
 	const SaveFileInfo &saveInfo = param.GetFileInfo(currentSelectedSave);
+	PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
 
 	if (saveInfo.broken) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 		PPGeDrawText(di->T("Corrupted Data"), 180, 136, textStyle);
+		PPGeDrawText(saveInfo.title, 175, 159, saveTitleStyle);
 	} else if (saveInfo.size == 0) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
@@ -492,7 +507,6 @@ void PSPSaveDialog::DisplaySaveDataInfo1() {
 		std::string saveDetailTxt = saveInfo.saveDetail;
 
 		PPGeStyle titleStyle = FadedStyle(PPGeAlign::BOX_BOTTOM, 0.6f);
-		PPGeStyle saveTitleStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.55f);
 		titleStyle.color = CalcFadedColor(0xFFC0C0C0);
 		PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
 
