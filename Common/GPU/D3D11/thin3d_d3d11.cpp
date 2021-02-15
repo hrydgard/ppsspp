@@ -991,6 +991,10 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
 		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
+		if (FAILED(hr)) {
+			dPipeline->Release();
+			return nullptr;
+		}
 	}
 
 	std::vector<D3D11ShaderModule *> shaders;
