@@ -434,6 +434,9 @@ void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 ori
 	SubdivisionSurface<Surface>::Tessellate(output, surface, points, weights, origVertType);
 }
 
+template void SoftwareTessellation<BezierSurface>(OutputBuffers &output, const BezierSurface &surface, u32 origVertType, const ControlPoints &points);
+template void SoftwareTessellation<SplineSurface>(OutputBuffers &output, const SplineSurface &surface, u32 origVertType, const ControlPoints &points);
+
 template<class Surface>
 static void HardwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType,
 	const SimpleVertex *const *points, TessellationDataTransfer *tessDataTransfer) {

@@ -14,6 +14,8 @@ PPSSPP_EXECUTABLES = [
   "Windows\\Release\\PPSSPPHeadless.exe",
   "Windows\\x64\\Debug\\PPSSPPHeadless.exe",
   "Windows\\x64\\Release\\PPSSPPHeadless.exe",
+  "build*/PPSSPPHeadless.exe",
+  "./PPSSPPHeadless.exe",
   # Mac
   "build*/Debug/PPSSPPHeadless",
   "build*/Release/PPSSPPHeadless",
