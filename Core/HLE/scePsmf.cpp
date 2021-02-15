@@ -710,10 +710,8 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		eventPsmfPlayerStatusChange = -1;
 	} else {
 		Do(p, eventPsmfPlayerStatusChange);
-		if (eventPsmfPlayerStatusChange != -1) {
-			CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
-		}
 	}
+	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;
@@ -732,9 +730,6 @@ void __PsmfShutdown() {
 }
 
 static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
-	if (eventPsmfPlayerStatusChange == -1) {
-		eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
-	}
 	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | newState);
 }
 

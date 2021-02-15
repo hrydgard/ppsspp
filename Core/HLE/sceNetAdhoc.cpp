@@ -360,9 +360,6 @@ int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* re
 		return ERROR_NET_ADHOCCTL_BUSY;
 	}
 
-	if (adhocctlNotifyEvent < 0)
-		adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
-
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
 	adhocctlRequests[uid] = request;
@@ -377,9 +374,6 @@ int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* re
 int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason) {
 	int uid = event + 1;
 
-	if (adhocctlStateEvent < 0)
-		adhocctlStateEvent = CoreTiming::RegisterEvent("__AdhocctlState", __AdhocctlState);
-
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
@@ -390,9 +384,6 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 int StartGameModeScheduler(int bufSize) {
 	if (gameModeSocket < 0)
 		return -1;
-
-	if (gameModeNotifyEvent < 0)
-		gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
 
 	INFO_LOG(SCENET, "GameMode Scheduler (%d, %d) has started", gameModeSocket, bufSize);
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | bufSize;
@@ -923,9 +914,6 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 		return ERROR_NET_ADHOC_BUSY; // ERROR_NET_ADHOC_TIMEOUT
 	}
 
-	if (adhocSocketNotifyEvent < 0)
-		adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
-
 	//changeBlockingMode(socketId, 1);
 
 	u32 tmout = timeoutUS;
@@ -1021,38 +1009,27 @@ void __NetAdhocDoState(PointerWrap &p) {
 		Do(p, adhocConnectionType);
 		Do(p, adhocctlState);
 		Do(p, adhocctlNotifyEvent);
-		if (adhocctlNotifyEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(adhocctlNotifyEvent, "__AdhocctlNotify", __AdhocctlNotify);
-		}
 		Do(p, adhocSocketNotifyEvent);
-		if (adhocSocketNotifyEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(adhocSocketNotifyEvent, "__AdhocSocketNotify", __AdhocSocketNotify);
-		}
-	}
-	else {
+	} else {
 		adhocConnectionType = ADHOC_CONNECT;
 		adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 		adhocctlNotifyEvent = -1;
 		adhocSocketNotifyEvent = -1;
 	}
+	CoreTiming::RestoreRegisterEvent(adhocctlNotifyEvent, "__AdhocctlNotify", __AdhocctlNotify);
+	CoreTiming::RestoreRegisterEvent(adhocSocketNotifyEvent, "__AdhocSocketNotify", __AdhocSocketNotify);
 	if (s >= 6) {
 		Do(p, gameModeNotifyEvent);
-		if (gameModeNotifyEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(gameModeNotifyEvent, "__GameModeNotify", __GameModeNotify);
-		}
-	}
-	else {
+	} else {
 		gameModeNotifyEvent = -1;
 	}
+	CoreTiming::RestoreRegisterEvent(gameModeNotifyEvent, "__GameModeNotify", __GameModeNotify);
 	if (s >= 7) {
 		Do(p, adhocctlStateEvent);
-		if (adhocctlStateEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(adhocctlStateEvent, "__AdhocctlState", __AdhocctlState);
-		}
-	}
-	else {
+	} else {
 		adhocctlStateEvent = -1;
 	}
+	CoreTiming::RestoreRegisterEvent(adhocctlStateEvent, "__AdhocctlState", __AdhocctlState);
 	if (s >= 8) {
 		Do(p, isAdhocctlBusy);
 		Do(p, netAdhocGameModeEntered);

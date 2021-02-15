@@ -153,9 +153,6 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
 	int uid = event + 1;
 
-	if (apctlStateEvent < 0)
-		apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
-
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), apctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
@@ -307,14 +304,11 @@ void __NetDoState(PointerWrap &p) {
 	}
 	if (s >= 5) {
 		Do(p, apctlStateEvent);
-		if (apctlStateEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
-		}
-	}
-	else {
+	} else {
 		apctlStateEvent = -1;
 	}
-	
+	CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
+
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;

@@ -301,6 +301,8 @@ void __CheatShutdown() {
 void __CheatDoState(PointerWrap &p) {
 	auto s = p.Section("CwCheat", 0, 2);
 	if (!s) {
+		CheatEvent = -1;
+		CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 		return;
 	}
 
