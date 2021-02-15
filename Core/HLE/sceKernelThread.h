@@ -173,6 +173,7 @@ u32 __KernelGetCurThreadStack();
 u32 __KernelGetCurThreadStackStart();
 const char *__KernelGetThreadName(SceUID threadID);
 bool KernelIsThreadDormant(SceUID threadID);
+bool KernelIsThreadWaiting(SceUID threadID);
 
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled);
