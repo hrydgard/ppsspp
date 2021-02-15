@@ -41,7 +41,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 		bool changeAllowed = true;
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			if (volatileLocked_) {
-				KernelVolatileMemUnlock(0);
+				FinishVolatile();
 				volatileLocked_ = false;
 			}
 		} else if (pendingStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
@@ -70,7 +70,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 	if (delayUs <= 0) {
 		if (newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			if (volatileLocked_) {
-				KernelVolatileMemUnlock(0);
+				FinishVolatile();
 				volatileLocked_ = false;
 			}
 		} else if (newStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
