@@ -184,8 +184,6 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 		{{x, y + h, 0}, u0, v1},
 	};
 
-	static const short indices[4] = { 0, 1, 3, 2 };
-
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
 		int rotation = 0;

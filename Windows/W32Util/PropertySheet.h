@@ -57,9 +57,8 @@ namespace W32Util
 		LPCTSTR header;
 		HFONT hTitleFont;
 		HICON icon;
-		struct Page 
-		{
-			Page(Tab *_tab, LPCTSTR _resource, LPCTSTR _title, LPCTSTR _subtitle = 0)
+		struct Page final {
+			Page(Tab *_tab, LPCTSTR _resource, LPCTSTR _title, LPCTSTR _subtitle = nullptr)
 				: tab(_tab), resource(_resource), title(_title), hdrSubTitle(_subtitle) {}
 			Tab *tab;
 			LPCTSTR resource;
@@ -78,7 +77,4 @@ namespace W32Util
 		HFONT GetTitleFont() {return hTitleFont;}
 		static int CALLBACK Callback(HWND hwndDlg, UINT uMsg, LPARAM lParam);
 	};
-
-
-
 }

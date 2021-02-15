@@ -44,11 +44,11 @@ public:
 	ID3D11PixelShader *GetShader() const { return module_; }
 
 protected:
-	ID3D11PixelShader *module_;
+	ID3D11PixelShader *module_ = nullptr;
 
 	ID3D11Device *device_;
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	bool useHWTransform_;
 	FShaderID id_;
 };
@@ -67,13 +67,13 @@ public:
 	ID3D11VertexShader *GetShader() const { return module_; }
 
 protected:
-	ID3D11VertexShader *module_;
+	ID3D11VertexShader *module_ = nullptr;
 
 	ID3D11Device *device_;
 	std::string source_;
 	std::vector<uint8_t> bytecode_;
 
-	bool failed_;
+	bool failed_ = false;
 	bool useHWTransform_;
 	VShaderID id_;
 };

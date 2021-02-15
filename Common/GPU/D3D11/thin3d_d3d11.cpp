@@ -229,12 +229,12 @@ private:
 };
 
 D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList)
-	: device_(device),
+	: hWnd_(hWnd),
+		device_(device),
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
-		hWnd_(hWnd),
 		deviceList_(deviceList) {
 
 	// We no longer support Windows Phone.
@@ -991,6 +991,10 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
 		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
+		if (FAILED(hr)) {
+			dPipeline->Release();
+			return nullptr;
+		}
 	}
 
 	std::vector<D3D11ShaderModule *> shaders;
@@ -1023,7 +1027,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 	// Can finally create the input layout
 	if (dPipeline->input) {
-		auto &inputDesc = dPipeline->input->desc;
 		const std::vector<D3D11_INPUT_ELEMENT_DESC> &elements = dPipeline->input->elements;
 		HRESULT hr = device_->CreateInputLayout(elements.data(), (UINT)elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
 		if (!SUCCEEDED(hr)) {
@@ -1488,7 +1491,6 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		packDesc.MipLevels = 1;
 		packDesc.Usage = D3D11_USAGE_STAGING;
 		packDesc.SampleDesc.Count = 1;
-		D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
 		switch (channelBits) {
 		case FB_COLOR_BIT:
 			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;

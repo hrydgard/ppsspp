@@ -39,7 +39,7 @@
 #include "GPU/D3D11/D3D11Util.h"
 
 D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, FShaderID id, const char *code, bool useHWTransform)
-	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
+	: device_(device), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
 
 	module_ = CreatePixelShaderD3D11(device, code, strlen(code), featureLevel);
@@ -64,7 +64,7 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 }
 
 D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform)
-	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
+	: device_(device), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
 
 	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel);

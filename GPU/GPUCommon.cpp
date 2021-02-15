@@ -367,10 +367,6 @@ void GPUCommon::Flush() {
 }
 
 GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
-	dumpNextFrame_(false),
-	dumpThisFrame_(false),
-	framebufferManager_(nullptr),
-	resized_(false),
 	gfxCtx_(gfxCtx),
 	draw_(draw)
 {
@@ -2248,7 +2244,6 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		return;
 	}
 
-	uint32_t data = op & 0xFFFFFF;
 	TransformedVertex &v = immBuffer_[immCount_++];
 
 	// Formula deduced from ThrillVille's clear.

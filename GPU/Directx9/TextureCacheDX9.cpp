@@ -685,8 +685,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
 	ApplyTexture();
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
 
 	LPDIRECT3DBASETEXTURE9 baseTex;
 	LPDIRECT3DTEXTURE9 tex;

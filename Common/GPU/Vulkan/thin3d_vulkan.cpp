@@ -246,7 +246,7 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : vulkan_(vulkan), flags(_flags) {
+	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : flags(_flags), vulkan_(vulkan) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
@@ -763,7 +763,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 }
 
 VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
-	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
+	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;

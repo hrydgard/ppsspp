@@ -341,8 +341,8 @@ protected:
 	u32 cycleLastPC;
 	int cyclesExecuted;
 
-	bool dumpNextFrame_;
-	bool dumpThisFrame_;
+	bool dumpNextFrame_ = false;
+	bool dumpThisFrame_ = false;
 	bool debugRecording_;
 	bool interruptsEnabled_;
 	bool resized_ = false;

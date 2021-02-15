@@ -720,7 +720,6 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ZERO, VFPUConst::ONE, VFPUConst::ZERO);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), outSize);
 
-		int n = GetNumVectorElements(sz);
 		// Essentially D prefix saturation is forced.
 		d[0] = nanclamp(t[0] + s[0], 0.0f, 1.0f);
 		d[1] = nanclamp(t[1] + s[1], 0.0f, 1.0f);
@@ -1226,7 +1225,6 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vs);
 
-		int n = GetNumVectorElements(sz);
 		if (op & 0x10000) {
 			// vbfy2
 			// S prefix forces the negate flags (so z and w are negative.)
@@ -1973,7 +1971,7 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		for (int i = 0; i < numElements; i++) {
 			if ( my_isnan(s[i]) || my_isnan(t[i]) )
 				d[i] = 0.0f;
 			else
@@ -1998,7 +1996,7 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		for (int i = 0; i < numElements; i++) {
 			if ( my_isnan(s[i]) || my_isnan(t[i]) )
 				d[i] = 0.0f;
 			else

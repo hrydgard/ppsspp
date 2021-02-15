@@ -431,7 +431,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	LARGE_INTEGER distance;
 	distance.QuadPart = position;
 	LARGE_INTEGER cursor;
-	DWORD newPos = SetFilePointerEx(hFile, distance, &cursor, moveMethod);
+	SetFilePointerEx(hFile, distance, &cursor, moveMethod);
 	result = (size_t)cursor.QuadPart;
 #else
 	int moveMethod = 0;

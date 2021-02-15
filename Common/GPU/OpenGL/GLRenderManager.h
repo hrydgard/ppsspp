@@ -47,8 +47,8 @@ public:
 class GLRFramebuffer {
 public:
 	GLRFramebuffer(int _width, int _height, bool z_stencil)
-		: width(_width), height(_height), z_stencil_(z_stencil),
-		  color_texture(_width, _height, 1), z_stencil_texture(_width, _height, 1) {
+		: color_texture(_width, _height, 1), z_stencil_texture(_width, _height, 1),
+		width(_width), height(_height), z_stencil_(z_stencil) {
 	}
 
 	~GLRFramebuffer();

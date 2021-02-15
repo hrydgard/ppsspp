@@ -535,15 +535,6 @@ namespace MainWindow {
 		osm.Show(messageStream.str());
 	}
 
-	static void enableCheats(bool cheats) {
-		g_Config.bEnableCheats = cheats;
-	}
-
-	static void setDisplayOptions(int options) {
-		g_Config.iSmallDisplayZoomType = options;
-		NativeMessageReceived("gpu_resized", "");
-	}
-
 	static void RestartApp() {
 		if (IsDebuggerPresent()) {
 			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
@@ -559,7 +550,6 @@ namespace MainWindow {
 		auto gr = GetI18NCategory("Graphics");
 
 		int wmId = LOWORD(wParam);
-		int wmEvent = HIWORD(wParam);
 		// Parse the menu selections:
 		switch (wmId) {
 		case ID_FILE_LOAD:

@@ -246,7 +246,6 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 
 bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const char *tag) {
 	_assert_(!destroyed_);
-	bool matched = true;
 
 	if (start + blocks > slab.usage.size()) {
 		start = slab.usage.size();

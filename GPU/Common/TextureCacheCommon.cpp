@@ -100,9 +100,6 @@ inline int dimHeight(u16 dim) {
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	: draw_(draw),
-		texelsScaledThisFrame_(0),
-		cacheSizeEstimate_(0),
-		secondCacheSizeEstimate_(0),
 		clutLastFormat_(0xFFFFFFFF),
 		clutTotalBytes_(0),
 		clutMaxBytes_(0),
@@ -564,7 +561,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 std::vector<AttachCandidate> TextureCacheCommon::GetFramebufferCandidates(const TextureDefinition &entry, u32 texAddrOffset) {
 	gpuStats.numFramebufferEvaluations++;
-	bool success = false;
 
 	std::vector<AttachCandidate> candidates;
 
@@ -883,8 +879,6 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 			(channel != NOTIFY_FB_COLOR && entry.format == GE_TFMT_CLUT16) ||
 			(channel == NOTIFY_FB_COLOR && framebuffer->format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(channel == NOTIFY_FB_COLOR && framebuffer->format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16);
-
-		const bool clutFormat = IsClutFormat((GETextureFormat)(entry.format));
 
 		// To avoid ruining git blame, kept the same name as the old struct.
 		FramebufferMatchInfo fbInfo{ FramebufferMatch::VALID };

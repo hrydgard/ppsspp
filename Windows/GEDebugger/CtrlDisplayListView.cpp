@@ -188,7 +188,6 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		bool stall = address == list.stall;
 
 		int rowY1 = rowHeight*i;
-		int rowY2 = rowHeight*(i+1);
 
 		// draw background
 		COLORREF backgroundColor = stall ? 0xCCCCFF : 0xFFFFFF;
@@ -270,7 +269,6 @@ void CtrlDisplayListView::toggleBreakpoint()
 
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
-	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
 
 	int line = y/rowHeight;

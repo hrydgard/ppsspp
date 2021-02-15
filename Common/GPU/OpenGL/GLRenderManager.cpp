@@ -672,7 +672,7 @@ void GLRenderManager::WaitUntilQueueIdle() {
 	}
 }
 
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), target_(target), size_(size) {
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), size_(size), target_(target) {
 	bool res = AddBuffer();
 	_assert_(res);
 }

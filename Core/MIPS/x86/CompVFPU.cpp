@@ -238,8 +238,6 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
-alignas(16) static u32 ssLoadStoreTemp;
-
 void Jit::Comp_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_VFPU);
 
@@ -796,7 +794,6 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
-	int n = GetNumVectorElements(sz);
 
 	u8 sregs[4], tregs[4], dregs[4];
 	GetVectorRegs(sregs, sz, _VS);
@@ -1808,8 +1805,6 @@ extern const double mulTableVf2i[32] = {
 	(1ULL<<28),(1ULL<<29),(1ULL<<30),(1ULL<<31),
 };
 
-static const float half = 0.5f;
-
 static const double maxMinIntAsDouble[2] = { (double)0x7fffffff, (double)(int)0x80000000 };  // that's not equal to 0x80000000
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
@@ -1934,7 +1929,7 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 	int n = GetNumVectorElements(sz);
 
 	u8 dregs[4];
-	GetVectorRegsPrefixD(dregs, sz, _VD);
+	GetVectorRegsPrefixD(dregs, sz, vd);
 
 	if (RipAccessible(cst_constants)) {
 		MOVSS(XMM0, M(&cst_constants[conNum]));  // rip accessible

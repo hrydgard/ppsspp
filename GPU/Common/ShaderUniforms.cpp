@@ -251,7 +251,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			viewZInvScale = 0.0;
 		}
 
-		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = viewZCenter;

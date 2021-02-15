@@ -128,10 +128,6 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	int decimationCounter_ = 0;
-	int texelsScaledThisFrame_ = 0;
-	int timesInvalidatedAllThisFrame_ = 0;
-
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;

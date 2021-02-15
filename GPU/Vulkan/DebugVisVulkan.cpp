@@ -116,7 +116,6 @@ void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
 
 	std::string text = gpuVulkan->GetGpuProfileString();
 
-	Draw::DrawContext *draw = ui->GetDrawContext();
 	ui->SetFontScale(0.4f, 0.4f);
 	ui->DrawTextShadow(text.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);

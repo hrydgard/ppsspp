@@ -873,7 +873,6 @@ float vfpu_rsqrt(float a) {
 	uint32_t z = 0x00800000 >> less_bits;
 	uint32_t halfsp = sp >> (1 + less_bits);
 	for (int i = 0; i < 6; ++i) {
-		uint32_t oldz = z;
 		uint32_t zsq = mant_mul(z, z);
 		uint32_t correction = 0x00C00000 - mant_mul(halfsp, zsq);
 		z = mant_mul(z, correction);

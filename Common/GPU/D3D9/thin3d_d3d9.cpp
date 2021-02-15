@@ -271,7 +271,7 @@ private:
 
 class D3D9Pipeline : public Pipeline {
 public:
-	D3D9Pipeline(LPDIRECT3DDEVICE9 device) : device_(device) {}
+	D3D9Pipeline() {}
 	~D3D9Pipeline() {
 		if (depthStencil) depthStencil->Release();
 		if (blend) blend->Release();
@@ -294,8 +294,6 @@ public:
 	UniformBufferDesc dynamicUniforms;
 
 	void Apply(LPDIRECT3DDEVICE9 device);
-private:
-	LPDIRECT3DDEVICE9 device_;
 };
 
 class D3D9Texture : public Texture {
@@ -633,7 +631,7 @@ void D3D9Context::InvalidateCachedState() {
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
-	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
+	: d3d_(d3d), d3dEx_(d3dEx), device_(device), deviceEx_(deviceEx), adapterId_(adapterId), caps_{} {
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ERROR_LOG(G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
@@ -695,7 +693,7 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return NULL;
 	}
-	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
+	D3D9Pipeline *pipeline = new D3D9Pipeline();
 	for (auto iter : desc.shaders) {
 		if (!iter) {
 			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline");
@@ -971,9 +969,6 @@ void D3D9Context::Draw(int vertexCount, int offset) {
 }
 
 void D3D9Context::DrawIndexed(int vertexCount, int offset) {
-	D3D9Buffer *vbuf = static_cast<D3D9Buffer *>(curVBuffers_[0]);
-	D3D9Buffer *ibuf = static_cast<D3D9Buffer *>(curIBuffer_);
-
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
@@ -1032,7 +1027,6 @@ void D3D9Context::SetStencilRef(uint8_t ref) {
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
 	LPD3D_SHADER_MACRO defines = nullptr;
 	LPD3DINCLUDE includes = nullptr;
-	DWORD flags = 0;
 	LPD3DBLOB codeBuffer = nullptr;
 	LPD3DBLOB errorBuffer = nullptr;
 	const char *source = (const char *)data;

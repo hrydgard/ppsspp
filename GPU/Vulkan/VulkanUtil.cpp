@@ -47,7 +47,6 @@ void Vulkan2D::DestroyDeviceObjects() {
 	}
 	keptPipelines_.clear();
 
-	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	}

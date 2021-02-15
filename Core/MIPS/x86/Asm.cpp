@@ -66,7 +66,7 @@ void ImHere() {
 }
 
 void Jit::GenerateFixedCode(JitOptions &jo) {
-	const u8 *start = AlignCodePage();
+	AlignCodePage();
 	BeginWrite();
 
 	restoreRoundingMode = AlignCode16(); {

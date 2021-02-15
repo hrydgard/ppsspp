@@ -1502,7 +1502,6 @@ namespace MIPSComp {
 		memcpy(srcregs, sregs, sizeof(sregs));
 		memcpy(tempregs, dregs, sizeof(dregs));
 
-		int n = GetNumVectorElements(sz);
 		int nOut = GetNumVectorElements(outsize);
 
 		// If src registers aren't contiguous, make them.
@@ -1818,7 +1817,7 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 
 		u8 dregs[4];
-		GetVectorRegsPrefixD(dregs, sz, _VD);
+		GetVectorRegsPrefixD(dregs, sz, vd);
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
 		}

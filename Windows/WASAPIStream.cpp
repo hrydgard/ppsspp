@@ -31,7 +31,7 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
               if ((punk) != NULL)  \
                 { (punk)->Release(); (punk) = NULL; }
 
-class CMMNotificationClient : public IMMNotificationClient {
+class CMMNotificationClient final : public IMMNotificationClient {
 public:
 	CMMNotificationClient() {
 	}
