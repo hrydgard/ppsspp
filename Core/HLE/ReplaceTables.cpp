@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include "Common/Common.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -1053,6 +1054,20 @@ static int Hook_youkosohitsujimura_download_frame() {
 	return 0;
 }
 
+static int Hook_zettai_hero_update_minimap_tex() {
+	const MIPSOpcode storeOffset = Memory::Read_Instruction(currentMIPS->pc + 4, true);
+	const uint32_t texAddr = currentMIPS->r[MIPS_REG_A0] + SignExtend16ToS32(storeOffset);
+	const uint32_t texSize = 64 * 64 * 1;
+	const uint32_t writeAddr = currentMIPS->r[MIPS_REG_V1] + SignExtend16ToS32(storeOffset);
+	if (Memory::IsValidRange(texAddr, texSize) && writeAddr >= texAddr && writeAddr < texAddr + texSize) {
+		const uint8_t currentValue = Memory::Read_U8(writeAddr);
+		if (currentValue != currentMIPS->r[MIPS_REG_A3]) {
+			gpu->InvalidateCache(texAddr, texSize, GPU_INVALIDATE_FORCE);
+		}
+	}
+	return 0;
+}
+
 static int Hook_tonyhawkp8_upload_tutorial_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
@@ -1323,6 +1338,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "zettai_hero_update_minimap_tex", &Hook_zettai_hero_update_minimap_tex, 0, REPFLAG_HOOKEXIT, },
 	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
 	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
 	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, 0xA0 },

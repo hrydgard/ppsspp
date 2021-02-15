@@ -19,6 +19,8 @@
 #if PPSSPP_ARCH(ARM)
 
 #include <cmath>
+#include "Common/CPUDetect.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
@@ -30,7 +32,6 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Common/CPUDetect.h"
 
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -2087,7 +2088,7 @@ namespace MIPSComp
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
 
-		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+		s32 imm = SignExtend16ToS32(op);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
 		MOVI2F(fpr.V(dreg), (float)imm, SCRATCHREG1);
 

@@ -21,6 +21,7 @@
 
 #include "zlib.h"
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -625,7 +626,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 	case R_MIPS_LO16:
 		{
 			// Sign extend the existing low value (e.g. from addiu.)
-			const u32 offsetLo = (s32)(s16)(u16)(relocData & 0xFFFF);
+			const u32 offsetLo = SignExtend16ToU32(relocData);
 			u32 full = exportAddress;
 			// This is only used in the error case (no hi/wrong hi.)
 			if (!reverse) {

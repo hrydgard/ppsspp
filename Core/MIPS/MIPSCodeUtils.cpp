@@ -28,9 +28,8 @@ namespace MIPSCodeUtils
 #define OP_SYSCALL_MASK 0xFC00003F
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
-#define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
-#define TARGET16 ((int)((uint32_t)(int)_IMM16 << 2))
+#define TARGET16 ((int)(SignExtend16ToU32(op) << 2))
 #define TARGET26 (_IMM26 << 2)
 
 	u32 GetJumpTarget(u32 addr) {

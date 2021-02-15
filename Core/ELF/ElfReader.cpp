@@ -136,7 +136,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 							DEBUG_LOG(LOADER,"Corresponding lo found at %08x", corrLoAddr);
 						}
 						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s32)(s16)(u16)(Memory::ReadUnchecked_U32(corrLoAddr) & 0xFFFF); //signed??
+							s16 lo = (s16)Memory::ReadUnchecked_U16(corrLoAddr);
 							cur += lo;
 							cur += relocateTo;
 							addrToHiLo(cur, hi, lo);

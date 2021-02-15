@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "ColorConv.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
 #include "ColorConvNEON.h"
@@ -487,8 +488,8 @@ void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 		u32 r = Convert5To8(c & 0x001f);
 		u32 g = Convert5To8((c >> 5) & 0x001f);
 		u32 b = Convert5To8((c >> 10) & 0x001f);
-		// We force an arithmetic shift to get the sign bits/
-		u32 a = ((s32)(s16)c) & 0xff000000;
+		// We force an arithmetic shift to get the sign bits.
+		u32 a = SignExtend16ToU32(c) & 0xff000000;
 
 		dst[x] = a | (r << 16) | (g << 8) | b;
 	}

@@ -153,6 +153,8 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_HINT,
 	// Reliable invalidation (where any hashing, etc. is unneeded, it'll always invalidate.)
 	GPU_INVALIDATE_SAFE,
+	// Forced invalidation for when the texture hash may not catch changes.
+	GPU_INVALIDATE_FORCE,
 };
 
 namespace Draw {

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/MIPS/MIPS.h"
 
 // Invalid branch target address
@@ -52,6 +53,21 @@
 #define MIPS_GET_VS(op) ((op>>8) & 0x7F)
 #define MIPS_GET_VT(op) ((op>>16) & 0x7F)
 
+inline int32_t SignExtend8ToS32(MIPSOpcode op) {
+	return SignExtend8ToS32(op.encoding);
+}
+
+inline uint32_t SignExtend8ToU32(MIPSOpcode op) {
+	return SignExtend8ToU32(op.encoding);
+}
+
+inline int32_t SignExtend16ToS32(MIPSOpcode op) {
+	return SignExtend16ToS32(op.encoding);
+}
+
+inline uint32_t SignExtend16ToU32(MIPSOpcode op) {
+	return SignExtend16ToU32(op.encoding);
+}
 
 namespace MIPSCodeUtils
 {

@@ -78,9 +78,9 @@ namespace MIPSComp
 	void Jit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE(ALU_IMM);
-		s32 simm = (s32)_IMM16;  // sign extension
 		u32 uimm = op & 0xFFFF;
-		u32 suimm = (u32)(s32)simm;
+		s32 simm = SignExtend16ToS32(op);
+		u32 suimm = SignExtend16ToU32(op);
 
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -798,10 +798,10 @@ namespace MIPSComp
 
 		switch ((op >> 6) & 31)
 		{
-		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
+		case 16: // seb  // R(rd) = SignExtend8ToU32(R(rt));
 			if (gpr.IsImm(rt))
 			{
-				gpr.SetImm(rd, (u32)(s32)(s8)(u8)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend8ToU32(gpr.GetImm(rt)));
 				break;
 			}
 
@@ -876,10 +876,10 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
-		case 24: // seh  // R(rd) = (u32)(s32)(s16)(u16)R(rt);
+		case 24: // seh  // R(rd) = SignExtend16ToU32(R(rt));
 			if (gpr.IsImm(rt))
 			{
-				gpr.SetImm(rd, (u32)(s32)(s16)(u16)gpr.GetImm(rt));
+				gpr.SetImm(rd, SignExtend16ToU32(gpr.GetImm(rt)));
 				break;
 			}
 

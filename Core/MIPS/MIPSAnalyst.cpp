@@ -102,6 +102,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
 	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
+	{ 0x05aceb23092fd6a1, 36, "zettai_hero_update_minimap_tex", }, // Zettai Hero Project (US)
 	{ 0x05aedd0c04b451a1, 356, "sqrt", },
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
 	{ 0x06628f6052cda3c1, 1776, "toheart2_download_frame", }, // To Heart 2 Portable
