@@ -76,7 +76,6 @@ android {
 		release {
 			minifyEnabled = false
 			signingConfig signingConfigs.release
-			ndk.debugSymbolLevel = 'FULL'
 		}
 	}
 	externalNativeBuild {
