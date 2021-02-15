@@ -1966,7 +1966,6 @@ set(WindowsFiles
 	Windows/Debugger/CtrlMemView.h
 	Windows/Debugger/CtrlRegisterList.cpp
 	Windows/Debugger/CtrlRegisterList.h
-	Windows/Debugger/Debugger.h
 	Windows/Debugger/DebuggerShared.cpp
 	Windows/Debugger/DebuggerShared.h
 	Windows/Debugger/Debugger_Disasm.cpp
