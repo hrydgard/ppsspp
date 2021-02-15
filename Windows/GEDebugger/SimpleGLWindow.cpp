@@ -239,7 +239,7 @@ void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt
 
 	GLint components = GL_RGBA;
 	GLint memComponents = 0;
-	GLenum glfmt;
+	GLenum glfmt = GL_UNSIGNED_BYTE;
 	const u8 *finalData = data;
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);

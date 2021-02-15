@@ -106,8 +106,8 @@ AudioFormatTransform g_AudioFormats[] = {
 const int g_cVideoFormats = ARRAYSIZE(g_VideoFormats);
 const int g_cAudioFormats = ARRAYSIZE(g_AudioFormats);
 
-MediaParam defaultVideoParam = { 640, 480,  0, MFVideoFormat_RGB24 };
-MediaParam defaultAudioParam = { 44100, 2, 16, MFAudioFormat_PCM };
+MediaParam defaultVideoParam = { { 640, 480,  0, MFVideoFormat_RGB24 } };
+MediaParam defaultAudioParam = { { 44100, 2, 16, MFAudioFormat_PCM } };
 
 HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride);
 
@@ -435,7 +435,7 @@ WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
 	errorMessage(""),
 	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
 	param = { 0 };
-	deviceParam = { 0 };
+	deviceParam = { { 0 } };
 
 	switch (type) {
 	case CAPTUREDEVIDE_TYPE::VIDEO:

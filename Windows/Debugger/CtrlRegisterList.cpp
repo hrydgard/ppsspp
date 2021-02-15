@@ -255,7 +255,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		{
 			char temp[256];
 			int len;
-			u32 value;
+			u32 value = -1;
 
 			switch (i)
 			{

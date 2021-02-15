@@ -65,7 +65,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 		return;
 	}
 	LARGE_INTEGER end_offset;
-	const LARGE_INTEGER zero = { 0 };
+	const LARGE_INTEGER zero{};
 	if (SetFilePointerEx(handle_, zero, &end_offset, FILE_END) == 0) {
 		// Couldn't seek in the file. Close it and give up? This should never happen.
 		CloseHandle(handle_);
