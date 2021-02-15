@@ -336,14 +336,14 @@ protected:
 	bool lowMemoryMode_ = false;
 
 	int decimationCounter_;
-	int texelsScaledThisFrame_;
-	int timesInvalidatedAllThisFrame_;
+	int texelsScaledThisFrame_ = 0;
+	int timesInvalidatedAllThisFrame_ = 0;
 
 	TexCache cache_;
-	u32 cacheSizeEstimate_;
+	u32 cacheSizeEstimate_ = 0;
 
 	TexCache secondCache_;
-	u32 secondCacheSizeEstimate_;
+	u32 secondCacheSizeEstimate_ = 0;
 
 	std::map<u32, int> videos_;
 

@@ -100,9 +100,6 @@ inline int dimHeight(u16 dim) {
 // TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	: draw_(draw),
-		texelsScaledThisFrame_(0),
-		cacheSizeEstimate_(0),
-		secondCacheSizeEstimate_(0),
 		clutLastFormat_(0xFFFFFFFF),
 		clutTotalBytes_(0),
 		clutMaxBytes_(0),
