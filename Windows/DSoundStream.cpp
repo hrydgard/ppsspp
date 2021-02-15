@@ -147,7 +147,7 @@ int DSoundAudioBackend::RunThread() {
 	return 0;
 }
 
-DSoundAudioBackend::DSoundAudioBackend() : threadData_(0), ds_(nullptr) {
+DSoundAudioBackend::DSoundAudioBackend() {
 }
 
 DSoundAudioBackend::~DSoundAudioBackend() {

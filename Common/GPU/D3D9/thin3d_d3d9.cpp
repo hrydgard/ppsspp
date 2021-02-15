@@ -631,7 +631,7 @@ void D3D9Context::InvalidateCachedState() {
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
-	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
+	: d3d_(d3d), d3dEx_(d3dEx), device_(device), deviceEx_(deviceEx), adapterId_(adapterId), caps_{} {
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ERROR_LOG(G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}

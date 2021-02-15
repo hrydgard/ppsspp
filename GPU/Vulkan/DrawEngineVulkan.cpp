@@ -79,7 +79,6 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
 	:	vulkan_(vulkan),
 		draw_(draw),
-		stats_{},
 		vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;

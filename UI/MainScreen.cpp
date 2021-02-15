@@ -427,8 +427,8 @@ public:
 
 private:
 	std::string path_;
-	bool absolute_;
 	bool gridStyle_;
+	bool absolute_;
 };
 
 void DirButton::Draw(UIContext &dc) {
@@ -484,7 +484,7 @@ void DirButton::Draw(UIContext &dc) {
 }
 
 GameBrowser::GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), screenManager_(screenManager), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink) {
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager) {
 	using namespace UI;
 	Refresh();
 }

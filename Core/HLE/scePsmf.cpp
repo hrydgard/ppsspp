@@ -212,7 +212,7 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() : filehandle(0), finishThread(nullptr), videoWidth(480), videoHeight(272) {
+	PsmfPlayer() : videoWidth(480), videoHeight(272) {
 		mediaengine = new MediaEngine();
 	}
 	PsmfPlayer(const PsmfPlayerCreateData *data);
@@ -243,7 +243,7 @@ public:
 		return mediaengine->IsVideoEnd() && (mediaengine->IsNoAudioData() || !mediaengine->IsActuallyPlayingAudio());
 	}
 
-	int filehandle;
+	int filehandle = 0;
 	u32 fileoffset;
 	int readSize;
 	int streamSize;
@@ -275,7 +275,7 @@ public:
 	PsmfPlayerStatus status;
 
 	MediaEngine *mediaengine;
-	HLEHelperThread *finishThread;
+	HLEHelperThread *finishThread = nullptr;
 };
 
 class PsmfStream {

@@ -68,7 +68,7 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw), inputLayoutMap_(16) {
+DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), inputLayoutMap_(16), draw_(draw) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	decOptions_.expandAllWeightsToFloat = false;

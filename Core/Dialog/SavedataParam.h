@@ -271,27 +271,22 @@ struct SceUtilitySavedataParam
 // Non native, this one we can reorganize as we like
 struct SaveFileInfo
 {
-	s64 size;
+	s64 size = 0;
 	std::string saveName;
 	std::string saveDir;
-	int idx;
+	int idx = 0;
 
-	char title[128];
-	char saveTitle[128];
-	char saveDetail[1024];
+	char title[128]{};
+	char saveTitle[128]{};
+	char saveDetail[1024]{};
 
-	bool broken;
+	bool broken = false;
 
-	tm modif_time;
+	tm modif_time{};
 
-	PPGeImage *texture;
+	PPGeImage *texture = nullptr;
 
-	SaveFileInfo() : size(0), saveName(""), idx(0), texture(NULL), broken(false)
-	{
-		memset(title, 0, 128);
-		memset(saveTitle, 0, 128);
-		memset(saveDetail, 0, 1024);
-		memset(&modif_time, 0, sizeof(modif_time));
+	SaveFileInfo() {
 	}
 
 	void DoState(PointerWrap &p);

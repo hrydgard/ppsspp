@@ -367,10 +367,6 @@ void GPUCommon::Flush() {
 }
 
 GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
-	dumpNextFrame_(false),
-	dumpThisFrame_(false),
-	framebufferManager_(nullptr),
-	resized_(false),
 	gfxCtx_(gfxCtx),
 	draw_(draw)
 {

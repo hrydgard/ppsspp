@@ -432,7 +432,6 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
 	type(_type),
 	error(CAPTUREDEVIDE_ERROR_NO_ERROR),
-	errorMessage(""),
 	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
 	param = { 0 };
 	deviceParam = { { 0 } };

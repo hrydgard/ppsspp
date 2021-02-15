@@ -40,7 +40,7 @@ private:
 	int totalRenderedBytes_;
 	int sampleRate_;
 
-	volatile int threadData_;
+	volatile int threadData_ = 0;
 
 	enum {
 		BUFSIZE = 0x4000,

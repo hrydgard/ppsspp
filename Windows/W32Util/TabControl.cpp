@@ -7,7 +7,7 @@
 const DWORD tabControlStyleMask = ~(WS_POPUP | WS_TILEDWINDOW);
 
 TabControl::TabControl(HWND handle, bool noDisplayArea)
-	: hwnd(handle), showTabTitles(true), currentTab(0), ignoreBottomMargin(false), noDisplayArea_(noDisplayArea)
+	: hwnd(handle), noDisplayArea_(noDisplayArea)
 {
 	SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)this);
 	oldProc = (WNDPROC) SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)wndProc);

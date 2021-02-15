@@ -54,8 +54,8 @@
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 		vulkan_((VulkanContext *)gfxCtx->GetAPIContext()),
-		drawEngine_(vulkan_, draw),
 		depalShaderCache_(draw, vulkan_),
+		drawEngine_(vulkan_, draw),
 		vulkan2D_(vulkan_) {
 	CheckGPUFeatures();
 

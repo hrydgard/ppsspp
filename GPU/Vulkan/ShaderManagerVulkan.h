@@ -47,11 +47,11 @@ public:
 	const FShaderID &GetID() { return id_; }
 
 protected:	
-	VkShaderModule module_;
+	VkShaderModule module_ = VK_NULL_HANDLE;
 
 	VulkanContext *vulkan_;
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	FShaderID id_;
 };
 
@@ -70,11 +70,11 @@ public:
 	const VShaderID &GetID() { return id_; }
 
 protected:
-	VkShaderModule module_;
+	VkShaderModule module_ = VK_NULL_HANDLE;
 
 	VulkanContext *vulkan_;
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	bool useHWTransform_;
 	VShaderID id_;
 };

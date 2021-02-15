@@ -297,9 +297,8 @@ std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
 TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: TextureCacheCommon(draw),
 		vulkan_(vulkan),
-		samplerCache_(vulkan),
-		computeShaderManager_(vulkan) {
-	timesInvalidatedAllThisFrame_ = 0;
+		computeShaderManager_(vulkan),
+		samplerCache_(vulkan) {
 	DeviceRestore(vulkan, draw);
 	SetupTextureDecoder();
 }

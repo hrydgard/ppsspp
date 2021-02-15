@@ -229,12 +229,12 @@ private:
 };
 
 D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList)
-	: device_(device),
+	: hWnd_(hWnd),
+		device_(device),
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
-		hWnd_(hWnd),
 		deviceList_(deviceList) {
 
 	// We no longer support Windows Phone.

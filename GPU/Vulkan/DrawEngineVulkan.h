@@ -282,7 +282,7 @@ private:
 	// For null texture
 	VkSampler nullSampler_ = VK_NULL_HANDLE;
 
-	DrawEngineVulkanStats stats_;
+	DrawEngineVulkanStats stats_{};
 
 	VulkanPipelineRasterStateKey pipelineKey_{};
 	VulkanDynamicState dynState_{};
