@@ -1031,7 +1031,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		break;
 	}
 
-	if (status == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
+	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size);
 	
 	return 0;

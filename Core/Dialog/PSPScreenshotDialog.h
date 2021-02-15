@@ -33,6 +33,11 @@ public:
 	virtual void DoState(PointerWrap &p) override;
 
 protected:
+	// TODO: Manage status correctly.
+	bool UseAutoStatus() override {
+		return true;
+	}
+
 	int mode;
 	PSPPointer<SceUtilityScreenshotParams> params_;
 };

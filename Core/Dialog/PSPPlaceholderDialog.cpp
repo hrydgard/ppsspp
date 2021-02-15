@@ -25,20 +25,18 @@ PSPPlaceholderDialog::~PSPPlaceholderDialog() {
 }
 
 
-int PSPPlaceholderDialog::Init()
-{
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+int PSPPlaceholderDialog::Init() {
+	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
 	return 0;
 }
 
-int PSPPlaceholderDialog::Update(int animSpeed)
-{
-	if (status == SCE_UTILITY_STATUS_INITIALIZE) {
-		status = SCE_UTILITY_STATUS_RUNNING;
-	} else if (status == SCE_UTILITY_STATUS_RUNNING) {
-		status = SCE_UTILITY_STATUS_FINISHED;
-	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
+int PSPPlaceholderDialog::Update(int animSpeed) {
+	if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
+		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
+	} else if (ReadStatus() == SCE_UTILITY_STATUS_RUNNING) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	} else if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED) {
+		ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 	}
 
 	return 0;

@@ -61,7 +61,7 @@ PSPScreenshotDialog::~PSPScreenshotDialog() {
 
 int PSPScreenshotDialog::Init(u32 paramAddr) {
 	// Already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN) {
+	if (ReadStatus() != SCE_UTILITY_STATUS_NONE && ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN) {
 		ERROR_LOG_REPORT(HLE, "sceUtilityScreenshotInitStart(%08x): invalid status", paramAddr);
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
@@ -84,23 +84,23 @@ int PSPScreenshotDialog::Init(u32 paramAddr) {
 	}
 
 	mode = params_->mode;
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
 
 	return 0;
 }
 
 int PSPScreenshotDialog::Update(int animSpeed) {
 	if (UseAutoStatus()) {
-		if (status == SCE_UTILITY_STATUS_INITIALIZE) {
-			status = SCE_UTILITY_STATUS_RUNNING;
-		} else if (status == SCE_UTILITY_STATUS_RUNNING) {
+		if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
+			ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
+		} else if (ReadStatus() == SCE_UTILITY_STATUS_RUNNING) {
 			if (mode == SCE_UTILITY_SCREENSHOT_TYPE_CONT_START) {
-				status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
+				ChangeStatus(SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN, 0);
 			} else {
-				status = SCE_UTILITY_STATUS_FINISHED;
+				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 			}
-		} else if (status == SCE_UTILITY_STATUS_FINISHED) {
-			status = SCE_UTILITY_STATUS_SHUTDOWN;
+		} else if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED) {
+			ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
 		}
 	}
 	return 0;
@@ -108,11 +108,11 @@ int PSPScreenshotDialog::Update(int animSpeed) {
 
 int PSPScreenshotDialog::ContStart() {
 	// Based on JPCSP http://code.google.com/p/jpcsp/source/detail?r=3381
-	if (status != SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN)
+	if (ReadStatus() != SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	// Check with JPCSPTrace log of Dream Club Portable
-	status = SCE_UTILITY_STATUS_FINISHED;
+	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 
 	return 0;
 }
