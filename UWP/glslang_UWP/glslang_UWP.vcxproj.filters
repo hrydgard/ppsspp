@@ -136,22 +136,25 @@
     <ClCompile Include="..\..\ext\glslang\SPIRV\SPVRemapper.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslAttributes.cpp">
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SpvTools.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslAttributes.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslGrammar.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslGrammar.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslOpMap.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslOpMap.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseables.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslTokenStream.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\glslang\glslang\OSDependent\Windows\ossource.cpp">
@@ -164,7 +167,7 @@
       <Filter>glslang\MachineIndependent</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\glslang\SPIRV\SpvPostProcess.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseHelper.cpp">
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
   </ItemGroup>
@@ -270,6 +273,9 @@
     <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.AMD.h">
       <Filter>SPIRV</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.EXT.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.KHR.h">
       <Filter>SPIRV</Filter>
     </ClInclude>
@@ -288,6 +294,9 @@
     <ClInclude Include="..\..\ext\glslang\SPIRV\Logger.h">
       <Filter>SPIRV</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\NonSemanticDebugPrintf.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\ext\glslang\SPIRV\spirv.hpp">
       <Filter>SPIRV</Filter>
     </ClInclude>
@@ -300,25 +309,28 @@
     <ClInclude Include="..\..\ext\glslang\SPIRV\SPVRemapper.h">
       <Filter>SPIRV</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslAttributes.h">
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SpvTools.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslAttributes.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslGrammar.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslGrammar.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslOpMap.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslOpMap.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslParseables.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokens.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokens.h">
       <Filter>hlsl</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokenStream.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.h">
       <Filter>hlsl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h">
@@ -327,8 +339,17 @@
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\attribute.h">
       <Filter>glslang\MachineIndependent</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseHelper.h">
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.h">
       <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\pch.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\pch.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\build_info.h">
+      <Filter>glslang</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
