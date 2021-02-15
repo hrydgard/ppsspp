@@ -599,8 +599,9 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 }
 
 inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
-	// Switch to u32 units.
-	const u32 *p = (const u32 *)ptr;
+	// Switch to u32 units, and round up to avoid unaligned accesses.
+	// Probably doesn't matter if we skip the first few bytes in some cases.
+	const u32 *p = (const u32 *)(((uintptr_t)ptr + 3) & ~3);
 	sz >>= 2;
 
 	if (sz > 100) {
