@@ -16,9 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef __MINGW32__
+#include <unistd.h>
+#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
 #define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
 #endif
+#endif
 
+#include <ctime>
 #include <thread>
 
 #include "Common/Data/Text/I18n.h"

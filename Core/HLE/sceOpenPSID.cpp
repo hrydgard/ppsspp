@@ -17,9 +17,9 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceOpenPSID.h"
 #include "Core/MemMapHelpers.h"
-#include <Core/HLE/proAdhoc.h>
 
 SceOpenPSID dummyOpenPSID = { 0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D };
 

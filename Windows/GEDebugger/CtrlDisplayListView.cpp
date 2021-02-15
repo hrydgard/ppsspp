@@ -1,15 +1,15 @@
+#include <algorithm>
+#include <tchar.h>
 #include "Common/System/Display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"
-#include "Windows/Main.h"
+#include "Windows/main.h"
 #include "Core/Config.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
-#include <algorithm>
-
-const PTCHAR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
+LPCTSTR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
 
 const int POPUP_SUBMENU_ID_DISPLAYLISTVIEW = 8;
 extern HMENU g_hPopupMenus;

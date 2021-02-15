@@ -34,7 +34,7 @@ public:
 	void Resize() override;
 	void Poll() override;
 
-	void *GetAPIContext();
+	void *GetAPIContext() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 private:

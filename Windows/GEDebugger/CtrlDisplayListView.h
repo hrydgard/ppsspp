@@ -1,14 +1,14 @@
 #pragma once
 
+#include <algorithm>
 #include "Common/CommonWindows.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include <algorithm>
 
 class CtrlDisplayListView
 {
 	HWND wnd;
 	RECT rect;
-	static const PTCHAR windowClass;
+	static LPCTSTR windowClass;
 	DisplayList list;
 	
 	HFONT font;

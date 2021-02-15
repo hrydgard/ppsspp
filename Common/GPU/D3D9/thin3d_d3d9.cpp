@@ -564,7 +564,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
+	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {

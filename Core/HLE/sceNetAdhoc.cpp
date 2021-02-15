@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #if defined(_WIN32)
+#include <WinSock2.h>
 #include "Common/CommonWindows.h"
 #endif
 

@@ -24,6 +24,9 @@
 
 class InputDevice {
 public:
+	virtual ~InputDevice() {
+	}
+
 	enum { UPDATESTATE_SKIP_PAD = 0x1234};
 	virtual int UpdateState() = 0;
 

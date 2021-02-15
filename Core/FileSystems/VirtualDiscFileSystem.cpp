@@ -16,6 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#ifdef __MINGW32__
+#include <unistd.h>
+#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
+#define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
+#endif
+#endif
+#include <ctime>
 
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -365,7 +372,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 
 		if (!success) {
 #ifdef _WIN32
-			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", GetLastError());
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", (int)GetLastError());
 #else
 			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED");
 #endif
@@ -391,7 +398,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 
 	if (!success) {
 #ifdef _WIN32
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
+		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
 #else
 		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
 #endif

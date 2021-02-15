@@ -2,7 +2,7 @@
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "Windows/Resource.h"
+#include "Windows/resource.h"
 #include "Windows/InputBox.h"
 
 #include "Core/Debugger/Breakpoints.h"

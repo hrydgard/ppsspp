@@ -86,7 +86,7 @@ public:
 
 	// Callback methods for device-event notifications.
 
-	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) {
+	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) override {
 		std::lock_guard<std::mutex> guard(lock_);
 
 		if (flow != eRender || role != eMultimedia) {
@@ -109,30 +109,30 @@ public:
 		return S_OK;
 	}
 
-	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) {
+	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) override {
 		// Ignore.
 		return S_OK;
 	};
 
-	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) {
+	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) override {
 		// Ignore.
 		return S_OK;
 	}
 
-	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) {
+	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) override {
 		// Ignore.
 		return S_OK;
 	}
 
-	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) {
+	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) override {
 		INFO_LOG(SCEAUDIO, "Changed audio device property "
 			"{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}#%d",
-			key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3,
+			(uint32_t)key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3,
 			key.fmtid.Data4[0], key.fmtid.Data4[1],
 			key.fmtid.Data4[2], key.fmtid.Data4[3],
 			key.fmtid.Data4[4], key.fmtid.Data4[5],
 			key.fmtid.Data4[6], key.fmtid.Data4[7],
-			key.pid);
+			(int)key.pid);
 		return S_OK;
 	}
 

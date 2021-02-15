@@ -34,9 +34,7 @@
 #endif
 
 #ifdef HAVE_WIN32_CAMERA
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
+#include "Common/CommonWindows.h"
 #include "Windows/CaptureDevice.h"
 #endif
 

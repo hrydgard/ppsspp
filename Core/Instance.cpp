@@ -64,7 +64,7 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 		sizeof(InstanceInfo));
 
 	if (!buf) {
-		ERROR_LOG(SCENET, "Could not map view of file %s (%d).", ID_SHM_NAME, GetLastError());
+		ERROR_LOG(SCENET, "Could not map view of file %s (%08x)", ID_SHM_NAME, (uint32_t)GetLastError());
 		return false;
 	}
 
@@ -136,7 +136,7 @@ void InitInstanceCounter() {
 
 	DWORD lasterr = GetLastError();
 	if (!hIDMapFile) {
-		ERROR_LOG(SCENET, "Could not create %s file mapping object (%d).", ID_SHM_NAME, lasterr);
+		ERROR_LOG(SCENET, "Could not create %s file mapping object (%08x)", ID_SHM_NAME, (uint32_t)lasterr);
 		PPSSPP_ID = 1;
 		return;
 	}

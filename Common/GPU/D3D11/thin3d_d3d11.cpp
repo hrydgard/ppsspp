@@ -14,10 +14,10 @@
 #include "Common/Log.h"
 
 #include <cfloat>
-#include <D3DCommon.h>
+#include <D3Dcommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
-#include <d3dcompiler.h>
+#include <D3Dcompiler.h>
 
 #ifdef __MINGW32__
 #undef __uuidof
@@ -68,7 +68,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag);
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -110,7 +110,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
+	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void BeginFrame() override;
 

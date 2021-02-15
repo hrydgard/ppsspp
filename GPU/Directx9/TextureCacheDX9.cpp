@@ -315,7 +315,7 @@ public:
 		device_->SetViewport(&vp);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts_, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", (uint32_t)hr);
 		}
 
 		dxstate.Restore();
