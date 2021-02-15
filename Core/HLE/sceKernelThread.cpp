@@ -50,11 +50,10 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/ThreadQueueList.h"
 
-typedef struct
-{
+struct WaitTypeNames {
 	WaitType type;
 	const char *name;
-} WaitTypeNames;
+};
 
 const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_NONE,            "None" },
@@ -83,18 +82,13 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_ASYNCIO,         "AsyncIO" },
 	{ WAITTYPE_MICINPUT,        "Microphone input"},
 	{ WAITTYPE_NET,             "Network"},
+	{ WAITTYPE_USB,             "USB" },
 };
 
-const char *getWaitTypeName(WaitType type)
-{
-	int waitTypeNamesAmount = sizeof(waitTypeNames)/sizeof(WaitTypeNames);
-
-	for (int i = 0; i < waitTypeNamesAmount; i++)
-	{
-		if (waitTypeNames[i].type == type)
-		{
-			return waitTypeNames[i].name;
-		}
+const char *getWaitTypeName(WaitType type) {
+	for (WaitTypeNames info : waitTypeNames) {
+		if (info.type == type)
+			return info.name;
 	}
 
 	return "Unknown";

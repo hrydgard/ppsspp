@@ -17,18 +17,26 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/CoreTiming.h"
+#include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUsb.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Reporting.h"
+
+static constexpr uint32_t ERROR_USB_WAIT_TIMEOUT = 0x80243008;
 
 // TODO: Map by driver name
-bool usbStarted = false;
+static bool usbStarted = false;
 // TODO: Check actual status
-bool usbConnected = true;
+static bool usbConnected = true;
 // TODO: Activation by product id
-bool usbActivated = false;
+static bool usbActivated = false;
+
+static int usbWaitTimer = -1;
+static std::vector<SceUID> waitingThreads;
 
 enum UsbStatus {
 	USB_STATUS_STOPPED      = 0x001,
@@ -39,16 +47,85 @@ enum UsbStatus {
 	USB_STATUS_ACTIVATED    = 0x200,
 };
 
-void __UsbInit()
-{
+static int UsbCurrentState() {
+	int state = 0;
+	if (usbStarted) {
+		state = USB_STATUS_STARTED
+			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
+			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
+	}
+	return state;
+}
+
+static bool UsbMatchState(int state, u32 mode) {
+	int match = state & UsbCurrentState();
+	if (mode == 0) {
+		return match == state;
+	}
+	return match != 0;
+}
+
+static void UsbSetTimeout(PSPPointer<int> timeout) {
+	if (!timeout.IsValid() || usbWaitTimer == -1)
+		return;
+
+	// This should call __UsbWaitTimeout() later, unless we cancel it.
+	CoreTiming::ScheduleEvent(usToCycles(*timeout), usbWaitTimer, __KernelGetCurThread());
+}
+
+static void UsbWaitExecTimeout(u64 userdata, int cycleslate) {
+	u32 error;
+	SceUID threadID = (SceUID)userdata;
+
+	PSPPointer<int> timeout = PSPPointer<int>::Create(__KernelGetWaitTimeoutPtr(threadID, error));
+	if (timeout.IsValid())
+		*timeout = 0;
+
+	HLEKernel::RemoveWaitingThread(waitingThreads, threadID);
+	__KernelResumeThreadFromWait(threadID, ERROR_USB_WAIT_TIMEOUT);
+	__KernelReSchedule("wait timed out");
+}
+
+static void UsbUpdateState() {
+	u32 error;
+	bool wokeThreads = false;
+	for (size_t i = 0; i < waitingThreads.size(); ++i) {
+		SceUID threadID = waitingThreads[i];
+		int state = __KernelGetWaitID(threadID, WAITTYPE_USB, error);
+		if (error != 0)
+			continue;
+
+		u32 mode = __KernelGetWaitValue(threadID, error);
+		if (UsbMatchState(state, mode)) {
+			waitingThreads.erase(waitingThreads.begin() + i);
+			--i;
+
+			PSPPointer<int> timeout = PSPPointer<int>::Create(__KernelGetWaitTimeoutPtr(threadID, error));
+			if (timeout.IsValid() && usbWaitTimer != -1) {
+				// Remove any event for this thread.
+				s64 cyclesLeft = CoreTiming::UnscheduleEvent(usbWaitTimer, threadID);
+				*timeout = (int)cyclesToUs(cyclesLeft);
+			}
+
+			__KernelResumeThreadFromWait(threadID, UsbCurrentState());
+		}
+	}
+
+	if (wokeThreads)
+		hleReSchedule("usb state change");
+}
+
+void __UsbInit() {
 	usbStarted = false;
 	usbConnected = true;
 	usbActivated = false;
+	waitingThreads.clear();
+
+	usbWaitTimer = CoreTiming::RegisterEvent("UsbWaitTimeout", UsbWaitExecTimeout);
 }
 
-void __UsbDoState(PointerWrap &p)
-{
-	auto s = p.Section("sceUsb", 1, 2);
+void __UsbDoState(PointerWrap &p) {
+	auto s = p.Section("sceUsb", 1, 3);
 	if (!s)
 		return;
 
@@ -60,17 +137,27 @@ void __UsbDoState(PointerWrap &p)
 		usbConnected = true;
 	}
 	Do(p, usbActivated);
+	if (s >= 3) {
+		Do(p, waitingThreads);
+		Do(p, usbWaitTimer);
+	} else {
+		waitingThreads.clear();
+		usbWaitTimer = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(usbWaitTimer, "UsbWaitTimeout", UsbWaitExecTimeout);
 }
 
 static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
 	INFO_LOG(HLE, "sceUsbStart(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = true;
+	UsbUpdateState();
 	return 0;
 }
 
 static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
 	INFO_LOG(HLE, "sceUsbStop(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = false;
+	UsbUpdateState();
 	return 0;
 }
 
@@ -79,9 +166,7 @@ static int sceUsbGetState() {
 	if (!usbStarted) {
 		state = 0x80243007;
 	} else {
-		state = USB_STATUS_STARTED
-			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
-			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
+		state = UsbCurrentState();
 	}
 	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
 	return state;
@@ -90,22 +175,40 @@ static int sceUsbGetState() {
 static int sceUsbActivate(u32 pid) {
 	INFO_LOG(HLE, "sceUsbActivate(%i)", pid);
 	usbActivated = true;
+	UsbUpdateState();
 	return 0;
 }
 
 static int sceUsbDeactivate(u32 pid) {
 	INFO_LOG(HLE, "sceUsbDeactivate(%i)", pid);
 	usbActivated = false;
+	UsbUpdateState();
 	return 0;
 }
 
-static int sceUsbWaitState(int state, int waitMode, u32 timeoutAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStat(%i, %i, %08x)", state, waitMode, timeoutAddr);
-	return sceUsbGetState();
+static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
+	hleEatCycles(10000);
+
+	if (waitMode >= 2)
+		return hleLogError(HLE, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode");
+	if (state == 0)
+		return hleLogError(HLE, SCE_KERNEL_ERROR_EVF_ILPAT, "bad state");
+
+	if (UsbMatchState(state, waitMode)) {
+		return hleLogSuccessX(HLE, UsbCurrentState());
+	}
+
+	// We'll have to wait as long as it takes.  Cleanup first, just in case.
+	HLEKernel::RemoveWaitingThread(waitingThreads, __KernelGetCurThread());
+	waitingThreads.push_back(__KernelGetCurThread());
+
+	UsbSetTimeout(PSPPointer<int>::Create(timeoutPtr));
+	__KernelWaitCurThread(WAITTYPE_USB, state, waitMode, timeoutPtr, false, "usb state waited");
+	return hleLogSuccessI(HLE, 0, "waiting");
 }
 
-static int sceUsbWaitStateCB(int state, int waitMode, u32 timeoutAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutAddr);
+static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutPtr);
 	return 0;
 }
 
@@ -118,8 +221,8 @@ const HLEFunction sceUsb[] =
 	{0X112CC951, nullptr,                            "sceUsbGetDrvState",                       '?', ""   },
 	{0X586DB82C, &WrapI_U<sceUsbActivate>,           "sceUsbActivate",                          'i', "x"  },
 	{0XC572A9C8, &WrapI_U<sceUsbDeactivate>,         "sceUsbDeactivate",                        'i', "x"  },
-	{0X5BE0E002, &WrapI_IIU<sceUsbWaitState>,        "sceUsbWaitState",                         '?', "xxx"},
-	{0X616F2B61, &WrapI_IIU<sceUsbWaitStateCB>,      "sceUsbWaitStateCB",                       '?', "xxx"},
+	{0X5BE0E002, &WrapI_IUU<sceUsbWaitState>,        "sceUsbWaitState",                         'x', "xip"},
+	{0X616F2B61, &WrapI_IUU<sceUsbWaitStateCB>,      "sceUsbWaitStateCB",                       'x', "xip"},
 	{0X1C360735, nullptr,                            "sceUsbWaitCancel",                        '?', ""   },
 };
 

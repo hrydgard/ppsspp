@@ -110,6 +110,7 @@ enum WaitType : int
 	WAITTYPE_ASYNCIO      = 23,
 	WAITTYPE_MICINPUT     = 24, // fake
 	WAITTYPE_NET          = 25, // fake
+	WAITTYPE_USB          = 26, // fake
 
 	NUM_WAITTYPES
 };
