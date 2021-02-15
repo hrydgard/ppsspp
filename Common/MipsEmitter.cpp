@@ -474,7 +474,7 @@ void MIPSCodeBlock::AllocCodeSpace(int size) {
 
 // Always clear code space with breakpoints, so that if someone accidentally executes
 // uninitialized, it just breaks into the debugger.
-void MIPSCodeBlock::ClearCodeSpace() {
+void MIPSCodeBlock::ClearCodeSpace(int offset) {
 	// Set BREAK instructions on all of it.
 	u32 *region32 = (u32 *)region;
 	for (u32 i = 0; i < region_size / 4; ++i) {

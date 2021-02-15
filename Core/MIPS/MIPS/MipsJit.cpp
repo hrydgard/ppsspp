@@ -79,10 +79,20 @@ void MipsJit::FlushPrefixV()
 {
 }
 
+MIPSOpcode MipsJit::GetOriginalOp(MIPSOpcode op) {
+	JitBlockCache *bc = GetBlockCache();
+	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
+	if (block_num >= 0) {
+		return bc->GetOriginalFirstOp(block_num);
+	} else {
+		return op;
+	}
+}
+
 void MipsJit::ClearCache()
 {
 	blocks.Clear();
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 	//GenerateFixedCode();
 }
 
@@ -224,6 +234,14 @@ void MipsJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+}
+
+void MipsJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	// TODO
+}
+
+void MipsJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	// TODO
 }
 
 bool MipsJit::ReplaceJalTo(u32 dest) {

@@ -457,6 +457,7 @@
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="MemFault.cpp" />
+    <ClCompile Include="MIPS\fake\FakeJit.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
@@ -1004,6 +1005,7 @@
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="MemFault.h" />
+    <ClInclude Include="MIPS\fake\FakeJit.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRInterpreter.h" />
