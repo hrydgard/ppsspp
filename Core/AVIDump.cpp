@@ -187,8 +187,7 @@ static void PreparePacket(AVPacket* pkt) {
 
 #endif
 
-void AVIDump::AddFrame()
-{
+void AVIDump::AddFrame() {
 	u32 w = 0;
 	u32 h = 0;
 	if (g_Config.bDumpVideoOutput) {
@@ -213,8 +212,7 @@ void AVIDump::AddFrame()
 	s_src_frame->height = s_height;
 
 	// Convert image from BGR24 to desired pixel format, and scale to initial width and height
-	if ((s_sws_context = sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height, s_codec_context->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr)))
-	{
+	if ((s_sws_context = sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height, s_codec_context->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr))) {
 		sws_scale(s_sws_context, s_src_frame->data, s_src_frame->linesize, 0, h, s_scaled_frame->data, s_scaled_frame->linesize);
 	}
 
@@ -225,17 +223,22 @@ void AVIDump::AddFrame()
 	// Encode and write the image.
 	AVPacket pkt;
 	PreparePacket(&pkt);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+	int error = avcodec_send_frame(s_codec_context, s_scaled_frame);
+	int got_packet = 0;
+	if (avcodec_receive_packet(s_codec_context, &pkt) >= 0) {
+		got_packet = 1;
+	}
+#else
 	int got_packet;
 	int error = avcodec_encode_video2(s_codec_context, &pkt, s_scaled_frame, &got_packet);
-	while (!error && got_packet)
-	{
+#endif
+	while (error >= 0 && got_packet) {
 		// Write the compressed frame in the media file.
-		if (pkt.pts != (s64)AV_NOPTS_VALUE)
-		{
+		if (pkt.pts != (s64)AV_NOPTS_VALUE) {
 			pkt.pts = av_rescale_q(pkt.pts, s_codec_context->time_base, s_stream->time_base);
 		}
-		if (pkt.dts != (s64)AV_NOPTS_VALUE)
-		{
+		if (pkt.dts != (s64)AV_NOPTS_VALUE) {
 			pkt.dts = av_rescale_q(pkt.dts, s_codec_context->time_base, s_stream->time_base);
 		}
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56, 60, 100)
@@ -246,11 +249,23 @@ void AVIDump::AddFrame()
 		av_interleaved_write_frame(s_format_context, &pkt);
 
 		// Handle delayed frames.
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+		av_packet_unref(&pkt);
+		error = avcodec_receive_packet(s_codec_context, &pkt);
+		got_packet = error >= 0 ? 1 : 0;
+#else
 		PreparePacket(&pkt);
 		error = avcodec_encode_video2(s_codec_context, &pkt, nullptr, &got_packet);
+#endif
 	}
-	if (error)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+	av_packet_unref(&pkt);
+	if (error < 0 && error != AVERROR(EAGAIN) && error != AVERROR_EOF)
 		ERROR_LOG(G3D, "Error while encoding video: %d", error);
+#else
+	if (error < 0)
+		ERROR_LOG(G3D, "Error while encoding video: %d", error);
+#endif
 #endif
 	delete[] flipbuffer;
 }
