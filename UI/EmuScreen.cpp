@@ -1575,7 +1575,7 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
 		return true;
-	if (g_Config.bEnableCardboardVR)
+	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
 	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)
