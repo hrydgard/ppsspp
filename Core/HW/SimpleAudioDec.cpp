@@ -62,8 +62,12 @@ SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
 
 void SimpleAudio::Init() {
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
+#endif
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 	av_register_all();
+#endif
 	InitFFmpeg();
 
 	frame_ = av_frame_alloc();

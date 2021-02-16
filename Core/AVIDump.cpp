@@ -65,7 +65,9 @@ static void InitAVCodec() {
 	static bool first_run = true;
 	if (first_run) {
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 		av_register_all();
+#endif
 #endif
 		first_run = false;
 	}

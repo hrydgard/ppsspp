@@ -393,8 +393,12 @@ void __MpegInit() {
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
+#endif
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 	av_register_all();
+#endif
 #endif
 }
 
