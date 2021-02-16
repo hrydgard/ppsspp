@@ -23,7 +23,6 @@
 #include <vector>
 
 #ifdef _MSC_VER
-#pragma warning (disable:4996)
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
 #else
