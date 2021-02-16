@@ -44,11 +44,12 @@ extern "C" {
 #define av_frame_free avcodec_free_frame
 #endif
 
-static AVFormatContext* s_format_context = nullptr;
-static AVStream* s_stream = nullptr;
-static AVFrame* s_src_frame = nullptr;
-static AVFrame* s_scaled_frame = nullptr;
-static SwsContext* s_sws_context = nullptr;
+static AVFormatContext *s_format_context = nullptr;
+static AVCodecContext *s_codec_context = nullptr;
+static AVStream *s_stream = nullptr;
+static AVFrame *s_src_frame = nullptr;
+static AVFrame *s_scaled_frame = nullptr;
+static SwsContext *s_sws_context = nullptr;
 
 #endif
 
@@ -89,51 +90,70 @@ bool AVIDump::Start(int w, int h)
 
 bool AVIDump::CreateAVI() {
 #ifdef USE_FFMPEG
-	AVCodec* codec = nullptr;
+	AVCodec *codec = nullptr;
 
 	// Use gameID_EmulatedTimestamp for filename
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string video_file_name = StringFromFormat("%s%s_%s.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
 
 	s_format_context = avformat_alloc_context();
-	std::stringstream s_file_index_str;
-	s_file_index_str << video_file_name;
 
-	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", s_file_index_str.str().c_str());
-	INFO_LOG(COMMON, "Recording Video to: %s", s_format_context->filename);
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58, 7, 0)
+	char *filename = av_strdup(video_file_name.c_str());
+	// Freed when the context is freed.
+	s_format_context->url = filename;
+#else
+	const char *filename = s_format_context->filename;
+	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", video_file_name.c_str());
+#endif
+	INFO_LOG(COMMON, "Recording Video to: %s", filename);
+
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
 		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
 
-	if (File::Exists(s_format_context->filename))
-		File::Delete(s_format_context->filename);
+	if (File::Exists(filename))
+		File::Delete(filename);
 
-	if (!(s_format_context->oformat = av_guess_format("avi", nullptr, nullptr)) || !(s_stream = avformat_new_stream(s_format_context, codec)))
-	{
+	s_format_context->oformat = av_guess_format("avi", nullptr, nullptr);
+	if (!s_format_context->oformat)
 		return false;
-	}
+	s_stream = avformat_new_stream(s_format_context, codec);
+	if (!s_stream)
+		return false;
 
-	s_stream->codec->codec_id = g_Config.bUseFFV1 ? AV_CODEC_ID_FFV1 : s_format_context->oformat->video_codec;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 48, 101)
+	s_codec_context = s_stream->codec;
+#else
+	s_codec_context = avcodec_alloc_context3(codec);
+#endif
+	s_codec_context->codec_id = g_Config.bUseFFV1 ? AV_CODEC_ID_FFV1 : s_format_context->oformat->video_codec;
 	if (!g_Config.bUseFFV1)
-		s_stream->codec->codec_tag = MKTAG('X', 'V', 'I', 'D');  // Force XVID FourCC for better compatibility
-	s_stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
-	s_stream->codec->bit_rate = 400000;
-	s_stream->codec->width = s_width;
-	s_stream->codec->height = s_height;
-	s_stream->codec->time_base.num = 1001;
-	s_stream->codec->time_base.den = 60000;
-	s_stream->codec->gop_size = 12;
-	s_stream->codec->pix_fmt = g_Config.bUseFFV1 ? AV_PIX_FMT_BGRA : AV_PIX_FMT_YUV420P;
+		s_codec_context->codec_tag = MKTAG('X', 'V', 'I', 'D');  // Force XVID FourCC for better compatibility
+	s_codec_context->codec_type = AVMEDIA_TYPE_VIDEO;
+	s_codec_context->bit_rate = 400000;
+	s_codec_context->width = s_width;
+	s_codec_context->height = s_height;
+	s_codec_context->time_base.num = 1001;
+	s_codec_context->time_base.den = 60000;
+	s_codec_context->gop_size = 12;
+	s_codec_context->pix_fmt = g_Config.bUseFFV1 ? AV_PIX_FMT_BGRA : AV_PIX_FMT_YUV420P;
 
-	if (!(codec = avcodec_find_encoder(s_stream->codec->codec_id)) || (avcodec_open2(s_stream->codec, codec, nullptr) < 0))
-	{
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+	if (avcodec_parameters_from_context(s_stream->codecpar, s_codec_context) < 0)
 		return false;
-	}
+#endif
+
+	codec = avcodec_find_encoder(s_codec_context->codec_id);
+	if (!codec)
+		return false;
+	if (avcodec_open2(s_codec_context, codec, nullptr) < 0)
+		return false;
 
 	s_src_frame = av_frame_alloc();
 	s_scaled_frame = av_frame_alloc();
 
-	s_scaled_frame->format = s_stream->codec->pix_fmt;
+	s_scaled_frame->format = s_codec_context->pix_fmt;
 	s_scaled_frame->width = s_width;
 	s_scaled_frame->height = s_height;
 
@@ -141,14 +161,13 @@ bool AVIDump::CreateAVI() {
 	if (av_frame_get_buffer(s_scaled_frame, 1))
 		return false;
 #else
-	if (avcodec_default_get_buffer(s_stream->codec, s_scaled_frame))
+	if (avcodec_default_get_buffer(s_codec_context, s_scaled_frame))
 		return false;
 #endif
 
-	NOTICE_LOG(G3D, "Opening file %s for dumping", s_format_context->filename);
-	if (avio_open(&s_format_context->pb, s_format_context->filename, AVIO_FLAG_WRITE) < 0 || avformat_write_header(s_format_context, nullptr))
-	{
-		WARN_LOG(G3D, "Could not open %s", s_format_context->filename);
+	NOTICE_LOG(G3D, "Opening file %s for dumping", filename);
+	if (avio_open(&s_format_context->pb, filename, AVIO_FLAG_WRITE) < 0 || avformat_write_header(s_format_context, nullptr)) {
+		WARN_LOG(G3D, "Could not open %s", filename);
 		return false;
 	}
 
@@ -194,12 +213,12 @@ void AVIDump::AddFrame()
 	s_src_frame->height = s_height;
 
 	// Convert image from BGR24 to desired pixel format, and scale to initial width and height
-	if ((s_sws_context = sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height, s_stream->codec->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr)))
+	if ((s_sws_context = sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height, s_codec_context->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr)))
 	{
 		sws_scale(s_sws_context, s_src_frame->data, s_src_frame->linesize, 0, h, s_scaled_frame->data, s_scaled_frame->linesize);
 	}
 
-	s_scaled_frame->format = s_stream->codec->pix_fmt;
+	s_scaled_frame->format = s_codec_context->pix_fmt;
 	s_scaled_frame->width = s_width;
 	s_scaled_frame->height = s_height;
 
@@ -207,20 +226,20 @@ void AVIDump::AddFrame()
 	AVPacket pkt;
 	PreparePacket(&pkt);
 	int got_packet;
-	int error = avcodec_encode_video2(s_stream->codec, &pkt, s_scaled_frame, &got_packet);
+	int error = avcodec_encode_video2(s_codec_context, &pkt, s_scaled_frame, &got_packet);
 	while (!error && got_packet)
 	{
 		// Write the compressed frame in the media file.
 		if (pkt.pts != (s64)AV_NOPTS_VALUE)
 		{
-			pkt.pts = av_rescale_q(pkt.pts, s_stream->codec->time_base, s_stream->time_base);
+			pkt.pts = av_rescale_q(pkt.pts, s_codec_context->time_base, s_stream->time_base);
 		}
 		if (pkt.dts != (s64)AV_NOPTS_VALUE)
 		{
-			pkt.dts = av_rescale_q(pkt.dts, s_stream->codec->time_base, s_stream->time_base);
+			pkt.dts = av_rescale_q(pkt.dts, s_codec_context->time_base, s_stream->time_base);
 		}
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56, 60, 100)
-		if (s_stream->codec->coded_frame->key_frame)
+		if (s_codec_context->coded_frame->key_frame)
 			pkt.flags |= AV_PKT_FLAG_KEY;
 #endif
 		pkt.stream_index = s_stream->index;
@@ -228,7 +247,7 @@ void AVIDump::AddFrame()
 
 		// Handle delayed frames.
 		PreparePacket(&pkt);
-		error = avcodec_encode_video2(s_stream->codec, &pkt, nullptr, &got_packet);
+		error = avcodec_encode_video2(s_codec_context, &pkt, nullptr, &got_packet);
 	}
 	if (error)
 		ERROR_LOG(G3D, "Error while encoding video: %d", error);
@@ -248,18 +267,18 @@ void AVIDump::Stop() {
 
 void AVIDump::CloseFile() {
 #ifdef USE_FFMPEG
-
-	if (s_stream)
-	{
-		if (s_stream->codec)
-		{
+	if (s_codec_context) {
 #if LIBAVCODEC_VERSION_MAJOR < 55
-			avcodec_default_release_buffer(s_stream->codec, s_src_frame);
+		avcodec_default_release_buffer(s_codec_context, s_src_frame);
 #endif
-			avcodec_close(s_stream->codec);
-		}
-		av_freep(&s_stream);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+		avcodec_free_context(&s_codec_context);
+#else
+		avcodec_close(s_codec_context);
+		s_codec_context = nullptr;
+#endif
 	}
+	av_freep(&s_stream);
 
 	av_frame_free(&s_src_frame);
 	av_frame_free(&s_scaled_frame);
