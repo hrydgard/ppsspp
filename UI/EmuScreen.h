@@ -106,6 +106,7 @@ private:
 	UI::Spinner *loadingSpinner_ = nullptr;
 	UI::TextView *loadingTextView_ = nullptr;
 	UI::Button *resumeButton_ = nullptr;
+	UI::View *chatButton_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
