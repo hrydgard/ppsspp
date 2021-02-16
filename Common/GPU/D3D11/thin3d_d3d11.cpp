@@ -185,7 +185,7 @@ private:
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
 	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
 
-	Framebuffer *curRenderTarget_ = nullptr;
+	AutoRef<Framebuffer> curRenderTarget_;
 	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
 	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
 	// Needed to rotate stencil/viewport rectangles properly
@@ -194,12 +194,12 @@ private:
 	int curRTWidth_ = 0;
 	int curRTHeight_ = 0;
 
-	D3D11Pipeline *curPipeline_ = nullptr;
+	AutoRef<D3D11Pipeline> curPipeline_;
 	DeviceCaps caps_{};
 
-	D3D11BlendState *curBlend_ = nullptr;
-	D3D11DepthStencilState *curDepth_ = nullptr;
-	D3D11RasterState *curRaster_ = nullptr;
+	AutoRef<D3D11BlendState> curBlend_;
+	AutoRef<D3D11DepthStencilState> curDepth_;
+	AutoRef<D3D11RasterState> curRaster_;
 	ID3D11InputLayout *curInputLayout_ = nullptr;
 	ID3D11VertexShader *curVS_ = nullptr;
 	ID3D11PixelShader *curPS_ = nullptr;
@@ -696,14 +696,6 @@ public:
 class D3D11Pipeline : public Pipeline {
 public:
 	~D3D11Pipeline() {
-		if (input)
-			input->Release();
-		if (blend)
-			blend->Release();
-		if (depth)
-			depth->Release();
-		if (raster)
-			raster->Release();
 		if (il)
 			il->Release();
 		if (dynamicUniforms)
@@ -716,11 +708,11 @@ public:
 		return true;
 	}
 
-	D3D11InputLayout *input = nullptr;
+	AutoRef<D3D11InputLayout> input;
 	ID3D11InputLayout *il = nullptr;
-	D3D11BlendState *blend = nullptr;
-	D3D11DepthStencilState *depth = nullptr;
-	D3D11RasterState *raster = nullptr;
+	AutoRef<D3D11BlendState> blend;
+	AutoRef<D3D11DepthStencilState> depth;
+	AutoRef<D3D11RasterState> raster;
 	ID3D11VertexShader *vs = nullptr;
 	ID3D11PixelShader *ps = nullptr;
 	ID3D11GeometryShader *gs = nullptr;
@@ -975,12 +967,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	dPipeline->depth = (D3D11DepthStencilState *)desc.depthStencil;
 	dPipeline->input = (D3D11InputLayout *)desc.inputLayout;
 	dPipeline->raster = (D3D11RasterState *)desc.raster;
-	dPipeline->blend->AddRef();
-	dPipeline->depth->AddRef();
-	if (dPipeline->input) {
-		dPipeline->input->AddRef();
-	}
-	dPipeline->raster->AddRef();
 	dPipeline->topology = primToD3D11[(int)desc.prim];
 	if (desc.uniformDesc) {
 		dPipeline->dynamicUniformsSize = desc.uniformDesc->uniformBufferSize;
@@ -1026,7 +1012,7 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 
 	// Can finally create the input layout
-	if (dPipeline->input) {
+	if (dPipeline->input != nullptr) {
 		const std::vector<D3D11_INPUT_ELEMENT_DESC> &elements = dPipeline->input->elements;
 		HRESULT hr = device_->CreateInputLayout(elements.data(), (UINT)elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
 		if (!SUCCEEDED(hr)) {
@@ -1104,7 +1090,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 		curTopology_ = curPipeline_->topology;
 	}
 
-	if (curPipeline_->input) {
+	if (curPipeline_->input != nullptr) {
 		int numVBs = (int)curPipeline_->input->strides.size();
 		context_->IASetVertexBuffers(0, numVBs, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
 	}
@@ -1378,13 +1364,13 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 void D3D11DrawContext::BeginFrame() {
 	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
 
-	if (curBlend_) {
+	if (curBlend_ != nullptr) {
 		context_->OMSetBlendState(curBlend_->bs, blendFactor_, 0xFFFFFFFF);
 	}
-	if (curDepth_) {
+	if (curDepth_ != nullptr) {
 		context_->OMSetDepthStencilState(curDepth_->dss, stencilRef_);
 	}
-	if (curRaster_) {
+	if (curRaster_ != nullptr) {
 		context_->RSSetState(curRaster_->rs);
 	}
 	context_->IASetInputLayout(curInputLayout_);
@@ -1394,7 +1380,7 @@ void D3D11DrawContext::BeginFrame() {
 	if (curTopology_ != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED) {
 		context_->IASetPrimitiveTopology(curTopology_);
 	}
-	if (curPipeline_) {
+	if (curPipeline_ != nullptr) {
 		context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
