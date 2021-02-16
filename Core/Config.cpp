@@ -820,8 +820,6 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, true, false),
 	ConfigSetting("RenderDuplicateFrames", &g_Config.bRenderDuplicateFrames, false, true, true),
 
-	ConfigSetting("ClearFramebuffersOnFirstUseHack", &g_Config.bClearFramebuffersOnFirstUseHack, false, true, true),
-
 	ConfigSetting(false),
 };
 
