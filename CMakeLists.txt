@@ -189,6 +189,9 @@ if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 endif()
 
 if(NOT OPENGL_LIBRARIES)
+	if(POLICY CMP0072)
+		cmake_policy(SET CMP0072 NEW)
+	endif()
 	find_package(OpenGL REQUIRED)
 endif()
 
