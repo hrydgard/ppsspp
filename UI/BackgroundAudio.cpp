@@ -248,6 +248,7 @@ BackgroundAudio g_BackgroundAudio;
 
 BackgroundAudio::BackgroundAudio() {
 	buffer = new int[BUFSIZE]();
+	sndLoadPending_.store(false);
 }
 
 BackgroundAudio::~BackgroundAudio() {
@@ -308,21 +309,24 @@ void BackgroundAudio::Clear(bool hard) {
 		at3Reader_ = nullptr;
 	}
 	playbackOffset_ = 0;
+	sndLoadPending_ = false;
 }
 
 void BackgroundAudio::SetGame(const std::string &path) {
-	std::lock_guard<std::mutex> lock(mutex_);
 	if (path == bgGamePath_) {
 		// Do nothing
 		return;
 	}
 
-	if (path.size() == 0) {
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (path.empty()) {
 		Clear(false);
+		sndLoadPending_ = false;
 		fadingOut_ = true;
 	} else {
 		Clear(true);
 		gameLastChanged_ = time_now_d();
+		sndLoadPending_ = true;
 		fadingOut_ = false;
 	}
 	volume_ = 1.0f;
@@ -397,27 +401,24 @@ int BackgroundAudio::Play() {
 void BackgroundAudio::Update() {
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
-	if (bgGamePath_.size() && (time_now_d() - gameLastChanged_ > 0.5)) {
+	if (sndLoadPending_ && (time_now_d() - gameLastChanged_ > 0.5)) {
 		std::lock_guard<std::mutex> lock(mutex_);
-		if (!at3Reader_) {
-			// Grab some audio from the current game and play it.
-			if (!g_gameInfoCache)
-				return;
+		// Already loaded somehow?  Or no game info cache?
+		if (at3Reader_ || !g_gameInfoCache)
+			return;
 
-			std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath_, GAMEINFO_WANTSND);
-			if (!gameInfo)
-				return;
-
-			if (gameInfo->pending) {
-				// Should try again shortly..
-				return;
-			}
-
-			if (gameInfo->sndFileData.size()) {
-				const std::string &data = gameInfo->sndFileData;
-				at3Reader_ = new AT3PlusReader(data);
-				lastPlaybackTime_ = 0.0;
-			}
+		// Grab some audio from the current game and play it.
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GAMEINFO_WANTSND);
+		if (!gameInfo || gameInfo->pending) {
+			// Should try again shortly..
+			return;
 		}
+
+		const std::string &data = gameInfo->sndFileData;
+		if (!data.empty()) {
+			at3Reader_ = new AT3PlusReader(data);
+			lastPlaybackTime_ = 0.0;
+		}
+		sndLoadPending_ = false;
 	}
 }
