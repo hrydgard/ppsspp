@@ -837,7 +837,6 @@ void WindowsCaptureDevice::sendMessage(CAPTUREDEVIDE_MESSAGE message) {
 	// Must be unique lock
 	std::unique_lock<std::mutex> lock(mutex);
 	messageQueue.push(message);
-	lock.unlock();
 	cond.notify_one();
 }
 
@@ -848,15 +847,16 @@ CAPTUREDEVIDE_MESSAGE WindowsCaptureDevice::getMessage() {
 	cond.wait(lock, [this]() { return !messageQueue.empty(); });
 	message = messageQueue.front();
 	messageQueue.pop();
-	lock.unlock();
 
 	return message;
 }
 
 void WindowsCaptureDevice::updateState(const CAPTUREDEVIDE_STATE &newState) {
-	std::unique_lock<std::mutex> guard(stateMutex_);
 	state = newState;
-	stateCond_.notify_all();
+	if (isShutDown()) {
+		std::unique_lock<std::mutex> guard(stateMutex_);
+		stateCond_.notify_all();
+	}
 }
 
 void WindowsCaptureDevice::waitShutDown() {
