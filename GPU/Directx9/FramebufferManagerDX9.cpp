@@ -464,6 +464,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 
 		if (!vfb) {
+			if (!Memory::IsValidAddress(fb_address))
+				return false;
 			// If there's no vfb and we're drawing there, must be memory?
 			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, fb_format);
 			return true;

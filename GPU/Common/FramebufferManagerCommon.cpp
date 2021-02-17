@@ -1657,8 +1657,11 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			return;
 		}
 	}
+	if (!Memory::IsValidAddress(gstate.getFrameBufAddress())) {
+		return;
+	}
 
-	u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
+	u8 *addr = Memory::GetPointerUnchecked(gstate.getFrameBufAddress());
 	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
 
 	u32 clearBits = clearColor;
@@ -1988,6 +1991,8 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(fb_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, format);
 		return true;
@@ -2043,6 +2048,8 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(z_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 		return true;
@@ -2078,6 +2085,8 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(fb_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		// TODO: Actually get the stencil.
 		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);

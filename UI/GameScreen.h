@@ -67,6 +67,7 @@ private:
 	UI::TextView *tvSaveDataSize_;
 	UI::TextView *tvInstallDataSize_;
 	UI::TextView *tvRegion_;
+	UI::TextView *tvCRC_;
 
 	UI::Choice *btnGameSettings_;
 	UI::Choice *btnCreateGameConfig_;

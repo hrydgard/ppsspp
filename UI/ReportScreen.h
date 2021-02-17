@@ -42,17 +42,21 @@ protected:
 	void resized() override;
 	void CreateViews() override;
 	void UpdateSubmit();
+	void UpdateCRCInfo();
 	void UpdateOverallDescription();
 
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
+	UI::EventReturn HandleShowCRC(UI::EventParams &e);
 	UI::EventReturn HandleReportingChange(UI::EventParams &e);
 
 	UI::Choice *submit_ = nullptr;
 	UI::View *screenshot_ = nullptr;
 	UI::TextView *reportingNotice_ = nullptr;
 	UI::TextView *overallDescription_ = nullptr;
+	UI::TextView *crcInfo_ = nullptr;
+	UI::Choice *showCrcButton_ = nullptr;
 	std::string screenshotFilename_;
 
 	ReportingOverallScore overall_ = ReportingOverallScore::INVALID;
@@ -63,6 +67,7 @@ protected:
 	bool ratingEnabled_;
 	bool tookScreenshot_ = false;
 	bool includeScreenshot_ = true;
+	bool showCRC_ = false;
 };
 
 class ReportFinishScreen : public UIDialogScreenWithGameBackground {

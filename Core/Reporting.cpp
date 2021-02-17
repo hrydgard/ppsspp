@@ -102,6 +102,8 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
+	static volatile bool crcPending = false;
+	static volatile bool crcCancel = false;
 	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
@@ -113,7 +115,7 @@ namespace Reporting
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC();
+			crc = blockDevice->CalculateCRC(&crcCancel);
 		}
 
 		delete blockDevice;
@@ -121,6 +123,7 @@ namespace Reporting
 
 		std::lock_guard<std::mutex> guard(crcLock);
 		crcResults[crcFilename] = crc;
+		crcPending = false;
 		crcCond.notify_one();
 
 		return 0;
@@ -136,18 +139,18 @@ namespace Reporting
 			return;
 		}
 
-		if (crcFilename == gamePath) {
+		if (crcPending) {
 			// Already in process.
 			return;
 		}
 
 		crcFilename = gamePath;
+		crcPending = true;
+		crcCancel = false;
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
 	bool HasCRC(const std::string &gamePath) {
-		QueueCRC(gamePath);
-
 		std::lock_guard<std::mutex> guard(crcLock);
 		return crcResults.find(gamePath) != crcResults.end();
 	}
@@ -165,6 +168,26 @@ namespace Reporting
 		if (crcThread.joinable())
 			crcThread.join();
 		return it->second;
+	}
+
+	static uint32_t RetrieveCRCUnlessPowerSaving(const std::string &gamePath) {
+		// It's okay to use it if we have it already.
+		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
+			return 0;
+		}
+
+		return RetrieveCRC(gamePath);
+	}
+
+	static void PurgeCRC() {
+		std::unique_lock<std::mutex> guard(crcLock);
+		crcCancel = true;
+		while (crcPending) {
+			crcCond.wait(guard);
+		}
+
+		if (crcThread.joinable())
+			crcThread.join();
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -325,6 +348,7 @@ namespace Reporting
 			compatThread.join();
 		if (messageThread.joinable())
 			messageThread.join();
+		PurgeCRC();
 
 		// Just so it can be enabled in the menu again.
 		Init();
@@ -472,7 +496,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
-			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC(PSP_CoreParameter().fileToStart)));
+			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
