@@ -184,7 +184,11 @@ private slots:
 	void cheatsAct() { g_Config.bEnableCheats = !g_Config.bEnableCheats; }
 
 	// Chat
-	void chatAct() { NativeMessageReceived("chat screen", ""); }
+	void chatAct() {
+		g_Config.bEnableNetworkChat = true;
+		updateMenus();
+		NativeMessageReceived("chat screen", "");
+	}
 
 	void fullscrAct();
 	void raiseTopMost();
