@@ -103,6 +103,7 @@ namespace Reporting
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
 	static volatile bool crcPending = false;
+	static volatile bool crcCancel = false;
 	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
@@ -114,7 +115,7 @@ namespace Reporting
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC();
+			crc = blockDevice->CalculateCRC(&crcCancel);
 		}
 
 		delete blockDevice;
@@ -145,6 +146,7 @@ namespace Reporting
 
 		crcFilename = gamePath;
 		crcPending = true;
+		crcCancel = false;
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
@@ -179,6 +181,7 @@ namespace Reporting
 
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
+		crcCancel = true;
 		while (crcPending) {
 			crcCond.wait(guard);
 		}
