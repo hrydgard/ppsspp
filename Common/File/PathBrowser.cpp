@@ -146,22 +146,22 @@ void PathBrowser::SetPath(const std::string &path) {
 }
 
 void PathBrowser::HandlePath() {
-	std::lock_guard<std::mutex> guard(pendingLock_);
-
 	if (!path_.empty() && path_[0] == '!') {
+		if (pendingActive_)
+			ResetPending();
 		ready_ = true;
-		pendingCancel_ = true;
-		pendingPath_.clear();
 		return;
 	}
 	if (!startsWith(path_, "http://") && !startsWith(path_, "https://")) {
+		if (pendingActive_)
+			ResetPending();
 		ready_ = true;
-		pendingCancel_ = true;
-		pendingPath_.clear();
 		return;
 	}
 
+	std::lock_guard<std::mutex> guard(pendingLock_);
 	ready_ = false;
+	pendingActive_ = true;
 	pendingCancel_ = false;
 	pendingFiles_.clear();
 	pendingPath_ = path_;
@@ -199,6 +199,12 @@ void PathBrowser::HandlePath() {
 			}
 		}
 	});
+}
+
+void PathBrowser::ResetPending() {
+	std::lock_guard<std::mutex> guard(pendingLock_);
+	pendingCancel_ = true;
+	pendingPath_.clear();
 }
 
 bool PathBrowser::IsListingReady() {
