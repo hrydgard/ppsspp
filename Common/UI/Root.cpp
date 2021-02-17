@@ -1,3 +1,4 @@
+#include <atomic>
 #include <mutex>
 #include <deque>
 
@@ -29,6 +30,7 @@ struct DispatchQueueItem {
 	EventParams params;
 };
 
+std::atomic<bool> hasDispatchQueue;
 std::deque<DispatchQueueItem> g_dispatchQueue;
 
 void EventTriggered(Event *e, EventParams params) {
@@ -37,11 +39,13 @@ void EventTriggered(Event *e, EventParams params) {
 	item.params = params;
 
 	std::unique_lock<std::mutex> guard(eventMutex_);
+	// Set before adding so we lock and check the added value.
+	hasDispatchQueue = true;
 	g_dispatchQueue.push_front(item);
 }
 
 void DispatchEvents() {
-	while (true) {
+	while (hasDispatchQueue) {
 		DispatchQueueItem item;
 		{
 			std::unique_lock<std::mutex> guard(eventMutex_);
@@ -49,6 +53,7 @@ void DispatchEvents() {
 				break;
 			item = g_dispatchQueue.back();
 			g_dispatchQueue.pop_back();
+			hasDispatchQueue = !g_dispatchQueue.empty();
 		}
 		if (item.e) {
 			item.e->Dispatch(item.params);
@@ -57,6 +62,8 @@ void DispatchEvents() {
 }
 
 void RemoveQueuedEventsByView(View *view) {
+	if (!hasDispatchQueue)
+		return;
 	std::unique_lock<std::mutex> guard(eventMutex_);
 	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
 		if (it->params.v == view) {
@@ -68,6 +75,8 @@ void RemoveQueuedEventsByView(View *view) {
 }
 
 void RemoveQueuedEventsByEvent(Event *event) {
+	if (!hasDispatchQueue)
+		return;
 	std::unique_lock<std::mutex> guard(eventMutex_);
 	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
 		if (it->e == event) {

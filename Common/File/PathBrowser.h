@@ -37,6 +37,7 @@ public:
 
 private:
 	void HandlePath();
+	void ResetPending();
 
 	std::string path_;
 	std::string pendingPath_;
@@ -44,6 +45,7 @@ private:
 	std::condition_variable pendingCond_;
 	std::mutex pendingLock_;
 	std::thread pendingThread_;
+	bool pendingActive_ = false;
 	bool pendingCancel_ = false;
 	bool pendingStop_ = false;
 	bool ready_ = false;
