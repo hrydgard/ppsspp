@@ -102,6 +102,7 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
+	static volatile bool crcPending = false;
 	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
@@ -121,6 +122,7 @@ namespace Reporting
 
 		std::lock_guard<std::mutex> guard(crcLock);
 		crcResults[crcFilename] = crc;
+		crcPending = false;
 		crcCond.notify_one();
 
 		return 0;
@@ -136,12 +138,13 @@ namespace Reporting
 			return;
 		}
 
-		if (crcFilename == gamePath) {
+		if (crcPending) {
 			// Already in process.
 			return;
 		}
 
 		crcFilename = gamePath;
+		crcPending = true;
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
@@ -172,6 +175,16 @@ namespace Reporting
 		}
 
 		return RetrieveCRC(gamePath);
+	}
+
+	static void PurgeCRC() {
+		std::unique_lock<std::mutex> guard(crcLock);
+		while (crcPending) {
+			crcCond.wait(guard);
+		}
+
+		if (crcThread.joinable())
+			crcThread.join();
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -332,6 +345,7 @@ namespace Reporting
 			compatThread.join();
 		if (messageThread.joinable())
 			messageThread.join();
+		PurgeCRC();
 
 		// Just so it can be enabled in the menu again.
 		Init();
