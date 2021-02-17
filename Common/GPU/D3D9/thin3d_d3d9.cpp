@@ -273,10 +273,6 @@ class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
-		if (depthStencil) depthStencil->Release();
-		if (blend) blend->Release();
-		if (raster) raster->Release();
-		if (inputLayout) inputLayout->Release();
 	}
 	bool RequiresBuffer() override {
 		return false;
@@ -287,10 +283,10 @@ public:
 
 	D3DPRIMITIVETYPE prim;
 	int primDivisor;
-	D3D9InputLayout *inputLayout = nullptr;
-	D3D9DepthStencilState *depthStencil = nullptr;
-	D3D9BlendState *blend = nullptr;
-	D3D9RasterState *raster = nullptr;
+	AutoRef<D3D9InputLayout> inputLayout;
+	AutoRef<D3D9DepthStencilState> depthStencil;
+	AutoRef<D3D9BlendState> blend;
+	AutoRef<D3D9RasterState> raster;
 	UniformBufferDesc dynamicUniforms;
 
 	void Apply(LPDIRECT3DDEVICE9 device);
@@ -610,12 +606,12 @@ private:
 	DeviceCaps caps_{};
 
 	// Bound state
-	D3D9Pipeline *curPipeline_ = nullptr;
-	D3D9Buffer *curVBuffers_[4]{};
+	AutoRef<D3D9Pipeline> curPipeline_;
+	AutoRef<D3D9Buffer> curVBuffers_[4];
 	int curVBufferOffsets_[4]{};
-	D3D9Buffer *curIBuffer_ = nullptr;
+	AutoRef<D3D9Buffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
-	Framebuffer *curRenderTarget_ = nullptr;
+	AutoRef<Framebuffer> curRenderTarget_;
 
 	// Framebuffer state
 	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
@@ -713,10 +709,6 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	pipeline->blend = (D3D9BlendState *)desc.blend;
 	pipeline->raster = (D3D9RasterState *)desc.raster;
 	pipeline->inputLayout = (D3D9InputLayout *)desc.inputLayout;
-	pipeline->depthStencil->AddRef();
-	pipeline->blend->AddRef();
-	pipeline->raster->AddRef();
-	pipeline->inputLayout->AddRef();
 	if (desc.uniformDesc)
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 	return pipeline;

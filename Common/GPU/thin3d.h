@@ -335,6 +335,46 @@ private:
 	int refcount_;
 };
 
+template <typename T>
+struct AutoRef {
+	AutoRef() {
+	}
+	explicit AutoRef(T *p) {
+		ptr = p;
+		if (ptr)
+			ptr->AddRef();
+	}
+	AutoRef(const AutoRef<T> &p) {
+		*this = p.ptr;
+	}
+	~AutoRef() {
+		if (ptr)
+			ptr->Release();
+	}
+
+	T *operator =(T *p) {
+		if (ptr)
+			ptr->Release();
+		ptr = p;
+		if (ptr)
+			ptr->AddRef();
+		return ptr;
+	}
+	AutoRef<T> &operator =(const AutoRef<T> &p) {
+		*this = p.ptr;
+		return *this;
+	}
+
+	T *operator->() const {
+		return ptr;
+	}
+	operator T *() {
+		return ptr;
+	}
+
+	T *ptr = nullptr;
+};
+
 class BlendState : public RefCountedObject {
 public:
 };

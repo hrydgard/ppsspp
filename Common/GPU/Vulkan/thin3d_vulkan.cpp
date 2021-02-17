@@ -511,16 +511,16 @@ private:
 
 	VulkanTexture *nullTexture_ = nullptr;
 
-	VKPipeline *curPipeline_ = nullptr;
-	VKBuffer *curVBuffers_[4]{};
+	AutoRef<VKPipeline> curPipeline_;
+	AutoRef<VKBuffer> curVBuffers_[4];
 	int curVBufferOffsets_[4]{};
-	VKBuffer *curIBuffer_ = nullptr;
+	AutoRef<VKBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
-	Framebuffer *curFramebuffer_ = nullptr;
+	AutoRef<Framebuffer> curFramebuffer_;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -529,8 +529,8 @@ private:
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
-	VKTexture *boundTextures_[MAX_BOUND_TEXTURES]{};
-	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES]{};
+	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
+	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
 	struct FrameData {
