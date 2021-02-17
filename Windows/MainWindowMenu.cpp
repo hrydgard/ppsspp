@@ -626,6 +626,10 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
 		case ID_EMULATION_CHAT:
+			if (!g_Config.bEnableNetworkChat) {
+				g_Config.bEnableNetworkChat = true;
+				UpdateCommands();
+			}
 			if (GetUIState() == UISTATE_INGAME) {
 				NativeMessageReceived("chat screen", "");
 			}
@@ -1367,6 +1371,7 @@ namespace MainWindow {
 
 		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(menu, ID_TOGGLE_BREAK, L"\tF8", isPaused ? "Run" : "Break");
+		TranslateMenuItem(menu, ID_EMULATION_CHAT, L"\tCtrl+C", g_Config.bEnableNetworkChat ? "Open Chat" : "Enable Chat");
 	}
 
 	void UpdateSwitchUMD() {
