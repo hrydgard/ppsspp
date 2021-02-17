@@ -83,4 +83,7 @@ void __UtilityInit();
 void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
 
+void UtilityScheduleVolatileUnlock(s64 cyclesIntoFuture);
+void UtilityCancelVolatileUnlock();
+
 void Register_sceUtility();

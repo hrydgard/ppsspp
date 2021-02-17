@@ -24,6 +24,7 @@
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/scePower.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 
@@ -42,11 +43,13 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			if (volatileLocked_) {
 				FinishVolatile();
+				UtilityCancelVolatileUnlock();
 				volatileLocked_ = false;
 			}
 		} else if (pendingStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
 			if (!volatileLocked_) {
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
+				UtilityCancelVolatileUnlock();
 				changeAllowed = volatileLocked_;
 			}
 		}
@@ -71,12 +74,14 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 		if (newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			if (volatileLocked_) {
 				FinishVolatile();
+				UtilityCancelVolatileUnlock();
 				volatileLocked_ = false;
 			}
 		} else if (newStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
 			if (!volatileLocked_) {
 				// TODO: Should probably make the status pending instead?
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
+				UtilityCancelVolatileUnlock();
 			}
 		}
 		status = newStatus;
@@ -84,6 +89,9 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 	} else {
 		pendingStatus = newStatus;
 		pendingStatusTicks = CoreTiming::GetTicks() + usToCycles(delayUs);
+		if (volatileLocked_ && newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
+			UtilityScheduleVolatileUnlock(usToCycles(delayUs));
+		}
 	}
 }
 

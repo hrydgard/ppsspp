@@ -83,6 +83,9 @@ public:
 
 	void StartDraw();
 	void EndDraw();
+
+	void FinishVolatile();
+
 protected:
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
 	PPGeImageStyle FadedImageStyle();
@@ -123,8 +126,6 @@ protected:
 	int cancelButtonFlag;
 
 private:
-	void FinishVolatile();
-
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;
 	bool volatileLocked_ = false;
 };

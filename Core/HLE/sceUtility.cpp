@@ -24,11 +24,12 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/System.h"
 
 #include "Core/HLE/sceKernel.h"
@@ -36,8 +37,6 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUtility.h"
 
-#include "Core/HLE/sceCtrl.h"
-#include "Core/Util/PPGeDraw.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPPlaceholderDialog.h"
@@ -65,7 +64,6 @@ const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
 const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
-int oldStatus = 100; //random value
 
 static const int noDeps[] = {0};
 static const int httpModuleDeps[] = {0x0102, 0x0103, 0x0104, 0};
@@ -141,7 +139,9 @@ static PSPNetconfDialog netDialog;
 static PSPScreenshotDialog screenshotDialog;
 static PSPGamedataInstallDialog gamedataInstallDialog;
 
+static int oldStatus = 100; //random value
 static std::map<int, u32> currentlyLoadedModules;
+static int volatileUnlockEvent = -1;
 
 static void ActivateDialog(UtilityDialogType type) {
 	if (!currentDialogActive) {
@@ -160,15 +160,26 @@ static void DeactivateDialog() {
 	}
 }
 
+static void UtilityVolatileUnlock(u64 userdata, int cyclesLate) {
+	// There can only be one active, so just try each of them.
+	saveDialog.FinishVolatile();
+	msgDialog.FinishVolatile();
+	oskDialog.FinishVolatile();
+	netDialog.FinishVolatile();
+	screenshotDialog.FinishVolatile();
+	gamedataInstallDialog.FinishVolatile();
+}
+
 void __UtilityInit() {
 	currentDialogType = UTILITY_DIALOG_NONE;
 	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
+	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 2);
+	auto s = p.Section("sceUtility", 1, 3);
 	if (!s) {
 		return;
 	}
@@ -191,6 +202,13 @@ void __UtilityDoState(PointerWrap &p) {
 			currentlyLoadedModules[*it] = 0;
 		}
 	}
+
+	if (s >= 3) {
+		Do(p, volatileUnlockEvent);
+	} else {
+		volatileUnlockEvent = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(volatileUnlockEvent, "UtilityVolatileUnlock", UtilityVolatileUnlock);
 }
 
 void __UtilityShutdown() {
@@ -200,6 +218,14 @@ void __UtilityShutdown() {
 	netDialog.Shutdown(true);
 	screenshotDialog.Shutdown(true);
 	gamedataInstallDialog.Shutdown(true);
+}
+
+void UtilityScheduleVolatileUnlock(s64 cyclesIntoFuture) {
+	CoreTiming::ScheduleEvent(cyclesIntoFuture, volatileUnlockEvent, 0);
+}
+
+void UtilityCancelVolatileUnlock() {
+	CoreTiming::UnscheduleEvent(volatileUnlockEvent, 0);
 }
 
 static int sceUtilitySavedataInitStart(u32 paramAddr)
