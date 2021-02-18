@@ -17,8 +17,6 @@
 
 #pragma once
 
-#pragma warning(disable:4996)
-
 #undef _WIN32_WINNT
 
 #if defined(_MSC_VER) && _MSC_VER < 1700
