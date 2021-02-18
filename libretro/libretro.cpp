@@ -354,7 +354,8 @@ void retro_init(void)
 #endif
 
    g_Config.bEnableLogging = true;
-   g_Config.iUnthrottleMode = (int)UnthrottleMode::SKIP_FLIP;
+   // libretro does its own timing, so this should stay CONTINUOUS.
+   g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
    g_Config.bMemStickInserted = true;
    g_Config.iGlobalVolume = VOLUME_MAX - 1;
    g_Config.iAltSpeedVolume = -1;
