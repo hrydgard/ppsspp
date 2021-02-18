@@ -104,6 +104,9 @@ static std::string restartArgs;
 HMENU g_hPopupMenus;
 int g_activeWindow = 0;
 
+static std::thread inputBoxThread;
+static bool inputBoxRunning = false;
+
 void OpenDirectory(const char *path) {
 	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
 	if (pidl) {
@@ -386,12 +389,19 @@ void EnableCrashingOnCrashes() {
 }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	std::string out;
-	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		NativeInputBoxReceived(cb, true, out);
-	} else {
-		NativeInputBoxReceived(cb, false, "");
+	if (inputBoxRunning) {
+		inputBoxThread.join();
 	}
+
+	inputBoxRunning = true;
+	inputBoxThread = std::thread([=] {
+		std::string out;
+		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
+			NativeInputBoxReceived(cb, true, out);
+		} else {
+			NativeInputBoxReceived(cb, false, "");
+		}
+	});
 }
 
 static std::string GetDefaultLangRegion() {
@@ -492,6 +502,10 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
+	if (inputBoxRunning) {
+		inputBoxThread.join();
+		inputBoxRunning = false;
+	}
 	net::Shutdown();
 	CoUninitialize();
 
