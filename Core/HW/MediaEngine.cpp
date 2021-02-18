@@ -280,9 +280,8 @@ bool MediaEngine::SetupStreams() {
 	for (int i = videoStreamNum + 1; i < m_expectedVideoStreams; i++) {
 		addVideoStream(i);
 	}
-
-
 #endif
+
 	return true;
 }
 
@@ -328,13 +327,19 @@ bool MediaEngine::openContext(bool keepReadPos) {
 
 	if (m_videoStream == -1) {
 		// Find the first video stream
-		for(int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
-			if(m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+		for (int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
+			const AVStream *s = m_pFormatCtx->streams[i];
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+			AVMediaType type = s->codecpar->codec_type;
+#else
+			AVMediaType type = s->codec->codec_type;
+#endif
+			if (type == AVMEDIA_TYPE_VIDEO) {
 				m_videoStream = i;
 				break;
 			}
 		}
-		if(m_videoStream == -1)
+		if (m_videoStream == -1)
 			return false;
 	}
 
@@ -361,8 +366,13 @@ void MediaEngine::closeContext()
 		av_free(m_pIOContext->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
-	for (auto it = m_pCodecCtxs.begin(), end = m_pCodecCtxs.end(); it != end; ++it)
-		avcodec_close(it->second);
+	for (auto it : m_pCodecCtxs) {
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+		avcodec_free_context(&it.second);
+#else
+		avcodec_close(it.second);
+#endif
+	}
 	m_pCodecCtxs.clear();
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
@@ -411,6 +421,10 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 				streamId = PSMF_VIDEO_STREAM_ID | streamNum;
 
 			stream->id = 0x00000100 | streamId;
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+			stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+			stream->codecpar->codec_id = AV_CODEC_ID_H264;
+#endif
 			stream->request_probe = 0;
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
 			// We could set the width here, but we don't need to.
@@ -496,21 +510,29 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		if ((u32)streamNum >= m_pFormatCtx->nb_streams) {
 			return false;
 		}
-		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[streamNum]->codec;
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57,33,100)
-		AVCodecParameters *m_pCodecPar = m_pFormatCtx->streams[streamNum]->codecpar;
 
-		// Update from deprecated public codec context
-		if (avcodec_parameters_from_context(m_pCodecPar, m_pCodecCtx) < 0) {
+		AVStream *stream = m_pFormatCtx->streams[streamNum];
+		int err;
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
+		if (!pCodec) {
+			WARN_LOG_REPORT(ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
 		}
-#endif
-
+		AVCodecContext *m_pCodecCtx = avcodec_alloc_context3(pCodec);
+		err = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
+		if (err < 0) {
+			WARN_LOG_REPORT(ME, "Failed to prepare context parameters: %08x", err);
+			return false;
+		}
+#else
+		AVCodecContext *m_pCodecCtx = stream->codec;
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
 		if (pCodec == nullptr) {
 			return false;
 		}
+#endif
 
 		AVDictionary *opt = nullptr;
 		// Allow ffmpeg to use any number of threads it wants.  Without this, it doesn't use threads.
