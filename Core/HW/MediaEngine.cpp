@@ -426,8 +426,9 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 			stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 			stream->codecpar->codec_id = AV_CODEC_ID_H264;
-#endif
+#else
 			stream->request_probe = 0;
+#endif
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
 			// We could set the width here, but we don't need to.
 			if (streamNum >= m_expectedVideoStreams) {
