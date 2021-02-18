@@ -664,9 +664,9 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 	while (!bGetFrame) {
 		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
-		// Still need to decode those, so keep calling avcodec_decode_video2().
+		// Still need to decode those, so keep calling avcodec_decode_video2() / avcodec_receive_frame().
 		if (dataEnd || packet.stream_index == m_videoStream) {
-			// avcodec_decode_video2() gives us the re-ordered frames with a NULL packet.
+			// avcodec_decode_video2() / avcodec_send_packet() gives us the re-ordered frames with a NULL packet.
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
 			if (dataEnd)
 				av_packet_unref(&packet);
@@ -675,7 +675,21 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 				av_free_packet(&packet);
 #endif
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+			avcodec_send_packet(m_pCodecCtx, &packet);
+			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
+			if (result == 0) {
+				result = m_pFrame->pkt_size;
+				frameFinished = 1;
+			} else if (result == AVERROR(EAGAIN)) {
+				result = 0;
+				frameFinished = 0;
+			} else {
+				frameFinished = 0;
+			}
+#else
 			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
+#endif
 			if (frameFinished) {
 				if (!m_pFrameRGB) {
 					setVideoDim();
