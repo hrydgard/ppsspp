@@ -666,10 +666,17 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 						m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 				}
 
-				if (av_frame_get_best_effort_timestamp(m_pFrame) != AV_NOPTS_VALUE)
-					m_videopts = av_frame_get_best_effort_timestamp(m_pFrame) + av_frame_get_pkt_duration(m_pFrame) - m_firstTimeStamp;
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
+				int64_t bestPts = m_pFrame->best_effort_timestamp;
+				int64_t ptsDuration = m_pFrame->pkt_duration;
+#else
+				int64_t bestPts = av_frame_get_best_effort_timestamp(m_pFrame);
+				int64_t ptsDuration = av_frame_get_pkt_duration(m_pFrame);
+#endif
+				if (bestPts != AV_NOPTS_VALUE)
+					m_videopts = bestPts + ptsDuration - m_firstTimeStamp;
 				else
-					m_videopts += av_frame_get_pkt_duration(m_pFrame);
+					m_videopts += ptsDuration;
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
