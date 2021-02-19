@@ -22,6 +22,7 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
+#include "Common/Swap.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -407,13 +408,25 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float *out = (float *)Memory::GetPointer(PARAM(0));
-	const float *a = (const float *)Memory::GetPointer(PARAM(1));
-	const float *b = (const float *)Memory::GetPointer(PARAM(2));
+	float_le *out = (float_le *)Memory::GetPointer(PARAM(0));
+	const float_le *a = (const float_le *)Memory::GetPointer(PARAM(1));
+	const float_le *b = (const float_le *)Memory::GetPointer(PARAM(2));
 
 	// TODO: Actually use an optimized matrix multiply here...
 	if (out && b && a) {
+#ifdef COMMON_BIG_ENDIAN
+		float outn[16], an[16], bn[16];
+		for (int i = 0; i < 16; ++i) {
+			an[i] = a[i];
+			bn[i] = b[i];
+		}
+		Matrix4ByMatrix4(outn, bn, an);
+		for (int i = 0; i < 16; ++i) {
+			out[i] = outn[i];
+		}
+#else
 		Matrix4ByMatrix4(out, b, a);
+#endif
 	}
 	return 16;
 }
@@ -422,8 +435,8 @@ static int Replace_vmmul_q_transp() {
 // a1 = matrix
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
-	u32 *ptr = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *src = (u32_le *)Memory::GetPointer(PARAM(2));
+	u32_le *ptr = (u32_le *)Memory::GetPointer(PARAM(0));
+	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
 	u32 matrix = PARAM(1) << 24;
 
 	if (!ptr || !src) {
@@ -431,7 +444,7 @@ static int Replace_gta_dl_write_matrix() {
 		return 38;
 	}
 
-	u32 *dest = (u32_le *)Memory::GetPointer(ptr[0]);
+	u32_le *dest = (u32_le *)Memory::GetPointer(ptr[0]);
 	if (!dest) {
 		RETURN(0);
 		return 38;
@@ -481,15 +494,15 @@ static int Replace_gta_dl_write_matrix() {
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
-	u32 *dlStruct = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *src = (u32 *)Memory::GetPointer(PARAM(2));
+	u32_le *dlStruct = (u32_le *)Memory::GetPointer(PARAM(0));
+	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
 
 	if (!dlStruct || !src) {
 		RETURN(0);
 		return 60;
 	}
 
-	u32 *dest = (u32 *)Memory::GetPointer(dlStruct[2]);
+	u32_le *dest = (u32_le *)Memory::GetPointer(dlStruct[2]);
 	if (!dest) {
 		RETURN(0);
 		return 60;

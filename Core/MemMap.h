@@ -175,9 +175,9 @@ inline u32 ReadUnchecked_U32(const u32 address) {
 
 inline float ReadUnchecked_Float(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
-	return *(float *)(base + (address & MEMVIEW32_MASK));
+	return *(float_le *)(base + (address & MEMVIEW32_MASK));
 #else
-	return *(float *)(base + address);
+	return *(float_le *)(base + address);
 #endif
 }
 
@@ -207,9 +207,9 @@ inline void WriteUnchecked_U32(u32 data, u32 address) {
 
 inline void WriteUnchecked_Float(float data, u32 address) {
 #ifdef MASKED_PSP_MEMORY
-	*(float *)(base + (address & MEMVIEW32_MASK)) = data;
+	*(float_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
-	*(float *)(base + address) = data;
+	*(float_le *)(base + address) = data;
 #endif
 }
 

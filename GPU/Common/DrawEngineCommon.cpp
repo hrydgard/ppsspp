@@ -270,8 +270,8 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
-		const u16 *inds16 = (const u16 *)inds;
-		const u32 *inds32 = (const u32 *)inds;
+		const u16_le *inds16 = (const u16_le *)inds;
+		const u32_le *inds32 = (const u32_le *)inds;
 
 		if (inds) {
 			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
