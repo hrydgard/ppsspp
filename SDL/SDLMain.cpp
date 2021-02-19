@@ -29,6 +29,7 @@ SDLJoystick *joystick = NULL;
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "SDL_syswm.h"
 
@@ -489,6 +490,7 @@ int main(int argc, char *argv[]) {
 	nxlinkStdio();
 #endif // HAVE_LIBNX
 
+	PROFILE_INIT();
 	glslang::InitializeProcess();
 
 #if PPSSPP_PLATFORM(RPI)
