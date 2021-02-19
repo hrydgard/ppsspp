@@ -408,13 +408,25 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float *out = (float *)Memory::GetPointer(PARAM(0));
-	const float *a = (const float *)Memory::GetPointer(PARAM(1));
-	const float *b = (const float *)Memory::GetPointer(PARAM(2));
+	float_le *out = (float_le *)Memory::GetPointer(PARAM(0));
+	const float_le *a = (const float_le *)Memory::GetPointer(PARAM(1));
+	const float_le *b = (const float_le *)Memory::GetPointer(PARAM(2));
 
 	// TODO: Actually use an optimized matrix multiply here...
 	if (out && b && a) {
+#ifdef COMMON_BIG_ENDIAN
+		float outn[16], an[16], bn[16];
+		for (int i = 0; i < 16; ++i) {
+			an[i] = a[i];
+			bn[i] = b[i];
+		}
+		Matrix4ByMatrix4(outn, bn, an);
+		for (int i = 0; i < 16; ++i) {
+			out[i] = outn[i];
+		}
+#else
 		Matrix4ByMatrix4(out, b, a);
+#endif
 	}
 	return 16;
 }
