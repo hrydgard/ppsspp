@@ -33,6 +33,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "Core/Util/PPGeDraw.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -505,7 +506,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		}
 
-		if (Memory::IsKernelAndNotVolatileAddress(texaddr)) {
+		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
 		} else if (g_Config.bTextureBackoffCache) {

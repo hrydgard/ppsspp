@@ -108,6 +108,9 @@ void PPGeScissorReset();
 
 void PPGeNotifyFrame();
 
+// Could have returned the address directly I guess, but nothing out side of PPGe should actually use it so..
+bool PPGeIsFontTextureAddress(u32 addr);
+
 class PPGeImage {
 public:
 	PPGeImage(const std::string &pspFilename);

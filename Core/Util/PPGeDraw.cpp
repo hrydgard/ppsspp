@@ -197,6 +197,10 @@ static void EndVertexDataAndDraw(int prim) {
 	WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
 }
 
+bool PPGeIsFontTextureAddress(u32 addr) {
+	return addr == atlasPtr;
+}
+
 static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
 	// Didn't get it.
