@@ -556,7 +556,27 @@ struct Atrac {
 		}
 
 		int got_frame = 0;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+		if (packet_->size != 0) {
+			int err = avcodec_send_packet(codecCtx_, packet_);
+			if (err < 0) {
+				ERROR_LOG_REPORT(ME, "avcodec_send_packet: Error decoding audio %d / %08x", err, err);
+				failedDecode_ = true;
+				return ATDECODE_FAILED;
+			}
+		}
+
+		int err = avcodec_receive_frame(codecCtx_, frame_);
+		int bytes_read = 0;
+		if (err >= 0) {
+			bytes_read = frame_->pkt_size;
+			got_frame = 1;
+		} else if (err != AVERROR(EAGAIN)) {
+			bytes_read = err;
+		}
+#else
 		int bytes_read = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, packet_);
+#endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
 		av_packet_unref(packet_);
 #else
