@@ -62,8 +62,12 @@ SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
 
 void SimpleAudio::Init() {
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
+#endif
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 	av_register_all();
+#endif
 	InitFFmpeg();
 
 	frame_ = av_frame_alloc();
@@ -188,7 +192,25 @@ bool SimpleAudio::Decode(void *inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 
 	*outbytes = 0;
 	srcPos = 0;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+	if (inbytes != 0) {
+		int err = avcodec_send_packet(codecCtx_, &packet);
+		if (err < 0) {
+			ERROR_LOG(ME, "Error sending audio frame to decoder (%d bytes): %d (%08x)", inbytes, err, err);
+			return false;
+		}
+	}
+	int err = avcodec_receive_frame(codecCtx_, frame_);
+	int len = 0;
+	if (err >= 0) {
+		len = frame_->pkt_size;
+		got_frame = 1;
+	} else if (err != AVERROR(EAGAIN)) {
+		len = err;
+	}
+#else
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
+#endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
 	av_packet_unref(&packet);
 #else
