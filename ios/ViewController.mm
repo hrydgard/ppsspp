@@ -397,7 +397,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	if (allowAllocate) {
 		for (int localId = 1; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
 			if (g_touches[localId] == 0) {
-                g_touches[localId] = uiTouch;
+				g_touches[localId] = uiTouch;
 				return localId;
 			}
 		}

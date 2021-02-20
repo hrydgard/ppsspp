@@ -17,7 +17,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PPSSPP</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.ppsspp.ppsspptest</string>
+	<string>org.ppsspp.ppsspp</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
