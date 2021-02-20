@@ -314,7 +314,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 
 	if (!SetupStreams()) {
 		// Fallback to old behavior.  Reads too much and corrupts when game doesn't read fast enough.
-		// SetupStreams should work for newer FFmpeg 3.1+ now.
+		// SetupStreams sometimes work for newer FFmpeg 3.1+ now, but sometimes framerate is missing.
 		WARN_LOG_REPORT_ONCE(setupStreams, ME, "Failed to read valid video stream data from header");
 		if (avformat_find_stream_info(m_pFormatCtx, nullptr) < 0) {
 			closeContext();
@@ -677,7 +677,8 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 #endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-			avcodec_send_packet(m_pCodecCtx, &packet);
+			if (packet.size != 0)
+				avcodec_send_packet(m_pCodecCtx, &packet);
 			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
 			if (result == 0) {
 				result = m_pFrame->pkt_size;
