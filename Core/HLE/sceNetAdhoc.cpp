@@ -5547,6 +5547,7 @@ void __NetTriggerCallbacks()
 void __NetMatchingCallbacks() //(int matchingId)
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+	hleSkipDeadbeef();
 	int delayus = adhocDefaultDelay;
 
 	auto params = matchingEvents.begin();
@@ -5558,7 +5559,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 		if (actionAfterMatchingMipsCall < 0) {
 			actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
 		}
-
+		DEBUG_LOG(SCENET, "AdhocMatching - Remaining Events: %d", matchingEvents.size());
 		DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
 		AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 		after->SetData(args[0], args[1], args[2]);
@@ -5569,7 +5570,6 @@ void __NetMatchingCallbacks() //(int matchingId)
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
 	sceKernelDelayThread(delayus);
-	hleSkipDeadbeef();
 }
 
 const HLEFunction sceNetAdhoc[] = {
