@@ -18,17 +18,18 @@
 #include <map>
 #include <algorithm>
 
-#include "Common/Serialize/SerializeFuncs.h"
-#include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/MediaEngine.h"
+#include "Core/HW/SimpleAudioDec.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/HW/SimpleAudioDec.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 
 static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671001;
 static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
@@ -698,6 +699,7 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	
 	int outpcmbytes = 0;
 	ctx->decoder->Decode((void*)inbuff, 4096, outbuff, &outpcmbytes);
+	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outpcmbytes, "Mp3LowLevelDecode");
 	
 	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);
 	Memory::Write_U32(outpcmbytes, sampleBytesAddr);

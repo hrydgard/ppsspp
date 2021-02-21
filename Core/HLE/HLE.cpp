@@ -630,7 +630,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 	if (flags & HLE_CLEAR_STACK_BYTES) {
 		u32 stackStart = __KernelGetCurThreadStackStart();
 		if (currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear >= stackStart) {
-			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear);
+			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear, "HLEStackClear");
 		}
 	}
 

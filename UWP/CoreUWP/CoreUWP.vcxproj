@@ -389,6 +389,7 @@
     <ClInclude Include="..\..\Core\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\Core\Debugger\DebugInterface.h" />
     <ClInclude Include="..\..\Core\Debugger\DisassemblyManager.h" />
+    <ClInclude Include="..\..\Core\Debugger\MemBlockInfo.h" />
     <ClInclude Include="..\..\Core\Debugger\SymbolMap.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.h" />
@@ -621,6 +622,7 @@
     <ClCompile Include="..\..\Core\CwCheat.cpp" />
     <ClCompile Include="..\..\Core\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\Core\Debugger\DisassemblyManager.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="..\..\Core\Debugger\SymbolMap.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp" />

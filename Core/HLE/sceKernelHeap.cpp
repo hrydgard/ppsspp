@@ -60,7 +60,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 	heap->name = Name ? Name : "";  // Not sure if this needs validation.
 	heap->size = allocSize;
 	heap->address = addr;
-	heap->alloc.Init(heap->address + 128, heap->size - 128);
+	heap->alloc.Init(heap->address + 128, heap->size - 128, true);
 	heap->uid = uid;
 	return hleLogSuccessInfoX(SCEKERNEL, uid);
 }

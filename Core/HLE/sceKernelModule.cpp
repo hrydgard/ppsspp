@@ -861,7 +861,7 @@ void PSPModule::Cleanup() {
 		for (u32 i = 0; i < (u32)(nm.text_size + 3); i += 4) {
 			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
 		}
-		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size);
+		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size, "ModuleClear");
 
 		// Let's also invalidate, just to make sure it's cleared out for any future data.
 		currentMIPS->InvalidateICache(memoryBlockAddr, memoryBlockSize);
@@ -1743,13 +1743,13 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (param.args > 0) {
 		u32 argpAddr = param.argp;
 		param_argp = new u8[param.args];
-		Memory::Memcpy(param_argp, argpAddr, param.args);
+		Memory::Memcpy(param_argp, argpAddr, param.args, "KernelLoadParam");
 	}
 	if (param.keyp != 0) {
 		u32 keyAddr = param.keyp;
 		size_t keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
 		param_key = new u8[keylen];
-		Memory::Memcpy(param_key, keyAddr, (u32)keylen);
+		Memory::Memcpy(param_key, keyAddr, (u32)keylen, "KernelLoadParam");
 	}
 
 	__KernelLoadReset();

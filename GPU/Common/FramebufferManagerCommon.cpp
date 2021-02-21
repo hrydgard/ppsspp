@@ -28,7 +28,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
@@ -1290,8 +1290,14 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	shaderManager_->DirtyLastShader();
 	char tag[256];
-	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
+	snprintf(tag, sizeof(tag), "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
+	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag);
+	}
+	if (Memory::IsVRAMAddress(vfb->z_address) && vfb->z_stride != 0) {
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->z_address, vfb->fb_stride * vfb->height * sizeof(uint16_t), std::string("Z_") + tag);
+	}
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
@@ -1680,10 +1686,14 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	const int stride = gstate.FrameBufStride();
 	const int width = x2 - x1;
 
+	const int byteStride = stride * bpp;
+	const int byteWidth = width * bpp;
+	for (int y = y1; y < y2; ++y) {
+		NotifyMemInfo(MemBlockFlags::WRITE, gstate.getFrameBufAddress() + x1 * bpp + y * byteStride, byteWidth, "FramebufferClear");
+	}
+
 	// Can use memset for simple cases. Often alpha is different and gums up the works.
 	if (singleByteClear) {
-		const int byteStride = stride * bpp;
-		const int byteWidth = width * bpp;
 		addr += x1 * bpp;
 		for (int y = y1; y < y2; ++y) {
 			memset(addr + y * byteStride, clearBits, byteWidth);
@@ -2162,7 +2172,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	if (destPtr) {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
-		CBreakPoints::ExecMemCheck(fb_address + dstByteOffset, true, dstSize, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, "FramebufferPack");
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}

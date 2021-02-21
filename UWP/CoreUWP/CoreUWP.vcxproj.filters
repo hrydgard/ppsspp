@@ -563,6 +563,9 @@
     <ClCompile Include="..\..\Core\Debugger\DisassemblyManager.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\MemBlockInfo.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\SymbolMap.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -1370,6 +1373,9 @@
       <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\DisassemblyManager.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\MemBlockInfo.h">
       <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\SymbolMap.h">

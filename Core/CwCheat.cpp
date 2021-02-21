@@ -11,6 +11,7 @@
 #include "Core/CwCheat.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
@@ -924,7 +925,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			InvalidateICache(op.addr, op.val);
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
-			Memory::MemcpyUnchecked(op.copyBytesFrom.destAddr, op.addr, op.val);
+			Memory::Memcpy(op.copyBytesFrom.destAddr, op.addr, op.val, "CwCheat");
 		}
 		break;
 
@@ -1106,7 +1107,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 						if (Memory::IsValidRange(dstAddr, val) && Memory::IsValidRange(srcAddr, val)) {
 							InvalidateICache(dstAddr, val);
 							InvalidateICache(srcAddr, val);
-							Memory::MemcpyUnchecked(dstAddr, srcAddr, val);
+							Memory::Memcpy(dstAddr, srcAddr, val, "CwCheat");
 						}
 						// Don't perform any further action.
 						type = -1;

@@ -40,14 +40,15 @@ static std::mutex memCheckMutex_;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
 
-void MemCheck::Log(u32 addr, bool write, int size, u32 pc) {
+void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
+		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
-			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
 			std::string formatted;
 			CBreakPoints::EvaluateLogFormat(currentDebugMIPS, logFormat, formatted);
-			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x: %s", write ? "Write" : "Read", size * 8, addr, formatted.c_str());
+			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
 		}
 	}
 }
@@ -62,10 +63,10 @@ BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 	return BREAK_ACTION_IGNORE;
 }
 
-BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc) {
+BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
 	if (cond & mask) {
-		Log(addr, write, size, pc);
+		Log(addr, write, size, pc, reason);
 		if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
@@ -94,7 +95,7 @@ void MemCheck::JitBeforeAction(u32 addr, bool write, int size, u32 pc) {
 		// We have to break to find out if it changed.
 		Core_EnableStepping(true);
 	} else {
-		Action(addr, write, size, pc);
+		Action(addr, write, size, pc, "CPU");
 	}
 }
 
@@ -116,7 +117,7 @@ void MemCheck::JitCleanup(bool changed)
 		return;
 
 	if (changed)
-		Log(lastAddr, true, lastSize, lastPC);
+		Log(lastAddr, true, lastSize, lastPC, "CPU");
 
 	// Resume if it should not have gone to stepping, or if it did not change.
 	if ((!(result & BREAK_ACTION_PAUSE) || !changed) && coreState == CORE_STEPPING)
@@ -504,7 +505,7 @@ MemCheck *CBreakPoints::GetMemCheckLocked(u32 address, int size) {
 	return 0;
 }
 
-BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
+BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason)
 {
 	if (!anyMemChecks_)
 		return BREAK_ACTION_IGNORE;
@@ -514,7 +515,7 @@ BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc
 		check->Apply(address, write, size, pc);
 		auto copy = *check;
 		guard.unlock();
-		return copy.Action(address, write, size, pc);
+		return copy.Action(address, write, size, pc, reason);
 	}
 	return BREAK_ACTION_IGNORE;
 }
@@ -547,7 +548,7 @@ BreakAction CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
 			check->Apply(address, write, size, pc);
 			auto copy = *check;
 			guard.unlock();
-			return copy.Action(address, write, size, pc);
+			return copy.Action(address, write, size, pc, "CPU");
 		}
 	}
 	return BREAK_ACTION_IGNORE;

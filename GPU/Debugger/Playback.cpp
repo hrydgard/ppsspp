@@ -330,7 +330,7 @@ void DumpExecute::SyncStall() {
 bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
-		execListBuf = userMemory.Alloc(allocSize, "List buf");
+		execListBuf = userMemory.Alloc(allocSize, true, "List buf");
 		if (execListBuf == -1) {
 			execListBuf = 0;
 		}

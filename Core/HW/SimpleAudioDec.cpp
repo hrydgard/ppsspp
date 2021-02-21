@@ -19,6 +19,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HW/MediaEngine.h"
@@ -397,6 +398,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		memset(outbuf + outpcmbufsize, 0, PCMBufSize - outpcmbufsize);
 	}
 
+	NotifyMemInfo(MemBlockFlags::WRITE, pcmAddr, outpcmbufsize, "AuDecode");
 	if (pcmAddr)
 		Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;

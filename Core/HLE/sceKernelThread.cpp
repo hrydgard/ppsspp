@@ -426,7 +426,7 @@ public:
 	bool FillStack() {
 		// Fill the stack.
 		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
-			Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+			Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadFillStack");
 		}
 		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
 		currentStack.end = context.r[MIPS_REG_SP];
@@ -434,7 +434,7 @@ public:
 		context.r[MIPS_REG_SP] -= 256;
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
 		u32 k0 = context.r[MIPS_REG_K0];
-		Memory::Memset(k0, 0, 0x100);
+		Memory::Memset(k0, 0, 0x100, "ThreadK0");
 		Memory::Write_U32(GetUID(),        k0 + 0xc0);
 		Memory::Write_U32(nt.initialStack, k0 + 0xc8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
@@ -450,7 +450,7 @@ public:
 			DEBUG_LOG(SCEKERNEL, "Freeing thread stack %s", nt.name);
 
 			if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
-				Memory::Memset(nt.initialStack, 0, nt.stackSize);
+				Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
 			}
 
 			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
@@ -475,7 +475,7 @@ public:
 		nt.stackSize = currentStack.end - currentStack.start;
 
 		// We still drop the threadID at the bottom and fill it, but there's no k0.
-		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadExtendStack");
 		Memory::Write_U32(GetUID(), nt.initialStack);
 		return true;
 	}
@@ -934,7 +934,7 @@ void __KernelThreadingInit()
 	lastSwitchCycles = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 
-	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
+	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode), "ThreadMIPS");
 
 	u32 pos = idleThreadHackAddr + sizeof(idleThreadCode);
 	for (size_t i = 0; i < ARRAY_SIZE(threadHacks); ++i) {
@@ -1282,15 +1282,15 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
-			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)));
+			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)), "ThreadStatus");
 		// TODO: What is this value?  Basic tests show 0...
 		if (wantedSize > sizeof(t->nt))
-			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));
+			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt), "ThreadStatus");
 	} else {
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
 		if (sz != 0)
-			Memory::Memcpy(statusPtr, &t->nt, sz);
+			Memory::Memcpy(statusPtr, &t->nt, sz, "ThreadStatus");
 	}
 
 	hleEatCycles(1400);
@@ -1933,7 +1933,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	u32 location = currentMIPS->r[MIPS_REG_SP];
 	currentMIPS->r[MIPS_REG_A1] = location;
 	if (argp)
-		Memory::Memcpy(location, argp, args);
+		Memory::Memcpy(location, argp, args, "ThreadParam");
 	// Let's assume same as starting a new thread, 64 bytes for safety/kernel.
 	currentMIPS->r[MIPS_REG_SP] -= 64;
 
@@ -2037,8 +2037,9 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	}
 
 	// Now copy argument to stack.
-	if (!forceArgs && Memory::IsValidAddress(argBlockPtr))
-		Memory::Memcpy(sp, argBlockPtr, argSize);
+	if (!forceArgs && Memory::IsValidAddress(argBlockPtr)) {
+		Memory::Memcpy(sp, argBlockPtr, argSize, "ThreadStartArgs");
+	}
 
 	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
 	// This could be stack overflow safety, or just stack eaten by the kernel entry func.

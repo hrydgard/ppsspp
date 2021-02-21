@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -28,33 +28,31 @@ extern MIPSState *currentMIPS;
 namespace Memory
 {
 
-inline void Memcpy(const u32 to_address, const void *from_data, const u32 len)
-{
+inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const std::string &tag = "Memcpy") {
 	u8 *to = GetPointer(to_address);
 	if (to) {
 		memcpy(to, from_data, len);
-		CBreakPoints::ExecMemCheck(to_address, true, len, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag);
 	}
 	// if not, GetPointer will log.
 }
 
-inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
-{
+inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const std::string &tag = "Memcpy") {
 	const u8 *from = GetPointer(from_address);
 	if (from) {
 		memcpy(to_data, from, len);
-		CBreakPoints::ExecMemCheck(from_address, false, len, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag);
 	}
 	// if not, GetPointer will log.
 }
 
-inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len)
-{
+inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const std::string &tag = "Memcpy") {
 	Memcpy(GetPointer(to_address), from_address, len);
-	CBreakPoints::ExecMemCheck(to_address, true, len, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag);
+	NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag);
 }
 
-void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
+void Memset(const u32 _Address, const u8 _Data, const u32 _iLength, const std::string &tag = "Memset");
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)

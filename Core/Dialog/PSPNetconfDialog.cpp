@@ -465,7 +465,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 
 	if (GetStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr, &request, request.common.size);
+		Memory::Memcpy(requestAddr, &request, request.common.size, "NetConfDialogParam");
 
 	return 0;
 }

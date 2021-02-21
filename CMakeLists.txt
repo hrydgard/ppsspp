@@ -1485,6 +1485,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
+	Core/Debugger/MemBlockInfo.cpp
+	Core/Debugger/MemBlockInfo.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
 	Core/Debugger/DisassemblyManager.cpp
