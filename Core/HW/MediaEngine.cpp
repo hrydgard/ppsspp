@@ -542,6 +542,8 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		}
 #endif
 
+		m_pCodecCtx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT | AV_CODEC_FLAG_LOW_DELAY;
+
 		AVDictionary *opt = nullptr;
 		// Allow ffmpeg to use any number of threads it wants.  Without this, it doesn't use threads.
 		av_dict_set(&opt, "threads", "0", 0);
