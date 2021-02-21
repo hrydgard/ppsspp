@@ -805,6 +805,8 @@ static bool InitPmp(MpegContext * ctx){
 		return false;
 	}
 
+	pmp_CodecCtx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT | AV_CODEC_FLAG_LOW_DELAY;
+
 	// each pmp video context is corresponding to one pmp video codec
 	mediaengine->m_pCodecCtxs[0] = pmp_CodecCtx;
 
