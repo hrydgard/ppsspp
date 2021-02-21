@@ -114,9 +114,14 @@ static const char * const blacklistedModules[] = {
 	"sceNetInet_Library",
 	"sceNetResolver_Library",
 	"sceNet_Library",
+	"sceNetAdhoc_Library",
+	"sceNetAdhocAuth_Service",
+	"sceNetAdhocctl_Library",
+	"sceNetIfhandle_Service",
 	"sceSsl_Module",
 	"sceDEFLATE_Library",
 	"sceMD5_Library",
+	"sceMemab",
 };
 
 struct WriteVarSymbolState;
