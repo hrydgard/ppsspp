@@ -135,7 +135,7 @@ void View::Query(float x, float y, std::vector<View *> &list) {
 	}
 }
 
-std::string View::Describe() const {
+std::string View::DescribeLog() const {
 	return StringFromFormat("%0.1f,%0.1f %0.1fx%0.1f", bounds_.x, bounds_.y, bounds_.w, bounds_.h);
 }
 

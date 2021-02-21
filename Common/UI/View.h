@@ -365,7 +365,7 @@ public:
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
-	virtual std::string Describe() const;
+	virtual std::string DescribeLog() const;
 
 	virtual void FocusChanged(int focusFlags) {}
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);

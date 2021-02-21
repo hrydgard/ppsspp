@@ -144,7 +144,7 @@ bool UIScreen::touch(const TouchInput &touch) {
 			std::vector<UI::View *> views;
 			root_->Query(touch.x, touch.y, views);
 			for (auto view : views) {
-				INFO_LOG(SYSTEM, "%s", view->Describe().c_str());
+				INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
 			}
 		}
 
