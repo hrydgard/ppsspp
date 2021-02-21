@@ -212,11 +212,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 	}
 
 	// Video bilinear override
-	if (!key.magFilt && texAddr != 0) {
-		if (videos_.find(texAddr & 0x3FFFFFFF) != videos_.end()) {
-			// Enforce bilinear filtering on magnification.
-			key.magFilt = 1;
-		}
+	if (!key.magFilt && texAddr != 0 && IsVideo(texAddr)) {
+		// Enforce bilinear filtering on magnification.
+		key.magFilt = 1;
 	}
 
 	// Filtering overrides
@@ -427,6 +425,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 			if (texhash != entry->hash) {
 				match = false;
+				reason = "minihash";
 			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 				rehash = false;
 			}
@@ -690,15 +689,26 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 }
 
 void TextureCacheCommon::DecimateVideos() {
-	if (!videos_.empty()) {
-		for (auto iter = videos_.begin(); iter != videos_.end(); ) {
-			if (iter->second + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
-				videos_.erase(iter++);
-			} else {
-				++iter;
-			}
+	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
+		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
+			iter = videos_.erase(iter++);
+		} else {
+			++iter;
 		}
 	}
+}
+
+bool TextureCacheCommon::IsVideo(u32 texaddr) {
+	texaddr &= 0x3FFFFFFF;
+	for (auto info : videos_) {
+		if (texaddr < info.addr) {
+			continue;
+		}
+		if (texaddr < info.addr + info.size) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
@@ -1076,7 +1086,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 
 void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
 	addr &= 0x3FFFFFFF;
-	videos_[addr] = gpuStats.numFlips;
+	videos_.push_back({ addr, (u32)size, gpuStats.numFlips });
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
@@ -1620,8 +1630,7 @@ void TextureCacheCommon::ApplyTexture() {
 	if (nextNeedsRebuild_) {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
-		bool isVideo = videos_.find(entry->addr & 0x3FFFFFFF) != videos_.end();
-		if (isVideo) {
+		if (IsVideo(entry->addr)) {
 			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
 		}
 

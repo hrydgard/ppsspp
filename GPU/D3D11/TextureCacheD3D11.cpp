@@ -741,7 +741,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
 			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isVideo = IsVideo(entry.addr);
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D11Format(dstFmt);

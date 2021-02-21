@@ -302,6 +302,7 @@ protected:
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 
 	void DecimateVideos();
+	bool IsVideo(u32 texaddr);
 
 	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {
@@ -345,7 +346,12 @@ protected:
 	TexCache secondCache_;
 	u32 secondCacheSizeEstimate_ = 0;
 
-	std::map<u32, int> videos_;
+	struct VideoInfo {
+		u32 addr;
+		u32 size;
+		int flips;
+	};
+	std::vector<VideoInfo> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32_;
 	SimpleBuf<u32> tmpTexBufRearrange_;
