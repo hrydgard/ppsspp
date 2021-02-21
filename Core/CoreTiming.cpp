@@ -689,7 +689,7 @@ void DoState(PointerWrap &p) {
 		event_types[i].callback = AntiCrashCallback;
 		event_types[i].name = "INVALID EVENT";
 	}
-	nextEventTypeRestoreId = n;
+	nextEventTypeRestoreId = n - 1;
 
 	if (s >= 3) {
 		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);

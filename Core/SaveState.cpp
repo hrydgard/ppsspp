@@ -248,6 +248,7 @@ namespace SaveState
 	};
 
 	static bool needsProcess = false;
+	static bool needsRestart = false;
 	static std::vector<Operation> pending;
 	static std::mutex mutex;
 	static int screenshotFailures = 0;
@@ -662,17 +663,9 @@ namespace SaveState
 		}
 
 		// We tried, our only remaining option is to reset the game.
-		PSP_Shutdown();
-		std::string resetError;
-		if (!PSP_Init(PSP_CoreParameter(), &resetError))
-		{
-			ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
-			// TODO: This probably doesn't clean up well enough.
-			Core_Stop();
-			return false;
-		}
-		host->BootDone();
-		host->UpdateDisassembly();
+		needsRestart = true;
+		// Make sure we don't proceed to run anything yet.
+		coreState = CORE_NEXTFRAME;
 		return false;
 	}
 
@@ -896,6 +889,22 @@ namespace SaveState
 		if (operations.size()) {
 			// Avoid triggering frame skipping due to slowdown
 			__DisplaySetWasPaused();
+		}
+	}
+
+	void Cleanup() {
+		if (needsRestart) {
+			PSP_Shutdown();
+			std::string resetError;
+			if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+				ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
+				// TODO: This probably doesn't clean up well enough.
+				Core_Stop();
+				return;
+			}
+			host->BootDone();
+			host->UpdateDisassembly();
+			needsRestart = false;
 		}
 	}
 

@@ -525,6 +525,7 @@ void PSP_EndHostFrame() {
 	if (gpu) {
 		gpu->EndHostFrame();
 	}
+	SaveState::Cleanup();
 }
 
 void PSP_RunLoopWhileState() {
