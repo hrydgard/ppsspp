@@ -93,4 +93,7 @@ namespace SaveState
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
+
+	// Cleanup by triggering a restart if needed.
+	void Cleanup();
 };
