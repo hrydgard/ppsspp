@@ -300,6 +300,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="glslang\SPIRV\SpvTools.cpp" />
     <ClCompile Include="glslang\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="glslang\glslang\GenericCodeGen\Link.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\attribute.cpp" />
@@ -330,13 +331,13 @@
     <ClCompile Include="glslang\glslang\MachineIndependent\SymbolTable.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Versions.cpp" />
     <ClCompile Include="glslang\glslang\OSDependent\Windows\ossource.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslAttributes.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslGrammar.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslOpMap.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslParseables.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslScanContext.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslTokenStream.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslAttributes.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslGrammar.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslOpMap.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslParseables.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslParseHelper.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslScanContext.cpp" />
+    <ClCompile Include="glslang\glslang\HLSL\hlslTokenStream.cpp" />
     <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="glslang\SPIRV\disassemble.cpp" />
     <ClCompile Include="glslang\SPIRV\doc.cpp" />
@@ -348,6 +349,13 @@
     <ClCompile Include="glslang\SPIRV\SPVRemapper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="glslang\glslang\build_info.h" />
+    <ClInclude Include="glslang\glslang\HLSL\pch.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\pch.h" />
+    <ClInclude Include="glslang\SPIRV\GLSL.ext.EXT.h" />
+    <ClInclude Include="glslang\SPIRV\GLSL.ext.NV.h" />
+    <ClInclude Include="glslang\SPIRV\NonSemanticDebugPrintf.h" />
+    <ClInclude Include="glslang\SPIRV\SpvTools.h" />
     <ClInclude Include="glslang\glslang\Include\arrays.h" />
     <ClInclude Include="glslang\glslang\Include\BaseTypes.h" />
     <ClInclude Include="glslang\glslang\Include\Common.h" />
@@ -379,14 +387,14 @@
     <ClInclude Include="glslang\glslang\MachineIndependent\SymbolTable.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\Versions.h" />
     <ClInclude Include="glslang\glslang\Public\ShaderLang.h" />
-    <ClInclude Include="glslang\hlsl\hlslAttributes.h" />
-    <ClInclude Include="glslang\hlsl\hlslGrammar.h" />
-    <ClInclude Include="glslang\hlsl\hlslOpMap.h" />
-    <ClInclude Include="glslang\hlsl\hlslParseables.h" />
-    <ClInclude Include="glslang\hlsl\hlslParseHelper.h" />
-    <ClInclude Include="glslang\hlsl\hlslScanContext.h" />
-    <ClInclude Include="glslang\hlsl\hlslTokens.h" />
-    <ClInclude Include="glslang\hlsl\hlslTokenStream.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslAttributes.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslGrammar.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslOpMap.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslParseables.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslParseHelper.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslScanContext.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslTokens.h" />
+    <ClInclude Include="glslang\glslang\HLSL\hlslTokenStream.h" />
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\SPIRV\bitutils.h" />
     <ClInclude Include="glslang\SPIRV\disassemble.h" />
