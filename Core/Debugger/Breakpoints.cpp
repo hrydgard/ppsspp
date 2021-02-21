@@ -40,15 +40,15 @@ static std::mutex memCheckMutex_;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
 
-void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const std::string &reason) {
+void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason.c_str(), addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
 			std::string formatted;
 			CBreakPoints::EvaluateLogFormat(currentDebugMIPS, logFormat, formatted);
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason.c_str(), addr, formatted.c_str());
+			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
 		}
 	}
 }
@@ -63,7 +63,7 @@ BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 	return BREAK_ACTION_IGNORE;
 }
 
-BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const std::string &reason) {
+BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
 	if (cond & mask) {
 		Log(addr, write, size, pc, reason);
@@ -505,7 +505,7 @@ MemCheck *CBreakPoints::GetMemCheckLocked(u32 address, int size) {
 	return 0;
 }
 
-BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc, const std::string &reason)
+BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason)
 {
 	if (!anyMemChecks_)
 		return BREAK_ACTION_IGNORE;

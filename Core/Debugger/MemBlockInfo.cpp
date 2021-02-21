@@ -75,7 +75,7 @@ struct PendingNotifyMem {
 	std::string tag;
 };
 
-static constexpr size_t MAX_PENDING_NOTIFIES = 4096;
+static constexpr size_t MAX_PENDING_NOTIFIES = 512;
 static MemSlabMap allocMap;
 static MemSlabMap suballocMap;
 static MemSlabMap writeMap;
@@ -377,9 +377,9 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	}
 
 	if (flags & MemBlockFlags::WRITE) {
-		CBreakPoints::ExecMemCheck(start, true, size, pc, tag);
+		CBreakPoints::ExecMemCheck(start, true, size, pc, tag.c_str());
 	} else if (flags & MemBlockFlags::READ) {
-		CBreakPoints::ExecMemCheck(start, false, size, pc, tag);
+		CBreakPoints::ExecMemCheck(start, false, size, pc, tag.c_str());
 	}
 }
 
