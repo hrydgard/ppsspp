@@ -994,7 +994,8 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 
 		// decode video frame
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-		avcodec_send_packet(pCodecCtx, &packet);
+		if (packet.size != 0)
+			avcodec_send_packet(pCodecCtx, &packet);
 		int len = avcodec_receive_frame(pCodecCtx, pFrame);
 		if (len == 0) {
 			len = pFrame->pkt_size;

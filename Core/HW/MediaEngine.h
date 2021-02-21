@@ -124,7 +124,8 @@ public:  // TODO: Very little of this below should be public.
 	int m_desHeight;
 	int m_decodingsize;
 	int m_bufSize;
-	s64 m_videopts;
+	s64 m_videopts = 0;
+	s64 m_lastPts = -1;
 	BufferQueue *m_pdata;
 
 	MpegDemux *m_demux;

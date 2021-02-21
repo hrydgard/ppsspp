@@ -138,7 +138,6 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_desHeight = 0;
 	m_decodingsize = 0;
 	m_bufSize = 0x2000;
-	m_videopts = 0;
 	m_pdata = 0;
 	m_demux = 0;
 	m_audioContext = 0;
@@ -171,7 +170,7 @@ void MediaEngine::closeMedia() {
 }
 
 void MediaEngine::DoState(PointerWrap &p) {
-	auto s = p.Section("MediaEngine", 1, 6);
+	auto s = p.Section("MediaEngine", 1, 7);
 	if (!s)
 		return;
 
@@ -213,6 +212,11 @@ void MediaEngine::DoState(PointerWrap &p) {
 		m_demux->DoState(p);
 
 	Do(p, m_videopts);
+	if (s >= 7) {
+		Do(p, m_lastPts);
+	} else {
+		m_lastPts = m_videopts;
+	}
 	Do(p, m_audiopts);
 
 	if (s >= 2) {
@@ -314,7 +318,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 
 	if (!SetupStreams()) {
 		// Fallback to old behavior.  Reads too much and corrupts when game doesn't read fast enough.
-		// SetupStreams should work for newer FFmpeg 3.1+ now.
+		// SetupStreams sometimes work for newer FFmpeg 3.1+ now, but sometimes framerate is missing.
 		WARN_LOG_REPORT_ONCE(setupStreams, ME, "Failed to read valid video stream data from header");
 		if (avformat_find_stream_info(m_pFormatCtx, nullptr) < 0) {
 			closeContext();
@@ -390,6 +394,7 @@ bool MediaEngine::loadStream(const u8 *buffer, int readSize, int RingbufferSize)
 	closeMedia();
 
 	m_videopts = 0;
+	m_lastPts = -1;
 	m_audiopts = 0;
 	m_ringbuffersize = RingbufferSize;
 	m_pdata = new BufferQueue(RingbufferSize + 2048);
@@ -677,7 +682,8 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 #endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-			avcodec_send_packet(m_pCodecCtx, &packet);
+			if (packet.size != 0)
+				avcodec_send_packet(m_pCodecCtx, &packet);
 			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
 			if (result == 0) {
 				result = m_pFrame->pkt_size;
@@ -712,10 +718,21 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 				int64_t bestPts = av_frame_get_best_effort_timestamp(m_pFrame);
 				int64_t ptsDuration = av_frame_get_pkt_duration(m_pFrame);
 #endif
-				if (bestPts != AV_NOPTS_VALUE)
+				if (ptsDuration == 0) {
+					if (m_lastPts == bestPts - m_firstTimeStamp || bestPts == AV_NOPTS_VALUE) {
+						// TODO: Assuming 29.97 if missing.
+						m_videopts += 3003;
+					} else {
+						m_videopts = bestPts - m_firstTimeStamp;
+						m_lastPts = m_videopts;
+					}
+				} else if (bestPts != AV_NOPTS_VALUE) {
 					m_videopts = bestPts + ptsDuration - m_firstTimeStamp;
-				else
+					m_lastPts = m_videopts;
+				} else {
 					m_videopts += ptsDuration;
+					m_lastPts = m_videopts;
+				}
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
