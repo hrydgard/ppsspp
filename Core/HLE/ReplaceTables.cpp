@@ -1277,6 +1277,23 @@ static int Hook_worms_copy_normalize_alpha() {
 	return 0;
 }
 
+static int Hook_openseason_data_decode() {
+	static u32 firstWritePtr = 0;
+
+	u32 curWritePtr = currentMIPS->r[MIPS_REG_A0];
+	u32 endPtr = currentMIPS->r[MIPS_REG_A1];
+	u32 writeBytes = currentMIPS->r[MIPS_REG_V0];
+	u32 startPtr = curWritePtr - writeBytes;
+	if (Memory::IsVRAMAddress(startPtr) && (firstWritePtr == 0 || startPtr < firstWritePtr)) {
+		firstWritePtr = startPtr;
+	}
+	if (Memory::IsVRAMAddress(endPtr) && curWritePtr == endPtr) {
+		gpu->PerformMemoryUpload(firstWritePtr, endPtr - firstWritePtr);
+		firstWritePtr = 0;
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1391,6 +1408,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
 	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
 	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
+	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{}
 };
 
