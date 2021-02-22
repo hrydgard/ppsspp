@@ -520,7 +520,6 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		}
 
 		AVStream *stream = m_pFormatCtx->streams[streamNum];
-		int err;
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
@@ -528,9 +527,9 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = avcodec_alloc_context3(pCodec);
-		err = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
-		if (err < 0) {
-			WARN_LOG_REPORT(ME, "Failed to prepare context parameters: %08x", err);
+		int paramResult = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
+		if (paramResult < 0) {
+			WARN_LOG_REPORT(ME, "Failed to prepare context parameters: %08x", paramResult);
 			return false;
 		}
 #else
