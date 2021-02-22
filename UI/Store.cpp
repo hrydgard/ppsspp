@@ -457,7 +457,7 @@ void StoreScreen::CreateViews() {
 		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
 		leftScroll->SetTag("StoreMainList");
 		content->Add(leftScroll);
-		scrollItemView_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollItemView_ = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftScroll->Add(scrollItemView_);
 
 		std::vector<StoreEntry> entries = FilterEntries();

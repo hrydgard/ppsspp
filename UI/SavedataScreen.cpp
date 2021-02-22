@@ -135,13 +135,13 @@ private:
 	std::string savePath_;
 };
 
-class SortedLinearLayout : public UI::LinearLayout {
+class SortedLinearLayout : public UI::LinearLayoutList {
 public:
 	typedef std::function<bool(const View *, const View *)> CompareFunc;
 	typedef std::function<bool()> DoneFunc;
 
 	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
-		: UI::LinearLayout(orientation, layoutParams) {
+		: UI::LinearLayoutList(orientation, layoutParams) {
 	}
 
 	void SetCompare(CompareFunc lessFunc, DoneFunc doneFunc) {

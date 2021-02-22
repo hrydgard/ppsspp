@@ -216,7 +216,7 @@ void GameSettingsScreen::CreateViews() {
 	// Graphics
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	graphicsSettingsScroll->SetTag("GameSettingsGraphics");
-	LinearLayout *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *graphicsSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	graphicsSettings->SetSpacing(0);
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
@@ -589,7 +589,7 @@ void GameSettingsScreen::CreateViews() {
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	audioSettingsScroll->SetTag("GameSettingsAudio");
-	LinearLayout *audioSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *audioSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	audioSettings->SetSpacing(0);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
@@ -641,7 +641,7 @@ void GameSettingsScreen::CreateViews() {
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	controlsSettingsScroll->SetTag("GameSettingsControls");
-	LinearLayout *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *controlsSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	controlsSettings->SetSpacing(0);
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
@@ -752,7 +752,7 @@ void GameSettingsScreen::CreateViews() {
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	networkingSettingsScroll->SetTag("GameSettingsNetworking");
-	LinearLayout *networkingSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *networkingSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	networkingSettings->SetSpacing(0);
 	networkingSettingsScroll->Add(networkingSettings);
 	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
@@ -840,7 +840,7 @@ void GameSettingsScreen::CreateViews() {
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
-	LinearLayout *tools = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *tools = new LinearLayoutList(ORIENT_VERTICAL);
 	tools->SetSpacing(0);
 	toolsScroll->Add(tools);
 	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
@@ -855,7 +855,7 @@ void GameSettingsScreen::CreateViews() {
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	systemSettingsScroll->SetTag("GameSettingsSystem");
-	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *systemSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	systemSettings->SetSpacing(0);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
@@ -1604,7 +1604,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 	AddStandardBack(root_);
 
-	LinearLayout *list = settingsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *list = settingsScroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(sy->T("General")));
 

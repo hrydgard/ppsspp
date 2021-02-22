@@ -97,7 +97,7 @@ void CwCheatScreen::CreateViews() {
 	rightScroll_->SetTag("CwCheats");
 	rightScroll_->SetScrollToTop(false);
 	rightScroll_->ScrollTo(g_Config.fCwCheatScrollPosition);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
 	rightScroll_->Add(rightColumn);
 
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));

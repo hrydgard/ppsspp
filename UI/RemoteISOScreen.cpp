@@ -593,7 +593,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	
 	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	remoteisoSettingsScroll->SetTag("RemoteISOSettings");
-	LinearLayout *remoteisoSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *remoteisoSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	remoteisoSettings->SetSpacing(0);
 	remoteisoSettingsScroll->Add(remoteisoSettings);
 

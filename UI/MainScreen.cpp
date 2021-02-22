@@ -670,17 +670,17 @@ void GameBrowser::Refresh() {
 		Add(topBar);
 
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			Add(gameList_);
 		} else {
-			UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			UI::LinearLayout *gl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
 			gameList_ = gl;
 			Add(gameList_);
 		}
 	} else {
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
@@ -740,7 +740,7 @@ void GameBrowser::Refresh() {
 			fileInfo.clear();
 			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
-				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+				UI::LinearLayout *zl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				zl->SetSpacing(4.0f);
 				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
@@ -1542,7 +1542,7 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto sy = GetI18NCategory("System");
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
-	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));

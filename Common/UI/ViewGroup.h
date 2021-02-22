@@ -84,6 +84,9 @@ public:
 	std::string DescribeText() const override;
 
 protected:
+	std::string DescribeListUnordered(const char *heading) const;
+	std::string DescribeListOrdered(const char *heading) const;
+
 	std::mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	View *defaultFocusView_ = nullptr;
@@ -192,6 +195,15 @@ private:
 	float spacing_;
 };
 
+class LinearLayoutList : public LinearLayout {
+public:
+	LinearLayoutList(Orientation orientation, LayoutParams *layoutParams = nullptr)
+		: LinearLayout(orientation, layoutParams) {
+	}
+
+	std::string DescribeText() const override;
+};
+
 // GridLayout is a little different from the Android layout. This one has fixed size
 // rows and columns. Items are not allowed to deviate from the set sizes.
 // Initially, only horizontal layout is supported.
@@ -218,6 +230,15 @@ public:
 private:
 	GridLayoutSettings settings_;
 	int numColumns_;
+};
+
+class GridLayoutList : public GridLayout {
+public:
+	GridLayoutList(GridLayoutSettings settings, LayoutParams *layoutParams = nullptr)
+		: GridLayout(settings, layoutParams) {
+	}
+
+	std::string DescribeText() const override;
 };
 
 // A scrollview usually contains just a single child - a linear layout or similar.
@@ -289,6 +310,7 @@ public:
 	void Draw(UIContext &dc) override;
 
 	std::string DescribeLog() const override { return "ChoiceStrip: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 	Event OnChoice;
 
@@ -385,6 +407,7 @@ public:
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
 	std::string DescribeLog() const override { return "ListView: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 private:
 	void CreateAllItems();

@@ -1,9 +1,12 @@
 #include <algorithm>
+#include <cmath>
 #include <functional>
+#include <iomanip>
 #include <mutex>
 #include <set>
 #include <sstream>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Math/curves.h"
 #include "Common/UI/Context.h"
@@ -157,16 +160,58 @@ void ViewGroup::Draw(UIContext &dc) {
 
 std::string ViewGroup::DescribeText() const {
 	std::stringstream ss;
-	// TODO: In some cases, might be nice to define as a list explicitly.
-	bool first = true;
+	bool needNewline = false;
 	for (View *view : views_) {
 		if (view->GetVisibility() != V_VISIBLE)
 			continue;
-		if (!first) {
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		if (needNewline) {
 			ss << "\n";
 		}
-		first = false;
-		ss << view->DescribeText();
+		ss << s;
+		needNewline = s[s.length() - 1] != '\n';
+	}
+	return ss.str();
+}
+
+std::string ViewGroup::DescribeListUnordered(const char *heading) const {
+	std::stringstream ss;
+	ss << heading << "\n";
+
+	bool needNewline = false;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		ss << " - " << IndentString(s, "   ", true);
+	}
+	return ss.str();
+}
+
+std::string ViewGroup::DescribeListOrdered(const char *heading) const {
+	std::stringstream ss;
+	ss << heading << "\n";
+
+	// This is how much space we need for the highest number.
+	int sz = (int)floorf(log10f((float)views_.size())) + 1;
+	std::string indent = "  " + std::string(sz, ' ');
+
+	bool needNewline = false;
+	int n = 1;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		ss << std::setw(sz) << n++ << ". " << IndentString(s, indent, true);
 	}
 	return ss.str();
 }
@@ -597,6 +642,11 @@ void LinearLayout::Layout() {
 
 		pos += spacing_ + (orientation_ == ORIENT_HORIZONTAL ? itemBounds.w : itemBounds.h);
 	}
+}
+
+std::string LinearLayoutList::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
 }
 
 void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1151,6 +1201,11 @@ void GridLayout::Layout() {
 	}
 }
 
+std::string GridLayoutList::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
+}
+
 TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
 	SetSpacing(0.0f);
@@ -1371,6 +1426,11 @@ void ChoiceStrip::Draw(UIContext &dc) {
 	}
 }
 
+std::string ChoiceStrip::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListUnordered(u->T("Choices:"));
+}
+
 StickyChoice *ChoiceStrip::Choice(int index) {
 	if ((size_t)index < views_.size())
 		return static_cast<StickyChoice *>(views_[index]);
@@ -1401,6 +1461,11 @@ void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert)
 	if (maxHeight_ > 0 && measuredHeight_ > maxHeight_) {
 		measuredHeight_ = maxHeight_;
 	}
+}
+
+std::string ListView::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
 }
 
 EventReturn ListView::OnItemCallback(int num, EventParams &e) {
