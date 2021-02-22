@@ -764,7 +764,7 @@ void Button::Draw(UIContext &dc) {
 	}
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(scale_, scale_);
-	if (imageID_.isValid() && text_.empty()) {
+	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
 	} else if (!text_.empty()) {
 		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);

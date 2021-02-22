@@ -1080,7 +1080,9 @@ void MainScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE)
 	if (!g_Config.bFullScreen) {
-		fullscreenButton_ = logos->Add(new Button(ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		auto gr = GetI18NCategory("Graphics");
+		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_->SetIgnoreText(true);
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 	}
 #endif

@@ -516,8 +516,6 @@ class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(ImageID::invalid()) {}
-	Button(ImageID imageID, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), imageID_(imageID) {}
 	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
@@ -533,6 +531,9 @@ public:
 	void SetImageID(ImageID imageID) {
 		imageID_ = imageID;
 	}
+	void SetIgnoreText(bool ignore) {
+		ignoreText_ = ignore;
+	}
 
 	// Needed an extra small button...
 	void SetScale(float f) {
@@ -546,6 +547,7 @@ private:
 	int paddingW_ = 16;
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
+	bool ignoreText_ = false;
 };
 
 class Slider : public Clickable {
