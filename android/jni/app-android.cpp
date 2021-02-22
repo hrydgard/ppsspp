@@ -443,6 +443,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_CAN_JIT:
+		return true;
 	default:
 		return false;
 	}

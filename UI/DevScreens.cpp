@@ -473,8 +473,9 @@ void SystemInfoScreen::CreateViews() {
 	std::string cores = StringFromFormat(si->T("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
 	deviceSpecs->Add(new InfoItem(si->T("Threads"), cores));
 #endif
+#if PPSSPP_PLATFORM(IOS)
 	deviceSpecs->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
-
+#endif
 	deviceSpecs->Add(new ItemHeader(si->T("GPU Information")));
 
 	DrawContext *draw = screenManager()->getDrawContext();

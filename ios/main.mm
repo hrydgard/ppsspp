@@ -238,25 +238,26 @@ int main(int argc, char *argv[])
 
 	if (!debuggerAttached) {
 		// Try to fool iOS into thinking a debugger is attached.
-		// This doesn't work in iOS 14.4 anymore.
+		// This doesn't work in iOS 14.4 anymore so don't even try there.
+		if (!(g_iosVersionMajor == 14 && g_iosVersionMinor == 4)) {
+			pid_t pid = fork();
+			if (pid == 0) {
+				printf("Forked a ptrace call");
+				ptrace(PT_TRACE_ME, 0, nullptr, 0);
+				exit(0);
+			} else if (pid < 0) {
+				perror("Unable to fork");
 
-		pid_t pid = fork();
-		if (pid == 0) {
-			printf("Forked a ptrace call");
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			exit(0);
-		} else if (pid < 0) {
-			perror("Unable to fork");
+				ptrace(PT_TRACE_ME, 0, nullptr, 0);
+				ptrace(PT_SIGEXC, 0, nullptr, 0);
 
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			ptrace(PT_SIGEXC, 0, nullptr, 0);
-			
-			mach_port_t port = MACH_PORT_NULL;
-			mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-			mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
-			task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
-			pthread_t thread;
-			pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
+				mach_port_t port = MACH_PORT_NULL;
+				mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+				mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+				task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
+				pthread_t thread;
+				pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
+			}
 		}
 	} else {
 		// Debugger is attached - we can actually JIT. Override the version detect.
