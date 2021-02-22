@@ -18,12 +18,13 @@
 #pragma once
 
 #include <map>
+#include <cstdint>
 #include <cstring>
+#include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 
 struct BufferQueue {
 	BufferQueue(int size = 0x20000) {
-		bufQueue = 0;
 		alloc(size);
 	}
 
@@ -33,8 +34,7 @@ struct BufferQueue {
 	}
 
 	bool alloc(int size) {
-		if (size < 0)
-			return false;
+		_assert_(size > 0);
 		if (bufQueue)
 			delete [] bufQueue;
 		bufQueue = new unsigned char[size];
@@ -62,15 +62,20 @@ struct BufferQueue {
 	}
 
 	bool push(const unsigned char *buf, int addsize, s64 pts = 0) {
-		int queuesz = getQueueSize();
-		int space = bufQueueSize - queuesz;
-		if (space < addsize || addsize < 0)
+		int space = getRemainSize();
+		// We can't fill entirely, or end will equal start and we'll be empty.
+		if (space <= addsize || addsize < 0)
 			return false;
 		savePts(pts);
 		if (end + addsize <= bufQueueSize) {
+			// If end is before start, there's enough space.  Otherwise, we're nearing the queue size.
 			memcpy(bufQueue + end, buf, addsize);
 			end += addsize;
+			if (end == bufQueueSize)
+				end = 0;
 		} else {
+			// Time to wrap end.  Fill what remains, then fill before start.
+			_assert_(end >= start);
 			int firstSize = bufQueueSize - end;
 			memcpy(bufQueue + end, buf, firstSize);
 			memcpy(bufQueue, buf + firstSize, addsize - firstSize);
@@ -79,32 +84,31 @@ struct BufferQueue {
 		return true;
 	}
 
-	int pop_front(unsigned char *buf, int wantedsize, s64 *pts = NULL) {
+	int pop_front(unsigned char *buf, int wantedsize, s64 *pts = nullptr) {
 		if (wantedsize <= 0)
 			return 0;
 		int bytesgot = getQueueSize();
 		if (wantedsize < bytesgot)
 			bytesgot = wantedsize;
-		if (pts != NULL) {
+		if (pts != nullptr) {
 			*pts = findPts(bytesgot);
 		}
+
+		int firstSize = bufQueueSize - start;
 		if (buf) {
-			if (start + bytesgot <= bufQueueSize) {
+			if (bytesgot <= firstSize) {
 				memcpy(buf, bufQueue + start, bytesgot);
-				start += bytesgot;
 			} else {
-				int firstSize = bufQueueSize - start;
 				memcpy(buf, bufQueue + start, firstSize);
 				memcpy(buf + firstSize, bufQueue, bytesgot - firstSize);
-				start = bytesgot - firstSize;
 			}
-		} else {
-			int firstSize = bufQueueSize - start;
-			if (start + bytesgot <= bufQueueSize)
-				start += bytesgot;
-			else 
-				start = bytesgot - firstSize;
 		}
+		if (bytesgot <= firstSize)
+			start += bytesgot;
+		else
+			start = bytesgot - firstSize;
+		if (start == bufQueueSize)
+			start = 0;
 		return bytesgot;
 	}
 
@@ -114,12 +118,12 @@ struct BufferQueue {
 		int bytesgot = getQueueSize();
 		if (wantedsize < bytesgot)
 			bytesgot = wantedsize;
-		if (start + bytesgot <= bufQueueSize) {
+		int firstSize = bufQueueSize - start;
+		if (bytesgot <= firstSize) {
 			memcpy(buf, bufQueue + start, bytesgot);
 		} else {
-			int size = bufQueueSize - start;
-			memcpy(buf, bufQueue + start, size);
-			memcpy(buf + size, bufQueue, bytesgot - size);
+			memcpy(buf, bufQueue + start, firstSize);
+			memcpy(buf + firstSize, bufQueue, bytesgot - firstSize);
 		}
 		return bytesgot;
 	}
@@ -150,18 +154,23 @@ private:
 		u64 pts = findPts(earliest, latest);
 
 		// If it wraps around, we have to look at the other half too.
-		if (pts == 0 && start + packetSize > bufQueueSize) {
+		if (start + packetSize > bufQueueSize) {
 			earliest = ptsMarks.begin();
 			latest = ptsMarks.lower_bound(start + packetSize - bufQueueSize);
-			return findPts(earliest, latest);
+			// This also clears the range, so we always call on wrap.
+			u64 latePts = findPts(earliest, latest);
+			if (pts == 0)
+				pts = latePts;
 		}
 
 		return pts;
 	}
 
-	unsigned char* bufQueue;
-	int start, end;
-	int bufQueueSize;
+	uint8_t *bufQueue = nullptr;
+	// Model: end may be less than start, indicating the space between end and start is free.
+	// If end equals start, we're empty.
+	int start = 0, end = 0;
+	int bufQueueSize = 0;
 
 	std::map<u32, s64> ptsMarks;
 };
