@@ -98,6 +98,8 @@ enum SystemProperty {
 
 	SYSPROP_SUPPORTS_PERMISSIONS,
 	SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE,
+
+	SYSPROP_CAN_JIT,
 };
 
 std::string System_GetProperty(SystemProperty prop);

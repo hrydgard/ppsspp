@@ -89,7 +89,14 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
-bool System_GetPropertyBool(SystemProperty prop) { return false; }
+bool System_GetPropertyBool(SystemProperty prop) { 
+	switch (prop) {
+		case SYSPROP_CAN_JIT:
+			return true;
+		default:
+			return false;
+	}
+}
 
 void System_SendMessage(const char *command, const char *parameter) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }

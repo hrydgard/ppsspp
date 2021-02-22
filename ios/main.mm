@@ -14,8 +14,10 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 
+#include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
 
 #define	CS_OPS_STATUS		0	/* return status */
@@ -52,11 +54,14 @@ static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 
+static bool g_jitAvailable = false;
+static int g_iosVersionMajor;
+static int g_iosVersionMinor;
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_NAME:
-			return "iOS:";
+			return StringFromFormat("iOS %d.%d", g_iosVersionMajor, g_iosVersionMinor);
 		case SYSPROP_LANGREGION:
 			return "en_US";
 		default:
@@ -78,6 +83,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 			return 44100;
 		case SYSPROP_DEVICE_TYPE:
 			return DEVICE_TYPE_MOBILE;
+		case SYSPROP_SYSTEMVERSION:
+			return g_iosVersionMajor;
 		default:
 			return -1;
 	}
@@ -110,6 +117,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 			return false;
 #endif
+		case SYSPROP_CAN_JIT:
+			return g_jitAvailable;
+
 		default:
 			return false;
 	}
@@ -200,28 +210,58 @@ void Vibrate(int mode) {
 
 int main(int argc, char *argv[])
 {
+	// Hacky hacks to try to enable JIT by pretending to be a debugger.
 	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
 	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
 	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
 	// see https://github.com/hrydgard/ppsspp/issues/11905
-	if (!cs_debugged()) {
-		pid_t pid = fork();
-		if (pid == 0) {
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			exit(0);
-		} else if (pid < 0) {
-			perror("Unable to fork");
 
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			ptrace(PT_SIGEXC, 0, nullptr, 0);
-			
-			mach_port_t port = MACH_PORT_NULL;
-			mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-			mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
-			task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
-			pthread_t thread;
-			pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
+	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
+	// but it just succeeds, and then fails when you try to execute from it.
+
+	// So, we'll just resort to a version check.
+
+	std::string version = [[UIDevice currentDevice].systemVersion UTF8String];
+	if (2 != sscanf(version.c_str(), "%d.%d", &g_iosVersionMajor, &g_iosVersionMinor)) {
+		// Just set it to 14.0 if the parsing fails for whatever reason.
+		g_iosVersionMajor = 14;
+		g_iosVersionMinor = 0;
+	}
+
+	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 3)) {
+		g_jitAvailable = false;
+	} else {
+		g_jitAvailable = true;
+	}
+
+	bool debuggerAttached = cs_debugged();
+
+	if (!debuggerAttached) {
+		// Try to fool iOS into thinking a debugger is attached.
+		// This doesn't work in iOS 14.4 anymore so don't even try there.
+		if (!(g_iosVersionMajor == 14 && g_iosVersionMinor == 4)) {
+			pid_t pid = fork();
+			if (pid == 0) {
+				printf("Forked a ptrace call");
+				ptrace(PT_TRACE_ME, 0, nullptr, 0);
+				exit(0);
+			} else if (pid < 0) {
+				perror("Unable to fork");
+
+				ptrace(PT_TRACE_ME, 0, nullptr, 0);
+				ptrace(PT_SIGEXC, 0, nullptr, 0);
+
+				mach_port_t port = MACH_PORT_NULL;
+				mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+				mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+				task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
+				pthread_t thread;
+				pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
+			}
 		}
+	} else {
+		// Debugger is attached - we can actually JIT. Override the version detect.
+		g_jitAvailable = true;
 	}
 
 	PROFILE_INIT();

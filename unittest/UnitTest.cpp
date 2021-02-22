@@ -69,6 +69,10 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	return -1;
 }
 bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_CAN_JIT:
+		return true;
+	}
 	return false;
 }
 
