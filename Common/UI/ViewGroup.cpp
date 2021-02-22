@@ -158,11 +158,15 @@ void ViewGroup::Draw(UIContext &dc) {
 std::string ViewGroup::DescribeText() const {
 	std::stringstream ss;
 	// TODO: In some cases, might be nice to define as a list explicitly.
-	for (size_t i = 0; i < views_.size(); ++i) {
-		if (i != 0) {
+	bool first = true;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		if (!first) {
 			ss << "\n";
 		}
-		ss << views_[i]->DescribeText();
+		first = false;
+		ss << view->DescribeText();
 	}
 	return ss.str();
 }
