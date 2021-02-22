@@ -434,6 +434,7 @@ public:
 			xAxis_(xAxis), xDir_(xDir),
 			yAxis_(yAxis), yDir_(yDir) {}
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
 	void Update() override;
 	void Axis(const AxisInput &input) override {
 		// TODO: Check input.deviceId?

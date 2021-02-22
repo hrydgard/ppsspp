@@ -6,6 +6,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/Context.h"
@@ -513,6 +514,11 @@ void Choice::Draw(UIContext &dc) {
 	}
 }
 
+std::string Choice::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 choice"), "%1", text_);
+}
+
 InfoItem::InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
@@ -547,6 +553,11 @@ void InfoItem::Draw(UIContext &dc) {
 // 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
 }
 
+std::string InfoItem::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(ReplaceAll(u->T("%1: %2"), "%1", text_), "%2", rightText_);
+}
+
 ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text) {
 	layoutParams_->width = FILL_PARENT;
@@ -570,6 +581,11 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
 	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+std::string ItemHeader::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
 void PopupHeader::Draw(UIContext &dc) {
@@ -598,6 +614,11 @@ void PopupHeader::Draw(UIContext &dc) {
 	if (availableWidth < tw) {
 		dc.PopScissor();
 	}
+}
+
+std::string PopupHeader::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
 void CheckBox::Toggle() {
@@ -640,6 +661,15 @@ void CheckBox::Draw(UIContext &dc) {
 	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
+}
+
+std::string CheckBox::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	std::string text = ReplaceAll(u->T("%1 checkbox"), "%1", text_);
+	if (!smallText_.empty()) {
+		text += "\n" + smallText_;
+	}
+	return text;
 }
 
 float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const {
@@ -703,6 +733,11 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 
 	w *= scale_;
 	h *= scale_;
+}
+
+std::string Button::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 button"), "%1", GetText());
 }
 
 void Button::Click() {
@@ -812,8 +847,8 @@ void TextView::Draw(UIContext &dc) {
 	}
 }
 
-TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
-  : View(layoutParams), text_(text), undo_(text), placeholderText_(placeholderText),
+TextEdit::TextEdit(const std::string &text, const std::string &title, const std::string &placeholderText, LayoutParams *layoutParams)
+  : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
     textColor_(0xFFFFFFFF), maxLen_(255) {
 	caret_ = (int)text_.size();
 }
@@ -859,6 +894,11 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.size() ? text_.c_str() : "Wj", &w, &h, align_);
 	w += 2;
 	h += 2;
+}
+
+std::string TextEdit::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 text field"), "%1", GetText());
 }
 
 // Handles both windows and unix line endings.
@@ -1037,6 +1077,12 @@ void ProgressBar::Draw(UIContext &dc) {
 	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
 }
 
+std::string ProgressBar::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	float percent = progress_ * 100.0f;
+	return ReplaceAll(u->T("Progress: %1%"), "%1", StringFromInt((int)percent));
+}
+
 void Spinner::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 48;
 	h = 48;
@@ -1181,6 +1227,12 @@ void Slider::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 }
 
+std::string Slider::DescribeText() const {
+	if (showPercent_)
+		return StringFromFormat("%i%% / %i%%", *value_, maxValue_);
+	return StringFromFormat("%i / %i", *value_, maxValue_);
+}
+
 void Slider::Update() {
 	View::Update();
 	if (repeat_ >= 0) {
@@ -1289,6 +1341,10 @@ void SliderFloat::Draw(UIContext &dc) {
 	sprintf(temp, "%0.2f", *value_);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER);
+}
+
+std::string SliderFloat::DescribeText() const {
+	return StringFromFormat("%0.2f / %0.2f", *value_, maxValue_);
 }
 
 void SliderFloat::Update() {

@@ -1803,7 +1803,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 
-	addrView_ = new TextEdit(*value_, "");
+	addrView_ = new TextEdit(*value_, n->T("Hostname"), "");
 	addrView_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	valueRow->Add(addrView_);
 	parent->Add(valueRow);

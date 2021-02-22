@@ -119,6 +119,7 @@ public:
 		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		if (gridStyle_) {
 			w = 144*g_Config.fGameGridScale;
@@ -406,6 +407,12 @@ void GameButton::Draw(UIContext &dc) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
 	dc.RebindTexture();
+}
+
+std::string GameButton::DescribeText() const {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 button"), "%1", ginfo->GetTitle());
 }
 
 class DirButton : public UI::Button {
@@ -1065,11 +1072,11 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
 	if (!g_Config.bFullScreen) {

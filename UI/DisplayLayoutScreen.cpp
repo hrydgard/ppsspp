@@ -65,7 +65,9 @@ public:
 		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * screenBounds.w, y * screenBounds.h, UI::NONE, UI::NONE, true)),
 		x_(x), y_(y), screenBounds_(screenBounds) {
 		UpdateScale(scale);
-	}	
+	}
+
+	std::string DescribeText() const override;
 
 	void SaveDisplayPosition() {
 		x_ = bounds_.centerX() / screenBounds_.w;
@@ -83,6 +85,11 @@ private:
 	float &x_, &y_;
 	const Bounds &screenBounds_;
 };
+
+std::string DragDropDisplay::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return u->T("Screen representation");
+}
 
 DisplayLayoutScreen::DisplayLayoutScreen() {
 	// Ignore insets - just couldn't get the logic to work.
@@ -217,6 +224,10 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 class Boundary : public UI::View {
 public:
 	Boundary(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
+	}
+
+	std::string DescribeText() const override {
+		return "";
 	}
 
 	void Draw(UIContext &dc) override {

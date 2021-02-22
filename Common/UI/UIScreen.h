@@ -88,6 +88,7 @@ protected:
 	virtual bool ShowButtons() const { return true; }
 	virtual bool CanComplete(DialogResult result) { return true; }
 	virtual void OnCompleted(DialogResult result) {}
+	const std::string &Title() { return title_; }
 
 	virtual void update() override;
 

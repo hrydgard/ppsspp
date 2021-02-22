@@ -366,6 +366,8 @@ public:
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
 	virtual std::string DescribeLog() const;
+	// Accessible/searchable description.
+	virtual std::string DescribeText() const { return ""; }
 
 	virtual void FocusChanged(int focusFlags) {}
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
@@ -523,6 +525,7 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	const std::string &GetText() const { return text_; }
+	std::string DescribeText() const override;
 	void SetPadding(int w, int h) {
 		paddingW_ = w;
 		paddingH_ = h;
@@ -555,6 +558,7 @@ public:
 		step_ = step <= 0 ? 1 : step;
 	}
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
 	void Update() override;
@@ -585,6 +589,7 @@ public:
 	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {}
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
 	void Update() override;
@@ -661,6 +666,7 @@ public:
 	virtual void HighlightChanged(bool highlighted);
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	virtual void SetCentered(bool c) {
 		centered_ = c;
 	}
@@ -711,6 +717,7 @@ public:
 	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = nullptr);
 
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 
 	// These are focusable so that long lists of them can be keyboard scrolled.
 	bool CanBeFocused() const override { return true; }
@@ -737,6 +744,7 @@ class ItemHeader : public Item {
 public:
 	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0);
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 private:
@@ -751,6 +759,8 @@ public:
 			layoutParams_->height = 64;
 	}
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
+
 private:
 	std::string text_;
 };
@@ -763,6 +773,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	EventReturn OnClicked(EventParams &e);
@@ -803,6 +814,8 @@ public:
 		w = size_; h = size_;
 	}
 	void Draw(UIContext &dc) override {}
+	std::string DescribeText() const override { return ""; }
+
 private:
 	float size_;
 };
@@ -820,6 +833,7 @@ public:
 
 	void SetText(const std::string &text) { text_ = text; }
 	const std::string &GetText() const { return text_; }
+	std::string DescribeText() const override { return GetText(); }
 	void SetSmall(bool small) { small_ = small; }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
@@ -841,7 +855,7 @@ private:
 
 class TextEdit : public View {
 public:
-	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
+	TextEdit(const std::string &text, const std::string &title, const std::string &placeholderText, LayoutParams *layoutParams = nullptr);
 	void SetText(const std::string &text) { text_ = text; scrollPos_ = 0; caret_ = (int)text_.size(); }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	const std::string &GetText() const { return text_; }
@@ -850,6 +864,7 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	bool Key(const KeyInput &key) override;
 	void Touch(const TouchInput &touch) override;
 
@@ -860,6 +875,7 @@ private:
 	void InsertAtCaret(const char *text);
 
 	std::string text_;
+	std::string title_;
 	std::string undo_;
 	std::string placeholderText_;
 	uint32_t textColor_;
@@ -880,13 +896,15 @@ enum ImageSizeMode {
 
 class ImageView : public InertView {
 public:
-	ImageView(ImageID atlasImage, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
+	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return text_; }
 
 private:
+	std::string text_;
 	ImageID atlasImage_;
 	ImageSizeMode sizeMode_;
 };
@@ -898,6 +916,7 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 
 	void SetProgress(float progress) {
 		if (progress > 1.0f) {
@@ -922,6 +941,7 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
 	void SetColor(uint32_t color) { color_ = color; }
 
 private:

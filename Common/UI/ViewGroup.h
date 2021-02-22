@@ -81,6 +81,7 @@ public:
 
 	void SetClip(bool clip) { clip_ = clip; }
 	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 protected:
 	std::mutex modifyLock_;  // Hold this when changing the subviews.

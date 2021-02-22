@@ -1002,6 +1002,10 @@ public:
 		}
 	}
 
+	std::string DescribeText() const override {
+		return "";
+	}
+
 	void SetColor(uint32_t c) {
 		color_ = c;
 	}

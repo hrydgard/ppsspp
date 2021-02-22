@@ -174,6 +174,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500;
 		h = 74;
@@ -321,6 +322,11 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.PopScissor();
 
 	dc.RebindTexture();
+}
+
+std::string SavedataButton::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 button"), "%1", title_) + "\n" + subtitle_;
 }
 
 SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParams)

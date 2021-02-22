@@ -43,6 +43,7 @@ class OnScreenMessagesView : public UI::InertView {
 public:
 	OnScreenMessagesView(UI::LayoutParams *layoutParams = nullptr) : UI::InertView(layoutParams) {}
 	void Draw(UIContext &dc);
+	std::string DescribeText() const override;
 };
 
 extern OnScreenMessages osm;

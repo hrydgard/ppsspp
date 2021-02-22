@@ -207,7 +207,7 @@ void LogScreen::CreateViews() {
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	bottom->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	cmdLine_ = bottom->Add(new TextEdit("", "Command Line", new LinearLayoutParams(1.0)));
+	cmdLine_ = bottom->Add(new TextEdit("", "Command", "Command Line", new LinearLayoutParams(1.0)));
 	cmdLine_->OnEnter.Handle(this, &LogScreen::OnSubmit);
 	bottom->Add(new Button(di->T("Submit")))->OnClick.Handle(this, &LogScreen::OnSubmit);
 
@@ -805,7 +805,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView(dev->T("No block")));
-	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	blockAddr_ = leftColumn->Add(new TextEdit("", dev->T("Block address"), "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
 

@@ -62,6 +62,7 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
 
 	void SetFilename(std::string filename);
 	void SetColor(uint32_t color) { color_ = color; }

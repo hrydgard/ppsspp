@@ -655,7 +655,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	char temp[64];
 	sprintf(temp, "%d", sliderValue_);
-	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
+	edit_ = new TextEdit(temp, Title(), "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
 	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
@@ -689,7 +689,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	char temp[64];
 	sprintf(temp, "%0.3f", sliderValue_);
-	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
+	edit_ = new TextEdit(temp, Title(), "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
 	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
@@ -818,7 +818,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	textEditValue_ = *value_;
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
-	edit_ = new TextEdit(textEditValue_, placeholder_, new LinearLayoutParams(1.0f));
+	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
 	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	lin->Add(edit_);

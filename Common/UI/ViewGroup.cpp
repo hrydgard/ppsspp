@@ -1,7 +1,8 @@
 #include <algorithm>
 #include <functional>
-#include <set>
 #include <mutex>
+#include <set>
+#include <sstream>
 
 #include "Common/Input/KeyCodes.h"
 #include "Common/Math/curves.h"
@@ -152,6 +153,18 @@ void ViewGroup::Draw(UIContext &dc) {
 	if (clip_) {
 		dc.PopScissor();
 	}
+}
+
+std::string ViewGroup::DescribeText() const {
+	std::stringstream ss;
+	// TODO: In some cases, might be nice to define as a list explicitly.
+	for (size_t i = 0; i < views_.size(); ++i) {
+		if (i != 0) {
+			ss << "\n";
+		}
+		ss << views_[i]->DescribeText();
+	}
+	return ss.str();
 }
 
 void ViewGroup::Update() {

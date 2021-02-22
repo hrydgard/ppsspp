@@ -22,7 +22,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
-	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
+	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
 	// freeze the ui when using ctrl + C hotkey need workaround
 	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
