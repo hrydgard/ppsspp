@@ -79,7 +79,7 @@ namespace MIPSComp {
 
 class ArmRegCacheFPU {
 public:
-	ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
+	ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~ArmRegCacheFPU() {}
 
 	void Init(ArmGen::ARMXEmitter *emitter);
@@ -206,7 +206,7 @@ private:
 	FPURegMIPS *vr;
 
 	bool pendingFlush;
-	bool initialReady;
+	bool initialReady = false;
 	FPURegARM arInitial[MAX_ARMFPUREG];
 	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

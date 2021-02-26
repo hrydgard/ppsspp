@@ -104,7 +104,7 @@ namespace MIPSComp
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(mips, &js, &jo), mips_(mips) { 
+ArmJit::ArmJit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsState, &js, &jo), fpr(mipsState, &js, &jo), mips_(mipsState) {
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();

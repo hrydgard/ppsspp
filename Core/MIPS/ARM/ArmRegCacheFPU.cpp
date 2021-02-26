@@ -27,7 +27,7 @@
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), js_(js), jo_(jo), vr(mr + 32), initialReady(false) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo), vr(mr + 32) {
 	if (cpu_info.bNEON) {
 		numARMFpuReg_ = 32;
 	} else {

@@ -33,6 +33,12 @@
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
 
+#ifdef mips
+// Why do MIPS compilers define something so generic?  Try to keep defined, at least...
+#undef mips
+#define mips mips
+#endif
+
 alignas(16) static const float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
 	{ 1.0f, 1.0f, 1.0f, 1.0f },

@@ -59,7 +59,7 @@ op_agent_t agent;
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 
-JitBlockCache::JitBlockCache(MIPSState *mips, CodeBlockCommon *codeBlock) :
+JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
 	codeBlock_(codeBlock), blocks_(nullptr), num_blocks_(0) {
 }
 

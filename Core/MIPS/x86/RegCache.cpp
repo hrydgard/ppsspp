@@ -54,12 +54,10 @@ void GPRRegCache::FlushBeforeCall() {
 	Flush();
 }
 
-GPRRegCache::GPRRegCache() : mips(0), emit(0) {
-	memset(regs, 0, sizeof(regs));
-	memset(xregs, 0, sizeof(xregs));
+GPRRegCache::GPRRegCache() {
 }
 
-void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
+void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 #ifdef _M_X64
 	if (allocationOrderR15[0] == INVALID_REG) {
 		memcpy(allocationOrderR15, allocationOrder, sizeof(allocationOrder));
@@ -67,7 +65,7 @@ void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOp
 	}
 #endif
 
-	this->mips = mips;
+	mips_ = mipsState;
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
 		xregs[i].dirty = false;
@@ -421,7 +419,7 @@ void GPRRegCache::Flush() {
 			else if (regs[i].location.IsImm()) {
 				StoreFromRegister(r);
 			} else {
-				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %d PC: %08x", i, mips->pc);
+				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %d PC: %08x", i, mips_->pc);
 			}
 		}
 	}

@@ -113,7 +113,7 @@ public:
 
 class JitBlockCache : public JitBlockCacheDebugInterface {
 public:
-	JitBlockCache(MIPSState *mips_, CodeBlockCommon *codeBlock);
+	JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);

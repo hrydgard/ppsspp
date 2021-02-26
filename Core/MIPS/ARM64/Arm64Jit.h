@@ -35,7 +35,7 @@ namespace MIPSComp {
 
 class Arm64Jit : public Arm64Gen::ARM64CodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
-	Arm64Jit(MIPSState *mips);
+	Arm64Jit(MIPSState *mipsState);
 	virtual ~Arm64Jit();
 
 	void DoState(PointerWrap &p) override;
