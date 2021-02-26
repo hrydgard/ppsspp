@@ -69,7 +69,7 @@ class GPRRegCache
 public:
 	GPRRegCache();
 	~GPRRegCache() {}
-	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
 	void DiscardR(MIPSGPReg preg);
@@ -119,17 +119,17 @@ public:
 	void GetState(GPRRegCacheState &state) const;
 	void RestoreState(const GPRRegCacheState& state);
 
-	MIPSState *mips;
+	MIPSState *mips_ = nullptr;
 
 private:
 	Gen::X64Reg GetFreeXReg();
 	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	const Gen::X64Reg *GetAllocationOrder(int &count);
 
-	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
-	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS]{};
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS]{};
 
-	Gen::XEmitter *emit;
+	Gen::XEmitter *emit = nullptr;
 	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 };

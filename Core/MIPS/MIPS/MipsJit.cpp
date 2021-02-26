@@ -20,6 +20,7 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -41,7 +42,7 @@ void DisassembleMIPS(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-MipsJit::MipsJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
+MipsJit::MipsJit(MIPSState *mipsState) : blocks(mipsState, this), mips_(mipsState)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;

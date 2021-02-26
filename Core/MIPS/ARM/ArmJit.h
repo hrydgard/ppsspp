@@ -35,7 +35,7 @@ namespace MIPSComp {
 
 class ArmJit : public ArmGen::ARMXCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
-	ArmJit(MIPSState *mips);
+	ArmJit(MIPSState *mipsState);
 	virtual ~ArmJit();
 
 	void DoState(PointerWrap &p) override;

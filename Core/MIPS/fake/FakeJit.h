@@ -33,7 +33,7 @@ typedef int FakeReg;
 
 class FakeJit : public FakeGen::FakeXCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
-	FakeJit(MIPSState *mips);
+	FakeJit(MIPSState *mipsState);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);

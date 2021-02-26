@@ -105,8 +105,8 @@ static void JitLogMiss(MIPSOpcode op)
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)
 #endif
-Jit::Jit(MIPSState *mips)
-		: blocks(mips, this), mips_(mips) {
+Jit::Jit(MIPSState *mipsState)
+		: blocks(mipsState, this), mips_(mipsState) {
 	blocks.Init();
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);

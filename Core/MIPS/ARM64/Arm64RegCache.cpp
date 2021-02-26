@@ -33,7 +33,7 @@
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
-Arm64RegCache::Arm64RegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), js_(js), jo_(jo) {
+Arm64RegCache::Arm64RegCache(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo) {
 }
 
 void Arm64RegCache::Init(ARM64XEmitter *emitter) {

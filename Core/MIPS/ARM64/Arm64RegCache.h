@@ -82,7 +82,7 @@ namespace MIPSComp {
 
 class Arm64RegCache {
 public:
-	Arm64RegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
+	Arm64RegCache(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~Arm64RegCache() {}
 
 	void Init(Arm64Gen::ARM64XEmitter *emitter);
