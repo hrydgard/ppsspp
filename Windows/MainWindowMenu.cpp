@@ -244,9 +244,9 @@ namespace MainWindow {
 
 		// Emulation menu
 		TranslateMenuItem(menu, ID_EMULATION_PAUSE);
-		TranslateMenuItem(menu, ID_EMULATION_STOP, L"\tCtrl+W");
-		TranslateMenuItem(menu, ID_EMULATION_RESET, L"\tCtrl+B");
-		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, L"\tCtrl+U");
+		TranslateMenuItem(menu, ID_EMULATION_STOP, g_Config.bSystemControls ? L"\tCtrl+W" : L"");
+		TranslateMenuItem(menu, ID_EMULATION_RESET, g_Config.bSystemControls ? L"\tCtrl+B" : L"");
+		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, g_Config.bSystemControls ? L"\tCtrl+U" : L"");
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_MENU);
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H);
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V);
@@ -254,7 +254,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V_R);
 
 		// Debug menu
-		TranslateMenuItem(menu, ID_TOGGLE_BREAK, L"\tF8", "Break");
+		TranslateMenuItem(menu, ID_TOGGLE_BREAK, g_Config.bSystemControls ? L"\tF8" : L"", "Break");
 		TranslateMenuItem(menu, ID_DEBUG_BREAKONLOAD);
 		TranslateMenuItem(menu, ID_DEBUG_IGNOREILLEGALREADS);
 		TranslateMenuItem(menu, ID_DEBUG_LOADMAPFILE);
@@ -262,14 +262,14 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_LOADSYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE);
-		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, L"\tF12");
+		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, g_Config.bSystemControls ? L"\tF12" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_DUMPNEXTFRAME);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
-		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, L"\tCtrl+D");
-		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, L"\tCtrl+G");
+		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, g_Config.bSystemControls ? L"\tCtrl+D" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, g_Config.bSystemControls ? L"\tCtrl+G" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_EXTRACTFILE);
-		TranslateMenuItem(menu, ID_DEBUG_LOG, L"\tCtrl+L");
-		TranslateMenuItem(menu, ID_DEBUG_MEMORYVIEW, L"\tCtrl+M");
+		TranslateMenuItem(menu, ID_DEBUG_LOG, g_Config.bSystemControls ? L"\tCtrl+L" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_MEMORYVIEW, g_Config.bSystemControls ? L"\tCtrl+M" : L"");
 
 		// Options menu
 		TranslateMenuItem(menu, ID_OPTIONS_LANGUAGE);
@@ -287,10 +287,10 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_FILE_DUMPAUDIO);
 
 		// Skip display multipliers x1-x10
-		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
+		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, g_Config.bSystemControls ? L"\tAlt+Return, F11" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_VSYNC);
 		TranslateMenuItem(menu, ID_OPTIONS_SHADER_MENU);
-		TranslateMenuItem(menu, ID_OPTIONS_SCREEN_MENU, L"\tCtrl+1");
+		TranslateMenuItem(menu, ID_OPTIONS_SCREEN_MENU, g_Config.bSystemControls ? L"\tCtrl+1" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_SCREENAUTO);
 		// Skip rendering resolution 2x-5x..
 		TranslateMenuItem(menu, ID_OPTIONS_WINDOW_MENU);
@@ -304,7 +304,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_RENDERMODE_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_NONBUFFEREDRENDERING);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFFEREDRENDERING);
-		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_MENU, L"\tF7");
+		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_MENU, g_Config.bSystemControls ? L"\tF7" : L"");
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_0);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIPTYPE_MENU);
@@ -330,8 +330,8 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
 		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
-		TranslateMenuItem(menu, ID_EMULATION_CHEATS, L"\tCtrl+T");
-		TranslateMenuItem(menu, ID_EMULATION_CHAT, L"\tCtrl+C");
+		TranslateMenuItem(menu, ID_EMULATION_CHEATS, g_Config.bSystemControls ? L"\tCtrl+T" : L"");
+		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu(menu);
