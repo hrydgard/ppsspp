@@ -86,6 +86,7 @@ public:
 	void EndDraw();
 
 	void FinishVolatile();
+	int FinishShutdown();
 
 protected:
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
