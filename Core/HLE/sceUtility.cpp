@@ -145,9 +145,6 @@ static int volatileUnlockEvent = -1;
 
 static void ActivateDialog(UtilityDialogType type) {
 	if (!currentDialogActive) {
-		// TODO: Lock volatile RAM (see https://github.com/hrydgard/ppsspp/issues/8288)
-		// We don't have a virtual dialog thread unlike JPSCP. Not sure if it's OK to
-		// just do it on the current thread - it does seem dangerous to assume so...
 		currentDialogType = type;
 		currentDialogActive = true;
 	}
@@ -155,7 +152,6 @@ static void ActivateDialog(UtilityDialogType type) {
 
 static void DeactivateDialog() {
 	if (currentDialogActive) {
-		// TODO: Unlock and zero volatile RAM.
 		currentDialogActive = false;
 	}
 }
@@ -249,19 +245,14 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 	return ret;
 }
 
-static int sceUtilitySavedataShutdownStart()
-{
+static int sceUtilitySavedataShutdownStart() {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
-	{
-		WARN_LOG(SCEUTILITY, "sceUtilitySavedataShutdownStart(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
-	}
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 
 	DeactivateDialog();
-	DeactivateDialog();
 	int ret = saveDialog.Shutdown();
-	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataShutdownStart()",ret);
-	return ret;
+	hleEatCycles(90000);
+	return hleLogSuccessX(SCEUTILITY, ret);
 }
 
 static int sceUtilitySavedataGetStatus()

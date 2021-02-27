@@ -96,7 +96,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 }
 
 void PSPDialog::FinishVolatile() {
-	if (KernelVolatileMemUnlock(0) == 0) {
+	if (volatileLocked_ && KernelVolatileMemUnlock(0) == 0) {
 		volatileLocked_ = false;
 		// Simulate modifications to volatile memory.
 		Memory::Memset(PSP_GetVolatileMemoryStart(), 0, PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart());
