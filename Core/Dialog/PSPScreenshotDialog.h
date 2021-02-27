@@ -24,7 +24,7 @@ struct SceUtilityScreenshotParams;
 
 class PSPScreenshotDialog : public PSPDialog {
 public:
-	PSPScreenshotDialog();
+	PSPScreenshotDialog(int type);
 	virtual ~PSPScreenshotDialog();
 
 	virtual int Init(u32 paramAddr);

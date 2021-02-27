@@ -53,7 +53,7 @@ struct pspUtilityDialogCommon
 class PSPDialog
 {
 public:
-	PSPDialog();
+	PSPDialog(int type);
 	virtual ~PSPDialog();
 
 	virtual int Update(int animSpeed) = 0;
@@ -80,6 +80,7 @@ public:
 	};
 
 	DialogStatus GetStatus();
+	int DialogType() { return dialogType_; }
 
 	void StartDraw();
 	void EndDraw();
@@ -127,5 +128,6 @@ protected:
 
 private:
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;
+	int dialogType_;
 	bool volatileLocked_ = false;
 };

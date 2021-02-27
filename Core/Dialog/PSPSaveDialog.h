@@ -71,7 +71,7 @@
 
 class PSPSaveDialog: public PSPDialog {
 public:
-	PSPSaveDialog();
+	PSPSaveDialog(int type);
 	virtual ~PSPSaveDialog();
 
 	virtual int Init(int paramAddr);
@@ -136,14 +136,14 @@ private:
 		DB_DELETE
 	};
 
-	DisplayState display;
+	DisplayState display = DS_NONE;
 
 	SavedataParam param;
 	SceUtilitySavedataParam request;
 	// For detecting changes made by the game.
 	SceUtilitySavedataParam originalRequest;
-	u32 requestAddr;
-	int currentSelectedSave;
+	u32 requestAddr = 0;
+	int currentSelectedSave = 0;
 
 	int yesnoChoice;
 
@@ -154,7 +154,7 @@ private:
 		SAVEIO_DONE,
 	};
 
-	std::thread *ioThread;
+	std::thread *ioThread = nullptr;
 	std::mutex paramLock;
 	volatile SaveIOStatus ioThreadStatus;
 };

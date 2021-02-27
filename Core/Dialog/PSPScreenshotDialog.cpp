@@ -52,8 +52,7 @@ struct SceUtilityScreenshotParams {
 	// TODO
 };
 
-PSPScreenshotDialog::PSPScreenshotDialog() : PSPDialog() {
-
+PSPScreenshotDialog::PSPScreenshotDialog(int type) : PSPDialog(type) {
 }
 
 PSPScreenshotDialog::~PSPScreenshotDialog() {

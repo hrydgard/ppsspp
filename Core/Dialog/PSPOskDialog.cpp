@@ -156,7 +156,7 @@ int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL,
 };
 
-PSPOskDialog::PSPOskDialog() : PSPDialog() {
+PSPOskDialog::PSPOskDialog(int type) : PSPDialog(type) {
 	// This can break all kinds of stuff, changing the decimal point in sprintf for example.
 	// Not sure what the intended effect is so commented out for now.
 	// setlocale(LC_ALL, "");

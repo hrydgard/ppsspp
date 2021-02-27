@@ -31,7 +31,7 @@
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
 
-PSPDialog::PSPDialog() {
+PSPDialog::PSPDialog(int type) : dialogType_(type) {
 }
 
 PSPDialog::~PSPDialog() {

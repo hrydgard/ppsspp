@@ -132,12 +132,12 @@ enum UtilityDialogType {
 // Only a single dialog is allowed at a time.
 static UtilityDialogType currentDialogType;
 bool currentDialogActive;
-static PSPSaveDialog saveDialog;
-static PSPMsgDialog msgDialog;
-static PSPOskDialog oskDialog;
-static PSPNetconfDialog netDialog;
-static PSPScreenshotDialog screenshotDialog;
-static PSPGamedataInstallDialog gamedataInstallDialog;
+static PSPSaveDialog saveDialog(UTILITY_DIALOG_SAVEDATA);
+static PSPMsgDialog msgDialog(UTILITY_DIALOG_MSG);
+static PSPOskDialog oskDialog(UTILITY_DIALOG_OSK);
+static PSPNetconfDialog netDialog(UTILITY_DIALOG_NET);
+static PSPScreenshotDialog screenshotDialog(UTILITY_DIALOG_SCREENSHOT);
+static PSPGamedataInstallDialog gamedataInstallDialog(UTILITY_DIALOG_GAMEDATAINSTALL);
 
 static int oldStatus = 100; //random value
 static std::map<int, u32> currentlyLoadedModules;
