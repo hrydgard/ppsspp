@@ -470,6 +470,7 @@ public:
 	// Volatile development settings
 	bool bShowFrameProfiler;
 
+	// Various directories. Autoconfigured, not read from ini.
 	std::string currentDirectory;
 	std::string externalDirectory;
 	std::string memStickDirectory;

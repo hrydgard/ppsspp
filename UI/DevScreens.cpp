@@ -59,6 +59,12 @@
 int GetD3DCompilerVersion();
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
+
+#include "android/jni/app-android.h"
+
+#endif
+
 static const char *logLevelList[] = {
 	"Notice",
 	"Error",
@@ -572,6 +578,24 @@ void SystemInfoScreen::CreateViews() {
 		moga = si->T("(none detected)");
 	}
 	deviceSpecs->Add(new InfoItem("Moga", moga));
+#endif
+
+	ViewGroup *storageScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	storageScroll->SetTag("DevSystemInfoBuildConfig");
+	LinearLayout *storage = new LinearLayout(ORIENT_VERTICAL);
+	storage->SetSpacing(0);
+	storageScroll->Add(storage);
+	tabHolder->AddTab(si->T("Storage"), storageScroll);
+
+	storage->Add(new ItemHeader(si->T("Directories")));
+	// Intentionally non-translated
+	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory));
+	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory));
+	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory));
+	storage->Add(new InfoItem("ExtStorageDir", g_Config.externalDirectory));
+
+#if PPSSPP_PLATFORM(ANDROID)
+	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 #endif
 
 	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

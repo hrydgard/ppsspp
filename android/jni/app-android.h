@@ -17,3 +17,5 @@ class AndroidLogger : public LogListener {
 public:
 	void Log(const LogMessage &message) override;
 };
+
+extern std::string g_extFilesDir;

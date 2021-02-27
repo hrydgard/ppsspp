@@ -492,6 +492,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.externalDirectory = external_dir;
 
 #if defined(__ANDROID__)
+	// TODO: This needs to change in Android 12.
+	//
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.

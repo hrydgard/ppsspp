@@ -402,8 +402,10 @@ public abstract class NativeActivity extends Activity {
 
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+		String externalFilesDir = this.getExternalFilesDir(null).getAbsolutePath();
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
+		Log.i(TAG, "Ext files dir: " + externalFilesDir);
 
 		String additionalStorageDirs = "";
 		try {
@@ -442,7 +444,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
