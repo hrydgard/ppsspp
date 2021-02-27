@@ -483,11 +483,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
-		// return System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
-		return androidVersion >= 21;
+		// It's only really needed with scoped storage, but why not make it available
+		// as far back as possible - works just fine.
+		return androidVersion >= 19;  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
-		return androidVersion >= 21;
+		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
