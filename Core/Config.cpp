@@ -1529,6 +1529,8 @@ void Config::RemoveRecent(const std::string &file) {
 	}
 }
 
+// TODO: This can be called during shutdown at a point where we have no NativeActivity object.
+// That causes us to drop all content URI isos since they fail to open.
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {

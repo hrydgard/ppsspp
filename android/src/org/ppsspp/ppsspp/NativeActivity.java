@@ -1146,6 +1146,7 @@ public abstract class NativeActivity extends Activity {
 			if (selectedFile != null) {
 				// NativeApp.sendMessage("br");
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
 			Uri selectedFile = data.getData();

@@ -1183,6 +1183,10 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 		if (!strcmp(message, "boot")) {
 			LaunchFile(screenManager(), std::string(value));
 		}
+		if (!strcmp(message, "browse_fileSelect")) {
+			INFO_LOG(SYSTEM, "Attempting to launch: '%s'", value);
+			LaunchFile(screenManager(), std::string(value));
+		}
 		if (!strcmp(message, "browse_folderSelect")) {
 			std::string filename;
 #if PPSSPP_PLATFORM(ANDROID)

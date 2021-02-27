@@ -50,7 +50,7 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 	}
 
 	for (auto &iter : factories) {
-		if (startsWith(iter.first, filename)) {
+		if (startsWith(filename, iter.first)) {
 			return iter.second->ConstructFileLoader(filename);
 		}
 	}
@@ -126,6 +126,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	size_t readSize = fileLoader->ReadAt(0, 4, 1, &id);
 	if (readSize != 1) {
+		ERROR_LOG(LOADER, "Failed to read identification bytes");
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
@@ -293,7 +294,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 
 	case IdentifiedFileType::ERROR_IDENTIFYING:
-		ERROR_LOG(LOADER, "Could not read file");
+		ERROR_LOG(LOADER, "Could not read file enough to identify it");
 		*error_string = fileLoader ? fileLoader->LatestError() : "";
 		if (error_string->empty())
 			*error_string = "Error reading file";
