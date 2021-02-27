@@ -128,3 +128,9 @@ void PSPScreenshotDialog::DoState(PointerWrap &p) {
 		Do(p, params_);
 	}
 }
+
+pspUtilityDialogCommon *PSPScreenshotDialog::GetCommonParam() {
+	if (params_.IsValid())
+		return &params_->base;
+	return nullptr;
+}

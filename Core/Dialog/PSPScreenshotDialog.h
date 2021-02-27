@@ -31,6 +31,7 @@ public:
 	virtual int Update(int animSpeed) override;
 	virtual int ContStart();
 	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
 	// TODO: Manage status correctly.
