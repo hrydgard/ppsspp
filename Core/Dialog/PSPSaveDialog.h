@@ -71,7 +71,7 @@
 
 class PSPSaveDialog: public PSPDialog {
 public:
-	PSPSaveDialog(int type);
+	PSPSaveDialog(UtilityDialogType type);
 	virtual ~PSPSaveDialog();
 
 	virtual int Init(int paramAddr);

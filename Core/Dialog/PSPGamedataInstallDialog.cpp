@@ -55,7 +55,7 @@ namespace
 	}
 }
 
-PSPGamedataInstallDialog::PSPGamedataInstallDialog(int type) : PSPDialog(type) {
+PSPGamedataInstallDialog::PSPGamedataInstallDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {

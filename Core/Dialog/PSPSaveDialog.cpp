@@ -56,7 +56,7 @@ const static int SAVEDATA_DIALOG_SIZE_V2 = 1500;
 const static int SAVEDATA_DIALOG_SIZE_V3 = 1536;
 
 
-PSPSaveDialog::PSPSaveDialog(int type) : PSPDialog(type) {
+PSPSaveDialog::PSPSaveDialog(UtilityDialogType type) : PSPDialog(type) {
 	param.SetPspParam(0);
 }
 

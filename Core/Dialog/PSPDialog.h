@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "Common/Render/TextureAtlas.h"
-
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/Swap.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/Util/PPGeDraw.h"
 
 class PointerWrap;
@@ -53,7 +53,7 @@ struct pspUtilityDialogCommon
 class PSPDialog
 {
 public:
-	PSPDialog(int type);
+	PSPDialog(UtilityDialogType type);
 	virtual ~PSPDialog();
 
 	virtual int Update(int animSpeed) = 0;
@@ -80,7 +80,7 @@ public:
 	};
 
 	DialogStatus GetStatus();
-	int DialogType() { return dialogType_; }
+	UtilityDialogType DialogType() { return dialogType_; }
 
 	void StartDraw();
 	void EndDraw();
@@ -129,6 +129,6 @@ protected:
 
 private:
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;
-	int dialogType_;
+	UtilityDialogType dialogType_;
 	bool volatileLocked_ = false;
 };

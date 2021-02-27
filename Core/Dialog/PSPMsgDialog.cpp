@@ -35,7 +35,7 @@ static const float FONT_SCALE = 0.65f;
 const static int MSG_INIT_DELAY_US = 300000;
 const static int MSG_SHUTDOWN_DELAY_US = 26000;
 
-PSPMsgDialog::PSPMsgDialog(int type) : PSPDialog(type) {
+PSPMsgDialog::PSPMsgDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPMsgDialog::~PSPMsgDialog() {
