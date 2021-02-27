@@ -100,8 +100,7 @@ public:
 
 class ProxiedFileLoader : public FileLoader {
 public:
-	ProxiedFileLoader(FileLoader *backend) : backend_(backend) {
-	}
+	ProxiedFileLoader(FileLoader *backend) : backend_(backend) {}
 	~ProxiedFileLoader() override {
 		// Takes ownership.
 		delete backend_;
@@ -130,6 +129,12 @@ public:
 	}
 	std::string LatestError() const override {
 		return backend_->LatestError();
+	}
+	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
+		return backend_->ReadAt(absolutePos, bytes, count, data, flags);
+	}
+	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override {
+		return backend_->ReadAt(absolutePos, bytes, data, flags);
 	}
 
 protected:

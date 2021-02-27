@@ -246,19 +246,29 @@ int Android_OpenContentUriFd(const std::string &filename) {
 	return fd;
 }
 
-void Android_CloseContentUriFd(int fd) {
-	if (!fd) {
-		return;
+class ContentURIFileLoader : public ProxiedFileLoader {
+public:
+	ContentURIFileLoader(const std::string &filename)
+		: ProxiedFileLoader(nullptr) {  // we overwrite the nullptr below
+		int fd = Android_OpenContentUriFd(filename);
+		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
+		backend_ = new LocalFileLoader(fd, filename);
 	}
-}
+
+	bool ExistsFast() override {
+		if (!nativeActivity) {
+			// Assume it does if we don't have a NativeActivity right now.
+			return true;
+		}
+		return backend_->ExistsFast();
+	}
+};
 
 class AndroidContentLoaderFactory : public FileLoaderFactory {
 public:
 	AndroidContentLoaderFactory() {}
 	FileLoader *ConstructFileLoader(const std::string &filename) override {
-		int fd = Android_OpenContentUriFd(filename);
-		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
-		return new LocalFileLoader(fd, filename);
+		return new ContentURIFileLoader(filename);
 	}
 };
 
@@ -687,7 +697,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
-
 
 	std::unique_ptr<FileLoaderFactory> factory(new AndroidContentLoaderFactory());
 
