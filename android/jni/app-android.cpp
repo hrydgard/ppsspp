@@ -93,6 +93,9 @@ struct JNIEnv {};
 
 bool useCPUThread = true;
 
+// We'll turn this on when we target Android 12.
+bool useScopedStorageIfRequired = false;
+
 enum class EmuThreadState {
 	DISABLED,
 	START_REQUESTED,
@@ -123,6 +126,8 @@ std::string systemName;
 std::string langRegion;
 std::string mogaVersion;
 std::string boardName;
+
+std::string g_extFilesDir;
 
 std::vector<std::string> g_additionalStorageDirs;
 
@@ -445,6 +450,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
+	case SYSPROP_ANDROID_SCOPED_STORAGE:
+		if (useScopedStorageIfRequired && androidVersion >= 28)
+			return true;
 	default:
 		return false;
 	}
@@ -560,7 +568,7 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
+		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	setCurrentThreadName("androidInit");
 
@@ -592,6 +600,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
 	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
+	std::string externalFilesDir = GetJavaString(env, jexternalFilesDir);
+
+	g_extFilesDir = externalFilesDir;
 
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
