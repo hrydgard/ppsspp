@@ -213,7 +213,7 @@ enum class PSPOskNativeStatus {
 
 class PSPOskDialog: public PSPDialog {
 public:
-	PSPOskDialog(int type);
+	PSPOskDialog(UtilityDialogType type);
 	virtual ~PSPOskDialog();
 
 	virtual int Init(u32 oskPtr);

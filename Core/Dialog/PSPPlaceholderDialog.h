@@ -21,7 +21,7 @@
 
 class PSPPlaceholderDialog: public PSPDialog {
 public:
-	PSPPlaceholderDialog(int type);
+	PSPPlaceholderDialog(UtilityDialogType type);
 	virtual ~PSPPlaceholderDialog();
 
 	virtual int Init();
