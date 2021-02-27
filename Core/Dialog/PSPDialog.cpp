@@ -66,6 +66,13 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 		if (status == SCE_UTILITY_STATUS_INITIALIZE)
 			status = SCE_UTILITY_STATUS_RUNNING;
 	}
+	if (status == SCE_UTILITY_STATUS_SHUTDOWN) {
+		if (volatileLocked_) {
+			FinishVolatile();
+			UtilityCancelVolatileUnlock();
+			volatileLocked_ = false;
+		}
+	}
 	return retval;
 }
 
