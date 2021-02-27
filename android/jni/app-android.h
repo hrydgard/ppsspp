@@ -2,6 +2,7 @@
 
 #include "ppsspp_config.h"
 
+#include <string>
 #include "Common/LogManager.h"
 
 #if PPSSPP_PLATFORM(ANDROID)

@@ -31,8 +31,28 @@
 #include <fcntl.h>
 #endif
 
+#ifndef _WIN32
+LocalFileLoader::LocalFileLoader(int fd, const std::string &filename) : fd_(fd), filename_(filename), isOpenedByFd_(fd != -1) {
+	if (fd != -1) {
+		DetectSizeFd();
+	}
+}
+
+void LocalFileLoader::DetectSizeFd() {
+#if PPSSPP_PLATFORM(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+	off64_t off = lseek64(fd_, 0, SEEK_END);
+	filesize_ = off;
+	lseek64(fd_, 0, SEEK_SET);
+#else
+	off_t off = lseek(fd_, 0, SEEK_END);
+	filesize_ = off;
+	lseek(fd_, 0, SEEK_SET);
+#endif
+}
+#endif
+
 LocalFileLoader::LocalFileLoader(const std::string &filename)
-	: filesize_(0), filename_(filename) {
+	: filesize_(0), filename_(filename), isOpenedByFd_(false) {
 	if (filename.empty()) {
 		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
 		return;
@@ -43,15 +63,8 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	if (fd_ == -1) {
 		return;
 	}
-#if PPSSPP_PLATFORM(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
-	off64_t off = lseek64(fd_, 0, SEEK_END);
-	filesize_ = off;
-	lseek64(fd_, 0, SEEK_SET);
-#else
-	off_t off = lseek(fd_, 0, SEEK_END);
-	filesize_ = off;
-	lseek(fd_, 0, SEEK_SET);
-#endif
+
+	DetectSizeFd();
 
 #else // _WIN32
 
@@ -92,6 +105,9 @@ LocalFileLoader::~LocalFileLoader() {
 bool LocalFileLoader::Exists() {
 	// If we couldn't open it for reading, we say it does not exist.
 #ifndef _WIN32
+	if (isOpenedByFd_) {
+		return true;
+	}
 	if (fd_ != -1 || IsDirectory()) {
 #else
 	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {

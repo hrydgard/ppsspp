@@ -596,6 +596,9 @@ void SystemInfoScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		storage->Add(new InfoItem("Scoped Storage", di->T("Yes")));
+	}
 #endif
 
 	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
