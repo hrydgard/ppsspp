@@ -2025,20 +2025,22 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	// Force args means just use those as a0/a1 without any special treatment.
 	// This is a hack to avoid allocating memory for helper threads which take args.
-	if ((argBlockPtr && argSize > 0) || forceArgs) {
+	if (forceArgs) {
+		startThread->context.r[MIPS_REG_A0] = argSize;
+		startThread->context.r[MIPS_REG_A1] = argBlockPtr;
+	} else if (argBlockPtr && argSize > 0) {
 		// Make room for the arguments, always 0x10 aligned.
-		if (!forceArgs)
-			sp -= (argSize + 0xf) & ~0xf;
+		sp -= (argSize + 0xf) & ~0xf;
 		startThread->context.r[MIPS_REG_A0] = argSize;
 		startThread->context.r[MIPS_REG_A1] = sp;
+
+		// Now copy argument to stack.
+		if (Memory::IsValidAddress(argBlockPtr)) {
+			Memory::Memcpy(sp, argBlockPtr, argSize, "ThreadStartArgs");
+		}
 	} else {
 		startThread->context.r[MIPS_REG_A0] = 0;
 		startThread->context.r[MIPS_REG_A1] = 0;
-	}
-
-	// Now copy argument to stack.
-	if (!forceArgs && Memory::IsValidAddress(argBlockPtr)) {
-		Memory::Memcpy(sp, argBlockPtr, argSize, "ThreadStartArgs");
 	}
 
 	// On the PSP, there's an extra 64 bytes of stack eaten after the args.

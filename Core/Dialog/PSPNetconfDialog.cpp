@@ -54,7 +54,7 @@ struct ScanInfos {
 } PACK;
 
 
-PSPNetconfDialog::PSPNetconfDialog() {
+PSPNetconfDialog::PSPNetconfDialog(int type) : PSPDialog(type) {
 }
 
 PSPNetconfDialog::~PSPNetconfDialog() {

@@ -37,7 +37,7 @@ struct SceUtilityNetconfParam {
 
 class PSPNetconfDialog: public PSPDialog {
 public:
-	PSPNetconfDialog();
+	PSPNetconfDialog(int type);
 	virtual ~PSPNetconfDialog();
 
 	virtual int Init(u32 paramAddr);

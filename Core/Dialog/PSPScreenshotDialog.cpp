@@ -52,8 +52,7 @@ struct SceUtilityScreenshotParams {
 	// TODO
 };
 
-PSPScreenshotDialog::PSPScreenshotDialog() : PSPDialog() {
-
+PSPScreenshotDialog::PSPScreenshotDialog(int type) : PSPDialog(type) {
 }
 
 PSPScreenshotDialog::~PSPScreenshotDialog() {
@@ -128,4 +127,10 @@ void PSPScreenshotDialog::DoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, params_);
 	}
+}
+
+pspUtilityDialogCommon *PSPScreenshotDialog::GetCommonParam() {
+	if (params_.IsValid())
+		return &params_->base;
+	return nullptr;
 }

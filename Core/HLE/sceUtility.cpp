@@ -27,8 +27,10 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
@@ -132,32 +134,38 @@ enum UtilityDialogType {
 // Only a single dialog is allowed at a time.
 static UtilityDialogType currentDialogType;
 bool currentDialogActive;
-static PSPSaveDialog saveDialog;
-static PSPMsgDialog msgDialog;
-static PSPOskDialog oskDialog;
-static PSPNetconfDialog netDialog;
-static PSPScreenshotDialog screenshotDialog;
-static PSPGamedataInstallDialog gamedataInstallDialog;
+static PSPSaveDialog saveDialog(UTILITY_DIALOG_SAVEDATA);
+static PSPMsgDialog msgDialog(UTILITY_DIALOG_MSG);
+static PSPOskDialog oskDialog(UTILITY_DIALOG_OSK);
+static PSPNetconfDialog netDialog(UTILITY_DIALOG_NET);
+static PSPScreenshotDialog screenshotDialog(UTILITY_DIALOG_SCREENSHOT);
+static PSPGamedataInstallDialog gamedataInstallDialog(UTILITY_DIALOG_GAMEDATAINSTALL);
 
 static int oldStatus = 100; //random value
 static std::map<int, u32> currentlyLoadedModules;
 static int volatileUnlockEvent = -1;
+static HLEHelperThread *accessThread = nullptr;
+
+static void CleanupDialogThreads() {
+	if (accessThread && accessThread->Stopped()) {
+		delete accessThread;
+		accessThread = nullptr;
+	}
+}
 
 static void ActivateDialog(UtilityDialogType type) {
 	if (!currentDialogActive) {
-		// TODO: Lock volatile RAM (see https://github.com/hrydgard/ppsspp/issues/8288)
-		// We don't have a virtual dialog thread unlike JPSCP. Not sure if it's OK to
-		// just do it on the current thread - it does seem dangerous to assume so...
 		currentDialogType = type;
 		currentDialogActive = true;
 	}
+	CleanupDialogThreads();
 }
 
 static void DeactivateDialog() {
 	if (currentDialogActive) {
-		// TODO: Unlock and zero volatile RAM.
 		currentDialogActive = false;
 	}
+	CleanupDialogThreads();
 }
 
 static void UtilityVolatileUnlock(u64 userdata, int cyclesLate) {
@@ -179,7 +187,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 3);
+	auto s = p.Section("sceUtility", 1, 4);
 	if (!s) {
 		return;
 	}
@@ -209,6 +217,22 @@ void __UtilityDoState(PointerWrap &p) {
 		volatileUnlockEvent = -1;
 	}
 	CoreTiming::RestoreRegisterEvent(volatileUnlockEvent, "UtilityVolatileUnlock", UtilityVolatileUnlock);
+
+	bool hasAccessThread = accessThread != nullptr;
+	if (s >= 4) {
+		Do(p, hasAccessThread);
+		if (hasAccessThread) {
+			Do(p, accessThread);
+		}
+	} else {
+		hasAccessThread = false;
+	}
+
+	if (!hasAccessThread && accessThread) {
+		accessThread->Forget();
+		delete accessThread;
+		accessThread = nullptr;
+	}
 }
 
 void __UtilityShutdown() {
@@ -218,14 +242,67 @@ void __UtilityShutdown() {
 	netDialog.Shutdown(true);
 	screenshotDialog.Shutdown(true);
 	gamedataInstallDialog.Shutdown(true);
+
+	if (accessThread) {
+		delete accessThread;
+		accessThread = nullptr;
+	}
 }
 
-void UtilityScheduleVolatileUnlock(s64 cyclesIntoFuture) {
-	CoreTiming::ScheduleEvent(cyclesIntoFuture, volatileUnlockEvent, 0);
+void UtilityDialogShutdown(int type, int delayUs, int priority) {
+	// Break it up so better-priority rescheduling happens.
+	// The windows aren't this regular, but close.
+	int partDelay = delayUs / 4;
+	const u32_le insts[] = {
+		// Make sure we don't discard/deadbeef 'em.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, type),
+		(u32_le)MIPS_MAKE_JR_RA(),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityFinishDialog"),
+	};
+
+	CleanupDialogThreads();
+	_assert_(accessThread == nullptr);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread->Start(partDelay, 0);
 }
 
-void UtilityCancelVolatileUnlock() {
-	CoreTiming::UnscheduleEvent(volatileUnlockEvent, 0);
+static int UtilityWorkUs(int us) {
+	// This blocks, but other better priority threads can get time.
+	// Simulate this by allowing a reschedule.
+	hleEatMicro(us);
+	hleReSchedule("utility work");
+	return 0;
+}
+
+static int UtilityFinishDialog(int type) {
+	switch (type) {
+	case UTILITY_DIALOG_NONE:
+		break;
+	case UTILITY_DIALOG_SAVEDATA:
+		return hleLogSuccessI(SCEUTILITY, saveDialog.FinishShutdown());
+	case UTILITY_DIALOG_MSG:
+		return hleLogSuccessI(SCEUTILITY, msgDialog.FinishShutdown());
+	case UTILITY_DIALOG_OSK:
+		return hleLogSuccessI(SCEUTILITY, oskDialog.FinishShutdown());
+	case UTILITY_DIALOG_NET:
+		return hleLogSuccessI(SCEUTILITY, netDialog.FinishShutdown());
+	case UTILITY_DIALOG_SCREENSHOT:
+		return hleLogSuccessI(SCEUTILITY, screenshotDialog.FinishShutdown());
+	case UTILITY_DIALOG_GAMESHARING:
+		return hleLogError(SCEUTILITY, -1, "unimplemented");
+	case UTILITY_DIALOG_GAMEDATAINSTALL:
+		return hleLogSuccessI(SCEUTILITY, gamedataInstallDialog.FinishShutdown());
+	}
+	return hleLogError(SCEUTILITY, 0, "invalid dialog type?");
 }
 
 static int sceUtilitySavedataInitStart(u32 paramAddr)
@@ -249,19 +326,14 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 	return ret;
 }
 
-static int sceUtilitySavedataShutdownStart()
-{
+static int sceUtilitySavedataShutdownStart() {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
-	{
-		WARN_LOG(SCEUTILITY, "sceUtilitySavedataShutdownStart(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
-	}
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 
 	DeactivateDialog();
-	DeactivateDialog();
 	int ret = saveDialog.Shutdown();
-	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataShutdownStart()",ret);
-	return ret;
+	hleEatCycles(30000);
+	return hleLogSuccessX(SCEUTILITY, ret);
 }
 
 static int sceUtilitySavedataGetStatus()
@@ -279,6 +351,7 @@ static int sceUtilitySavedataGetStatus()
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
 	}
 	hleEatCycles(200);
+	CleanupDialogThreads();
 	return status;
 }
 
@@ -438,6 +511,7 @@ static int sceUtilityMsgDialogGetStatus()
 		oldStatus = status;
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogGetStatus()", status);
 	}
+	CleanupDialogThreads();
 	return status;
 }
 
@@ -511,6 +585,7 @@ static int sceUtilityOskGetStatus()
 		oldStatus = status;
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
 	}
+	CleanupDialogThreads();
 	return status;
 }
 
@@ -553,6 +628,7 @@ static int sceUtilityNetconfGetStatus() {
 		oldStatus = status;
 		return hleLogSuccessI(SCEUTILITY, status);
 	}
+	CleanupDialogThreads();
 	return hleLogSuccessVerboseI(SCEUTILITY, status);
 }
 
@@ -622,6 +698,7 @@ static int sceUtilityScreenshotGetStatus()
 		oldStatus = status;
 		WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotGetStatus()", status);
 	}
+	CleanupDialogThreads();
 	return status;
 }
 
@@ -687,6 +764,7 @@ static int sceUtilityGamedataInstallGetStatus()
 
 	int status = gamedataInstallDialog.GetStatus();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallGetStatus()", status);
+	CleanupDialogThreads();
 	return status;
 }
 
@@ -902,6 +980,7 @@ static int sceUtilityGameSharingGetStatus()
 	}
 
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingGetStatus()");
+	CleanupDialogThreads();
 	return 0;
 }
 
@@ -1064,6 +1143,10 @@ const HLEFunction sceUtility[] =
 	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   },
 	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
 	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
+
+	// Fake functions for PPSSPP's use.
+	{0xC0DE0001, &WrapI_I<UtilityFinishDialog>,                    "__UtilityFinishDialog",                  'i', "i"  },
+	{0xC0DE0002, &WrapI_I<UtilityWorkUs>,                          "__UtilityWorkUs",                        'i', "i"  },
 };
 
 void Register_sceUtility()

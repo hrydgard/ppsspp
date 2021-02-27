@@ -31,7 +31,7 @@
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
 
-PSPDialog::PSPDialog() {
+PSPDialog::PSPDialog(int type) : dialogType_(type) {
 }
 
 PSPDialog::~PSPDialog() {
@@ -41,15 +41,10 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 	if (pendingStatusTicks != 0 && CoreTiming::GetTicks() >= pendingStatusTicks) {
 		bool changeAllowed = true;
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
-			if (volatileLocked_) {
-				FinishVolatile();
-				UtilityCancelVolatileUnlock();
-				volatileLocked_ = false;
-			}
+			FinishVolatile();
 		} else if (pendingStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
 			if (!volatileLocked_) {
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
-				UtilityCancelVolatileUnlock();
 				changeAllowed = volatileLocked_;
 			}
 		}
@@ -72,16 +67,11 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 	if (delayUs <= 0) {
 		if (newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
-			if (volatileLocked_) {
-				FinishVolatile();
-				UtilityCancelVolatileUnlock();
-				volatileLocked_ = false;
-			}
+			FinishVolatile();
 		} else if (newStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
 			if (!volatileLocked_) {
 				// TODO: Should probably make the status pending instead?
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
-				UtilityCancelVolatileUnlock();
 			}
 		}
 		status = newStatus;
@@ -89,18 +79,25 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 	} else {
 		pendingStatus = newStatus;
 		pendingStatusTicks = CoreTiming::GetTicks() + usToCycles(delayUs);
-		if (volatileLocked_ && newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
-			UtilityScheduleVolatileUnlock(usToCycles(delayUs));
-		}
 	}
 }
 
 void PSPDialog::FinishVolatile() {
+	if (!volatileLocked_)
+		return;
+
 	if (KernelVolatileMemUnlock(0) == 0) {
 		volatileLocked_ = false;
 		// Simulate modifications to volatile memory.
 		Memory::Memset(PSP_GetVolatileMemoryStart(), 0, PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart());
 	}
+}
+
+int PSPDialog::FinishShutdown() {
+	if (ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN)
+		return -1;
+	ChangeStatus(SCE_UTILITY_STATUS_NONE, 0);
+	return 0;
 }
 
 void PSPDialog::ChangeStatusInit(int delayUs) {
@@ -110,7 +107,11 @@ void PSPDialog::ChangeStatusInit(int delayUs) {
 
 void PSPDialog::ChangeStatusShutdown(int delayUs) {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
-	ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
+	auto params = GetCommonParam();
+	if (params)
+		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread);
+	else
+		ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
 }
 
 void PSPDialog::StartDraw()
