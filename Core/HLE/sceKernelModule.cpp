@@ -2449,12 +2449,18 @@ u32 sceKernelFindModuleByName(const char *name)
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 		if (!module)
 			continue;
-		if (!module->isFake && strcmp(name, module->nm.name) == 0) {
-			INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
-			return module->modulePtr;
+		if (strcmp(name, module->nm.name) == 0) {
+			if (!module->isFake) {
+				INFO_LOG(SCEMODULE, "%d = sceKernelFindModuleByName(%s)", module->modulePtr, name);
+				return module->modulePtr;
+			}
+			else {
+				WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Fake", name);
+				return hleDelayResult(0, "Module Fake", 1000 * 1000);
+			}
 		}
 	}
-	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found or Fake", name);
+	WARN_LOG(SCEMODULE, "0 = sceKernelFindModuleByName(%s): Module Not Found", name);
 	return 0;
 }
 
