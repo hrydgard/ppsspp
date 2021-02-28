@@ -744,7 +744,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const char *lightComputations[] = {
 				"diffuse",
 				"diffuse + spec",
-				"pow(diffuse) + spec",
+				"pow(diffuse)",
 				"unknown (diffuse?)",
 			};
 			const char *lightTypes[] = {
