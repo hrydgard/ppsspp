@@ -120,6 +120,9 @@
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #endif
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
 
 // The new UI framework, for initialization
 
@@ -465,6 +468,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
+
 #if PPSSPP_PLATFORM(SWITCH)
 	Path assetPath = Path(user_data_path) / "assets";
 	VFSRegister("", new DirectoryAssetReader(assetPath));
@@ -478,11 +482,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		host = new NativeHost();
 	}
 #endif
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+#if PPSSPP_PLATFORM(ANDROID)
+		g_Config.externalDirectory = Path(g_extFilesDir);
+#endif
+	} else {
+		g_Config.externalDirectory = Path(external_dir);
+	}
 
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
 
 #if defined(__ANDROID__)
+
 	// TODO: This needs to change in Android 12.
 	//
 	// Maybe there should be an option to use internal memory instead, but I think
