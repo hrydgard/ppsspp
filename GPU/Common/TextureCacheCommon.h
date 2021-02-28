@@ -28,12 +28,6 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 
-enum TextureFiltering {
-	TEX_FILTER_AUTO = 1,
-	TEX_FILTER_FORCE_NEAREST = 2,
-	TEX_FILTER_FORCE_LINEAR = 3,
-};
-
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
 	NOTIFY_FB_UPDATED,
@@ -53,6 +47,7 @@ enum FramebufferNotificationChannel {
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
 struct VirtualFramebuffer;
+class TextureReplacer;
 
 namespace Draw {
 class DrawContext;

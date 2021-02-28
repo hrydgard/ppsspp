@@ -28,7 +28,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
 #include "Core/Config.h"
