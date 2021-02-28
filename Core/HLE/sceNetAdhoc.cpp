@@ -418,7 +418,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
 		if (ret >= 0) {
-			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+			DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
 			// Peer MAC
 			SceNetEtherAddr mac;
@@ -443,7 +443,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 				*req.length = ret;
 				*req.remotePort = ntohs(sin.sin_port) - portOffset;
 
-				WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", req.id, getLocalPort(uid), ret, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+				WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", req.id, getLocalPort(uid), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 			}
 		}
 		result = 0;
@@ -460,7 +460,7 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	}
 	// Returning required buffer size when available data in recv buffer is larger than provided buffer size
 	else if (ret > *req.length) {
-		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, *req.length, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+		WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(uid), ret, *req.length, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 		*req.length = ret;
 
 		// Peer MAC
@@ -512,7 +512,7 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 		int sockerr = errno;
 
 		if (ret >= 0) {
-			DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](B): Sent %u bytes to %s:%u\n", uid, getLocalPort(pdpsocket.id), ret, inet_ntoa(target.sin_addr), ntohs(target.sin_port));
+			DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](B): Sent %u bytes to %s:%u\n", uid, getLocalPort(pdpsocket.id), ret, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
 			// Remove successfully sent to peer to prevent sending the same data again during a retry
 			peer = targetPeers.peers.erase(peer);
 		}
@@ -709,7 +709,7 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 		// Set Connected State
 		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
-		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+		INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 
 		// Success
 		result = 0;
@@ -1476,7 +1476,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									hleEatMicro(1000); // Can be longer than 1ms tho
 									// Sent Data
 									if (sent >= 0) {
-										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, inet_ntoa(target.sin_addr), ntohs(target.sin_port));
+										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
 
 										// Success
 										return 0; // sent; // MotorStorm will try to resend if return value is not 0
@@ -1555,7 +1555,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 										}
 
 										if (sent >= 0) {
-											DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](BC): Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, inet_ntoa(target.sin_addr), ntohs(target.sin_port));
+											DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](BC): Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
 										}
 									}
 								}
@@ -1686,7 +1686,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
 
 				if (received != SOCKET_ERROR && *len < received) {
-					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 					*len = received;
 
 					// Peer MAC
@@ -1729,7 +1729,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				hleEatMicro(1000);
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
 				if (received >= 0) {
-					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
 					// Peer MAC
 					SceNetEtherAddr mac;
@@ -1758,7 +1758,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					// Unknown Peer, let's not give any data
 					else {
 						//*len = 0; // received; // Is this going to be okay since saddr may not be valid?
-						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", id, getLocalPort(pdpsocket.id), received, inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 					}
 					// Free Network Lock
 					//_freeNetworkLock();
@@ -3343,7 +3343,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Switch to non-blocking for futher usage
 					changeBlockingMode(newsocket, 1);
 
-					INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u) - state: %d", ptpId, i + 1, internal->data.ptp.lport, inet_ntoa(peeraddr.sin_addr), internal->data.ptp.pport, internal->data.ptp.state);
+					INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u) - state: %d", ptpId, i + 1, internal->data.ptp.lport, ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
 
 					// Return Socket
 					return i + 1;
@@ -3514,9 +3514,9 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 					if (connectresult == SOCKET_ERROR) {
 						if (errorcode == EAGAIN || errorcode == EWOULDBLOCK || errorcode == EALREADY || errorcode == EISCONN)
-							DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+							DEBUG_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 						else
-							ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+							ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i) to %s:%u", id, errorcode, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 					}
 
 					// Instant Connection (Lucky!)
@@ -3526,7 +3526,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
-						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, inet_ntoa(sin.sin_addr), ptpsocket.pport);
+						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 						// Success
 						return 0;
 					}
@@ -5732,7 +5732,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 							discovered++;
 
 							u32_le ipaddr = peer->ip_addr;
-							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
+							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), (const char*)&peer->nickname.data, peer->last_recv);
 						}
 					}
 
@@ -5824,7 +5824,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 						u64 lastrecv = std::max(0LL, static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
 						buf[discovered++].last_recv = lastrecv;
 
-						DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&mac).c_str(), inet_ntoa(addr.sin_addr), nickName, lastrecv);
+						DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&mac).c_str(), ip2str(addr.sin_addr).c_str(), nickName, lastrecv);
 					}
 
 					// Peer Reference
@@ -5847,7 +5847,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 							buf[discovered++].last_recv = peer->last_recv;
 
 							u32_le ipaddr = peer->ip_addr;
-							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
+							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), (const char*)&peer->nickname.data, peer->last_recv);
 						}
 					}
 

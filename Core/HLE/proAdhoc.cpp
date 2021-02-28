@@ -149,6 +149,14 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac, uint
 	return false;
 }
 
+// Replacement for inet_ntoa since it's getting deprecated
+std::string ip2str(in_addr in) {
+	char str[INET_ADDRSTRLEN] = "...";
+	u8* ipptr = (u8*)&in;
+	snprintf(str, sizeof(str), "%u.%u.%u.%u", ipptr[0], ipptr[1], ipptr[2], ipptr[3]);
+	return std::string(str);
+}
+
 std::string mac2str(SceNetEtherAddr* mac) {
 	char str[18] = ":::::";
 
@@ -196,7 +204,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	// Already existed
 	if (peer != NULL) {
 		u32 tmpip = packet->ip;
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(struct in_addr*)&tmpip).c_str(), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -437,7 +445,7 @@ void deleteFriendByIP(uint32_t ip) {
 			*/
 
 			u32 tmpip = peer->ip_addr;
-			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(struct in_addr *)&tmpip)); //inet_ntoa(*(in_addr*)&peer->ip_addr)
+			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr).c_str(), ip2str(*(struct in_addr *)&tmpip).c_str()); //inet_ntoa(*(in_addr*)&peer->ip_addr)
 
 			// Free Memory
 			//free(peer);
@@ -1523,7 +1531,7 @@ int friendFinder(){
 
 						// Log Incoming Peer
                         u32_le ipaddr = packet->ip;
-						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), packet->name.data);
 
 						// Add User
 						addFriend(packet);
@@ -2128,8 +2136,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		// Bind Local Address to Socket
 		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
 		if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(g_localhostIP.in.sin_addr), iResult);
-			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(g_localhostIP.in.sin_addr), 2.0, 0x0000ff);
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", ip2str(g_localhostIP.in.sin_addr).c_str(), iResult);
+			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str(), 2.0, 0x0000ff);
 		}
 	}
 	
@@ -2169,7 +2177,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			sleep_ms(10);
 		}
 		if (IsSocketReady(metasocket, false, true) <= 0) {
-			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(g_adhocServerIP.in.sin_addr), ntohs(g_adhocServerIP.in.sin_port));
+			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
 			return iResult;
 		}
