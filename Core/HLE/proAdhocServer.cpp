@@ -513,7 +513,7 @@ void login_user_stream(int fd, uint32_t ip)
 		while(u != NULL && u->resolver.ip != ip) u = u->next;
 
 		if (u != NULL) { // IP Already existed
-			WARN_LOG(SCENET, "AdhocServer: Already Existing IP: %s\n", inet_ntoa(*(in_addr*)&u->resolver.ip));
+			WARN_LOG(SCENET, "AdhocServer: Already Existing IP: %s\n", ip2str(*(in_addr*)&u->resolver.ip).c_str());
 		}
 
 		// Unique IP Address
@@ -543,7 +543,7 @@ void login_user_stream(int fd, uint32_t ip)
 				user->last_recv = time(NULL);
 
 				// Notify User
-				INFO_LOG(SCENET, "AdhocServer: New Connection from %s", inet_ntoa(*(in_addr*)&user->resolver.ip));
+				INFO_LOG(SCENET, "AdhocServer: New Connection from %s", ip2str(*(in_addr*)&user->resolver.ip).c_str());
 
 				// Fix User Counter
 				_db_user_count++;
@@ -586,7 +586,7 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 		while (u != NULL && !IsMatch(u->resolver.mac, data->mac)) u = u->next;
 
 		if (u != NULL) { // MAC Already existed
-			WARN_LOG(SCENET, "AdhocServer: Already Existing MAC: %02x:%02x:%02x:%02x:%02x:%02x [%s]\n", data->mac.data[0], data->mac.data[1], data->mac.data[2], data->mac.data[3], data->mac.data[4], data->mac.data[5], inet_ntoa(*(in_addr*)&u->resolver.ip));
+			WARN_LOG(SCENET, "AdhocServer: Already Existing MAC: %s [%s]\n", mac2str(&data->mac).c_str(), ip2str(*(in_addr*)&u->resolver.ip).c_str());
 		}
 
 		// Game Product Override
@@ -637,7 +637,7 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 			char safegamestr[10];
 			memset(safegamestr, 0, sizeof(safegamestr));
 			strncpy(safegamestr, game->game.data, PRODUCT_CODE_LENGTH);
-			INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) started playing %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr);
+			INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) started playing %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr);
 
 			// Update Status Log
 			update_status();
@@ -651,7 +651,7 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 	else
 	{
 		// Notify User
-		WARN_LOG(SCENET, "AdhocServer: Invalid Login Packet Contents from %s", inet_ntoa(*(in_addr*)&user->resolver.ip));
+		WARN_LOG(SCENET, "AdhocServer: Invalid Login Packet Contents from %s", ip2str(*(in_addr*)&user->resolver.ip).c_str());
 	}
 
 	// Logout User - Out of Memory or Invalid Arguments
@@ -686,7 +686,7 @@ void logout_user(SceNetAdhocctlUserNode * user)
 		char safegamestr[10];
 		memset(safegamestr, 0, sizeof(safegamestr));
 		strncpy(safegamestr, user->game->game.data, PRODUCT_CODE_LENGTH);
-		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) stopped playing %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr);
+		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) stopped playing %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr);
 
 		// Fix Game Player Count
 		user->game->playercount--;
@@ -712,7 +712,7 @@ void logout_user(SceNetAdhocctlUserNode * user)
 	else
 	{
 		// Notify User
-		WARN_LOG(SCENET, "AdhocServer: Dropped Connection to %s", inet_ntoa(*(in_addr*)&user->resolver.ip));
+		WARN_LOG(SCENET, "AdhocServer: Dropped Connection to %s", ip2str(*(in_addr*)&user->resolver.ip).c_str());
 	}
 
 	// Free Memory
@@ -900,7 +900,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 				char safegroupstr[9];
 				memset(safegroupstr, 0, sizeof(safegroupstr));
 				strncpy(safegroupstr, (char *)user->group->group.data, ADHOCCTL_GROUPNAME_LEN);
-				INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) joined %s group %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr, safegroupstr);
+				INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) joined %s group %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr, safegroupstr);
 
 				// Update Status Log
 				update_status();
@@ -923,7 +923,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 			char safegroupstr2[9];
 			memset(safegroupstr2, 0, sizeof(safegroupstr2));
 			strncpy(safegroupstr2, (char *)user->group->group.data, ADHOCCTL_GROUPNAME_LEN);
-			WARN_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) attempted to join %s group %s without disconnecting from %s first", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr, safegroupstr, safegroupstr2);
+			WARN_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) attempted to join %s group %s without disconnecting from %s first", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr, safegroupstr, safegroupstr2);
 		}
 	}
 
@@ -937,7 +937,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 		char safegroupstr[9];
 		memset(safegroupstr, 0, sizeof(safegroupstr));
 		strncpy(safegroupstr, (char *)group->data, ADHOCCTL_GROUPNAME_LEN);
-		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) attempted to join invalid %s group %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr, safegroupstr);
+		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) attempted to join invalid %s group %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr, safegroupstr);
 	}
 
 	// Invalid State, Out of Memory or Invalid Group Name
@@ -996,7 +996,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 		char safegroupstr[9];
 		memset(safegroupstr, 0, sizeof(safegroupstr));
 		strncpy(safegroupstr, (char *)user->group->group.data, ADHOCCTL_GROUPNAME_LEN);
-		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) left %s group %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr, safegroupstr);
+		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) left %s group %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr, safegroupstr);
 
 		// Empty Group
 		if(user->group->playercount == 0)
@@ -1036,7 +1036,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 		char safegamestr[10];
 		memset(safegamestr, 0, sizeof(safegamestr));
 		strncpy(safegamestr, user->game->game.data, PRODUCT_CODE_LENGTH);
-		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) attempted to leave %s group without joining one first", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr);
+		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) attempted to leave %s group without joining one first", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr);
 	}
 
 	// Delete User
@@ -1094,7 +1094,7 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 		char safegamestr[10];
 		memset(safegamestr, 0, sizeof(safegamestr));
 		strncpy(safegamestr, user->game->game.data, PRODUCT_CODE_LENGTH);
-		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) requested information on %d %s groups", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), user->game->groupcount, safegamestr);
+		INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) requested information on %d %s groups", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), user->game->groupcount, safegamestr);
 
 		// Exit Function
 		return;
@@ -1110,7 +1110,7 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 		char safegroupstr[9];
 		memset(safegroupstr, 0, sizeof(safegroupstr));
 		strncpy(safegroupstr, (char *)user->group->group.data, ADHOCCTL_GROUPNAME_LEN);
-		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) attempted to scan for %s groups without disconnecting from %s first", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr, safegroupstr);
+		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) attempted to scan for %s groups without disconnecting from %s first", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr, safegroupstr);
 	}
 
 	// Delete User
@@ -1208,7 +1208,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 			char safegroupstr[9];
 			memset(safegroupstr, 0, sizeof(safegroupstr));
 			strncpy(safegroupstr, (char *)user->group->group.data, ADHOCCTL_GROUPNAME_LEN);
-			INFO_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) sent \"%s\" to %d players in %s group %s", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), message, counter, safegamestr, safegroupstr);
+			INFO_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) sent \"%s\" to %d players in %s group %s", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), message, counter, safegamestr, safegroupstr);
 		}
 
 		// Exit Function
@@ -1222,7 +1222,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 		char safegamestr[10];
 		memset(safegamestr, 0, sizeof(safegamestr));
 		strncpy(safegamestr, user->game->game.data, PRODUCT_CODE_LENGTH);
-		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s) attempted to send a text message without joining a %s group first", (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip), safegamestr);
+		WARN_LOG(SCENET, "AdhocServer: %s (MAC: %s - IP: %s) attempted to send a text message without joining a %s group first", (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str(), safegamestr);
 	}
 
 	// Delete User
@@ -1981,7 +1981,7 @@ int server_loop(int server)
 					else
 					{
 						// Notify User
-						WARN_LOG(SCENET, "AdhocServer: Invalid Opcode 0x%02X in Waiting State from %s", user->rx[0], inet_ntoa(*(in_addr*)&user->resolver.ip));
+						WARN_LOG(SCENET, "AdhocServer: Invalid Opcode 0x%02X in Waiting State from %s", user->rx[0], ip2str(*(in_addr*)&user->resolver.ip).c_str());
 
 						// Logout User
 						logout_user(user);
@@ -2064,7 +2064,7 @@ int server_loop(int server)
 					else
 					{
 						// Notify User
-						WARN_LOG(SCENET, "AdhocServer: Invalid Opcode 0x%02X in Logged-In State from %s (MAC: %02x:%02x:%02x:%02x:%02x:%02x - IP: %s)", user->rx[0], (char *)user->resolver.name.data, user->resolver.mac.data[0], user->resolver.mac.data[1], user->resolver.mac.data[2], user->resolver.mac.data[3], user->resolver.mac.data[4], user->resolver.mac.data[5], inet_ntoa(*(in_addr*)&user->resolver.ip));
+						WARN_LOG(SCENET, "AdhocServer: Invalid Opcode 0x%02X in Logged-In State from %s (MAC: %s - IP: %s)", user->rx[0], (char *)user->resolver.name.data, mac2str(&user->resolver.mac).c_str(), ip2str(*(in_addr*)&user->resolver.ip).c_str());
 
 						// Logout User
 						logout_user(user);

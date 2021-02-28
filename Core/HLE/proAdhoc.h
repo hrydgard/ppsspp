@@ -982,6 +982,9 @@ bool isPDPPortInUse(uint16_t port);
  */
 bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac = nullptr, uint16_t dstport = 0);
 
+// Convert IPv4 address to string (Replacement for inet_ntoa since it's getting deprecated)
+std::string ip2str(in_addr in);
+
 // Convert MAC address to string
 std::string mac2str(SceNetEtherAddr* mac);
 
