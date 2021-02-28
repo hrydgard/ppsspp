@@ -20,10 +20,12 @@
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/curves.h"
+#include "Common/System/NativeApp.h"
+#include "Common/System/System.h"
 #include "Common/Thread/PrioritizedWorkQueue.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -174,6 +176,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override;
+	bool UpdateText();
 	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500;
@@ -183,6 +186,8 @@ public:
 	const std::string &GamePath() const { return savePath_; }
 
 private:
+	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
+
 	std::string savePath_;
 	std::string title_;
 	std::string subtitle_;
@@ -200,6 +205,26 @@ static std::string CleanSaveString(std::string str) {
 	s = ReplaceAll(s, "\n", " ");
 	s = ReplaceAll(s, "\r", " ");
 	return s;
+}
+
+bool SavedataButton::UpdateText() {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	if (!ginfo->pending) {
+		UpdateText(ginfo);
+		return true;
+	}
+	return false;
+}
+
+void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
+	const std::string currentTitle = ginfo->GetTitle();
+	if (!currentTitle.empty()) {
+		title_ = CleanSaveString(currentTitle);
+	}
+	if (subtitle_.empty() && ginfo->gameSize > 0) {
+		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
+		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSize / 1024);
+	}
 }
 
 void SavedataButton::Draw(UIContext &dc) {
@@ -287,15 +312,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 	dc.PushScissor(bounds_);
 
-	const std::string currentTitle = ginfo->GetTitle();
-	if (!currentTitle.empty()) {
-		title_ = CleanSaveString(currentTitle);
-	}
-	if (subtitle_.empty() && ginfo->gameSize > 0) {
-		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSize / 1024);
-	}
-
+	UpdateText(ginfo);
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 	int availableWidth = bounds_.w - 150;
@@ -332,6 +349,58 @@ std::string SavedataButton::DescribeText() const {
 SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path) {
 	Refresh();
+}
+
+void SavedataBrowser::Update() {
+	if (searchPending_) {
+		searchPending_ = false;
+
+		int n = gameList_->GetNumSubviews();
+		bool matches = searchFilter_.empty();
+		for (int i = 0; i < n; ++i) {
+			SavedataButton *v = static_cast<SavedataButton *>(gameList_->GetViewByIndex(i));
+
+			// Note: might be resetting to empty string.  Can do that right away.
+			if (searchFilter_.empty()) {
+				v->SetVisibility(UI::V_VISIBLE);
+				continue;
+			}
+
+			if (!v->UpdateText()) {
+				// We'll need to wait until the text is loaded.
+				searchPending_ = true;
+				v->SetVisibility(UI::V_GONE);
+				continue;
+			}
+
+			std::string label = v->DescribeText();
+			std::transform(label.begin(), label.end(), label.begin(), tolower);
+			bool match = label.find(searchFilter_) != label.npos;
+			matches = matches || match;
+			v->SetVisibility(match ? UI::V_VISIBLE : UI::V_GONE);
+		}
+
+		if (searchingView_) {
+			bool show = !searchFilter_.empty() && (matches || searchPending_);
+			searchingView_->SetVisibility(show ? UI::V_VISIBLE : UI::V_GONE);
+		}
+		if (noMatchView_)
+			noMatchView_->SetVisibility(matches || searchPending_ ? UI::V_GONE : UI::V_VISIBLE);
+	}
+}
+
+void SavedataBrowser::SetSearchFilter(const std::string &filter) {
+	auto sa = GetI18NCategory("Savedata");
+
+	searchFilter_.resize(filter.size());
+	std::transform(filter.begin(), filter.end(), searchFilter_.begin(), tolower);
+
+	if (gameList_)
+		searchPending_ = true;
+	if (noMatchView_)
+		noMatchView_->SetText(ReplaceAll(sa->T("Nothing matching '%1' was found."), "%1", filter));
+	if (searchingView_)
+		searchingView_->SetText(ReplaceAll(sa->T("Showing matches for '%1'."), "%1", filter));
 }
 
 void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
@@ -415,16 +484,10 @@ void SavedataBrowser::Refresh() {
 	auto mm = GetI18NCategory("MainMenu");
 	auto sa = GetI18NCategory("Savedata");
 
-	SortedLinearLayout *gl = new SortedLinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	gl->SetSpacing(4.0f);
-	gameList_ = gl;
-	Add(gameList_);
-
 	// Find games in the current directory and create new ones.
 	std::vector<SavedataButton *> savedataButtons;
 
 	std::vector<FileInfo> fileInfo;
-
 	getFilesInDir(path_.c_str(), &fileInfo, "ppst:");
 
 	for (size_t i = 0; i < fileInfo.size(); i++) {
@@ -439,19 +502,35 @@ void SavedataBrowser::Refresh() {
 		}
 	}
 
-	for (size_t i = 0; i < savedataButtons.size(); i++) {
-		SavedataButton *b = gameList_->Add(savedataButtons[i]);
-		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
-	}
+	ViewGroup *group = new LinearLayout(ORIENT_VERTICAL, new UI::LinearLayoutParams(UI::Margins(12, 0)));
+	Add(group);
 
 	if (savedataButtons.empty()) {
-		ViewGroup *group = new LinearLayout(ORIENT_VERTICAL, new UI::LinearLayoutParams(UI::Margins(12, 0)));
 		group->Add(new TextView(sa->T("None yet. Things will appear here after you save.")));
-		gameList_->Add(group);
+		gameList_ = nullptr;
+		noMatchView_ = nullptr;
+		searchingView_ = nullptr;
+	} else {
+		noMatchView_ = group->Add(new TextView(sa->T("Nothing matching '%1' was found")));
+		noMatchView_->SetVisibility(UI::V_GONE);
+		searchingView_ = group->Add(new TextView(sa->T("Showing matches for '%1'")));
+		searchingView_->SetVisibility(UI::V_GONE);
+
+		SortedLinearLayout *gl = new SortedLinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		gl->SetSpacing(4.0f);
+		gameList_ = gl;
+		Add(gameList_);
+
+		for (size_t i = 0; i < savedataButtons.size(); i++) {
+			SavedataButton *b = gameList_->Add(savedataButtons[i]);
+			b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
+		}
 	}
 
 	// Reapply.
 	SetSortOption(sortOption_);
+	if (!searchFilter_.empty())
+		SetSearchFilter(searchFilter_);
 }
 
 UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
@@ -484,7 +563,8 @@ void SavedataScreen::CreateViews() {
 	gridStyle_ = false;
 	root_ = new AnchorLayout();
 
-	LinearLayout *main = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	// Make space for buttons.
+	LinearLayout *main = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0, 0, 0, 84.0f));
 
 	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	tabs->SetTag("Savedata");
@@ -492,6 +572,8 @@ void SavedataScreen::CreateViews() {
 	scroll->SetTag("SavedataBrowser");
 	dataBrowser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	dataBrowser_->SetSortOption(sortOption_);
+	if (!searchFilter_.empty())
+		dataBrowser_->SetSearchFilter(searchFilter_);
 	dataBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
 	tabs->AddTab(sa->T("Save Data"), scroll);
@@ -500,11 +582,12 @@ void SavedataScreen::CreateViews() {
 	scroll2->SetTag("SavedataStatesBrowser");
 	stateBrowser_ = scroll2->Add(new SavedataBrowser(savestate_dir));
 	stateBrowser_->SetSortOption(sortOption_);
+	if (!searchFilter_.empty())
+		stateBrowser_->SetSearchFilter(searchFilter_);
 	stateBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 	tabs->AddTab(sa->T("Save States"), scroll2);
 
 	main->Add(tabs);
-	main->Add(new Button(di->T("Back"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, 0, 0, NONE));
 	sortStrip->AddChoice(sa->T("Filename"));
@@ -512,6 +595,11 @@ void SavedataScreen::CreateViews() {
 	sortStrip->AddChoice(sa->T("Date"));
 	sortStrip->SetSelection((int)sortOption_, false);
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
+
+	AddStandardBack(root_);
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+#endif
 
 	root_->Add(main);
 	root_->Add(sortStrip);
@@ -523,6 +611,18 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 	dataBrowser_->SetSortOption(sortOption_);
 	stateBrowser_->SetSortOption(sortOption_);
 
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
+	auto di = GetI18NCategory("Dialog");
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](bool result, const std::string &value) {
+		if (result) {
+			NativeMessageReceived("savedatascreen_search", value.c_str());
+		}
+	});
+#endif
 	return UI::EVENT_DONE;
 }
 
@@ -540,5 +640,14 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_NO) {
 		RecreateViews();
+	}
+}
+
+void SavedataScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "savedatascreen_search")) {
+		searchFilter_ = value;
+		dataBrowser_->SetSearchFilter(searchFilter_);
+		stateBrowser_->SetSearchFilter(searchFilter_);
 	}
 }
