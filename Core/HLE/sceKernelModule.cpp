@@ -879,7 +879,7 @@ static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, 
 		return;
 	}
 
-	const std::string filenameToDumpTo = g_paramSFO.GetValueString("DISC_ID") + ".BIN";
+	const std::string filenameToDumpTo = g_paramSFO.GetDiscID() + ".BIN";
 	const std::string dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
 	const std::string fullPath = dumpDirectory + filenameToDumpTo;
 

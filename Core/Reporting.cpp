@@ -400,7 +400,7 @@ namespace Reporting
 	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
-		const std::string disc_id = StripTrailingNull(g_paramSFO.GetValueString("DISC_ID"));
+		const std::string disc_id = StripTrailingNull(g_paramSFO.GetDiscID());
 		const std::string disc_version = StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION"));
 		return disc_id + "_" + disc_version;
 	}
