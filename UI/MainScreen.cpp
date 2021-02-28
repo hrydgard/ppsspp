@@ -664,7 +664,7 @@ void GameBrowser::Refresh() {
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 		layoutChoice->AddChoice(ImageID("I_GRID"));
 		layoutChoice->AddChoice(ImageID("I_LINES"));
-		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
+		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1, false);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 		Add(topBar);

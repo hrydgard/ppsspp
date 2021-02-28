@@ -1288,7 +1288,7 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 
 		currentTab_ = tab;
 	}
-	tabStrip_->SetSelection(tab);
+	tabStrip_->SetSelection(tab, false);
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
@@ -1369,7 +1369,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	return OnChoice.Dispatch(e2);
 }
 
-void ChoiceStrip::SetSelection(int sel) {
+void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	int prevSelected = selected_;
 	StickyChoice *prevChoice = Choice(selected_);
 	if (prevChoice)
@@ -1384,7 +1384,7 @@ void ChoiceStrip::SetSelection(int sel) {
 			e.v = views_[selected_];
 			e.a = selected_;
 			// Set to 0 to indicate a selection change (not a click.)
-			e.b = 0;
+			e.b = triggerClick ? 1 : 0;
 			OnChoice.Trigger(e);
 		}
 	}
@@ -1398,16 +1398,16 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
-	if (input.flags & KEY_DOWN) {
+	if (topTabs_ && (input.flags & KEY_DOWN)) {
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
-				SetSelection(selected_ - 1);
+				SetSelection(selected_ - 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
 			}
 			ret = true;
 		} else if (IsTabRightKey(input)) {
 			if (selected_ < (int)views_.size() - 1) {
-				SetSelection(selected_ + 1);
+				SetSelection(selected_ + 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			}
 			ret = true;

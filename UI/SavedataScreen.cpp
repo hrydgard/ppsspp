@@ -510,7 +510,7 @@ void SavedataScreen::CreateViews() {
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
 	sortStrip->AddChoice(sa->T("Date"));
-	sortStrip->SetSelection((int)sortOption_);
+	sortStrip->SetSelection((int)sortOption_, false);
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
 
 	root_->Add(main);

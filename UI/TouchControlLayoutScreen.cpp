@@ -511,7 +511,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 140 + 158 + 64 + 10));
 	mode_->AddChoice(di->T("Move"));
 	mode_->AddChoice(di->T("Resize"));
-	mode_->SetSelection(0);
+	mode_->SetSelection(0, false);
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);

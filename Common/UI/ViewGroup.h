@@ -300,7 +300,7 @@ public:
 	void AddChoice(ImageID buttonImage);
 
 	int GetSelection() const { return selected_; }
-	void SetSelection(int sel);
+	void SetSelection(int sel, bool triggerClick);
 
 	void HighlightChoice(unsigned int choice);
 
