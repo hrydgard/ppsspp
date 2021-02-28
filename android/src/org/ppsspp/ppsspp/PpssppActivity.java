@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import androidx.documentfile.provider.DocumentFile;
+import java.util.ArrayList;
 
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
@@ -126,6 +128,33 @@ public class PpssppActivity extends NativeActivity {
 		} catch (Exception e) {
 			Log.e(TAG, "Exception opening content uri: " + e.toString());
 			return -1;
+		}
+	}
+
+	public String[] listContentUriDir(String uriString) {
+		try {
+			Uri uri = Uri.parse(uriString);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			Log.i(TAG, "Listing content directory: " + documentFile.getUri());
+			DocumentFile[] children = documentFile.listFiles();
+			ArrayList<String> listing = new ArrayList<String>();
+			// Encode entries into strings for JNI simplicity.
+			for (DocumentFile file : children) {
+				String typeStr = "F|";
+				if (file.isDirectory()) {
+					typeStr = "D|";
+				}
+				// TODO: Should we do something with child.isVirtual()?.
+				typeStr += file.length() + "|" + file.getName() + "|" + file.getUri();
+				Log.i(TAG, "> " + typeStr);
+				listing.add(typeStr);
+			}
+			// Is ArrayList weird or what?
+			String[] strings = new String[listing.size()];
+			return listing.toArray(strings);
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return new String[]{};
 		}
 	}
 }

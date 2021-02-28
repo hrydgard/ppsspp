@@ -337,7 +337,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN:
 	default:
-		ERROR_LOG(LOADER, "Failed to identify file");
+		ERROR_LOG(LOADER, "Failed to identify file: %s", fileLoader->GetPath().c_str());
 		*error_string = "Failed to identify file";
 		break;
 	}

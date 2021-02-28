@@ -20,6 +20,7 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
+#include "Common/Net/URL.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 

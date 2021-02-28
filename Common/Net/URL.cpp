@@ -155,7 +155,7 @@ std::string UriDecode(const std::string & sSrc)
 	return sResult;
 }
 
-// Only alphanum is safe.
+// Only alphanum and underscore is safe.
 const char SAFE[256] =
 {
 	/*      0 1 2 3  4 5 6 7  8 9 A B  C D E F */
@@ -165,7 +165,7 @@ const char SAFE[256] =
 	/* 3 */ 1,1,1,1, 1,1,1,1, 1,1,0,0, 0,0,0,0,
 
 	/* 4 */ 0,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,
-	/* 5 */ 1,1,1,1, 1,1,1,1, 1,1,1,0, 0,0,0,0,
+	/* 5 */ 1,1,1,1, 1,1,1,1, 1,1,1,0, 0,0,0,1,  // last here is underscore. it's ok.
 	/* 6 */ 0,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,
 	/* 7 */ 1,1,1,1, 1,1,1,1, 1,1,1,0, 0,0,0,0,
 

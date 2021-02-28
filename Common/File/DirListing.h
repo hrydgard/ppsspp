@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <stdio.h>
+#include <cstdio>
 
 #include <inttypes.h>
 
@@ -30,9 +30,9 @@ struct FileInfo {
 bool GetFileInfo(const Path &path, FileInfo *fileInfo);
 
 enum {
-	GETFILES_GETHIDDEN = 1
+	GETFILES_GETHIDDEN = 1,
+	GETFILES_URIENCODE_ANDROID = 2,  // Android shenanigans
 };
-
 
 size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
 int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter = nullptr, int flags = 0);

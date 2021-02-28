@@ -15,7 +15,8 @@ dependencies {
 
 	implementation "androidx.appcompat:appcompat:$appcompat_version"
 	// For loading and tinting drawables on older versions of the platform
-	implementation "androidx.appcompat:appcompat-resources:$appcompat_version"
+	// implementation "androidx.appcompat:appcompat-resources:$appcompat_version"
+	implementation "androidx.documentfile:documentfile:1.0.1"
 }
 
 android {

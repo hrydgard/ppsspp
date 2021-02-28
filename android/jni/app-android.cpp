@@ -172,6 +172,7 @@ static float g_safeInsetBottom = 0.0;
 static jmethodID postCommand;
 
 static jmethodID openContentUri;
+static jmethodID listContentUriDir;
 static jmethodID closeContentUri;
 
 static jobject nativeActivity;
@@ -241,10 +242,40 @@ int Android_OpenContentUriFd(const std::string &filename) {
 	if (!nativeActivity) {
 		return -1;
 	}
+
+	std::string fname = filename;
+	// PPSSPP adds an ending slash to directories before looking them up.
+	// TODO: Fix that in the caller (or don't call this for directories).
+	if (fname.back() == '/')
+		fname.pop_back();
 	auto env = getEnv();
-	jstring param = env->NewStringUTF(filename.c_str());
+	jstring param = env->NewStringUTF(fname.c_str());
 	int fd = env->CallIntMethod(nativeActivity, openContentUri, param);
 	return fd;
+}
+
+std::vector<std::string> Android_ListContentUri(const std::string &path) {
+	if (!nativeActivity) {
+		return std::vector<std::string>();
+	}
+	auto env = getEnv();
+	jstring param = env->NewStringUTF(path.c_str());
+	jobject retval = env->CallObjectMethod(nativeActivity, listContentUriDir, param);
+
+	jobjectArray fileList = (jobjectArray)retval;
+	std::vector<std::string> items;
+	int size = env->GetArrayLength(fileList);
+	for (int i = 0; i < size; i++) {
+        jstring str = (jstring) env->GetObjectArrayElement(fileList, i);
+        const char *charArray = env->GetStringUTFChars(str, 0);
+        if (charArray) {  // paranoia
+            items.push_back(std::string(charArray));
+        }
+        env->ReleaseStringUTFChars(str, charArray);
+        env->DeleteLocalRef(str);
+    }
+	env->DeleteLocalRef(fileList);
+	return items;
 }
 
 class ContentURIFileLoader : public ProxiedFileLoader {
@@ -518,7 +549,11 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	nativeActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	_dbg_assert_(postCommand);
 	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;)I");
+	_dbg_assert_(openContentUri);
+	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
+	_dbg_assert_(listContentUriDir);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {

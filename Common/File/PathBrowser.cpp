@@ -9,12 +9,17 @@
 
 #include "Common/File/PathBrowser.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Core/System.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/app-android.h"
+#endif
 
 bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
@@ -231,11 +236,11 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep.
 		guard.unlock();
-		sleep_ms(100);
+		sleep_ms(50);
 		guard.lock();
 	}
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	if (path_.IsRoot()) {
 		// Special path that means root of file system.
 		std::vector<std::string> drives = File::GetWindowsDrives();
@@ -251,6 +256,30 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 			fake.isWritable = false;
 			fileInfo.push_back(fake);
 		}
+	}
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if (Android_IsContentUri(path_.ToString())) {
+		std::vector<std::string> files = Android_ListContentUri(path_.ToString());
+		fileInfo.clear();
+		for (auto &file : files) {
+			ERROR_LOG(FILESYS, "!! %s", file.c_str());
+			std::vector<std::string> parts;
+			SplitString(file, '|', parts);
+			if (parts.size() != 4) {
+				continue;
+			}
+			File::FileInfo info;
+			info.exists = true;
+			info.isDirectory = parts[0][0] == 'D';
+			sscanf(parts[1].c_str(), "%ld", &info.size);
+			info.name = parts[2];
+			info.fullName = Path(parts[3]);
+			info.isWritable = false;  // We don't yet request write access
+			fileInfo.push_back(info);
+		}
+		return true;
 	}
 #endif
 
@@ -272,6 +301,15 @@ bool PathBrowser::CanNavigateUp() {
 	}
 #endif
 */
+#if PPSSPP_PLATFORM(ANDROID)
+	if (Android_IsContentUri(path_.ToString())) {
+		// Need to figure out how much we can navigate by parsing the URL.
+		// DocumentUri from seems to be split into two paths: The folder you have gotten permission to see,
+		// and the folder below it.
+		return false;
+	}
+#endif
+
 	return path_.CanNavigateUp();
 }
 

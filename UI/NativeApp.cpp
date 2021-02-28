@@ -482,13 +482,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		host = new NativeHost();
 	}
 #endif
-	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+
+	g_Config.externalDirectory = Path(external_dir);
 #if PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		g_Config.externalDirectory = Path(g_extFilesDir);
-#endif
-	} else {
-		g_Config.externalDirectory = Path(external_dir);
 	}
+#endif
 
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
