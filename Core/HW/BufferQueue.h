@@ -38,23 +38,19 @@ struct BufferQueue {
 		if (bufQueue)
 			delete [] bufQueue;
 		bufQueue = new unsigned char[size];
-		start = 0;
-		end = 0;
 		bufQueueSize = size;
+		clear();
 		return true;
 	}
 
 	void clear() {
 		start = 0;
 		end = 0;
+		filled = 0;
 	}
 
 	inline int getQueueSize() {
-		if (end >= start) {
-			return end - start;
-		} else {
-			return bufQueueSize + end - start;
-		}
+		return filled;
 	}
 
 	inline int getRemainSize() {
@@ -63,8 +59,7 @@ struct BufferQueue {
 
 	bool push(const unsigned char *buf, int addsize, s64 pts = 0) {
 		int space = getRemainSize();
-		// We can't fill entirely, or end will equal start and we'll be empty.
-		if (space <= addsize || addsize < 0)
+		if (space < addsize || addsize < 0)
 			return false;
 		savePts(pts);
 		if (end + addsize <= bufQueueSize) {
@@ -81,6 +76,8 @@ struct BufferQueue {
 			memcpy(bufQueue, buf + firstSize, addsize - firstSize);
 			end = addsize - firstSize;
 		}
+		filled += addsize;
+		verifyQueueSize();
 		return true;
 	}
 
@@ -109,6 +106,8 @@ struct BufferQueue {
 			start = bytesgot - firstSize;
 		if (start == bufQueueSize)
 			start = 0;
+		filled -= bytesgot;
+		verifyQueueSize();
 		return bytesgot;
 	}
 
@@ -166,10 +165,22 @@ private:
 		return pts;
 	}
 
+	inline int calcQueueSize() {
+		if (end < start) {
+			return bufQueueSize + end - start;
+		}
+		return end - start;
+	}
+
+	inline void verifyQueueSize() {
+		_assert_(calcQueueSize() == filled || (end == start && filled == bufQueueSize));
+	}
+
 	uint8_t *bufQueue = nullptr;
 	// Model: end may be less than start, indicating the space between end and start is free.
 	// If end equals start, we're empty.
 	int start = 0, end = 0;
+	int filled = 0;
 	int bufQueueSize = 0;
 
 	std::map<u32, s64> ptsMarks;
