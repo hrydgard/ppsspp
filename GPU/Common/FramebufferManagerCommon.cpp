@@ -914,6 +914,9 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 			x += gstate_c.curTextureXOffset;
 			y += gstate_c.curTextureYOffset;
 		}
+
+		// We'll have to reapply these next time since we cropped to UV.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
 	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
