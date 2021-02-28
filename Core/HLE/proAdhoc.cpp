@@ -1756,15 +1756,17 @@ int getActivePeerCount(const bool excludeTimedout) {
 }
 
 int getLocalIp(sockaddr_in* SocketAddress) {
+	if (isLocalServer) {
+		SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
+		return 0;
+	}
+
 	if (metasocket != (int)INVALID_SOCKET) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
 		int ret = getsockname(metasocket, (struct sockaddr*)&localAddr, &addrLen);
 		if (SOCKET_ERROR != ret) {
-			if (isLocalServer) {
-				localAddr.sin_addr = g_localhostIP.in.sin_addr;
-			}
 			SocketAddress->sin_addr = localAddr.sin_addr;
 			return 0;
 		}
@@ -1778,17 +1780,18 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	if (::gethostname(szHostName, sizeof(szHostName))) {
 		// Error handling 
 	}
-	// Get local IP addresses
-	struct hostent* pHost = 0;
-	pHost = ::gethostbyname(szHostName); // On Non-Windows (UNIX/POSIX) gethostbyname("localhost") will always returns a useless 127.0.0.1, while on Windows it returns LAN IP when available
-	if (pHost) {
-		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
-		if (isLocalServer) {
-			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-		}
+	// Get local network IP addresses (LAN/VPN/loopback)
+	struct addrinfo hints, * res = 0;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET; // AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_ADDRCONFIG; // getaddrinfo with AI_ADDRCONFIG will fail when there is no local network connected? https://github.com/stephane/libmodbus/issues/575
+	// Note: getaddrinfo could cause freezes on Android if there is no network https://github.com/hrydgard/ppsspp/issues/13300
+	if (getaddrinfo(szHostName, NULL, &hints, &res) == 0 && res != NULL) {
+		memcpy(&SocketAddress->sin_addr, &((struct sockaddr_in*)res->ai_addr)->sin_addr, sizeof(SocketAddress->sin_addr));
+		freeaddrinfo(res);
 		return 0;
 	}
-	return -1;
 
 #elif defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
 	struct ifaddrs* ifAddrStruct = NULL;
@@ -1807,12 +1810,8 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			}
 		}
 		freeifaddrs(ifAddrStruct);
-		if (isLocalServer) {
-			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-		}
 		return 0;
 	}
-	return -1;
 
 #else // Alternative way
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -1833,16 +1832,13 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			if (err != SOCKET_ERROR) {
 				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
 				closesocket(sock);
-				if (isLocalServer) {
-					SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-				}
 				return 0;
 			}
 		}
 		closesocket(sock);
 	}
-	return -1;
 #endif
+	return -1;
 }
 
 uint32_t getLocalIp(int sock) {
