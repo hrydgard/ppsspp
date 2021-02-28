@@ -49,6 +49,7 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
 
 private:
 	std::string gamePath_;

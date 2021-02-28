@@ -333,7 +333,7 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
 	root_->Add(leftColumn);
 
-	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
 	leftColumnItems->Add(new Spacer(0.0));

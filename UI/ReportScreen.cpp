@@ -298,7 +298,7 @@ void ReportScreen::CreateViews() {
 	overallDescription_->SetShadow(true);
 
 	UI::Orientation ratingsOrient = leftColumnWidth >= 750.0f ? ORIENT_HORIZONTAL : ORIENT_VERTICAL;
-	UI::LinearLayout *ratingsHolder = new LinearLayout(ratingsOrient, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	UI::LinearLayout *ratingsHolder = new LinearLayoutList(ratingsOrient, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	leftColumnItems->Add(ratingsHolder);
 	ratingsHolder->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	ratingsHolder->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);

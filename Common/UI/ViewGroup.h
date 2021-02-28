@@ -80,9 +80,13 @@ public:
 	void Unlock() { modifyLock_.unlock(); }
 
 	void SetClip(bool clip) { clip_ = clip; }
-	std::string Describe() const override { return "ViewGroup: " + View::Describe(); }
+	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 protected:
+	std::string DescribeListUnordered(const char *heading) const;
+	std::string DescribeListOrdered(const char *heading) const;
+
 	std::mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	View *defaultFocusView_ = nullptr;
@@ -132,7 +136,7 @@ public:
 	void Overflow(bool allow) {
 		overflow_ = allow;
 	}
-	std::string Describe() const override { return "AnchorLayout: " + View::Describe(); }
+	std::string DescribeLog() const override { return "AnchorLayout: " + View::DescribeLog(); }
 
 private:
 	void MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
@@ -182,13 +186,22 @@ public:
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
-	std::string Describe() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::Describe(); }
+	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
 
 protected:
 	Orientation orientation_;
 private:
 	Margins defaultMargins_;
 	float spacing_;
+};
+
+class LinearLayoutList : public LinearLayout {
+public:
+	LinearLayoutList(Orientation orientation, LayoutParams *layoutParams = nullptr)
+		: LinearLayout(orientation, layoutParams) {
+	}
+
+	std::string DescribeText() const override;
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size
@@ -212,11 +225,20 @@ public:
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
-	std::string Describe() const override { return "GridLayout: " + View::Describe(); }
+	std::string DescribeLog() const override { return "GridLayout: " + View::DescribeLog(); }
 
 private:
 	GridLayoutSettings settings_;
 	int numColumns_;
+};
+
+class GridLayoutList : public GridLayout {
+public:
+	GridLayoutList(GridLayoutSettings settings, LayoutParams *layoutParams = nullptr)
+		: GridLayout(settings, layoutParams) {
+	}
+
+	std::string DescribeText() const override;
 };
 
 // A scrollview usually contains just a single child - a linear layout or similar.
@@ -231,7 +253,7 @@ public:
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
-	std::string Describe() const override { return "ScrollView: " + View::Describe(); }
+	std::string DescribeLog() const override { return "ScrollView: " + View::DescribeLog(); }
 
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
@@ -287,7 +309,8 @@ public:
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
 	void Draw(UIContext &dc) override;
 
-	std::string Describe() const override { return "ChoiceStrip: " + View::Describe(); }
+	std::string DescribeLog() const override { return "ChoiceStrip: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 	Event OnChoice;
 
@@ -313,7 +336,7 @@ public:
 	void SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
-	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
+	std::string DescribeLog() const override { return "TabHolder: " + View::DescribeLog(); }
 
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
@@ -383,7 +406,8 @@ public:
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
-	std::string Describe() const override { return "ListView: " + View::Describe(); }
+	std::string DescribeLog() const override { return "ListView: " + View::DescribeLog(); }
+	std::string DescribeText() const override;
 
 private:
 	void CreateAllItems();

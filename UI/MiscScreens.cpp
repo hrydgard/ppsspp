@@ -589,9 +589,9 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	} else {
-		root_->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	}
 }
 

@@ -68,7 +68,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
-	GridLayout *grid = vert->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	static const char* rightAnalogKey = "Right Analog Stick (tap to customize)";
 	toggles_.clear();

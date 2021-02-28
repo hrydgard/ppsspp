@@ -69,6 +69,7 @@ public:
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return text_; }
 
 	void DeviceLost() override;
 	void DeviceRestored(Draw::DrawContext *draw) override;
