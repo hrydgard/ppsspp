@@ -27,7 +27,6 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
