@@ -297,7 +297,9 @@ public:
 	Vec3 WithLength(const float l) const;
 	float Distance2To(Vec3 &other);
 	Vec3 Normalized(bool useSSE4 = false) const;
+	Vec3 NormalizedOr001(bool useSSE4 = false) const;
 	float Normalize(); // returns the previous length, which is often useful
+	float NormalizeOr001();
 
 	T& operator [] (int i) //allow vector[2] = 3   (vector.z=3)
 	{

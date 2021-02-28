@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
@@ -266,7 +267,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						normal = -normal;
 					}
 					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.Normalized();
+					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
 				}
 			} else {
 				float weights[8];
@@ -298,7 +299,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						normal = -normal;
 					}
 					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.Normalized();
+					worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
 				}
 			}
 
@@ -358,7 +359,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						source = normal.Normalized();
+						source = normal.NormalizedOr001(cpu_info.bSSE4_1);
 						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
 						}
@@ -391,11 +392,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 					};
 					auto calcShadingLPos = [&](int l) {
 						Vec3f pos = getLPos(l);
-						if (pos.Length2() == 0.0f) {
-							return Vec3f(0.0f, 0.0f, 1.0f);
-						} else {
-							return pos.Normalized();
-						}
+						return pos.NormalizedOr001(cpu_info.bSSE4_1);
 					};
 					// Might not have lighting enabled, so don't use lighter.
 					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());

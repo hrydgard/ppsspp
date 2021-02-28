@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 
+#include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
 
@@ -140,7 +141,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		case GE_LIGHTTYPE_SPOT:
 		case GE_LIGHTTYPE_UNKNOWN:
 			lightDir = Vec3Packedf(&ldir[l * 3]);
-			angle = Dot(toLight.Normalized(), lightDir.Normalized());
+			angle = Dot(toLight.NormalizedOr001(cpu_info.bSSE4_1), lightDir.NormalizedOr001(cpu_info.bSSE4_1));
 			if (angle >= lcutoff[l])
 				lightScale = clamp(1.0f / (latt[l * 3] + latt[l * 3 + 1] * distanceToLight + latt[l * 3 + 2] * distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, lconv[l]);
 			break;
@@ -155,11 +156,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		// Real PSP specular
 		Vec3f toViewer(0, 0, 1);
 		// Better specular
-		// Vec3f toViewer = (viewer - pos).Normalized();
+		// Vec3f toViewer = (viewer - pos).NormalizedOr001(cpu_info.bSSE4_1);
 
 		if (doSpecular) {
-			Vec3f halfVec = (toLight + toViewer);
-			halfVec.Normalize();
+			Vec3f halfVec = (toLight + toViewer).NormalizedOr001(cpu_info.bSSE4_1);
 
 			dot = Dot(halfVec, norm);
 			if (dot > 0.0f) {
