@@ -147,7 +147,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr) {
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry) {
 	SamplerCacheKey key;
 
 	int minFilt = gstate.texfilter & 0x7;
@@ -214,37 +214,49 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 	}
 
 	// Video bilinear override
-	if (!key.magFilt && texAddr != 0 && IsVideo(texAddr)) {
+	if (!key.magFilt && entry != nullptr && IsVideo(entry->addr)) {
 		// Enforce bilinear filtering on magnification.
 		key.magFilt = 1;
 	}
 
-	// Filtering overrides
-	switch (g_Config.iTexFiltering) {
-	case TEX_FILTER_AUTO:
-		// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
-		// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
-		if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
-			bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
-			if (uglyColorTest) {
-				// Force to nearest.
-				key.magFilt = 0;
-				key.minFilt = 0;
+	// Filtering overrides from replacements or settings.
+	TextureFiltering forceFiltering = TEX_FILTER_AUTO;
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
+	if (!replacer_.Enabled() || !replacer_.FindFiltering(cachekey, entry->fullhash, &forceFiltering)) {
+		switch (g_Config.iTexFiltering) {
+		case TEX_FILTER_AUTO:
+			// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
+			// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
+			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
+				if (uglyColorTest)
+					forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
+			break;
+		case TEX_FILTER_FORCE_LINEAR:
+			// Override to linear filtering if there's no alpha or color testing going on.
+			if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
+				(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+				forceFiltering = TEX_FILTER_FORCE_LINEAR;
+			}
+			break;
+		case TEX_FILTER_FORCE_NEAREST:
+		default:
+			// Just force to nearest without checks. Safe (but ugly).
+			forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			break;
 		}
+	}
+
+	switch (forceFiltering) {
+	case TEX_FILTER_AUTO:
 		break;
 	case TEX_FILTER_FORCE_LINEAR:
-		// Override to linear filtering if there's no alpha or color testing going on.
-		if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-			(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
-			key.magFilt = 1;
-			key.minFilt = 1;
-			key.mipFilt = 1;
-		}
+		key.magFilt = 1;
+		key.minFilt = 1;
+		key.mipFilt = 1;
 		break;
 	case TEX_FILTER_FORCE_NEAREST:
-	default:
-		// Just force to nearest without checks. Safe (but ugly).
 		key.magFilt = 0;
 		key.minFilt = 0;
 		break;
@@ -254,7 +266,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, u32 texAddr)
 }
 
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	SamplerCacheKey key = GetSamplingParams(0, 0);
+	SamplerCacheKey key = GetSamplingParams(0, nullptr);
 
 	// Kill any mipmapping settings.
 	key.mipEnable = false;

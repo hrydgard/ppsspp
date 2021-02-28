@@ -196,7 +196,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = texture;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 }
 

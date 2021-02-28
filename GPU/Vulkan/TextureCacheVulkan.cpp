@@ -519,7 +519,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 	gstate_c.SetUseShaderDepal(false);

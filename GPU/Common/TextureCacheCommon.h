@@ -285,7 +285,7 @@ protected:
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 
-	SamplerCacheKey GetSamplingParams(int maxLevel, u32 texAddr);
+	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry);
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
