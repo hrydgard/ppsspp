@@ -96,7 +96,7 @@ struct JNIEnv {};
 bool useCPUThread = true;
 
 // We'll turn this on when we target Android 12.
-bool useScopedStorageIfRequired = false;
+bool useScopedStorageIfRequired = true;
 
 enum class EmuThreadState {
 	DISABLED,
@@ -499,7 +499,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
-		if (useScopedStorageIfRequired && androidVersion >= 28)
+		if (useScopedStorageIfRequired && androidVersion >= 29)   // 29 is Android 10.
 			return true;
 	default:
 		return false;
