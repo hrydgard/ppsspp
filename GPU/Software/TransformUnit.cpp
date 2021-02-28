@@ -18,6 +18,7 @@
 #include <cmath>
 #include <algorithm>
 
+#include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
@@ -256,7 +257,7 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = vertex.normal.Normalized();
+				source = vertex.normal.NormalizedOr001(cpu_info.bSSE4_1);
 				break;
 
 			case GE_PROJMAP_NORMAL:
