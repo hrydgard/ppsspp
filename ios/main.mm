@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 		g_iosVersionMinor = 0;
 	}
 
-	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 3)) {
+	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
 		g_jitAvailable = false;
 	} else {
 		g_jitAvailable = true;
