@@ -20,18 +20,55 @@
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
 
-#define	CS_OPS_STATUS		0	/* return status */
-#define CS_DEBUGGED 0x10000000  /* process is currently or has previously been debugged and allowed to run with invalid pages */
-#define PT_TRACE_ME     0       /* child declares it's being traced */
-#define PT_SIGEXC       12      /* signals as exceptions for current_proc */
-
 static int (*csops)(pid_t pid, unsigned int ops, void * useraddr, size_t usersize);
 static boolean_t (*exc_server)(mach_msg_header_t *, mach_msg_header_t *);
 static int (*ptrace)(int request, pid_t pid, caddr_t addr, int data);
 
-bool cs_debugged() {
+#define CS_OPS_STATUS	0		/* return status */
+#define CS_DEBUGGED	0x10000000	/* process is currently or has previously been debugged and allowed to run with invalid pages */
+#define PT_ATTACHEXC	14		/* attach to running process with signal exception */
+#define PT_DETACH	11		/* stop tracing a process */
+#define ptrace(a, b, c, d) syscall(SYS_ptrace, a, b, c, d)
+
+bool get_debugged() {
 	int flags;
-	return !csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags)) && flags & CS_DEBUGGED;
+	int rv = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (rv==0 && flags&CS_DEBUGGED) return true;
+
+	pid_t pid = fork();
+	if (pid > 0) {
+		int st,rv,i=0;
+		do {
+			usleep(500);
+			rv = waitpid(pid, &st, 0);
+		} while (rv<0 && i++<10);
+		if (rv<0) fprintf(stderr, "Unable to wait for child?\n");
+	} else if (pid == 0) {
+		pid_t ppid = getppid();
+		int rv = ptrace(PT_ATTACHEXC, ppid, 0, 0);
+		if (rv) {
+			perror("Unable to attach to process");
+			exit(1);
+		}
+		for (int i=0; i<100; i++) {
+			usleep(1000);
+			errno = 0;
+			rv = ptrace(PT_DETACH, ppid, 0, 0);
+			if (rv==0) break;
+		}
+		if (rv) {
+			perror("Unable to detach from process");
+			exit(1);
+		}
+		exit(0);
+	} else {
+		perror("Unable to fork");
+	}
+
+	rv = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (rv==0 && flags&CS_DEBUGGED) return true;
+
+	return false;
 }
 
 kern_return_t catch_exception_raise(mach_port_t exception_port,
@@ -167,11 +204,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) { retur
 
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 
-BOOL SupportsTaptic()
-{
+BOOL SupportsTaptic() {
 	// we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
-	if(!NSClassFromString(@"UISelectionFeedbackGenerator"))
-	{
+	if(!NSClassFromString(@"UISelectionFeedbackGenerator")) {
 		return NO;
 	}
 
@@ -185,9 +220,7 @@ BOOL SupportsTaptic()
 }
 
 void Vibrate(int mode) {
-
-	if(SupportsTaptic())
-	{
+	if (SupportsTaptic()) {
 		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
 		if(app.feedbackGenerator == nil)
 		{
@@ -195,9 +228,7 @@ void Vibrate(int mode) {
 			[app.feedbackGenerator prepare];
 		}
 		[app.feedbackGenerator selectionChanged];
-	}
-	else
-	{
+	} else {
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 		NSArray *pattern = @[@YES, @30, @NO, @2];
 
@@ -228,41 +259,14 @@ int main(int argc, char *argv[])
 		g_iosVersionMinor = 0;
 	}
 
+	g_jitAvailable = get_debugged();
+/*
 	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
 		g_jitAvailable = false;
 	} else {
 		g_jitAvailable = true;
 	}
-
-	bool debuggerAttached = cs_debugged();
-
-	if (!debuggerAttached) {
-		// Try to fool iOS into thinking a debugger is attached.
-		// This doesn't work in iOS 14.4 anymore so don't even try there.
-		if (!(g_iosVersionMajor == 14 && g_iosVersionMinor == 4)) {
-			pid_t pid = fork();
-			if (pid == 0) {
-				printf("Forked a ptrace call");
-				ptrace(PT_TRACE_ME, 0, nullptr, 0);
-				exit(0);
-			} else if (pid < 0) {
-				perror("Unable to fork");
-
-				ptrace(PT_TRACE_ME, 0, nullptr, 0);
-				ptrace(PT_SIGEXC, 0, nullptr, 0);
-
-				mach_port_t port = MACH_PORT_NULL;
-				mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-				mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
-				task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
-				pthread_t thread;
-				pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
-			}
-		}
-	} else {
-		// Debugger is attached - we can actually JIT. Override the version detect.
-		g_jitAvailable = true;
-	}
+*/
 
 	PROFILE_INIT();
 

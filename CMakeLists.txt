@@ -310,8 +310,9 @@ if(NOT MSVC)
 	# Second step is to remove the compatibility defines
 	# Third step is to include the file
 	# Fourth step is to remove that line!
-	add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/ppsspp_config.h)
-
+	if(NOT IOS)
+		add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/ppsspp_config.h)
+	endif()
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
 	add_definitions(-Wno-deprecated-register)
