@@ -1634,7 +1634,7 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 
 		if (offsets[6] > fileSize) {
 			// File is too small to fully contain the ELF! Must have been truncated.
-			*error_string = "ELF file truncated - can't load";
+			*error_string = "ELF file truncated – can't load";
 			return nullptr;
 		}
 
