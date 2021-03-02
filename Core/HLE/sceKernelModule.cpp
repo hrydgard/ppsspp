@@ -1012,8 +1012,12 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			}
 		}
 
+		// Prevent infinite spin on bad data.
+		if (entry->size == 0)
+			break;
+
 		// If nidData is 0, only variables are being imported.
-		if (entry->nidData != 0) {
+		if (entry->numFuncs > 0 && entry->nidData != 0) {
 			if (!Memory::IsValidAddress(entry->nidData)) {
 				ERROR_LOG_REPORT(LOADER, "Crazy nidData address %08x, skipping entire module", entry->nidData);
 				needReport = true;
@@ -1042,7 +1046,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 		// We skip vars when reimporting, since we might double-offset.
 		// We only reimport funcs, which can't be double-offset.
-		if (entry->varData != 0 && !reimporting) {
+		if (entry->numVars > 0 && entry->varData != 0 && !reimporting) {
 			if (!Memory::IsValidAddress(entry->varData)) {
 				ERROR_LOG_REPORT(LOADER, "Crazy varData address %08x, skipping rest of module", entry->varData);
 				needReport = true;
@@ -1342,7 +1346,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
-		module->textEnd = firstImportStubAddr - 4;
+		module->textEnd = firstImportStubAddr == 0 ? reader.GetVaddr() : firstImportStubAddr - 4;
 		// Reference Jpcsp.
 		if (reader.GetFirstSegmentAlign() > 0)
 			module->textStart &= ~(reader.GetFirstSegmentAlign() - 1);
