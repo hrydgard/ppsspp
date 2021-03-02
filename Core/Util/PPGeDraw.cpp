@@ -17,14 +17,14 @@
 
 #include <algorithm>
 
-#include "Common/Render/TextureAtlas.h"
-#include "Common/Render/Text/draw_text.h"
-
+#include "ext/xxhash.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -41,12 +41,14 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
 
-Atlas g_ppge_atlas;
-Draw::DrawContext *g_draw = nullptr;
+static Atlas g_ppge_atlas;
+static Draw::DrawContext *g_draw = nullptr;
 
 static u32 atlasPtr;
 static int atlasWidth;
 static int atlasHeight;
+static uint64_t atlasHash;
+static bool atlasRequiresReset;
 
 struct PPGeVertex {
 	u16_le u, v;
@@ -282,6 +284,7 @@ void __PPGeInit() {
 		u8 cval = (a2 << 4) | a1;
 		ramPtr[i] = cval;
 	}
+	atlasHash = XXH3_64bits(ramPtr, atlasWidth * atlasHeight / 2);
 
 	free(imageData[0]);
 
@@ -291,13 +294,15 @@ void __PPGeInit() {
 	textDrawer = nullptr;
 	textDrawerImages.clear();
 
+	atlasRequiresReset = false;
+
 	INFO_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
 void __PPGeDoState(PointerWrap &p)
 {
-	auto s = p.Section("PPGeDraw", 1, 3);
+	auto s = p.Section("PPGeDraw", 1, 4);
 	if (!s)
 		return;
 
@@ -305,6 +310,20 @@ void __PPGeDoState(PointerWrap &p)
 	Do(p, atlasWidth);
 	Do(p, atlasHeight);
 	Do(p, palette);
+
+	// If the atlas the save state was created with differs from the current one, reload.
+	uint64_t savedHash = atlasHash;
+	if (s >= 4) {
+		Do(p, savedHash);
+	} else {
+		// Memory was already updated by this point, so check directly.
+		if (atlasPtr != 0) {
+			savedHash = XXH3_64bits(Memory::GetPointer(atlasPtr), atlasWidth * atlasHeight / 2);
+		} else {
+			savedHash ^= 1;
+		}
+	}
+	atlasRequiresReset = savedHash != atlasHash;
 
 	Do(p, savedContextPtr);
 	Do(p, savedContextSize);
@@ -727,7 +746,7 @@ static bool HasTextDrawer() {
 		return textDrawer != nullptr;
 	}
 
-	// TODO: Should we pass a draw_? Yes! UWP requires it.
+	// Should we pass a draw_? Yes! UWP requires it.
 	textDrawer = TextDrawer::Create(g_draw);
 	if (textDrawer) {
 		textDrawer->SetFontScale(1.0f, 1.0f);
@@ -1334,4 +1353,9 @@ void PPGeNotifyFrame() {
 
 	PPGeDecimateTextImages();
 	PPGeImage::Decimate();
+
+	if (atlasRequiresReset) {
+		__PPGeShutdown();
+		__PPGeInit();
+	}
 }
