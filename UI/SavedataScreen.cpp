@@ -446,7 +446,7 @@ void SavedataBrowser::Refresh() {
 
 	if (savedataButtons.empty()) {
 		ViewGroup *group = new LinearLayout(ORIENT_VERTICAL, new UI::LinearLayoutParams(UI::Margins(12, 0)));
-		group->Add(new TextView(sa->T("None yet.  Things will appear here after you save.")));
+		group->Add(new TextView(sa->T("None yet. Things will appear here after you save.")));
 		gameList_->Add(group);
 	}
 
