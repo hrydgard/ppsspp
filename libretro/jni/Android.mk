@@ -12,14 +12,14 @@ FFMPEGLIBS += libavformat libavcodec libavutil libswresample libswscale
 WITH_DYNAREC := 1
 
 ifeq ($(TARGET_ARCH),arm64)
-  COREFLAGS += -DARM64 -D_ARCH_64
+  COREFLAGS += -D_ARCH_64
   HAVE_NEON := 1
   FFMPEGLIBDIR := $(FFMPEGDIR)/android/arm64/lib
   FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/arm64/include
 endif
 
 ifeq ($(TARGET_ARCH),arm)
-  COREFLAGS += -DARM -DARMEABI_V7A -D__arm__ -DARM_ASM -D_ARCH_32 -mfpu=neon
+  COREFLAGS += -D__arm__ -DARM_ASM -D_ARCH_32 -mfpu=neon
   HAVE_NEON := 1
   FFMPEGLIBDIR := $(FFMPEGDIR)/android/armv7/lib
   FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/armv7/include

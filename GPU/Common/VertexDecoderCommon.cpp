@@ -1383,7 +1383,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 		MOV(32, R(EAX), R(EBX));
 		RET();
 	}
-#elif defined(ARM)
+#elif PPSSPP_ARCH(ARM)
 	BKPT(0);
 	BKPT(0);
 #endif

@@ -48,10 +48,6 @@
         #define PPSSPP_ARCH_ARMV7 1
         #define PPSSPP_ARCH_ARM_NEON 1
     #endif
-    //TODO: Remove this compat define
-    #ifndef ARM
-        #define ARM 1
-    #endif
 #endif
 
 #if defined(__aarch64__) || defined(_M_ARM64)

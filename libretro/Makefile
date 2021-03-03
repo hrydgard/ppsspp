@@ -105,7 +105,6 @@ else ifneq (,$(findstring arm64,$(platform)))
 		GL_LIB := -lGL
 	endif
 	CPUFLAGS += -D__arm64__ -DARM64_ASM -D__NEON_OPT
-	PLATCFLAGS += -DARM64
 	LDFLAGS += -lrt -ldl
 	PLATFORM_EXT := unix
 
@@ -252,7 +251,6 @@ else ifneq (,$(findstring armv,$(platform)))
 		CPUFLAGS += -mfloat-abi=hard
 	endif
 	CPUFLAGS += -D__arm__ -DARM_ASM
-	PLATCFLAGS += -DARM
 	LDFLAGS += -lrt -ldl
 
 # emscripten

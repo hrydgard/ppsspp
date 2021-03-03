@@ -71,6 +71,7 @@ XXH64       13.8 GB/s            1.9 GB/s
 XXH32        6.8 GB/s            6.0 GB/s
 */
 
+#include "ppsspp_config.h"
 #if defined (__cplusplus)
 extern "C" {
 #endif
@@ -1366,7 +1367,7 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
         xxh_u32 v4 = seed - XXH_PRIME32_1;
 
         do {
-#if defined(ARM) && defined(__GNUC__)
+#if PPSSPP_ARCH(ARM) && defined(__GNUC__)
             __builtin_prefetch(input + 0xc0, 0, 0);
 #endif
             v1 = XXH32_round(v1, XXH_get32bits(input)); input += 4;
