@@ -216,7 +216,7 @@ void Jit::ClearCache()
 
 void Jit::SaveFlags() {
 	PUSHF();
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	// On X64, the above misaligns the stack. However there might be a cheaper solution than this.
 	POP(64, R(EAX));
 	MOV(64, MIPSSTATE_VAR(saved_flags), R(EAX));
@@ -224,7 +224,7 @@ void Jit::SaveFlags() {
 }
 
 void Jit::LoadFlags() {
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(EAX), MIPSSTATE_VAR(saved_flags));
 	PUSH(64, R(EAX));
 #endif

@@ -43,14 +43,16 @@
 // take into account in which XMM registers the values are. Fallback: Just dump out the values
 // and do it the old way.
 
+#include "ppsspp_config.h"
+
 enum {
 	TEMP0 = 32 + 128,
 	NUM_MIPS_FPRS = 32 + 128 + NUM_X86_FPU_TEMPS,
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #define NUM_X_FPREGS 16
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 #define NUM_X_FPREGS 8
 #endif
 

@@ -89,7 +89,7 @@ SamplerJitCache::SamplerJitCache()
 	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64)) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !PPSSPP_PLATFORM(UWP)
 	using namespace Gen;
 	for (int i = 0; i < 100; i++) {
 		MOV(32, R(EAX), R(EBX));
@@ -215,7 +215,7 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 		Clear();
 	}
 
-#if defined(_M_X64) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	addresses_[id] = GetCodePointer();
 	NearestFunc func = Compile(id);
 	cache_[id] = func;
@@ -238,8 +238,7 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
 		Clear();
 	}
 
-	// TODO
-#if defined(_M_X64) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
 	addresses_[id] = GetCodePointer();
 	LinearFunc func = CompileLinear(id);
 	cache_[id] = (NearestFunc)func;

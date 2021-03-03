@@ -53,7 +53,7 @@ namespace MIPSComp
 	using namespace X64JitConstants;
 
 	static bool HasLowSubregister(OpArg arg) {
-#ifndef _M_X64
+#if !PPSSPP_ARCH(AMD64)
 		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
 		if (!arg.IsSimpleReg(EAX) && !arg.IsSimpleReg(EBX) && !arg.IsSimpleReg(ECX) && !arg.IsSimpleReg(EDX)) {
 			return false;

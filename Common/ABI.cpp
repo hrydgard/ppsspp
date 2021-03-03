@@ -15,7 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#if defined(_M_IX86) || defined(_M_X64)
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include "x64Emitter.h"
 #include "ABI.h"
@@ -27,9 +28,9 @@ using namespace Gen;
 // Sets up a __cdecl function.
 void XEmitter::ABI_EmitPrologue(int maxCallParams)
 {
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	// Don't really need to do anything
-#elif defined(_M_X64)
+#elif PPSSPP_ARCH(AMD64)
 #if _WIN32
 	int stacksize = ((maxCallParams + 1) & ~1) * 8 + 8;
 	// Set up a stack frame so that we can call functions
@@ -43,9 +44,9 @@ void XEmitter::ABI_EmitPrologue(int maxCallParams)
 
 void XEmitter::ABI_EmitEpilogue(int maxCallParams)
 {
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	RET();
-#elif defined(_M_X64)
+#elif PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 	int stacksize = ((maxCallParams+1)&~1)*8 + 8;
 	ADD(64, R(RSP), Imm8(stacksize));
@@ -58,7 +59,7 @@ void XEmitter::ABI_EmitEpilogue(int maxCallParams)
 #endif
 }
 
-#ifdef _M_IX86 // All32
+#if PPSSPP_ARCH(X86) // All32
 
 // Shared code between Win32 and Unix32
 void XEmitter::ABI_CallFunction(const void *func) {
@@ -681,4 +682,4 @@ void XEmitter::ABI_RestoreStack(unsigned int /*frameSize*/) {
 
 #endif // 32bit
 
-#endif // defined(_M_IX86) || defined(_M_X64)
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

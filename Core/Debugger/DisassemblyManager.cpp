@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <string>
 #include <algorithm>
 #include <map>
@@ -43,7 +44,7 @@ bool isInInterval(u32 start, u32 size, u32 value)
 
 static HashType computeHash(u32 address, u32 size)
 {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	return XXH3_64bits(Memory::GetPointer(address), size);
 #else
 	return XXH3_64bits(Memory::GetPointer(address), size) & 0xFFFFFFFF;

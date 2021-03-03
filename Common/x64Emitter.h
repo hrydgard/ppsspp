@@ -1057,7 +1057,7 @@ public:
 	void ABI_EmitPrologue(int maxCallParams);
 	void ABI_EmitEpilogue(int maxCallParams);
 
-	#ifdef _M_IX86
+	#if PPSSPP_ARCH(X86)
 	inline int ABI_GetNumXMMRegs() { return 8; }
 	#else
 	inline int ABI_GetNumXMMRegs() { return 16; }
@@ -1075,7 +1075,7 @@ public:
 	bool RipAccessible(const void *ptr) const {
 		// For debugging
 		// return false;
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 		return true;
 #else
 		ptrdiff_t diff = GetCodePtr() - (const uint8_t *)ptr;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <map>
 #include <unordered_map>
@@ -39,7 +40,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <emmintrin.h>
 #endif
 
@@ -451,7 +452,7 @@ static int Replace_gta_dl_write_matrix() {
 		return 38;
 	}
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	__m128i topBytes = _mm_set1_epi32(matrix);
 	__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 	__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
@@ -533,7 +534,7 @@ static int Replace_dl_write_matrix() {
 	if (count == 16) {
 		// Ultra SIMD friendly! These intrinsics generate pretty much perfect code,
 		// no point in hand rolling.
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		__m128i topBytes = _mm_set1_epi32(matrix);
 		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
@@ -569,7 +570,7 @@ static int Replace_dl_write_matrix() {
 		}
 #endif
 	} else {
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		__m128i topBytes = _mm_set1_epi32(matrix);
 		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
