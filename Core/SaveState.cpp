@@ -762,11 +762,11 @@ namespace SaveState
 						// Using save states instead of saves simulates many hour play sessions.
 						// Sometimes this exposes game bugs that were rarely seen on real devices,
 						// because few people played on a real PSP for 10 hours straight.
-						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
 						// Save states also preserve bugs from old PPSSPP versions, so warn.
-						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded. Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					}
 
