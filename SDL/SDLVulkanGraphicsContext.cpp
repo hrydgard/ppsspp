@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Common/System/System.h"
@@ -93,7 +94,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
-#if defined(PPSSPP_PLATFORM_MAC)
+#if PPSSPP_PLATFORM(MAC)
 	case SDL_SYSWM_COCOA:
 		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.cocoa.window), nullptr);
 		break;

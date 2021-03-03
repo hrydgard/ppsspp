@@ -32,6 +32,7 @@
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
 #define CONTROL_AVG     32.0f
 
+#include "ppsspp_config.h"
 #include <cstring>
 #include <atomic>
 

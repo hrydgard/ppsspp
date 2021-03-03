@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "ColorConv.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.

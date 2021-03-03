@@ -15,13 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// Enable define below to enable oprofile integration. For this to work,
-// it requires at least oprofile version 0.9.4, and changing the build
-// system to link the Dolphin executable against libopagent.	Since the
-// dependency is a little inconvenient and this is possibly a slight
-// performance hit, it's not enabled by default, but it's useful for
-// locating performance issues.
-
+#include "ppsspp_config.h"
 #include <cstddef>
 #include <algorithm>
 
@@ -45,6 +39,12 @@
 
 // #include "JitBase.h"
 
+// Enable define below to enable oprofile integration. For this to work,
+// it requires at least oprofile version 0.9.4, and changing the build
+// system to link the Dolphin executable against libopagent.	Since the
+// dependency is a little inconvenient and this is possibly a slight
+// performance hit, it's not enabled by default, but it's useful for
+// locating performance issues.
 #if defined USE_OPROFILE && USE_OPROFILE
 #include <opagent.h>
 

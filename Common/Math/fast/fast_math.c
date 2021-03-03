@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "fast_math.h"
 #include "fast_matrix.h"
 

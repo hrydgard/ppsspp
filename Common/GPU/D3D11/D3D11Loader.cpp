@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "Common/GPU/D3D11/D3D11Loader.h"
 
 #if PPSSPP_PLATFORM(UWP)

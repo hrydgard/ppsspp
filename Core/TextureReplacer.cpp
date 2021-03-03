@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <png.h>
-
+#include "ppsspp_config.h"
 #include <algorithm>
+#include <png.h>
 
 #include "ext/xxhash.h"
 

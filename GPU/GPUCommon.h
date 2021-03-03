@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "GPU/GPUInterface.h"

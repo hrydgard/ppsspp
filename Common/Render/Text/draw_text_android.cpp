@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
