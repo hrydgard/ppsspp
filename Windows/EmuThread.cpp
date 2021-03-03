@@ -131,7 +131,7 @@ void MainThreadFunc() {
 		args.push_back(string.c_str());
 	}
 	bool performingRestart = NativeIsRestarting();
-	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
+	NativeInit(static_cast<int>(args.size()), &args[0], "", "", nullptr);
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		if (!useEmuThread) {
