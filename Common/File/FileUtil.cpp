@@ -63,9 +63,9 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFBundle.h>
-#if !defined(IOS)
+#if !PPSSPP_PLATFORM(IOS)
 #include <mach-o/dyld.h>
-#endif  // !defined(IOS)
+#endif  // !PPSSPP_PLATFORM(IOS)
 #endif  // __APPLE__
 
 #include "Common/Data/Encoding/Utf8.h"
@@ -844,13 +844,13 @@ const std::string &GetExeDirectory()
 		ExePath = program_path;
 #endif
 
-#elif (defined(__APPLE__) && !defined(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
+#elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
 		char program_path[4096];
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
 		if (readlink("/proc/self/exe", program_path, program_path_size) > 0)
-#elif defined(__APPLE__) && !defined(IOS)
+#elif defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)
 		if (_NSGetExecutablePath(program_path, &program_path_size) == 0)
 #elif defined(KERN_PROC_PATHNAME)
 		int mib[4] = {

@@ -1,4 +1,4 @@
-
+#include "ppsspp_config.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -17,7 +17,7 @@ bool LibretroGLCoreContext::Init() {
 
 void LibretroGLCoreContext::CreateDrawContext() {
 	if (!glewInitDone) {
-#if !defined(IOS) && !defined(USING_GLES2)
+#if !PPSSPP_PLATFORM(IOS) && !defined(USING_GLES2)
 		if (glewInit() != GLEW_OK) {
 			ERROR_LOG(G3D, "glewInit() failed.\n");
 			return;

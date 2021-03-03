@@ -213,7 +213,7 @@ void ArmJit::GenerateFixedCode() {
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
 				MOVI2R(JITBASEREG, (u32)(uintptr_t)GetBasePtr());
 #endif

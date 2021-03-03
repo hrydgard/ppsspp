@@ -514,7 +514,7 @@ extern GL_APICALL void           (* GL_APIENTRY glBufferStorageEXT) (GLenum targ
 /* OES_copy_image, etc. */
 extern GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
 
-#endif   // IOS
+#endif   // PPSSPP_PLATFORM(IOS)
 
 #ifdef __cplusplus
 }

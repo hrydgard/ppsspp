@@ -382,7 +382,7 @@ GLboolean gl3stubInit() {
 	return GL_TRUE;
 }
 
-#endif // IOS
+#endif // PPSPP_PLATFORM(IOS)
 
 #endif // GLES2
 

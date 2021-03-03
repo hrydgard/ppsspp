@@ -91,16 +91,8 @@
     #if TARGET_IPHONE_SIMULATOR
         #define PPSSPP_PLATFORM_IOS 1
         #define PPSSPP_PLATFORM_IOS_SIMULATOR 1
-        //TODO: Remove this compat define
-        #ifndef IOS
-            #define IOS 1
-        #endif
     #elif TARGET_OS_IPHONE
         #define PPSSPP_PLATFORM_IOS 1
-        //TODO: Remove this compat define
-        #ifndef IOS
-            #define IOS 1
-        #endif
     #elif TARGET_OS_MAC
         #define PPSSPP_PLATFORM_MAC 1
     #else

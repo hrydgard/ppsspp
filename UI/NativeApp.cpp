@@ -133,7 +133,7 @@ Atlas g_ui_atlas;
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 #include "ios/iOSCoreAudio.h"
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -211,13 +211,13 @@ static LogListener *logger = nullptr;
 std::string boot_filename = "";
 
 void NativeHost::InitSound() {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	iOSCoreAudioInit();
 #endif
 }
 
 void NativeHost::ShutdownSound() {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	iOSCoreAudioShutdown();
 #endif
 }
@@ -323,7 +323,7 @@ static void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
 #if defined(__ANDROID__)
 		g_Config.currentDirectory = g_Config.externalDirectory;
-#elif defined(IOS)
+#elif PPSSPP_PLATFORM(IOS)
 		g_Config.currentDirectory = g_Config.internalDataDirectory;
 #elif PPSSPP_PLATFORM(SWITCH)
 		g_Config.currentDirectory = "/";
@@ -454,12 +454,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
 	pendingInputBoxes.clear();
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	user_data_path += "/";
 #endif
 
 	// We want this to be FIRST.
-#if defined(IOS)
+#if PPSSPP_PLATFORM(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #endif
@@ -508,7 +508,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			g_Config.memStickDirectory = memstickDir + "/";
 		}
 	}
-#elif defined(IOS)
+#elif PPSSPP_PLATFORM(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
 #elif PPSSPP_PLATFORM(SWITCH)

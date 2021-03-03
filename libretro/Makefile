@@ -147,7 +147,6 @@ else ifneq (,$(findstring osx,$(platform)))
 # iOS
 else ifneq (,$(findstring ios,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro_ios.dylib
-	PLATCFLAGS += -DIOS
 	LDFLAGS += -dynamiclib -marm
 	fpic = -fPIC
 	GLES = 1
@@ -171,7 +170,7 @@ else ifneq (,$(findstring ios,$(platform)))
 		CXX += -miphoneos-version-min=5.0
 		PLATCFLAGS += -miphoneos-version-min=5.0
 	endif
-	PLATCFLAGS += -DIOS -DHAVE_POSIX_MEMALIGN
+	PLATCFLAGS += -DHAVE_POSIX_MEMALIGN
 	CPUFLAGS += -DARMv5_ONLY -DARM
 	PLATFORM_EXT := unix
 	TARGET_ARCH = arm

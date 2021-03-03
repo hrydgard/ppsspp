@@ -19,8 +19,9 @@
 #undef min
 #undef max
 
+#include "ppsspp_config.h"
 #include <cstddef> //size_t
-#if defined(IOS)
+#if PPSSPP_PLATFORM(IOS)
 #include <stdint.h>
 #else
 #include <cstdint> //uint32_t

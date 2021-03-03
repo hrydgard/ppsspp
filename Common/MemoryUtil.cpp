@@ -279,7 +279,7 @@ void FreeAlignedMemory(void* ptr) {
 bool PlatformIsWXExclusive() {
 	// Needed on platforms that disable W^X pages for security. Even without block linking, still should be much faster than IR JIT.
 	// This might also come in useful for UWP (Universal Windows Platform) if I'm understanding things correctly.
-#if defined(IOS) || PPSSPP_PLATFORM(UWP) || defined(__OpenBSD__)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || defined(__OpenBSD__)
 	return true;
 #elif PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
 	return true;

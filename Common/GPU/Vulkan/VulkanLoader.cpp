@@ -238,7 +238,7 @@ static const char *device_name_blacklist[] = {
 
 #ifndef _WIN32
 static const char *so_names[] = {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",

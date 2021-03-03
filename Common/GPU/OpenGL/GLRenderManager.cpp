@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
@@ -889,7 +890,7 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 		glBindBuffer(target_, buffer_);
 
 		if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
-#ifndef IOS
+#if !PPSSPP_PLATFORM(IOS)
 			if (!hasStorage_) {
 				GLbitfield storageFlags = access & ~(GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 #ifdef USING_GLES2

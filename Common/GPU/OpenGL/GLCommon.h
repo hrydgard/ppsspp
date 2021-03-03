@@ -2,7 +2,7 @@
 
 #include "ppsspp_config.h"
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
 #elif defined(USING_GLES2)
@@ -58,7 +58,7 @@ typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
