@@ -18,6 +18,7 @@
 #include <atomic>
 #include <cstdio>
 #include <mutex>
+#include <set>
 #include <vector>
 
 #include "Common/Profiler/Profiler.h"
@@ -47,8 +48,11 @@ struct EventType {
 	const char *name;
 };
 
-std::vector<EventType> event_types;
-int nextEventTypeRestoreId = -1;
+static std::vector<EventType> event_types;
+// Only used during restore.
+static std::set<int> usedEventTypes;
+static std::set<int> restoredEventTypes;
+static int nextEventTypeRestoreId = -1;
 
 struct BaseEvent {
 	s64 time;
@@ -172,6 +176,7 @@ int RegisterEvent(const char *name, TimedCallback callback) {
 
 	int id = (int)event_types.size();
 	event_types.push_back(EventType{ callback, name });
+	usedEventTypes.insert(id);
 	return id;
 }
 
@@ -181,15 +186,32 @@ void AntiCrashCallback(u64 userdata, int cyclesLate) {
 }
 
 void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callback) {
+	// Some old states have a duplicate restore, do our best to fix...
+	if (restoredEventTypes.count(event_type) != 0)
+		event_type = -1;
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
+	if (event_type >= event_types.size()) {
+		// Give it any unused event id starting from the end.
+		// Older save states with messed up ids have gaps near the end.
+		for (int i = (int)event_types.size() - 1; i >= 0; --i) {
+			if (usedEventTypes.count(i) == 0) {
+				event_type = i;
+				break;
+			}
+		}
+	}
 	_assert_msg_(event_type >= 0 && event_type < event_types.size(), "Invalid event type %d", event_type);
 	event_types[event_type] = EventType{ callback, name };
+	usedEventTypes.insert(event_type);
+	restoredEventTypes.insert(event_type);
 }
 
 void UnregisterAllEvents() {
 	_dbg_assert_msg_(first == nullptr, "Unregistering events with events pending - this isn't good.");
 	event_types.clear();
+	usedEventTypes.clear();
+	restoredEventTypes.clear();
 }
 
 void Init()
@@ -661,11 +683,13 @@ void Event_DoState(PointerWrap &p, BaseEvent *ev)
 	Do(p, ev->time);
 	Do(p, ev->userdata);
 	Do(p, ev->type);
+	usedEventTypes.insert(ev->type);
 }
 
 void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 {
 	Do(p, *ev);
+	usedEventTypes.insert(ev->type);
 }
 
 void DoState(PointerWrap &p) {
@@ -690,6 +714,8 @@ void DoState(PointerWrap &p) {
 		event_types[i].name = "INVALID EVENT";
 	}
 	nextEventTypeRestoreId = n - 1;
+	usedEventTypes.clear();
+	restoredEventTypes.clear();
 
 	if (s >= 3) {
 		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);
