@@ -66,10 +66,6 @@
 #elif defined(__mips__)
     #define PPSSPP_ARCH_MIPS 1
     #define PPSSPP_ARCH_32BIT 1
-    //TODO: Remove this compat define
-    #ifndef MIPS
-        #define MIPS 1
-    #endif
 #endif
 
 

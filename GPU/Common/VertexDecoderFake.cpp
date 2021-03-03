@@ -18,6 +18,7 @@
 //TODO: Doesn't build, FIXME!
 #if 0
 
+#include "ppsspp_config.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -28,7 +29,7 @@ static const float by128 = 1.0f / 128.0f;
 static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
-#ifdef MIPS
+#if PPSSPP_ARCH(MIPS)
 using namespace MIPSGen;
 #else
 using namespace FakeGen;

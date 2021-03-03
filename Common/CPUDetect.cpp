@@ -78,7 +78,7 @@ static uint64_t do_xgetbv(unsigned int index) {
 }
 #endif  // _M_SSE
 
-#if !defined(MIPS)
+#if !PPSSPP_ARCH(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #if defined(__i386__) && defined(__PIC__)
@@ -100,7 +100,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 	do_cpuidex(regs, cpuid_leaf, 0);
 }
 
-#endif // !defined(MIPS)
+#endif // !PPSSPP_ARCH(MIPS)
 
 #endif  // !win32
 
