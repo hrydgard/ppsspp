@@ -19,7 +19,7 @@
 // Alpha/stencil is a convoluted mess. Some good comments are here:
 // https://github.com/hrydgard/ppsspp/issues/3768
 
-
+#include "ppsspp_config.h"
 #include "StateMappingGLES.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
@@ -58,7 +58,7 @@ static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ONE_MINUS_SRC1_COLOR,
 	GL_SRC1_ALPHA,
 	GL_ONE_MINUS_SRC1_ALPHA,
-#elif !defined(IOS)
+#elif !PPSSPP_PLATFORM(IOS)
 	GL_SRC1_COLOR_EXT,
 	GL_ONE_MINUS_SRC1_COLOR_EXT,
 	GL_SRC1_ALPHA_EXT,

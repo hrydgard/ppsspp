@@ -476,7 +476,7 @@ void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 }
 
 bool ArmJit::ReplaceJalTo(u32 dest) {
-#ifdef ARM
+#if PPSSPP_ARCH(ARM)
 	const ReplacementTableEntry *entry = nullptr;
 	u32 funcSize = 0;
 	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {

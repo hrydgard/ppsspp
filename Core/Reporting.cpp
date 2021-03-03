@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <deque>
 #include <thread>
 #include <mutex>
@@ -301,7 +302,7 @@ namespace Reporting
 		return "Windows ARM32";
 #elif defined(_WIN32)
 		return "Windows";
-#elif defined(IOS)
+#elif PPSSPP_PLATFORM(IOS)
 		return "iOS";
 #elif defined(__APPLE__)
 		return "Mac";

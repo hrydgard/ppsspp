@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include <cstring>
 #include <cassert>
 #include <thread>

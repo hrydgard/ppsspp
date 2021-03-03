@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include <cstdint>
 #include <cstdlib>  // for byte swapping
 #include <cstddef>
@@ -27,7 +28,7 @@ inline int LeastSignificantSetBit(u32 val)
 	_BitScanForward(&index, val);
 	return (int)index;
 }
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 inline int LeastSignificantSetBit(u64 val)
 {
 	unsigned long index;

@@ -1020,9 +1020,9 @@ int FPURegCache::SanityCheck() const {
 
 const int *FPURegCache::GetAllocationOrder(int &count) {
 	static const int allocationOrder[] = {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 		XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 #endif
 	};

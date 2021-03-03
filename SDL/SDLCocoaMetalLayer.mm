@@ -1,4 +1,5 @@
-#if defined(PPSSPP_PLATFORM_MAC)
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
 #import <Cocoa/Cocoa.h>
 #else
 #import <UIKit/UIKit.h>
@@ -9,7 +10,7 @@
 
 void *makeWindowMetalCompatible(void *window) {
 	// https://github.com/KhronosGroup/MoltenVK/issues/78#issuecomment-371118536
-#if defined(PPSSPP_PLATFORM_MAC)
+#if PPSSPP_PLATFORM(MAC)
 	NSView *view = ((NSWindow *)window).contentView;
 	assert([view isKindOfClass:[NSView class]]);
 

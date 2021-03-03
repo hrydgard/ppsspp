@@ -16,9 +16,9 @@
 // http://code.google.com/p/dolphin-emu/
 
 // Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
-#if defined(_M_IX86) || defined(_M_X64)
-
 #include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #ifdef __ANDROID__
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -78,7 +78,7 @@ static uint64_t do_xgetbv(unsigned int index) {
 }
 #endif  // _M_SSE
 
-#if !defined(MIPS)
+#if !PPSSPP_ARCH(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #if defined(__i386__) && defined(__PIC__)
@@ -100,7 +100,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 	do_cpuidex(regs, cpuid_leaf, 0);
 }
 
-#endif // !defined(MIPS)
+#endif // !PPSSPP_ARCH(MIPS)
 
 #endif  // !win32
 
@@ -141,9 +141,9 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 // Detects the various cpu features
 void CPUInfo::Detect() {
 	memset(this, 0, sizeof(*this));
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	Mode64bit = false;
-#elif defined (_M_X64)
+#elif PPSSPP_ARCH(AMD64)
 	Mode64bit = true;
 	OS64bit = true;
 #endif
@@ -151,7 +151,7 @@ void CPUInfo::Detect() {
 
 #if PPSSPP_PLATFORM(UWP)
 	OS64bit = Mode64bit;  // TODO: Not always accurate!
-#elif defined(_WIN32) && defined(_M_IX86)
+#elif defined(_WIN32) && PPSSPP_ARCH(X86)
 	BOOL f64 = false;
 	IsWow64Process(GetCurrentProcess(), &f64);
 	OS64bit = (f64 == TRUE) ? true : false;
@@ -441,4 +441,4 @@ std::string CPUInfo::Summarize()
 	return sum;
 }
 
-#endif // defined(_M_IX86) || defined(_M_X64)
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

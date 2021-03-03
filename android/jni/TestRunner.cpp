@@ -59,7 +59,7 @@ static std::string TrimNewlines(const std::string &s) {
 }
 
 bool TestsAvailable() {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	std::string testDirectory = g_Config.flash0Directory + "../";
 #else
 	std::string testDirectory = g_Config.memStickDirectory;
@@ -74,7 +74,7 @@ bool TestsAvailable() {
 bool RunTests() {
 	std::string output;
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
 	std::string baseDirectory = g_Config.memStickDirectory;

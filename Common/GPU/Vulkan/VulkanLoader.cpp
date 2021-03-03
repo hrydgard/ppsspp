@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "ppsspp_config.h"
 #include <vector>
 #include <string>
 #include <cstring>
 
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
 
@@ -237,9 +238,9 @@ static const char *device_name_blacklist[] = {
 
 #ifndef _WIN32
 static const char *so_names[] = {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
-#elif defined(PPSSPP_PLATFORM_MAC)
+#elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 #else
 	"libvulkan.so",

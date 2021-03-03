@@ -977,7 +977,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 #endif
 

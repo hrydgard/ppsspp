@@ -21,6 +21,7 @@
 #pragma optimize("gty", on)
 #endif
 
+#include "ppsspp_config.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <WindowsX.h>

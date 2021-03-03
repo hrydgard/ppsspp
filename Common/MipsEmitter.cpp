@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -67,7 +68,7 @@ void MIPSEmitter::FlushIcache() {
 }
 
 void MIPSEmitter::FlushIcacheSection(u8 *start, u8 *end) {
-#if defined(MIPS)
+#if PPSSPP_ARCH(MIPS)
 #ifdef __clang__
 	__clear_cache(start, end);
 #else

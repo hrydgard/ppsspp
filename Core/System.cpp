@@ -230,7 +230,7 @@ bool CPU_Init() {
 
 	std::string filename = coreParameter.fileToStart;
 	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
 		loadedFile = new RamCachingFileLoader(loadedFile);
 	}
@@ -392,9 +392,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 	}
 
-#if defined(_WIN32) && defined(_M_X64)
+#if defined(_WIN32) && PPSSPP_ARCH(AMD64)
 	INFO_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
-#elif defined(_WIN32) && !defined(_M_X64)
+#elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
 	INFO_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
 #else
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);

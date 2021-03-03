@@ -94,7 +94,7 @@ namespace MIPSComp {
 			gpr.MapReg(rt, true, false);
 		}
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 		// We use EDX so we can have DL for 8-bit ops.
 		const bool needSwap = bits == 8 && !gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX);
 		if (needSwap)
@@ -144,7 +144,7 @@ namespace MIPSComp {
 
 		X64Reg shiftReg = ECX;
 		gpr.FlushLockX(ECX, EDX);
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		// On x64, we need ECX for CL, but it's also the first arg and gets lost.  Annoying.
 		gpr.FlushLockX(R9);
 		shiftReg = R9;

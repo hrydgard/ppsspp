@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <type_traits>
 #include <mutex>

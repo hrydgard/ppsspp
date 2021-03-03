@@ -111,7 +111,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 	enterDispatcher = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	// Two statically allocated registers.
 	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
 	uintptr_t jitbase = (uintptr_t)GetBasePtr();
@@ -162,10 +162,10 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 #endif
 			dispatcherFetch = GetCodePtr();
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 			_assert_msg_( Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
-#elif _M_X64
+#elif PPSSPP_ARCH(AMD64)
 			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
@@ -178,9 +178,9 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 				}
 				//grab from list and jump to it
 				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 				ADD(32, R(EAX), ImmPtr(GetBasePtr()));
-#elif _M_X64
+#elif PPSSPP_ARCH(AMD64)
 				if (jo.reserveR15ForAsm)
 					ADD(64, R(RAX), R(JITBASEREG));
 				else

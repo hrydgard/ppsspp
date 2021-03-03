@@ -31,7 +31,7 @@ PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
 PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
 PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 #endif
-#ifndef IOS
+#if !PPSSPP_PLATFORM(IOS)
 #include "EGL/egl.h"
 #endif
 #endif

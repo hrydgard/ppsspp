@@ -87,7 +87,7 @@ static uint32_t ConvertProtFlagsUnix(uint32_t flags) {
 
 #endif
 
-#if defined(_WIN32) && defined(_M_X64)
+#if defined(_WIN32) && PPSSPP_ARCH(AMD64)
 static uintptr_t last_executable_addr;
 static void *SearchForFreeMem(size_t size) {
 	if (!last_executable_addr)
@@ -128,7 +128,7 @@ void *AllocateExecutableMemory(size_t size) {
 		prot = PAGE_READWRITE;
 	if (sys_info.dwPageSize == 0)
 		GetSystemInfo(&sys_info);
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
 		size_t aligned_size = ppsspp_round_page(size);
 #if 1   // Turn off to hunt for RIP bugs on x86-64.
@@ -159,7 +159,7 @@ void *AllocateExecutableMemory(size_t size) {
 	}
 #else
 	static char *map_hint = 0;
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	// Try to request one that is close to our memory location if we're in high memory.
 	// We use a dummy global variable to give us a good location to start from.
 	if (!map_hint) {
@@ -190,7 +190,7 @@ void *AllocateExecutableMemory(size_t size) {
 		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
 	}
 
-#if defined(_M_X64) && !defined(_WIN32)
+#if PPSSPP_ARCH(AMD64) && !defined(_WIN32)
 	else if ((uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
 		map_hint += ppsspp_round_page(size);
@@ -279,7 +279,7 @@ void FreeAlignedMemory(void* ptr) {
 bool PlatformIsWXExclusive() {
 	// Needed on platforms that disable W^X pages for security. Even without block linking, still should be much faster than IR JIT.
 	// This might also come in useful for UWP (Universal Windows Platform) if I'm understanding things correctly.
-#if defined(IOS) || PPSSPP_PLATFORM(UWP) || defined(__OpenBSD__)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || defined(__OpenBSD__)
 	return true;
 #elif PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
 	return true;

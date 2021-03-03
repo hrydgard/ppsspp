@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include <map>
 #include <string>
 #include <sstream>

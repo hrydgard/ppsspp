@@ -17,12 +17,13 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
 namespace X64JitConstants {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	const Gen::X64Reg MEMBASEREG = Gen::RBX;
 	const Gen::X64Reg CTXREG = Gen::R14;
 	const Gen::X64Reg JITBASEREG = Gen::R15;
@@ -34,9 +35,9 @@ namespace X64JitConstants {
 	const Gen::X64Reg TEMPREG = Gen::EAX;
 	const int NUM_MIPS_GPRS = 36;
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	const u32 NUM_X_REGS = 16;
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 	const u32 NUM_X_REGS = 8;
 #endif
 }

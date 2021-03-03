@@ -129,7 +129,7 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
-#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
 #define SKIP(a_flags, b_flags) \
 	if ((b_flags) & MV_KERNEL) \
 		continue;

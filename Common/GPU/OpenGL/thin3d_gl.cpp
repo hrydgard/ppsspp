@@ -61,7 +61,7 @@ static const unsigned short blendFactorToGL[] = {
 	GL_ONE_MINUS_SRC1_COLOR,
 	GL_SRC1_ALPHA,
 	GL_ONE_MINUS_SRC1_ALPHA,
-#elif !defined(IOS)
+#elif !PPSSPP_PLATFORM(IOS)
 	GL_SRC1_COLOR_EXT,
 	GL_ONE_MINUS_SRC1_COLOR_EXT,
 	GL_SRC1_ALPHA_EXT,

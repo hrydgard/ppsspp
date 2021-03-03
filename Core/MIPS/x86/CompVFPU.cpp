@@ -324,7 +324,7 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 			FixupBranch next = J_CC(CC_NE);
 
 			auto PSPMemAddr = [](X64Reg scaled, int offset) {
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 				return MDisp(scaled, (u32)Memory::base + offset);
 #else
 				return MComplex(MEMBASEREG, scaled, 1, offset);
@@ -2164,7 +2164,7 @@ union u32float {
 	}
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 typedef float SinCosArg;
 #else
 typedef u32float SinCosArg;
@@ -2202,7 +2202,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		DISABLE;
 
 	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg, float *output), u8 sreg) {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		MOVSS(XMM0, fpr.V(sreg));
 		// TODO: This reg might be different on Linux...
 #ifdef _WIN32
@@ -2910,7 +2910,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			// Map the D column.
 			u8 dcol[4];
 			GetVectorRegs(dcol, vsz, dcols[i]);
-#ifndef _M_X64
+#if !PPSSPP_ARCH(AMD64)
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT | MAP_NOLOCK);
 #else
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
@@ -2923,7 +2923,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			}
 		}
 
-#ifndef _M_X64
+#if !PPSSPP_ARCH(AMD64)
 		fpr.ReleaseSpillLocks();
 #endif
 		if (transposeDest) {
@@ -3566,7 +3566,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	bool negSin1 = (imm & 0x10) ? true : false;
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 	LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 #else
