@@ -305,14 +305,7 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-	#TODO: Remove this and include the file properly everywhere it makes sense
-	# First step is too use the macros everywhere
-	# Second step is to remove the compatibility defines
-	# Third step is to include the file
-	# Fourth step is to remove that line!
-	if(NOT IOS)
-		add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/ppsspp_config.h)
-	endif()
+
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
 	add_definitions(-Wno-deprecated-register)
