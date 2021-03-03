@@ -720,16 +720,16 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		{
 		case WINDOW_MAINWINDOW:
 			wnd = hwndMain;
-			accel = hAccelTable;
+			accel = g_Config.bSystemControls ? hAccelTable : NULL;
 			break;
 		case WINDOW_CPUDEBUGGER:
-			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : 0;
-			accel = hDebugAccelTable;
+			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : NULL;
+			accel = g_Config.bSystemControls ? hDebugAccelTable : NULL;
 			break;
 		case WINDOW_GEDEBUGGER:
 		default:
-			wnd = 0;
-			accel = 0;
+			wnd = NULL;
+			accel = NULL;
 			break;
 		}
 

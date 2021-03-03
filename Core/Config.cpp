@@ -959,6 +959,8 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, true, true),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, true, true),
 
+	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, true, false),
+
 	ConfigSetting(false),
 };
 
