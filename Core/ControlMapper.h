@@ -16,6 +16,7 @@ public:
 	void Update();
 
 	bool Key(const KeyInput &key, bool *pauseTrigger);
+	void pspKey(int pspKeyCode, int flags);
 	bool Axis(const AxisInput &axis);
 
 	// Required callbacks
@@ -29,7 +30,6 @@ public:
 
 private:
 	void processAxis(const AxisInput &axis, int direction);
-	void pspKey(int pspKeyCode, int flags);
 	void setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero = true);
 
 	void SetPSPAxis(char axis, float value, int stick);
