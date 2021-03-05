@@ -21,10 +21,19 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#include "ppsspp_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+
+#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
+#include <netdb.h>
+#include <switch.h>
+// Missing include, *shrugs*
+extern "C" struct hostent *gethostbyname(const char *name);
+#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
 #if !defined(__APPLE__)
 #include <stdlib.h>

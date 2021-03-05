@@ -21,6 +21,8 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#include "ppsspp_config.h"
+
 #if defined(_WIN32)
 #include <WinSock2.h>
 #include "Common/CommonWindows.h"
@@ -32,13 +34,22 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#if !PPSSPP_PLATFORM(SWITCH)
 #include <ifaddrs.h>
+#endif // !PPSSPP_PLATFORM(SWITCH)
 #endif
 
 #ifndef MSG_NOSIGNAL
 // Default value to 0x00 (do nothing) in systems where it's not supported.
 #define MSG_NOSIGNAL 0x00
 #endif
+
+#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
+#undef __BSD_VISIBLE
+#define __BSD_VISIBLE 1
+#include <switch.h>
+#define TCP_MAXSEG 2
+#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
 #include <cstring>
 
@@ -56,6 +67,11 @@
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Instance.h"
 #include "proAdhoc.h" 
+
+#if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
+// Missing toolchain define
+#define INADDR_NONE 0xFFFFFFFF
+#endif
 
 uint16_t portOffset;
 uint32_t minSocketTimeoutUS;
@@ -1761,6 +1777,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		return 0;
 	}
 
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (metasocket != (int)INVALID_SOCKET) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
@@ -1771,6 +1788,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			return 0;
 		}
 	}
+#endif // !PPSSPP_PLATFORM(SWITCH)
 
 // Fallback if not connected to AdhocServer
 #if defined(_WIN32)
@@ -2018,7 +2036,7 @@ int setUDPConnReset(int udpsock, bool enabled) {
 	return -1;
 }
 
-#if !defined(TCP_KEEPIDLE)
+#if !defined(TCP_KEEPIDLE) && !PPSSPP_PLATFORM(SWITCH)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif
 // VS 2017 compatibility
@@ -2034,6 +2052,7 @@ int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int kee
 	int optval = keepalive ? 1 : 0;
 	int optlen = sizeof(optval);
 	int result = setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, optlen);
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (result == 0 && keepalive) {
 		if (getsockopt(sock, SOL_SOCKET, SO_TYPE, (char*)&optval, (socklen_t*)&optlen) == 0 && optval == SOCK_STREAM) {
 			optlen = sizeof(optval);
@@ -2045,6 +2064,7 @@ int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int kee
 			setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&optval, optlen);
 		}
 	}
+#endif // !PPSSPP_PLATFORM(SWITCH)
 	return result;
 }
 
