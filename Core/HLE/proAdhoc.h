@@ -85,6 +85,9 @@ inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || er
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
+#ifndef ESHUTDOWN
+#define ESHUTDOWN ENETDOWN
+#endif
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
 inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif

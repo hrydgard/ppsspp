@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #include "Core/Instance.h"
 
-#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__) && !PPSSPP_PLATFORM(SWITCH)
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -80,7 +80,7 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 	UnmapViewOfFile(buf);
 
 	return result;
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
 	// TODO: replace shm_open & shm_unlink with ashmem or android-shmem
 	return false;
 #else
@@ -141,7 +141,7 @@ void InitInstanceCounter() {
 		PPSSPP_ID = 1;
 		return;
 	}
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
 	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
 #else
 	// Create shared memory object
@@ -178,7 +178,7 @@ void ShutdownInstanceCounter() {
 		CloseHandle(mapLock);
 		mapLock = nullptr;
 	}
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__)
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
 	// Do nothing
 #else
 	if (hIDMapFile >= 0) {
