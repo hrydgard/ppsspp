@@ -221,7 +221,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 
 	// Filtering overrides from replacements or settings.
 	TextureFiltering forceFiltering = TEX_FILTER_AUTO;
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = replacer_.Enabled() ? (entry ? entry->CacheKey() : 0) : 0;
 	if (!replacer_.Enabled() || entry == nullptr || !replacer_.FindFiltering(cachekey, entry->fullhash, &forceFiltering)) {
 		switch (g_Config.iTexFiltering) {
 		case TEX_FILTER_AUTO:
