@@ -138,6 +138,26 @@ static bool UsesBlendConstant(int factor) {
 	}
 }
 
+static std::string CutFromMain(std::string str) {
+	std::vector<std::string> lines;
+	SplitString(str, '\n', lines);
+
+	std::string rebuilt;
+	bool foundStart = false;
+	int c = 0;
+	for (const std::string &str : lines) {
+		if (startsWith(str, "void main")) {
+			foundStart = true;
+			rebuilt += StringFromFormat("... (cut %d lines)\n", c);
+		}
+		if (foundStart) {
+			rebuilt += str + "\n";
+		}
+		c++;
+	}
+	return rebuilt;
+}
+
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
 		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
@@ -303,13 +323,15 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);
 	if (result != VK_SUCCESS) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		if (result == VK_INCOMPLETE) {
-			// Bad return value seen on Adreno in Burnout :(  Try to ignore?
-			// TODO: Log all the information we can here!
+			// Typical Adreno return value. It'll usually also log something vague, like "Failed to link shaders".
+			// Let's log some stuff and try to stumble along.
+			ERROR_LOG(G3D, "VS source code:\n%s\n", CutFromMain(vs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
+			ERROR_LOG(G3D, "FS source code:\n%s\n", CutFromMain(fs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
 		} else {
 			_dbg_assert_msg_(false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		}
-		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();
 		nullPipeline->pipeline = VK_NULL_HANDLE;
@@ -732,6 +754,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
 	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
+	int pipelineCreateFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
 		if (failed || cancelCache_) {
 			break;
@@ -759,11 +782,14 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
-		GetOrCreatePipeline(layout, rp, key.raster,
+		VulkanPipeline *pipeline = GetOrCreatePipeline(layout, rp, key.raster,
 			key.useHWTransform ? &fmt : 0,
 			vs, fs, key.useHWTransform);
+		if (!pipeline) {
+			pipelineCreateFailCount += 1;
+		}
 	}
-	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines).", (int)size);
+	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
 	return true;
 }
 
