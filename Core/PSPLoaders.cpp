@@ -185,6 +185,28 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 			if (paramSFO.ReadSFO(sfoData)) {
 				// This is the parameter CFW uses to determine homebrew wants the full 64MB.
 				UseLargeMem(paramSFO.GetValueInt("MEMSIZE"));
+
+				// Take this moment to bring over the title, if set.
+				bool updateTitle = false;
+				std::string title = paramSFO.GetValueString("TITLE");
+				if (g_paramSFO.GetValueString("TITLE").empty() && !title.empty()) {
+					g_paramSFO.SetValue("TITLE", title, (int)title.size());
+				}
+
+				std::string discID = paramSFO.GetValueString("DISC_ID");
+				// Homebrew typically always leave this zero.
+				bool discTotalCheck = paramSFO.GetValueInt("DISC_TOTAL") != 0;
+				// A lot of homebrew reuse real game disc IDs - avoid.
+				bool formatCheck = discID.substr(0, 2) != "NP" && discID.substr(0, 2) != "UL" && discID.substr(0, 2) != "UC";
+				char region = discID.size() > 3 ? discID[2] : '\0';
+				bool regionCheck = region != 'A' && region != 'E' && region != 'H' && region != 'I' && region != 'J' && region != 'K' && region != 'U' && region != 'X';
+				if (formatCheck || regionCheck || discTotalCheck) {
+					g_paramSFO.SetValue("DISC_ID", discID, (int)discID.size());
+					std::string ver = paramSFO.GetValueString("DISC_VERSION");
+					if (ver.empty())
+						ver = "1.00";
+					g_paramSFO.SetValue("DISC_VERSION", ver, (int)ver.size());
+				}
 			}
 		}
 	}
@@ -393,33 +415,35 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart;
 	std::size_t lslash = homebrewName.find_last_of("/");
-	homebrewName = homebrewName.substr(lslash + 1);
+	if (lslash != homebrewName.npos)
+		homebrewName = homebrewName.substr(lslash + 1);
+	std::string homebrewTitle = g_paramSFO.GetValueString("TITLE");
+	if (homebrewTitle.empty())
+		homebrewTitle = homebrewName;
+	std::string discID = g_paramSFO.GetDiscID();
+	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
 	std::string madeUpID = g_paramSFO.GenerateFakeID();
 
-	std::string title = StringFromFormat("%s : %s", madeUpID.c_str(), homebrewName.c_str());
+	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
 	INFO_LOG(LOADER, "%s", title.c_str());
 	host->SetWindowTitle(title.c_str());
 
-	// Temporary code
-	// TODO: Remove this after ~ 1.6
-	// It checks for old filenames for homebrew savestates(folder name) and rename them to new fakeID format
-	std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	// Migrate old save states from old versions of fake game IDs.
+	const std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	for (int i = 0; i < 5; ++i) {
+		std::string newPrefix = StringFromFormat("%s%s_%s_%d", savestateDir.c_str(), discID.c_str(), discVersion.c_str(), i);
+		std::string oldNamePrefix = StringFromFormat("%s%s_%d", savestateDir.c_str(), homebrewName.c_str(), i);
+		std::string oldIDPrefix = StringFromFormat("%s%s_1.00_%d", savestateDir.c_str(), madeUpID.c_str(), i);
 
-	for (int i = 0; i < 5; i += 1) {
-		std::string oldName = StringFromFormat("%s%s_%d.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
-		if (File::Exists(oldName)) {
-			std::string newName = StringFromFormat("%s%s_1.00_%d.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
-			File::Rename(oldName, newName);
-		}
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix + ".ppst"))
+			File::Rename(oldIDPrefix + ".ppst", newPrefix + ".ppst");
+		else if (File::Exists(oldNamePrefix + ".ppst"))
+			File::Rename(oldNamePrefix + ".ppst", newPrefix + ".ppst");
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix + ".jpg"))
+			File::Rename(oldIDPrefix + ".jpg", newPrefix + ".jpg");
+		else if (File::Exists(oldNamePrefix + ".jpg"))
+			File::Rename(oldNamePrefix + ".jpg", newPrefix + ".jpg");
 	}
-	for (int i = 0; i < 5; i += 1) {
-		std::string oldName = StringFromFormat("%s%s_%d.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
-		if (File::Exists(oldName)) {
-			std::string newName = StringFromFormat("%s%s_1.00_%d.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
-			File::Rename(oldName, newName);
-		}
-	}
-	// End of temporary code
 
 	PSPLoaders_Shutdown();
 	// Note: See Load_PSP_ISO for notes about this thread.

@@ -249,16 +249,9 @@ static void __CheatStop() {
 static void __CheatStart() {
 	__CheatStop();
 
-	std::string realGameID = g_paramSFO.GetValueString("DISC_ID");
-	std::string gameID = realGameID;
-	const std::string gamePath = PSP_CoreParameter().fileToStart;
-	const bool badGameSFO = realGameID.empty() || !g_paramSFO.GetValueInt("DISC_TOTAL");
-	if (badGameSFO && gamePath.find("/PSP/GAME/") != std::string::npos) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath);
-	}
-
-	cheatEngine = new CWCheatEngine(gameID);
+	cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
 	// This only generates ini files on boot, let's leave homebrew ini file for UI.
+	std::string realGameID = g_paramSFO.GetValueString("DISC_ID");
 	if (!realGameID.empty()) {
 		cheatEngine->CreateCheatFile();
 	}
