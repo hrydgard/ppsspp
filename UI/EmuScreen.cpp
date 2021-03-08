@@ -982,7 +982,7 @@ public:
 	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		// Should only be called when visible.
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GAMEINFO_WANTBG);
 		dc.Flush();
