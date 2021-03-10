@@ -96,6 +96,11 @@ static const char * const lieAboutSuccessModules[] = {
 	"flash0:/kd/audiocodec_260.prx",
 	"flash0:/kd/libatrac3plus.prx",
 	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
+	"flash0:/kd/ifhandle.prx",
+	"flash0:/kd/pspnet.prx",
+	"flash0:/kd/pspnet_inet.prx",
+	"flash0:/kd/pspnet_apctl.prx",
+	"flash0:/kd/pspnet_resolver.prx",
 };
 
 // Modules to not load. TODO: Look into loosening this a little (say sceFont).
