@@ -457,9 +457,9 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 		UpdateRunLoop();
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
+	graphicsContext->StopThread();
 
 	NativeShutdownGraphics();
-	graphicsContext->StopThread();
 }
 
 static void EmuThreadStart(GraphicsContext *context) {
