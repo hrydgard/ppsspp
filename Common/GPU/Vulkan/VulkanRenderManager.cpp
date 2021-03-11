@@ -178,7 +178,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		cmd_pool_info.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
-		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolInit);
 		_dbg_assert_(res == VK_SUCCESS);
 		res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolMain);
@@ -534,6 +534,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 			nullptr,
 			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 		};
+		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolInit, 0);
 		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
 		if (res != VK_SUCCESS) {
 			return VK_NULL_HANDLE;
@@ -873,7 +874,8 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	TransitionImageLayout2(cmd, depth_.image, 0, 1,
 		aspectMask,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -1196,6 +1198,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 			_assert_msg_(res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
 		}
 
+		vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
@@ -1355,6 +1358,7 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 		nullptr,
 		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	};
+	vkResetCommandPool(vulkan_->GetDevice(), frameData.cmdPoolMain, 0);
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 	_assert_(res == VK_SUCCESS);
 
