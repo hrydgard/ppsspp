@@ -423,7 +423,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
 	if (colorWriteMask && !hasPackUnorm4x8) {
-		WRITE(p, "uint packUnorm4x8(highp vec4 v) {\n");
+		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
 		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");
