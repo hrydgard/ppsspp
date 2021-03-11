@@ -50,6 +50,8 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
+	DeviceLost();
+
 	DecimateFBOs();
 	for (auto vfb : vfbs_) {
 		DestroyFramebuf(vfb);
