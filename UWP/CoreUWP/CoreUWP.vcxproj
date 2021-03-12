@@ -415,6 +415,7 @@
     <ClInclude Include="..\..\Core\Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPMsgDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPNetconfDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPNpSigninDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPOskDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPSaveDialog.h" />
@@ -650,6 +651,7 @@
     <ClCompile Include="..\..\Core\Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPMsgDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPNetconfDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPNpSigninDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPSaveDialog.cpp" />

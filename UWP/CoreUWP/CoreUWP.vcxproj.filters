@@ -539,6 +539,9 @@
     <ClCompile Include="..\..\Core\Dialog\PSPNetconfDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Dialog\PSPNpSigninDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Dialog\PSPOskDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
@@ -1537,6 +1540,9 @@
       <Filter>Dialog</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Dialog\PSPNetconfDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Dialog\PSPNpSigninDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Dialog\PSPOskDialog.h">
