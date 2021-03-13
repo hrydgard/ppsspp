@@ -48,15 +48,15 @@ struct MemBlockInfo {
 
 void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str, size_t strLength);
 
-// This lets us avoid calling strlen on string constants, instead the string length (including null)
-// is computed at compile time.
+// This lets us avoid calling strlen on string constants, instead the string length (including null,
+// so we have to subtract 1) is computed at compile time.
 template<size_t count>
 inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char(&str)[count]) {
-	NotifyMemInfo(flags, start, size, str, count);
+	NotifyMemInfo(flags, start, size, str, count - 1);
 }
 
-inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &str) {
-	NotifyMemInfo(flags, start, size, str.c_str(), str.size() + 1);
+inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str) {
+	NotifyMemInfo(flags, start, size, str, strlen(str));
 }
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
