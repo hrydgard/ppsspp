@@ -17,6 +17,8 @@
 
 #include <mutex>
 
+#include <cstring>
+
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
