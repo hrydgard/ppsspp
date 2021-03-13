@@ -26,7 +26,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "StringUtils.h"
 
-#ifdef USE_PROFILER
+//#ifdef USE_PROFILER
 static const uint32_t nice_colors[] = {
 	0xFF8040,
 	0x80FF40,
@@ -48,7 +48,7 @@ static const uint32_t nice_colors[] = {
 	0xF8F8F8,
 	0x33FFFF,
 };
-#endif
+//#endif
 
 enum ProfileCatStatus {
 	PROFILE_CAT_VISIBLE = 0,
