@@ -2,9 +2,10 @@
 #include <cmath>
 
 #include "ppsspp_config.h"
-#include "Common/Math/math_util.h"
-#include "Common/Common.h"
 #include "Common/BitScan.h"
+#include "Common/Common.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Math/math_util.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -31,6 +32,12 @@
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
+
+#ifdef mips
+// Why do MIPS compilers define something so generic?  Try to keep defined, at least...
+#undef mips
+#define mips mips
+#endif
 
 alignas(16) static const float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
@@ -126,10 +133,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->r[inst->dest] = ~mips->r[inst->src1];
 			break;
 		case IROp::Ext8to32:
-			mips->r[inst->dest] = (s32)(s8)mips->r[inst->src1];
+			mips->r[inst->dest] = SignExtend8ToU32(mips->r[inst->src1]);
 			break;
 		case IROp::Ext16to32:
-			mips->r[inst->dest] = (s32)(s16)mips->r[inst->src1];
+			mips->r[inst->dest] = SignExtend16ToU32(mips->r[inst->src1]);
 			break;
 		case IROp::ReverseBits:
 			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
@@ -139,13 +146,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load8Ext:
-			mips->r[inst->dest] = (s32)(s8)Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = SignExtend8ToU32(Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant));
 			break;
 		case IROp::Load16:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load16Ext:
-			mips->r[inst->dest] = (s32)(s16)Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = SignExtend16ToU32(Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant));
 			break;
 		case IROp::Load32:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);

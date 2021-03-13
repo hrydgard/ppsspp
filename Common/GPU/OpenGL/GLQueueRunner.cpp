@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include <algorithm>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -18,7 +19,7 @@
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 extern void bindDefaultFBO();
 #endif
 
@@ -201,7 +202,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				glBindFragDataLocation(program->program, 0, "fragColor0");
 			}
-#elif !defined(IOS)
+#elif !PPSSPP_PLATFORM(IOS)
 			if (gl_extensions.GLES3 && step.create_program.support_dual_source) {
 				glBindFragDataLocationIndexedEXT(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexedEXT(program->program, 0, 1, "fragColor1");
@@ -1368,13 +1369,15 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	_dbg_assert_(dstTex);
 
 #if defined(USING_GLES2)
-#ifndef IOS
+#if !PPSSPP_PLATFORM(IOS)
+	_assert_msg_(gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image, "Image copy extension expected");
 	glCopyImageSubDataOES(
 		srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
 		dstTex, target, dstLevel, dstPos.x, dstPos.y, dstZ,
 		srcRect.w, srcRect.h, depth);
 #endif
 #else
+	_assert_msg_(gl_extensions.ARB_copy_image || gl_extensions.NV_copy_image, "Image copy extension expected");
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
 			srcTex, target, srcLevel, srcRect.x, srcRect.y, srcZ,
@@ -1680,7 +1683,7 @@ void GLQueueRunner::fbo_unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 #endif
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	bindDefaultFBO();
 #endif
 

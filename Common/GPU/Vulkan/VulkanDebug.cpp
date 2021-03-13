@@ -37,8 +37,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// UNASSIGNED-CoreValidation-Shader-OutputNotConsumed - benign perf warning
 		return false;
 	}
+	if (messageCode == 1303270965) {
+		// Benign perf warning, image blit using GENERAL layout.
+		// UNASSIGNED
+		return false;
+	}
 
-	const char *pLayerPrefix = "";
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		message << "ERROR(";
 	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {

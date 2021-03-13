@@ -174,7 +174,6 @@ public:
 	int iFrameSkipType;
 	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
 	bool bAutoFrameSkip;
-	bool bClearFramebuffersOnFirstUseHack;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
 	int iCardboardScreenSize; // Screen Size (in %)
@@ -410,6 +409,8 @@ public:
 	float fMouseSensitivity;
 	float fMouseSmoothing;
 
+	bool bSystemControls;
+
 	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
 	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
 
@@ -487,6 +488,7 @@ public:
 	bool bShowFrameProfiler;
 	bool bSimpleFrameStats;
 
+	// Various directories. Autoconfigured, not read from ini.
 	std::string currentDirectory;
 	std::string externalDirectory;
 	std::string memStickDirectory;

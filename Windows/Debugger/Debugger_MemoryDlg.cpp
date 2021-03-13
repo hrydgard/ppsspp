@@ -2,13 +2,15 @@
 
 #include "Windows/stdafx.h"
 #include <windowsx.h>
+#include <commctrl.h>
 #include "..\resource.h"
 
-#include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/System/Display.h"
 
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/MIPSDebugInterface.h" //	BAD
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 #include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
@@ -68,6 +70,20 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 	searchBoxHdl = GetDlgItem(m_hDlg, IDC_SEARCH_BOX);
 	srcListHdl = GetDlgItem(m_hDlg, IDC_SEARCH_RESULTS);
 
+	layerDropdown_ = GetDlgItem(m_hDlg, IDC_REGIONS);
+	ComboBox_ResetContent(layerDropdown_);
+	ComboBox_AddString(layerDropdown_, L"Show allocations");
+	ComboBox_SetItemData(layerDropdown_, 0, MemBlockFlags::ALLOC);
+	ComboBox_AddString(layerDropdown_, L"Show sub allocations");
+	ComboBox_SetItemData(layerDropdown_, 1, MemBlockFlags::SUB_ALLOC);
+	ComboBox_AddString(layerDropdown_, L"Show writes");
+	ComboBox_SetItemData(layerDropdown_, 2, MemBlockFlags::WRITE);
+	ComboBox_AddString(layerDropdown_, L"Show textures");
+	ComboBox_SetItemData(layerDropdown_, 3, MemBlockFlags::TEXTURE);
+	ComboBox_SetCurSel(layerDropdown_, 0);
+
+	status_ = GetDlgItem(m_hDlg, IDC_MEMVIEW_STATUS);
+
 	memView = CtrlMemView::getFrom(memViewHdl);
 	memView->setDebugger(_cpu);
 
@@ -118,66 +134,53 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 void CMemoryDlg::NotifyMapLoaded()
 {
 	if (m_hDlg)
-	{
-		g_symbolMap->FillSymbolListBox(symListHdl,ST_DATA);
-		int sel = ComboBox_GetCurSel(memViewHdl);
-		ComboBox_ResetContent(memViewHdl);
-    /*
-		for (int i = 0; i < cpu->getMemMap()->numRegions; i++)
-		{
-			// TODO: wchar_t
-			int n = ComboBox_AddString(lb,cpu->getMemMap()->regions[i].name);
-			ComboBox_SetItemData(lb,n,cpu->getMemMap()->regions[i].start);
-		}*/
-		ComboBox_SetCurSel(memViewHdl,sel>=0?sel:0);
-	}
+		g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
 	Update(); 
 }
 
-BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch(message){
-	case WM_COMMAND:{
+BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	wchar_t temp[256]{};
+	int n;
+
+	switch (message) {
+	case WM_COMMAND: {
 		HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
-		switch (LOWORD(wParam)){
+		switch (LOWORD(wParam)) {
 		case IDC_REGIONS:
 			switch (HIWORD(wParam)) {
-				case LBN_DBLCLK:{
-					int n = ComboBox_GetCurSel(lb);
-					if (n != -1) {
-						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
-						memView->gotoAddr(addr);
-					}
+			case CBN_SELENDOK:
+				n = ComboBox_GetCurSel(lb);
+				if (n != CB_ERR) {
+					MemBlockFlags flags = (MemBlockFlags)ComboBox_GetItemData(lb, n);
+					memView->setHighlightType(MemBlockFlags(flags));
 				}
 				break;
-		};
-		break;
+			}
+			break;
 		case IDC_SYMBOLS: 
 			switch (HIWORD(wParam)) { 
-				case LBN_DBLCLK:{
-					int n = ListBox_GetCurSel(lb);
-					if (n != -1) {
-						unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
-						memView->gotoAddr(addr);
-					}
+			case LBN_DBLCLK:
+				n = ListBox_GetCurSel(lb);
+				if (n != -1) {
+					unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
+					memView->gotoAddr(addr);
+				}
+				break;
 			}
 			break;
-		};
 		case IDC_SEARCH_RESULTS:
 			switch (HIWORD(wParam)) {
-				case LBN_DBLCLK: {
-					int n = ListBox_GetCurSel(lb);
-					if (n != -1) {
-						unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
-						memView->gotoAddr(addr);
-					}
+			case LBN_DBLCLK:
+				n = ListBox_GetCurSel(lb);
+				if (n != -1) {
+					unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+					memView->gotoAddr(addr);
+				}
+				break;
 			}
 			break;
-			};
-		break;
 		case IDC_SHOWOFFSETS:
-			switch (HIWORD(wParam))
-			{
+			switch (HIWORD(wParam)) {
 			case BN_CLICKED:
 				if (SendDlgItemMessage(m_hDlg, IDC_SHOWOFFSETS, BM_GETCHECK, 0, 0))
 					memView->toggleOffsetScale(On);
@@ -187,10 +190,8 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		case IDC_BUTTON_SEARCH:
-			switch (HIWORD(wParam))
-			{
+			switch (HIWORD(wParam)) {
 			case BN_CLICKED:
-				wchar_t temp[256];
 				GetWindowText(searchBoxHdl, temp, 255);
 				std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
 				if (results.size() > 0){
@@ -198,14 +199,14 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			}
+			break;
 		}
 		}
 		break;
 	case WM_DEB_MAPLOADED:
 		NotifyMapLoaded();
 		break;
-	case WM_DEB_GOTOADDRESSEDIT:{
-		wchar_t temp[256];
+	case WM_DEB_GOTOADDRESSEDIT: {
 		u32 addr;
 		GetWindowText(editWnd,temp,255);
 
@@ -222,11 +223,12 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		Update();
 		return TRUE;
 
-	case WM_INITDIALOG:
-		{
-			return TRUE;
-		}
+	case WM_DEB_SETSTATUSBARTEXT:
+		SendMessage(status_, SB_SETTEXT, 0, (LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
+
+	case WM_INITDIALOG:
+		return TRUE;
 
 	case WM_SIZE:
 		Size();
@@ -255,11 +257,11 @@ void CMemoryDlg::Size()
 	int dlg_w = winRect.right - winRect.left;
 	int dlg_h = winRect.bottom - winRect.top;
 
-
 	int wf = slRect.right-slRect.left;
 	int w = dlg_w - 3 * fontScale - wf*2;
-	int top = 48 * fontScale;
-	int height = dlg_h - top;
+	int top = 40 * fontScale;
+	int bottom = 24 * fontScale;
+	int height = dlg_h - top - bottom;
 	//HWND, X, Y, width, height, repaint
 	MoveWindow(symListHdl, 0    ,top, wf, height, TRUE);
 	MoveWindow(memViewHdl, wf+4 ,top, w, height, TRUE);

@@ -196,7 +196,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = texture;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ApplySamplingParams(samplerKey);
 }
 
@@ -315,7 +315,7 @@ public:
 		device_->SetViewport(&vp);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts_, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", (uint32_t)hr);
 		}
 
 		dxstate.Restore();
@@ -674,7 +674,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
 			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isVideo = IsVideo(entry.addr);
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D9Format(dstFmt);
@@ -692,8 +692,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture();
 	ApplyTexture();
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
 
 	LPDIRECT3DBASETEXTURE9 baseTex;
 	LPDIRECT3DTEXTURE9 tex;

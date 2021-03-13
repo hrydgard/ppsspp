@@ -82,16 +82,12 @@ static const std::vector<Draw::ShaderSource> fsAdrenoLogicTest = {
 	R"(#version 450
 	#extension GL_ARB_separate_shader_objects : enable
 	#extension GL_ARB_shading_language_420pack : enable
-	precision lowp float;
-	layout(location = 0) flat in lowp vec4 oColor0;
+	layout(location = 0) in vec4 oColor0;
 	layout(location = 1) in highp vec2 oTexCoord0;
 	layout(location = 0) out vec4 fragColor0;
 	layout(set = 0, binding = 1) uniform sampler2D Sampler0;
 	void main() {
-		vec4 t = texture(Sampler0, oTexCoord0).aaaa;
-		vec4 p = oColor0;
-		vec4 v = p * t;
-		v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);
+		vec4 v = texture(Sampler0, oTexCoord0).aaaa * oColor0;
 		if (v.r < 0.2 && v.g < 0.2 && v.b < 0.2) discard;
 		fragColor0 = vec4(0.0, 1.0, 0.0, 1.0);
 	})"
@@ -126,7 +122,7 @@ static const std::vector<Draw::ShaderSource> vsAdrenoLogicTest = {
 	"layout (location = 0) in vec4 pos;\n"
 	"layout (location = 1) in vec4 inColor;\n"
 	"layout (location = 2) in vec2 inTexCoord;\n"
-	"layout (location = 0) out lowp vec4 outColor;\n"
+	"layout (location = 0) out vec4 outColor;\n"
 	"layout (location = 1) out highp vec2 outTexCoord;\n"
 	"out gl_PerVertex { vec4 gl_Position; };\n"
 	"void main() {\n"
@@ -183,7 +179,6 @@ static const std::vector<Draw::ShaderSource> fsFlat = {
 
 static const std::vector<Draw::ShaderSource> vsFlat = {
 	{ GLSL_3xx,
-	"#version 300 es\n"
 	"in vec3 Position;\n"
 	"in vec2 TexCoord0;\n"
 	"in lowp vec4 Color0;\n"
@@ -626,6 +621,12 @@ void GPUDriverTestScreen::ShaderTest() {
 	// There is a "provoking vertex" difference here between GL and Vulkan when using flat shading. One gets one color, one gets the other.
 	// Wherever possible we should reconfigure the GL provoking vertex to match Vulkan, probably.
 	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0xFF808080, bounds);
+	dc.Flush();
+
+	y += 120;
+
+	dc.Begin();
+	dc.DrawText("Test done", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 }
 

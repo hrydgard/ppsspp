@@ -23,6 +23,7 @@
 #include <vector>
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/ge_constants.h"
 
 class IniFile;
@@ -183,6 +184,7 @@ public:
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
 	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
+	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
@@ -192,6 +194,7 @@ protected:
 	bool LoadIni();
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);
 	void ParseHashRange(const std::string &key, const std::string &value);
+	void ParseFiltering(const std::string &key, const std::string &value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
 	std::string HashName(u64 cachekey, u32 hash, int level);
@@ -209,6 +212,7 @@ protected:
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
+	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
 	ReplacedTexture none_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;

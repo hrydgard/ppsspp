@@ -1,6 +1,7 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 3.6)
 project(PPSSPP)
+enable_testing()
 
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
@@ -134,7 +135,8 @@ option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
-option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
+option(USE_ASAN "Use address sanitizer" OFF)
+option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
@@ -188,6 +190,9 @@ if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 endif()
 
 if(NOT OPENGL_LIBRARIES)
+	if(POLICY CMP0072)
+		cmake_policy(SET CMP0072 NEW)
+	endif()
 	find_package(OpenGL REQUIRED)
 endif()
 
@@ -272,11 +277,24 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
 	endif()
 
-	if(USE_ADDRESS_SANITIZER)
+	if(USE_ASAN)
 		message("Address sanitizer enabled (DEBUG only)")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-		add_definitions(-DUSE_ADDRESS_SANITIZER)
+		add_definitions(-DUSE_ASAN)
+	endif()
+	if(USE_UBSAN)
+		message("Undefined behaviour sanitizer enabled (DEBUG only)")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
+		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=undefined")
+
+		# UBSAN is a collection of sanitizers, including vtpr, which reqiuires RTTI.
+		# ext/glslang disables RTTI by default using the `ENABLE_RTTI` option.
+		# If RTTI is disabled, we must also disable the vtpr sanitizer.
+		if(NOT ENABLE_RTTI)
+			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-sanitize=vptr")
+			set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-sanitize=vptr")
+		endif()
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
@@ -287,12 +305,6 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-	#TODO: Remove this and include the file properly everywhere it makes sense
-	# First step is too use the macros everywhere
-	# Second step is to remove the compatibility defines
-	# Third step is to include the file
-	# Fourth step is to remove that line!
-	add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/ppsspp_config.h)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
@@ -1318,8 +1330,6 @@ set(GPU_D3D9
 	GPU/Directx9/TextureCacheDX9.h
 	GPU/Directx9/TextureScalerDX9.cpp
 	GPU/Directx9/TextureScalerDX9.h
-	GPU/Directx9/VertexShaderGeneratorHLSL.cpp
-	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_D3D11
@@ -1470,6 +1480,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
+	Core/Debugger/MemBlockInfo.cpp
+	Core/Debugger/MemBlockInfo.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
 	Core/Debugger/DisassemblyManager.cpp
@@ -1898,9 +1910,7 @@ if(USE_MINIUPNPC)
 	endif()
 	if (WIN32)
 	  set_source_files_properties(${MINIUPNPC_SOURCES} PROPERTIES  COMPILE_DEFINITIONS "MINIUPNP_STATICLIB;MINIUPNP_EXPORTS")
-	  find_library(WINSOCK2_LIBRARY NAMES ws2_32 WS2_32 Ws2_32)
-	  find_library(IPHLPAPI_LIBRARY NAMES iphlpapi)
-	  set(LDLIBS ${WINSOCK2_LIBRARY} ${IPHLPAPI_LIBRARY} ${LDLIBS})
+	  set(LDLIBS ws2_32 iphlpapi ${LDLIBS})
 	#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
 	#  find_library (SOCKET_LIBRARY NAMES socket)
 	#  find_library (NSL_LIBRARY NAMES nsl)
@@ -1956,7 +1966,6 @@ set(WindowsFiles
 	Windows/Debugger/CtrlMemView.h
 	Windows/Debugger/CtrlRegisterList.cpp
 	Windows/Debugger/CtrlRegisterList.h
-	Windows/Debugger/Debugger.h
 	Windows/Debugger/DebuggerShared.cpp
 	Windows/Debugger/DebuggerShared.h
 	Windows/Debugger/Debugger_Disasm.cpp
@@ -1965,8 +1974,6 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_MemoryDlg.h
 	Windows/Debugger/Debugger_Lists.cpp
 	Windows/Debugger/Debugger_Lists.h
-	Windows/Debugger/Debugger_Misc.cpp
-	Windows/Debugger/Debugger_Misc.h
 	Windows/Debugger/Debugger_SymbolMap.h
 	Windows/Debugger/Debugger_VFPUDlg.cpp
 	Windows/Debugger/Debugger_VFPUDlg.h
@@ -2071,7 +2078,7 @@ set(NativeAssets
 
 
 if(HEADLESS)
-	add_executable(PPSSPPHeadless
+	set(HeadlessSource
 		headless/Headless.cpp
 		headless/StubHost.cpp
 		headless/StubHost.h
@@ -2080,6 +2087,25 @@ if(HEADLESS)
 		headless/SDLHeadlessHost.cpp
 		headless/SDLHeadlessHost.h
 	)
+	if(WIN32)
+		list(APPEND HeadlessSource
+			headless/WindowsHeadlessHost.cpp
+			headless/WindowsHeadlessHost.h
+			Windows/GPU/D3D9Context.cpp
+			Windows/GPU/D3D9Context.h
+			Windows/GPU/D3D11Context.cpp
+			Windows/GPU/D3D11Context.h
+			Windows/GPU/WindowsGLContext.cpp
+			Windows/GPU/WindowsVulkanContext.cpp
+			Windows/W32Util/ShellUtil.cpp
+			Windows/W32Util/ShellUtil.h
+			Windows/CaptureDevice.cpp
+			Windows/CaptureDevice.h
+			Windows/W32Util/Misc.cpp
+			Windows/W32Util/Misc.h
+		)
+	endif()
+	add_executable(PPSSPPHeadless ${HeadlessSource})
 	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
@@ -2087,6 +2113,7 @@ endif()
 if(UNITTEST)
 	add_executable(unitTest
 		unittest/UnitTest.cpp
+		unittest/TestShaderGenerators.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestX64Emitter.cpp
@@ -2097,6 +2124,21 @@ if(UNITTEST)
 	)
 	target_link_libraries(unitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(unitTest unittest)
+	add_test(arm64_emitter unitTest Arm64Emitter)
+	add_test(arm_emitter unitTest ArmEmitter)
+	add_test(x64_emitter unitTest X64Emitter)
+	add_test(vertex_jit unitTest VertexJit)
+	add_test(asin unitTest Asin)
+	add_test(sincos unitTest SinCos)
+	add_test(vfpu_sincos unitTest VFPUSinCos)
+	add_test(math_util unitTest MathUtil)
+	add_test(parsers unitTest Parsers)
+	add_test(jit unitTest Jit)
+	add_test(matrix_transpose unitTest MatrixTranspose)
+	add_test(parse_lbn unitTest ParseLBN)
+	add_test(quick_texhash unitTest QuickTexHash)
+	add_test(clz unitTest CLZ)
+	add_test(shadergen unitTest ShaderGenerators)
 endif()
 
 if(LIBRETRO)
@@ -2190,6 +2232,7 @@ if(IOS)
 		RESOURCE "ios/Settings.bundle"
 		RESOURCE "MoltenVK/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"

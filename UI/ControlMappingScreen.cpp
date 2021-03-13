@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <deque>
 #include <mutex>
@@ -109,8 +110,6 @@ void ControlMapper::Refresh() {
 	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(550, WRAP_CONTENT)));
 	root->SetSpacing(3.0f);
 
-	const int padding = 4;
-
 	auto iter = keyImages.find(keyName_);
 	// First, look among images.
 	if (iter != keyImages.end()) {
@@ -138,7 +137,6 @@ void ControlMapper::Refresh() {
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
 		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
-		int image = -1;
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		row->SetSpacing(1.0f);
@@ -246,7 +244,7 @@ void ControlMappingScreen::CreateViews() {
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetTag("ControlMapping");
 	rightScroll_->SetScrollToTop(false);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->Add(rightColumn);
 
 	root_->Add(leftColumn);
@@ -437,6 +435,7 @@ public:
 			xAxis_(xAxis), xDir_(xDir),
 			yAxis_(yAxis), yDir_(yDir) {}
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return ""; }
 	void Update() override;
 	void Axis(const AxisInput &input) override {
 		// TODO: Check input.deviceId?

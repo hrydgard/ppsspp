@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <png.h>
-
+#include "ppsspp_config.h"
 #include <algorithm>
+#include <png.h>
 
 #include "ext/xxhash.h"
 
@@ -76,6 +76,7 @@ bool TextureReplacer::LoadIni() {
 	hash_ = ReplacedTextureHash::QUICK;
 	aliases_.clear();
 	hashranges_.clear();
+	filtering_.clear();
 
 	allowVideo_ = false;
 	ignoreAddress_ = false;
@@ -183,6 +184,14 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 		}
 	}
 
+	if (ini.HasSection("filtering")) {
+		auto filters = ini.GetOrCreateSection("filtering")->ToMap();
+		// Format: hashname = nearest or linear
+		for (const auto &item : filters) {
+			ParseFiltering(item.first, item.second);
+		}
+	}
+
 	return true;
 }
 
@@ -219,6 +228,23 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 
 	const u64 rangeKey = ((u64)addr << 32) | ((u64)fromW << 16) | fromH;
 	hashranges_[rangeKey] = WidthHeightPair(toW, toH);
+}
+
+void TextureReplacer::ParseFiltering(const std::string &key, const std::string &value) {
+	ReplacementCacheKey itemKey(0, 0);
+	if (sscanf(key.c_str(), "%16llx%8x", &itemKey.cachekey, &itemKey.hash) >= 1) {
+		if (!strcasecmp(value.c_str(), "nearest")) {
+			filtering_[itemKey] = TEX_FILTER_FORCE_NEAREST;
+		} else if (!strcasecmp(value.c_str(), "linear")) {
+			filtering_[itemKey] = TEX_FILTER_FORCE_LINEAR;
+		} else if (!strcasecmp(value.c_str(), "auto")) {
+			filtering_[itemKey] = TEX_FILTER_AUTO;
+		} else {
+			ERROR_LOG(G3D, "Unsupported syntax under [filtering]: %s", value.c_str());
+		}
+	} else {
+		ERROR_LOG(G3D, "Unsupported syntax under [filtering]: %s", key.c_str());
+	}
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
@@ -503,45 +529,74 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	savedCache_[replacementKey] = saved;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
-	ReplacementAliasKey key(cachekey, hash, level);
-	auto alias = aliases_.find(key);
-	if (alias == aliases_.end()) {
-		// Also check for a few more aliases with zeroed portions:
-		// Only clut hash (very dangerous in theory, in practice not more than missing "just" data hash)
-		key.cachekey = cachekey & 0xFFFFFFFFULL;
+template <typename Key, typename Value>
+static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(const std::unordered_map<Key, Value> &map, Key &key, u64 cachekey, u32 hash, bool ignoreAddress) {
+	auto alias = map.find(key);
+	if (alias != map.end())
+		return alias;
+
+	// Also check for a few more aliases with zeroed portions:
+	// Only clut hash (very dangerous in theory, in practice not more than missing "just" data hash)
+	key.cachekey = cachekey & 0xFFFFFFFFULL;
+	key.hash = 0;
+	alias = map.find(key);
+	if (alias != map.end())
+		return alias;
+
+	if (!ignoreAddress) {
+		// No data hash.
+		key.cachekey = cachekey;
 		key.hash = 0;
-		alias = aliases_.find(key);
-
-		if (!ignoreAddress_ && alias == aliases_.end()) {
-			// No data hash.
-			key.cachekey = cachekey;
-			key.hash = 0;
-			alias = aliases_.find(key);
-		}
-
-		if (alias == aliases_.end()) {
-			// No address.
-			key.cachekey = cachekey & 0xFFFFFFFFULL;
-			key.hash = hash;
-			alias = aliases_.find(key);
-		}
-
-		if (!ignoreAddress_ && alias == aliases_.end()) {
-			// Address, but not clut hash (in case of garbage clut data.)
-			key.cachekey = cachekey & ~0xFFFFFFFFULL;
-			key.hash = hash;
-			alias = aliases_.find(key);
-		}
-
-		if (alias == aliases_.end()) {
-			// Anything with this data hash (a little dangerous.)
-			key.cachekey = 0;
-			key.hash = hash;
-			alias = aliases_.find(key);
-		}
+		alias = map.find(key);
+		if (alias != map.end())
+			return alias;
 	}
 
+	// No address.
+	key.cachekey = cachekey & 0xFFFFFFFFULL;
+	key.hash = hash;
+	alias = map.find(key);
+	if (alias != map.end())
+		return alias;
+
+	if (!ignoreAddress) {
+		// Address, but not clut hash (in case of garbage clut data.)
+		key.cachekey = cachekey & ~0xFFFFFFFFULL;
+		key.hash = hash;
+		alias = map.find(key);
+		if (alias != map.end())
+			return alias;
+	}
+
+	// Anything with this data hash (a little dangerous.)
+	key.cachekey = 0;
+	key.hash = hash;
+	return map.find(key);
+}
+
+bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering) {
+	if (!Enabled() || !g_Config.bReplaceTextures) {
+		return false;
+	}
+
+	ReplacementCacheKey replacementKey(cachekey, hash);
+	auto filter = LookupWildcard(filtering_, replacementKey, cachekey, hash, ignoreAddress_);
+	if (filter == filtering_.end()) {
+		// Allow a global wildcard.
+		replacementKey.cachekey = 0;
+		replacementKey.hash = 0;
+		filter = filtering_.find(replacementKey);
+	}
+	if (filter != filtering_.end()) {
+		*forceFiltering = filter->second;
+		return true;
+	}
+	return false;
+}
+
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
+	ReplacementAliasKey key(cachekey, hash, level);
+	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
 		return alias->second;
@@ -649,13 +704,15 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fs << "[games]\n";
 		fs << "# Used to make it easier to install, and override settings for other regions.\n";
 		fs << "# Files still have to be copied to each TEXTURES folder.";
-		fs << gameID << " = textures.ini\n";
+		fs << gameID << " = " << INI_FILENAME << "\n";
 		fs << "\n";
+		fs << "[hashes]\n";
 		fs << "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n";
 		fs << "# See wiki for more info.\n";
-		fs << "[hashes]\n";
 		fs << "\n";
 		fs << "[hashranges]\n";
+		fs << "\n";
+		fs << "[filtering]\n";
 		fs.close();
 	}
 	return File::Exists(texturesDirectory + INI_FILENAME);

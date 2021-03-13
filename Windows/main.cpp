@@ -104,6 +104,9 @@ static std::string restartArgs;
 HMENU g_hPopupMenus;
 int g_activeWindow = 0;
 
+static std::thread inputBoxThread;
+static bool inputBoxRunning = false;
+
 void OpenDirectory(const char *path) {
 	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
 	if (pidl) {
@@ -307,6 +310,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_CAN_JIT:
+		return true;
 	default:
 		return false;
 	}
@@ -386,12 +391,19 @@ void EnableCrashingOnCrashes() {
 }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	std::string out;
-	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		NativeInputBoxReceived(cb, true, out);
-	} else {
-		NativeInputBoxReceived(cb, false, "");
+	if (inputBoxRunning) {
+		inputBoxThread.join();
 	}
+
+	inputBoxRunning = true;
+	inputBoxThread = std::thread([=] {
+		std::string out;
+		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
+			NativeInputBoxReceived(cb, true, out);
+		} else {
+			NativeInputBoxReceived(cb, false, "");
+		}
+	});
 }
 
 static std::string GetDefaultLangRegion() {
@@ -417,6 +429,7 @@ static std::string GetDefaultLangRegion() {
 
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
+#ifndef _DEBUG
 static bool DetectVulkanInExternalProcess() {
 	std::wstring workingDirectory;
 	std::wstring moduleFilename;
@@ -447,6 +460,7 @@ static bool DetectVulkanInExternalProcess() {
 
 	return exitCode == EXIT_CODE_VULKAN_WORKS;
 }
+#endif
 
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
@@ -483,13 +497,17 @@ static void WinMainInit() {
 #endif
 	PROFILE_INIT();
 
-#if defined(_M_X64) && defined(_MSC_VER) && _MSC_VER < 1900
+#if PPSSPP_ARCH(AMD64) && defined(_MSC_VER) && _MSC_VER < 1900
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
 }
 
 static void WinMainCleanup() {
+	if (inputBoxRunning) {
+		inputBoxThread.join();
+		inputBoxRunning = false;
+	}
 	net::Shutdown();
 	CoUninitialize();
 
@@ -656,7 +674,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
-	HWND hwndDisplay = MainWindow::GetDisplayHWND();
 
 	//initialize custom controls
 	CtrlDisAsmView::init();
@@ -703,16 +720,16 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		{
 		case WINDOW_MAINWINDOW:
 			wnd = hwndMain;
-			accel = hAccelTable;
+			accel = g_Config.bSystemControls ? hAccelTable : NULL;
 			break;
 		case WINDOW_CPUDEBUGGER:
-			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : 0;
-			accel = hDebugAccelTable;
+			wnd = disasmWindow ? disasmWindow->GetDlgHandle() : NULL;
+			accel = g_Config.bSystemControls ? hDebugAccelTable : NULL;
 			break;
 		case WINDOW_GEDEBUGGER:
 		default:
-			wnd = 0;
-			accel = 0;
+			wnd = NULL;
+			accel = NULL;
 			break;
 		}
 

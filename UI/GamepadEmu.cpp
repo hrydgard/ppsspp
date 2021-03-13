@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/Render/TextureAtlas.h"
@@ -36,7 +37,7 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
+GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {
 	lastFrameTime_ = time_now_d();
 }
 
@@ -51,6 +52,11 @@ void GamepadView::Update() {
 		secondsWithoutTouch_ += delta;
 	}
 	lastFrameTime_ = now;
+}
+
+std::string GamepadView::DescribeText() const {
+	auto co = GetI18NCategory("Controls");
+	return co->T(key_);
 }
 
 float GamepadView::GetButtonOpacity() {
@@ -262,8 +268,8 @@ bool PSPButton::IsDown() {
 	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
 }
 
-PSPDpad::PSPDpad(ImageID arrowIndex, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
-	: GamepadView(layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
+PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
+	: GamepadView(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
 }
 
@@ -273,7 +279,6 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 void PSPDpad::Touch(const TouchInput &input) {
-	int lastDown = down_;
 	GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
@@ -392,8 +397,8 @@ void PSPDpad::Draw(UIContext &dc) {
 	}
 }
 
-PSPStick::PSPStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: GamepadView(layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
+PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
+	: GamepadView(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
 	stick_size_ = 50;
 }
 
@@ -412,7 +417,6 @@ void PSPStick::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
-	uint32_t color = colorAlpha(0x808080, opacity);
 
 	if (centerX_ < 0.0f) {
 		centerX_ = bounds_.centerX();
@@ -496,8 +500,8 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-PSPCustomStick::PSPCustomStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams)
-	: PSPStick(bgImg, stickImg, stickDownImg, -1, scale, layoutParams) {
+PSPCustomStick::PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams)
+	: PSPStick(bgImg, key, stickImg, stickDownImg, -1, scale, layoutParams) {
 }
 
 void PSPCustomStick::Draw(UIContext &dc) {
@@ -511,7 +515,6 @@ void PSPCustomStick::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
-	uint32_t color = colorAlpha(0x808080, opacity);
 
 	if (centerX_ < 0.0f) {
 		centerX_ = bounds_.centerX();
@@ -772,49 +775,49 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 	static const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
 
-	auto addPSPButton = [=](int buttonBit, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
+	auto addPSPButton = [=](int buttonBit, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
 		if (touch.show) {
-			return root->Add(new PSPButton(buttonBit, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch, off)));
+			return root->Add(new PSPButton(buttonBit, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch, off)));
 		}
 		return nullptr;
 	};
-	auto addComboKey = [=](int buttonBit, bool toggle, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> ComboKey * {
+	auto addComboKey = [=](int buttonBit, const char *key, bool toggle, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> ComboKey * {
 		if (touch.show) {
-			return root->Add(new ComboKey(buttonBit, toggle, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
+			return root->Add(new ComboKey(buttonBit, key, toggle, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
-	auto addBoolButton = [=](bool *value, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> BoolButton * {
+	auto addBoolButton = [=](bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> BoolButton * {
 		if (touch.show) {
-			return root->Add(new BoolButton(value, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
+			return root->Add(new BoolButton(value, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
-	auto addFPSLimitButton = [=](FPSLimit value, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> FPSLimitButton * {
+	auto addFPSLimitButton = [=](FPSLimit value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> FPSLimitButton * {
 		if (touch.show) {
-			return root->Add(new FPSLimitButton(value, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
+			return root->Add(new FPSLimitButton(value, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
 
 	if (!System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
-		root->Add(new BoolButton(pause, roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 	}
 
 	// touchActionButtonCenter.show will always be true, since that's the default.
 	if (g_Config.bShowTouchCircle)
-		addPSPButton(CTRL_CIRCLE, roundImage, ImageID("I_ROUND"), ImageID("I_CIRCLE"), g_Config.touchActionButtonCenter, circleOffset);
+		addPSPButton(CTRL_CIRCLE, "Circle button", roundImage, ImageID("I_ROUND"), ImageID("I_CIRCLE"), g_Config.touchActionButtonCenter, circleOffset);
 	if (g_Config.bShowTouchCross)
-		addPSPButton(CTRL_CROSS, roundImage, ImageID("I_ROUND"), ImageID("I_CROSS"), g_Config.touchActionButtonCenter, crossOffset);
+		addPSPButton(CTRL_CROSS, "Cross button", roundImage, ImageID("I_ROUND"), ImageID("I_CROSS"), g_Config.touchActionButtonCenter, crossOffset);
 	if (g_Config.bShowTouchTriangle)
-		addPSPButton(CTRL_TRIANGLE, roundImage, ImageID("I_ROUND"), ImageID("I_TRIANGLE"), g_Config.touchActionButtonCenter, triangleOffset);
+		addPSPButton(CTRL_TRIANGLE, "Triangle button", roundImage, ImageID("I_ROUND"), ImageID("I_TRIANGLE"), g_Config.touchActionButtonCenter, triangleOffset);
 	if (g_Config.bShowTouchSquare)
-		addPSPButton(CTRL_SQUARE, roundImage, ImageID("I_ROUND"), ImageID("I_SQUARE"), g_Config.touchActionButtonCenter, squareOffset);
+		addPSPButton(CTRL_SQUARE, "Square button", roundImage, ImageID("I_ROUND"), ImageID("I_SQUARE"), g_Config.touchActionButtonCenter, squareOffset);
 
-	addPSPButton(CTRL_START, rectImage, ImageID("I_RECT"), ImageID("I_START"), g_Config.touchStartKey);
-	addPSPButton(CTRL_SELECT, rectImage, ImageID("I_RECT"), ImageID("I_SELECT"), g_Config.touchSelectKey);
+	addPSPButton(CTRL_START, "Start button", rectImage, ImageID("I_RECT"), ImageID("I_START"), g_Config.touchStartKey);
+	addPSPButton(CTRL_SELECT, "Select button", rectImage, ImageID("I_RECT"), ImageID("I_SELECT"), g_Config.touchSelectKey);
 
-	BoolButton *unthrottle = addBoolButton(&PSP_CoreParameter().unthrottle, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchUnthrottleKey);
+	BoolButton *unthrottle = addBoolButton(&PSP_CoreParameter().unthrottle, "Unthrottle button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchUnthrottleKey);
 	if (unthrottle) {
 		unthrottle->SetAngle(180.0f);
 		unthrottle->OnChange.Add([](UI::EventParams &e) {
@@ -826,50 +829,50 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	}
 
 	if (g_Config.touchRapidFireKey.show) {
-		auto rapidFire = root->Add(new RapidFireButton(rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchRapidFireKey.scale, buttonLayoutParams(g_Config.touchRapidFireKey)));
+		auto rapidFire = root->Add(new RapidFireButton("Rapid fire button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchRapidFireKey.scale, buttonLayoutParams(g_Config.touchRapidFireKey)));
 		rapidFire->SetAngle(90.0f, 180.0f);
 	}
 
 	if (g_Config.touchAnalogRotationCWKey.show) {
-		auto analogRotationCC = root->Add(new AnalogRotationButton(true, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCWKey)));
+		auto analogRotationCC = root->Add(new AnalogRotationButton(true, "Analog clockwise rotation button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCWKey)));
 		analogRotationCC->SetAngle(190.0f, 180.0f);
 	}
 
 	if (g_Config.touchAnalogRotationCCWKey.show) {
-		auto analogRotationCCW = root->Add(new AnalogRotationButton(false, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCCWKey)));
+		auto analogRotationCCW = root->Add(new AnalogRotationButton(false, "Analog counter clockwise rotation button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCCWKey)));
 		analogRotationCCW->SetAngle(350.0f, 180.0f);
 	}
 
-	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchSpeed1Key);
+	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, "Alternate speed 1 button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchSpeed1Key);
 	if (speed1)
 		speed1->SetAngle(170.0f, 180.0f);
-	FPSLimitButton *speed2 = addFPSLimitButton(FPSLimit::CUSTOM2, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchSpeed2Key);
+	FPSLimitButton *speed2 = addFPSLimitButton(FPSLimit::CUSTOM2, "Alternate speed 2 button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchSpeed2Key);
 	if (speed2)
 		speed2->SetAngle(190.0f, 180.0f);
 
-	addPSPButton(CTRL_LTRIGGER, shoulderImage, ImageID("I_SHOULDER"), ImageID("I_L"), g_Config.touchLKey);
-	PSPButton *rTrigger = addPSPButton(CTRL_RTRIGGER, shoulderImage, ImageID("I_SHOULDER"), ImageID("I_R"), g_Config.touchRKey);
+	addPSPButton(CTRL_LTRIGGER, "Left shoulder button", shoulderImage, ImageID("I_SHOULDER"), ImageID("I_L"), g_Config.touchLKey);
+	PSPButton *rTrigger = addPSPButton(CTRL_RTRIGGER, "Right shoulder button", shoulderImage, ImageID("I_SHOULDER"), ImageID("I_R"), g_Config.touchRKey);
 	if (rTrigger)
 		rTrigger->FlipImageH(true);
 
 	if (g_Config.touchDpad.show)
-		root->Add(new PSPDpad(dirImage, ImageID("I_DIR"), ImageID("I_ARROW"), g_Config.touchDpad.scale, g_Config.fDpadSpacing, buttonLayoutParams(g_Config.touchDpad)));
+		root->Add(new PSPDpad(dirImage, "D-pad", ImageID("I_DIR"), ImageID("I_ARROW"), g_Config.touchDpad.scale, g_Config.fDpadSpacing, buttonLayoutParams(g_Config.touchDpad)));
 
 	if (g_Config.touchAnalogStick.show)
-		root->Add(new PSPStick(stickBg, stickImage, ImageID("I_STICK"), 0, g_Config.touchAnalogStick.scale, buttonLayoutParams(g_Config.touchAnalogStick)));
+		root->Add(new PSPStick(stickBg, "Left analog stick", stickImage, ImageID("I_STICK"), 0, g_Config.touchAnalogStick.scale, buttonLayoutParams(g_Config.touchAnalogStick)));
 
 	if (g_Config.touchRightAnalogStick.show) {
 		if (g_Config.bRightAnalogCustom)
-			root->Add(new PSPCustomStick(stickBg, stickImage, ImageID("I_STICK"), g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+			root->Add(new PSPCustomStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 		else
-			root->Add(new PSPStick(stickBg, stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
-	addComboKey(g_Config.iCombokey0, g_Config.bComboToggle0, roundImage, ImageID("I_ROUND"), comboKeyImages[0], g_Config.touchCombo0);
-	addComboKey(g_Config.iCombokey1, g_Config.bComboToggle1, roundImage, ImageID("I_ROUND"), comboKeyImages[1], g_Config.touchCombo1);
-	addComboKey(g_Config.iCombokey2, g_Config.bComboToggle2, roundImage, ImageID("I_ROUND"), comboKeyImages[2], g_Config.touchCombo2);
-	addComboKey(g_Config.iCombokey3, g_Config.bComboToggle3, roundImage, ImageID("I_ROUND"), comboKeyImages[3], g_Config.touchCombo3);
-	addComboKey(g_Config.iCombokey4, g_Config.bComboToggle4, roundImage, ImageID("I_ROUND"), comboKeyImages[4], g_Config.touchCombo4);
+	addComboKey(g_Config.iCombokey0, "Combo 1 button", g_Config.bComboToggle0, roundImage, ImageID("I_ROUND"), comboKeyImages[0], g_Config.touchCombo0);
+	addComboKey(g_Config.iCombokey1, "Combo 2 button", g_Config.bComboToggle1, roundImage, ImageID("I_ROUND"), comboKeyImages[1], g_Config.touchCombo1);
+	addComboKey(g_Config.iCombokey2, "Combo 3 button", g_Config.bComboToggle2, roundImage, ImageID("I_ROUND"), comboKeyImages[2], g_Config.touchCombo2);
+	addComboKey(g_Config.iCombokey3, "Combo 4 button", g_Config.bComboToggle3, roundImage, ImageID("I_ROUND"), comboKeyImages[3], g_Config.touchCombo3);
+	addComboKey(g_Config.iCombokey4, "Combo 5 button", g_Config.bComboToggle4, roundImage, ImageID("I_ROUND"), comboKeyImages[4], g_Config.touchCombo4);
 
 	return root;
 }

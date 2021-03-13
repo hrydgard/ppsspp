@@ -844,11 +844,13 @@ bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::strin
 
 void SavedataParam::LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData) {
 	std::string filePath = dirPath + "/" + filename;
-	s64 readSize = -1;
-	if(!fileData->buf.IsValid())
+	if (!fileData->buf.IsValid())
 		return;
+
 	u8 *buf = fileData->buf;
-	if(ReadPSPFile(filePath, &buf, fileData->bufSize, &readSize))
+	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
+	s64 readSize = -1;
+	if (ReadPSPFile(filePath, &buf, size, &readSize))
 		fileData->size = readSize;
 }
 
@@ -1576,6 +1578,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 		}
 	} else {
 		saveInfo.broken = true;
+		truncate_cpy(saveInfo.title, saveDir.c_str());
 	}
 }
 

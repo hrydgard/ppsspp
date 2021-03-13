@@ -334,7 +334,7 @@ struct IRInst {
 };
 
 // Returns the new PC.
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count);
+u32 IRInterpret(MIPSState *ms, const IRInst *inst, int count);
 
 // Each IR block gets a constant pool.
 class IRWriter {

@@ -41,11 +41,14 @@ namespace Memory {
 
 static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
+MemoryExceptionType g_lastMemoryExceptionType;
+
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
 void MemFault_Init() {
 	g_numReportedBadAccesses = 0;
 	g_lastCrashAddress = nullptr;
+	g_lastMemoryExceptionType = MemoryExceptionType::NONE;
 	g_ignoredAddresses.clear();
 }
 
@@ -122,10 +125,14 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	std::string infoString = "";
 
+	bool isAtDispatch = false;
 	if (MIPSComp::jit) {
 		std::string desc;
 		if (MIPSComp::jit->DescribeCodePtr(codePtr, desc)) {
 			infoString += desc + "\n";
+		}
+		if (MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
+			isAtDispatch = true;
 		}
 	}
 
@@ -158,7 +165,19 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		infoString += disassembly + "\n";
 	}
 
-	if (success) {
+	if (isAtDispatch) {
+		u32 targetAddr = currentMIPS->pc;  // bad approximation
+		// TODO: Do the other archs and platforms.
+#if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS)
+		// We know which register the address is in, look in Asm.cpp.
+		targetAddr = context->Rax;
+#endif
+		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
+		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
+		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+		return true;
+	} else if (success) {
 		if (info.isMemoryWrite) {
 			type = MemoryExceptionType::WRITE_WORD;
 		} else {
@@ -167,6 +186,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	} else {
 		type = MemoryExceptionType::UNKNOWN;
 	}
+
+	g_lastMemoryExceptionType = type;
 
 	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
 		if (!info.isMemoryWrite) {

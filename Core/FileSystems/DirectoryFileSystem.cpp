@@ -17,7 +17,15 @@
 
 #include "ppsspp_config.h"
 
+#ifdef __MINGW32__
+#include <unistd.h>
+#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
+#define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
+#endif
+#endif
+
 #include <algorithm>
+#include <ctime>
 #include <limits>
 
 #include "Common/Data/Text/I18n.h"
@@ -41,6 +49,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/stat.h>
+#undef FILE_OPEN
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -422,7 +431,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	LARGE_INTEGER distance;
 	distance.QuadPart = position;
 	LARGE_INTEGER cursor;
-	DWORD newPos = SetFilePointerEx(hFile, distance, &cursor, moveMethod);
+	SetFilePointerEx(hFile, distance, &cursor, moveMethod);
 	result = (size_t)cursor.QuadPart;
 #else
 	int moveMethod = 0;
@@ -622,7 +631,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	err = ReplayApplyDisk(ReplayAction::FILE_OPEN, err, CoreTiming::GetGlobalTimeUs());
 	if (err != 0) {
 #ifdef _WIN32
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
 #else
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif

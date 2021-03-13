@@ -11,25 +11,48 @@ variables:
   variables:
     EXTRA_PATH: lib
 
+.windows-defs:
+  variables:
+    MAKEFILE_PATH: libretro
+
 include:
-  - template: Jobs/Code-Quality.gitlab-ci.yml
   - project: 'libretro-infrastructure/ci-templates'
     file: '/android-cmake.yml'
   - project: 'libretro-infrastructure/ci-templates'
     file: '/linux-cmake.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/windows-x64-msvc19-msys2.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/windows-i686-msvc19-msys2.yml'
 
 stages:
   - build-prepare
   - build-shared
-  - build-static
-  - test
 
-#Desktop
-libretro-build-linux-x86_64:
+# Desktop
+libretro-build-linux-x64:
   extends:
     - .libretro-linux-cmake-x86_64
     - .core-defs
     - .linux-defs
+
+libretro-build-linux-i686:
+  extends:
+    - .libretro-linux-cmake-x86
+    - .core-defs
+    - .linux-defs
+
+libretro-build-windows-x64:
+  extends:
+    - .libretro-windows-x64-msvc19-msys2-make-default
+    - .core-defs
+    - .windows-defs
+
+libretro-build-windows-i686:
+  extends:
+    - .libretro-windows-i686-msvc19-msys2-make-default
+    - .core-defs
+    - .windows-defs
 
 # Android
 libretro-build-android-armeabi-v7a:

@@ -131,7 +131,7 @@ void MainThreadFunc() {
 		args.push_back(string.c_str());
 	}
 	bool performingRestart = NativeIsRestarting();
-	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
+	NativeInit(static_cast<int>(args.size()), &args[0], "", "", nullptr);
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		if (!useEmuThread) {
@@ -202,7 +202,7 @@ void MainThreadFunc() {
 		std::string full_error = StringFromFormat("%s\n\n%s", genericError, error_string.c_str());
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
-		ERROR_LOG(BOOT, full_error.c_str());
+		ERROR_LOG(BOOT, "%s", full_error.c_str());
 
 		if (yes) {
 			// Change the config to the alternative and restart.

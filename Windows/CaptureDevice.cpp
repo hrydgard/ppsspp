@@ -106,8 +106,8 @@ AudioFormatTransform g_AudioFormats[] = {
 const int g_cVideoFormats = ARRAYSIZE(g_VideoFormats);
 const int g_cAudioFormats = ARRAYSIZE(g_AudioFormats);
 
-MediaParam defaultVideoParam = { 640, 480,  0, MFVideoFormat_RGB24 };
-MediaParam defaultAudioParam = { 44100, 2, 16, MFAudioFormat_PCM };
+MediaParam defaultVideoParam = { { 640, 480,  0, MFVideoFormat_RGB24 } };
+MediaParam defaultAudioParam = { { 44100, 2, 16, MFAudioFormat_PCM } };
 
 HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride);
 
@@ -432,10 +432,9 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
 	type(_type),
 	error(CAPTUREDEVIDE_ERROR_NO_ERROR),
-	errorMessage(""),
 	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
 	param = { 0 };
-	deviceParam = { 0 };
+	deviceParam = { { 0 } };
 
 	switch (type) {
 	case CAPTUREDEVIDE_TYPE::VIDEO:
@@ -838,7 +837,6 @@ void WindowsCaptureDevice::sendMessage(CAPTUREDEVIDE_MESSAGE message) {
 	// Must be unique lock
 	std::unique_lock<std::mutex> lock(mutex);
 	messageQueue.push(message);
-	lock.unlock();
 	cond.notify_one();
 }
 
@@ -849,15 +847,16 @@ CAPTUREDEVIDE_MESSAGE WindowsCaptureDevice::getMessage() {
 	cond.wait(lock, [this]() { return !messageQueue.empty(); });
 	message = messageQueue.front();
 	messageQueue.pop();
-	lock.unlock();
 
 	return message;
 }
 
 void WindowsCaptureDevice::updateState(const CAPTUREDEVIDE_STATE &newState) {
-	std::unique_lock<std::mutex> guard(stateMutex_);
 	state = newState;
-	stateCond_.notify_all();
+	if (isShutDown()) {
+		std::unique_lock<std::mutex> guard(stateMutex_);
+		stateCond_.notify_all();
+	}
 }
 
 void WindowsCaptureDevice::waitShutDown() {

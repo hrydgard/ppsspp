@@ -28,7 +28,9 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Host.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -48,6 +50,8 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
+	DeviceLost();
+
 	DecimateFBOs();
 	for (auto vfb : vfbs_) {
 		DestroyFramebuf(vfb);
@@ -519,6 +523,25 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 	}
 }
 
+// Can't easily dynamically create these strings, we just pass along the pointer.
+static const char *reinterpretStrings[3][3] = {
+	{
+		"self_reinterpret_565",
+		"reinterpret_565_to_5551",
+		"reinterpret_565_to_4444",
+	},
+	{
+		"reinterpret_5551_to_565",
+		"self_reinterpret_5551",
+		"reinterpret_5551_to_4444",
+	},
+	{
+		"reinterpret_4444_to_565",
+		"reinterpret_4444_to_5551",
+		"self_reinterpret_4444",
+	},
+};
+
 void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, GEBufferFormat oldFormat, GEBufferFormat newFormat) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
@@ -532,6 +555,9 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	bool doReinterpret = PSP_CoreParameter().compat.flags().ReinterpretFramebuffers &&
 		(lang == HLSL_D3D11 || lang == GLSL_VULKAN || lang == GLSL_3xx);
+	// Copy image required for now.
+	if (!gstate_c.Supports(GPU_SUPPORTS_COPY_IMAGE))
+		doReinterpret = false;
 	if (!doReinterpret) {
 		// Fake reinterpret - just clear the way we always did on Vulkan. Just clear color and stencil.
 		if (oldFormat == GE_FORMAT_565) {
@@ -619,7 +645,7 @@ void FramebufferManagerCommon::ReinterpretFramebuffer(VirtualFramebuffer *vfb, G
 
 	draw_->InvalidateCachedState();
 	draw_->CopyFramebufferImage(vfb->fbo, 0, 0, 0, 0, temp, 0, 0, 0, 0, vfb->renderWidth, vfb->renderHeight, 1, Draw::FBChannel::FB_COLOR_BIT, "reinterpret_prep");
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "reinterpret");
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, reinterpretStrings[(int)oldFormat][(int)newFormat]);
 	draw_->BindPipeline(pipeline);
 	draw_->BindFramebufferAsTexture(temp, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
 	draw_->BindSamplerStates(0, 1, &reinterpretSampler_);
@@ -681,20 +707,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
 			shaderManager_->DirtyLastShader();
-			if (g_Config.bClearFramebuffersOnFirstUseHack) {
-				// HACK: Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it (or in Vulkan, clear during framebuffer load). This is a hack to force this
-				// the first time a framebuffer is bound for rendering in a frame.
-				//
-				// Quite unsafe as it might kill some feedback effects.
-				if (vfb->last_frame_render != gpuStats.numFlips) {
-					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "FramebufferSwitch");
-				} else {
-					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
-				}
-			} else {
-				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
-			}
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
 		} else {
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
@@ -892,6 +905,9 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 			x += gstate_c.curTextureXOffset;
 			y += gstate_c.curTextureYOffset;
 		}
+
+		// We'll have to reapply these next time since we cropped to UV.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
 	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
@@ -1281,8 +1297,14 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	shaderManager_->DirtyLastShader();
 	char tag[256];
-	snprintf(tag, sizeof(tag), "%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
+	snprintf(tag, sizeof(tag), "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, w, h, GeBufferFormatToString(vfb->format));
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, tag });
+	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, ColorBufferByteSize(vfb), tag);
+	}
+	if (Memory::IsVRAMAddress(vfb->z_address) && vfb->z_stride != 0) {
+		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->z_address, vfb->fb_stride * vfb->height * sizeof(uint16_t), std::string("Z_") + tag);
+	}
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->format));
 		if (vfb->fbo) {
@@ -1648,8 +1670,11 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			return;
 		}
 	}
+	if (!Memory::IsValidAddress(gstate.getFrameBufAddress())) {
+		return;
+	}
 
-	u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
+	u8 *addr = Memory::GetPointerUnchecked(gstate.getFrameBufAddress());
 	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
 
 	u32 clearBits = clearColor;
@@ -1668,10 +1693,14 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	const int stride = gstate.FrameBufStride();
 	const int width = x2 - x1;
 
+	const int byteStride = stride * bpp;
+	const int byteWidth = width * bpp;
+	for (int y = y1; y < y2; ++y) {
+		NotifyMemInfo(MemBlockFlags::WRITE, gstate.getFrameBufAddress() + x1 * bpp + y * byteStride, byteWidth, "FramebufferClear");
+	}
+
 	// Can use memset for simple cases. Often alpha is different and gums up the works.
 	if (singleByteClear) {
-		const int byteStride = stride * bpp;
-		const int byteWidth = width * bpp;
 		addr += x1 * bpp;
 		for (int y = y1; y < y2; ++y) {
 			memset(addr + y * byteStride, clearBits, byteWidth);
@@ -1979,6 +2008,8 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(fb_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, format);
 		return true;
@@ -2034,6 +2065,8 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(z_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 		return true;
@@ -2069,6 +2102,8 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	}
 
 	if (!vfb) {
+		if (!Memory::IsValidAddress(fb_address))
+			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		// TODO: Actually get the stencil.
 		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
@@ -2129,9 +2164,10 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	const int dstSize = (h * vfb->fb_stride + w - 1) * dstBpp;
 
-	if (!Memory::IsValidRange(fb_address + dstByteOffset, ((h - 1) * vfb->fb_stride + w) * dstBpp)) {
-		ERROR_LOG(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
+	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
+		ERROR_LOG_REPORT(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
 		return;
 	}
 
@@ -2143,6 +2179,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	if (destPtr) {
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, "FramebufferPack");
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}

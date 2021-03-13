@@ -105,8 +105,8 @@ static void JitLogMiss(MIPSOpcode op)
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)
 #endif
-Jit::Jit(MIPSState *mips)
-		: blocks(mips, this), mips_(mips) {
+Jit::Jit(MIPSState *mipsState)
+		: blocks(mipsState, this), mips_(mipsState) {
 	blocks.Init();
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
@@ -216,7 +216,7 @@ void Jit::ClearCache()
 
 void Jit::SaveFlags() {
 	PUSHF();
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	// On X64, the above misaligns the stack. However there might be a cheaper solution than this.
 	POP(64, R(EAX));
 	MOV(64, MIPSSTATE_VAR(saved_flags), R(EAX));
@@ -224,7 +224,7 @@ void Jit::SaveFlags() {
 }
 
 void Jit::LoadFlags() {
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(EAX), MIPSSTATE_VAR(saved_flags));
 	PUSH(64, R(EAX));
 #endif
@@ -272,6 +272,11 @@ void Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
+	}
+
+	if (!Memory::IsValidAddress(em_address)) {
+		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
+		return;
 	}
 
 	BeginWrite();

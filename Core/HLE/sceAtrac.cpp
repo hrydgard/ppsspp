@@ -26,7 +26,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
@@ -556,7 +556,27 @@ struct Atrac {
 		}
 
 		int got_frame = 0;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+		if (packet_->size != 0) {
+			int err = avcodec_send_packet(codecCtx_, packet_);
+			if (err < 0) {
+				ERROR_LOG_REPORT(ME, "avcodec_send_packet: Error decoding audio %d / %08x", err, err);
+				failedDecode_ = true;
+				return ATDECODE_FAILED;
+			}
+		}
+
+		int err = avcodec_receive_frame(codecCtx_, frame_);
+		int bytes_read = 0;
+		if (err >= 0) {
+			bytes_read = frame_->pkt_size;
+			got_frame = 1;
+		} else if (err != AVERROR(EAGAIN)) {
+			bytes_read = err;
+		}
+#else
 		int bytes_read = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, packet_);
+#endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
 		av_packet_unref(packet_);
 #else
@@ -636,8 +656,12 @@ void __AtracInit() {
 	atracIDTypes[5] = 0;
 
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
+#endif
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 	av_register_all();
+#endif
 #endif // USE_FFMPEG
 }
 
@@ -1222,7 +1246,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-								CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
@@ -1245,7 +1269,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
 						if (outbuf != nullptr) {
 							memset(outbuf, 0, outBytes);
-							CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+							NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 						}
 					}
 				}
@@ -1570,7 +1594,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 // Obtains the number of frames remaining in the buffer which can be decoded.
 // When no more data would be needed, this returns a negative number.
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
-	auto remainingFrames = PSPPointer<u32>::Create(remainAddr);
+	auto remainingFrames = PSPPointer<u32_le>::Create(remainAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
@@ -1589,8 +1613,8 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 }
 
 static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desiredSizeAddr) {
-	auto fileOffset = PSPPointer<u32>::Create(fileOffsetAddr);
-	auto desiredSize = PSPPointer<u32>::Create(desiredSizeAddr);
+	auto fileOffset = PSPPointer<u32_le>::Create(fileOffsetAddr);
+	auto desiredSize = PSPPointer<u32_le>::Create(desiredSizeAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
@@ -1625,13 +1649,13 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		return err;
 	}
 
-	auto outEndSample = PSPPointer<u32>::Create(outEndSampleAddr);
+	auto outEndSample = PSPPointer<u32_le>::Create(outEndSampleAddr);
 	if (outEndSample.IsValid())
 		*outEndSample = atrac->endSample_;
-	auto outLoopStart = PSPPointer<u32>::Create(outLoopStartSampleAddr);
+	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
 		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
-	auto outLoopEnd = PSPPointer<u32>::Create(outLoopEndSampleAddr);
+	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
 		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
 
@@ -2296,8 +2320,8 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.decodePos = atrac->DecodePosBySample(atrac->currentSample_);
 	context->info.streamDataByte = atrac->first_.size - atrac->dataOff_;
 
-	u8* buf = (u8*)context;
-	*(u32*)(buf + 0xfc) = atrac->atracID_;
+	u8 *buf = (u8 *)context;
+	*(u32_le *)(buf + 0xfc) = atrac->atracID_;
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -2311,7 +2335,7 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		u32 contextsize = 256;
 		atrac->context_ = kernelMemory.Alloc(contextsize, false, "Atrac Context");
 		if (atrac->context_.IsValid())
-			Memory::Memset(atrac->context_.ptr, 0, 256);
+			Memory::Memset(atrac->context_.ptr, 0, 256, "AtracContextClear");
 
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
 	}
@@ -2419,9 +2443,9 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	auto srcp = PSPPointer<u8>::Create(sourceAddr);
-	auto srcConsumed = PSPPointer<u32>::Create(sourceBytesConsumedAddr);
+	auto srcConsumed = PSPPointer<u32_le>::Create(sourceBytesConsumedAddr);
 	auto outp = PSPPointer<u8>::Create(samplesAddr);
-	auto outWritten = PSPPointer<u32>::Create(sampleBytesAddr);
+	auto outWritten = PSPPointer<u32_le>::Create(sampleBytesAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
@@ -2448,7 +2472,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 			int avret = swr_convert(atrac->swrCtx_, &out, numSamples,
 				(const u8**)atrac->frame_->extended_data, numSamples);
 			u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-			CBreakPoints::ExecMemCheck(samplesAddr, true, outBytes, currentMIPS->pc);
+			NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "AtracLowLevelDecode");
 			if (avret < 0) {
 				ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 			}

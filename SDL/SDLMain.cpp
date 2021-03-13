@@ -29,6 +29,7 @@ SDLJoystick *joystick = NULL;
 #include "NKCodeFromSDL.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "SDL_syswm.h"
 
@@ -386,6 +387,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_CAN_JIT:
+		return true;
 	default:
 		return false;
 	}
@@ -454,9 +457,9 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 		UpdateRunLoop();
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
+	graphicsContext->StopThread();
 
 	NativeShutdownGraphics();
-	graphicsContext->StopThread();
 }
 
 static void EmuThreadStart(GraphicsContext *context) {
@@ -489,6 +492,7 @@ int main(int argc, char *argv[]) {
 	nxlinkStdio();
 #endif // HAVE_LIBNX
 
+	PROFILE_INIT();
 	glslang::InitializeProcess();
 
 #if PPSSPP_PLATFORM(RPI)

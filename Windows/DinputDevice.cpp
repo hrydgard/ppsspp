@@ -19,15 +19,15 @@
 #include <limits.h>
 #include <algorithm>
 #include <mmsystem.h>
+#include <XInput.h>
 
-#include "Core/HLE/sceCtrl.h"
-#include "DinputDevice.h"
-#include "Core/Config.h"
 #include "Common/Input/InputState.h"
-#include "Common/System/NativeApp.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/System/NativeApp.h"
+#include "Core/Config.h"
+#include "Core/HLE/sceCtrl.h"
 #include "Core/Reporting.h"
-#include "Xinput.h"
+#include "Windows/DinputDevice.h"
 #pragma comment(lib,"dinput8.lib")
 
 #ifdef min

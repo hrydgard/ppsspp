@@ -6,7 +6,7 @@
 namespace UI {
 
 void Tween::Apply(View *view) {
-	if (!valid_)
+	if (!valid_ || finishApplied_)
 		return;
 
 	if (DurationOffset() >= duration_)

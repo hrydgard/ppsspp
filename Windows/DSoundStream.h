@@ -4,7 +4,9 @@
 
 #include "WindowsAudio.h"
 #include <mmreg.h>
-#include <dsound.h>
+
+struct IDirectSound8;
+struct IDirectSoundBuffer;
 
 class DSoundAudioBackend : public WindowsAudioBackend {
 public:
@@ -38,7 +40,7 @@ private:
 	int totalRenderedBytes_;
 	int sampleRate_;
 
-	volatile int threadData_;
+	volatile int threadData_ = 0;
 
 	enum {
 		BUFSIZE = 0x4000,

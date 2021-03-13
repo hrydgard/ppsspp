@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -27,9 +28,13 @@
 #include "Common/CPUDetect.h"
 
 namespace MIPSGen {
-void MIPSEmitter::SetCodePtr(u8 *ptr) {
-	code_ = ptr;
-	lastCacheFlushEnd_ = ptr;
+void MIPSEmitter::SetCodePointer(const u8 *ptr, u8 *writePtr) {
+	code_ = writePtr;
+	lastCacheFlushEnd_ = writePtr;
+}
+
+const u8 *MIPSEmitter::GetCodePointer() const {
+	return code_;
 }
 
 void MIPSEmitter::ReserveCodeSpace(u32 bytes) {
@@ -63,7 +68,7 @@ void MIPSEmitter::FlushIcache() {
 }
 
 void MIPSEmitter::FlushIcacheSection(u8 *start, u8 *end) {
-#if defined(MIPS)
+#if PPSSPP_ARCH(MIPS)
 #ifdef __clang__
 	__clear_cache(start, end);
 #else
@@ -466,27 +471,14 @@ void MIPSEmitter::MOVI2R(MIPSReg reg, u32 imm) {
 	}
 }
 
-void MIPSCodeBlock::AllocCodeSpace(int size) {
-	region_size = size;
-	region = (u8 *)AllocateExecutableMemory(region_size);
-	SetCodePtr(region);
-}
-
-// Always clear code space with breakpoints, so that if someone accidentally executes
-// uninitialized, it just breaks into the debugger.
-void MIPSCodeBlock::ClearCodeSpace() {
-	// Set BREAK instructions on all of it.
-	u32 *region32 = (u32 *)region;
-	for (u32 i = 0; i < region_size / 4; ++i) {
-		*region32++ = 0x0000000d;
-	}
-	ResetCodePtr();
-}
-
-void MIPSCodeBlock::FreeCodeSpace() {
-	FreeMemoryPages(region, region_size);
-	region = NULL;
-	region_size = 0;
+void MIPSCodeBlock::PoisonMemory(int offset) {
+	u32 *ptr = (u32 *)(region + offset);
+	u32 *maxptr = (u32 *)(region + region_size - offset);
+	// If our memory isn't a multiple of u32 then this won't write the last remaining bytes with anything
+	// Less than optimal, but there would be nothing we could do but throw a runtime warning anyway.
+	// AArch64: 0x0000000d = break 0
+	while (ptr < maxptr)
+		*ptr++ = 0x0000000d;
 }
 
 }

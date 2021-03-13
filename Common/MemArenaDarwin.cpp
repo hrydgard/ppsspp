@@ -84,7 +84,7 @@ void MemArena::ReleaseView(void* view, size_t size) {
 }
 
 bool MemArena::NeedsProbing() {
-#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
 	return true;
 #else
 	return false;
@@ -92,7 +92,7 @@ bool MemArena::NeedsProbing() {
 }
 
 u8* MemArena::Find4GBBase() {
-#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
 	// The caller will need to do probing, like on 32-bit Windows.
 	return nullptr;
 #else

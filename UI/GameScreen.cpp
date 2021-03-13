@@ -27,10 +27,12 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
@@ -92,12 +94,16 @@ void GameScreen::CreateViews() {
 		tvInstallDataSize_->SetVisibility(V_GONE);
 		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvRegion_->SetShadow(true);
+		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvCRC_->SetShadow(true);
+		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
 	} else {
 		tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
 		tvSaveDataSize_ = nullptr;
 		tvInstallDataSize_ = nullptr;
 		tvRegion_ = nullptr;
+		tvCRC_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -232,6 +238,13 @@ void GameScreen::render() {
 		} else if (info->region > GAMEREGION_MAX) {
 			tvRegion_->SetText(ga->T("Homebrew"));
 		}
+	}
+
+	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
+		auto rp = GetI18NCategory("Reporting");
+		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
+		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: [VALUE]"), "[VALUE]", crc));
+		tvCRC_->SetVisibility(UI::V_VISIBLE);
 	}
 
 	if (!info->id.empty()) {

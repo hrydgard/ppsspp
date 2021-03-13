@@ -108,7 +108,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	if (FAILED(d3d_->GetDeviceCaps(adapterId_, D3DDEVTYPE_HAL, &d3dCaps))) {
-		*error_message = "GetDeviceCaps failed (???)";
+		*error_message = "GetDeviceCaps failed (?)";
 		d3d_->Release();
 		return false;
 	}

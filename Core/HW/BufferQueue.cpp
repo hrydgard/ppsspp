@@ -20,7 +20,7 @@
 #include "Core/HW/BufferQueue.h"
 
 void BufferQueue::DoState(PointerWrap &p) {
-	auto s = p.Section("BufferQueue", 0, 1);
+	auto s = p.Section("BufferQueue", 0, 2);
 
 	Do(p, bufQueueSize);
 	Do(p, start);
@@ -31,5 +31,12 @@ void BufferQueue::DoState(PointerWrap &p) {
 
 	if (s >= 1) {
 		Do(p, ptsMarks);
+	} else {
+		ptsMarks.clear();
+	}
+	if (s >= 2) {
+		Do(p, filled);
+	} else {
+		filled = calcQueueSize();
 	}
 }

@@ -17,7 +17,9 @@
 //
 //To get a class instance to be able to access it, just use getFrom(HWND wnd).
 
-#include "../../Core/Debugger/DebugInterface.h"
+#include <cstdint>
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/MemBlockInfo.h"
 
 enum OffsetSpacing {
 	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
@@ -63,8 +65,12 @@ class CtrlMemView
 	bool hasFocus;
 	static wchar_t szClassName[];
 	DebugInterface *debugger;
+
+	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
+
 	void updateStatusBarText();
 	void search(bool continueSearch);
+	uint32_t pickTagColor(const std::string &tag);
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
@@ -99,4 +105,5 @@ public:
 	void drawOffsetScale(HDC hdc);
 	void toggleOffsetScale(CommonToggles toggle);
 	void toggleStringSearch(CommonToggles toggle);
+	void setHighlightType(MemBlockFlags flags);
 };

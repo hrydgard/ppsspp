@@ -29,7 +29,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
@@ -637,7 +637,7 @@ void __IoInit() {
 	pspFileSystem.Mount("flash0:", flash0System);
 
 	if (g_RemasterMode) {
-		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+		const std::string gameId = g_paramSFO.GetDiscID();
 		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
 		if (File::Exists(exdataPath)) {
 			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
@@ -1026,11 +1026,12 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
-			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
-			u8 *data = (u8*) Memory::GetPointer(data_addr);
+			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, "IoRead");
+			u8 *data = (u8 *)Memory::GetPointer(data_addr);
+			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
-				result = npdrmRead(f, data, size);
-				currentMIPS->InvalidateICache(data_addr, size);
+				result = npdrmRead(f, data, validSize);
+				currentMIPS->InvalidateICache(data_addr, validSize);
 				return true;
 			}
 
@@ -1046,17 +1047,17 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				AsyncIOEvent ev = IO_EVENT_READ;
 				ev.handle = f->handle;
 				ev.buf = data;
-				ev.bytes = size;
+				ev.bytes = validSize;
 				ev.invalidateAddr = data_addr;
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
 				if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
-					result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+					result = (int)pspFileSystem.ReadFile(f->handle, data, validSize);
 				} else {
-					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
+					result = (int)pspFileSystem.ReadFile(f->handle, data, validSize, us);
 				}
-				currentMIPS->InvalidateICache(data_addr, size);
+				currentMIPS->InvalidateICache(data_addr, validSize);
 				return true;
 			}
 		} else {
@@ -1136,12 +1137,13 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	}
 
 	const void *data_ptr = Memory::GetPointer(data_addr);
+	const u32 validSize = Memory::ValidSize(data_addr, size);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
-		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
+		const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
 		INFO_LOG(SCEIO, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
-		result = size;
+		result = validSize;
 		return true;
 	}
 	u32 error;
@@ -1160,7 +1162,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 
-		CBreakPoints::ExecMemCheck(data_addr, false, size, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, "IoWrite");
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {
@@ -1174,15 +1176,15 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			AsyncIOEvent ev = IO_EVENT_WRITE;
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;
-			ev.bytes = size;
+			ev.bytes = validSize;
 			ev.invalidateAddr = 0;
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
 			if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
-				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
+				result = (int)pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, validSize);
 			} else {
-				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+				result = (int)pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, validSize, us);
 			}
 		}
 		return true;
@@ -2017,20 +2019,22 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	return hleLogSuccessI(SCEIO, 0);
 }
 
-static int sceIoCloseAsync(int id)
-{
+static int sceIoCloseAsync(int id) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f) {
-		f->closePending = true;
-
-		auto &params = asyncParams[id];
-		params.op = IoAsyncOp::CLOSE;
-		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
-	} else {
+	if (!f) {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
+	if (f->asyncBusy()) {
+		return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+	}
+
+	f->closePending = true;
+
+	auto &params = asyncParams[id];
+	params.op = IoAsyncOp::CLOSE;
+	IoStartAsyncThread(id, f);
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
@@ -2466,9 +2470,9 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
-				u64 offset;
-				u32 unk;
-				u32 whence;
+				u64_le offset;
+				u32_le unk;
+				u32_le whence;
 			};
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;
@@ -2570,9 +2574,9 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
-				u64 offset;
-				u32 unk;
-				u32 whence;
+				u64_le offset;
+				u32_le unk;
+				u32_le whence;
 			};
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;

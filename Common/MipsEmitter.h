@@ -21,7 +21,8 @@
 #include <vector>
 #include <stdint.h>
 
-#include "Common.h"
+#include "Common/CodeBlock.h"
+#include "Common/Common.h"
 
 namespace MIPSGen {
 
@@ -72,12 +73,14 @@ public:
 	MIPSEmitter() : code_(0), lastCacheFlushEnd_(0) {
 	}
 	MIPSEmitter(u8 *code_ptr) : code_(code_ptr), lastCacheFlushEnd_(code_ptr) {
-		SetCodePtr(code_ptr);
+		SetCodePointer(code_ptr, code_ptr);
 	}
 	virtual ~MIPSEmitter() {
 	}
 
-	void SetCodePtr(u8 *ptr);
+	void SetCodePointer(const u8 *ptr, u8 *writePtr);
+	const u8* GetCodePointer() const;
+
 	void ReserveCodeSpace(u32 bytes);
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
@@ -270,45 +273,9 @@ private:
 // Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the LUI etc functions without
 // having to prefix them with gen-> or something similar.
-class MIPSCodeBlock : public MIPSEmitter {
+class MIPSCodeBlock : public CodeBlock<MIPSEmitter> {
 public:
-	MIPSCodeBlock() : region(nullptr), region_size(0) {
-	}
-	virtual ~MIPSCodeBlock() {
-		if (region) {
-			FreeCodeSpace();
-		}
-	}
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size);
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace();
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace();
-
-	bool IsInSpace(const u8 *ptr) const {
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	void ResetCodePtr() {
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const {
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory(int offset) override;
 
 protected:
 	u8 *region;

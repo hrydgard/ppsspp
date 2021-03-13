@@ -59,7 +59,7 @@ static std::string TrimNewlines(const std::string &s) {
 }
 
 bool TestsAvailable() {
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	std::string testDirectory = g_Config.flash0Directory + "../";
 #else
 	std::string testDirectory = g_Config.memStickDirectory;
@@ -74,7 +74,7 @@ bool TestsAvailable() {
 bool RunTests() {
 	std::string output;
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
 	std::string baseDirectory = g_Config.memStickDirectory;
@@ -83,6 +83,10 @@ bool RunTests() {
 		baseDirectory = "../";
 	}
 #endif
+
+	GraphicsContext *tempCtx = PSP_CoreParameter().graphicsContext;
+	// Clear the context during tests.  We set it back later.
+	PSP_CoreParameter().graphicsContext = nullptr;
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
@@ -175,6 +179,8 @@ bool RunTests() {
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 	PSP_CoreParameter().headLess = false;
+	PSP_CoreParameter().graphicsContext = tempCtx;
+
 	g_Config.sReportHost = savedReportHost;
 	return true;  // Managed to execute the tests. Says nothing about the result.
 }

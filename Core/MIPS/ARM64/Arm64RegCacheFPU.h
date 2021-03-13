@@ -79,7 +79,7 @@ namespace MIPSComp {
 
 class Arm64RegCacheFPU {
 public:
-	Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
+	Arm64RegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~Arm64RegCacheFPU() {}
 
 	void Init(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp);
@@ -175,7 +175,7 @@ private:
 	FPURegMIPS *vr;
 
 	bool pendingFlush;
-	bool initialReady;
+	bool initialReady = false;
 	FPURegARM64 arInitial[MAX_ARMFPUREG];
 	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

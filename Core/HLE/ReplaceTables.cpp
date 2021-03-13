@@ -15,14 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <map>
 #include <unordered_map>
 
 #include "Common/Common.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
+#include "Common/Swap.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -36,7 +40,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <emmintrin.h>
 #endif
 
@@ -152,8 +156,8 @@ static int Replace_memcpy() {
 	}
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy");
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -194,8 +198,8 @@ static int Replace_memcpy_jak() {
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy");
 
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
@@ -222,8 +226,8 @@ static int Replace_memcpy16() {
 	}
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy16");
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy16");
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -260,8 +264,8 @@ static int Replace_memcpy_swizzled() {
 
 	RETURN(0);
 
-	CBreakPoints::ExecMemCheck(srcPtr, false, pitch * h, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, pitch * h, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, "ReplaceMemcpySwizzle");
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, "ReplaceMemcpySwizzle");
 
 	return 10 + (pitch * h) / 4;  // approximation
 }
@@ -288,8 +292,8 @@ static int Replace_memmove() {
 	}
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemmove");
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemmove");
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -310,7 +314,7 @@ static int Replace_memset() {
 	}
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -341,7 +345,7 @@ static int Replace_memset_jak() {
 	currentMIPS->r[MIPS_REG_A3] = -1;
 	RETURN(destPtr);
 
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
 
 	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
 }
@@ -406,13 +410,25 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float *out = (float *)Memory::GetPointer(PARAM(0));
-	const float *a = (const float *)Memory::GetPointer(PARAM(1));
-	const float *b = (const float *)Memory::GetPointer(PARAM(2));
+	float_le *out = (float_le *)Memory::GetPointer(PARAM(0));
+	const float_le *a = (const float_le *)Memory::GetPointer(PARAM(1));
+	const float_le *b = (const float_le *)Memory::GetPointer(PARAM(2));
 
 	// TODO: Actually use an optimized matrix multiply here...
 	if (out && b && a) {
+#ifdef COMMON_BIG_ENDIAN
+		float outn[16], an[16], bn[16];
+		for (int i = 0; i < 16; ++i) {
+			an[i] = a[i];
+			bn[i] = b[i];
+		}
+		Matrix4ByMatrix4(outn, bn, an);
+		for (int i = 0; i < 16; ++i) {
+			out[i] = outn[i];
+		}
+#else
 		Matrix4ByMatrix4(out, b, a);
+#endif
 	}
 	return 16;
 }
@@ -421,8 +437,8 @@ static int Replace_vmmul_q_transp() {
 // a1 = matrix
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
-	u32 *ptr = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *src = (u32_le *)Memory::GetPointer(PARAM(2));
+	u32_le *ptr = (u32_le *)Memory::GetPointer(PARAM(0));
+	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
 	u32 matrix = PARAM(1) << 24;
 
 	if (!ptr || !src) {
@@ -430,13 +446,13 @@ static int Replace_gta_dl_write_matrix() {
 		return 38;
 	}
 
-	u32 *dest = (u32_le *)Memory::GetPointer(ptr[0]);
+	u32_le *dest = (u32_le *)Memory::GetPointer(ptr[0]);
 	if (!dest) {
 		RETURN(0);
 		return 38;
 	}
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	__m128i topBytes = _mm_set1_epi32(matrix);
 	__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 	__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
@@ -480,15 +496,15 @@ static int Replace_gta_dl_write_matrix() {
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
-	u32 *dlStruct = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *src = (u32 *)Memory::GetPointer(PARAM(2));
+	u32_le *dlStruct = (u32_le *)Memory::GetPointer(PARAM(0));
+	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
 
 	if (!dlStruct || !src) {
 		RETURN(0);
 		return 60;
 	}
 
-	u32 *dest = (u32 *)Memory::GetPointer(dlStruct[2]);
+	u32_le *dest = (u32_le *)Memory::GetPointer(dlStruct[2]);
 	if (!dest) {
 		RETURN(0);
 		return 60;
@@ -518,7 +534,7 @@ static int Replace_dl_write_matrix() {
 	if (count == 16) {
 		// Ultra SIMD friendly! These intrinsics generate pretty much perfect code,
 		// no point in hand rolling.
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		__m128i topBytes = _mm_set1_epi32(matrix);
 		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
@@ -554,7 +570,7 @@ static int Replace_dl_write_matrix() {
 		}
 #endif
 	} else {
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		__m128i topBytes = _mm_set1_epi32(matrix);
 		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
 		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
@@ -589,9 +605,9 @@ static int Replace_dl_write_matrix() {
 #endif
 	}
 
-	CBreakPoints::ExecMemCheck(PARAM(2), false, count * sizeof(float), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(PARAM(0) + 2 * sizeof(u32), true, sizeof(u32), currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dlStruct[2], true, (count + 1) * sizeof(u32), currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, PARAM(2), count * sizeof(float), "ReplaceDLWriteMatrix");
+	NotifyMemInfo(MemBlockFlags::WRITE, PARAM(0) + 2 * sizeof(u32), sizeof(u32), "ReplaceDLWriteMatrix");
+	NotifyMemInfo(MemBlockFlags::WRITE, dlStruct[2], (count + 1) * sizeof(u32), "ReplaceDLWriteMatrix");
 
 	dlStruct[2] += (1 + count) * 4;
 	RETURN(dlStruct[2]);
@@ -639,7 +655,7 @@ static int Hook_godseaterburst_blit_texture() {
 	const u32 fb_address = Memory::Read_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "godseaterburst_blit_texture");
 	}
 	return 0;
 }
@@ -653,7 +669,7 @@ static int Hook_hexyzforce_monoclome_thread() {
 	const u32 fb_address = Memory::Read_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "hexyzforce_monoclome_thread");
 	}
 	return 0;
 }
@@ -670,7 +686,7 @@ static int Hook_topx_create_saveicon() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "topx_create_saveicon");
 	}
 	return 0;
 }
@@ -679,7 +695,7 @@ static int Hook_ff1_battle_effect() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "ff1_battle_effect");
 	}
 	return 0;
 }
@@ -689,7 +705,7 @@ static int Hook_dissidia_recordframe_avi() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "dissidia_recordframe_avi");
 	}
 	return 0;
 }
@@ -710,7 +726,7 @@ static int Hook_brandish_download_frame() {
 	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsRAMAddress(dest_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "brandish_download_frame");
 	}
 	return 0;
 }
@@ -721,7 +737,7 @@ static int Hook_growlanser_create_saveicon() {
 	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
 	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
 		gpu->PerformMemoryDownload(fb_address, sz);
-		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, sz, "growlanser_create_saveicon");
 	}
 	return 0;
 }
@@ -732,7 +748,7 @@ static int Hook_sd_gundam_g_generation_download_frame() {
 	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
 	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
 		gpu->PerformMemoryDownload(fb_address, sz);
-		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, sz, "sd_gundam_g_generation_download_frame");
 	}
 	return 0;
 }
@@ -741,7 +757,7 @@ static int Hook_narisokonai_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "narisokonai_download_frame");
 	}
 	return 0;
 }
@@ -750,7 +766,7 @@ static int Hook_kirameki_school_life_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kirameki_school_life_download_frame");
 	}
 	return 0;
 }
@@ -759,7 +775,7 @@ static int Hook_orenoimouto_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A4];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "orenoimouto_download_frame");
 	}
 	return 0;
 }
@@ -768,7 +784,7 @@ static int Hook_sakurasou_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "sakurasou_download_frame");
 	}
 	return 0;
 }
@@ -777,7 +793,7 @@ static int Hook_suikoden1_and_2_download_frame_1() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_S4];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "suikoden1_and_2_download_frame_1");
 	}
 	return 0;
 }
@@ -786,7 +802,7 @@ static int Hook_suikoden1_and_2_download_frame_2() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "suikoden1_and_2_download_frame_2");
 	}
 	return 0;
 }
@@ -797,7 +813,7 @@ static int Hook_rezel_cross_download_frame() {
 	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
 	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
 		gpu->PerformMemoryDownload(fb_address, sz);
-		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, sz, "rezel_cross_download_frame");
 	}
 	return 0;
 }
@@ -806,7 +822,7 @@ static int Hook_kagaku_no_ensemble_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kagaku_no_ensemble_download_frame");
 	}
 	return 0;
 }
@@ -815,7 +831,7 @@ static int Hook_soranokiseki_fc_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "soranokiseki_fc_download_frame");
 	}
 	return 0;
 }
@@ -836,7 +852,7 @@ static int Hook_soranokiseki_sc_download_frame() {
 	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsRAMAddress(dest_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "soranokiseki_sc_download_frame");
 	}
 	return 0;
 }
@@ -845,7 +861,7 @@ static int Hook_bokunonatsuyasumi4_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "bokunonatsuyasumi4_download_frame");
 	}
 	return 0;
 }
@@ -857,7 +873,7 @@ static int Hook_danganronpa2_1_download_frame() {
 	const u32 fb_address = fb_base + fb_offset_fix;
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "danganronpa2_1_download_frame");
 	}
 	return 0;
 }
@@ -869,7 +885,7 @@ static int Hook_danganronpa2_2_download_frame() {
 	const u32 fb_address = fb_base + fb_offset_fix;
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "danganronpa2_2_download_frame");
 	}
 	return 0;
 }
@@ -881,7 +897,7 @@ static int Hook_danganronpa1_1_download_frame() {
 	const u32 fb_address = fb_base + fb_offset_fix;
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "danganronpa1_1_download_frame");
 	}
 	return 0;
 }
@@ -895,7 +911,7 @@ static int Hook_danganronpa1_2_download_frame() {
 	const u32 fb_address = fb_base + fb_offset_fix;
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "danganronpa1_2_download_frame");
 	}
 	return 0;
 }
@@ -904,7 +920,7 @@ static int Hook_kankabanchoutbr_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "kankabanchoutbr_download_frame");
 	}
 	return 0;
 }
@@ -913,7 +929,7 @@ static int Hook_orenoimouto_download_frame_2() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A4];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "orenoimouto_download_frame_2");
 	}
 	return 0;
 }
@@ -922,7 +938,7 @@ static int Hook_rewrite_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "rewrite_download_frame");
 	}
 	return 0;
 }
@@ -931,7 +947,7 @@ static int Hook_kudwafter_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kudwafter_download_frame");
 	}
 	return 0;
 }
@@ -940,7 +956,7 @@ static int Hook_kumonohatateni_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kumonohatateni_download_frame");
 }
 	return 0;
 }
@@ -949,7 +965,7 @@ static int Hook_otomenoheihou_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "otomenoheihou_download_frame");
 }
 	return 0;
 }
@@ -958,7 +974,7 @@ static int Hook_grisaianokajitsu_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "grisaianokajitsu_download_frame");
 	}
 	return 0;
 }
@@ -967,7 +983,7 @@ static int Hook_kokoroconnect_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kokoroconnect_download_frame");
 	}
 	return 0;
 }
@@ -976,7 +992,7 @@ static int Hook_toheart2_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "toheart2_download_frame");
 }
 	return 0;
 }
@@ -985,7 +1001,7 @@ static int Hook_toheart2_download_frame_2() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "toheart2_download_frame_2");
 	}
 	return 0;
 }
@@ -994,7 +1010,7 @@ static int Hook_flowers_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "flowers_download_frame");
 	}
 	return 0;
 }
@@ -1003,7 +1019,7 @@ static int Hook_motorstorm_download_frame() {
 	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_A1] + 0x18);
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "motorstorm_download_frame");
 	}
 	return 0;
 }
@@ -1012,7 +1028,7 @@ static int Hook_utawarerumono_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "utawarerumono_download_frame");
 	}
 	return 0;
 }
@@ -1021,7 +1037,7 @@ static int Hook_photokano_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "photokano_download_frame");
 	}
 	return 0;
 }
@@ -1030,7 +1046,7 @@ static int Hook_photokano_download_frame_2() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "photokano_download_frame_2");
 	}
 	return 0;
 }
@@ -1039,7 +1055,7 @@ static int Hook_gakuenheaven_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "gakuenheaven_download_frame");
 	}
 	return 0;
 }
@@ -1048,7 +1064,21 @@ static int Hook_youkosohitsujimura_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "youkosohitsujimura_download_frame");
+	}
+	return 0;
+}
+
+static int Hook_zettai_hero_update_minimap_tex() {
+	const MIPSOpcode storeOffset = Memory::Read_Instruction(currentMIPS->pc + 4, true);
+	const uint32_t texAddr = currentMIPS->r[MIPS_REG_A0] + SignExtend16ToS32(storeOffset);
+	const uint32_t texSize = 64 * 64 * 1;
+	const uint32_t writeAddr = currentMIPS->r[MIPS_REG_V1] + SignExtend16ToS32(storeOffset);
+	if (Memory::IsValidRange(texAddr, texSize) && writeAddr >= texAddr && writeAddr < texAddr + texSize) {
+		const uint8_t currentValue = Memory::Read_U8(writeAddr);
+		if (currentValue != currentMIPS->r[MIPS_REG_A3]) {
+			gpu->InvalidateCache(texAddr, texSize, GPU_INVALIDATE_FORCE);
+		}
 	}
 	return 0;
 }
@@ -1065,7 +1095,7 @@ static int Hook_sdgundamggenerationportable_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "sdgundamggenerationportable_download_frame");
 	}
 	return 0;
 }
@@ -1075,7 +1105,7 @@ static int Hook_atvoffroadfurypro_download_frame() {
 	const u32 fb_size = (currentMIPS->r[MIPS_REG_S4] >> 3) * currentMIPS->r[MIPS_REG_S3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
-		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "atvoffroadfurypro_download_frame");
 	}
 	return 0;
 }
@@ -1085,7 +1115,7 @@ static int Hook_atvoffroadfuryblazintrails_download_frame() {
 	const u32 fb_size = (currentMIPS->r[MIPS_REG_S3] >> 3) * currentMIPS->r[MIPS_REG_S2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
-		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "atvoffroadfuryblazintrails_download_frame");
 	}
 	return 0;
 }
@@ -1094,7 +1124,7 @@ static int Hook_littlebustersce_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "littlebustersce_download_frame");
 	}
 	return 0;
 }
@@ -1103,7 +1133,7 @@ static int Hook_shinigamitoshoujo_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "shinigamitoshoujo_download_frame");
 	}
 	return 0;
 }
@@ -1113,7 +1143,7 @@ static int Hook_atvoffroadfuryprodemo_download_frame() {
 	const u32 fb_size = ((currentMIPS->r[MIPS_REG_A0] + currentMIPS->r[MIPS_REG_A1]) >> 3) * currentMIPS->r[MIPS_REG_S2];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
-		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "atvoffroadfuryprodemo_download_frame");
 	}
 	return 0;
 }
@@ -1122,7 +1152,7 @@ static int Hook_unendingbloodycall_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_T3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "unendingbloodycall_download_frame");
 	}
 	return 0;
 }
@@ -1131,7 +1161,7 @@ static int Hook_omertachinmokunookitethelegacy_download_frame() {
 	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "omertachinmokunookitethelegacy_download_frame");
 	}
 	return 0;
 }
@@ -1151,7 +1181,7 @@ static int Hook_katamari_render_check() {
 
 		const u32 totalBytes = width * heightBlocks * heightBlockCount;
 		gpu->PerformMemoryDownload(fb_address, totalBytes);
-		CBreakPoints::ExecMemCheck(fb_address, true, totalBytes, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, totalBytes, "katamari_render_check");
 	}
 	return 0;
 }
@@ -1160,7 +1190,7 @@ static int Hook_katamari_screenshot_to_565() {
 	u32 fb_address;
 	if (GetMIPSStaticAddress(fb_address, 0x0040, 0x0044)) {
 		gpu->PerformMemoryDownload(0x04000000 | fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(0x04000000 | fb_address, true, 0x00088000, currentMIPS->pc);
+		NotifyMemInfo(MemBlockFlags::WRITE, 0x04000000 | fb_address, 0x00088000, "katamari_screenshot_to_565");
 	}
 	return 0;
 }
@@ -1183,7 +1213,7 @@ static int Hook_marvelalliance1_copy_a1_before() {
 	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_V1];
 
 	gpu->PerformMemoryDownload(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	CBreakPoints::ExecMemCheck(marvelalliance1_copy_src, true, marvelalliance1_copy_size, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a1_before");
 
 	return 0;
 }
@@ -1194,14 +1224,14 @@ static int Hook_marvelalliance1_copy_a2_before() {
 	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_A1] - currentMIPS->r[MIPS_REG_A2];
 
 	gpu->PerformMemoryDownload(marvelalliance1_copy_src, marvelalliance1_copy_size);
-	CBreakPoints::ExecMemCheck(marvelalliance1_copy_src, true, marvelalliance1_copy_size, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, marvelalliance1_copy_src, marvelalliance1_copy_size, "marvelalliance1_copy_a2_before");
 
 	return 0;
 }
 
 static int Hook_marvelalliance1_copy_after() {
 	gpu->PerformMemoryUpload(marvelalliance1_copy_dst, marvelalliance1_copy_size);
-	CBreakPoints::ExecMemCheck(marvelalliance1_copy_dst, false, marvelalliance1_copy_size, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, marvelalliance1_copy_dst, marvelalliance1_copy_size, "marvelalliance1_copy_after");
 
 	return 0;
 }
@@ -1234,7 +1264,35 @@ static int Hook_motorstorm_pixel_read() {
 	u32 fb_height = Memory::Read_U16(currentMIPS->r[MIPS_REG_A0] + 0x26);
 	u32 fb_stride = Memory::Read_U16(currentMIPS->r[MIPS_REG_A0] + 0x28);
 	gpu->PerformMemoryDownload(fb_address, fb_height * fb_stride);
-	CBreakPoints::ExecMemCheck(fb_address, true, fb_height * fb_stride, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_height * fb_stride, "motorstorm_pixel_read");
+	return 0;
+}
+
+static int Hook_worms_copy_normalize_alpha() {
+	// At this point in the function (0x0CC), s1 is the framebuf and a2 is the size.
+	u32 fb_address = currentMIPS->r[MIPS_REG_S1];
+	u32 fb_size = currentMIPS->r[MIPS_REG_A2];
+	if (Memory::IsVRAMAddress(fb_address) && Memory::IsValidRange(fb_address, fb_size)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "worms_copy_normalize_alpha");
+	}
+	return 0;
+}
+
+static int Hook_openseason_data_decode() {
+	static u32 firstWritePtr = 0;
+
+	u32 curWritePtr = currentMIPS->r[MIPS_REG_A0];
+	u32 endPtr = currentMIPS->r[MIPS_REG_A1];
+	u32 writeBytes = currentMIPS->r[MIPS_REG_V0];
+	u32 startPtr = curWritePtr - writeBytes;
+	if (Memory::IsVRAMAddress(startPtr) && (firstWritePtr == 0 || startPtr < firstWritePtr)) {
+		firstWritePtr = startPtr;
+	}
+	if (Memory::IsVRAMAddress(endPtr) && curWritePtr == endPtr) {
+		gpu->PerformMemoryUpload(firstWritePtr, endPtr - firstWritePtr);
+		firstWritePtr = 0;
+	}
 	return 0;
 }
 
@@ -1323,6 +1381,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "zettai_hero_update_minimap_tex", &Hook_zettai_hero_update_minimap_tex, 0, REPFLAG_HOOKEXIT, },
 	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
 	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
 	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, 0xA0 },
@@ -1350,6 +1409,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
 	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
+	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
+	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
 	{}
 };
 

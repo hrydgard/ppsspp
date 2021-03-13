@@ -2,7 +2,9 @@
 #include <cstdio>
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/Debugger/DumpMemoryWindow.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/ShellUtil.h"
@@ -75,27 +77,49 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			}
 			break;
 		case IDOK:
-			if (bp->fetchDialogData(hwnd))
-			{
+			if (bp->fetchDialogData(hwnd)) {
+				bool priorDumpWasStepping = Core_IsStepping();
+				if (!priorDumpWasStepping && PSP_IsInited()) {
+					// If emulator isn't paused force paused state, but wait before locking.
+					Core_EnableStepping(true);
+					Core_WaitInactive();
+				}
+
 				auto memLock = Memory::Lock();
 				if (!PSP_IsInited())
 					break;
 
 				FILE *output = _wfopen(bp->fileName_.c_str(), L"wb");
-				if (output == NULL) {
+				if (output == nullptr) {
 					char errorMessage[2048];
 					snprintf(errorMessage, sizeof(errorMessage), "Could not open file \"%S\".", bp->fileName_.c_str());
-					MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+					MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 					break;
 				}
-				
-				bool priorDumpWasStepping = Core_IsStepping();
-				if (!priorDumpWasStepping) Core_EnableStepping(true); // If emulator isn't paused force paused state
-				fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+
+				bool includeReplacements = SendMessage(GetDlgItem(hwnd, IDC_DUMP_INCLUDEHACKS), BM_GETCHECK, 0, 0) != 0;
+				if (includeReplacements) {
+					fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+				} else {
+					auto savedReplacements = SaveAndClearReplacements();
+					if (MIPSComp::jit) {
+						auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
+						fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+						MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
+					} else {
+						fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+					}
+					RestoreSavedReplacements(savedReplacements);
+				}
+
 				fclose(output);
-				if (!priorDumpWasStepping) Core_EnableStepping(false); // If emulator wasn't paused before memory dump resume emulation automatically.
-				MessageBoxA(hwnd,"Done.","Information",MB_OK);
-				EndDialog(hwnd,true);
+				if (!priorDumpWasStepping) {
+					// If emulator wasn't paused before memory dump resume emulation automatically.
+					Core_EnableStepping(false);
+				}
+
+				MessageBoxA(hwnd, "Done.", "Information", MB_OK);
+				EndDialog(hwnd, true);
 			}
 			break;
 		case IDCANCEL:

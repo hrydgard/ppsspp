@@ -365,28 +365,30 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 	return true;
 }
 
-u32 hleDelayResult(u32 result, const char *reason, int usec)
-{
-	if (__KernelIsDispatchEnabled())
-	{
-		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
+u32 hleDelayResult(u32 result, const char *reason, int usec) {
+	if (!__KernelIsDispatchEnabled()) {
+		WARN_LOG(HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", latestSyscall ? latestSyscall->name : "?");
+	} else {
+		SceUID thread = __KernelGetCurThread();
+		if (KernelIsThreadWaiting(thread))
+			ERROR_LOG(HLE, "%s: Delaying a thread that's already waiting", latestSyscall ? latestSyscall->name : "?");
+		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, thread);
 		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, result, 0, false, reason);
 	}
-	else
-		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
 }
 
-u64 hleDelayResult(u64 result, const char *reason, int usec)
-{
-	if (__KernelIsDispatchEnabled())
-	{
-		u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
+u64 hleDelayResult(u64 result, const char *reason, int usec) {
+	if (!__KernelIsDispatchEnabled()) {
+		WARN_LOG(HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", latestSyscall ? latestSyscall->name : "?");
+	} else {
+		SceUID thread = __KernelGetCurThread();
+		if (KernelIsThreadWaiting(thread))
+			ERROR_LOG(HLE, "%s: Delaying a thread that's already waiting", latestSyscall ? latestSyscall->name : "?");
+		u64 param = (result & 0xFFFFFFFF00000000) | thread;
 		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
-		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32) result, 0, false, reason);
+		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32)result, 0, false, reason);
 	}
-	else
-		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
 }
 
@@ -628,7 +630,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 	if (flags & HLE_CLEAR_STACK_BYTES) {
 		u32 stackStart = __KernelGetCurThreadStackStart();
 		if (currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear >= stackStart) {
-			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear);
+			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear, "HLEStackClear");
 		}
 	}
 
@@ -732,6 +734,7 @@ void CallSyscall(MIPSOpcode op)
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
 		double total = time_now_d() - start - hleSteppingTime;
+		_dbg_assert_msg_(total >= 0.0, "Time spent in syscall became negative");
 		hleSteppingTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
 	}

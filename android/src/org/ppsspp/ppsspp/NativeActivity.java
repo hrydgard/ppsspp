@@ -402,8 +402,10 @@ public abstract class NativeActivity extends Activity {
 
 		String extStorageState = Environment.getExternalStorageState();
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+		String externalFilesDir = this.getExternalFilesDir(null).getAbsolutePath();
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
+		Log.i(TAG, "Ext files dir: " + externalFilesDir);
 
 		String additionalStorageDirs = "";
 		try {
@@ -442,7 +444,7 @@ public abstract class NativeActivity extends Activity {
 		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, additionalStorageDirs, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -782,8 +784,8 @@ public abstract class NativeActivity extends Activity {
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
 		if (shuttingDown || isFinishing()) {
-			unregisterCallbacks();
 			NativeApp.shutdown();
+			unregisterCallbacks();
 			initialized = false;
 		}
 		navigationCallbackView = null;
@@ -1142,8 +1144,10 @@ public abstract class NativeActivity extends Activity {
 		} else if (requestCode == RESULT_BROWSE_FILE) {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
-				// NativeApp.sendMessage("br");
+				// Grab permanent permission so we can show it in recents list etc.
+				getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
 			Uri selectedFile = data.getData();
@@ -1289,6 +1293,7 @@ public abstract class NativeActivity extends Activity {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("application/octet-stream");
+				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				//intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 				startActivityForResult(intent, RESULT_BROWSE_FILE);
 			} catch (Exception e) {

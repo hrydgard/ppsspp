@@ -39,7 +39,7 @@ void GPUDebugBuffer::Allocate(u32 stride, u32 height, GPUDebugBufferFormat fmt, 
 	fmt_ = fmt;
 	flipped_ = flipped;
 
-	u32 pixelSize = PixelSize(fmt);
+	u32 pixelSize = PixelSize();
 	data_ = new u8[pixelSize * stride * height];
 }
 
@@ -50,8 +50,8 @@ void GPUDebugBuffer::Free() {
 	data_ = NULL;
 }
 
-u32 GPUDebugBuffer::PixelSize(GPUDebugBufferFormat fmt) const {	
-	switch (fmt) {
+u32 GPUDebugBuffer::PixelSize() const {
+	switch (fmt_) {
 	case GPU_DBG_FORMAT_8888:
 	case GPU_DBG_FORMAT_8888_BGRA:
 	case GPU_DBG_FORMAT_FLOAT:
@@ -81,7 +81,7 @@ u32 GPUDebugBuffer::GetRawPixel(int x, int y) const {
 		y = height_ - y - 1;
 	}
 
-	u32 pixelSize = PixelSize(fmt_);
+	u32 pixelSize = PixelSize();
 	u32 byteOffset = pixelSize * (stride_ * y + x);
 	const u8 *ptr = &data_[byteOffset];
 
@@ -96,5 +96,38 @@ u32 GPUDebugBuffer::GetRawPixel(int x, int y) const {
 		return *(const u8 *)ptr;
 	default:
 		return 0;
+	}
+}
+
+void GPUDebugBuffer::SetRawPixel(int x, int y, u32 c) {
+	if (data_ == nullptr) {
+		return;
+	}
+
+	if (flipped_) {
+		y = height_ - y - 1;
+	}
+
+	u32 pixelSize = PixelSize();
+	u32 byteOffset = pixelSize * (stride_ * y + x);
+	u8 *ptr = &data_[byteOffset];
+
+	switch (pixelSize) {
+	case 4:
+		*(u32 *)ptr = c;
+		break;
+	case 3:
+		ptr[0] = (c >> 0) & 0xFF;
+		ptr[1] = (c >> 8) & 0xFF;
+		ptr[2] = (c >> 16) & 0xFF;
+		break;
+	case 2:
+		*(u16 *)ptr = (u16)c;
+		break;
+	case 1:
+		*ptr = (u8)c;
+		break;
+	default:
+		break;
 	}
 }

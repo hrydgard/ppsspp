@@ -379,6 +379,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\ext\glslang\glslang\build_info.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\pch.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\pch.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.EXT.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.NV.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\NonSemanticDebugPrintf.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SpvTools.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\Include\arrays.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\Include\BaseTypes.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\Include\Common.h" />
@@ -409,14 +416,14 @@
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\ScanContext.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslAttributes.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslGrammar.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslOpMap.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseHelper.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokens.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokenStream.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslAttributes.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslGrammar.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslOpMap.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslParseables.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokens.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.h" />
     <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\bitutils.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\disassemble.h" />
@@ -436,6 +443,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SpvTools.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\Link.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\attribute.cpp" />
@@ -466,13 +474,13 @@
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\OSDependent\Windows\ossource.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslAttributes.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslGrammar.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslOpMap.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseHelper.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslTokenStream.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslAttributes.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslGrammar.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslOpMap.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseables.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.cpp" />
     <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="..\..\ext\glslang\SPIRV\disassemble.cpp" />
     <ClCompile Include="..\..\ext\glslang\SPIRV\doc.cpp" />

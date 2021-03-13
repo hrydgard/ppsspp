@@ -94,7 +94,7 @@ namespace MIPSComp {
 			gpr.MapReg(rt, true, false);
 		}
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 		// We use EDX so we can have DL for 8-bit ops.
 		const bool needSwap = bits == 8 && !gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX);
 		if (needSwap)
@@ -138,14 +138,13 @@ namespace MIPSComp {
 	void Jit::CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore)
 	{
 		CONDITIONAL_DISABLE(LSU);
-		int o = op>>26;
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 
 		X64Reg shiftReg = ECX;
 		gpr.FlushLockX(ECX, EDX);
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		// On x64, we need ECX for CL, but it's also the first arg and gets lost.  Annoying.
 		gpr.FlushLockX(R9);
 		shiftReg = R9;
@@ -288,7 +287,6 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
-		MIPSGPReg rs = _RS;
 		int o = op>>26;
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
@@ -309,11 +307,11 @@ namespace MIPSComp {
 			CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
 			break;
 
-		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
+		case 32: //R(rt) = SignExtend8ToU32 (ReadMem8 (addr)); break; //lb
 			CompITypeMemRead(op, 8, &XEmitter::MOVSX, safeMemFuncs.readU8);
 			break;
 
-		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
+		case 33: //R(rt) = SignExtend16ToU32(ReadMem16(addr)); break; //lh
 			CompITypeMemRead(op, 16, &XEmitter::MOVSX, safeMemFuncs.readU16);
 			break;
 
@@ -395,7 +393,7 @@ namespace MIPSComp {
 
 		default:
 			Comp_Generic(op);
-			return ;
+			return;
 		}
 
 	}

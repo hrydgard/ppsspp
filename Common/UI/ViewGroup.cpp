@@ -1,8 +1,12 @@
 #include <algorithm>
+#include <cmath>
 #include <functional>
-#include <set>
+#include <iomanip>
 #include <mutex>
+#include <set>
+#include <sstream>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Math/curves.h"
 #include "Common/UI/Context.h"
@@ -152,6 +156,64 @@ void ViewGroup::Draw(UIContext &dc) {
 	if (clip_) {
 		dc.PopScissor();
 	}
+}
+
+std::string ViewGroup::DescribeText() const {
+	std::stringstream ss;
+	bool needNewline = false;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		if (needNewline) {
+			ss << "\n";
+		}
+		ss << s;
+		needNewline = s[s.length() - 1] != '\n';
+	}
+	return ss.str();
+}
+
+std::string ViewGroup::DescribeListUnordered(const char *heading) const {
+	std::stringstream ss;
+	ss << heading << "\n";
+
+	bool needNewline = false;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		ss << " - " << IndentString(s, "   ", true);
+	}
+	return ss.str();
+}
+
+std::string ViewGroup::DescribeListOrdered(const char *heading) const {
+	std::stringstream ss;
+	ss << heading << "\n";
+
+	// This is how much space we need for the highest number.
+	int sz = (int)floorf(log10f((float)views_.size())) + 1;
+	std::string indent = "  " + std::string(sz, ' ');
+
+	bool needNewline = false;
+	int n = 1;
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE)
+			continue;
+		std::string s = view->DescribeText();
+		if (s.empty())
+			continue;
+
+		ss << std::setw(sz) << n++ << ". " << IndentString(s, indent, true);
+	}
+	return ss.str();
 }
 
 void ViewGroup::Update() {
@@ -580,6 +642,11 @@ void LinearLayout::Layout() {
 
 		pos += spacing_ + (orientation_ == ORIENT_HORIZONTAL ? itemBounds.w : itemBounds.h);
 	}
+}
+
+std::string LinearLayoutList::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
 }
 
 void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1134,6 +1201,11 @@ void GridLayout::Layout() {
 	}
 }
 
+std::string GridLayoutList::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
+}
+
 TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
 	SetSpacing(0.0f);
@@ -1216,7 +1288,7 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 
 		currentTab_ = tab;
 	}
-	tabStrip_->SetSelection(tab);
+	tabStrip_->SetSelection(tab, false);
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
@@ -1297,7 +1369,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	return OnChoice.Dispatch(e2);
 }
 
-void ChoiceStrip::SetSelection(int sel) {
+void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	int prevSelected = selected_;
 	StickyChoice *prevChoice = Choice(selected_);
 	if (prevChoice)
@@ -1312,7 +1384,7 @@ void ChoiceStrip::SetSelection(int sel) {
 			e.v = views_[selected_];
 			e.a = selected_;
 			// Set to 0 to indicate a selection change (not a click.)
-			e.b = 0;
+			e.b = triggerClick ? 1 : 0;
 			OnChoice.Trigger(e);
 		}
 	}
@@ -1326,16 +1398,16 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
-	if (input.flags & KEY_DOWN) {
+	if (topTabs_ && (input.flags & KEY_DOWN)) {
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
-				SetSelection(selected_ - 1);
+				SetSelection(selected_ - 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
 			}
 			ret = true;
 		} else if (IsTabRightKey(input)) {
 			if (selected_ < (int)views_.size() - 1) {
-				SetSelection(selected_ + 1);
+				SetSelection(selected_ + 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			}
 			ret = true;
@@ -1348,10 +1420,15 @@ void ChoiceStrip::Draw(UIContext &dc) {
 	ViewGroup::Draw(dc);
 	if (topTabs_) {
 		if (orientation_ == ORIENT_HORIZONTAL)
-			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
+			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
 		else if (orientation_ == ORIENT_VERTICAL)
-			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
+			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
 	}
+}
+
+std::string ChoiceStrip::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListUnordered(u->T("Choices:"));
 }
 
 StickyChoice *ChoiceStrip::Choice(int index) {
@@ -1384,6 +1461,11 @@ void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert)
 	if (maxHeight_ > 0 && measuredHeight_ > maxHeight_) {
 		measuredHeight_ = maxHeight_;
 	}
+}
+
+std::string ListView::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return DescribeListOrdered(u->T("List:"));
 }
 
 EventReturn ListView::OnItemCallback(int num, EventParams &e) {

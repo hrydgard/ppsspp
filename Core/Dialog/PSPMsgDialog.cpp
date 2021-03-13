@@ -35,10 +35,7 @@ static const float FONT_SCALE = 0.65f;
 const static int MSG_INIT_DELAY_US = 300000;
 const static int MSG_SHUTDOWN_DELAY_US = 26000;
 
-PSPMsgDialog::PSPMsgDialog()
-	: PSPDialog()
-	, flag(0)
-{
+PSPMsgDialog::PSPMsgDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPMsgDialog::~PSPMsgDialog() {
@@ -344,7 +341,7 @@ int PSPMsgDialog::Update(int animSpeed) {
 		messageDialog.result = 0;
 	}
 
-	Memory::Memcpy(messageDialogAddr, &messageDialog ,messageDialog.common.size);
+	Memory::Memcpy(messageDialogAddr, &messageDialog, messageDialog.common.size, "MsgDialogParam");
 	return 0;
 }
 

@@ -18,8 +18,9 @@
 #pragma once
 
 #include "Common/FakeEmitter.h"
-#include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "../MIPSVFPUUtils.h"
 
 #ifndef offsetof
@@ -30,9 +31,9 @@ namespace MIPSComp {
 
 typedef int FakeReg;
 
-class FakeJit : public FakeGen::FakeXCodeBlock {
+class FakeJit : public FakeGen::FakeXCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
-	FakeJit(MIPSState *mips);
+	FakeJit(MIPSState *mipsState);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
@@ -46,7 +47,9 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name);
+	const u8 *GetCrashHandler() const override { return nullptr; }
+	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
@@ -126,9 +129,23 @@ public:
 	int Replace_fabsf() { return 0; }
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks; }
 
-	void ClearCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override { return op; }
+
+	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
+	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
+
+	void ClearCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) override;
+	void UpdateFCR31() override {}
+
+	const u8 *GetDispatcher() const override {
+		return nullptr;
+	}
+
+	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override {}
+	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override {}
 
 	void EatPrefix() { js.EatPrefix(); }
 

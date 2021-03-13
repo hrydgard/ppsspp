@@ -41,7 +41,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);

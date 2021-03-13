@@ -419,7 +419,6 @@ enum GETextureFormat
 	GE_TFMT_DXT5 = 10,
 };
 
-const char *GeTextureFormatToString(GETextureFormat tfmt);
 inline bool IsClutFormat(GETextureFormat tfmt) {
 	return tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8 || tfmt == GE_TFMT_CLUT16 || tfmt == GE_TFMT_CLUT32;
 }
@@ -609,3 +608,7 @@ enum GEPaletteFormat
 	GE_CMODE_16BIT_ABGR4444,
 	GE_CMODE_32BIT_ABGR8888,
 };
+
+const char *GEPaletteFormatToString(GEPaletteFormat pfmt);
+const char *GeTextureFormatToString(GETextureFormat tfmt);
+const char *GeTextureFormatToString(GETextureFormat tfmt, GEPaletteFormat pfmt);

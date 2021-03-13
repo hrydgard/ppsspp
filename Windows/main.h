@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
 #include "Common/CommonWindows.h"

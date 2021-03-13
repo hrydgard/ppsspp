@@ -16,10 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -38,26 +40,29 @@ void DisassembleFake(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-FakeJit::FakeJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
+FakeJit::FakeJit(MIPSState *mipsState) : blocks(mipsState, this), mips_(mipsState)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
 }
 
-void FakeJit::DoState(PointerWrap &p)
-{
-	auto s = p.Section("FakeJit", 1, 2);
+void FakeJit::DoState(PointerWrap &p) {
+	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;
 	}
+
+	// The debugger sets this so that "go" on a breakpoint will actually... go.
+	// But if they load a state, we can end up hitting it by mistake, since it's based on PC and ticks.
+	CBreakPoints::SetSkipFirst(0);
 }
 
 // This is here so the savestate matches between jit and non-jit.
@@ -68,10 +73,10 @@ void FakeJit::DoDummyState(PointerWrap &p)
 		return;
 
 	bool dummy = false;
-	p.Do(dummy);
+	Do(p, dummy);
 	if (s >= 2) {
 		dummy = true;
-		p.Do(dummy);
+		Do(p, dummy);
 	}
 }
 
@@ -89,7 +94,7 @@ void FakeJit::FlushPrefixV()
 void FakeJit::ClearCache()
 {
 	blocks.Clear();
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 	//GenerateFixedCode();
 }
 

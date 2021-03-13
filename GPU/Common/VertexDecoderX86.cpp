@@ -53,7 +53,7 @@ alignas(16) static const float by16384[4] = {
 	1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f,
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 static const X64Reg tempReg1 = RAX;
 static const X64Reg tempReg2 = R9;
@@ -185,7 +185,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Parameters automatically fall into place.
 
 	// This will align the stack properly to 16 bytes (the call of this function pushed RIP, which is 8 bytes).
-	const uint8_t STACK_FIXED_ALLOC = 64 + 8;
+	const uint8_t STACK_FIXED_ALLOC = 96 + 8;
 #endif
 
 	// Allocate temporary storage on the stack.
@@ -197,6 +197,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(MDisp(ESP, 16), XMM5);
 	MOVUPS(MDisp(ESP, 32), XMM6);
 	MOVUPS(MDisp(ESP, 48), XMM7);
+#if PPSSPP_ARCH(AMD64)
+	MOVUPS(MDisp(ESP, 64), XMM8);
+	MOVUPS(MDisp(ESP, 80), XMM9);
+#endif
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -215,7 +219,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
-	int boneCount = 0;
 	if (dec.weighttype && g_Config.bSoftwareSkinning) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
 		MOVAPS(XMM4, MatR(tempReg1));
@@ -273,9 +276,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(XMM5, MDisp(ESP, 16));
 	MOVUPS(XMM6, MDisp(ESP, 32));
 	MOVUPS(XMM7, MDisp(ESP, 48));
+#if PPSSPP_ARCH(AMD64)
+	MOVUPS(XMM8, MDisp(ESP, 64));
+	MOVUPS(XMM9, MDisp(ESP, 80));
+#endif
 	ADD(PTRBITS, R(ESP), Imm8(STACK_FIXED_ALLOC));
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 	// Restore register values
 	POP(EBP);
 	POP(EBX);
@@ -462,7 +469,7 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (dec_->nweights > 4) {
 		// This reads 8 bytes, we split the top 4 so we can expand each set of 4.
 		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
@@ -514,7 +521,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 
 	for (int j = 0; j < dec_->nweights; j++) {
 		X64Reg weight = XMM1;
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
 		if (j == 3 || j == dec_->nweights - 1) {
 			// In the previous iteration, we already spread this value to all lanes.
@@ -572,7 +579,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (dec_->nweights > 6) {
 		// Since this is probably not aligned, two MOVQs are better than one MOVDQU.
 		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
@@ -628,7 +635,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 
 	for (int j = 0; j < dec_->nweights; j++) {
 		X64Reg weight = XMM1;
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
 		if (j == 3 || j == dec_->nweights - 1) {
 			// In the previous iteration, we already spread this value to all lanes.
@@ -726,7 +733,7 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(64, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 #else
@@ -907,7 +914,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(64, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 #else

@@ -96,13 +96,13 @@ struct MemCheck {
 	// Called on the stored memcheck (affects numHits, etc.)
 	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
 	// Called on a copy.
-	BreakAction Action(u32 addr, bool write, int size, u32 pc);
+	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
 	void JitBeforeApply(u32 addr, bool write, int size, u32 pc);
 	void JitBeforeAction(u32 addr, bool write, int size, u32 pc);
 	bool JitApplyChanged();
 	void JitCleanup(bool changed);
 
-	void Log(u32 addr, bool write, int size, u32 pc);
+	void Log(u32 addr, bool write, int size, u32 pc, const char *reason);
 
 	bool IsEnabled() const {
 		return (result & BREAK_ACTION_PAUSE) != 0;
@@ -151,7 +151,7 @@ public:
 
 	static bool GetMemCheck(u32 start, u32 end, MemCheck *check);
 	static bool GetMemCheckInRange(u32 address, int size, MemCheck *check);
-	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc);
+	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason);
 	static BreakAction ExecOpMemCheck(u32 address, u32 pc);
 
 	// Executes memchecks but used by the jit.  Cleanup finalizes after jit is done.

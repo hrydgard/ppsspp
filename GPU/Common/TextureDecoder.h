@@ -31,6 +31,12 @@ enum CheckAlphaResult {
 #include "GPU/Common/TextureDecoderNEON.h"
 #include "GPU/GPUState.h"
 
+enum TextureFiltering {
+	TEX_FILTER_AUTO = 1,
+	TEX_FILTER_FORCE_NEAREST = 2,
+	TEX_FILTER_FORCE_LINEAR = 3,
+};
+
 void SetupTextureDecoder();
 
 // Pitch must be aligned to 16 bits (as is the case on a PSP)

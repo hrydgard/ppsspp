@@ -63,13 +63,27 @@ bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize) {
 
 #pragma pack(push)
 #pragma pack(1)
+struct u32_le_be_pair {
+	u8 valueLE[4];
+	u8 valueBE[4];
+	operator u32() const {
+		return valueLE[0] + (valueLE[1] << 8) + (valueLE[2] << 16) + (valueLE[3] << 24);
+	}
+};
+
+struct u16_le_be_pair {
+	u8 valueLE[2];
+	u8 valueBE[2];
+	operator u16() const {
+		return valueLE[0] + (valueLE[1] << 8);
+	}
+};
+
 struct DirectoryEntry {
 	u8 size;
 	u8 sectorsInExtendedRecord;
-	u32_le firstDataSectorLE;       // LBA
-	u32_be firstDataSectorBE;
-	u32_le dataLengthLE;            // Size
-	u32_be dataLengthBE;
+	u32_le_be_pair firstDataSector;       // LBA
+	u32_le_be_pair dataLength;            // Size
 	u8 years;
 	u8 month;
 	u8 day;
@@ -80,38 +94,9 @@ struct DirectoryEntry {
 	u8 flags;                       // 2 = directory
 	u8 fileUnitSize;
 	u8 interleaveGap;
-	u16_le volSeqNumberLE;
-	u16_be volSeqNumberBE;
+	u16_le_be_pair volSeqNumber;
 	u8 identifierLength;            //identifier comes right after
 	u8 firstIdChar;
-
-#if COMMON_LITTLE_ENDIAN
-	u32 firstDataSector() const
-	{
-		return firstDataSectorLE;
-	}
-	u32 dataLength() const
-	{
-		return dataLengthLE;
-	}
-	u32 volSeqNumber() const
-	{
-		return volSeqNumberLE;
-	}
-#else
-	u32 firstDataSector() const
-	{
-		return firstDataSectorBE;
-	}
-	u32 dataLength() const
-	{
-		return dataLengthBE;
-	}
-	u32 volSeqNumber() const
-	{
-		return volSeqNumberBE;
-	}
-#endif
 };
 
 struct DirectorySector {
@@ -126,25 +111,16 @@ struct VolDescriptor {
 	char sysid[32];
 	char volid[32];
 	char zeros[8];
-	u32_le numSectorsLE;
-	u32_be numSectoreBE;
+	u32_le_be_pair numSectors;
 	char morezeros[32];
-	u16_le volSetSizeLE;
-	u16_be volSetSizeBE;
-	u16_le volSeqNumLE;
-	u16_be volSeqNumBE;
-	u16_le sectorSizeLE;
-	u16_be sectorSizeBE;
-	u32_le pathTableLengthLE;
-	u32_be pathTableLengthBE;
-	u16_le firstLETableSectorLE;
-	u16_be firstLETableSectorBE;
-	u16_le secondLETableSectorLE;
-	u16_be secondLETableSectorBE;
-	u16_le firstBETableSectorLE;
-	u16_be firstBETableSectorBE;
-	u16_le secondBETableSectorLE;
-	u16_be secondBETableSectorBE;
+	u16_le_be_pair volSetSize;
+	u16_le_be_pair volSeqNum;
+	u16_le_be_pair sectorSize;
+	u32_le_be_pair pathTableLength;
+	u16_le_be_pair firstLETableSector;
+	u16_le_be_pair secondLETableSector;
+	u16_le_be_pair firstBETableSector;
+	u16_le_be_pair secondBETableSector;
 	DirectoryEntry root;
 	char volumeSetIdentifier[128];
 	char publisherIdentifier[128];
@@ -192,8 +168,8 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 		return;
 	}
 
-	treeroot->startsector = desc.root.firstDataSector();
-	treeroot->dirsize = desc.root.dataLength();
+	treeroot->startsector = desc.root.firstDataSector;
+	treeroot->dirsize = desc.root.dataLength;
 }
 
 ISOFileSystem::~ISOFileSystem() {
@@ -244,16 +220,15 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 				relative = false;
 			}
 
-			entry->size = dir.dataLength();
-			entry->startingPosition = dir.firstDataSector() * 2048;
+			entry->size = dir.dataLength;
+			entry->startingPosition = dir.firstDataSector * 2048;
 			entry->isDirectory = !isFile;
 			entry->flags = dir.flags;
 			entry->parent = root;
-			entry->startsector = dir.firstDataSector();
-			entry->dirsize = dir.dataLength();
+			entry->startsector = dir.firstDataSector;
+			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
-			// Let's not excessively spam the log - I commented this line out.
-			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory?"D":"F", entry->name.c_str(), dir.firstDataSectorLE, entry->startingPosition, entry->startingPosition);
+			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
@@ -438,11 +413,11 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 
 		VolDescriptor desc;
 		blockDevice->ReadBlock(16, (u8 *)&desc);
-		if (outlen < (u32)desc.pathTableLengthLE) {
+		if (outlen < (u32)desc.pathTableLength) {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
-			int block = (u16)desc.firstLETableSectorLE;
-			u32 size = (u32)desc.pathTableLengthLE;
+			int block = (u16)desc.firstLETableSector;
+			u32 size = Memory::ValidSize(outdataPtr, (u32)desc.pathTableLength);
 			u8 *out = Memory::GetPointer(outdataPtr);
 
 			int blocks = size / blockDevice->GetBlockSize();

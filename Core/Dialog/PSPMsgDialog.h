@@ -58,7 +58,7 @@ struct pspMessageDialog
 
 class PSPMsgDialog: public PSPDialog {
 public:
-	PSPMsgDialog();
+	PSPMsgDialog(UtilityDialogType type);
 	virtual ~PSPMsgDialog();
 
 	virtual int Init(unsigned int paramAddr);
@@ -92,7 +92,7 @@ private:
 		DS_ABORT        = 0x200,
 	};
 
-	u32 flag;
+	u32 flag = 0;
 
 	pspMessageDialog messageDialog;
 	int messageDialogAddr;

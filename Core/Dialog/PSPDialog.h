@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "Common/Render/TextureAtlas.h"
-
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/Swap.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/Util/PPGeDraw.h"
 
 class PointerWrap;
@@ -53,7 +53,7 @@ struct pspUtilityDialogCommon
 class PSPDialog
 {
 public:
-	PSPDialog();
+	PSPDialog(UtilityDialogType type);
 	virtual ~PSPDialog();
 
 	virtual int Update(int animSpeed) = 0;
@@ -80,9 +80,14 @@ public:
 	};
 
 	DialogStatus GetStatus();
+	UtilityDialogType DialogType() { return dialogType_; }
 
 	void StartDraw();
 	void EndDraw();
+
+	void FinishVolatile();
+	int FinishShutdown();
+
 protected:
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
 	PPGeImageStyle FadedImageStyle();
@@ -94,23 +99,23 @@ protected:
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
+	DialogStatus ReadStatus() {
+		return status;
+	}
 
 	// TODO: Remove this once all dialogs are updated.
-	virtual bool UseAutoStatus() {
-		return true;
-	}
+	virtual bool UseAutoStatus() = 0;
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	virtual void FinishFadeOut();
 	u32 CalcFadedColor(u32 inColor);
 
-	DialogStatus status;
-	DialogStatus pendingStatus;
-	u64 pendingStatusTicks;
+	DialogStatus pendingStatus = SCE_UTILITY_STATUS_NONE;
+	u64 pendingStatusTicks = 0;
 
-	unsigned int lastButtons;
-	unsigned int buttons;
+	unsigned int lastButtons = 0;
+	unsigned int buttons = 0;
 
 	float fadeTimer;
 	bool isFading;
@@ -121,4 +126,9 @@ protected:
 	ImageID cancelButtonImg;
 	int okButtonFlag;
 	int cancelButtonFlag;
+
+private:
+	DialogStatus status = SCE_UTILITY_STATUS_NONE;
+	UtilityDialogType dialogType_;
+	bool volatileLocked_ = false;
 };

@@ -225,7 +225,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = textureView;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry->addr);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
 }
@@ -703,7 +703,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			size_t bufSize = sizeof(u32) * (mapRowPitch / bpp) * h;
 			mapData = (u32 *)AllocateAlignedMemory(bufSize, 16);
 			if (!mapData) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %d, %dx%d)", bufSize, mapRowPitch / sizeof(u32), h);
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %lld, %dx%d)", (unsigned long long)bufSize, mapRowPitch / (int)sizeof(u32), h);
 				return;
 			}
 			pixelData = (u32 *)mapData;
@@ -747,7 +747,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
 			replacedInfo.addr = entry.addr;
-			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isVideo = IsVideo(entry.addr);
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D11Format(dstFmt);

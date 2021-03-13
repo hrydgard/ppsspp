@@ -48,10 +48,6 @@
         #define PPSSPP_ARCH_ARMV7 1
         #define PPSSPP_ARCH_ARM_NEON 1
     #endif
-    //TODO: Remove this compat define
-    #ifndef ARM
-        #define ARM 1
-    #endif
 #endif
 
 #if defined(__aarch64__) || defined(_M_ARM64)
@@ -66,10 +62,6 @@
 #elif defined(__mips__)
     #define PPSSPP_ARCH_MIPS 1
     #define PPSSPP_ARCH_32BIT 1
-    //TODO: Remove this compat define
-    #ifndef MIPS
-        #define MIPS 1
-    #endif
 #endif
 
 
@@ -91,16 +83,8 @@
     #if TARGET_IPHONE_SIMULATOR
         #define PPSSPP_PLATFORM_IOS 1
         #define PPSSPP_PLATFORM_IOS_SIMULATOR 1
-        //TODO: Remove this compat define
-        #ifndef IOS
-            #define IOS 1
-        #endif
     #elif TARGET_OS_IPHONE
         #define PPSSPP_PLATFORM_IOS 1
-        //TODO: Remove this compat define
-        #ifndef IOS
-            #define IOS 1
-        #endif
     #elif TARGET_OS_MAC
         #define PPSSPP_PLATFORM_MAC 1
     #else

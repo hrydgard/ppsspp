@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include "ext/xxhash.h"
 #include "Common/UI/UI.h"
 
@@ -97,7 +98,7 @@ void CwCheatScreen::CreateViews() {
 	rightScroll_->SetTag("CwCheats");
 	rightScroll_->SetScrollToTop(false);
 	rightScroll_->ScrollTo(g_Config.fCwCheatScrollPosition);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
 	rightScroll_->Add(rightColumn);
 
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
@@ -182,7 +183,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 }
 
 void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, std::string cheatFile) {
-	bool finished = false, skip = false;
+	bool finished = false;
 	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
 	std::fstream fs;

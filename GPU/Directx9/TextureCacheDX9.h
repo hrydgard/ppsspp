@@ -86,10 +86,6 @@ private:
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 
-	int decimationCounter_;
-	int texelsScaledThisFrame_;
-	int timesInvalidatedAllThisFrame_;
-
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;

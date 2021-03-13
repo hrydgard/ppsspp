@@ -34,6 +34,8 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/Core.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
@@ -391,8 +393,12 @@ void __MpegInit() {
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
 #ifdef USE_FFMPEG
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
+#endif
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
 	av_register_all();
+#endif
 #endif
 }
 
@@ -522,8 +528,8 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 	Memory::Write_U32(mpegHandle, mpegAddr);
 
 	// Initialize fake mpeg struct.
-	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8);
-	Memory::Memcpy(mpegHandle + 8, "001\0", 4);
+	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8, "Mpeg");
+	Memory::Memcpy(mpegHandle + 8, "001\0", 4, "Mpeg");
 	Memory::Write_U32(-1, mpegHandle + 12);
 	if (ringbuffer.IsValid()) {
 		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
@@ -799,6 +805,8 @@ static bool InitPmp(MpegContext * ctx){
 		return false;
 	}
 
+	pmp_CodecCtx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT | AV_CODEC_FLAG_LOW_DELAY;
+
 	// each pmp video context is corresponding to one pmp video codec
 	mediaengine->m_pCodecCtxs[0] = pmp_CodecCtx;
 
@@ -987,7 +995,22 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 
 
 		// decode video frame
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+		if (packet.size != 0)
+			avcodec_send_packet(pCodecCtx, &packet);
+		int len = avcodec_receive_frame(pCodecCtx, pFrame);
+		if (len == 0) {
+			len = pFrame->pkt_size;
+			got_picture = 1;
+		} else if (len == AVERROR(EAGAIN)) {
+			len = 0;
+			got_picture = 0;
+		} else {
+			got_picture = 0;
+		}
+#else
 		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+#endif
 		DEBUG_LOG(ME, "got_picture %d", got_picture);
 		if (got_picture){
 			SwsContext *img_convert_ctx = NULL;
@@ -1017,10 +1040,17 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			sws_freeContext(img_convert_ctx);
 
 			// update timestamp
-			if (av_frame_get_best_effort_timestamp(mediaengine->m_pFrame) != AV_NOPTS_VALUE)
-				mediaengine->m_videopts = av_frame_get_best_effort_timestamp(mediaengine->m_pFrame) + av_frame_get_pkt_duration(mediaengine->m_pFrame) - mediaengine->m_firstTimeStamp;
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
+			int64_t bestPts = mediaengine->m_pFrame->best_effort_timestamp;
+			int64_t ptsDuration = mediaengine->m_pFrame->pkt_duration;
+#else
+			int64_t bestPts = av_frame_get_best_effort_timestamp(mediaengine->m_pFrame);
+			int64_t ptsDuration = av_frame_get_pkt_duration(mediaengine->m_pFrame);
+#endif
+			if (bestPts != AV_NOPTS_VALUE)
+				mediaengine->m_videopts = bestPts + ptsDuration - mediaengine->m_firstTimeStamp;
 			else
-				mediaengine->m_videopts += av_frame_get_pkt_duration(mediaengine->m_pFrame);
+				mediaengine->m_videopts += ptsDuration;
 
 			// push the decoded frame into pmp_queue
 			pmp_queue.push_back(pFrameRGB);
@@ -1584,11 +1614,13 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		ERROR_LOG_REPORT(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
+	
+	if (PSP_CoreParameter().compat.flags().MpegAvcWarmUp) {
+		if (ctx->mpegwarmUp == 0) {
+			DEBUG_LOG(ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
+			ctx->mpegwarmUp++;
+			return ERROR_MPEG_NO_DATA;
+		}
 	}
 
 	SceMpegAu avcAu;
@@ -1684,12 +1716,6 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// Would have crashed before, TODO test behavior.
 		WARN_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
 		return -1;
-	}
-
-	if (ctx->mpegwarmUp < MPEG_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
-		ctx->mpegwarmUp++;
-		return ERROR_MPEG_NO_DATA;
 	}
 
 	SceMpegAu atracAu;
@@ -1962,7 +1988,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	// We kept track of the stream number here in sceMpegGetAtracAu().
 	ctx->mediaengine->setAudioStream(atracAu.esBuffer);
 
-	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
+	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE, "MpegAtracClear");
 	ctx->mediaengine->getAudioSamples(bufferAddr);
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 

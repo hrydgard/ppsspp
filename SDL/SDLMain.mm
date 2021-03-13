@@ -7,6 +7,7 @@
 
 #include "SDL.h"
 #include "SDLMain.h"
+#include "Common/Profiler/Profiler.h"
 #include <sys/param.h> /* for MAXPATHLEN */
 #include <unistd.h>
 
@@ -370,6 +371,8 @@ int main (int argc, char **argv)
             gArgv[i] = argv[i];
         gFinderLaunch = NO;
     }
+
+    PROFILE_INIT();
 
 #if SDL_USE_NIB_FILE
     NSApplicationMain (argc, argv);

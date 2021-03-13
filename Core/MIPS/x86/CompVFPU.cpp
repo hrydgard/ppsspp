@@ -239,8 +239,6 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
-alignas(16) static u32 ssLoadStoreTemp;
-
 void Jit::Comp_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_VFPU);
 
@@ -327,7 +325,7 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 			FixupBranch next = J_CC(CC_NE);
 
 			auto PSPMemAddr = [](X64Reg scaled, int offset) {
-#ifdef _M_IX86
+#if PPSSPP_ARCH(X86)
 				return MDisp(scaled, (u32)Memory::base + offset);
 #else
 				return MComplex(MEMBASEREG, scaled, 1, offset);
@@ -797,7 +795,6 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
-	int n = GetNumVectorElements(sz);
 
 	u8 sregs[4], tregs[4], dregs[4];
 	GetVectorRegs(sregs, sz, _VS);
@@ -1809,8 +1806,6 @@ extern const double mulTableVf2i[32] = {
 	(1ULL<<28),(1ULL<<29),(1ULL<<30),(1ULL<<31),
 };
 
-static const float half = 0.5f;
-
 static const double maxMinIntAsDouble[2] = { (double)0x7fffffff, (double)(int)0x80000000 };  // that's not equal to 0x80000000
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
@@ -1935,7 +1930,7 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 	int n = GetNumVectorElements(sz);
 
 	u8 dregs[4];
-	GetVectorRegsPrefixD(dregs, sz, _VD);
+	GetVectorRegsPrefixD(dregs, sz, vd);
 
 	if (RipAccessible(cst_constants)) {
 		MOVSS(XMM0, M(&cst_constants[conNum]));  // rip accessible
@@ -2170,7 +2165,7 @@ union u32float {
 	}
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 typedef float SinCosArg;
 #else
 typedef u32float SinCosArg;
@@ -2208,7 +2203,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		DISABLE;
 
 	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg, float *output), u8 sreg) {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		MOVSS(XMM0, fpr.V(sreg));
 		// TODO: This reg might be different on Linux...
 #ifdef _WIN32
@@ -2916,7 +2911,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			// Map the D column.
 			u8 dcol[4];
 			GetVectorRegs(dcol, vsz, dcols[i]);
-#ifndef _M_X64
+#if !PPSSPP_ARCH(AMD64)
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT | MAP_NOLOCK);
 #else
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
@@ -2929,7 +2924,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			}
 		}
 
-#ifndef _M_X64
+#if !PPSSPP_ARCH(AMD64)
 		fpr.ReleaseSpillLocks();
 #endif
 		if (transposeDest) {
@@ -3453,7 +3448,7 @@ void Jit::Comp_Viim(MIPSOpcode op) {
 	// Flush SIMD.
 	fpr.SimpleRegsV(&dreg, V_Single, MAP_NOINIT | MAP_DIRTY);
 
-	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+	s32 imm = SignExtend16ToS32(op);
 	FP32 fp;
 	fp.f = (float)imm;
 	MOV(32, R(TEMPREG), Imm32(fp.u));
@@ -3572,7 +3567,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	bool negSin1 = (imm & 0x10) ? true : false;
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 	LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 #else

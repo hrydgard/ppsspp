@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 #include <libkern/OSCacheControl.h>
 #include <sys/mman.h>
 #endif
@@ -627,7 +627,7 @@ void ARMXEmitter::FlushIcache()
 
 void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 {
-#if defined(IOS)
+#if PPSSPP_PLATFORM(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif PPSSPP_PLATFORM(WINDOWS)

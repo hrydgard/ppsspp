@@ -37,13 +37,13 @@ LOCAL_SRC_FILES := \
     ../glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp \
     ../glslang/glslang/OSDependent/Unix/ossource.cpp \
-    ../glslang/hlsl/hlslAttributes.cpp \
-    ../glslang/hlsl/hlslGrammar.cpp \
-    ../glslang/hlsl/hlslOpMap.cpp \
-    ../glslang/hlsl/hlslParseables.cpp \
-    ../glslang/hlsl/hlslParseHelper.cpp \
-    ../glslang/hlsl/hlslScanContext.cpp \
-    ../glslang/hlsl/hlslTokenStream.cpp \
+    ../glslang/glslang/HLSL/hlslAttributes.cpp \
+    ../glslang/glslang/HLSL/hlslGrammar.cpp \
+    ../glslang/glslang/HLSL/hlslOpMap.cpp \
+    ../glslang/glslang/HLSL/hlslParseables.cpp \
+    ../glslang/glslang/HLSL/hlslParseHelper.cpp \
+    ../glslang/glslang/HLSL/hlslScanContext.cpp \
+    ../glslang/glslang/HLSL/hlslTokenStream.cpp \
     ../glslang/SPIRV/disassemble.cpp \
     ../glslang/SPIRV/doc.cpp \
     ../glslang/SPIRV/GlslangToSpv.cpp \
@@ -52,6 +52,7 @@ LOCAL_SRC_FILES := \
     ../glslang/SPIRV/SpvBuilder.cpp \
     ../glslang/SPIRV/SPVRemapper.cpp \
     ../glslang/SPIRV/SpvPostProcess.cpp \
+    ../glslang/SPIRV/SpvTools.cpp \
     ../glslang/OGLCompilersDLL/InitializeDll.cpp
 
 
@@ -61,9 +62,9 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/.. $(LOCAL_PATH)/../libzip $(LOCAL_PATH)/../glslang ..
 
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
+LOCAL_CFLAGS := $(LOCAL_CFLAGS)
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -march=armv6
 else ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 else ifeq ($(TARGET_ARCH_ABI),x86_64)

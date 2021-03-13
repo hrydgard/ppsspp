@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../GPUState.h"
-
-#include "Lighting.h"
+#include "Common/CPUDetect.h"
+#include "GPU/GPUState.h"
+#include "GPU/Software/Lighting.h"
 
 namespace Lighting {
 
@@ -53,7 +53,7 @@ void Process(VertexData& vertex, bool hasColor) {
 		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Vec3<float> L = GetLightVec(gstate.lpos, light);
 			// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
-			float diffuse_factor = L.Length2() == 0.0f ? vertex.worldnormal.z : Dot(L.Normalized(), vertex.worldnormal);
+			float diffuse_factor = Dot(L.NormalizedOr001(cpu_info.bSSE4_1), vertex.worldnormal);
 
 			if (gstate.getUVLS0() == (int)light)
 				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
@@ -77,7 +77,7 @@ void Process(VertexData& vertex, bool hasColor) {
 			L -= vertex.worldpos;
 		}
 		// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
-		float d = L.Normalize();
+		float d = L.NormalizeOr001();
 
 		float att = 1.f;
 		if (!gstate.isDirectionalLight(light)) {
@@ -89,7 +89,7 @@ void Process(VertexData& vertex, bool hasColor) {
 		float spot = 1.f;
 		if (gstate.isSpotLight(light)) {
 			Vec3<float> dir = GetLightVec(gstate.ldir, light);
-			float rawSpot = dir.Length2() == 0.0f ? 0.0f : Dot(dir.Normalized(), L);
+			float rawSpot = Dot(dir.NormalizedOr001(cpu_info.bSSE4_1), L);
 			float cutoff = getFloat24(gstate.lcutoff[light]);
 			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
@@ -123,7 +123,7 @@ void Process(VertexData& vertex, bool hasColor) {
 			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
 			Vec3<float> msc = (materialupdate & 4) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialSpecular());
 
-			float specular_factor = Dot(H.Normalized(), vertex.worldnormal);
+			float specular_factor = Dot(H.NormalizedOr001(cpu_info.bSSE4_1), vertex.worldnormal);
 			float k = gstate.getMaterialSpecularCoef();
 			specular_factor = pspLightPow(specular_factor, k);
 

@@ -284,7 +284,7 @@ static int sceKernelPowerTick(int flag) {
 	return 0;
 }
 
-static int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
+int KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
@@ -307,7 +307,7 @@ static int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 }
 
 static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
-	u32 error = __KernelVolatileMemLock(type, paddr, psize);
+	u32 error = KernelVolatileMemLock(type, paddr, psize);
 
 	switch (error) {
 	case 0:
@@ -331,41 +331,50 @@ static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 	return error;
 }
 
-static int sceKernelVolatileMemUnlock(int type) {
+int KernelVolatileMemUnlock(int type) {
 	if (type != 0) {
-		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
-	if (volatileMemLocked) {
-		volatileMemLocked = false;
-
-		// Wake someone, always fifo.
-		bool wokeThreads = false;
-		u32 error;
-		while (!volatileWaitingThreads.empty() && !volatileMemLocked) {
-			VolatileWaitingThread waitInfo = volatileWaitingThreads.front();
-			volatileWaitingThreads.erase(volatileWaitingThreads.begin());
-
-			int waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_VMEM, error);
-			// If they were force-released, just skip.
-			if (waitID == 1 && __KernelVolatileMemLock(0, waitInfo.addrPtr, waitInfo.sizePtr) == 0) {
-				__KernelResumeThreadFromWait(waitInfo.threadID, 0);
-				wokeThreads = true;
-			}
-		}
-
-		if (wokeThreads) {
-			INFO_LOG(HLE, "sceKernelVolatileMemUnlock(%i) handed over to another thread", type);
-			hleReSchedule("volatile mem unlocked");
-		} else {
-			DEBUG_LOG(HLE, "sceKernelVolatileMemUnlock(%i)", type);
-		}
-	} else {
-		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+	if (!volatileMemLocked) {
 		// I guess it must use a sema.
 		return SCE_KERNEL_ERROR_SEMA_OVF;
 	}
+
+	volatileMemLocked = false;
+
+	// Wake someone, always fifo.
+	bool wokeThreads = false;
+	u32 error;
+	while (!volatileWaitingThreads.empty() && !volatileMemLocked) {
+		VolatileWaitingThread waitInfo = volatileWaitingThreads.front();
+		volatileWaitingThreads.erase(volatileWaitingThreads.begin());
+
+		int waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_VMEM, error);
+		// If they were force-released, just skip.
+		if (waitID == 1 && KernelVolatileMemLock(0, waitInfo.addrPtr, waitInfo.sizePtr) == 0) {
+			__KernelResumeThreadFromWait(waitInfo.threadID, 0);
+			wokeThreads = true;
+		}
+	}
+
+	if (wokeThreads) {
+		INFO_LOG(HLE, "KernelVolatileMemUnlock(%i) handed over to another thread", type);
+		hleReSchedule("volatile mem unlocked");
+	}
 	return 0;
+}
+
+static int sceKernelVolatileMemUnlock(int type) {
+	int error = KernelVolatileMemUnlock(type);
+	if (error == SCE_KERNEL_ERROR_INVALID_MODE) {
+		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
+		return error;
+	} else if (error == SCE_KERNEL_ERROR_SEMA_OVF) {
+		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+		return error;
+	}
+
+	return hleLogSuccessI(HLE, 0);
 }
 
 static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
@@ -378,7 +387,7 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	} else if (__IsInInterrupt()) {
 		error = SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	} else {
-		error = __KernelVolatileMemLock(type, paddr, psize);
+		error = KernelVolatileMemLock(type, paddr, psize);
 	}
 
 	switch (error) {

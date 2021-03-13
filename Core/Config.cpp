@@ -513,7 +513,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),
 
 	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
-	ConfigSetting("LoadPlugins", &g_Config.bLoadPlugins, false, true, true),
+	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, true, true),
 
 	ConfigSetting(false),
 };
@@ -524,12 +524,11 @@ static bool DefaultSasThread() {
 
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
-	ConfigSetting("VulkanMultithreading", &g_Config.bVulkanMultithreading, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
-	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
+	ReportedConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, true, true, false),
 	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, true, false),
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
@@ -553,7 +552,7 @@ static int DefaultInternalResolution() {
 
 static int DefaultUnthrottleMode() {
 #if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
-	return (int)UnthrottleMode::SKIP_DRAW;
+	return (int)UnthrottleMode::SKIP_FLIP;
 #else
 	return (int)UnthrottleMode::CONTINUOUS;
 #endif
@@ -773,7 +772,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
-	ConfigSetting("UnthrottleMode", &g_Config.iUnthrottleMode, &DefaultUnthrottleMode, &UnthrottleModeToString, &UnthrottleModeFromString, true, true),
+	ConfigSetting("UnthrottlingMode", &g_Config.iUnthrottleMode, &DefaultUnthrottleMode, &UnthrottleModeToString, &UnthrottleModeFromString, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
@@ -829,8 +828,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, true, false),
 	ConfigSetting("RenderDuplicateFrames", &g_Config.bRenderDuplicateFrames, false, true, true),
-
-	ConfigSetting("ClearFramebuffersOnFirstUseHack", &g_Config.bClearFramebuffersOnFirstUseHack, false, true, true),
 
 	ConfigSetting(false),
 };
@@ -975,6 +972,8 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, true, true),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, true, true),
 
+	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, true, false),
+
 	ConfigSetting(false),
 };
 
@@ -984,7 +983,7 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, true, true),
-	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, false, true, true),
+	ConfigSetting("TCPNoDelay", &g_Config.bTCPNoDelay, true, true, true),
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, true, true),
 	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),
 	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, true, true),
@@ -1004,7 +1003,7 @@ static ConfigSetting networkSettings[] = {
 
 static int DefaultPSPModel() {
 	// TODO: Can probably default this on, but not sure about its memory differences.
-#if !defined(_M_X64) && !defined(_WIN32)
+#if !PPSSPP_ARCH(AMD64) && !defined(_WIN32)
 	return PSP_MODEL_FAT;
 #else
 	return PSP_MODEL_SLIM;
@@ -1523,6 +1522,7 @@ void Config::AddRecent(const std::string &file) {
 
 	// We'll add it back below.  This makes sure it's at the front, and only once.
 	RemoveRecent(file);
+
 	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)

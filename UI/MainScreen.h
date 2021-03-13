@@ -38,6 +38,8 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
+bool LaunchFile(ScreenManager *screenManager, std::string path);
+
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);

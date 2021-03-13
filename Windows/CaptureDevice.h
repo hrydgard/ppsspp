@@ -113,7 +113,7 @@ template <class T> void SafeRelease(T **ppT) {
 
 class WindowsCaptureDevice;
 
-class ReaderCallback : public IMFSourceReaderCallback {
+class ReaderCallback final : public IMFSourceReaderCallback {
 public:
 	ReaderCallback(WindowsCaptureDevice *device);
 	~ReaderCallback();

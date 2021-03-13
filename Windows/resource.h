@@ -263,6 +263,7 @@
 #define ID_DISASM_ASSEMBLE               40091
 #define ID_DISASM_ADDNEWBREAKPOINT       40092
 #define ID_DISASM_EDITBREAKPOINT         40093
+#define IDC_DUMP_INCLUDEHACKS            40094
 #define ID_EMULATION_CHEATS              40096
 #define ID_HELP_CHINESE_FORUM            40097
 #define ID_OPTIONS_MORE_SETTINGS         40098
@@ -374,6 +375,7 @@
 #define IDC_GEDBG_STEPCOUNT_COMBO        40203
 #define ID_FILE_DUMP_VIDEO_OUTPUT        40204
 #define ID_EMULATION_CHAT                40205
+#define IDC_MEMVIEW_STATUS               40206
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -389,7 +391,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40206
+#define _APS_NEXT_COMMAND_VALUE         40207
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

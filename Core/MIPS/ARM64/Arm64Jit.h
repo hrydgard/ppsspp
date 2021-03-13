@@ -35,7 +35,7 @@ namespace MIPSComp {
 
 class Arm64Jit : public Arm64Gen::ARM64CodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
-	Arm64Jit(MIPSState *mips);
+	Arm64Jit(MIPSState *mipsState);
 	virtual ~Arm64Jit();
 
 	void DoState(PointerWrap &p) override;
@@ -185,6 +185,9 @@ public:
 	const u8 *GetDispatcher() const override {
 		return dispatcher;
 	}
+	bool IsAtDispatchFetch(const u8 *ptr) const override {
+		return ptr == dispatcherFetch;
+	}
 
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
@@ -275,6 +278,7 @@ public:
 	const u8 *dispatcherPCInSCRATCH1;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
+	const u8 *dispatcherFetch;
 
 	const u8 *saveStaticRegisters;
 	const u8 *loadStaticRegisters;

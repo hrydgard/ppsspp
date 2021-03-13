@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <cstdlib>
 
 #include "ext/disarm.h"
@@ -63,17 +64,17 @@ namespace MIPSComp {
 		}
 	}
 
-	JitInterface *CreateNativeJit(MIPSState *mips) {
+	JitInterface *CreateNativeJit(MIPSState *mipsState) {
 #if PPSSPP_ARCH(ARM)
-		return new MIPSComp::ArmJit(mips);
+		return new MIPSComp::ArmJit(mipsState);
 #elif PPSSPP_ARCH(ARM64)
-		return new MIPSComp::Arm64Jit(mips);
+		return new MIPSComp::Arm64Jit(mipsState);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-		return new MIPSComp::Jit(mips);
+		return new MIPSComp::Jit(mipsState);
 #elif PPSSPP_ARCH(MIPS)
-		return new MIPSComp::MipsJit(mips);
+		return new MIPSComp::MipsJit(mipsState);
 #else
-		return new MIPSComp::FakeJit(mips);
+		return new MIPSComp::FakeJit(mipsState);
 #endif
 	}
 

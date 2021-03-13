@@ -78,7 +78,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
-	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER);
+
+	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
+
+	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
 	bool shaderDepal = id.Bit(FS_BIT_SHADER_DEPAL);
 	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
@@ -154,10 +157,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {
-			WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
+			WRITE(p, "int roundAndScaleTo255i(in highp float x) { return int(floor(x * 255.0 + 0.5)); }\n");
 		}
 		if (enableColorTest && !colorTestAgainstZero) {
-			WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+			WRITE(p, "ivec3 roundAndScaleTo255iv(in highp vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
 		}
 
 		WRITE(p, "layout (location = 0, index = 0) out vec4 fragColor0;\n");
@@ -359,9 +362,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform vec3 u_texenv;\n");
 		}
 
-		WRITE(p, "%s %s vec4 v_color0;\n", shading, compat.varying_fs);
+		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		if (lmode)
-			WRITE(p, "%s %s vec3 v_color1;\n", shading, compat.varying_fs);
+			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
@@ -420,7 +423,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Provide implementations of packUnorm4x8 and unpackUnorm4x8 if not available.
 	if (colorWriteMask && !hasPackUnorm4x8) {
-		WRITE(p, "uint packUnorm4x8(vec4 v) {\n");
+		WRITE(p, "uint packUnorm4x8(%svec4 v) {\n", compat.shaderLanguage == GLSL_VULKAN ? "highp " : "");
 		WRITE(p, "  highp vec4 f = clamp(v, 0.0, 1.0);\n");
 		WRITE(p, "  uvec4 u = uvec4(255.0 * f);\n");
 		WRITE(p, "  return u.x | (u.y << 8) | (u.z << 16) | (u.w << 24);\n");

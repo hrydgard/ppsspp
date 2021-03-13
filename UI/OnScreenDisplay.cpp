@@ -1,3 +1,4 @@
+#include <sstream>
 #include "UI/OnScreenDisplay.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
@@ -42,6 +43,18 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	osm.Unlock();
+}
+
+std::string OnScreenMessagesView::DescribeText() const {
+	std::stringstream ss;
+	const auto &messages = osm.Messages();
+	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
+		if (iter != messages.begin()) {
+			ss << "\n";
+		}
+		ss << iter->text;
+	}
+	return ss.str();
 }
 
 void OnScreenMessages::Clean() {

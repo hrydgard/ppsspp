@@ -119,6 +119,7 @@ public:
 		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		if (gridStyle_) {
 			w = 144*g_Config.fGameGridScale;
@@ -408,6 +409,12 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
+std::string GameButton::DescribeText() const {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 button"), "%1", ginfo->GetTitle());
+}
+
 class DirButton : public UI::Button {
 public:
 	DirButton(const std::string &path, bool gridStyle, UI::LayoutParams *layoutParams)
@@ -427,8 +434,8 @@ public:
 
 private:
 	std::string path_;
-	bool absolute_;
 	bool gridStyle_;
+	bool absolute_;
 };
 
 void DirButton::Draw(UIContext &dc) {
@@ -484,7 +491,7 @@ void DirButton::Draw(UIContext &dc) {
 }
 
 GameBrowser::GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), screenManager_(screenManager), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink) {
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager) {
 	using namespace UI;
 	Refresh();
 }
@@ -657,23 +664,23 @@ void GameBrowser::Refresh() {
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 		layoutChoice->AddChoice(ImageID("I_GRID"));
 		layoutChoice->AddChoice(ImageID("I_LINES"));
-		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
+		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1, false);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 		Add(topBar);
 
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			Add(gameList_);
 		} else {
-			UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			UI::LinearLayout *gl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
 			gameList_ = gl;
 			Add(gameList_);
 		}
 	} else {
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
@@ -733,7 +740,7 @@ void GameBrowser::Refresh() {
 			fileInfo.clear();
 			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
-				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+				UI::LinearLayout *zl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				zl->SetSpacing(4.0f);
 				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
@@ -1066,12 +1073,14 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	
-	logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
-	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
 	if (!g_Config.bFullScreen) {
-		fullscreenButton_ = logos->Add(new Button(ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		auto gr = GetI18NCategory("Graphics");
+		fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), ImageID(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_->SetIgnoreText(true);
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 	}
 #endif
@@ -1178,6 +1187,10 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (screenManager()->topScreen() == this) {
 		if (!strcmp(message, "boot")) {
+			LaunchFile(screenManager(), std::string(value));
+		}
+		if (!strcmp(message, "browse_fileSelect")) {
+			INFO_LOG(SYSTEM, "Attempting to launch: '%s'", value);
 			LaunchFile(screenManager(), std::string(value));
 		}
 		if (!strcmp(message, "browse_folderSelect")) {
@@ -1540,7 +1553,7 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto sy = GetI18NCategory("System");
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
-	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
@@ -1558,6 +1571,8 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		items->Add(new ItemHeader(sy->T("Clear Recent")));
 		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsScreen::OnRecentClearClick);
 	}
+
+	items->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	scroll->Add(items);
 	parent->Add(scroll);

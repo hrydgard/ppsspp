@@ -35,7 +35,7 @@ namespace MIPSComp
 class MipsJit : public MIPSGen::MIPSCodeBlock, public JitInterface, public MIPSFrontendInterface
 {
 public:
-	MipsJit(MIPSState *mips);
+	MipsJit(MIPSState *mipsState);
 
 	void DoState(PointerWrap &p) override;
 
@@ -49,6 +49,8 @@ public:
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
+	const u8 *GetCrashHandler() const override { return nullptr; }
+	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 	void CompileDelaySlot(int flags);
@@ -131,12 +133,21 @@ public:
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks; }
 
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
+
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 	void UpdateFCR31() override;
+
+	const u8 *GetDispatcher() const override {
+		return dispatcher;
+	}
+
+	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
+	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 	void EatPrefix() override { js.EatPrefix(); }
 
@@ -182,9 +193,6 @@ public:
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
 };
-
-typedef void (MipsJit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (MipsJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

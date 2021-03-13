@@ -16,7 +16,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
+PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : pipelines_(256), vulkan_(vulkan) {
 	// The pipeline cache is created on demand (or explicitly through Load).
 }
 
@@ -138,6 +138,26 @@ static bool UsesBlendConstant(int factor) {
 	}
 }
 
+static std::string CutFromMain(std::string str) {
+	std::vector<std::string> lines;
+	SplitString(str, '\n', lines);
+
+	std::string rebuilt;
+	bool foundStart = false;
+	int c = 0;
+	for (const std::string &str : lines) {
+		if (startsWith(str, "void main")) {
+			foundStart = true;
+			rebuilt += StringFromFormat("... (cut %d lines)\n", c);
+		}
+		if (foundStart) {
+			rebuilt += str + "\n";
+		}
+		c++;
+	}
+	return rebuilt;
+}
+
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
 		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
@@ -246,7 +266,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	inputAssembly.primitiveRestartEnable = false;
 	int vertexStride = 0;
 
-	int offset = 0;
 	VkVertexInputAttributeDescription attrs[8];
 	int attributeCount;
 	if (useHwTransform) {
@@ -304,13 +323,15 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);
 	if (result != VK_SUCCESS) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		if (result == VK_INCOMPLETE) {
-			// Bad return value seen on Adreno in Burnout :(  Try to ignore?
-			// TODO: Log all the information we can here!
+			// Typical Adreno return value. It'll usually also log something vague, like "Failed to link shaders".
+			// Let's log some stuff and try to stumble along.
+			ERROR_LOG(G3D, "VS source code:\n%s\n", CutFromMain(vs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
+			ERROR_LOG(G3D, "FS source code:\n%s\n", CutFromMain(fs->GetShaderString(SHADER_STRING_SOURCE_CODE)).c_str());
 		} else {
 			_dbg_assert_msg_(false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		}
-		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();
 		nullPipeline->pipeline = VK_NULL_HANDLE;
@@ -616,7 +637,6 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 
 	bool failed = false;
 	bool writeFailed = false;
-	int count = 0;
 	// Since we don't include the full pipeline key, there can be duplicates,
 	// caused by things like switching from buffered to non-buffered rendering.
 	// Make sure the set of pipelines we write is "unique".
@@ -724,6 +744,9 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 		if (!pipelineCache_) {
 			VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 			VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+			if (res != VK_SUCCESS) {
+				return false;
+			}
 		}
 	}
 
@@ -731,6 +754,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
 	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
+	int pipelineCreateFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
 		if (failed || cancelCache_) {
 			break;
@@ -758,11 +782,14 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
-		GetOrCreatePipeline(layout, rp, key.raster,
+		VulkanPipeline *pipeline = GetOrCreatePipeline(layout, rp, key.raster,
 			key.useHWTransform ? &fmt : 0,
 			vs, fs, key.useHWTransform);
+		if (!pipeline) {
+			pipelineCreateFailCount += 1;
+		}
 	}
-	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines).", (int)size);
+	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
 	return true;
 }
 

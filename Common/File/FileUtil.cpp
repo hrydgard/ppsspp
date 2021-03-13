@@ -24,7 +24,14 @@
 
 #include "ppsspp_config.h"
 
+#ifdef __MINGW32__
+#include <unistd.h>
+#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
+#define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
+#endif
+#endif
 #include <cstring>
+#include <ctime>
 #include <memory>
 
 #include "Common/Log.h"
@@ -56,9 +63,9 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFBundle.h>
-#if !defined(IOS)
+#if !PPSSPP_PLATFORM(IOS)
 #include <mach-o/dyld.h>
-#endif  // !defined(IOS)
+#endif  // !PPSSPP_PLATFORM(IOS)
 #endif  // __APPLE__
 
 #include "Common/Data/Encoding/Utf8.h"
@@ -238,7 +245,7 @@ bool IsDirectory(const std::string &filename)
 	std::wstring copy = ConvertUTF8ToWString(fn);
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
-		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
+		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), (uint32_t)GetLastError());
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;
@@ -304,7 +311,7 @@ bool CreateDir(const std::string &path)
 		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
-	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %i", path.c_str(), error);
+	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x", path.c_str(), (uint32_t)error);
 	return false;
 #else
 	if (mkdir(fn.c_str(), 0755) == 0)
@@ -837,13 +844,13 @@ const std::string &GetExeDirectory()
 		ExePath = program_path;
 #endif
 
-#elif (defined(__APPLE__) && !defined(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
+#elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
 		char program_path[4096];
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
 		if (readlink("/proc/self/exe", program_path, program_path_size) > 0)
-#elif defined(__APPLE__) && !defined(IOS)
+#elif defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)
 		if (_NSGetExecutablePath(program_path, &program_path_size) == 0)
 #elif defined(KERN_PROC_PATHNAME)
 		int mib[4] = {

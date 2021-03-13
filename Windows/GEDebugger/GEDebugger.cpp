@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cmath>
 #include <functional>
 #include <set>
 #include <string>
@@ -348,7 +349,7 @@ void CGEDebugger::UpdatePreviews() {
 		return;
 	}
 
-	GPUgstate state = {0};
+	GPUgstate state{};
 
 	if (gpuDebug != nullptr) {
 		state = gpuDebug->GetGState();
@@ -499,7 +500,7 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 		desc[0] = 0;
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
-		GPUgstate state = {0};
+		GPUgstate state{};
 		if (gpuDebug != nullptr) {
 			state = gpuDebug->GetGState();
 		}
@@ -527,7 +528,7 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 		desc[0] = 0;
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
-		GPUgstate state = {0};
+		GPUgstate state{};
 		if (gpuDebug != nullptr) {
 			state = gpuDebug->GetGState();
 		}
@@ -689,7 +690,7 @@ void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, in
 }
 
 void CGEDebugger::UpdateTextureLevel(int level) {
-	GPUgstate state = {0};
+	GPUgstate state{};
 	if (gpuDebug != nullptr) {
 		state = gpuDebug->GetGState();
 	}

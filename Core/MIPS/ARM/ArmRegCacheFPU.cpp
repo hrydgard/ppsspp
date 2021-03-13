@@ -27,7 +27,7 @@
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), js_(js), jo_(jo), vr(mr + 32), initialReady(false) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo), vr(mr + 32) {
 	if (cpu_info.bNEON) {
 		numARMFpuReg_ = 32;
 	} else {
@@ -324,7 +324,6 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	} else if (r >= D0 && r <= D31) {
 		// TODO: Convert to S regs and flush them individually.
 	} else if (r >= Q0 && r <= Q15) {
-		int quad = r - Q0;
 		QFlush(r);
 	}
 }
@@ -732,8 +731,6 @@ void ArmRegCacheFPU::QFlush(int quad) {
 
 int ArmRegCacheFPU::QGetFreeQuad(int start, int count, const char *reason) {
 	// Search for a free quad. A quad is free if the first register in it is free.
-	int quad = -1;
-	
 	for (int i = 0; i < count; i++) {
 		int q = (i + start) & 15;
 

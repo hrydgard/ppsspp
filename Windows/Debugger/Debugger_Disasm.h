@@ -4,7 +4,7 @@
 
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/TabControl.h"
-#include "Windows/Debugger/CtrlDisasmView.h"
+#include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Windows/Debugger/CPURegsInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"

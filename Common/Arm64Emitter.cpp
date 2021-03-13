@@ -3833,8 +3833,6 @@ bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 }
 
 float FPImm8ToFloat(uint8_t bits) {
-	int E = 8;
-	int F = 32 - 8 - 1;
 	int sign = bits >> 7;
 	uint32_t f = 0;
 	f |= (sign << 31);

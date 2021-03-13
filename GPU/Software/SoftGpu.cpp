@@ -26,7 +26,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -653,8 +653,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				memcpy(dst, src, width * bpp);
 			}
 
-			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
-			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+			NotifyMemInfo(MemBlockFlags::READ, srcBasePtr + (srcY * srcStride + srcX) * bpp, height * srcStride * bpp, "GPUBlockTransfer");
+			NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, "GPUBlockTransfer");
 
 			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 			cyclesExecuted += ((height * width * bpp) * 16) / 10;

@@ -2,7 +2,7 @@
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "Windows/Resource.h"
+#include "Windows/resource.h"
 #include "Windows/InputBox.h"
 
 #include "Core/Debugger/Breakpoints.h"
@@ -384,7 +384,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		{
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-			CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 			switch (LOWORD(wParam)) {
 			case ID_TOGGLE_BREAK:
 				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
@@ -851,17 +850,17 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 
 void CDisasm::Show(bool bShow) {
 	if (deferredSymbolFill_ && bShow) {
-		if (g_symbolMap)
+		if (g_symbolMap) {
 			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
-		deferredSymbolFill_ = false;
+			deferredSymbolFill_ = false;
+		}
 	}
 	Dialog::Show(bShow);
 }
 
 void CDisasm::NotifyMapLoaded() {
-	if (m_bShowState == SW_SHOW) {
-		if (g_symbolMap)
-			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+	if (m_bShowState != SW_HIDE && g_symbolMap) {
+		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 	} else {
 		deferredSymbolFill_ = true;
 	}
@@ -880,8 +879,8 @@ void CDisasm::Goto(u32 addr)
 
 void CDisasm::UpdateDialog(bool _bComplete)
 {
-	HWND gotoInt = GetDlgItem(m_hDlg, IDC_GOTOINT);
 	/*
+	HWND gotoInt = GetDlgItem(m_hDlg, IDC_GOTOINT);
 	ComboBox_ResetContent(gotoInt);
 	for (int i=0; i<numRegions; i++)
 	{

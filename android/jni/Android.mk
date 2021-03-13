@@ -403,6 +403,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/DisassemblyManager.cpp \
+  $(SRC)/Core/Debugger/MemBlockInfo.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
   $(SRC)/Core/Debugger/WebSocket.cpp \
   $(SRC)/Core/Debugger/WebSocket/BreakpointSubscriber.cpp \
@@ -625,10 +626,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
-
-ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
-endif
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)

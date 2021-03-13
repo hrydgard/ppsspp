@@ -79,8 +79,21 @@ class PointerWrap;
 #define PSP_SYSTEMPARAM_BUTTON_CIRCLE  0
 #define PSP_SYSTEMPARAM_BUTTON_CROSS   1
 
+enum class UtilityDialogType {
+	NONE,
+	SAVEDATA,
+	MSG,
+	OSK,
+	NET,
+	SCREENSHOT,
+	GAMESHARING,
+	GAMEDATAINSTALL,
+};
+
 void __UtilityInit();
 void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
+
+void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority);
 
 void Register_sceUtility();

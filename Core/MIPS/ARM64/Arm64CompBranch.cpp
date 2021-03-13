@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Core/Config.h"
@@ -47,8 +48,9 @@
 #define _SA MIPS_GET_SA(op)
 #define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
-#define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
+#define TARGET16 ((int)(SignExtend16ToU32(op) << 2))
+#define TARGET26 (_IMM26 << 2)
 
 #define LOOPOPTIMIZATION 0
 
@@ -69,7 +71,7 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
@@ -200,7 +202,7 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
@@ -345,7 +347,7 @@ void Arm64Jit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
@@ -402,7 +404,7 @@ void Arm64Jit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
@@ -471,7 +473,7 @@ void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	u32 off = _IMM26 << 2;
+	u32 off = TARGET26;
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?

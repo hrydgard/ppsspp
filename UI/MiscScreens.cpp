@@ -131,7 +131,7 @@ void DrawBackground(UIContext &dc, float alpha) {
 	// jitter we accumulate time instead.
 	static int frameCount = 0.0;
 	frameCount++;
-	double t = (double)frameCount / 60.0;
+	double t = (double)frameCount / System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 #else
 	double t = time_now_d();
 #endif
@@ -472,12 +472,19 @@ void LogoScreen::Next() {
 
 const float logoScreenSeconds = 2.5f;
 
+LogoScreen::LogoScreen(bool gotoGameSettings)
+	: gotoGameSettings_(gotoGameSettings) {
+}
+
 void LogoScreen::update() {
 	UIScreen::update();
-	frames_++;
-	if (frames_ > 60 * logoScreenSeconds) {
+	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
+
+	if ((double)frames_ / rate > logoScreenSeconds) {
 		Next();
 	}
+	frames_++;
+	sinceStart_ = (double)frames_ / rate;
 }
 
 void LogoScreen::sendMessage(const char *message, const char *value) {
@@ -510,11 +517,9 @@ void LogoScreen::render() {
 
 	const Bounds &bounds = dc.GetBounds();
 
-	float xres = dc.GetBounds().w;
-	float yres = dc.GetBounds().h;
-
 	dc.Begin();
-	float t = (float)frames_ / (60.0f * logoScreenSeconds / 3.0f);
+
+	float t = (float)sinceStart_ / (logoScreenSeconds / 3.0f);
 
 	float alpha = t;
 	if (t > 1.0f)
@@ -533,13 +538,13 @@ void LogoScreen::render() {
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
 	dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
-	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, textColor, ALIGN_CENTER);
+	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", bounds.w / 2, bounds.h / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
 	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
 
-	int ppsspp_org_y = yres / 2 + 130;
+	int ppsspp_org_y = bounds.h / 2 + 130;
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
 
 #if (defined(_WIN32) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
@@ -571,7 +576,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
-	root_->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+	root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 }
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
@@ -618,10 +623,13 @@ UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+CreditsScreen::CreditsScreen() {
+	startTime_ = time_now_d();
+}
+
 void CreditsScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
-	frames_++;
 }
 
 void CreditsScreen::render() {
@@ -701,7 +709,6 @@ void CreditsScreen::render() {
 		"Kyhel",
 		"xebra",
 		"LunaMoo",
-		"AdamN/ANR2ME",
 		"zminhquanz",
 		"ANR2ME",
 		"adenovan",
@@ -778,7 +785,10 @@ void CreditsScreen::render() {
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
 	int totalHeight = numItems * itemHeight + bounds.h + 200;
-	int y = bounds.y2() - (frames_ % totalHeight);
+
+	float t = (float)(time_now_d() - startTime_) * 60.0;
+
+	float y = bounds.y2() - fmodf(t, (float)totalHeight);
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);

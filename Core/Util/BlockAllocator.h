@@ -27,7 +27,7 @@ public:
 	BlockAllocator(int grain = 16);  // 16 byte granularity by default.
 	~BlockAllocator();
 
-	void Init(u32 _rangeStart, u32 _rangeSize);
+	void Init(u32 _rangeStart, u32 _rangeSize, bool suballoc);
 	void Shutdown();
 
 	void ListBlocks() const;
@@ -62,7 +62,7 @@ private:
 	struct Block
 	{
 		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
-		void SetTag(const char *_tag);
+		void SetAllocated(const char *_tag, bool suballoc);
 		void DoState(PointerWrap &p);
 		u32 start;
 		u32 size;
@@ -78,6 +78,7 @@ private:
 	u32 rangeSize_;
 
 	u32 grain_;
+	bool suballoc_;
 
 	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);

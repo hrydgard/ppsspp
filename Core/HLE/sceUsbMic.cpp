@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <mutex>
 
@@ -33,7 +34,7 @@
 #endif
 
 #ifdef HAVE_WIN32_MICROPHONE
-#define NOMINMAX
+#include "Common/CommonWindows.h"
 #include "Windows/CaptureDevice.h"
 #endif
 
@@ -71,8 +72,6 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 					waitingThreads.erase(waitingThreads.begin() + count);
 				} else {
 					u64 waitTimeus = (waitingThread.needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / waitingThread.sampleRate;
-					if(eventMicBlockingResume == -1)
-						eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 					CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
 				}
 			} else {
@@ -119,6 +118,10 @@ void __UsbMicShutdown() {
 void __UsbMicDoState(PointerWrap &p) {
 	auto s = p.Section("sceUsbMic", 0, 3);
 	if (!s) {
+		// Still need to restore the event.
+		eventMicBlockingResume = -1;
+		CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
+		waitingThreads.clear();
 		return;
 	}
 	bool isMicStartedNow = Microphone::isMicStarted();
@@ -130,12 +133,11 @@ void __UsbMicDoState(PointerWrap &p) {
 	Do(p, micState);
 	if (s > 1) {
 		Do(p, eventMicBlockingResume);
-		if (eventMicBlockingResume != -1) {
-			CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
-		}
 	} else {
 		eventMicBlockingResume = -1;
 	}
+	CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
+
 	if (s > 2) {
 		Do(p, curTargetAddr);
 		Do(p, readMicDataLength);
@@ -452,8 +454,6 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	}
 
 	u64 waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;
-	if (eventMicBlockingResume == -1)
-		eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);

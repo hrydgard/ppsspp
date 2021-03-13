@@ -17,12 +17,13 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
 namespace X64JitConstants {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	const Gen::X64Reg MEMBASEREG = Gen::RBX;
 	const Gen::X64Reg CTXREG = Gen::R14;
 	const Gen::X64Reg JITBASEREG = Gen::R15;
@@ -34,9 +35,9 @@ namespace X64JitConstants {
 	const Gen::X64Reg TEMPREG = Gen::EAX;
 	const int NUM_MIPS_GPRS = 36;
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	const u32 NUM_X_REGS = 16;
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 	const u32 NUM_X_REGS = 8;
 #endif
 }
@@ -69,7 +70,7 @@ class GPRRegCache
 public:
 	GPRRegCache();
 	~GPRRegCache() {}
-	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
 	void DiscardR(MIPSGPReg preg);
@@ -119,17 +120,17 @@ public:
 	void GetState(GPRRegCacheState &state) const;
 	void RestoreState(const GPRRegCacheState& state);
 
-	MIPSState *mips;
+	MIPSState *mips_ = nullptr;
 
 private:
 	Gen::X64Reg GetFreeXReg();
 	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	const Gen::X64Reg *GetAllocationOrder(int &count);
 
-	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
-	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS]{};
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS]{};
 
-	Gen::XEmitter *emit;
+	Gen::XEmitter *emit = nullptr;
 	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 };

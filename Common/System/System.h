@@ -98,6 +98,11 @@ enum SystemProperty {
 
 	SYSPROP_SUPPORTS_PERMISSIONS,
 	SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE,
+
+	// Android-specific.
+	SYSPROP_ANDROID_SCOPED_STORAGE,
+
+	SYSPROP_CAN_JIT,
 };
 
 std::string System_GetProperty(SystemProperty prop);

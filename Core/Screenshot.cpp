@@ -24,6 +24,7 @@
 #include "Common/ColorConv.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
+#include "Common/System/Display.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
 #include "Core/Core.h"
@@ -295,6 +296,36 @@ const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&
 	return temp ? temp : buffer;
 }
 
+static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation rotation) {
+	GPUDebugBuffer rotated;
+
+	// This is a simple but not terribly efficient rotation.
+	if (rotation == DisplayRotation::ROTATE_90) {
+		rotated.Allocate(buf.GetHeight(), buf.GetStride(), buf.GetFormat(), false);
+		for (u32 y = 0; y < buf.GetStride(); ++y) {
+			for (u32 x = 0; x < buf.GetHeight(); ++x) {
+				rotated.SetRawPixel(x, y, buf.GetRawPixel(buf.GetStride() - y - 1, x));
+			}
+		}
+	} else if (rotation == DisplayRotation::ROTATE_180) {
+		rotated.Allocate(buf.GetStride(), buf.GetHeight(), buf.GetFormat(), false);
+		for (u32 y = 0; y < buf.GetHeight(); ++y) {
+			for (u32 x = 0; x < buf.GetStride(); ++x) {
+				rotated.SetRawPixel(x, y, buf.GetRawPixel(buf.GetStride() - x - 1, buf.GetHeight() - y - 1));
+			}
+		}
+	} else {
+		rotated.Allocate(buf.GetHeight(), buf.GetStride(), buf.GetFormat(), false);
+		for (u32 y = 0; y < buf.GetStride(); ++y) {
+			for (u32 x = 0; x < buf.GetHeight(); ++x) {
+				rotated.SetRawPixel(x, y, buf.GetRawPixel(y, buf.GetHeight() - x - 1));
+			}
+		}
+	}
+
+	return rotated;
+}
+
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
 	if (!gpuDebug) {
 		ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
@@ -311,6 +342,12 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		// Only crop to the top left when using a render screenshot.
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
+	} else if (g_display_rotation != DisplayRotation::ROTATE_0) {
+		GPUDebugBuffer temp;
+		success = gpuDebug->GetOutputFramebuffer(temp);
+		if (success) {
+			buf = ApplyRotation(temp, g_display_rotation);
+		}
 	} else {
 		success = gpuDebug->GetOutputFramebuffer(buf);
 	}

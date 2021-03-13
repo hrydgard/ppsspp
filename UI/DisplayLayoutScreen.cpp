@@ -65,7 +65,9 @@ public:
 		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * screenBounds.w, y * screenBounds.h, UI::NONE, UI::NONE, true)),
 		x_(x), y_(y), screenBounds_(screenBounds) {
 		UpdateScale(scale);
-	}	
+	}
+
+	std::string DescribeText() const override;
 
 	void SaveDisplayPosition() {
 		x_ = bounds_.centerX() / screenBounds_.w;
@@ -83,6 +85,11 @@ private:
 	float &x_, &y_;
 	const Bounds &screenBounds_;
 };
+
+std::string DragDropDisplay::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return u->T("Screen representation");
+}
 
 DisplayLayoutScreen::DisplayLayoutScreen() {
 	// Ignore insets - just couldn't get the logic to work.
@@ -219,8 +226,12 @@ public:
 	Boundary(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
 	}
 
+	std::string DescribeText() const override {
+		return "";
+	}
+
 	void Draw(UIContext &dc) override {
-		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color);
+		dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color);
 	}
 };
 
@@ -308,7 +319,7 @@ void DisplayLayoutScreen::CreateViews() {
 			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
 			mode_->AddChoice(di->T("Move"));
 			mode_->AddChoice(di->T("Resize"));
-			mode_->SetSelection(0);
+			mode_->SetSelection(0, false);
 		}
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), ScaleSettingToUI(), bounds);
 		displayRepresentation_->SetVisibility(V_VISIBLE);

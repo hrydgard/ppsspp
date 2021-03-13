@@ -29,14 +29,14 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	switch (from) {
 	case GE_FORMAT_4444:
-		writer.C("  uint color = uint(val.r * 15.99) | (uint(val.g * 15.99) << 4) | (uint(val.b * 15.99) << 8) | (uint(val.a * 15.99) << 12);\n");
+		writer.C("  uint color = uint(val.r * 15.99) | (uint(val.g * 15.99) << 4u) | (uint(val.b * 15.99) << 8u) | (uint(val.a * 15.99) << 12u);\n");
 		break;
 	case GE_FORMAT_5551:
-		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 5) | (uint(val.b * 31.99) << 10);\n");
+		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 31.99) << 5u) | (uint(val.b * 31.99) << 10u);\n");
 		writer.C("  if (val.a >= 0.5) color |= 0x8000U;\n");
 		break;
 	case GE_FORMAT_565:
-		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 63.99) << 5) | (uint(val.b * 31.99) << 11);\n");
+		writer.C("  uint color = uint(val.r * 31.99) | (uint(val.g * 63.99) << 5u) | (uint(val.b * 31.99) << 11u);\n");
 		break;
 	default:
 		_assert_(false);
@@ -45,16 +45,16 @@ bool GenerateReinterpretFragmentShader(char *buffer, GEBufferFormat from, GEBuff
 
 	switch (to) {
 	case GE_FORMAT_4444:
-		writer.C("  vec4 outColor = vec4(float(color & 0xFU), float((color >> 4) & 0xFU), float((color >> 8) & 0xFU), float((color >> 12) & 0xFU));\n");
+		writer.C("  vec4 outColor = vec4(float(color & 0xFU), float((color >> 4u) & 0xFU), float((color >> 8u) & 0xFU), float((color >> 12u) & 0xFU));\n");
 		writer.C("  outColor *= 1.0 / 15.0;\n");
 		break;
 	case GE_FORMAT_5551:
-		writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5) & 0x1FU), float((color >> 10) & 0x1FU), 0.0);\n");
+		writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x1FU), float((color >> 10u) & 0x1FU), 0.0);\n");
 		writer.C("  outColor.rgb *= 1.0 / 31.0;\n");
 		writer.C("  outColor.a = float(color >> 15);\n");
 		break;
 	case GE_FORMAT_565:
-		writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5) & 0x3FU), float((color >> 11) & 0x1FU), 1.0);\n");
+		writer.C("  vec4 outColor = vec4(float(color & 0x1FU), float((color >> 5u) & 0x3FU), float((color >> 11u) & 0x1FU), 1.0);\n");
 		writer.C("  outColor.rb *= 1.0 / 31.0;\n");
 		writer.C("  outColor.g *= 1.0 / 63.0;\n");
 		break;

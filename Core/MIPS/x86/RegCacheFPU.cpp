@@ -31,14 +31,12 @@
 using namespace Gen;
 using namespace X64JitConstants;
 
-FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
-	memset(regs, 0, sizeof(regs));
-	memset(xregs, 0, sizeof(xregs));
+FPURegCache::FPURegCache() {
 	vregs = regs + 32;
 }
 
-void FPURegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip) {
-	this->mips = mips;
+void FPURegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip) {
+	mips_ = mipsState;
 	useRip_ = useRip;
 	if (!initialReady) {
 		SetupInitialRegs();
@@ -409,7 +407,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 				break;
 			}
 		}
-		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &mips->tempValues[v[0] - 128];
+		const float *f = v[0] < 128 ? &mips_->v[voffset[v[0]]] : &mips_->tempValues[v[0] - 128];
 		if (((intptr_t)f & 0x7) == 0 && n == 2) {
 			emit->MOVQ_xmm(res, vregs[v[0]].location);
 		} else if (((intptr_t)f & 0xf) == 0) {
@@ -665,7 +663,7 @@ void FPURegCache::StoreFromRegister(int i) {
 				}
 			}
 
-			const float *f = mri[0] - 32 < 128 ? &mips->v[voffset[mri[0] - 32]] : &mips->tempValues[mri[0] - 32 - 128];
+			const float *f = mri[0] - 32 < 128 ? &mips_->v[voffset[mri[0] - 32]] : &mips_->tempValues[mri[0] - 32 - 128];
 			int align = (intptr_t)f & 0xf;
 
 			// If we can do a multistore...
@@ -872,7 +870,7 @@ void FPURegCache::Flush() {
 			} else if (regs[i].location.IsImm()) {
 				StoreFromRegister(i);
 			} else {
-				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips_->pc);
 			}
 		}
 	}
@@ -887,13 +885,13 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	} else if (reg < 32 + 128) {
 		// Here, RIP has the advantage so let's use it when possible
 		if (useRip_) {
-			return M(&mips->v[voffset[reg - 32]]);  // rip accessible
+			return M(&mips_->v[voffset[reg - 32]]);  // rip accessible
 		} else {
 			return MIPSSTATE_VAR_ELEM32(v[0], voffset[reg - 32]);
 		}
 	} else {
 		if (useRip_) {
-			return M(&mips->tempValues[reg - 32 - 128]);  // rip accessible
+			return M(&mips_->tempValues[reg - 32 - 128]);  // rip accessible
 		} else {
 			return MIPSSTATE_VAR_ELEM32(tempValues[0], reg - 32 - 128);
 		}
@@ -1022,9 +1020,9 @@ int FPURegCache::SanityCheck() const {
 
 const int *FPURegCache::GetAllocationOrder(int &count) {
 	static const int allocationOrder[] = {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 		XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 #endif
 	};

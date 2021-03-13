@@ -271,12 +271,8 @@ private:
 
 class D3D9Pipeline : public Pipeline {
 public:
-	D3D9Pipeline(LPDIRECT3DDEVICE9 device) : device_(device) {}
+	D3D9Pipeline() {}
 	~D3D9Pipeline() {
-		if (depthStencil) depthStencil->Release();
-		if (blend) blend->Release();
-		if (raster) raster->Release();
-		if (inputLayout) inputLayout->Release();
 	}
 	bool RequiresBuffer() override {
 		return false;
@@ -287,15 +283,13 @@ public:
 
 	D3DPRIMITIVETYPE prim;
 	int primDivisor;
-	D3D9InputLayout *inputLayout = nullptr;
-	D3D9DepthStencilState *depthStencil = nullptr;
-	D3D9BlendState *blend = nullptr;
-	D3D9RasterState *raster = nullptr;
+	AutoRef<D3D9InputLayout> inputLayout;
+	AutoRef<D3D9DepthStencilState> depthStencil;
+	AutoRef<D3D9BlendState> blend;
+	AutoRef<D3D9RasterState> raster;
 	UniformBufferDesc dynamicUniforms;
 
 	void Apply(LPDIRECT3DDEVICE9 device);
-private:
-	LPDIRECT3DDEVICE9 device_;
 };
 
 class D3D9Texture : public Texture {
@@ -564,7 +558,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
+	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
@@ -612,12 +606,12 @@ private:
 	DeviceCaps caps_{};
 
 	// Bound state
-	D3D9Pipeline *curPipeline_ = nullptr;
-	D3D9Buffer *curVBuffers_[4]{};
+	AutoRef<D3D9Pipeline> curPipeline_;
+	AutoRef<D3D9Buffer> curVBuffers_[4];
 	int curVBufferOffsets_[4]{};
-	D3D9Buffer *curIBuffer_ = nullptr;
+	AutoRef<D3D9Buffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
-	Framebuffer *curRenderTarget_ = nullptr;
+	AutoRef<Framebuffer> curRenderTarget_;
 
 	// Framebuffer state
 	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
@@ -633,7 +627,7 @@ void D3D9Context::InvalidateCachedState() {
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
-	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
+	: d3d_(d3d), d3dEx_(d3dEx), device_(device), deviceEx_(deviceEx), adapterId_(adapterId), caps_{} {
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ERROR_LOG(G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
@@ -695,7 +689,7 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return NULL;
 	}
-	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
+	D3D9Pipeline *pipeline = new D3D9Pipeline();
 	for (auto iter : desc.shaders) {
 		if (!iter) {
 			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline");
@@ -715,10 +709,6 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	pipeline->blend = (D3D9BlendState *)desc.blend;
 	pipeline->raster = (D3D9RasterState *)desc.raster;
 	pipeline->inputLayout = (D3D9InputLayout *)desc.inputLayout;
-	pipeline->depthStencil->AddRef();
-	pipeline->blend->AddRef();
-	pipeline->raster->AddRef();
-	pipeline->inputLayout->AddRef();
 	if (desc.uniformDesc)
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 	return pipeline;
@@ -971,9 +961,6 @@ void D3D9Context::Draw(int vertexCount, int offset) {
 }
 
 void D3D9Context::DrawIndexed(int vertexCount, int offset) {
-	D3D9Buffer *vbuf = static_cast<D3D9Buffer *>(curVBuffers_[0]);
-	D3D9Buffer *ibuf = static_cast<D3D9Buffer *>(curIBuffer_);
-
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
@@ -1032,7 +1019,6 @@ void D3D9Context::SetStencilRef(uint8_t ref) {
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
 	LPD3D_SHADER_MACRO defines = nullptr;
 	LPD3DINCLUDE includes = nullptr;
-	DWORD flags = 0;
 	LPD3DBLOB codeBuffer = nullptr;
 	LPD3DBLOB errorBuffer = nullptr;
 	const char *source = (const char *)data;

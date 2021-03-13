@@ -15,11 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonWindows.h"
 #include <WindowsX.h>
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/OpenGL/GLSLProgram.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Common.h"
+#include "Common/Log.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
 const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
@@ -109,7 +111,7 @@ void SimpleGLWindow::SetupGL() {
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
 
-#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(COMMON, "SimpleGLWindow: %s (%08x)", msg, GetLastError()); return; } }
+#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(COMMON, "SimpleGLWindow: %s (%08x)", msg, (uint32_t)GetLastError()); return; } }
 
 	ENFORCE(hDC_ = GetDC(hWnd_), "Unable to create DC.");
 	ENFORCE(pixelFormat = ChoosePixelFormat(hDC_, &pfd), "Unable to match pixel format.");
@@ -237,7 +239,7 @@ void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt
 
 	GLint components = GL_RGBA;
 	GLint memComponents = 0;
-	GLenum glfmt;
+	GLenum glfmt = GL_UNSIGNED_BYTE;
 	const u8 *finalData = data;
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);

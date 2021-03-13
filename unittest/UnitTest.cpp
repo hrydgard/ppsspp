@@ -69,6 +69,10 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	return -1;
 }
 bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_CAN_JIT:
+		return true;
+	}
 	return false;
 }
 
@@ -298,6 +302,8 @@ bool TestParsers() {
 
 bool TestVFPUSinCos() {
 	float sine, cosine;
+	InitVFPUSinCos(false);
+	EXPECT_FALSE(vfpu_sincos == nullptr);
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
 	EXPECT_EQ_FLOAT(cosine, 1.0f);

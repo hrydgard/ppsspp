@@ -47,7 +47,7 @@ public:
 	virtual u32 GetNumBlocks() = 0;
 	virtual bool IsDisc() = 0;
 
-	u32 CalculateCRC();
+	u32 CalculateCRC(volatile bool *cancel = nullptr);
 	void NotifyReadError();
 
 protected:

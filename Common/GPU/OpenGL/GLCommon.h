@@ -2,15 +2,12 @@
 
 #include "ppsspp_config.h"
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
 #elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-// At least Nokia platforms need the three below
-#include <KHR/khrplatform.h>
-typedef char GLchar;
 #define GL_BGRA_EXT 0x80E1
 #else // OpenGL
 #include "GL/glew.h"
@@ -61,7 +58,7 @@ typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;

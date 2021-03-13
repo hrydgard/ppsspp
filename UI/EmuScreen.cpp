@@ -91,8 +91,6 @@
 static AVIDump avi;
 #endif
 
-UI::ChoiceWithValueDisplay *chatButtons;
-
 static bool frameStep_;
 static int lastNumFlips;
 static bool startDumping;
@@ -251,8 +249,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
-
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 
 	if (g_Config.iInternalResolution == 0) {
 		coreParam.renderWidth = pixel_xres;
@@ -1009,7 +1005,7 @@ public:
 	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		// Should only be called when visible.
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GAMEINFO_WANTBG);
 		dc.Flush();
@@ -1027,6 +1023,10 @@ public:
 				dc.RebindTexture();
 			}
 		}
+	}
+
+	std::string DescribeText() const override {
+		return "";
 	}
 
 	void SetColor(uint32_t c) {
@@ -1061,37 +1061,42 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
 	if (g_Config.bEnableNetworkChat) {
+		AnchorLayoutParams *layoutParams = nullptr;
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		case 1:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true);
 			break;
 		case 2:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true);
 			break;
 		case 3:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true);
 			break;
 		case 4:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true);
 			break;
 		case 5:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true);
 			break;
 		case 6:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true);
 			break;
 		case 7:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true);
 			break;
 		default:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			layoutParams = new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true);
 			break;
 		}
 
-		root_->Add(chatButtons)->OnClick.Handle(this, &EmuScreen::OnChat);
+		ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), layoutParams);
+		root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
+		chatButton_ = btn;
+	} else {
+		chatButton_ = nullptr;
 	}
 
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
@@ -1165,8 +1170,8 @@ UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
 }
 
 UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
-	if (chatButtons->GetVisibility() == UI::V_VISIBLE) {
-		chatButtons->SetVisibility(UI::V_GONE);
+	if (chatButton_ != nullptr && chatButton_->GetVisibility() == UI::V_VISIBLE) {
+		chatButton_->SetVisibility(UI::V_GONE);
 	}
 	screenManager()->push(new ChatMenu());
 	return UI::EVENT_DONE;
@@ -1597,7 +1602,7 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
 		return true;
-	if (g_Config.bEnableCardboardVR)
+	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
 	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats)

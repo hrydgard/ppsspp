@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"

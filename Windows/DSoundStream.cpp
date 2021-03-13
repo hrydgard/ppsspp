@@ -20,9 +20,6 @@
 
 #include "DSoundStream.h"
 
-// TODO: Get rid of this
-static DSoundAudioBackend *g_dsound;
-
 inline int RoundDown128(int x) {
 	return x & (~127);
 }
@@ -150,7 +147,7 @@ int DSoundAudioBackend::RunThread() {
 	return 0;
 }
 
-DSoundAudioBackend::DSoundAudioBackend() : threadData_(0), ds_(nullptr) {
+DSoundAudioBackend::DSoundAudioBackend() {
 }
 
 DSoundAudioBackend::~DSoundAudioBackend() {

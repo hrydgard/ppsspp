@@ -553,7 +553,7 @@ rotateVBO:
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
-		params.allowSeparateAlphaClear = true;
+		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
@@ -578,9 +578,6 @@ rotateVBO:
 			// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 			// Might help for text drawing.
 
-			// these spam the gDebugger log.
-			const int vertexSize = sizeof(transformed[0]);
-
 			device_->SetVertexDeclaration(transformedVertexDecl_);
 			if (result.drawIndexed) {
 				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
@@ -602,7 +599,6 @@ rotateVBO:
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
 
-			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
 			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
 
 			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {

@@ -187,6 +187,9 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
 		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		// Set Stencil/Depth
 		if (gstate.isModeClear()) {
 			// Depth Test
@@ -203,7 +206,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
-				dxstate.stencilMask.set((~gstate.getStencilWriteMask()) & 0xFF);
+				dxstate.stencilMask.set(stencilState.writeMask);
 			} else {
 				dxstate.stencilTest.disable();
 			}
@@ -220,9 +223,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			} else {
 				dxstate.depthTest.disable();
 			}
-
-			GenericStencilFuncState stencilState;
-			ConvertStencilFuncState(stencilState);
 
 			// Stencil Test
 			if (stencilState.enabled) {

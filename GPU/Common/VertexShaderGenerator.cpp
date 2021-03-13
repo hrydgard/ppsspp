@@ -152,7 +152,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// this is only valid for some settings of uvGenMode
 	GETexProjMapMode uvProjMode = static_cast<GETexProjMapMode>(id.Bits(VS_BIT_UVPROJ_MODE, 2));
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
-	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER);
+
+	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
+	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
@@ -720,6 +722,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "}\n");
 	}
 
+	if (useHWTransform) {
+		WRITE(p, "vec3 normalizeOr001(vec3 v) {\n");
+		WRITE(p, "   return length(v) == 0.0 ? vec3(0.0, 0.0, 1.0) : normalize(v);\n");
+		WRITE(p, "}\n");
+	}
+
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage) || compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "void main() {\n");
 	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
@@ -796,7 +804,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 				WRITE(p, "  vec3 worldpos = mul(vec4(tess.pos.xyz, 1.0), u_world).xyz;\n");
 				if (hasNormalTess) {
-					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%stess.nrm, 0.0), u_world).xyz);\n", flipNormalTess ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%stess.nrm, 0.0), u_world).xyz);\n", flipNormalTess ? "-" : "");
 				} else {
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 				}
@@ -804,7 +812,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				// No skinning, just standard T&L.
 				WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
 				if (hasNormal)
-					WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
@@ -845,7 +853,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
@@ -1054,7 +1062,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = flipNormal ? "vec4(normalize(-normal), 1.0)" : "vec4(normalize(normal), 1.0)";
+							temp_tc = StringFromFormat("length(normal) == 0.0 ? vec4(0.0, 0.0, 1.0, 1.0) : vec4(normalize(%snormal), 1.0)", flipNormal ? "-" : "");
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;

@@ -29,7 +29,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 
-#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -618,6 +618,7 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 			Memory::Memset(addr, c, n);
 		}
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, addr, n, "KernelMemset");
 	return addr;
 }
 
@@ -657,8 +658,8 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 		}
 	}
 
-	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
 
 	return dst;
 }
@@ -689,6 +690,8 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
+	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
 	return dst;
 }
 
@@ -754,6 +757,7 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 	if (Memory::IsValidRange(destAddr, size)) {
 		memset(Memory::GetPointer(destAddr), data, size);
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, size, "KernelMemset");
 	return 0;
 }
 
@@ -786,6 +790,8 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
+	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemmove");
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemmove");
 	return 0;
 }
 

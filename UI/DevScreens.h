@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
@@ -179,6 +180,22 @@ public:
 private:
 	std::string id_;
 	DebugShaderType type_;
+};
+
+class FrameDumpTestScreen : public UIDialogScreenWithBackground {
+public:
+	FrameDumpTestScreen();
+	~FrameDumpTestScreen();
+
+	void CreateViews() override;
+	void update() override;
+
+private:
+	UI::EventReturn OnLoadDump(UI::EventParams &e);
+
+	std::vector<std::string> files_;
+	std::shared_ptr<http::Download> listing_;
+	std::shared_ptr<http::Download> dumpDownload_;
 };
 
 void DrawProfile(UIContext &ui);

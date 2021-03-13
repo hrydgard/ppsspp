@@ -109,10 +109,9 @@ int __SasThread() {
 		if (sasThreadState == SasThreadState::QUEUED) {
 			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol);
 
-			sasDoneMutex.lock();
+			std::lock_guard<std::mutex> doneGuard(sasDoneMutex);
 			sasThreadState = SasThreadState::READY;
 			sasDone.notify_one();
-			sasDoneMutex.unlock();
 		}
 	}
 	return 0;
@@ -213,9 +212,7 @@ void __SasDoState(PointerWrap &p) {
 		__SasDisableThread();
 	}
 
-	if (sasMixEvent != -1) {
-		CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
-	}
+	CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
 }
 
 void __SasShutdown() {

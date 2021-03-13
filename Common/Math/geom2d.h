@@ -66,6 +66,9 @@ struct Bounds {
 	Bounds Expand(float amount) const {
 		return Bounds(x - amount, y - amount, w + amount * 2, h + amount * 2);
 	}
+	Bounds Expand(float xAmount, float yAmount) const {
+		return Bounds(x - xAmount, y - yAmount, w + xAmount * 2, h + yAmount * 2);
+	}
 	Bounds Offset(float xAmount, float yAmount) const {
 		return Bounds(x + xAmount, y + yAmount, w, h);
 	}

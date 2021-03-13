@@ -215,7 +215,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
 	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage)) {
-		INFO_LOG(G3D, "Shader compile to module failed: %s", errorMessage.c_str());
+		WARN_LOG(G3D, "Shader compile to module failed: %s", errorMessage.c_str());
 		return false;
 	}
 
@@ -231,6 +231,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	if (vulkan->CreateShaderModule(spirv, &module_)) {
 		ok_ = true;
 	} else {
+		WARN_LOG(G3D, "vkCreateShaderModule failed");
 		ok_ = false;
 	}
 	return ok_;
@@ -245,7 +246,7 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : vulkan_(vulkan), flags(_flags) {
+	VKPipeline(VulkanContext *vulkan, size_t size, PipelineFlags _flags) : flags(_flags), vulkan_(vulkan) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
@@ -510,16 +511,16 @@ private:
 
 	VulkanTexture *nullTexture_ = nullptr;
 
-	VKPipeline *curPipeline_ = nullptr;
-	VKBuffer *curVBuffers_[4]{};
+	AutoRef<VKPipeline> curPipeline_;
+	AutoRef<VKBuffer> curVBuffers_[4];
 	int curVBufferOffsets_[4]{};
-	VKBuffer *curIBuffer_ = nullptr;
+	AutoRef<VKBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 
 	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
-	Framebuffer *curFramebuffer_ = nullptr;
+	AutoRef<Framebuffer> curFramebuffer_;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -528,8 +529,8 @@ private:
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
-	VKTexture *boundTextures_[MAX_BOUND_TEXTURES]{};
-	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES]{};
+	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
+	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
 	struct FrameData {
@@ -754,7 +755,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		}
 		// Generate the rest of the mips automatically.
 		for (; i < mipLevels_; i++) {
-			vkTex_->GenerateMip(cmd, i);
+			vkTex_->GenerateMip(cmd, i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 	}
 	vkTex_->EndCreate(cmd, false);
@@ -762,7 +763,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 }
 
 VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
-	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
+	: vulkan_(vulkan), renderManager_(vulkan) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
@@ -1281,7 +1282,7 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage la
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ERROR_LOG(G3D,  "Failed to compile shader: %s", (const char *)data);
+		ERROR_LOG(G3D,  "Failed to compile shader:\n%s", (const char *)data);
 		shader->Release();
 		return nullptr;
 	}

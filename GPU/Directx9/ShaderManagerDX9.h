@@ -45,11 +45,11 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DPIXELSHADER9 shader;
+	LPDIRECT3DPIXELSHADER9 shader = nullptr;
 
 protected:	
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	FShaderID id_;
 };
 
@@ -65,11 +65,11 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DVERTEXSHADER9 shader;
+	LPDIRECT3DVERTEXSHADER9 shader = nullptr;
 
 protected:	
 	std::string source_;
-	bool failed_;
+	bool failed_ = false;
 	bool useHWTransform_;
 	VShaderID id_;
 };

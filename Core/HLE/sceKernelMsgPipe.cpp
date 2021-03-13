@@ -105,7 +105,7 @@ struct MsgPipeWaitingThread
 
 	void ReadBuffer(u32 destPtr, u32 len)
 	{
-		Memory::Memcpy(destPtr, bufAddr + bufSize - freeSize, len);
+		Memory::Memcpy(destPtr, bufAddr + bufSize - freeSize, len, "MsgPipeReadBuffer");
 		freeSize -= len;
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
@@ -113,7 +113,7 @@ struct MsgPipeWaitingThread
 
 	void WriteBuffer(u32 srcPtr, u32 len)
 	{
-		Memory::Memcpy(bufAddr + (bufSize - freeSize), srcPtr, len);
+		Memory::Memcpy(bufAddr + (bufSize - freeSize), srcPtr, len, "MsgPipeWriteBuffer");
 		freeSize -= len;
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
@@ -399,7 +399,7 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 
 		if (bytesToSend != 0)
 		{
-			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), sendBufAddr, bytesToSend);
+			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), sendBufAddr, bytesToSend, "MsgPipeSend");
 			m->nmp.freeSize -= bytesToSend;
 			curSendAddr += bytesToSend;
 			sendSize -= bytesToSend;
@@ -492,7 +492,7 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			u32 bytesToReceive = std::min(receiveSize, m->GetUsedSize());
 			if (bytesToReceive != 0)
 			{
-				Memory::Memcpy(curReceiveAddr, m->buffer, bytesToReceive);
+				Memory::Memcpy(curReceiveAddr, m->buffer, bytesToReceive, "MsgPipeReceive");
 				m->nmp.freeSize += bytesToReceive;
 				memmove(Memory::GetPointer(m->buffer), Memory::GetPointer(m->buffer) + bytesToReceive, m->GetUsedSize());
 				curReceiveAddr += bytesToReceive;
@@ -610,7 +610,6 @@ static bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &
 static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	u32 waitValue = __KernelGetWaitValue(threadID, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
 	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
 

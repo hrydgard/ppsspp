@@ -216,7 +216,7 @@ void GameSettingsScreen::CreateViews() {
 	// Graphics
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	graphicsSettingsScroll->SetTag("GameSettingsGraphics");
-	LinearLayout *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *graphicsSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	graphicsSettings->SetSpacing(0);
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
@@ -459,15 +459,6 @@ void GameSettingsScreen::CreateViews() {
 		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	});
 
-	CheckBox *clearHack = graphicsSettings->Add(new CheckBox(&g_Config.bClearFramebuffersOnFirstUseHack, gr->T("Clear Speedhack", "Clear framebuffers on first use (speedhack)")));
-	clearHack->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("ClearSpeedhack Tip", "Sometimes faster (mostly on mobile devices), may cause glitches"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	clearHack->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering;
-	});
-
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
@@ -611,7 +602,7 @@ void GameSettingsScreen::CreateViews() {
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	audioSettingsScroll->SetTag("GameSettingsAudio");
-	LinearLayout *audioSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *audioSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	audioSettings->SetSpacing(0);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
@@ -670,7 +661,7 @@ void GameSettingsScreen::CreateViews() {
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	controlsSettingsScroll->SetTag("GameSettingsControls");
-	LinearLayout *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *controlsSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	controlsSettings->SetSpacing(0);
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
@@ -679,6 +670,7 @@ void GameSettingsScreen::CreateViews() {
 
 	if (!g_Config.bSimpleUI) {
 #if defined(USING_WIN_UI)
+	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 	controlsSettings->Add(new CheckBox(&g_Config.bEnableDInputWithXInput, co->T("Enable Dinput along Xinput","Enable Dinput along Xinput gamepads(might cause problems with gamepads that can use both without manual switch)")));
 
@@ -791,7 +783,7 @@ void GameSettingsScreen::CreateViews() {
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	networkingSettingsScroll->SetTag("GameSettingsNetworking");
-	LinearLayout *networkingSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *networkingSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	networkingSettings->SetSpacing(0);
 	networkingSettingsScroll->Add(networkingSettings);
 	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
@@ -873,12 +865,11 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
-	networkingSettings->Add(new CheckBox(&g_Config.bTCPNoDelay, n->T("TCP No Delay", "TCP No Delay (faster TCP)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
-	LinearLayout *tools = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *tools = new LinearLayoutList(ORIENT_VERTICAL);
 	tools->SetSpacing(0);
 	toolsScroll->Add(tools);
 	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
@@ -896,7 +887,7 @@ void GameSettingsScreen::CreateViews() {
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	systemSettingsScroll->SetTag("GameSettingsSystem");
-	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *systemSettings = new LinearLayoutList(ORIENT_VERTICAL);
 	systemSettings->SetSpacing(0);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
@@ -932,7 +923,7 @@ void GameSettingsScreen::CreateViews() {
 	rewindFreq->SetZeroLabel(sy->T("Off"));
 
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
-	PopupSliderChoice *memStickSize = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Change Memory Stick Size(GB)"), screenManager(), "GB"));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, sy->T("Change Memory Stick Size", "Change Memory Stick Size(GB)"), screenManager(), "GB"));
 
 	}
 
@@ -1024,7 +1015,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-#if defined(_M_X64)
+#if PPSSPP_ARCH(AMD64)
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 #endif
 
@@ -1664,7 +1655,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 	AddStandardBack(root_);
 
-	LinearLayout *list = settingsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *list = settingsScroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(sy->T("General")));
 
@@ -1694,6 +1685,8 @@ void DeveloperToolsScreen::CreateViews() {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
+	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
+	list->Add(new Choice(dev->T("Framedump tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnFramedumpTest);
 	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
@@ -1872,6 +1865,11 @@ UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
+	screenManager()->push(new FrameDumpTestScreen());
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
 	screenManager()->push(new TouchTestScreen());
 	return UI::EVENT_DONE;
@@ -1925,7 +1923,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 
-	addrView_ = new TextEdit(*value_, "");
+	addrView_ = new TextEdit(*value_, n->T("Hostname"), "");
 	addrView_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	valueRow->Add(addrView_);
 	parent->Add(valueRow);

@@ -105,7 +105,6 @@ else ifneq (,$(findstring arm64,$(platform)))
 		GL_LIB := -lGL
 	endif
 	CPUFLAGS += -D__arm64__ -DARM64_ASM -D__NEON_OPT
-	PLATCFLAGS += -DARM64
 	LDFLAGS += -lrt -ldl
 	PLATFORM_EXT := unix
 
@@ -147,7 +146,6 @@ else ifneq (,$(findstring osx,$(platform)))
 # iOS
 else ifneq (,$(findstring ios,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro_ios.dylib
-	PLATCFLAGS += -DIOS
 	LDFLAGS += -dynamiclib -marm
 	fpic = -fPIC
 	GLES = 1
@@ -171,7 +169,7 @@ else ifneq (,$(findstring ios,$(platform)))
 		CXX += -miphoneos-version-min=5.0
 		PLATCFLAGS += -miphoneos-version-min=5.0
 	endif
-	PLATCFLAGS += -DIOS -DHAVE_POSIX_MEMALIGN
+	PLATCFLAGS += -DHAVE_POSIX_MEMALIGN
 	CPUFLAGS += -DARMv5_ONLY -DARM
 	PLATFORM_EXT := unix
 	TARGET_ARCH = arm
@@ -253,7 +251,6 @@ else ifneq (,$(findstring armv,$(platform)))
 		CPUFLAGS += -mfloat-abi=hard
 	endif
 	CPUFLAGS += -D__arm__ -DARM_ASM
-	PLATCFLAGS += -DARM
 	LDFLAGS += -lrt -ldl
 
 # emscripten
@@ -304,7 +301,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	filter_out1 = $(filter-out $(firstword $1),$1)
 	filter_out2 = $(call filter_out1,$(call filter_out1,$1))
 
-	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
+	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>/dev/null)))
 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
 
 	b1 := (
@@ -415,7 +412,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	filter_out1 = $(filter-out $(firstword $1),$1)
 	filter_out2 = $(call filter_out1,$(call filter_out1,$1))
 
-	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
+	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>/dev/null)))
 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
 
 	b1 := (

@@ -53,7 +53,7 @@
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw), depalShaderCache_(draw) {
+: GPUCommon(gfxCtx, draw), depalShaderCache_(draw), drawEngine_(draw), fragmentTestCache_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 

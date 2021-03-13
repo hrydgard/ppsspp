@@ -29,7 +29,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	root_ = new ScrollView(ORIENT_VERTICAL);
 	root_->SetTag("TiltAnalogSettings");
 
-	LinearLayout *settings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
 
 	settings->SetSpacing(0);
 	settings->Add(new ItemHeader(co->T("Invert Axes")));

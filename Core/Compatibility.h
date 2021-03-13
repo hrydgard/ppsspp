@@ -89,6 +89,7 @@ struct CompatFlags {
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
 	bool DisableRangeCulling;
+	bool MpegAvcWarmUp;
 };
 
 class IniFile;

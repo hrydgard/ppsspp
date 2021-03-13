@@ -93,10 +93,6 @@ private:
 	ID3D11ShaderResourceView *lastBoundTexture;
 	ID3D11Buffer *depalConstants_;
 
-	int decimationCounter_;
-	int texelsScaledThisFrame_;
-	int timesInvalidatedAllThisFrame_;
-
 	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	ShaderManagerD3D11 *shaderManager_;

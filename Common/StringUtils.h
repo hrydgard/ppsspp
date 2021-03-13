@@ -23,7 +23,6 @@
 #include <vector>
 
 #ifdef _MSC_VER
-#pragma warning (disable:4996)
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
 #else
@@ -32,6 +31,7 @@
 
 // Useful for shaders with error messages..
 std::string LineNumberString(const std::string &str);
+std::string IndentString(const std::string &str, const std::string &sep, bool skipFirst = false);
 
 // Other simple string utilities.
 

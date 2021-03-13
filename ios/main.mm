@@ -14,22 +14,61 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 
+#include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
-
-#define	CS_OPS_STATUS		0	/* return status */
-#define CS_DEBUGGED 0x10000000  /* process is currently or has previously been debugged and allowed to run with invalid pages */
-#define PT_TRACE_ME     0       /* child declares it's being traced */
-#define PT_SIGEXC       12      /* signals as exceptions for current_proc */
 
 static int (*csops)(pid_t pid, unsigned int ops, void * useraddr, size_t usersize);
 static boolean_t (*exc_server)(mach_msg_header_t *, mach_msg_header_t *);
 static int (*ptrace)(int request, pid_t pid, caddr_t addr, int data);
 
-bool cs_debugged() {
+#define CS_OPS_STATUS	0		/* return status */
+#define CS_DEBUGGED	0x10000000	/* process is currently or has previously been debugged and allowed to run with invalid pages */
+#define PT_ATTACHEXC	14		/* attach to running process with signal exception */
+#define PT_DETACH	11		/* stop tracing a process */
+#define ptrace(a, b, c, d) syscall(SYS_ptrace, a, b, c, d)
+
+bool get_debugged() {
 	int flags;
-	return !csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags)) && flags & CS_DEBUGGED;
+	int rv = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (rv==0 && flags&CS_DEBUGGED) return true;
+
+	pid_t pid = fork();
+	if (pid > 0) {
+		int st,rv,i=0;
+		do {
+			usleep(500);
+			rv = waitpid(pid, &st, 0);
+		} while (rv<0 && i++<10);
+		if (rv<0) fprintf(stderr, "Unable to wait for child?\n");
+	} else if (pid == 0) {
+		pid_t ppid = getppid();
+		int rv = ptrace(PT_ATTACHEXC, ppid, 0, 0);
+		if (rv) {
+			perror("Unable to attach to process");
+			exit(1);
+		}
+		for (int i=0; i<100; i++) {
+			usleep(1000);
+			errno = 0;
+			rv = ptrace(PT_DETACH, ppid, 0, 0);
+			if (rv==0) break;
+		}
+		if (rv) {
+			perror("Unable to detach from process");
+			exit(1);
+		}
+		exit(0);
+	} else {
+		perror("Unable to fork");
+	}
+
+	rv = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (rv==0 && flags&CS_DEBUGGED) return true;
+
+	return false;
 }
 
 kern_return_t catch_exception_raise(mach_port_t exception_port,
@@ -52,11 +91,14 @@ static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 
+static bool g_jitAvailable = false;
+static int g_iosVersionMajor;
+static int g_iosVersionMinor;
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_NAME:
-			return "iOS:";
+			return StringFromFormat("iOS %d.%d", g_iosVersionMajor, g_iosVersionMinor);
 		case SYSPROP_LANGREGION:
 			return "en_US";
 		default:
@@ -78,6 +120,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 			return 44100;
 		case SYSPROP_DEVICE_TYPE:
 			return DEVICE_TYPE_MOBILE;
+		case SYSPROP_SYSTEMVERSION:
+			return g_iosVersionMajor;
 		default:
 			return -1;
 	}
@@ -110,6 +154,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 			return false;
 #endif
+		case SYSPROP_CAN_JIT:
+			return g_jitAvailable;
+
 		default:
 			return false;
 	}
@@ -157,11 +204,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) { retur
 
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 
-BOOL SupportsTaptic()
-{
+BOOL SupportsTaptic() {
 	// we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
-	if(!NSClassFromString(@"UISelectionFeedbackGenerator"))
-	{
+	if(!NSClassFromString(@"UISelectionFeedbackGenerator")) {
 		return NO;
 	}
 
@@ -175,9 +220,7 @@ BOOL SupportsTaptic()
 }
 
 void Vibrate(int mode) {
-
-	if(SupportsTaptic())
-	{
+	if (SupportsTaptic()) {
 		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
 		if(app.feedbackGenerator == nil)
 		{
@@ -185,9 +228,7 @@ void Vibrate(int mode) {
 			[app.feedbackGenerator prepare];
 		}
 		[app.feedbackGenerator selectionChanged];
-	}
-	else
-	{
+	} else {
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 		NSArray *pattern = @[@YES, @30, @NO, @2];
 
@@ -200,29 +241,32 @@ void Vibrate(int mode) {
 
 int main(int argc, char *argv[])
 {
+	// Hacky hacks to try to enable JIT by pretending to be a debugger.
 	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
 	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
 	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
 	// see https://github.com/hrydgard/ppsspp/issues/11905
-	if (!cs_debugged()) {
-		pid_t pid = fork();
-		if (pid == 0) {
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			exit(0);
-		} else if (pid < 0) {
-			perror("Unable to fork");
 
-			ptrace(PT_TRACE_ME, 0, nullptr, 0);
-			ptrace(PT_SIGEXC, 0, nullptr, 0);
-			
-			mach_port_t port = MACH_PORT_NULL;
-			mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-			mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
-			task_set_exception_ports(mach_task_self(), EXC_MASK_SOFTWARE, port, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
-			pthread_t thread;
-			pthread_create(&thread, nullptr, exception_handler, reinterpret_cast<void *>(&port));
-		}
+	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
+	// but it just succeeds, and then fails when you try to execute from it.
+
+	// So, we'll just resort to a version check.
+
+	std::string version = [[UIDevice currentDevice].systemVersion UTF8String];
+	if (2 != sscanf(version.c_str(), "%d.%d", &g_iosVersionMajor, &g_iosVersionMinor)) {
+		// Just set it to 14.0 if the parsing fails for whatever reason.
+		g_iosVersionMajor = 14;
+		g_iosVersionMinor = 0;
 	}
+
+	g_jitAvailable = get_debugged();
+/*
+	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
+		g_jitAvailable = false;
+	} else {
+		g_jitAvailable = true;
+	}
+*/
 
 	PROFILE_INIT();
 

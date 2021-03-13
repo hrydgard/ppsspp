@@ -138,11 +138,30 @@ Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
 	const __m128 normalize = SSENormalizeMultiplier(useSSE4, vec);
 	return _mm_mul_ps(normalize, vec);
 }
+
+template<>
+Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
+	const __m128 normalize = SSENormalizeMultiplier(useSSE4, vec);
+	const __m128 result = _mm_mul_ps(normalize, vec);
+	const __m128 mask = _mm_cmpunord_ps(result, vec);
+	const __m128 replace = _mm_and_ps(_mm_set_ps(0.0f, 1.0f, 0.0f, 0.0f), mask);
+	// Replace with the constant if the mask matched.
+	return _mm_or_ps(_mm_andnot_ps(mask, result), replace);
+}
 #else
 template<>
 Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
 {
 	return (*this) / Length();
+}
+
+template<>
+Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
+	float len = Length();
+	if (len == 0.0f) {
+		return Vec3<float>(0.0f, 0.0f, 1.0f);
+	}
+	return *this / len;
 }
 #endif
 
@@ -151,6 +170,17 @@ float Vec3<float>::Normalize()
 {
 	float len = Length();
 	(*this) = (*this)/len;
+	return len;
+}
+
+template<>
+float Vec3<float>::NormalizeOr001() {
+	float len = Length();
+	if (len == 0.0f) {
+		z = 1.0f;
+	} else {
+		*this /= len;
+	}
 	return len;
 }
 

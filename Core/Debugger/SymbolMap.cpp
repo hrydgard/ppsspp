@@ -21,6 +21,7 @@
 #pragma optimize("gty", on)
 #endif
 
+#include "ppsspp_config.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <WindowsX.h>
@@ -1045,7 +1046,6 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 			SendMessage(listbox, LB_INITSTORAGE, (WPARAM)activeFunctions.size(), (LPARAM)activeFunctions.size() * 30);
 
 			for (auto it = activeFunctions.begin(), end = activeFunctions.end(); it != end; ++it) {
-				const FunctionEntry& entry = it->second;
 				const char* name = GetLabelName(it->first);
 				if (name != NULL)
 					wsprintf(temp, L"%S", name);
@@ -1069,7 +1069,6 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 			}
 
 			for (auto it = activeData.begin(), end = activeData.end(); it != end; ++it) {
-				const DataEntry& entry = it->second;
 				const char* name = GetLabelName(it->first);
 
 				if (name != NULL)

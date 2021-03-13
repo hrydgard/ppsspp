@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <deque>
 #include <thread>
 #include <mutex>
@@ -102,6 +103,8 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
+	static volatile bool crcPending = false;
+	static volatile bool crcCancel = false;
 	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
@@ -113,7 +116,7 @@ namespace Reporting
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC();
+			crc = blockDevice->CalculateCRC(&crcCancel);
 		}
 
 		delete blockDevice;
@@ -121,15 +124,15 @@ namespace Reporting
 
 		std::lock_guard<std::mutex> guard(crcLock);
 		crcResults[crcFilename] = crc;
+		crcPending = false;
 		crcCond.notify_one();
 
 		return 0;
 	}
 
-	void QueueCRC() {
+	void QueueCRC(const std::string &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 
-		const std::string &gamePath = PSP_CoreParameter().fileToStart;
 		auto it = crcResults.find(gamePath);
 		if (it != crcResults.end()) {
 			// Nothing to do, we've already calculated it.
@@ -137,18 +140,24 @@ namespace Reporting
 			return;
 		}
 
-		if (crcFilename == gamePath) {
+		if (crcPending) {
 			// Already in process.
 			return;
 		}
 
 		crcFilename = gamePath;
+		crcPending = true;
+		crcCancel = false;
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
-	u32 RetrieveCRC() {
-		const std::string &gamePath = PSP_CoreParameter().fileToStart;
-		QueueCRC();
+	bool HasCRC(const std::string &gamePath) {
+		std::lock_guard<std::mutex> guard(crcLock);
+		return crcResults.find(gamePath) != crcResults.end();
+	}
+
+	uint32_t RetrieveCRC(const std::string &gamePath) {
+		QueueCRC(gamePath);
 
 		std::unique_lock<std::mutex> guard(crcLock);
 		auto it = crcResults.find(gamePath);
@@ -160,6 +169,26 @@ namespace Reporting
 		if (crcThread.joinable())
 			crcThread.join();
 		return it->second;
+	}
+
+	static uint32_t RetrieveCRCUnlessPowerSaving(const std::string &gamePath) {
+		// It's okay to use it if we have it already.
+		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
+			return 0;
+		}
+
+		return RetrieveCRC(gamePath);
+	}
+
+	static void PurgeCRC() {
+		std::unique_lock<std::mutex> guard(crcLock);
+		crcCancel = true;
+		while (crcPending) {
+			crcCond.wait(guard);
+		}
+
+		if (crcThread.joinable())
+			crcThread.join();
 	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -231,7 +260,6 @@ namespace Reporting
 
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
-		bool result = false;
 		http::Client http;
 		Buffer theVoid;
 
@@ -274,7 +302,7 @@ namespace Reporting
 		return "Windows ARM32";
 #elif defined(_WIN32)
 		return "Windows";
-#elif defined(IOS)
+#elif PPSSPP_PLATFORM(IOS)
 		return "iOS";
 #elif defined(__APPLE__)
 		return "Mac";
@@ -321,6 +349,7 @@ namespace Reporting
 			compatThread.join();
 		if (messageThread.joinable())
 			messageThread.join();
+		PurgeCRC();
 
 		// Just so it can be enabled in the menu again.
 		Init();
@@ -372,7 +401,7 @@ namespace Reporting
 	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
-		const std::string disc_id = StripTrailingNull(g_paramSFO.GetValueString("DISC_ID"));
+		const std::string disc_id = StripTrailingNull(g_paramSFO.GetDiscID());
 		const std::string disc_version = StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION"));
 		return disc_id + "_" + disc_version;
 	}
@@ -468,7 +497,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
-			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC()));
+			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();

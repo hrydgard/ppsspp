@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Core/Reporting.h"
@@ -40,8 +41,9 @@
 #define _SA MIPS_GET_SA(op)
 #define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
-#define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
+#define TARGET16 ((int)(SignExtend16ToU32(op) << 2))
+#define TARGET26 (_IMM26 << 2)
 
 #define LOOPOPTIMIZATION 0
 
@@ -57,7 +59,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
@@ -114,7 +116,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
@@ -192,7 +194,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	ir.Write(IROp::FpCondToReg, IRTEMP_LHS);
@@ -235,7 +237,7 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
-	int offset = _IMM16 << 2;
+	int offset = TARGET16;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
@@ -290,7 +292,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 		return;
 	}
 
-	u32 off = _IMM26 << 2;
+	u32 off = TARGET26;
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?

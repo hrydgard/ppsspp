@@ -6,6 +6,7 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/Context.h"
@@ -135,7 +136,7 @@ void View::Query(float x, float y, std::vector<View *> &list) {
 	}
 }
 
-std::string View::Describe() const {
+std::string View::DescribeLog() const {
 	return StringFromFormat("%0.1f,%0.1f %0.1fx%0.1f", bounds_.x, bounds_.y, bounds_.w, bounds_.h);
 }
 
@@ -201,7 +202,7 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		if (time_now_d() - bgColorLast_ >= 0.25f) {
 			bgColor_->Reset(style.background.color);
-		} else {
+		} else if (bgColor_->CurrentValue() != style.background.color) {
 			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
 		}
 		bgColorLast_ = time_now_d();
@@ -513,6 +514,11 @@ void Choice::Draw(UIContext &dc) {
 	}
 }
 
+std::string Choice::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 choice"), "%1", text_);
+}
+
 InfoItem::InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
@@ -540,11 +546,21 @@ void InfoItem::Draw(UIContext &dc) {
 	dc.FillRect(style.background, bounds_);
 
 	int paddingX = 12;
+	Bounds padBounds = bounds_.Expand(-paddingX, 0);
+
+	float leftWidth, leftHeight;
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), padBounds, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-	dc.DrawText(rightText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_RIGHT);
-// 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
+	dc.DrawTextRect(text_.c_str(), padBounds, style.fgColor, ALIGN_VCENTER);
+
+	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
+	dc.DrawTextRect(rightText_.c_str(), rightBounds, style.fgColor, ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
+}
+
+std::string InfoItem::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(ReplaceAll(u->T("%1: %2"), "%1", text_), "%2", rightText_);
 }
 
 ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
@@ -556,7 +572,7 @@ ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
 void ItemHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFontSmall);
 	dc.DrawText(text_.c_str(), bounds_.x + 4, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
 }
 
 void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
@@ -570,6 +586,11 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
 	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+std::string ItemHeader::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
 void PopupHeader::Draw(UIContext &dc) {
@@ -593,11 +614,16 @@ void PopupHeader::Draw(UIContext &dc) {
 	}
 
 	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
 	}
+}
+
+std::string PopupHeader::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 heading"), "%1", text_);
 }
 
 void CheckBox::Toggle() {
@@ -640,6 +666,15 @@ void CheckBox::Draw(UIContext &dc) {
 	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
+}
+
+std::string CheckBox::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	std::string text = ReplaceAll(u->T("%1 checkbox"), "%1", text_);
+	if (!smallText_.empty()) {
+		text += "\n" + smallText_;
+	}
+	return text;
 }
 
 float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const {
@@ -705,6 +740,11 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	h *= scale_;
 }
 
+std::string Button::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 button"), "%1", GetText());
+}
+
 void Button::Click() {
 	Clickable::Click();
 	UI::PlayUISound(UI::UISound::CONFIRM);
@@ -729,7 +769,7 @@ void Button::Draw(UIContext &dc) {
 	}
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(scale_, scale_);
-	if (imageID_.isValid() && text_.empty()) {
+	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, 0xFFFFFFFF, ALIGN_CENTER);
 	} else if (!text_.empty()) {
 		dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
@@ -812,8 +852,8 @@ void TextView::Draw(UIContext &dc) {
 	}
 }
 
-TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
-  : View(layoutParams), text_(text), undo_(text), placeholderText_(placeholderText),
+TextEdit::TextEdit(const std::string &text, const std::string &title, const std::string &placeholderText, LayoutParams *layoutParams)
+  : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
     textColor_(0xFFFFFFFF), maxLen_(255) {
 	caret_ = (int)text_.size();
 }
@@ -859,6 +899,11 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.size() ? text_.c_str() : "Wj", &w, &h, align_);
 	w += 2;
 	h += 2;
+}
+
+std::string TextEdit::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	return ReplaceAll(u->T("%1 text field"), "%1", GetText());
 }
 
 // Handles both windows and unix line endings.
@@ -1032,9 +1077,15 @@ void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 void ProgressBar::Draw(UIContext &dc) {
 	char temp[32];
 	sprintf(temp, "%i%%", (int)(progress_ * 100.0f));
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
+}
+
+std::string ProgressBar::DescribeText() const {
+	auto u = GetI18NCategory("UI Elements");
+	float percent = progress_ * 100.0f;
+	return ReplaceAll(u->T("Progress: %1%"), "%1", StringFromInt((int)percent));
 }
 
 void Spinner::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -1181,6 +1232,12 @@ void Slider::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 }
 
+std::string Slider::DescribeText() const {
+	if (showPercent_)
+		return StringFromFormat("%i%% / %i%%", *value_, maxValue_);
+	return StringFromFormat("%i / %i", *value_, maxValue_);
+}
+
 void Slider::Update() {
 	View::Update();
 	if (repeat_ >= 0) {
@@ -1289,6 +1346,10 @@ void SliderFloat::Draw(UIContext &dc) {
 	sprintf(temp, "%0.2f", *value_);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), dc.theme->popupStyle.fgColor, ALIGN_CENTER);
+}
+
+std::string SliderFloat::DescribeText() const {
+	return StringFromFormat("%0.2f / %0.2f", *value_, maxValue_);
 }
 
 void SliderFloat::Update() {

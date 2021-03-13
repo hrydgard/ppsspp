@@ -31,7 +31,7 @@
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
-Arm64RegCacheFPU::Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
+Arm64RegCacheFPU::Arm64RegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), vr(mr + 32), js_(js), jo_(jo) {
 	numARMFpuReg_ = 32;
 }
 

@@ -81,6 +81,7 @@ struct JNIEnv {};
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
+#include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
@@ -92,6 +93,9 @@ struct JNIEnv {};
 #include "app-android.h"
 
 bool useCPUThread = true;
+
+// We'll turn this on when we target Android 12.
+bool useScopedStorageIfRequired = false;
 
 enum class EmuThreadState {
 	DISABLED,
@@ -123,6 +127,8 @@ std::string systemName;
 std::string langRegion;
 std::string mogaVersion;
 std::string boardName;
+
+std::string g_extFilesDir;
 
 std::vector<std::string> g_additionalStorageDirs;
 
@@ -163,6 +169,10 @@ static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
+
+static jmethodID openContentUri;
+static jmethodID closeContentUri;
+
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
 static bool renderLoopRunning;
@@ -174,6 +184,7 @@ static float dp_yscale = 1.0f;
 
 static bool renderer_inited = false;
 static bool sustainedPerfSupported = false;
+static std::mutex renderLock;
 
 // See NativeQueryConfig("androidJavaGL") to change this value.
 static bool javaGL = true;
@@ -220,6 +231,46 @@ void AndroidLogger::Log(const LogMessage &message) {
 		break;
 	}
 }
+
+bool Android_IsContentUri(const std::string &filename) {
+	return startsWith(filename, "content://");
+}
+
+int Android_OpenContentUriFd(const std::string &filename) {
+	if (!nativeActivity) {
+		return -1;
+	}
+	auto env = getEnv();
+	jstring param = env->NewStringUTF(filename.c_str());
+	int fd = env->CallIntMethod(nativeActivity, openContentUri, param);
+	return fd;
+}
+
+class ContentURIFileLoader : public ProxiedFileLoader {
+public:
+	ContentURIFileLoader(const std::string &filename)
+		: ProxiedFileLoader(nullptr) {  // we overwrite the nullptr below
+		int fd = Android_OpenContentUriFd(filename);
+		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
+		backend_ = new LocalFileLoader(fd, filename);
+	}
+
+	bool ExistsFast() override {
+		if (!nativeActivity) {
+			// Assume it does if we don't have a NativeActivity right now.
+			return true;
+		}
+		return backend_->ExistsFast();
+	}
+};
+
+class AndroidContentLoaderFactory : public FileLoaderFactory {
+public:
+	AndroidContentLoaderFactory() {}
+	FileLoader *ConstructFileLoader(const std::string &filename) override {
+		return new ContentURIFileLoader(filename);
+	}
+};
 
 JNIEnv* getEnv() {
 	JNIEnv *env;
@@ -432,16 +483,23 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FILE_BROWSER:
-		return false;  // We kind of have but needs more work.
+		// It's only really needed with scoped storage, but why not make it available
+		// as far back as possible - works just fine.
+		return androidVersion >= 19;  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
-		return androidVersion >= 21;
+		return androidVersion >= 21;  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
 #else
 		return false;
 #endif
+	case SYSPROP_CAN_JIT:
+		return true;
+	case SYSPROP_ANDROID_SCOPED_STORAGE:
+		if (useScopedStorageIfRequired && androidVersion >= 28)
+			return true;
 	default:
 		return false;
 	}
@@ -459,6 +517,7 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	nativeActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;)I");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
@@ -557,7 +616,7 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-		jstring jdataDir, jstring jexternalStorageDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
+		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	setCurrentThreadName("androidInit");
 
@@ -567,6 +626,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
+	std::lock_guard<std::mutex> guard(renderLock);
 	renderer_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
@@ -588,6 +648,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
 	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
+	std::string externalFilesDir = GetJavaString(env, jexternalFilesDir);
+
+	g_extFilesDir = externalFilesDir;
 
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
@@ -635,6 +698,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	std::unique_ptr<FileLoaderFactory> factory(new AndroidContentLoaderFactory());
+
+	// Register a content URI file loader.
+	RegisterFileLoaderFactory("content://", std::move(factory));
 
 	// No need to use EARLY_LOG anymore.
 
@@ -776,9 +844,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		INFO_LOG(G3D, "Not shutting down renderer - not initialized");
 	}
 
-	inputBoxCallbacks.clear();
-	NativeShutdown();
-	VFSShutdown();
+	{
+		std::lock_guard<std::mutex> guard(renderLock);
+		inputBoxCallbacks.clear();
+		NativeShutdown();
+		VFSShutdown();
+	}
+
+	std::lock_guard<std::mutex> guard(frameCommandLock);
 	while (frameCommands.size())
 		frameCommands.pop();
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- end");
@@ -929,10 +1002,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *en
 	NativeInputBoxReceived(entry->second, result, value);
 }
 
-void UpdateRunLoopAndroid(JNIEnv *env) {
+void LockedNativeUpdateRender() {
+	std::lock_guard<std::mutex> renderGuard(renderLock);
 	NativeUpdate();
-
 	NativeRender(graphicsContext);
+}
+
+void UpdateRunLoopAndroid(JNIEnv *env) {
+	LockedNativeUpdateRender();
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -1352,10 +1429,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		}
 	} else {
 		while (!exitRenderLoop) {
-			NativeUpdate();
-
-			NativeRender(graphicsContext);
-
+			LockedNativeUpdateRender();
 			graphicsContext->SwapBuffers();
 
 			ProcessFrameCommands(env);

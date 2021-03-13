@@ -111,14 +111,22 @@ void Do(PointerWrap &p, std::string &x) {
 }
 
 void Do(PointerWrap &p, std::wstring &x) {
-	int stringLen = sizeof(wchar_t)*((int)x.length() + 1);
+	int stringLen = sizeof(wchar_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
 
+	auto read = [&]() {
+		std::wstring r;
+		// In case unaligned, use memcpy.
+		r.resize((stringLen / sizeof(wchar_t)) - 1);
+		memcpy(&r[0], *p.ptr, stringLen - sizeof(wchar_t));
+		return r;
+	};
+
 	switch (p.mode) {
-	case PointerWrap::MODE_READ: x = (wchar_t*)*p.ptr; break;
+	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
-	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == (wchar_t*)*p.ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*p.ptr, p.ptr); break;
+	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), read().c_str(), p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
 }
@@ -127,11 +135,19 @@ void Do(PointerWrap &p, std::u16string &x) {
 	int stringLen = sizeof(char16_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
 
+	auto read = [&]() {
+		std::u16string r;
+		// In case unaligned, use memcpy.
+		r.resize((stringLen / sizeof(char16_t)) - 1);
+		memcpy(&r[0], *p.ptr, stringLen - sizeof(char16_t));
+		return r;
+	};
+
 	switch (p.mode) {
-	case PointerWrap::MODE_READ: x = (char16_t*)*p.ptr; break;
+	case PointerWrap::MODE_READ: x = read(); break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
-	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == (char16_t*)*p.ptr, "Savestate verification failure: (at %p).\n", x.c_str()); break;
+	case PointerWrap::MODE_VERIFY: _dbg_assert_msg_(x == read(), "Savestate verification failure: (at %p).\n", p.ptr); break;
 	}
 	(*p.ptr) += stringLen;
 }
@@ -174,7 +190,7 @@ void PointerWrap::DoMarker(const char *prevName, u32 arbitraryNumber) {
 	u32 cookie = arbitraryNumber;
 	Do(*this, cookie);
 	if (mode == PointerWrap::MODE_READ && cookie != arbitraryNumber) {
-		_assert_msg_(false, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
+		ERROR_LOG(SAVESTATE, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
 		SetError(ERROR_FAILURE);
 	}
 }

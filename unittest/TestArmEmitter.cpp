@@ -229,10 +229,10 @@ bool TestArmEmitter() {
 
 	const u8 *codeStart = emitter.GetCodePointer();
 
-	MIPSState mips;
+	MIPSState mipsState;
 	MIPSComp::JitState js;
 	MIPSComp::JitOptions jo;
-	ArmRegCacheFPU fpr(&mips, &js, &jo);
+	ArmRegCacheFPU fpr(&mipsState, &js, &jo);
 	fpr.SetEmitter(&emitter);
 	int C000 = GetColumnName(0, M_4x4, 0, 0);
 	int C010 = GetColumnName(0, M_4x4, 1, 0);

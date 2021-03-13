@@ -21,16 +21,7 @@
 #undef new
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4996)
-#endif
-
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
@@ -1001,7 +992,6 @@ bool VulkanContext::InitSwapchain() {
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
-	bool swapChainExtentSwap = false;
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
@@ -1429,7 +1419,6 @@ bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props) {
 	// ARM used to put a hash in place of the driver version.
 	// Now they only use major versions. We'll just make a bad heuristic.
 	uint32_t major = VK_VERSION_MAJOR(props.driverVersion);
-	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
 	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 	if (branch > 0)
 		return true;

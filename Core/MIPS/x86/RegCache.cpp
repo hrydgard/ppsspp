@@ -34,18 +34,18 @@ using namespace X64JitConstants;
 static const X64Reg allocationOrder[] = {
 	// R12, when used as base register, for example in a LEA, can generate bad code! Need to look into this.
 	// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
 	RSI, RDI, R8, R9, R10, R11, R12, R13,
 #else
 	RBP, R8, R9, R10, R11, R12, R13,
 #endif
-#elif _M_IX86
+#elif PPSSPP_ARCH(X86)
 	ESI, EDI, EDX, ECX, EBX,
 #endif
 };
 
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 static X64Reg allocationOrderR15[ARRAY_SIZE(allocationOrder) + 1] = {INVALID_REG};
 #endif
 
@@ -54,20 +54,18 @@ void GPRRegCache::FlushBeforeCall() {
 	Flush();
 }
 
-GPRRegCache::GPRRegCache() : mips(0), emit(0) {
-	memset(regs, 0, sizeof(regs));
-	memset(xregs, 0, sizeof(xregs));
+GPRRegCache::GPRRegCache() {
 }
 
-void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
-#ifdef _M_X64
+void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
+#if PPSSPP_ARCH(AMD64)
 	if (allocationOrderR15[0] == INVALID_REG) {
 		memcpy(allocationOrderR15, allocationOrder, sizeof(allocationOrder));
 		allocationOrderR15[ARRAY_SIZE(allocationOrderR15) - 1] = R15;
 	}
 #endif
 
-	this->mips = mips;
+	mips_ = mipsState;
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
 		xregs[i].dirty = false;
@@ -307,7 +305,7 @@ u32 GPRRegCache::GetImm(MIPSGPReg preg) const {
 }
 
 const X64Reg *GPRRegCache::GetAllocationOrder(int &count) {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	if (!jo_->reserveR15ForAsm) {
 		count = ARRAY_SIZE(allocationOrderR15);
 		return allocationOrderR15;
@@ -421,7 +419,7 @@ void GPRRegCache::Flush() {
 			else if (regs[i].location.IsImm()) {
 				StoreFromRegister(r);
 			} else {
-				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %d PC: %08x", i, mips->pc);
+				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %d PC: %08x", i, mips_->pc);
 			}
 		}
 	}

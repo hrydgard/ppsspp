@@ -1303,8 +1303,6 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowFramebufferRead)
 }
 
 static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
-	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
-
 	// Flaws:
 	// - INVERT should convert 1, 5, 0xFF to 0.  Currently it won't always.
 	// - INCR twice shouldn't change the value.
@@ -1436,13 +1434,19 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	}
 }
 
-void ConvertStencilFuncState(GenericStencilFuncState &state) {
-	state.enabled = gstate.isStencilTestEnabled();
-	if (!state.enabled)
-		return;
+static void ConvertStencilMask5551(GenericStencilFuncState &state) {
+	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
+}
 
-	// The PSP's mask is reversed (bits not to write.)
+void ConvertStencilFuncState(GenericStencilFuncState &state) {
+	// The PSP's mask is reversed (bits not to write.)  Ignore enabled, used for clears too.
 	state.writeMask = (~gstate.getStencilWriteMask()) & 0xFF;
+	state.enabled = gstate.isStencilTestEnabled();
+	if (!state.enabled) {
+		if (gstate.FrameBufFormat() == GE_FORMAT_5551)
+			ConvertStencilMask5551(state);
+		return;
+	}
 
 	state.sFail = gstate.getStencilOpSFail();
 	state.zFail = gstate.getStencilOpZFail();
@@ -1458,6 +1462,7 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		break;
 
 	case GE_FORMAT_5551:
+		ConvertStencilMask5551(state);
 		ConvertStencilFunc5551(state);
 		break;
 

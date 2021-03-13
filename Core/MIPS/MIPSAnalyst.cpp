@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -102,6 +103,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
 	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
+	{ 0x05aceb23092fd6a1, 36, "zettai_hero_update_minimap_tex", }, // Zettai Hero Project (US)
 	{ 0x05aedd0c04b451a1, 356, "sqrt", },
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
 	{ 0x06628f6052cda3c1, 1776, "toheart2_download_frame", }, // To Heart 2 Portable
@@ -325,6 +327,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
+	{ 0x8ecf804bbe7922e5, 572, "worms_copy_normalize_alpha" }, // Worms Battle Islands (US)
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
@@ -502,6 +505,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xfe4f0280240008e9, 28, "vavg_q", },
 	{ 0xfe5dd338ab862291, 216, "memset", }, // Metal Gear Solid: Peace Walker demo
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
+	{ 0x249a3c5981c73480, 1472, "openseason_data_decode", },  // Open Season
 };
 
 namespace MIPSAnalyst {
@@ -757,7 +761,7 @@ namespace MIPSAnalyst {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		hashToFunction.clear();
 		// Really need to detect C++11 features with better defines.
-#if !defined(IOS)
+#if !PPSSPP_PLATFORM(IOS)
 		hashToFunction.reserve(functions.size());
 #endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {

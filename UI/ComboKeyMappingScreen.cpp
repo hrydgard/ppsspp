@@ -52,7 +52,7 @@ void ComboKeyScreen::CreateViews() {
 	for (int i = 0; i < 5; i++) {
 		comboselect->AddChoice(comboKeyImages[i]);
 	}
-	comboselect->SetSelection(*mode);
+	comboselect->SetSelection(*mode, false);
 	comboselect->OnChoice.Handle(this, &ComboKeyScreen::onCombo);
 	leftColumn->Add(comboselect);
 	root__->Add(leftColumn);

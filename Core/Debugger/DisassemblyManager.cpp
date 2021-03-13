@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <string>
 #include <algorithm>
 #include <map>
@@ -43,7 +44,7 @@ bool isInInterval(u32 start, u32 size, u32 value)
 
 static HashType computeHash(u32 address, u32 size)
 {
-#ifdef _M_X64
+#if PPSSPP_ARCH(AMD64)
 	return XXH3_64bits(Memory::GetPointer(address), size);
 #else
 	return XXH3_64bits(Memory::GetPointer(address), size) & 0xFFFFFFFF;
@@ -302,7 +303,6 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 		{
 			DisassemblyEntry* entry = it->second;
 			int oldLineNum = entry->getLineNum(address,true);
-			int oldNumLines = entry->getNumLines();
 			if (n <= oldLineNum)
 			{
 				return entry->getLineAddress(oldLineNum-n);
@@ -420,7 +420,6 @@ int DisassemblyFunction::getLineNum(u32 address, bool findStart)
 		int last = (int)lineAddresses.size() - 1;
 		for (int i = 0; i < last; i++)
 		{
-			u32 next = lineAddresses[i + 1];
 			if (lineAddresses[i] == address)
 				return i;
 		}

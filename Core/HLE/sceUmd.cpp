@@ -105,11 +105,12 @@ void __UmdDoState(PointerWrap &p)
 	}
 	if (s > 2) {
 		Do(p, umdInsertChangeEvent);
-		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
 		Do(p, UMDInserted);
-	}
-	else
+	} else {
+		umdInsertChangeEvent = -1;
 		UMDInserted = true;
+	}
+	CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
 }
 
 static u8 __KernelUmdGetState()

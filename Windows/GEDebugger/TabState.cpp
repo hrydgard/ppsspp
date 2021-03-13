@@ -290,28 +290,28 @@ CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwn
 void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
 	switch (info.fmt) {
 	case CMD_FMT_HEX:
-		swprintf(dest, L"%06x", value);
+		swprintf(dest, 255, L"%06x", value);
 		break;
 
 	case CMD_FMT_NUM:
-		swprintf(dest, L"%d", value);
+		swprintf(dest, 255, L"%d", value);
 		break;
 
 	case CMD_FMT_FLOAT24:
-		swprintf(dest, L"%f", getFloat24(value));
+		swprintf(dest, 255, L"%f", getFloat24(value));
 		break;
 
 	case CMD_FMT_PTRWIDTH:
 		value |= (otherValue & 0x00FF0000) << 8;
 		otherValue &= 0xFFFF;
-		swprintf(dest, L"%08x, w=%d", value, otherValue);
+		swprintf(dest, 255, L"%08x, w=%d", value, otherValue);
 		break;
 
 	case CMD_FMT_XY:
 		{
 			int x = value & 0x3FF;
 			int y = value >> 10;
-			swprintf(dest, L"%d,%d", x, y);
+			swprintf(dest, 255, L"%d,%d", x, y);
 		}
 		break;
 
@@ -321,7 +321,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			int y1 = value >> 10;
 			int x2 = otherValue & 0x3FF;
 			int y2 = otherValue >> 10;
-			swprintf(dest, L"%d,%d - %d,%d", x1, y1, x2, y2);
+			swprintf(dest, 255, L"%d,%d - %d,%d", x1, y1, x2, y2);
 		}
 		break;
 
@@ -330,7 +330,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			float x = getFloat24(value);
 			float y = getFloat24(otherValue);
 			float z = getFloat24(otherValue2);
-			swprintf(dest, L"%f, %f, %f", x, y, z);
+			swprintf(dest, 255, L"%f, %f, %f", x, y, z);
 		}
 		break;
 
@@ -338,7 +338,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			int w = 1 << (value & 0x1f);
 			int h = 1 << ((value >> 8) & 0x1f);
-			swprintf(dest, L"%dx%d", w, h);
+			swprintf(dest, 255, L"%dx%d", w, h);
 		}
 		break;
 
@@ -346,7 +346,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			float x = (float)value / 16.0f;
 			float y = (float)otherValue / 16.0f;
-			swprintf(dest, L"%fx%f", x, y);
+			swprintf(dest, 255, L"%fx%f", x, y);
 		}
 		break;
 
@@ -354,7 +354,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			char buffer[256];
 			GeDescribeVertexType(value, buffer);
-			swprintf(dest, L"%S", buffer);
+			swprintf(dest, 255, L"%S", buffer);
 		}
 		break;
 
@@ -374,13 +374,13 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				"DXT5",
 			};
 			if (value < (u32)ARRAY_SIZE(texformats)) {
-				swprintf(dest, L"%S", texformats[value]);
+				swprintf(dest, 255, L"%S", texformats[value]);
 			}
 			else if ((value & 0xF) < (u32)ARRAY_SIZE(texformats)) {
-				swprintf(dest, L"%S (extra bits %06x)", texformats[value & 0xF], value);
+				swprintf(dest, 255, L"%S (extra bits %06x)", texformats[value & 0xF], value);
 			}
 			else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -399,12 +399,12 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u8 offset = (value >> 16) & 0xFF;
 			if (offset < 0x20 && shift < 0x20) {
 				if (offset == 0 && shift == 0) {
-					swprintf(dest, L"%S ind & %02x", clutformats[palette], mask);
+					swprintf(dest, 255, L"%S ind & %02x", clutformats[palette], mask);
 				} else {
-					swprintf(dest, L"%S (ind >> %d) & %02x, offset +%d", clutformats[palette], shift, mask, offset);
+					swprintf(dest, 255, L"%S (ind >> %d) & %02x, offset +%d", clutformats[palette], shift, mask, offset);
 				}
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -415,9 +415,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u32 mask = otherValue2;
 			const u32 ref = otherValue;
 			if (value < (u32)ARRAY_SIZE(colorTests)) {
-				swprintf(dest, L"pass if (c & %06x) %S (%06x & %06x)", mask, colorTests[value], ref, mask);
+				swprintf(dest, 255, L"pass if (c & %06x) %S (%06x & %06x)", mask, colorTests[value], ref, mask);
 			} else {
-				swprintf(dest, L"%06x, ref=%06x, maks=%06x", value, ref, mask);
+				swprintf(dest, 255, L"%06x, ref=%06x, maks=%06x", value, ref, mask);
 			}
 		}
 		break;
@@ -431,13 +431,13 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u8 func = (value >> 0) & 0xff;
 			if (func < (u8)ARRAY_SIZE(alphaTestFuncs)) {
 				if (info.fmt == CMD_FMT_ALPHATEST) {
-					swprintf(dest, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
+					swprintf(dest, 255, L"pass if (a & %02x) %S (%02x & %02x)", mask, alphaTestFuncs[func], ref, mask);
 				} else if (info.fmt == CMD_FMT_STENCILTEST) {
 					// Stencil test is the other way around.
-					swprintf(dest, L"pass if (%02x & %02x) %S (a & %02x)", ref, mask, alphaTestFuncs[func], mask);
+					swprintf(dest, 255, L"pass if (%02x & %02x) %S (a & %02x)", ref, mask, alphaTestFuncs[func], mask);
 				}
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -446,23 +446,23 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		{
 			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			if (value < (u32)ARRAY_SIZE(zTestFuncs)) {
-				swprintf(dest, L"pass if src %S dst", zTestFuncs[value]);
+				swprintf(dest, 255, L"pass if src %S dst", zTestFuncs[value]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
 
 	case CMD_FMT_OFFSETADDR:
-		swprintf(dest, L"%08x", gpuDebug->GetRelativeAddress(0));
+		swprintf(dest, 255, L"%08x", gpuDebug->GetRelativeAddress(0));
 		break;
 
 	case CMD_FMT_VADDR:
-		swprintf(dest, L"%08x", gpuDebug->GetVertexAddress());
+		swprintf(dest, 255, L"%08x", gpuDebug->GetVertexAddress());
 		break;
 
 	case CMD_FMT_IADDR:
-		swprintf(dest, L"%08x", gpuDebug->GetIndexAddress());
+		swprintf(dest, 255, L"%08x", gpuDebug->GetIndexAddress());
 		break;
 
 	case CMD_FMT_MATERIALUPDATE:
@@ -478,20 +478,20 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				"ambient, diffuse, specular",
 			};
 			if (value < (u32)ARRAY_SIZE(materialTypes)) {
-				swprintf(dest, L"%S", materialTypes[value]);
+				swprintf(dest, 255, L"%S", materialTypes[value]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
 
 	case CMD_FMT_SHADEMODEL:
 		if (value == 0) {
-			swprintf(dest, L"flat");
+			swprintf(dest, 255, L"flat");
 		} else if (value == 1) {
-			swprintf(dest, L"gouraud");
+			swprintf(dest, 255, L"gouraud");
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
@@ -503,9 +503,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u8 pass = (value >> 16) & 0xFF;
 			const u8 totalValid = (u8)ARRAY_SIZE(stencilOps);
 			if (sfail < totalValid && zfail < totalValid && pass < totalValid) {
-				swprintf(dest, L"fail=%S, pass/depthfail=%S, pass=%S", stencilOps[sfail], stencilOps[zfail], stencilOps[pass]);
+				swprintf(dest, 255, L"fail=%S, pass/depthfail=%S, pass=%S", stencilOps[sfail], stencilOps[zfail], stencilOps[pass]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -551,16 +551,16 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u32 blendMode = (value >> 8);
 
 			if (blendFactorA < (u8)ARRAY_SIZE(blendFactorsA) && blendFactorB < (u8)ARRAY_SIZE(blendFactorsB) && blendMode < (u32)ARRAY_SIZE(blendModes)) {
-				swprintf(dest, L"%S: %S, %S", blendModes[blendMode], blendFactorsA[blendFactorA], blendFactorsB[blendFactorB]);
+				swprintf(dest, 255, L"%S: %S, %S", blendModes[blendMode], blendFactorsA[blendFactorA], blendFactorsB[blendFactorB]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
 
 	case CMD_FMT_CLEARMODE:
 		if (value == 0) {
-			swprintf(dest, L"%d", value);
+			swprintf(dest, 255, L"%d", value);
 		} else if ((value & ~(GE_CLEARMODE_ALL | 1)) == 0) {
 			const char *clearmodes[] = {
 				"1, write disabled",
@@ -572,9 +572,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				"1, write alpha/stencil, depth",
 				"1, write color, alpha/stencil, depth",
 			};
-			swprintf(dest, L"%S", clearmodes[value >> 8]);
+			swprintf(dest, 255, L"%S", clearmodes[value >> 8]);
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
@@ -592,9 +592,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u8 colorDouble = (value >> 16) & 0xFF;
 
 			if (rgba <= 1 && colorDouble <= 1 && func < (u8)ARRAY_SIZE(texfuncs)) {
-				swprintf(dest, L"%S, %S%S", texfuncs[func], rgba ? "RGBA" : "RGB", colorDouble ? ", color doubling" : "");
+				swprintf(dest, 255, L"%S, %S%S", texfuncs[func], rgba ? "RGBA" : "RGB", colorDouble ? ", color doubling" : "");
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -606,9 +606,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const u8 maxLevel = (value >> 16) & 0xFF;
 
 			if (swizzle <= 1 && clutLevels <= 1 && maxLevel <= 7) {
-				swprintf(dest, L"%S%d levels%S", swizzle ? "swizzled, " : "", maxLevel + 1, clutLevels ? ", CLUT per level" : "");
+				swprintf(dest, 255, L"%S%d levels%S", swizzle ? "swizzled, " : "", maxLevel + 1, clutLevels ? ", CLUT per level" : "");
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -635,9 +635,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			};
 
 			if (value < ARRAY_SIZE(logicOps)) {
-				swprintf(dest, L"%S", logicOps[value]);
+				swprintf(dest, 255, L"%S", logicOps[value]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -647,9 +647,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			if ((value & ~0x0101) == 0) {
 				const bool clampS = (value & 0x0001) != 0;
 				const bool clampT = (value & 0x0100) != 0;
-				swprintf(dest, L"%S s, %S t", clampS ? "clamp" : "wrap", clampT ? "clamp" : "wrap");
+				swprintf(dest, 255, L"%S s, %S t", clampS ? "clamp" : "wrap", clampT ? "clamp" : "wrap");
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -666,9 +666,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const float bias = (float)biasFixed / 16.0f;
 
 			if (mipLevel == 0 || mipLevel == 1 || mipLevel == 2) {
-				swprintf(dest, L"%S: %f", mipLevelModes[mipLevel], bias);
+				swprintf(dest, 255, L"%S: %f", mipLevelModes[mipLevel], bias);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -688,9 +688,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			if ((value & ~0x0107) == 0 && textureFilters[value & 7] != NULL) {
 				const int min = (value & 0x0007) >> 0;
 				const int mag = (value & 0x0100) >> 8;
-				swprintf(dest, L"min: %S, mag: %S", textureFilters[min], textureFilters[mag]);
+				swprintf(dest, 255, L"min: %S, mag: %S", textureFilters[min], textureFilters[mag]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -712,9 +712,9 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			if ((value & ~0x0303) == 0) {
 				const int uvGen = (value & 0x0003) >> 0;
 				const int uvProj = (value & 0x0300) >> 8;
-				swprintf(dest, L"gen: %S, proj: %S", uvGenModes[uvGen], uvProjModes[uvProj]);
+				swprintf(dest, 255, L"gen: %S, proj: %S", uvGenModes[uvGen], uvProjModes[uvProj]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
@@ -723,19 +723,19 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		if ((value & ~0x0303) == 0) {
 			const int sLight = (value & 0x0003) >> 0;
 			const int tLight = (value & 0x0300) >> 8;
-			swprintf(dest, L"s: %d, t: %d", sLight, tLight);
+			swprintf(dest, 255, L"s: %d, t: %d", sLight, tLight);
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
 	case CMD_FMT_LIGHTMODE:
 		if (value == 0) {
-			swprintf(dest, L"mixed color");
+			swprintf(dest, 255, L"mixed color");
 		} else if (value == 1) {
-			swprintf(dest, L"separate specular");
+			swprintf(dest, 255, L"separate specular");
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
@@ -744,7 +744,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const char *lightComputations[] = {
 				"diffuse",
 				"diffuse + spec",
-				"pow(diffuse) + spec",
+				"pow(diffuse)",
 				"unknown (diffuse?)",
 			};
 			const char *lightTypes[] = {
@@ -756,20 +756,20 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			if ((value & ~0x0303) == 0) {
 				const int comp = (value & 0x0003) >> 0;
 				const int type = (value & 0x0300) >> 8;
-				swprintf(dest, L"type: %S, comp: %S", lightTypes[type], lightComputations[comp]);
+				swprintf(dest, 255, L"type: %S, comp: %S", lightTypes[type], lightComputations[comp]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
 
 	case CMD_FMT_CULL:
 		if (value == 0) {
-			swprintf(dest, L"front (CW)");
+			swprintf(dest, 255, L"front (CW)");
 		} else if (value == 1) {
-			swprintf(dest, L"back (CCW)");
+			swprintf(dest, 255, L"back (CCW)");
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
@@ -781,23 +781,23 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				"points",
 			};
 			if (value < (u32)ARRAY_SIZE(patchPrims)) {
-				swprintf(dest, L"%S", patchPrims[value]);
+				swprintf(dest, 255, L"%S", patchPrims[value]);
 			} else {
-				swprintf(dest, L"%06x", value);
+				swprintf(dest, 255, L"%06x", value);
 			}
 		}
 		break;
 
 	case CMD_FMT_FLAG:
 		if ((value & ~1) == 0) {
-			swprintf(dest, L"%d", value);
+			swprintf(dest, 255, L"%d", value);
 		} else {
-			swprintf(dest, L"%06x", value);
+			swprintf(dest, 255, L"%06x", value);
 		}
 		break;
 
 	default:
-		swprintf(dest, L"BAD FORMAT %06x", value);
+		swprintf(dest, 255, L"BAD FORMAT %06x", value);
 	}
 
 	// TODO: Turn row grey or some such?

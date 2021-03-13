@@ -15,7 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifdef __mips__
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -202,4 +203,4 @@ std::string CPUInfo::Summarize()
 	return sum;
 }
 
-#endif // __mips__
+#endif // PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)

@@ -21,7 +21,10 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#include "ppsspp_config.h"
+
 #if defined(_WIN32)
+#include <WinSock2.h>
 #include "Common/CommonWindows.h"
 #endif
 
@@ -31,13 +34,22 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#if !PPSSPP_PLATFORM(SWITCH)
 #include <ifaddrs.h>
+#endif // !PPSSPP_PLATFORM(SWITCH)
 #endif
 
 #ifndef MSG_NOSIGNAL
 // Default value to 0x00 (do nothing) in systems where it's not supported.
 #define MSG_NOSIGNAL 0x00
 #endif
+
+#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
+#undef __BSD_VISIBLE
+#define __BSD_VISIBLE 1
+#include <switch.h>
+#define TCP_MAXSEG 2
+#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
 #include <cstring>
 
@@ -56,10 +68,17 @@
 #include "Core/Instance.h"
 #include "proAdhoc.h" 
 
+#if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
+// Missing toolchain define
+#define INADDR_NONE 0xFFFFFFFF
+#endif
+
 uint16_t portOffset;
 uint32_t minSocketTimeoutUS;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
+char* dummyPeekBuf64k                 = NULL;
+int dummyPeekBuf64kSize               = 65536;
 int one                               = 1;
 bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
@@ -128,19 +147,30 @@ bool isPDPPortInUse(uint16_t port) {
 	return false;
 }
 
-bool isPTPPortInUse(uint16_t port, bool forListen) {
+bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac, uint16_t dstport) {
 	// Iterate Sockets
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		auto sock = adhocSockets[i];
 		if (sock != NULL && sock->type == SOCK_PTP)
-			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
-			if (sock->data.ptp.lport == port && 
-				((forListen && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) || 
-				(!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN)))
+			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice (unless destination mac or port are different).
+			if (sock->data.ptp.lport == port &&
+			    ((forListen && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) ||
+			     (!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN && 
+			      sock->data.ptp.pport == dstport && dstmac != nullptr && isMacMatch(&sock->data.ptp.paddr, dstmac)))) 
+			{
 				return true;
+			}
 	}
 	// Unused Port
 	return false;
+}
+
+// Replacement for inet_ntoa since it's getting deprecated
+std::string ip2str(in_addr in) {
+	char str[INET_ADDRSTRLEN] = "...";
+	u8* ipptr = (u8*)&in;
+	snprintf(str, sizeof(str), "%u.%u.%u.%u", ipptr[0], ipptr[1], ipptr[2], ipptr[3]);
+	return std::string(str);
 }
 
 std::string mac2str(SceNetEtherAddr* mac) {
@@ -190,7 +220,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	// Already existed
 	if (peer != NULL) {
 		u32 tmpip = packet->ip;
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(struct in_addr*)&tmpip).c_str(), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -431,7 +461,7 @@ void deleteFriendByIP(uint32_t ip) {
 			*/
 
 			u32 tmpip = peer->ip_addr;
-			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr).c_str(), inet_ntoa(*(struct in_addr *)&tmpip)); //inet_ntoa(*(in_addr*)&peer->ip_addr)
+			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr).c_str(), ip2str(*(struct in_addr *)&tmpip).c_str()); //inet_ntoa(*(in_addr*)&peer->ip_addr)
 
 			// Free Memory
 			//free(peer);
@@ -1136,18 +1166,18 @@ void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr) 
 
 bool SetMatchingInCallback(SceNetAdhocMatchingContext* context, bool IsInCB) {
 	if (context == NULL) return false;
-	context->eventlock->lock(); //peerlock.lock();
+	peerlock.lock();
 	context->IsMatchingInCB = IsInCB;
-	context->eventlock->unlock(); //peerlock.unlock();
+	peerlock.unlock();
 	return IsInCB;
 }
 
 bool IsMatchingInCallback(SceNetAdhocMatchingContext* context) {
 	bool inCB = false;
 	if (context == NULL) return inCB;
-	context->eventlock->lock(); //peerlock.lock();
+	peerlock.lock();
 	inCB = (context->IsMatchingInCB);
-	context->eventlock->unlock(); //peerlock.unlock();
+	peerlock.unlock();
 	return inCB;
 }
 
@@ -1517,7 +1547,7 @@ int friendFinder(){
 
 						// Log Incoming Peer
                         u32_le ipaddr = packet->ip;
-						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), inet_ntoa(*(in_addr*)&ipaddr), packet->name.data);
+						INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), packet->name.data);
 
 						// Add User
 						addFriend(packet);
@@ -1742,19 +1772,23 @@ int getActivePeerCount(const bool excludeTimedout) {
 }
 
 int getLocalIp(sockaddr_in* SocketAddress) {
+	if (isLocalServer) {
+		SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
+		return 0;
+	}
+
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (metasocket != (int)INVALID_SOCKET) {
 		struct sockaddr_in localAddr;
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		socklen_t addrLen = sizeof(localAddr);
 		int ret = getsockname(metasocket, (struct sockaddr*)&localAddr, &addrLen);
 		if (SOCKET_ERROR != ret) {
-			if (isLocalServer) {
-				localAddr.sin_addr = g_localhostIP.in.sin_addr;
-			}
 			SocketAddress->sin_addr = localAddr.sin_addr;
 			return 0;
 		}
 	}
+#endif // !PPSSPP_PLATFORM(SWITCH)
 
 // Fallback if not connected to AdhocServer
 #if defined(_WIN32)
@@ -1764,17 +1798,18 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	if (::gethostname(szHostName, sizeof(szHostName))) {
 		// Error handling 
 	}
-	// Get local IP addresses
-	struct hostent* pHost = 0;
-	pHost = ::gethostbyname(szHostName); // On Non-Windows (UNIX/POSIX) gethostbyname("localhost") will always returns a useless 127.0.0.1, while on Windows it returns LAN IP when available
-	if (pHost) {
-		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
-		if (isLocalServer) {
-			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-		}
+	// Get local network IP addresses (LAN/VPN/loopback)
+	struct addrinfo hints, * res = 0;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET; // AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_ADDRCONFIG; // getaddrinfo with AI_ADDRCONFIG will fail when there is no local network connected? https://github.com/stephane/libmodbus/issues/575
+	// Note: getaddrinfo could cause freezes on Android if there is no network https://github.com/hrydgard/ppsspp/issues/13300
+	if (getaddrinfo(szHostName, NULL, &hints, &res) == 0 && res != NULL) {
+		memcpy(&SocketAddress->sin_addr, &((struct sockaddr_in*)res->ai_addr)->sin_addr, sizeof(SocketAddress->sin_addr));
+		freeaddrinfo(res);
 		return 0;
 	}
-	return -1;
 
 #elif defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
 	struct ifaddrs* ifAddrStruct = NULL;
@@ -1793,12 +1828,8 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			}
 		}
 		freeifaddrs(ifAddrStruct);
-		if (isLocalServer) {
-			SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-		}
 		return 0;
 	}
-	return -1;
 
 #else // Alternative way
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -1811,24 +1842,21 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
 		serv.sin_port = htons(kDnsPort);
 
-		int err = connect(sock, (const sockaddr*)&serv, sizeof(serv));
+		int err = connect(sock, (struct sockaddr*)&serv, sizeof(serv));
 		if (err != SOCKET_ERROR) {
-			sockaddr_in name;
+			struct sockaddr_in name;
 			socklen_t namelen = sizeof(name);
-			err = getsockname(sock, (sockaddr*)&name, &namelen);
+			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 			if (err != SOCKET_ERROR) {
 				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
 				closesocket(sock);
-				if (isLocalServer) {
-					SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
-				}
 				return 0;
 			}
 		}
 		closesocket(sock);
 	}
-	return -1;
 #endif
+	return -1;
 }
 
 uint32_t getLocalIp(int sock) {
@@ -1893,13 +1921,20 @@ uint16_t getLocalPort(int sock) {
 	return ntohs(localAddr.sin_port);
 }
 
-u_long getAvailToRecv(int sock) {
+u_long getAvailToRecv(int sock, int udpBufferSize) {
 	u_long n = 0; // Typical MTU size is 1500
+	int err = -1;
 #if defined(_WIN32) // May not be available on all platform
-	ioctlsocket(sock, FIONREAD, &n);
+	err = ioctlsocket(sock, FIONREAD, &n);
 #else
-	ioctl(sock, FIONREAD, &n);
+	err = ioctl(sock, FIONREAD, &n);
 #endif
+	if (err < 0)
+		return 0;
+
+	if (udpBufferSize > 0 && n > 0) {
+		// TODO: Cap number of bytes of full DGRAM message(s) up to buffer size, but may cause Warriors Orochi 2 to get FPS drops
+	}
 	return n;
 }
 
@@ -2001,7 +2036,7 @@ int setUDPConnReset(int udpsock, bool enabled) {
 	return -1;
 }
 
-#if !defined(TCP_KEEPIDLE)
+#if !defined(TCP_KEEPIDLE) && !PPSSPP_PLATFORM(SWITCH)
 #define TCP_KEEPIDLE	TCP_KEEPALIVE //TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE on macOS
 #endif
 // VS 2017 compatibility
@@ -2017,6 +2052,7 @@ int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int kee
 	int optval = keepalive ? 1 : 0;
 	int optlen = sizeof(optval);
 	int result = setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, optlen);
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (result == 0 && keepalive) {
 		if (getsockopt(sock, SOL_SOCKET, SO_TYPE, (char*)&optval, (socklen_t*)&optlen) == 0 && optval == SOCK_STREAM) {
 			optlen = sizeof(optval);
@@ -2028,6 +2064,7 @@ int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int kee
 			setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&optval, optlen);
 		}
 	}
+#endif // !PPSSPP_PLATFORM(SWITCH)
 	return result;
 }
 
@@ -2113,10 +2150,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 		g_localhostIP.in.sin_port = 0;
 		// Bind Local Address to Socket
-		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(sockaddr));
+		iResult = bind(metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
 		if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(g_localhostIP.in.sin_addr), iResult);
-			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(g_localhostIP.in.sin_addr), 2.0, 0x0000ff);
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", ip2str(g_localhostIP.in.sin_addr).c_str(), iResult);
+			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str(), 2.0, 0x0000ff);
 		}
 	}
 	
@@ -2156,7 +2193,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			sleep_ms(10);
 		}
 		if (IsSocketReady(metasocket, false, true) <= 0) {
-			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(g_adhocServerIP.in.sin_addr), ntohs(g_adhocServerIP.in.sin_port));
+			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
 			return iResult;
 		}

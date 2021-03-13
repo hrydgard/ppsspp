@@ -207,9 +207,10 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 
 	queueRunner_.CreateDeviceObjects();
 
-	// Temporary AMD hack for issue #10097
-	if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_AMD) {
-			useThread_ = false;
+	// AMD hack for issue #10097 (older drivers only.)
+	const auto &props = vulkan_->GetPhysicalDeviceProperties().properties;
+	if (props.vendorID == VULKAN_VENDOR_AMD && props.apiVersion < VK_API_VERSION_1_1) {
+		useThread_ = false;
 	}
 }
 

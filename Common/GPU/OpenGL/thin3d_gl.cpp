@@ -61,7 +61,7 @@ static const unsigned short blendFactorToGL[] = {
 	GL_ONE_MINUS_SRC1_COLOR,
 	GL_SRC1_ALPHA,
 	GL_ONE_MINUS_SRC1_ALPHA,
-#elif !defined(IOS)
+#elif !PPSSPP_PLATFORM(IOS)
 	GL_SRC1_COLOR_EXT,
 	GL_ONE_MINUS_SRC1_COLOR_EXT,
 	GL_SRC1_ALPHA_EXT,
@@ -281,10 +281,6 @@ public:
 			iter->Release();
 		}
 		if (program_) render_->DeleteProgram(program_);
-		if (depthStencil) depthStencil->Release();
-		if (blend) blend->Release();
-		if (raster) raster->Release();
-		if (inputLayout) inputLayout->Release();
 	}
 
 	bool LinkShaders();
@@ -295,14 +291,14 @@ public:
 
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
-	OpenGLInputLayout *inputLayout = nullptr;
-	OpenGLDepthStencilState *depthStencil = nullptr;
-	OpenGLBlendState *blend = nullptr;
-	OpenGLRasterState *raster = nullptr;
+	AutoRef<OpenGLInputLayout> inputLayout;
+	AutoRef<OpenGLDepthStencilState> depthStencil;
+	AutoRef<OpenGLBlendState> blend;
+	AutoRef<OpenGLRasterState> raster;
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[8];
+	GLint samplerLocs_[8]{};
 	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
@@ -406,7 +402,7 @@ public:
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
 		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (OpenGLBuffer  *)buffers[i];
+			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];
 			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
 		}
 	}
@@ -482,17 +478,17 @@ private:
 	DeviceCaps caps_{};
 
 	// Bound state
-	OpenGLSamplerState *boundSamplers_[MAX_TEXTURE_SLOTS]{};
+	AutoRef<OpenGLSamplerState> boundSamplers_[MAX_TEXTURE_SLOTS];
 	// Point to GLRTexture directly because they can point to the textures
 	// in framebuffers too (which also can be bound).
 	const GLRTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 
-	OpenGLPipeline *curPipeline_ = nullptr;
-	OpenGLBuffer *curVBuffers_[4]{};
+	AutoRef<OpenGLPipeline> curPipeline_;
+	AutoRef<OpenGLBuffer> curVBuffers_[4]{};
 	int curVBufferOffsets_[4]{};
-	OpenGLBuffer *curIBuffer_ = nullptr;
+	AutoRef<OpenGLBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
-	Framebuffer *curRenderTarget_ = nullptr;
+	AutoRef<Framebuffer> curRenderTarget_;
 
 	uint8_t stencilRef_ = 0;
 
@@ -1038,8 +1034,8 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
-	if ((int)desc.prim >= (int)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ERROR_LOG(G3D,  "Invalid primitive type");
+	if ((uint32_t)desc.prim >= (uint32_t)Primitive::PRIMITIVE_TYPE_COUNT) {
+		ERROR_LOG(G3D, "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster) {
@@ -1069,12 +1065,6 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->blend = (OpenGLBlendState *)desc.blend;
 		pipeline->raster = (OpenGLRasterState *)desc.raster;
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
-		pipeline->depthStencil->AddRef();
-		pipeline->blend->AddRef();
-		pipeline->raster->AddRef();
-		if (pipeline->inputLayout) {
-			pipeline->inputLayout->AddRef();
-		}
 		return pipeline;
 	} else {
 		ERROR_LOG(G3D,  "Failed to create pipeline - shaders failed to link");
@@ -1210,7 +1200,7 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0], "Can't call Draw without a vertex buffer");
+	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
 		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
@@ -1219,8 +1209,8 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0], "Can't call DrawIndexed without a vertex buffer");
-	_dbg_assert_msg_(curIBuffer_, "Can't call DrawIndexed without an index buffer");
+	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
 		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
@@ -1230,7 +1220,7 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
-	_assert_(curPipeline_->inputLayout);
+	_assert_(curPipeline_->inputLayout != nullptr);
 	int stride = curPipeline_->inputLayout->stride;
 	size_t dataSize = stride * vertexCount;
 

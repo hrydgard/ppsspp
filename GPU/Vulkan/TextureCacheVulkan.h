@@ -128,10 +128,6 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	int decimationCounter_ = 0;
-	int texelsScaledThisFrame_ = 0;
-	int timesInvalidatedAllThisFrame_ = 0;
-
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
@@ -139,6 +135,7 @@ private:
 	Vulkan2D *vulkan2D_;
 
 	std::string textureShader_;
+	int maxScaleFactor_ = 255;
 	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
 	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 

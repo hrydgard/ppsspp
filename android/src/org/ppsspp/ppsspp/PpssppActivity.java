@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 public class PpssppActivity extends NativeActivity {
@@ -111,5 +112,20 @@ public class PpssppActivity extends NativeActivity {
 				processCommand(cmd, param);
 			}
 		});
+	}
+
+	public int openContentUri(String uriString) {
+		try {
+			Uri uri = Uri.parse(uriString);
+			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, "r");
+			if (filePfd == null) {
+				Log.e(TAG, "Failed to get file descriptor for " + uriString);
+				return -1;
+			}
+			return filePfd.detachFd();  // Take ownership of the fd.
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return -1;
+		}
 	}
 }

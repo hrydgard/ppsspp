@@ -35,6 +35,7 @@
 #include "Common/System/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Math/math_util.h"
+#include "Common/Profiler/Profiler.h"
 
 #include "QtMain.h"
 #include "Common/Data/Text/I18n.h"
@@ -224,6 +225,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_CAN_JIT:
+		return true;
 	default:
 		return false;
 	}
@@ -689,6 +692,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	PROFILE_INIT();
 	glslang::InitializeProcess();
 #if defined(Q_OS_LINUX)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);

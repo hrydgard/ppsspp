@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "GPU/GPUInterface.h"
@@ -342,8 +343,8 @@ protected:
 	u32 cycleLastPC;
 	int cyclesExecuted;
 
-	bool dumpNextFrame_;
-	bool dumpThisFrame_;
+	bool dumpNextFrame_ = false;
+	bool dumpThisFrame_ = false;
 	bool debugRecording_;
 	bool interruptsEnabled_;
 	bool resized_ = false;

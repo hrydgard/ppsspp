@@ -110,6 +110,7 @@ enum WaitType : int
 	WAITTYPE_ASYNCIO      = 23,
 	WAITTYPE_MICINPUT     = 24, // fake
 	WAITTYPE_NET          = 25, // fake
+	WAITTYPE_USB          = 26, // fake
 
 	NUM_WAITTYPES
 };
@@ -173,6 +174,7 @@ u32 __KernelGetCurThreadStack();
 u32 __KernelGetCurThreadStackStart();
 const char *__KernelGetThreadName(SceUID threadID);
 bool KernelIsThreadDormant(SceUID threadID);
+bool KernelIsThreadWaiting(SceUID threadID);
 
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled);

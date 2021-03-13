@@ -140,6 +140,7 @@ struct GPUDebugBuffer {
 	}
 
 	u32 GetRawPixel(int x, int y) const;
+	void SetRawPixel(int x, int y, u32 c);
 
 	const u8 *GetData() const {
 		return data_;
@@ -161,9 +162,9 @@ struct GPUDebugBuffer {
 		return fmt_;
 	}
 
-private:
-	u32 PixelSize(GPUDebugBufferFormat fmt) const;
+	u32 PixelSize() const;
 
+private:
 	bool alloc_ = false;
 	u8 *data_ = nullptr;
 	u32 stride_ = 0;

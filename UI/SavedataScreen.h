@@ -36,7 +36,10 @@ class SavedataBrowser : public UI::LinearLayout {
 public:
 	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
 
+	void Update() override;
+
 	void SetSortOption(SavedataSortOption opt);
+	void SetSearchFilter(const std::string &filter);
 
 	UI::Event OnChoice;
 
@@ -51,7 +54,11 @@ private:
 
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	UI::ViewGroup *gameList_ = nullptr;
+	UI::TextView *noMatchView_ = nullptr;
+	UI::TextView *searchingView_ = nullptr;
 	std::string path_;
+	std::string searchFilter_;
+	bool searchPending_ = false;
 };
 
 class SavedataScreen : public UIDialogScreenWithGameBackground {
@@ -61,13 +68,17 @@ public:
 	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void sendMessage(const char *message, const char *value) override;
 
 protected:
 	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
 	UI::EventReturn OnSortClick(UI::EventParams &e);
+	UI::EventReturn OnSearch(UI::EventParams &e);
 	void CreateViews() override;
+
 	bool gridStyle_;
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	SavedataBrowser *dataBrowser_;
 	SavedataBrowser *stateBrowser_;
+	std::string searchFilter_;
 };

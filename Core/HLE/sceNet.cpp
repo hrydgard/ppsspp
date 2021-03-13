@@ -48,6 +48,11 @@
 #include "Core/Reporting.h"
 #include "Core/Instance.h"
 
+#if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
+// Missing toolchain define
+#define INADDR_NONE 0xFFFFFFFF
+#endif
+
 static bool netInited;
 bool netInetInited;
 
@@ -153,9 +158,6 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
 	int uid = event + 1;
 
-	if (apctlStateEvent < 0)
-		apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
-
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), apctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
@@ -203,11 +205,12 @@ void __NetInit() {
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
 
+	dummyPeekBuf64k = (char*)malloc(dummyPeekBuf64kSize);
 	InitLocalhostIP();
 
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	NOTICE_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(g_localhostIP.in.sin_addr), mac2str(&mac).c_str());
+	NOTICE_LOG(SCENET, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
@@ -235,6 +238,8 @@ void __NetShutdown() {
 
 	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
 	__UPnPShutdown();
+
+	free(dummyPeekBuf64k);
 }
 
 static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 error) {
@@ -304,14 +309,11 @@ void __NetDoState(PointerWrap &p) {
 	}
 	if (s >= 5) {
 		Do(p, apctlStateEvent);
-		if (apctlStateEvent != -1) {
-			CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
-		}
-	}
-	else {
+	} else {
 		apctlStateEvent = -1;
 	}
-	
+	CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
+
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;
@@ -591,7 +593,7 @@ u32 Net_Term() {
 }
 
 static u32 sceNetTerm() {
-	WARN_LOG(SCENET, "sceNetTerm()");
+	WARN_LOG(SCENET, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
@@ -681,15 +683,14 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 		addr[0] &= 0xfc;
-	}
-	else
-	// Read MAC Address from config
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
-		Memory::Memset(addrAddr, 0, 6);
 	} else {
-		CBreakPoints::ExecMemCheck(addrAddr, true, 6, currentMIPS->pc);
+		// Read MAC Address from config
+		if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
+			ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+			Memory::Memset(addrAddr, 0, 6);
+		}
 	}
+	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
 	return hleLogSuccessI(SCENET, hleDelayResult(0, "get ether mac", 200));
 }

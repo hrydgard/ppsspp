@@ -11,6 +11,7 @@
 #include "Core/CwCheat.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
@@ -248,16 +249,9 @@ static void __CheatStop() {
 static void __CheatStart() {
 	__CheatStop();
 
-	std::string realGameID = g_paramSFO.GetValueString("DISC_ID");
-	std::string gameID = realGameID;
-	const std::string gamePath = PSP_CoreParameter().fileToStart;
-	const bool badGameSFO = realGameID.empty() || !g_paramSFO.GetValueInt("DISC_TOTAL");
-	if (badGameSFO && gamePath.find("/PSP/GAME/") != std::string::npos) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath);
-	}
-
-	cheatEngine = new CWCheatEngine(gameID);
+	cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
 	// This only generates ini files on boot, let's leave homebrew ini file for UI.
+	std::string realGameID = g_paramSFO.GetValueString("DISC_ID");
 	if (!realGameID.empty()) {
 		cheatEngine->CreateCheatFile();
 	}
@@ -301,6 +295,8 @@ void __CheatShutdown() {
 void __CheatDoState(PointerWrap &p) {
 	auto s = p.Section("CwCheat", 0, 2);
 	if (!s) {
+		CheatEvent = -1;
+		CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 		return;
 	}
 
@@ -785,9 +781,13 @@ CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i)
 		return InterpretNextCwCheat(cheat, i);
 	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
 		return InterpretNextTempAR(cheat, i);
-	else
-		_assert_(false);
-	return { CheatOp::Invalid };
+	else {
+		// This shouldn't happen, but apparently does: #14082
+		// Either I'm missing a path or we have memory corruption.
+		// Not sure whether to log here though, feels like we could end up with a
+		// ton of logspam...
+		return { CheatOp::Invalid };
+	}
 }
 
 void CWCheatEngine::ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t)) {
@@ -918,7 +918,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			InvalidateICache(op.addr, op.val);
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
-			Memory::MemcpyUnchecked(op.copyBytesFrom.destAddr, op.addr, op.val);
+			Memory::Memcpy(op.copyBytesFrom.destAddr, op.addr, op.val, "CwCheat");
 		}
 		break;
 
@@ -1100,7 +1100,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 						if (Memory::IsValidRange(dstAddr, val) && Memory::IsValidRange(srcAddr, val)) {
 							InvalidateICache(dstAddr, val);
 							InvalidateICache(srcAddr, val);
-							Memory::MemcpyUnchecked(dstAddr, srcAddr, val);
+							Memory::Memcpy(dstAddr, srcAddr, val, "CwCheat");
 						}
 						// Don't perform any further action.
 						type = -1;

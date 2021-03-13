@@ -43,7 +43,7 @@
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
-	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
+	: vulkan_(vulkan), id_(id) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 
@@ -101,7 +101,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 }
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE) {
+	: vulkan_(vulkan), useHWTransform_(useHWTransform), id_(id) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 	std::string errorMessage;

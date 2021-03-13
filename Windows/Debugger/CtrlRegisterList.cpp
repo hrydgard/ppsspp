@@ -255,7 +255,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		{
 			char temp[256];
 			int len;
-			u32 value;
+			u32 value = -1;
 
 			switch (i)
 			{
@@ -312,7 +312,6 @@ void CtrlRegisterList::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	RECT rect;
 	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
 
 	if (ctrlDown && tolower(wParam) == 'c')
 	{

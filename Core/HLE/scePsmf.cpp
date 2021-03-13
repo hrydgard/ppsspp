@@ -110,8 +110,8 @@ struct PsmfData {
 
 struct PsmfPlayerCreateData {
 	PSPPointer<u8> buffer;
-	u32 bufferSize;
-	int threadPriority;
+	u32_le bufferSize;
+	s32_le threadPriority;
 };
 
 struct PsmfPlayerData {
@@ -212,7 +212,7 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() : filehandle(0), finishThread(nullptr), videoWidth(480), videoHeight(272) {
+	PsmfPlayer() : videoWidth(480), videoHeight(272) {
 		mediaengine = new MediaEngine();
 	}
 	PsmfPlayer(const PsmfPlayerCreateData *data);
@@ -243,7 +243,7 @@ public:
 		return mediaengine->IsVideoEnd() && (mediaengine->IsNoAudioData() || !mediaengine->IsActuallyPlayingAudio());
 	}
 
-	int filehandle;
+	int filehandle = 0;
 	u32 fileoffset;
 	int readSize;
 	int streamSize;
@@ -275,7 +275,7 @@ public:
 	PsmfPlayerStatus status;
 
 	MediaEngine *mediaengine;
-	HLEHelperThread *finishThread;
+	HLEHelperThread *finishThread = nullptr;
 };
 
 class PsmfStream {
@@ -710,10 +710,8 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 		eventPsmfPlayerStatusChange = -1;
 	} else {
 		Do(p, eventPsmfPlayerStatusChange);
-		if (eventPsmfPlayerStatusChange != -1) {
-			CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
-		}
 	}
+	CoreTiming::RestoreRegisterEvent(eventPsmfPlayerStatusChange, "PsmfPlayerStatusChangeEvent", &__PsmfPlayerStatusChange);
 	if (s < 2) {
 		// Assume the latest, which is what we were emulating before.
 		psmfPlayerLibVersion = 0x06060010;
@@ -732,9 +730,6 @@ void __PsmfShutdown() {
 }
 
 static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
-	if (eventPsmfPlayerStatusChange == -1) {
-		eventPsmfPlayerStatusChange = CoreTiming::RegisterEvent("PsmfPlayerStatusChange", &__PsmfPlayerStatusChange);
-	}
 	CoreTiming::ScheduleEvent(usToCycles(delayUs), eventPsmfPlayerStatusChange, (u64)psmfPlayer << 32 | newState);
 }
 
@@ -795,7 +790,6 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 
 	int streamNum = 0;
 	for (auto it : psmf->streamMap) {
-		bool match = false;
 		if (it.second->matchesType(streamType)) {
 			streamNum++;
 		}
@@ -971,7 +965,7 @@ static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 	}
 	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
 	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
-	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20);
+	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
 	DEBUG_LOG(ME, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	return 0;
 }
@@ -1112,7 +1106,7 @@ static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 }
 
 static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
-	auto player = PSPPointer<u32>::Create(psmfPlayer);
+	auto player = PSPPointer<u32_le>::Create(psmfPlayer);
 	const auto data = PSPPointer<const PsmfPlayerCreateData>::Create(dataPtr);
 
 	if (!player.IsValid() || !data.IsValid()) {
@@ -1662,7 +1656,7 @@ static int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
 		if (psmfplayer->totalAudioStreams > 0 && (s64)psmfplayer->psmfPlayerAvcAu.pts < (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
 			// Write zeros for any missing trailing frames so it syncs with the video.
-			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes, "PsmfAudioClear");
 		} else {
 			ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
 		}

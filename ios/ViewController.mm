@@ -96,6 +96,7 @@ static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
 static bool threadEnabled = true;
 static bool threadStopped = false;
+static UITouch *g_touches[10];
 
 __unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
@@ -107,7 +108,7 @@ static LocationHelper *locationHelper;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
-@property (nonatomic, strong) NSMutableArray<NSDictionary *>* touches;
+
 //@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
@@ -127,7 +128,7 @@ static LocationHelper *locationHelper;
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
-		self.touches = [NSMutableArray array];
+		memset(g_touches, 0, sizeof(g_touches));
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
@@ -384,37 +385,38 @@ static LocationHelper *locationHelper;
 	NativeTouch(input);
 }
 
-- (NSDictionary*)touchDictBy:(UITouch*)touch
-{
-	for (NSDictionary* dict in self.touches) {
-		if ([dict objectForKey:@"touch"] == touch)
-			return dict;
-	}
-	return nil;
-}
-
-- (int)freeTouchIndex
-{
-	int index = 0;
-
-	for (NSDictionary* dict in self.touches)
-	{
-		int i = [[dict objectForKey:@"index"] intValue];
-		if (index == i)
-			index = i+1;
+int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
+	// Find the id for the touch.  Avoid 0 (mouse.)
+	for (int localId = 1; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
+		if (g_touches[localId] == uiTouch) {
+			return localId;
+		}
 	}
 
-	return index;
+	// Allocate a new one, perhaps?
+	if (allowAllocate) {
+		for (int localId = 1; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
+			if (g_touches[localId] == 0) {
+				g_touches[localId] = uiTouch;
+				return localId;
+			}
+		}
+
+		// None were free. Ignore?
+		return 0;
+	}
+
+	return -1;
 }
+
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
 	for(UITouch* touch in touches)
 	{
-		NSDictionary* dict = @{@"touch":touch,@"index":@([self freeTouchIndex])};
-		[self.touches addObject:dict];
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:1 pointerId:[[dict objectForKey:@"index"] intValue]];
+		int touchId = ToTouchID(touch, true);
+		[self touchX:point.x y:point.y code:1 pointerId:touchId];
 	}
 }
 
@@ -423,8 +425,8 @@ static LocationHelper *locationHelper;
 	for(UITouch* touch in touches)
 	{
 		CGPoint point = [touch locationInView:self.view];
-		NSDictionary* dict = [self touchDictBy:touch];
-		[self touchX:point.x y:point.y code:0 pointerId:[[dict objectForKey:@"index"] intValue]];
+		int touchId = ToTouchID(touch, true);
+		[self touchX:point.x y:point.y code:0 pointerId: touchId];
 	}
 }
 
@@ -433,9 +435,11 @@ static LocationHelper *locationHelper;
 	for(UITouch* touch in touches)
 	{
 		CGPoint point = [touch locationInView:self.view];
-		NSDictionary* dict = [self touchDictBy:touch];
-		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
-		[self.touches removeObject:dict];
+		int touchId = ToTouchID(touch, false);
+		if (touchId >= 0) {
+			[self touchX:point.x y:point.y code:2 pointerId: touchId];
+			g_touches[touchId] = nullptr;
+		}
 	}
 }
 
@@ -444,9 +448,11 @@ static LocationHelper *locationHelper;
 	for(UITouch* touch in touches)
 	{
 		CGPoint point = [touch locationInView:self.view];
-		NSDictionary* dict = [self touchDictBy:touch];
-		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
-		[self.touches removeObject:dict];
+		int touchId = ToTouchID(touch, false);
+		if (touchId >= 0) {
+			[self touchX:point.x y:point.y code:2 pointerId: touchId];
+			g_touches[touchId] = nullptr;
+		}
 	}
 }
 

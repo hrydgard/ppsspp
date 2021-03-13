@@ -66,6 +66,7 @@
 #undef EISCONN
 #undef EALREADY
 #undef ETIMEDOUT
+#undef EOPNOTSUPP
 #define errno WSAGetLastError()
 #define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
@@ -77,12 +78,16 @@
 #define EISCONN WSAEISCONN
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
+#define EOPNOTSUPP WSAEOPNOTSUPP
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
 inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
+#ifndef ESHUTDOWN
+#define ESHUTDOWN ENETDOWN
+#endif
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
 inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
@@ -356,8 +361,8 @@ typedef struct SceNetAdhocPtpStat {
 	SceNetEtherAddr paddr;
 	u16_le lport;
 	u16_le pport;
-	s32_le snd_sb_cc; // Number of bytes existed in buffer to be sent/flushed?
-	s32_le rcv_sb_cc; // Number of bytes available in buffer to be received?
+	u32_le snd_sb_cc; // Number of bytes existed in sendBuffer to be sent/flushed
+	u32_le rcv_sb_cc; // Number of bytes available in recvBuffer to be received
 	s32_le state;
 } PACK SceNetAdhocPtpStat;
 
@@ -919,6 +924,8 @@ extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
+extern char* dummyPeekBuf64k;
+extern int dummyPeekBuf64kSize;
 extern int one;                 
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
@@ -976,9 +983,14 @@ bool isPDPPortInUse(uint16_t port);
  * Check whether PTP Port is in use or not (only sockets with non-Listening state will be considered as in use)
  * @param port To-be-checked Port Number
  * @param forListen to check for listening or non-listening port
+ * @param dstmac destination address (non-listening only)
+ * @param dstport destination port (non-listening only)
  * @return 1 if in use or... 0
  */
-bool isPTPPortInUse(uint16_t port, bool forListen);
+bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac = nullptr, uint16_t dstport = 0);
+
+// Convert IPv4 address to string (Replacement for inet_ntoa since it's getting deprecated)
+std::string ip2str(in_addr in);
 
 // Convert MAC address to string
 std::string mac2str(SceNetEtherAddr* mac);
@@ -1273,8 +1285,10 @@ bool isPrivateIP(uint32_t ip);
 
 /*
  * Get Number of bytes available in buffer to be Received
+ * @param sock fd
+ * @param udpBufferSize (UDP only)
  */
-u_long getAvailToRecv(int sock);
+u_long getAvailToRecv(int sock, int udpBufferSize = 0);
 
 /*
  * Get UDP Socket Max Message Size

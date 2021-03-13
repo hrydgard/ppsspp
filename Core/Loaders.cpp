@@ -50,7 +50,7 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 	}
 
 	for (auto &iter : factories) {
-		if (startsWith(iter.first, filename)) {
+		if (startsWith(filename, iter.first)) {
 			return iter.second->ConstructFileLoader(filename);
 		}
 	}
@@ -126,10 +126,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	size_t readSize = fileLoader->ReadAt(0, 4, 1, &id);
 	if (readSize != 1) {
+		ERROR_LOG(LOADER, "Failed to read identification bytes");
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	u32 psar_offset = 0, psar_id = 0;
+	u32_le psar_offset = 0, psar_id = 0;
 	u32 _id = id;
 	if (!memcmp(&_id, "PK\x03\x04", 4) || !memcmp(&_id, "PK\x05\x06", 4) || !memcmp(&_id, "PK\x07\x08", 4)) {
 		return IdentifiedFileType::ARCHIVE_ZIP;
@@ -293,7 +294,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 
 	case IdentifiedFileType::ERROR_IDENTIFYING:
-		ERROR_LOG(LOADER, "Could not read file");
+		ERROR_LOG(LOADER, "Could not read file enough to identify it");
 		*error_string = fileLoader ? fileLoader->LatestError() : "";
 		if (error_string->empty())
 			*error_string = "Error reading file";

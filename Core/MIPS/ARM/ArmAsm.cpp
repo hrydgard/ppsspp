@@ -204,6 +204,7 @@ void ArmJit::GenerateFixedCode() {
 			LDR(R0, CTXREG, offsetof(MIPSState, pc));
 			// TODO: In practice, do we ever run code from uncached space (| 0x40000000)? If not, we can remove this BIC.
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+			dispatcherFetch = GetCodePtr();
 			LDR(R0, MEMBASEREG, R0);
 			AND(R1, R0, Operand2(0xFF, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFF, 4));
@@ -212,7 +213,7 @@ void ArmJit::GenerateFixedCode() {
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
 				MOVI2R(JITBASEREG, (u32)(uintptr_t)GetBasePtr());
 #endif

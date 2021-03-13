@@ -47,9 +47,9 @@ private:
 	HWND hwnd;
 	WNDPROC oldProc;
 	std::vector<TabInfo> tabs;
-	bool showTabTitles;
-	bool ignoreBottomMargin;
-	int currentTab;
+	bool showTabTitles = true;
+	bool ignoreBottomMargin = false;
+	int currentTab = 0;
 	bool hasButtons;
 	bool noDisplayArea_;
 };

@@ -154,6 +154,23 @@ std::string LineNumberString(const std::string &str) {
 	return output.str();
 }
 
+std::string IndentString(const std::string &str, const std::string &sep, bool skipFirst) {
+	std::stringstream input(str);
+	std::stringstream output;
+	std::string line;
+
+	bool doIndent = !skipFirst;
+	while (std::getline(input, line)) {
+		if (doIndent) {
+			output << sep;
+		}
+		doIndent = true;
+		output << line << "\n";
+	}
+
+	return output.str();
+}
+
 void SkipSpace(const char **ptr) {
 	while (**ptr && isspace(**ptr)) {
 		(*ptr)++;

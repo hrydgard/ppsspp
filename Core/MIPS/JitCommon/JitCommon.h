@@ -123,6 +123,9 @@ namespace MIPSComp {
 
 		virtual bool CodeInRange(const u8 *ptr) const = 0;
 		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
+		virtual bool IsAtDispatchFetch(const u8 *ptr) const {
+			return false;
+		}
 		virtual const u8 *GetDispatcher() const = 0;
 		virtual const u8 *GetCrashHandler() const = 0;
 		virtual JitBlockCache *GetBlockCache() = 0;
@@ -154,5 +157,5 @@ namespace MIPSComp {
 
 	void DoDummyJitState(PointerWrap &p);
 
-	JitInterface *CreateNativeJit(MIPSState *mips);
+	JitInterface *CreateNativeJit(MIPSState *mipsState);
 }

@@ -54,7 +54,7 @@ struct ScanInfos {
 } PACK;
 
 
-PSPNetconfDialog::PSPNetconfDialog() {
+PSPNetconfDialog::PSPNetconfDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPNetconfDialog::~PSPNetconfDialog() {
@@ -62,7 +62,7 @@ PSPNetconfDialog::~PSPNetconfDialog() {
 
 int PSPNetconfDialog::Init(u32 paramAddr) {
 	// Already running
-	if (status != SCE_UTILITY_STATUS_NONE)
+	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	requestAddr = paramAddr;
@@ -465,13 +465,13 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 
 	if (GetStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr, &request, request.common.size);
+		Memory::Memcpy(requestAddr, &request, request.common.size, "NetConfDialogParam");
 
 	return 0;
 }
 
 int PSPNetconfDialog::Shutdown(bool force) {
-	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+	if (ReadStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	PSPDialog::Shutdown(force);
