@@ -46,8 +46,18 @@ struct MemBlockInfo {
 	bool allocated;
 };
 
-void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &tag);
-void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const std::string &tag);
+void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str, size_t strLength);
+
+// This lets us avoid calling strlen on string constants, instead the string length (including null)
+// is computed at compile time.
+template<size_t count>
+inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char(&str)[count]) {
+	NotifyMemInfo(flags, start, size, str, count);
+}
+
+inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &str) {
+	NotifyMemInfo(flags, start, size, str.c_str(), str.size() + 1);
+}
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
