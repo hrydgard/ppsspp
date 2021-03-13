@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 #include "Common/Common.h"
@@ -46,8 +47,18 @@ struct MemBlockInfo {
 	bool allocated;
 };
 
-void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const std::string &tag);
-void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const std::string &tag);
+void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str, size_t strLength);
+
+// This lets us avoid calling strlen on string constants, instead the string length (including null,
+// so we have to subtract 1) is computed at compile time.
+template<size_t count>
+inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char(&str)[count]) {
+	NotifyMemInfo(flags, start, size, str, count - 1);
+}
+
+inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *str) {
+	NotifyMemInfo(flags, start, size, str, strlen(str));
+}
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
