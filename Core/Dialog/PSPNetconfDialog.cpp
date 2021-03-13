@@ -243,7 +243,7 @@ void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
-	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
+	if (ReadStatus() != SCE_UTILITY_STATUS_RUNNING) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -464,7 +464,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		EndDraw();
 	}
 
-	if (GetStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
+	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size, "NetConfDialogParam");
 
 	return 0;
