@@ -78,7 +78,6 @@ struct PendingNotifyMem {
 	uint32_t pc;
 	char tag[32];
 };
-static_assert(sizeof(PendingNotifyMem) == 64, "...");
 
 static constexpr size_t MAX_PENDING_NOTIFIES = 512;
 static MemSlabMap allocMap;
