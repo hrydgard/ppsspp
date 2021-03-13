@@ -7,7 +7,6 @@ varying vec4 v_texcoord1;
 varying vec4 v_texcoord2;
 varying vec4 v_texcoord3;
 varying vec4 v_texcoord4;
-varying vec2 v_texcoord5;
 
 void main() {
 	v_texcoord0 = a_texcoord0 + 0.000001; //HLSL precision workaround
@@ -16,5 +15,4 @@ void main() {
 	v_texcoord2=a_texcoord0.xyxy+vec4( 0.5,-0.5, 1.5,-1.5)*u_texelDelta.xyxy;
 	v_texcoord3=a_texcoord0.xyxy+vec4(-0.5, 0.5,-1.5, 1.5)*u_texelDelta.xyxy;
 	v_texcoord4=a_texcoord0.xyxy+vec4( 0.5, 0.5, 1.5, 1.5)*u_texelDelta.xyxy;
-	v_texcoord5 = 3.141592654 * (1.0/u_pixelDelta);
 }
