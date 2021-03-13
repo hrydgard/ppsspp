@@ -198,7 +198,7 @@ void MemSlabMap::DoState(PointerWrap &p) {
 }
 
 void MemSlabMap::Slab::DoState(PointerWrap &p) {
-	auto s = p.Section("MemSlabMapSlab", 1);
+	auto s = p.Section("MemSlabMapSlab", 1, 2);
 	if (!s)
 		return;
 
@@ -207,7 +207,13 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 	Do(p, ticks);
 	Do(p, pc);
 	Do(p, allocated);
-	Do(p, tag);
+	if (s >= 2) {
+		Do(p, tag);
+	} else {
+		std::string stringTag;
+		Do(p, stringTag);
+		truncate_cpy(tag, stringTag.c_str());
+	}
 }
 
 void MemSlabMap::Clear() {
