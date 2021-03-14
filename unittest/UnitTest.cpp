@@ -58,6 +58,8 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
 
+#include "android/jni/AndroidContentURI.h"
+
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
@@ -606,6 +608,28 @@ static bool TestPath() {
 	return true;
 }
 
+static bool TestAndroidContentURI() {
+	static const char *treeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO";
+	static const char *directoryURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO";
+	static const char *fileURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
+
+	AndroidStorageContentURI treeURI;
+	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
+	AndroidStorageContentURI fileURI;
+	EXPECT_TRUE(fileURI.Parse(std::string(fileURIString)));
+
+	EXPECT_TRUE(treeURI.TreeContains(fileURI));
+
+	EXPECT_TRUE(fileURI.CanNavigateUp());
+	fileURI.NavigateUp();
+	EXPECT_FALSE(fileURI.CanNavigateUp());
+	
+	EXPECT_EQ_STR(fileURI.FilePath(), fileURI.RootPath());
+
+	EXPECT_EQ_STR(fileURI.ToString(), std::string(directoryURIString));
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -643,6 +667,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(MemMap),
 	TEST_ITEM(ShaderGenerators),
 	TEST_ITEM(Path),
+	TEST_ITEM(AndroidContentURI),
 };
 
 int main(int argc, const char *argv[]) {

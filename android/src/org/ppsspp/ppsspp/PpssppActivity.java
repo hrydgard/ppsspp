@@ -135,7 +135,6 @@ public class PpssppActivity extends NativeActivity {
 		try {
 			Uri uri = Uri.parse(uriString);
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
-			Log.i(TAG, "Listing content directory: " + documentFile.getUri());
 			DocumentFile[] children = documentFile.listFiles();
 			ArrayList<String> listing = new ArrayList<String>();
 			// Encode entries into strings for JNI simplicity.
@@ -146,7 +145,6 @@ public class PpssppActivity extends NativeActivity {
 				}
 				// TODO: Should we do something with child.isVirtual()?.
 				typeStr += file.length() + "|" + file.getName() + "|" + file.getUri();
-				Log.i(TAG, "> " + typeStr);
 				listing.add(typeStr);
 			}
 			// Is ArrayList weird or what?

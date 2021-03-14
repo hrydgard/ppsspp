@@ -19,6 +19,7 @@
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
+#include "android/jni/AndroidContentURI.h"
 #endif
 
 bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
@@ -261,22 +262,25 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (Android_IsContentUri(path_.ToString())) {
-		std::vector<std::string> files = Android_ListContentUri(path_.ToString());
+		std::vector<File::FileInfo> files = Android_ListContentUri(path_.ToString());
 		fileInfo.clear();
-		for (auto &file : files) {
-			ERROR_LOG(FILESYS, "!! %s", file.c_str());
-			std::vector<std::string> parts;
-			SplitString(file, '|', parts);
-			if (parts.size() != 4) {
-				continue;
+
+		std::vector<std::string> allowedExtensions;
+		SplitString(filter, ':', allowedExtensions);
+
+		for (auto &info : files) {
+			if (!info.isDirectory && allowedExtensions.size()) {
+				bool found = false;
+				for (auto &ext : allowedExtensions) {
+					if (endsWithNoCase(info.name, "." + ext)) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					continue;
+				}
 			}
-			File::FileInfo info;
-			info.exists = true;
-			info.isDirectory = parts[0][0] == 'D';
-			sscanf(parts[1].c_str(), "%ld", &info.size);
-			info.name = parts[2];
-			info.fullName = Path(parts[3]);
-			info.isWritable = false;  // We don't yet request write access
 			fileInfo.push_back(info);
 		}
 		return true;
@@ -303,10 +307,8 @@ bool PathBrowser::CanNavigateUp() {
 */
 #if PPSSPP_PLATFORM(ANDROID)
 	if (Android_IsContentUri(path_.ToString())) {
-		// Need to figure out how much we can navigate by parsing the URL.
-		// DocumentUri from seems to be split into two paths: The folder you have gotten permission to see,
-		// and the folder below it.
-		return false;
+		AndroidStorageContentURI uri(path_.ToString());
+		return uri.CanNavigateUp();
 	}
 #endif
 
@@ -314,6 +316,16 @@ bool PathBrowser::CanNavigateUp() {
 }
 
 void PathBrowser::NavigateUp() {
+#if PPSSPP_PLATFORM(ANDROID)
+	if (Android_IsContentUri(path_.ToString())) {
+		// Manipulate the Uri to navigate upwards.
+		AndroidStorageContentURI uri(path_.ToString());
+		if (uri.NavigateUp()) {
+			path_ = Path(uri.ToString());
+		}
+		return;
+	}
+#endif
 	path_ = path_.NavigateUp();
 }
 
