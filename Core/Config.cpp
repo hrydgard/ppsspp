@@ -1053,6 +1053,7 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, false),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
+	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false),
 	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false),
 
 	ConfigSetting(false),
