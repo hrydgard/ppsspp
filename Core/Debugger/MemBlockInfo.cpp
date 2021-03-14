@@ -61,7 +61,7 @@ private:
 	// Returns the new slab after size.
 	Slab *Split(Slab *slab, uint32_t size);
 	void MergeAdjacent(Slab *slab);
-	bool Same(const Slab *a, const Slab *b) const;
+	static inline bool Same(const Slab *a, const Slab *b);
 	void Merge(Slab *a, Slab *b);
 	void FillHeads(Slab *slab);
 
@@ -267,6 +267,16 @@ MemSlabMap::Slab *MemSlabMap::Split(Slab *slab, uint32_t size) {
 	return next;
 }
 
+bool MemSlabMap::Same(const Slab *a, const Slab *b) {
+	if (a->allocated != b->allocated)
+		return false;
+	if (a->pc != b->pc)
+		return false;
+	if (strcmp(a->tag, b->tag))
+		return false;
+	return true;
+}
+
 void MemSlabMap::MergeAdjacent(Slab *slab) {
 	while (slab->next != nullptr && Same(slab, slab->next)) {
 		Merge(slab, slab->next);
@@ -274,16 +284,6 @@ void MemSlabMap::MergeAdjacent(Slab *slab) {
 	while (slab->prev != nullptr && Same(slab, slab->prev)) {
 		Merge(slab, slab->prev);
 	}
-}
-
-bool MemSlabMap::Same(const Slab *a, const Slab *b) const {
-	if (a->allocated != b->allocated)
-		return false;
-	if (a->pc != b->pc)
-		return false;
-	if (a->tag != b->tag)
-		return false;
-	return true;
 }
 
 void MemSlabMap::Merge(Slab *a, Slab *b) {
