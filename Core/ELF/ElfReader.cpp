@@ -445,7 +445,8 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	if (bRelocate) {
 		DEBUG_LOG(LOADER,"Relocatable module");
-		entryPoint += vaddr;
+		if (entryPoint != (u32)-1)
+			entryPoint += vaddr;
 	} else {
 		DEBUG_LOG(LOADER,"Prerelocated executable");
 	}
