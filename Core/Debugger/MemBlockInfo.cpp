@@ -22,6 +22,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -366,18 +367,20 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	// Clear the uncached and kernel bits.
 	start &= ~0xC0000000;
 
-	PendingNotifyMem info{ flags, start, size };
-	info.ticks = CoreTiming::GetTicks();
-	info.pc = pc;
-	size_t copyLength = strLength;
-	if (copyLength >= sizeof(info.tag)) {
-		copyLength = sizeof(info.tag) - 1;
-	}
-	memcpy(info.tag, tagStr, copyLength);
-	info.tag[copyLength] = 0;
-
 	bool needFlush = false;
-	{
+	// When the setting is off, we skip smaller info to keep things fast.
+	if (g_Config.bDebugMemInfoDetailed || size >= 0x100) {
+		PendingNotifyMem info{ flags, start, size };
+		info.ticks = CoreTiming::GetTicks();
+		info.pc = pc;
+
+		size_t copyLength = strLength;
+		if (copyLength >= sizeof(info.tag)) {
+			copyLength = sizeof(info.tag) - 1;
+		}
+		memcpy(info.tag, tagStr, copyLength);
+		info.tag[copyLength] = 0;
+
 		std::lock_guard<std::mutex> guard(pendingMutex);
 		pendingNotifies.push_back(info);
 		needFlush = pendingNotifies.size() > MAX_PENDING_NOTIFIES;
