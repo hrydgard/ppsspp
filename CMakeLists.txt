@@ -1831,7 +1831,11 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
 
-set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
+set(GlslangLibs glslang OGLCompiler OSDependent SPIRV spirv-cross-glsl)
+
+if (ENABLE_SPVREMAPPER)
+	list(APPEND GlslangLibs SPVRemapper)
+endif()
 
 if(WIN32)
 	set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
