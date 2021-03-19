@@ -68,7 +68,7 @@ PortManager::~PortManager() {
 void PortManager::Terminate() {
 	VERBOSE_LOG(SCENET, "PortManager::Terminate()");
 	if (urls) {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 		FreeUPNPUrls(urls);
 #endif
 		free(urls);
@@ -88,7 +88,7 @@ void PortManager::Terminate() {
 }
 
 bool PortManager::Initialize(const unsigned int timeout) {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	// Windows: Assuming WSAStartup already called beforehand
 	struct UPNPDev* devlist;
 	struct UPNPDev* dev;
@@ -184,7 +184,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	auto n = GetI18NCategory("Networking");
 	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
 	m_InitState = UPNP_INITSTATE_NONE;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 	return false;
 }
 
@@ -193,7 +193,7 @@ int PortManager::GetInitState() {
 }
 
 bool PortManager::Add(const char* protocol, unsigned short port, unsigned short intport) {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	char port_str[16];
 	char intport_str[16];
 	int r;
@@ -242,11 +242,11 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	return true;
 #else
 	return false;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 }
 
 bool PortManager::Remove(const char* protocol, unsigned short port) {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	char port_str[16];
 
 	INFO_LOG(SCENET, "PortManager::Remove(%s, %d)", protocol, port);
@@ -273,11 +273,11 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	return true;
 #else
 	return false;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 }
 
 bool PortManager::Restore() {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	int r;
 	VERBOSE_LOG(SCENET, "PortManager::Restore()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
@@ -319,11 +319,11 @@ bool PortManager::Restore() {
 	return true;
 #else
 	return false;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 }
 
 bool PortManager::Clear() {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	int r;
 	int i = 0;
 	char index[6];
@@ -377,11 +377,11 @@ bool PortManager::Clear() {
 	return true;
 #else
 	return false;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 }
 
 bool PortManager::RefreshPortList() {
-#if !PPSSPP_PLATFORM(SWITCH)
+#ifdef WITH_UPNP
 	int r;
 	int i = 0;
 	char index[6];
@@ -434,7 +434,7 @@ bool PortManager::RefreshPortList() {
 	return true;
 #else
 	return false;
-#endif // !PPSSPP_PLATFORM(SWITCH)
+#endif // WITH_UPNP
 }
 
 int upnpService(const unsigned int timeout)
