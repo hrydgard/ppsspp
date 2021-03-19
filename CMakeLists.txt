@@ -1886,7 +1886,7 @@ if(USE_MINIUPNPC)
 		add_definitions(-fPIC)
 	endif()
 	
-	add_definitions(-DMINIUPNP_STATICLIB)
+	add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
 	set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
