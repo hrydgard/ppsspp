@@ -1629,7 +1629,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 			socket->nonblocking = flag;
 
 			// Valid Arguments
-			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len > 0) { 
+			if (saddr != NULL && port != NULL && buf != NULL && len != NULL) { 
 #ifndef PDP_DIRTY_MAGIC
 				// Schedule Timeout Removal
 				//if (flag == 1) timeout = 0;
@@ -1686,7 +1686,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
 
 				if (received != SOCKET_ERROR && *len < received) {
-					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
+					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 					*len = received;
 
 					// Peer MAC

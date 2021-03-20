@@ -482,6 +482,7 @@ public:
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
 	bool bFuncHashMap;
+	bool bDebugMemInfoDetailed;
 	bool bDrawFrameGraph;
 
 	// Volatile development settings

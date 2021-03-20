@@ -1323,7 +1323,9 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	const u8 *texptr = Memory::GetPointer(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
 
-	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, StringFromFormat("Texture_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat)));
+	char buf[128];
+	size_t len = snprintf(buf, sizeof(buf), "Tex_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat));
+	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, buf, len);
 
 	switch (format) {
 	case GE_TFMT_CLUT4:

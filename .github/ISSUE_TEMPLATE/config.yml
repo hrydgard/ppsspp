@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Forums for questions and help
+    url: https://forums.ppsspp.org/
+    about: 'Please ask questions here or on Discord.  Includes multiplayer resources, texture packs, cheats, and performance tips.'
+  - name: Compatibility list
+    url: http://report.ppsspp.org/games
+    about: Look here for user reports on best settings and compatibility.
+  - name: Translations
+    url: https://github.com/hrydgard/ppsspp-lang
+    about: Look here to contribute translations to PPSSPP.

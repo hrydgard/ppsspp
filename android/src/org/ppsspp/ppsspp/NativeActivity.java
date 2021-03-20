@@ -1292,7 +1292,7 @@ public abstract class NativeActivity extends Activity {
 			try {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
-				intent.setType("application/octet-stream");
+				intent.setType("*/*");
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				//intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 				startActivityForResult(intent, RESULT_BROWSE_FILE);
