@@ -81,11 +81,11 @@ else ifneq (,$(findstring rpi,$(platform)))
 	GLES = 1
 	GL_LIB := -lGLESv2
 	INCFLAGS += -I/opt/vc/include
-	CPUFLAGS += -DARMv5_ONLY 
+	CPUFLAGS += -DARMv5_ONLY
 	PLATFORM_EXT := unix
 	TARGET_ARCH = arm
 	LDFLAGS += -lrt -ldl
-	
+
 # ARM64
 else ifneq (,$(findstring arm64,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.so
@@ -115,7 +115,7 @@ else ifneq (,$(findstring imx6,$(platform)))
 	fpic = -fPIC
 	GLES = 1
 	GL_LIB := -lGLESv2
-	CPUFLAGS += 
+	CPUFLAGS +=
 	PLATFORM_EXT := unix
 	TARGET_ARCH = arm
 	HAVE_NEON=1
@@ -185,8 +185,8 @@ else ifneq (,$(findstring android,$(platform)))
 	CXX = arm-linux-androideabi-g++
 	TARGET_ARCH = arm
 	GLES = 1
-	PLATCFLAGS += -DANDROID 
-	CPUCFLAGS  += 
+	PLATCFLAGS += -DANDROID
+	CPUCFLAGS  +=
 	HAVE_NEON = 1
 	CPUFLAGS += -marm -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=softfp -D__arm__ -DARM_ASM -D__NEON_OPT
 	CFLAGS += -DANDROID
@@ -257,7 +257,7 @@ else ifneq (,$(findstring armv,$(platform)))
 else ifeq ($(platform), emscripten)
 	TARGET := $(TARGET_NAME)_libretro_emscripten.bc
 	GLES := 1
-	CPUFLAGS += 
+	CPUFLAGS +=
 	PLATCFLAGS += -DCC_resampler=mupen_CC_resampler -Dsinc_resampler=mupen_sinc_resampler \
 					-Drglgen_symbol_map=mupen_rglgen_symbol_map -Dmain_exit=mupen_main_exit \
 					-Dadler32=mupen_adler32 -Drarch_resampler_realloc=mupen_rarch_resampler_realloc \
@@ -281,7 +281,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 		LDFLAGS += -APPCONTAINER -NXCOMPAT -DYNAMICBASE -MANIFEST:NO -OPT:REF -SUBSYSTEM:CONSOLE -MANIFESTUAC:NO -OPT:ICF -ERRORREPORT:PROMPT -NOLOGO -TLBID:1 -DEBUG:FULL -WINMD:NO
 		LIBS += WindowsApp.lib
 	endif
-	
+
 	ifeq ($(DEBUG), 1)
 		MSVC2017CompileFlags += -DEBUG
 	endif
@@ -489,7 +489,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
 
 # Windows
-else ifneq (,$(findstring win,$(platform)))   
+else ifneq (,$(findstring win,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dll
 	CFLAGS += -D_UNICODE -DUNICODE
 	CXXFLAGS += -fpermissive -Wno-multichar -D_UNICODE -DUNICODE
@@ -517,7 +517,7 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
 
 ifeq ($(DEBUG), 1)
 	ifneq (,$(findstring msvc,$(platform)))
@@ -546,7 +546,7 @@ ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))
 endif
 
 OBJOUT   = -o
-LINKOUT  = -o 
+LINKOUT  = -o
 
 ifneq (,$(findstring msvc,$(platform)))
 	OBJOUT = -Fo
