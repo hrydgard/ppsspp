@@ -44,6 +44,7 @@
 #include "ext/disarm.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
