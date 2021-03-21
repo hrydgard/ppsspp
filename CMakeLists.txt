@@ -423,7 +423,6 @@ source_group(MIPS FILES ${CommonMIPS})
 if(NOT (X86 OR ARM OR MIPS))
 	set(CommonFake
 		Common/FakeCPUDetect.cpp
-		Common/FakeEmitter.h
 	)
 	source_group(Fake FILES ${CommonFake})
 endif()
@@ -1251,7 +1250,6 @@ list(APPEND CoreExtra
 list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.cpp
 	Core/MIPS/MIPS/MipsJit.h
-	GPU/Common/VertexDecoderFake.cpp
 )
 
 if(NOT MOBILE_DEVICE)

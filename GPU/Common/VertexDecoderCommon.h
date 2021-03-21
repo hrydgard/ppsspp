@@ -35,8 +35,6 @@
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
-#elif PPSSPP_ARCH(MIPS)
-#include "Common/MipsEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -601,18 +599,17 @@ public:
 //
 // that's it!
 
-
 #if PPSSPP_ARCH(ARM)
-class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
+#define VERTEXDECODER_JIT_BACKEND ArmGen::ARMXCodeBlock
 #elif PPSSPP_ARCH(ARM64)
-class VertexDecoderJitCache : public Arm64Gen::ARM64CodeBlock {
+#define VERTEXDECODER_JIT_BACKEND Arm64Gen::ARM64CodeBlock
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-class VertexDecoderJitCache : public Gen::XCodeBlock {
-#elif PPSSPP_ARCH(MIPS)
-class VertexDecoderJitCache : public MIPSGen::MIPSCodeBlock {
-#else
-class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
+#define VERTEXDECODER_JIT_BACKEND Gen::XCodeBlock
 #endif
+
+
+#ifdef VERTEXDECODER_JIT_BACKEND
+class VertexDecoderJitCache : public VERTEXDECODER_JIT_BACKEND {
 public:
 	VertexDecoderJitCache();
 
@@ -705,3 +702,14 @@ private:
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 };
+#else
+class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
+public:
+	VertexDecoderJitCache();
+
+	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize) {
+		return nullptr;
+	}
+	void Clear();
+};
+#endif
