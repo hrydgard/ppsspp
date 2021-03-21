@@ -16,7 +16,6 @@ ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
-  $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/Math/fast/fast_matrix_sse.c \
   $(SRC)/Common/Thunk.cpp \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \
@@ -39,7 +38,6 @@ ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
-  $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/Math/fast/fast_matrix_sse.c \
   $(SRC)/Common/Thunk.cpp \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \
@@ -62,7 +60,6 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/Core/Util/AudioFormatNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ColorConvNEON.cpp.neon \
   $(SRC)/Common/Math/fast/fast_matrix_neon.S.neon \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
@@ -90,7 +87,6 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp \
   $(SRC)/Core/Util/AudioFormatNEON.cpp \
   $(SRC)/Common/Arm64Emitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ColorConvNEON.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
@@ -296,8 +292,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ColorConv.cpp \
+  $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
+  $(SRC)/Common/FakeCPUDetect.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArenaAndroid.cpp \
@@ -305,6 +304,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/MemArenaWin32.cpp \
   $(SRC)/Common/MemArenaPosix.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
+  $(SRC)/Common/MipsCPUDetect.cpp \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/SysError.cpp \
   $(SRC)/Common/TimeUtil.cpp \

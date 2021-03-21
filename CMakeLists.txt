@@ -420,14 +420,6 @@ set(CommonMIPS
 )
 source_group(MIPS FILES ${CommonMIPS})
 
-if(NOT (X86 OR ARM OR MIPS))
-	set(CommonFake
-		Common/FakeCPUDetect.cpp
-		Common/FakeEmitter.h
-	)
-	source_group(Fake FILES ${CommonFake})
-endif()
-
 if(WIN32)
 	set(CommonD3D
 		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
@@ -447,7 +439,6 @@ add_library(Common STATIC
 	${CommonARM}
 	${CommonARM64}
 	${CommonMIPS}
-	${CommonFake}
 	${CommonD3D}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
@@ -644,6 +635,7 @@ add_library(Common STATIC
 	Common/ConsoleListener.h
 	Common/DbgNew.h
 	Common/FakeEmitter.h
+	Common/FakeCPUDetect.cpp
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
 	Common/Log.h
@@ -1251,7 +1243,6 @@ list(APPEND CoreExtra
 list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.cpp
 	Core/MIPS/MIPS/MipsJit.h
-	GPU/Common/VertexDecoderFake.cpp
 )
 
 if(NOT MOBILE_DEVICE)
