@@ -214,13 +214,17 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
 	$(COMMONDIR)/System/Display.cpp \
+	$(COMMONDIR)/ArmCPUDetect.cpp \
+	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
+	$(COMMONDIR)/FakeCPUDetect.cpp \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
+	$(COMMONDIR)/MipsCPUDetect.cpp \
 	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
@@ -518,7 +522,6 @@ ifeq ($(WITH_DYNAREC),1)
    ifeq ($(TARGET_ARCH),arm)
       DYNAFLAGS += -D_ARCH_32
 		SOURCES_CXX += $(COMMONDIR)/ArmEmitter.cpp \
-			       $(COMMONDIR)/ArmCPUDetect.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmAsm.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmCompALU.cpp \
 			       $(COREDIR)/MIPS/ARM/ArmCompBranch.cpp \
@@ -548,7 +551,6 @@ ifeq ($(WITH_DYNAREC),1)
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64
       SOURCES_CXX += $(COMMONDIR)/Arm64Emitter.cpp \
-		     $(COMMONDIR)/ArmCPUDetect.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64Asm.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64CompALU.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64CompBranch.cpp \
@@ -597,7 +599,6 @@ endif
 						$(COMMONDIR)/x64Analyzer.cpp \
 						$(COMMONDIR)/ABI.cpp \
 						$(COMMONDIR)/Thunk.cpp \
-						$(COMMONDIR)/CPUDetect.cpp \
 						$(COREDIR)/MIPS/x86/CompReplace.cpp \
 						$(COREDIR)/MIPS/x86/CompBranch.cpp \
 						$(COREDIR)/MIPS/x86/Asm.cpp \

@@ -573,6 +573,7 @@
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
+    <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\Crypto\md5.cpp" />
     <ClCompile Include="..\..\Common\Crypto\sha1.cpp" />
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />

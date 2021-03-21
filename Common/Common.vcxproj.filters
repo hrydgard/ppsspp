@@ -392,6 +392,8 @@
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
+    <ClCompile Include="FakeCPUDetect.cpp" />
+    <ClCompile Include="MipsCPUDetect.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
