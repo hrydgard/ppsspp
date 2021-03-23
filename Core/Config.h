@@ -38,6 +38,11 @@ enum ChatPositions {
 	CENTER_RIGHT = 7,
 };
 
+enum class BackgroundAnimation {
+	OFF = 0,
+	FLOATING_SYMBOLS = 1,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -239,6 +244,7 @@ public:
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
 	bool bShowOnScreenMessages;
+	int iBackgroundAnimation;  // enum BackgroundAnimation
 
 	// TODO: Maybe move to a separate theme system.
 	uint32_t uItemStyleFg;
