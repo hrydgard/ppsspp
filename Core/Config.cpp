@@ -494,6 +494,8 @@ static ConfigSetting generalSettings[] = {
 #endif
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL),
 
+	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, true, false),
+
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
 	ConfigSetting("WindowX", &g_Config.iWindowX, -1), // -1 tells us to center the window.

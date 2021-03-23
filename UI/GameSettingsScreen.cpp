@@ -860,9 +860,23 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
-	systemSettings->Add(new ItemHeader(sy->T("UI Language")));  // Should be renamed "UI"?
+	systemSettings->Add(new ItemHeader(sy->T("UI")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
+	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
+	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
+	} else {
+		backgroundChoice_ = nullptr;
+	}
+	if (backgroundChoice_ != nullptr) {
+		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
+	}
+	static const char *backgroundAnimations[] = { "No animation", "Floating Symbols" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
 	enableReports_ = Reporting::IsEnabled();
@@ -906,18 +920,6 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
-	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
-	} else {
-		backgroundChoice_ = nullptr;
-	}
-	if (backgroundChoice_ != nullptr) {
-		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
-	}
 
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));

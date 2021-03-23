@@ -73,7 +73,47 @@ static const uint32_t colors[4] = {
 
 static std::unique_ptr<ManagedTexture> bgTexture;
 
-static bool backgroundInited;
+class Animation {
+public:
+	virtual ~Animation() {}
+	virtual void Draw(UIContext &dc, double t, float alpha) = 0;
+};
+
+class FloatingSymbolsAnimation : public Animation {
+public:
+	~FloatingSymbolsAnimation() override {}
+	void Draw(UIContext &dc, double t, float alpha) override {
+		float xres = dc.GetBounds().w;
+		float yres = dc.GetBounds().h;
+		if (xbase[0] == 0.0f || last_xres != xres || last_yres != yres) {
+			GMRng rng;
+			for (int i = 0; i < 100; i++) {
+				xbase[i] = rng.F() * xres;
+				ybase[i] = rng.F() * yres;
+			}
+			last_xres = xres;
+			last_yres = yres;
+		}
+
+		for (int i = 0; i < 100; i++) {
+			float x = xbase[i] + dc.GetBounds().x;
+			float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
+			float angle = (float)sin(i + t);
+			int n = i & 3;
+			ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
+		}
+	}
+private:
+	float xbase[100] = { 0 };
+	float ybase[100] = { 0 };
+	float last_xres = 0;
+	float last_yres = 0;
+};
+
+// TODO: Add more styles. Remember to add to the enum in Config.cpp and the selector in GameSettings too.
+
+static BackgroundAnimation g_CurBackgroundAnimation = BackgroundAnimation::OFF;
+static std::unique_ptr<Animation> g_Animation;
 
 void UIBackgroundInit(UIContext &dc) {
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
@@ -86,32 +126,22 @@ void UIBackgroundInit(UIContext &dc) {
 
 void UIBackgroundShutdown() {
 	bgTexture.reset(nullptr);
-	backgroundInited = false;
+	g_Animation.reset(nullptr);
 }
 
 void DrawBackground(UIContext &dc, float alpha) {
-	if (!backgroundInited) {
-		UIBackgroundInit(dc);
-		backgroundInited = true;
-	}
+	if (g_CurBackgroundAnimation != (BackgroundAnimation)g_Config.iBackgroundAnimation) {
+		g_CurBackgroundAnimation = (BackgroundAnimation)g_Config.iBackgroundAnimation;
 
-	static float xbase[100] = {0};
-	static float ybase[100] = {0};
-	float xres = dc.GetBounds().w;
-	float yres = dc.GetBounds().h;
-	static int last_xres = 0;
-	static int last_yres = 0;
-
-	if (xbase[0] == 0.0f || last_xres != xres || last_yres != yres) {
-		GMRng rng;
-		for (int i = 0; i < 100; i++) {
-			xbase[i] = rng.F() * xres;
-			ybase[i] = rng.F() * yres;
+		switch (g_CurBackgroundAnimation) {
+		case BackgroundAnimation::FLOATING_SYMBOLS:
+			g_Animation.reset(new FloatingSymbolsAnimation());
+			break;
+		default:
+			g_Animation.reset(nullptr);
 		}
-		last_xres = xres;
-		last_yres = yres;
 	}
-	
+
 	uint32_t bgColor = whiteAlpha(alpha);
 
 	if (bgTexture != nullptr) {
@@ -135,12 +165,9 @@ void DrawBackground(UIContext &dc, float alpha) {
 #else
 	double t = time_now_d();
 #endif
-	for (int i = 0; i < 100; i++) {
-		float x = xbase[i] + dc.GetBounds().x;
-		float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
-		float angle = (float)sin(i + t);
-		int n = i & 3;
-		ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
+
+	if (g_Animation) {
+		g_Animation->Draw(dc, t, alpha);
 	}
 }
 
