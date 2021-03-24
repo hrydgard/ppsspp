@@ -483,6 +483,21 @@ std::string ConvertUCS2ToUTF8(const std::u16string &wstr) {
 	return s;
 }
 
+std::string SanitizeUTF8(const std::string &utf8string) {
+	UTF8 utf(utf8string.c_str());
+	std::string s;
+	// Worst case.
+	s.resize(utf8string.size() * 4);
+
+	size_t pos = 0;
+	while (!utf.end_or_overlong_end()) {
+		int c = utf.next();
+		pos += UTF8::encode(&s[pos], c);
+	}
+	s.resize(pos);
+	return s;
+}
+
 static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const std::string &source) {
 	const char16_t *const orig = dest;
 	const char16_t *const destEnd = dest + destSize;

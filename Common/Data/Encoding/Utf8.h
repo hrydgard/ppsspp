@@ -31,10 +31,11 @@ public:
 	UTF8(const char *c) : c_(c), index_(0) {}
 	UTF8(const char *c, int index) : c_(c), index_(index) {}
 	bool end() const { return c_[index_] == 0; }
+	bool end_or_overlong_end() const { return peek() == 0; }
 	uint32_t next() {
 		return u8_nextchar(c_, &index_);
 	}
-	uint32_t peek() {
+	uint32_t peek() const {
 		int tempIndex = index_;
 		return u8_nextchar(c_, &tempIndex);
 	}
@@ -74,6 +75,10 @@ private:
 int UTF8StringNonASCIICount(const char *utf8string);
 
 bool UTF8StringHasNonASCII(const char *utf8string);
+
+
+// Removes overlong encodings and similar.
+std::string SanitizeUTF8(const std::string &utf8string);
 
 
 // UTF8 to Win32 UTF-16
