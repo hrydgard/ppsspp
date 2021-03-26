@@ -35,6 +35,10 @@ include:
   # Linux
   - project: 'libretro-infrastructure/ci-templates'
     file: '/linux-cmake.yml'
+
+  # MacOS 64-bit
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/osx-x64.yml'
     
   ################################## CELLULAR ################################
   # Android  
