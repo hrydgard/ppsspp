@@ -1,4 +1,10 @@
-# libretro CI
+# DESCRIPTION: GitLab CI/CD for libRetro (NOT FOR GitLab-proper)
+
+##############################################################################
+################################# BOILERPLATE ################################
+##############################################################################
+
+# Core definitions
 variables:
   GIT_SUBMODULE_STRATEGY: normal
 
@@ -15,61 +21,88 @@ variables:
   variables:
     MAKEFILE_PATH: libretro
 
+# Inclusion templates, required for the build to work
 include:
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/android-cmake.yml'
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/linux-cmake.yml'
+  ################################## DESKTOPS ################################
+  # Windows 64bit
   - project: 'libretro-infrastructure/ci-templates'
     file: '/windows-x64-msvc19-msys2.yml'
+    
+  # Windows 32bit
   - project: 'libretro-infrastructure/ci-templates'
     file: '/windows-i686-msvc19-msys2.yml'
 
+  # Linux
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/linux-cmake.yml'
+    
+  ################################## CELLULAR ################################
+  # Android  
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/android-cmake.yml'
+ 
+  ################################## CONSOLES ################################
+
+  #################################### MISC ##################################
+
+# Stages for building
 stages:
   - build-prepare
   - build-shared
 
-# Desktop
+##############################################################################
+#################################### STAGES ##################################
+##############################################################################
+#
+################################### DESKTOPS #################################
+# Linux 64-bit
 libretro-build-linux-x64:
   extends:
     - .libretro-linux-cmake-x86_64
     - .core-defs
     - .linux-defs
 
+# Linux 32-bit
 libretro-build-linux-i686:
   extends:
     - .libretro-linux-cmake-x86
     - .core-defs
     - .linux-defs
 
+# Windows 64-bit
 libretro-build-windows-x64:
   extends:
     - .libretro-windows-x64-msvc19-msys2-make-default
     - .core-defs
     - .windows-defs
 
+# Windows 32-bit
 libretro-build-windows-i686:
   extends:
     - .libretro-windows-i686-msvc19-msys2-make-default
     - .core-defs
     - .windows-defs
 
-# Android
+################################### CELLULAR #################################
+# Android ARMv7a
 libretro-build-android-armeabi-v7a:
   extends:
     - .libretro-android-cmake-armeabi-v7a
     - .core-defs
 
+# Android ARMv8a
 libretro-build-android-arm64-v8a:
   extends:
     - .libretro-android-cmake-arm64-v8a
     - .core-defs
 
+# Android 64-bit x86
 libretro-build-android-x86_64:
   extends:
     - .libretro-android-cmake-x86_64
     - .core-defs
 
+# Android 32-bit x86
 libretro-build-android-x86:
   extends:
     - .libretro-android-cmake-x86
