@@ -340,6 +340,7 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
 		   $(COMMONDIR)/Render/Text/draw_text_android.cpp
 else
+COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
@@ -585,7 +586,7 @@ ifeq ($(WITH_DYNAREC),1)
 		CPUFLAGS += -D_M_IX86_FP
 	else
 		CPUFLAGS += -msse -msse2
-endif
+	endif
       ifeq ($(TARGET_ARCH),x86_64)
          CPUFLAGS += -D_M_X64 -D_ARCH_64
       else
@@ -655,11 +656,6 @@ SOURCES_CXX += \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
 	$(LIBRETRODIR)/libretro_vulkan.cpp
 
-ifneq ($(PLATFORM_EXT), darwin)
-	ifeq ($(PLATFORM_EXT), unix)
-		COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
-	endif
-endif
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += \

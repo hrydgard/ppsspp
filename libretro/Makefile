@@ -6,6 +6,8 @@ INCFLAGS  := -I.
 COREFLAGS :=
 CPUFLAGS  :=
 
+PLATOFRM_EXT :=
+
 UNAME=$(shell uname -a)
 
 # Cross compile ?
@@ -70,7 +72,7 @@ ifneq (,$(findstring unix,$(platform)))
 	else
 		GL_LIB := -lGL
 	endif
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 	LDFLAGS += -lrt -ldl
 
 # Raspberry Pi
@@ -82,7 +84,7 @@ else ifneq (,$(findstring rpi,$(platform)))
 	GL_LIB := -lGLESv2
 	INCFLAGS += -I/opt/vc/include
 	CPUFLAGS += -DARMv5_ONLY
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 	TARGET_ARCH = arm
 	LDFLAGS += -lrt -ldl
 
@@ -106,7 +108,7 @@ else ifneq (,$(findstring arm64,$(platform)))
 	endif
 	CPUFLAGS += -D__arm64__ -DARM64_ASM -D__NEON_OPT
 	LDFLAGS += -lrt -ldl
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 
 # i.MX6
 else ifneq (,$(findstring imx6,$(platform)))
@@ -116,7 +118,7 @@ else ifneq (,$(findstring imx6,$(platform)))
 	GLES = 1
 	GL_LIB := -lGLESv2
 	CPUFLAGS +=
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 	TARGET_ARCH = arm
 	HAVE_NEON=1
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
@@ -127,21 +129,32 @@ else ifneq (,$(findstring imx6,$(platform)))
 # OS X
 else ifneq (,$(findstring osx,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dylib
+   MINVERSION :=
 	LDFLAGS += -dynamiclib
 	OSXVER = `sw_vers -productVersion | cut -d. -f 2`
 	OSX_LT_MAVERICKS = `(( $(OSXVER) <= 9 )) && echo "YES"`
 	ifeq ($(OSX_LT_MAVERICKS),"YES")
-		LDFLAGS += -mmacosx-version-min=10.5
+      MINVERSION += -mmacosx-version-min=10.5
 	endif
-		LDFLAGS += -stdlib=libc++
+	LDFLAGS += $(MINVERSION)
+   LDFLAGS += -stdlib=libc++
 	fpic = -fPIC
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/macosx/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/macosx/$(TARGET_ARCH)/lib
+	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/macosx/universal/include
+	FFMPEGLIBDIR := $(FFMPEGDIR)/macosx/universal/lib
 	FFMPEGLDFLAGS += -liconv -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	PLATCFLAGS += -D__MACOSX__
 	GL_LIB := -framework OpenGL
-	PLATFORM_EXT := darwin
+	PLATFORM_EXT = darwin
+
+   ifeq ($(CROSS_COMPILE),1)
+		TARGET_RULE   = -target $(LIBRETRO_APPLE_PLATFORM) -isysroot $(LIBRETRO_APPLE_ISYSROOT)
+		PLATCFLAGS   += $(TARGET_RULE)
+		LDFLAGS      += $(TARGET_RULE)
+   endif
+
+	PLATCFLAGS  += $(ARCHFLAGS)
+	LDFLAGS += $(ARCHFLAGS)
 
 # iOS
 else ifneq (,$(findstring ios,$(platform)))
@@ -150,6 +163,7 @@ else ifneq (,$(findstring ios,$(platform)))
 	fpic = -fPIC
 	GLES = 1
 	GL_LIB := -framework OpenGLES
+   MINVERSION :=
 	HAVE_NEON = 1
 
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
@@ -160,18 +174,49 @@ else ifneq (,$(findstring ios,$(platform)))
 		IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
 	endif
 
+ifeq ($(platform),ios-arm64)
+	CC = clang -arch arm64 -isysroot $(IOSSDK)
+	CXX = clang++ -arch arm64 -isysroot $(IOSSDK)
+else
 	CC = clang -arch armv7 -isysroot $(IOSSDK)
 	CXX = clang++ -arch armv7 -isysroot $(IOSSDK)
+endif
 	OSXVER = `sw_vers -productVersion | cut -c 4`
-	ifneq ($(OSXVER),9)
-		CC += -miphoneos-version-min=5.0
-		AS += -miphoneos-version-min=5.0
-		CXX += -miphoneos-version-min=5.0
-		PLATCFLAGS += -miphoneos-version-min=5.0
-	endif
+   ifneq ($(OSXVER),9)
+      MINVERSION = -miphoneos-version-min=5.0
+   else
+      MINVERSION = -miphoneos-version-min=8.0
+   endif
+	PLATCFLAGS += $(MINVERSION)
 	PLATCFLAGS += -DHAVE_POSIX_MEMALIGN
 	CPUFLAGS += -DARMv5_ONLY -DARM
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = darwin
+	TARGET_ARCH = arm
+
+else ifeq ($(platform), tvos-arm64)
+	TARGET := $(TARGET_NAME)_libretro_tvos.dylib
+	LDFLAGS += -dynamiclib -marm
+	fpic = -fPIC
+	GLES = 1
+	GL_LIB := -framework OpenGLES
+   MINVERSION :=
+	HAVE_NEON = 1
+
+	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
+	FFMPEGLIBDIR := $(FFMPEGDIR)/ios/universal/lib
+	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
+
+	ifeq ($(IOSSDK),)
+		IOSSDK := $(shell xcodebuild -version -sdk appletvos Path)
+	endif
+
+	CC = clang -arch arm64 -isysroot $(IOSSDK)
+	CXX = clang++ -arch arm64 -isysroot $(IOSSDK)
+	OSXVER = `sw_vers -productVersion | cut -c 4`
+	PLATCFLAGS += $(MINVERSION)
+	PLATCFLAGS += -DHAVE_POSIX_MEMALIGN
+	CPUFLAGS += -DARMv5_ONLY -DARM
+	PLATFORM_EXT = darwin
 	TARGET_ARCH = arm
 
 # Android
@@ -196,7 +241,7 @@ else ifneq (,$(findstring android,$(platform)))
 	FFMPEGLIBDIR := $(FFMPEGDIR)/android/armv7/lib
 	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
-	PLATFORM_EXT := android
+	PLATFORM_EXT = android
 
 # QNX
 else ifeq ($(platform), qnx)
@@ -216,7 +261,7 @@ else ifeq ($(platform), qnx)
 	CPUFLAGS += -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp -D__arm__ -DARM_ASM -D__NEON_OPT
 	CFLAGS += -D__QNX__
 
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 
 # ARM
 else ifneq (,$(findstring armv,$(platform)))
@@ -264,7 +309,7 @@ else ifeq ($(platform), emscripten)
 					-Daudio_convert_s16_to_float_C=mupen_audio_convert_s16_to_float_C -Daudio_convert_float_to_s16_C=mupen_audio_convert_float_to_s16_C \
 					-Daudio_convert_init_simd=mupen_audio_convert_init_simd -Drglgen_resolve_symbols_custom=mupen_rglgen_resolve_symbols_custom \
 					-Drglgen_resolve_symbols=mupen_rglgen_resolve_symbols
-	PLATFORM_EXT := unix
+	PLATFORM_EXT = unix
 
 # Windows MSVC 2017 all architectures
 else ifneq (,$(findstring windows_msvc2017,$(platform)))
@@ -370,7 +415,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dll
 	PSS_STYLE :=2
 	LDFLAGS += -DLL
-	PLATFORM_EXT := win32
+	PLATFORM_EXT = win32
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
@@ -481,7 +526,7 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dll
 	PSS_STYLE :=2
 	LDFLAGS += -DLL
-	PLATFORM_EXT := win32
+	PLATFORM_EXT = win32
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
@@ -495,7 +540,7 @@ else ifneq (,$(findstring win,$(platform)))
 	CXXFLAGS += -fpermissive -Wno-multichar -D_UNICODE -DUNICODE
 	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32 -ld3d9 -ld3dx9
 	GL_LIB := -lopengl32
-	PLATFORM_EXT := win32
+	PLATFORM_EXT = win32
    FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
    FFMPEGLDFLAGS += -lavformat -lavcodec -lavutil -lswresample -lswscale
    INCFLAGS += -include $(CORE_DIR)/Windows/mingw_defines.h

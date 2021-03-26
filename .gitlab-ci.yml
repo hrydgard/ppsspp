@@ -13,11 +13,11 @@ variables:
     CORENAME: ppsspp
     CORE_ARGS: -DLIBRETRO=ON
 
-.linux-defs:
+.cmake-defs:
   variables:
     EXTRA_PATH: lib
 
-.windows-defs:
+.make-defs:
   variables:
     MAKEFILE_PATH: libretro
 
@@ -40,9 +40,9 @@ include:
   # Android  
   - project: 'libretro-infrastructure/ci-templates'
     file: '/android-cmake.yml'
- 
-  ################################## CONSOLES ################################
 
+  ################################## CONSOLES ################################
+  
   #################################### MISC ##################################
 
 # Stages for building
@@ -55,33 +55,40 @@ stages:
 ##############################################################################
 #
 ################################### DESKTOPS #################################
-# Linux 64-bit
-libretro-build-linux-x64:
-  extends:
-    - .libretro-linux-cmake-x86_64
-    - .core-defs
-    - .linux-defs
-
-# Linux 32-bit
-libretro-build-linux-i686:
-  extends:
-    - .libretro-linux-cmake-x86
-    - .core-defs
-    - .linux-defs
-
 # Windows 64-bit
 libretro-build-windows-x64:
   extends:
     - .libretro-windows-x64-msvc19-msys2-make-default
     - .core-defs
-    - .windows-defs
+    - .make-defs
 
 # Windows 32-bit
 libretro-build-windows-i686:
   extends:
     - .libretro-windows-i686-msvc19-msys2-make-default
     - .core-defs
-    - .windows-defs
+    - .make-defs
+
+# Linux 64-bit
+libretro-build-linux-x64:
+  extends:
+    - .libretro-linux-cmake-x86_64
+    - .core-defs
+    - .cmake-defs
+
+# Linux 32-bit
+libretro-build-linux-i686:
+  extends:
+    - .libretro-linux-cmake-x86
+    - .core-defs
+    - .cmake-defs
+
+# MacOS 64-bit
+libretro-build-osx-x64:
+  extends:
+    - .libretro-osx-x64-make-default
+    - .core-defs
+    - .make-defs
 
 ################################### CELLULAR #################################
 # Android ARMv7a
