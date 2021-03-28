@@ -960,7 +960,7 @@ static std::string PPGeSanitizeText(const std::string &text) {
 	// the overlong null, the rest of the string is missing in the bottom left corner (save size, etc).
 	// It doesn't seem to be using sceCcc.
 	// Note how the double "" is required in the middle of the string to end the \x80 constant (otherwise it takes E).
-	// TODO: Potentially if the string is only ended by a C080, ReplaceAll might overshoot :(
+	// This behavior doesn't replicate within other games, so it may be a game bug workaround.
 	std::string str = ReplaceAll(text, "\xC0\x80""ENTR", "");
 	// Then SanitizeUTF8 is needed to get rid of various other overlong encodings.
 	return SanitizeUTF8(str);

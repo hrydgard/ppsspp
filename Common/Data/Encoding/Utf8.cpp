@@ -234,6 +234,32 @@ uint32_t u8_nextchar(const char *s, int *i)
   return ch;
 }
 
+uint32_t u8_nextchar_unsafe(const char *s, int *i) {
+	uint32_t ch = (unsigned char)s[(*i)++];
+	int sz = 1;
+
+	if (ch >= 0xF0) {
+		sz++;
+		ch &= ~0x10;
+	}
+	if (ch >= 0xE0) {
+		sz++;
+		ch &= ~0x20;
+	}
+	if (ch >= 0xC0) {
+		sz++;
+		ch &= ~0xC0;
+	}
+
+	// Just assume the bytes must be there.  This is the logic used on the PSP.
+	for (int j = 1; j < sz; ++j) {
+		ch <<= 6;
+		ch += ((unsigned char)s[(*i)++]) & 0x3F;
+	}
+
+	return ch;
+}
+
 void u8_inc(const char *s, int *i)
 {
   (void)(isutf(s[++(*i)]) || isutf(s[++(*i)]) ||
@@ -489,9 +515,10 @@ std::string SanitizeUTF8(const std::string &utf8string) {
 	// Worst case.
 	s.resize(utf8string.size() * 4);
 
+	// This stops at invalid start bytes.
 	size_t pos = 0;
-	while (!utf.end_or_overlong_end()) {
-		int c = utf.next();
+	while (!utf.end() && !utf.invalid()) {
+		int c = utf.next_unsafe();
 		pos += UTF8::encode(&s[pos], c);
 	}
 	s.resize(pos);
