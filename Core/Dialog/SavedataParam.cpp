@@ -417,8 +417,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	u8* cryptedData = 0;
 	int cryptedSize = 0;
-	u8 cryptedHash[0x10];
-	memset(cryptedHash,0,0x10);
+	u8 cryptedHash[0x10]{};
 	// Encrypt save.
 	// TODO: Is this the correct difference between MAKEDATA and MAKEDATASECURE?
 	if (param->dataBuf.IsValid() && g_Config.bEncryptSave && secureMode)
@@ -467,34 +466,34 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	sfoFile.SetValue("CATEGORY","MS",4);
 	sfoFile.SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
 
+	// Always write and update the file list.
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
-	if (secureMode) {
-		const int FILE_LIST_COUNT_MAX = 99;
-		const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
-		u32 tmpDataSize = 0;
-		SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
-		SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
-		if (tmpDataSize != 0)
-			memcpy(updatedList, tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
-		if (tmpDataSize < FILE_LIST_TOTAL_SIZE)
-			memset(updatedList + tmpDataSize, 0, FILE_LIST_TOTAL_SIZE - tmpDataSize);
-
-		if (param->dataBuf.IsValid()) {
-			const std::string saveFilename = GetFileName(param);
-			for (auto entry = updatedList; entry < updatedList + FILE_LIST_COUNT_MAX; ++entry) {
-				if (entry->filename[0] != '\0') {
-					if (strncmp(entry->filename, saveFilename.c_str(), sizeof(entry->filename)) != 0)
-						continue;
-				}
-
-				snprintf(entry->filename, sizeof(entry->filename), "%s", saveFilename.c_str());
-				memcpy(entry->hash, cryptedHash, 16);
-				break;
+	const int FILE_LIST_COUNT_MAX = 99;
+	const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
+	u32 tmpDataSize = 0;
+	SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
+	SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
+	if (tmpDataSize != 0)
+		memcpy(updatedList, tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
+	if (tmpDataSize < FILE_LIST_TOTAL_SIZE)
+		memset(updatedList + tmpDataSize, 0, FILE_LIST_TOTAL_SIZE - tmpDataSize);
+	// Leave a hash there and unchanged if it was already there.
+	if (secureMode && param->dataBuf.IsValid()) {
+		const std::string saveFilename = GetFileName(param);
+		for (auto entry = updatedList; entry < updatedList + FILE_LIST_COUNT_MAX; ++entry) {
+			if (entry->filename[0] != '\0') {
+				if (strncmp(entry->filename, saveFilename.c_str(), sizeof(entry->filename)) != 0)
+					continue;
 			}
+
+			snprintf(entry->filename, sizeof(entry->filename), "%s", saveFilename.c_str());
+			memcpy(entry->hash, cryptedHash, 16);
+			break;
 		}
-		sfoFile.SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
-		delete[] updatedList;
 	}
+
+	sfoFile.SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
+	delete[] updatedList;
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
 	u8 *tmpData = new u8[128];
