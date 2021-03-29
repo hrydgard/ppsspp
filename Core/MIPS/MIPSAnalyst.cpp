@@ -983,7 +983,8 @@ skip:
 		// We assume the furthest jumpback is within the func.
 		u32 furthestJumpbackAddr = INVALIDTARGET;
 
-		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
+		const u32 scanEnd = fromAddr + Memory::ValidSize(fromAddr, MAX_AHEAD_SCAN);
+		for (u32 ahead = fromAddr; ahead < scanEnd; ahead += 4) {
 			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
