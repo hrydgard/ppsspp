@@ -122,7 +122,8 @@ void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
-		host->UpdateDisassembly();
+		if (host)
+			host->UpdateDisassembly();
 		const char *state = nullptr;
 		switch (globalUIState) {
 		case UISTATE_EXIT: state = "exit";  break;

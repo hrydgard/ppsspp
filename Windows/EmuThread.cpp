@@ -263,6 +263,9 @@ void MainThreadFunc() {
 			if (!Core_IsActive())
 				UpdateUIState(UISTATE_MENU);
 			Core_Run(g_graphicsContext);
+			if (coreState == CORE_BOOT_ERROR) {
+				break;
+			}
 		}
 	}
 	Core_Stop();
