@@ -26,6 +26,7 @@
 #include <thread>
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Common/File/FileUtil.h"
@@ -541,7 +542,8 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 	s64 sizeK = data_size / 1024;
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
-	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date_year, hour_time, sizeK);
+	std::string title = SanitizeUTF8(std::string(save_title, strnlen(save_title, 128)));
+	std::string saveinfoTxt = StringFromFormat("%s\n%s  %s\n%lld KB", title.c_str(), date_year, hour_time, sizeK);
 	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, textStyle);
 }
 
