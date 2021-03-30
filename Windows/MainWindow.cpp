@@ -484,7 +484,6 @@ namespace MainWindow
 	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
-		SavePosition();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
