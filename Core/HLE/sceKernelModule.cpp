@@ -1431,8 +1431,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		u8 unknown2;
 	};
 
+	module->nm.ent_top = modinfo->libent;
+	module->nm.ent_size = modinfo->libentend - modinfo->libent;
+	module->nm.stub_top = modinfo->libstub;
+	module->nm.stub_size = modinfo->libstubend - modinfo->libstub;
+
 	const u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
 	const u32_le *entEnd = (u32_le *)Memory::GetPointer(modinfo->libentend);
+
 	for (int m = 0; entPos < entEnd; ++m) {
 		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
 		entPos += ent->size;
