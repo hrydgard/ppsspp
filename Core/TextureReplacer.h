@@ -195,9 +195,11 @@ protected:
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
+	void ParseReduceHashRange(const std::string& key, const std::string& value); //Banh-Canh Parse reduceHash settings
 	bool LookupHashRange(u32 addr, int &w, int &h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
-	std::string HashName(u64 cachekey, u32 hash, int level);
+	float LookupReduceHashRange(int& w, int& h); //Banh-Canh lookup ranges
+	std::string LookupHashFile(u64 cachekey, u32 hash, int level, int w, int h); //Banh-Canh 
+	std::string HashName(u64 cachekey, u32 hash, int level, int w, int h); // Banh-Canh
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
 	SimpleBuf<u32> saveBuf;
@@ -205,12 +207,15 @@ protected:
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
+	float reduceHashSize = 1.0; //Banh-Canh default value
+	float reduceHashGlobalValue = 0.5; //Banh-Canh Global value for textures dump pngs of all sizes
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
+	std::unordered_map<u64, float> reducehashranges_; //Banh-Canh
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 
