@@ -1280,6 +1280,11 @@ uint32_t getLocalIp(int sock);
 bool isPrivateIP(uint32_t ip);
 
 /*
+ * Check if an IP (big-endian/network order) is Loopback IP
+ */
+bool isLoopbackIP(uint32_t ip);
+
+/*
  * Get Number of bytes available in buffer to be Received
  * @param sock fd
  * @param udpBufferSize (UDP only)
