@@ -85,6 +85,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+bool isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
@@ -1371,7 +1372,7 @@ int friendFinder(){
 		//_acquireNetworkLock();
 
 		// Reconnect when disconnected while Adhocctl is still inited
-		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited) {
+		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
 			if (g_Config.bEnableWlan) {
 				if (initNetwork(&product_code) == 0) {
 					networkInited = true;
@@ -1389,6 +1390,8 @@ int friendFinder(){
 				}
 			}
 		}
+		// Prevent retrying to Login again unless it was on demand
+		isAdhocctlNeedLogin = false;
 
 		if (networkInited) {
 			// Ping Server

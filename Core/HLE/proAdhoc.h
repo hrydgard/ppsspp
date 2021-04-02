@@ -927,6 +927,7 @@ extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+extern bool isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
