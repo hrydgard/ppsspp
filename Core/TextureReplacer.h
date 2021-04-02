@@ -195,9 +195,11 @@ protected:
 	bool LoadIniValues(IniFile &ini, bool isOverride = false);
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
+	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
-	std::string HashName(u64 cachekey, u32 hash, int level);
+	float LookupReduceHashRange(int& w, int& h);
+	std::string LookupHashFile(u64 cachekey, u32 hash, int level, int w, int h);
+	std::string HashName(u64 cachekey, u32 hash, int level, int w, int h);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
 	SimpleBuf<u32> saveBuf;
@@ -205,12 +207,15 @@ protected:
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
+	float reduceHashSize = 1.0; // default value with reduceHash to false
+	float reduceHashGlobalValue = 0.5; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
+	std::unordered_map<u64, float> reducehashranges_;
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
 

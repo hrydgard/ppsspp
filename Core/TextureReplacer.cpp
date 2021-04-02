@@ -77,10 +77,12 @@ bool TextureReplacer::LoadIni() {
 	aliases_.clear();
 	hashranges_.clear();
 	filtering_.clear();
+	reducehashranges_.clear();
 
 	allowVideo_ = false;
 	ignoreAddress_ = false;
 	reduceHash_ = false;
+	reduceHashGlobalValue = 0.5;
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
 
@@ -192,6 +194,14 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 		}
 	}
 
+	if (ini.HasSection("reducehashranges")) {
+		auto reducehashranges = ini.GetOrCreateSection("reducehashranges")->ToMap();
+		// Format: w,h = reducehashvalues 
+		for (const auto& item : reducehashranges) {
+			ParseReduceHashRange(item.first, item.second);
+		}
+	}
+
 	return true;
 }
 
@@ -247,6 +257,39 @@ void TextureReplacer::ParseFiltering(const std::string &key, const std::string &
 	}
 }
 
+void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::string& value) {
+	std::vector<std::string> keyParts;
+	SplitString(key, ',', keyParts);
+	std::vector<std::string> valueParts;
+	SplitString(value, ',', valueParts);
+
+	if (keyParts.size() != 2 || valueParts.size() != 1) {
+		ERROR_LOG(G3D, "Ignoring invalid reducehashrange %s = %s, expecting w,h = reducehashvalue", key.c_str(), value.c_str());
+		return;
+	}
+
+	u32 forW;
+	u32 forH;
+	if (!TryParse(keyParts[0], &forW) || !TryParse(keyParts[1], &forH)) {
+		ERROR_LOG(G3D, "Ignoring invalid reducehashrange %s = %s, key format is 512,512", key.c_str(), value.c_str());
+		return;
+	}
+
+	float rhashvalue;
+	if (!TryParse(valueParts[0], &rhashvalue)) {
+		ERROR_LOG(G3D, "Ignoring invalid reducehashrange %s = %s, value format is 0.5", key.c_str(), value.c_str());
+		return;
+	}
+
+	if (rhashvalue == 0) {
+		ERROR_LOG(G3D, "Ignoring invalid hashrange %s = %s, reducehashvalue can't be 0", key.c_str(), value.c_str());
+		return;
+	}
+
+	const u64 reducerangeKey = ((u64)forW << 16) | forH;
+	reducehashranges_[reducerangeKey] = rhashvalue;
+} 
+
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(enabled_, "Replacement not enabled");
 
@@ -258,9 +301,10 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 
 	const u8 *checkp = Memory::GetPointer(addr);
-	float reduceHashSize = 1.0;
-	if (reduceHash_)
-		reduceHashSize = 0.5;
+	if (reduceHash_) {
+		reduceHashSize = LookupReduceHashRange(w, h);
+		// default to reduceHashGlobalValue which default is 0.5
+	}
 	if (bufw <= w) {
 		// We can assume the data is contiguous.  These are the total used pixels.
 		const u32 totalPixels = bufw * h + (w - bufw);
@@ -344,7 +388,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	}
 
 	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
-		const std::string hashfile = LookupHashFile(cachekey, hash, i);
+		const std::string hashfile = LookupHashFile(cachekey, hash, i, w, h);
 		const std::string filename = basePath_ + hashfile;
 		if (hashfile.empty() || !File::Exists(filename)) {
 			// Out of valid mip levels.  Bail out.
@@ -428,7 +472,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		return;
 	}
 
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level, w, h);
 	const std::string filename = basePath_ + hashfile;
 	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
 
@@ -594,7 +638,7 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level, int w, int h) {
 	ReplacementAliasKey key(cachekey, hash, level);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
@@ -602,15 +646,22 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 		return alias->second;
 	}
 
-	return HashName(cachekey, hash, level) + ".png";
+	return HashName(cachekey, hash, level, w, h) + ".png";
 }
 
-std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
+std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level, int w, int h) {
 	char hashname[16 + 8 + 1 + 11 + 1] = {};
 	if (level > 0) {
 		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d", cachekey, hash, level);
 	} else {
 		snprintf(hashname, sizeof(hashname), "%016llx%08x", cachekey, hash);
+	}
+
+	if ((reduceHash_) && (reduceHashSize != reduceHashGlobalValue)) 
+	{
+		// if a reducehashrange is specified, add a prefix with their dimension to prevent overwriting dump with the global reducehash value ex : 128x256_hashname.png.
+		// Add only a prefix for value that are different to the reducehashglobalvalue
+		return std::to_string(w) + "x" + std::to_string(h) + "_" + hashname;
 	}
 
 	return hashname;
@@ -627,6 +678,18 @@ bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
 	}
 
 	return false;
+}
+
+float TextureReplacer::LookupReduceHashRange(int& w, int& h) {
+	const u64 reducerangeKey = ((u64)w << 16) | h;
+	auto range = reducehashranges_.find(reducerangeKey);
+	if (range != reducehashranges_.end()) {
+		float rhv = range->second;
+		return rhv;
+	}
+	else {
+		return reduceHashGlobalValue;
+	}
 }
 
 void ReplacedTexture::Load(int level, void *out, int rowPitch) {
