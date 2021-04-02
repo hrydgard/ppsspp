@@ -85,6 +85,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+bool isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
@@ -1371,7 +1372,7 @@ int friendFinder(){
 		//_acquireNetworkLock();
 
 		// Reconnect when disconnected while Adhocctl is still inited
-		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited) {
+		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
 			if (g_Config.bEnableWlan) {
 				if (initNetwork(&product_code) == 0) {
 					networkInited = true;
@@ -1389,6 +1390,8 @@ int friendFinder(){
 				}
 			}
 		}
+		// Prevent retrying to Login again unless it was on demand
+		isAdhocctlNeedLogin = false;
 
 		if (networkInited) {
 			// Ping Server
@@ -1897,6 +1900,10 @@ bool isPrivateIP(uint32_t ip) {
 	return false;
 }
 
+bool isLoopbackIP(uint32_t ip) {
+	return ((uint8_t*)&ip)[0] == 0x7f;
+}
+
 void getLocalMac(SceNetEtherAddr * addr){
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
@@ -2143,8 +2150,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (((uint8_t*)&g_adhocServerIP.in.sin_addr.s_addr)[0] == 0x7f) { // (serverIp.S_un.S_un_b.s_b1 == 0x7f) 
+	if (isLoopbackIP(g_adhocServerIP.in.sin_addr.s_addr)) { 
 		int on = 1;
+		// Not sure what is this SO_DONTROUTE supposed to fix, but i do remembered there were issue related to multiple-instances without SO_DONTROUTE, but forgot how to reproduce it :(
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
 		setSockReuseAddrPort(metasocket);
 
@@ -2194,7 +2202,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		}
 		if (IsSocketReady(metasocket, false, true) <= 0) {
 			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
-			host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 1.0f, 0x0000ff);
+			host->NotifyUserMessage(std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")", 1.0f, 0x0000ff);
 			return iResult;
 		}
 	}

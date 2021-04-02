@@ -181,8 +181,10 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	}
 
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
-	auto n = GetI18NCategory("Networking");
-	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
+	if (g_Config.bEnableUPnP) {
+		auto n = GetI18NCategory("Networking");
+		host->NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
+	}
 	m_InitState = UPNP_INITSTATE_NONE;
 #endif // WITH_UPNP
 	return false;
@@ -197,13 +199,18 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	char port_str[16];
 	char intport_str[16];
 	int r;
+	auto n = GetI18NCategory("Networking");
 	
 	if (intport == 0)
 		intport = port;
 	INFO_LOG(SCENET, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
+		if (g_Config.bEnableUPnP) {
+			WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
+			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+		}
+		Terminate();
 		return false;
 	}
 	sprintf(port_str, "%d", port);
@@ -229,8 +236,9 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		{
 			ERROR_LOG(SCENET, "PortManager - AddPortMapping failed (error: %i)", r);
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
-				auto n = GetI18NCategory("Networking");
-				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+				if (g_Config.bEnableUPnP) {
+					host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+				}
 				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 				return false;
 			}
@@ -248,11 +256,16 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 bool PortManager::Remove(const char* protocol, unsigned short port) {
 #ifdef WITH_UPNP
 	char port_str[16];
+	auto n = GetI18NCategory("Networking");
 
 	INFO_LOG(SCENET, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
+		if (g_Config.bEnableUPnP) {
+			WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
+			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+		}
+		Terminate();
 		return false;
 	}
 	sprintf(port_str, "%d", port);
@@ -261,8 +274,9 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	{
 		ERROR_LOG(SCENET, "PortManager - DeletePortMapping failed (error: %i)", r);
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
-			auto n = GetI18NCategory("Networking");
-			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+			if (g_Config.bEnableUPnP) {
+				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+			}
 			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 			return false;
 		}

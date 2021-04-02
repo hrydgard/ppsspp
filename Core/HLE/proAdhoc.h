@@ -927,6 +927,7 @@ extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+extern bool isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
@@ -1278,6 +1279,11 @@ uint32_t getLocalIp(int sock);
  * Check if an IP (big-endian/network order) is Private or Public IP
  */
 bool isPrivateIP(uint32_t ip);
+
+/*
+ * Check if an IP (big-endian/network order) is Loopback IP
+ */
+bool isLoopbackIP(uint32_t ip);
 
 /*
  * Get Number of bytes available in buffer to be Received

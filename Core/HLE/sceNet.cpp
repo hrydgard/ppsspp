@@ -141,7 +141,7 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetApctl State WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetApctl State WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -151,7 +151,7 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
 }
 
 // Used to change Apctl State after a delay and before executing callback mipscall (since we don't have beforeAction)

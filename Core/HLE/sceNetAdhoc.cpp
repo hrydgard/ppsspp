@@ -250,7 +250,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -269,6 +269,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	packet.base.opcode = req.opcode;
 	packet.group = req.group;
 
+	// Don't send any packets not in these cases (by setting the len to 0)
 	switch (req.opcode)
 	{
 	case OPCODE_CONNECT:
@@ -287,7 +288,8 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		if (len > 0) {
 			ret = SOCKET_ERROR;
 			sockerr = EAGAIN;
-			if (IsSocketReady(metasocket, false, true) > 0) {
+			// Don't send anything yet if connection to Adhoc Server is still in progress
+			if (!isAdhocctlNeedLogin && IsSocketReady(metasocket, false, true) > 0) {
 				ret = send(metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
 				sockerr = errno;
 				// Successfully Sent or Connection has been closed or Connection failure occurred
@@ -300,6 +302,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			}
 		}
 
+		// Retry until successfully sent. Login packet sent after successfully connected to Adhoc Server (indicated by networkInited), so we're not sending Login again here
 		if ((req.opcode == OPCODE_LOGIN && !networkInited) || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (now - adhocctlStartTime <= static_cast<u64>(adhocDefaultTimeout) + 500) {
@@ -316,7 +319,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Opcode: %d, State: %d", waitID, error, (int)result, waitVal, adhocctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Opcode: %d, State: %d", waitID, error, (int)result, waitVal, adhocctlState);
 
 	// We are done with this request
 	adhocctlRequests.erase(uid);
@@ -332,7 +335,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhocctl State WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhocctl State WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -348,7 +351,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
 }
 
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
@@ -815,7 +818,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -901,7 +904,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (ThreadId: %d, WaitID: %d, error: %d) Result (%08x) of sceNetAdhoc[%d] - SocketID: %d", threadID, waitID, error, (int)result, req.type, req.id);
+	DEBUG_LOG(SCENET, "Returning (ThreadId: %d, WaitID: %d, error: %08x) Result (%08x) of sceNetAdhoc[%d] - SocketID: %d", threadID, waitID, error, (int)result, req.type, req.id);
 
 	// We are done with this socket
 	adhocSocketRequests.erase(userdata);
@@ -1056,6 +1059,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 		netAdhocMatchingInited = cur_netAdhocMatchingInited;
 		netAdhocctlInited = cur_netAdhocctlInited;
 		netAdhocInited = cur_netAdhocInited;
+
+		isAdhocctlNeedLogin = false;
 	}
 }
 
@@ -1142,6 +1147,7 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	adhocctlEvents.clear();
 	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
+	isAdhocctlNeedLogin = true;
 
 	// Create fake PSP Thread for callback
 	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
@@ -1157,7 +1163,7 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		friendFinderThread = std::thread(friendFinder);
 	}
 	
-	// Need to make sure to be connected to adhoc server before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
+	// Need to make sure to be connected to Adhoc Server (indicated by networkInited) before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
 	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !networkInited) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
@@ -2092,6 +2098,7 @@ int sceNetAdhocctlScan() {
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
 			isAdhocctlBusy = true;
+			isAdhocctlNeedLogin = true;
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 
@@ -2101,24 +2108,12 @@ int sceNetAdhocctlScan() {
 			networks = NULL;
 			peerlock.unlock();
 
-			// Prepare Scan Request Packet
-			uint8_t opcode = OPCODE_SCAN;
-
-			// Send Scan Request Packet, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-			int iResult = send(metasocket, (char *)&opcode, 1, MSG_NOSIGNAL);
-			int error = errno;
-
-			if (iResult == SOCKET_ERROR) {
-				if (error != EAGAIN && error != EWOULDBLOCK) {
-					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-					//if (error == ECONNABORTED || error == ECONNRESET || error == ENOTCONN) return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // A case where it need to reconnect to AdhocServer
-					return hleLogError(SCENET, ERROR_NET_ADHOCCTL_BUSY, "busy");
-				}
-				else if (friendFinderRunning) {
-					AdhocctlRequest req = { OPCODE_SCAN, {0} };
-					return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
-				}
+			if (friendFinderRunning) {
+				AdhocctlRequest req = { OPCODE_SCAN, {0} };
+				return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
+			}
+			else {
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 			}
 
 			// Return Success and let friendFinder thread to notify the handler when scan completed
@@ -2603,36 +2598,28 @@ int NetAdhocctl_Create(const char* groupName) {
 			// Disconnected State
 			if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
 				isAdhocctlBusy = true;
+				isAdhocctlNeedLogin = true;
 
 				// Set Network Name
-				if (groupNameStruct != NULL) parameter.group_name = *groupNameStruct;
+				if (groupNameStruct != NULL) 
+					parameter.group_name = *groupNameStruct;
 
 				// Reset Network Name
-				else memset(&parameter.group_name, 0, sizeof(parameter.group_name));
+				else 
+					memset(&parameter.group_name, 0, sizeof(parameter.group_name));
 
-				// Prepare Connect Packet
-				SceNetAdhocctlConnectPacketC2S packet;
+				// Set HUD Connection Status
+				//setConnectionStatus(1);
 
-				// Clear Packet Memory
-				memset(&packet, 0, sizeof(packet));
-
-				// Set Packet Opcode
-				packet.base.opcode = OPCODE_CONNECT;
-
-				// Set Target Group
-				if (groupNameStruct != NULL) packet.group = *groupNameStruct;
-
-				// Acquire Network Lock
-
-				// Send Packet
-				int iResult = send(metasocket, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-				int error = errno;
-				adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
-
-				if (iResult == SOCKET_ERROR && error != EAGAIN && error != EWOULDBLOCK) {
-					ERROR_LOG(SCENET, "Socket error (%i) when sending", error);
-
-					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
+				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
+				int us = adhocDefaultDelay;
+				if (friendFinderRunning) {
+					AdhocctlRequest req = { OPCODE_CONNECT, parameter.group_name };
+					return WaitBlockingAdhocctlSocket(req, us, "adhocctl connect");
+				}
+				//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
+				else {
+					adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
 					if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 						adhocctlState = ADHOCCTL_STATE_GAMEMODE;
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
@@ -2643,19 +2630,6 @@ int NetAdhocctl_Create(const char* groupName) {
 						// Connected Event's mipscall need be executed before returning from sceNetAdhocctlCreate (or before the next sceNet function?)
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); 
 					}
-				}
-
-				// Free Network Lock
-
-				// Set HUD Connection Status
-				//setConnectionStatus(1);
-
-				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
-				int us = adhocDefaultDelay;
-				if (adhocctlState != ADHOCCTL_STATE_CONNECTED && adhocctlState != ADHOCCTL_STATE_GAMEMODE && iResult == SOCKET_ERROR && friendFinderRunning) {
-					AdhocctlRequest req = { OPCODE_CONNECT, {0} };
-					if (groupNameStruct != NULL) req.group = *groupNameStruct;
-					return WaitBlockingAdhocctlSocket(req, us, "adhocctl connect");
 				}
 
 				hleEatMicro(us);
