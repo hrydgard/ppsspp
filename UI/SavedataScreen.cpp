@@ -352,6 +352,7 @@ SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParam
 }
 
 void SavedataBrowser::Update() {
+	LinearLayout::Update();
 	if (searchPending_) {
 		searchPending_ = false;
 
