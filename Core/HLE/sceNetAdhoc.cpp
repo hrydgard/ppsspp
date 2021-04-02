@@ -250,7 +250,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhocctl Socket WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -316,7 +316,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Opcode: %d, State: %d", waitID, error, (int)result, waitVal, adhocctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Opcode: %d, State: %d", waitID, error, (int)result, waitVal, adhocctlState);
 
 	// We are done with this request
 	adhocctlRequests.erase(uid);
@@ -332,7 +332,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhocctl State WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhocctl State WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -348,7 +348,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %d) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
 }
 
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
@@ -815,7 +815,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) already woken up? (error: %d)", uid, threadID, error);
+		WARN_LOG(SCENET, "sceNetAdhoc Socket WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -901,7 +901,7 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (ThreadId: %d, WaitID: %d, error: %d) Result (%08x) of sceNetAdhoc[%d] - SocketID: %d", threadID, waitID, error, (int)result, req.type, req.id);
+	DEBUG_LOG(SCENET, "Returning (ThreadId: %d, WaitID: %d, error: %08x) Result (%08x) of sceNetAdhoc[%d] - SocketID: %d", threadID, waitID, error, (int)result, req.type, req.id);
 
 	// We are done with this socket
 	adhocSocketRequests.erase(userdata);
