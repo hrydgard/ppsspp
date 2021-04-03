@@ -388,7 +388,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	}
 
 	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
-		const std::string hashfile = LookupHashFile(cachekey, hash, i, w, h);
+		const std::string hashfile = LookupHashFile(cachekey, hash, i);
 		const std::string filename = basePath_ + hashfile;
 		if (hashfile.empty() || !File::Exists(filename)) {
 			// Out of valid mip levels.  Bail out.
@@ -472,7 +472,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		return;
 	}
 
-	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level, w, h);
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
 	const std::string filename = basePath_ + hashfile;
 	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
 
@@ -638,7 +638,7 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level, int w, int h) {
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 	ReplacementAliasKey key(cachekey, hash, level);
 	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
@@ -646,22 +646,15 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level, i
 		return alias->second;
 	}
 
-	return HashName(cachekey, hash, level, w, h) + ".png";
+	return HashName(cachekey, hash, level) + ".png";
 }
 
-std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level, int w, int h) {
+std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 	char hashname[16 + 8 + 1 + 11 + 1] = {};
 	if (level > 0) {
 		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d", cachekey, hash, level);
 	} else {
 		snprintf(hashname, sizeof(hashname), "%016llx%08x", cachekey, hash);
-	}
-
-	if ((reduceHash_) && (reduceHashSize != reduceHashGlobalValue)) 
-	{
-		// if a reducehashrange is specified, add a prefix with their dimension to prevent overwriting dump with the global reducehash value ex : 128x256_hashname.png.
-		// Add only a prefix for value that are different to the reducehashglobalvalue
-		return std::to_string(w) + "x" + std::to_string(h) + "_" + hashname;
 	}
 
 	return hashname;
@@ -776,6 +769,8 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fs << "[hashranges]\n";
 		fs << "\n";
 		fs << "[filtering]\n";
+		fs << "\n";
+		fs << "[reducehashranges]\n";
 		fs.close();
 	}
 	return File::Exists(texturesDirectory + INI_FILENAME);
