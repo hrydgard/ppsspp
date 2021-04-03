@@ -7253,7 +7253,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				// Iterate Message List
 				int msg_count = 0;
 				ThreadMessage* msg = context->input_stack;
-				for (; msg != NULL; msg = msg->next)
+				while (msg != NULL)
 				{
 					// Default Optional Data
 					void* opt = NULL;
