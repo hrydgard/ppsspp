@@ -63,6 +63,8 @@ inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, co
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
 
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size);
+
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();
 void MemBlockInfoDoState(PointerWrap &p);

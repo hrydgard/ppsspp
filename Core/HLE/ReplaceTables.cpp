@@ -156,8 +156,9 @@ static int Replace_memcpy() {
 	}
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy");
+	const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -198,8 +199,9 @@ static int Replace_memcpy_jak() {
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy");
+	const std::string tag = "ReplaceMemcpy/" + GetMemWriteTagAt(srcPtr, bytes);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
@@ -226,8 +228,9 @@ static int Replace_memcpy16() {
 	}
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemcpy16");
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemcpy16");
+	const std::string tag = "ReplaceMemcpy16/" + GetMemWriteTagAt(srcPtr, bytes);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
 	return 10 + bytes / 4;  // approximation
 }
@@ -264,8 +267,9 @@ static int Replace_memcpy_swizzled() {
 
 	RETURN(0);
 
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, "ReplaceMemcpySwizzle");
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, "ReplaceMemcpySwizzle");
+	const std::string tag = "ReplaceMemcpySwizzle/" + GetMemWriteTagAt(srcPtr, pitch * h);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
 
 	return 10 + (pitch * h) / 4;  // approximation
 }
@@ -292,8 +296,9 @@ static int Replace_memmove() {
 	}
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, "ReplaceMemmove");
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemmove");
+	const std::string tag = "ReplaceMemmove/" + GetMemWriteTagAt(srcPtr, bytes);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
 
 	return 10 + bytes / 4;  // approximation
 }

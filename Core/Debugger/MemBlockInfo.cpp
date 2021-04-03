@@ -433,6 +433,14 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	return results;
 }
 
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
+	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(MemBlockFlags::WRITE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
+	return "none";
+}
+
 void MemBlockInfoInit() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
 	pendingNotifies.reserve(MAX_PENDING_NOTIFIES);

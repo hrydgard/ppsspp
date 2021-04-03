@@ -2742,8 +2742,9 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 		return true;
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "GPUMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemcpy");
+	const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag.c_str(), tag.size());
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	GPURecord::NotifyMemcpy(dest, src, size);
 	return false;
