@@ -500,6 +500,12 @@ void __NetApctlCallbacks()
 
 		case PSP_NET_APCTL_EVENT_SCAN_COMPLETE:
 			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
+			if (error == 0)
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_SCAN_STOP, 0 });
+			break;
+
+		case PSP_NET_APCTL_EVENT_SCAN_STOP:
+			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
 			break;
 
 		case PSP_NET_APCTL_EVENT_EAP_AUTH: // Is this suppose to happen between JOINING and ESTABLISHED ?
@@ -1178,8 +1184,9 @@ static int sceNetApctlScanUser() {
 static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
 
-	const int userInfoSize = 8;
-	int entries = 1;
+	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
+	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
+	int entries = 4;
 	if (!Memory::IsValidAddress(sizeAddr))
 		hleLogError(SCENET, -1, "apctl invalid arg");
 
@@ -1195,7 +1202,7 @@ static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 				break;
 			}
 
-			DEBUG_LOG(SCENET, "%s returning %d at %08x", __FUNCTION__, i, bufAddr + offset);
+			DEBUG_LOG(SCENET, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
 
 			// Pointer to next Network structure in list
 			Memory::Write_U32((i+1)*userInfoSize + bufAddr, bufAddr + offset);
@@ -1219,17 +1226,48 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 	if (!Memory::IsValidAddress(resultAddr))
 		hleLogError(SCENET, -1, "apctl invalid arg");
 
+	// Generate an SSID name
+	char dummySSID[APCTL_SSID_MAXLEN] = "WifiAP0";
+	dummySSID[6] += static_cast<char>(entryId);
+
 	switch (infoId) {
 	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
-		Memory::WriteStruct(resultAddr, &netApctlInfo.bssid);
+		if (entryId == 0)
+			Memory::WriteStruct(resultAddr, &netApctlInfo.bssid);
+		else {
+			// Generate a BSSID/MAC address
+			char dummyMAC[ETHER_ADDR_LEN];
+			memset(&dummyMAC, entryId, sizeof(dummyMAC));
+			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
+			dummyMAC[0] &= 0xfc;
+			Memory::WriteStruct(resultAddr, &dummyMAC);
+		}
 		break;
 	case PSP_NET_APCTL_DESC_SSID_NAME:
 		// Return 32 bytes
-		Memory::WriteStruct(resultAddr, &netApctlInfo.ssid);
+		if (entryId == 0)
+			Memory::WriteStruct(resultAddr, &netApctlInfo.ssid);
+		else {
+			Memory::WriteStruct(resultAddr, &dummySSID);
+		}
 		break;
 	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
 		// Return one 32-bit value
-		Memory::WriteStruct(resultAddr, &netApctlInfo.ssidLength);
+		if (entryId == 0)
+			Memory::WriteStruct(resultAddr, &netApctlInfo.ssidLength);
+		else {
+			// Calculate the SSID length
+			Memory::Write_U32((u32)strlen(dummySSID), resultAddr);
+		}
+		break;
+	case PSP_NET_APCTL_DESC_CHANNEL:
+		// FIXME: Return one 1 byte value or may be 32-bit if it this is not channel?
+		if (entryId == 0)
+			Memory::WriteStruct(resultAddr, &netApctlInfo.channel);
+		else {
+			// Generate channel for testing purposes, not even sure whether this is channel or not
+			Memory::Write_U32(entryId, resultAddr);
+		}
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
 		// Return 1 byte
@@ -1247,16 +1285,29 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 }
 
 static int sceNetApctlScanSSID2() {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	ERROR_LOG(SCENET, "UNIMPL %s() at %08x", __FUNCTION__, currentMIPS->pc);
 	return NetApctl_ScanUser();
 }
 
+/**************
+* Arg1 = output buffer size being filled? (initially the same with Arg3 ?)
+* Arg2 = output buffer? (linked list where the 1st 32-bit is the next address? followed by entry Id? ie. 8-bytes per entry?)
+* Arg3 = max buffer size? (ie. 0x100 ?)
+* Arg4 = input flag? or output number of entries being filled? (initially 0/1 ?)
+***************/
 static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
-	return hleLogError(SCENET, 0, "unimplemented");
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x, %08x, %08x) at %08x", __FUNCTION__, Arg1, Arg2, Arg3, Arg4, currentMIPS->pc);
+	return hleLogError(SCENET, sceNetApctlGetBSSDescIDListUser(Arg1, Arg2), "unimplemented");
 }
 
-static int sceNetApctlGetBSSDescEntry2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
-	return hleLogError(SCENET, 0, "unimplemented");
+/**************
+* Arg1 = a value returned from sceNetApctlGetBSSDescIDList2 ? entryId?
+* Arg2 = input field type within the entry desc (ie. PSP_NET_APCTL_DESC_SSID_NAME ?)
+* Arg3 = output buffer for retrieved entry data? (max size = 32 bytes? ie. APCTL_SSID_MAXLEN ? or similar to SceNetApctlInfoInternal union ?)
+***************/
+static int sceNetApctlGetBSSDescEntry2(int entryId, int infoId, u32 resultAddr) {
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, currentMIPS->pc);
+	return hleLogError(SCENET, sceNetApctlGetBSSDescEntryUser(entryId, infoId, resultAddr), "unimplemented");
 }
 
 static int sceNetResolverInit()
@@ -1434,7 +1485,7 @@ const HLEFunction sceNetApctl[] = {
 	{0XA3E77E13, &WrapI_V<sceNetApctlScanSSID2>,     "sceNetApctlScanSSID2",            'i', ""     },
 	{0XE9B2E5E6, &WrapI_V<sceNetApctlScanUser>,                 "sceNetApctlScanUser",             'i', ""     },
 	{0XF25A5006, &WrapI_UUUU<sceNetApctlGetBSSDescIDList2>,     "sceNetApctlGetBSSDescIDList2",    'i', "xxxx" },
-	{0X2935C45B, &WrapI_UUUU<sceNetApctlGetBSSDescEntry2>,      "sceNetApctlGetBSSDescEntry2",     'i', "xxxx" },
+	{0X2935C45B, &WrapI_IIU<sceNetApctlGetBSSDescEntry2>,       "sceNetApctlGetBSSDescEntry2",     'i', "iix"  },
 	{0X04776994, &WrapI_IIU<sceNetApctlGetBSSDescEntryUser>,    "sceNetApctlGetBSSDescEntryUser",  'i', "iix"  },
 	{0X6BDDCB8C, &WrapI_UU<sceNetApctlGetBSSDescIDListUser>,    "sceNetApctlGetBSSDescIDListUser", 'i', "xx"   },
 	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
