@@ -2738,7 +2738,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 			// We use a little hack for PerformMemoryDownload/PerformMemoryUpload using a VRAM mirror.
 			// Since they're identical we don't need to copy.
 			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-				Memory::Memcpy(dest, src, size);
+				const std::string tag = "GPUMemcpy/" + GetMemWriteTagAt(src, size);
+				Memory::Memcpy(dest, src, size, tag.c_str(), tag.size());
 			}
 		}
 		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
