@@ -180,24 +180,14 @@ private:
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), g_Config.recentIsos[index], GAMEINFO_WANTBG);
 	}
 
-	Draw::Texture *GetTex(std::shared_ptr<GameInfo> &ginfo) {
-		if (ginfo && ginfo->pic1.texture) {
-			return ginfo->pic1.texture->GetTexture();
-		}
-		if (ginfo && ginfo->pic0.texture) {
-			return ginfo->pic0.texture->GetTexture();
-		}
-		return nullptr;
-	}
-
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
 		if (!ginfo || amount <= 0.0f)
 			return;
-		Draw::Texture *tex = GetTex(ginfo);
-		if (!tex)
+		GameInfoTex *pic = ginfo->GetBGPic();
+		if (!pic)
 			return;
 
-		dc.GetDrawContext()->BindTexture(0, tex);
+		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
 		uint32_t color = whiteAlpha(amount) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
 		dc.Flush();
@@ -281,19 +271,12 @@ void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
-	bool hasPic = false;
-	double loadTime;
-	if (ginfo && ginfo->pic1.texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
-		loadTime = ginfo->pic1.timeLoaded;
-		hasPic = true;
-	} else if (ginfo && ginfo->pic0.texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic0.texture->GetTexture());
-		loadTime = ginfo->pic0.timeLoaded;
-		hasPic = true;
+	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
+	if (pic) {
+		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
 	}
-	if (hasPic) {
-		uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3)) & 0xFFc0c0c0;
+	if (pic) {
+		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 		dc.Flush();
 		dc.RebindTexture();
