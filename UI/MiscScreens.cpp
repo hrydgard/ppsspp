@@ -85,17 +85,11 @@ public:
 	void Draw(UIContext &dc, double t, float alpha) override {
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
-		if (xbase[0] == 0.0f || last_xres != xres || last_yres != yres) {
-			GMRng rng;
-			for (int i = 0; i < 100; i++) {
-				xbase[i] = rng.F() * xres;
-				ybase[i] = rng.F() * yres;
-			}
-			last_xres = xres;
-			last_yres = yres;
+		if (last_xres != xres || last_yres != yres) {
+			Regenerate(xres, yres);
 		}
 
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < COUNT; i++) {
 			float x = xbase[i] + dc.GetBounds().x;
 			float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
 			float angle = (float)sin(i + t);
@@ -103,11 +97,118 @@ public:
 			ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
 		}
 	}
+
 private:
-	float xbase[100] = { 0 };
-	float ybase[100] = { 0 };
+	static constexpr int COUNT = 100;
+
+	float xbase[COUNT]{};
+	float ybase[COUNT]{};
 	float last_xres = 0;
 	float last_yres = 0;
+
+	void Regenerate(int xres, int yres) {
+		GMRng rng;
+		for (int i = 0; i < COUNT; i++) {
+			xbase[i] = rng.F() * xres;
+			ybase[i] = rng.F() * yres;
+		}
+
+		last_xres = xres;
+		last_yres = yres;
+	}
+};
+
+class RecentGamesAnimation : public FloatingSymbolsAnimation {
+public:
+	~RecentGamesAnimation() override {}
+	void Draw(UIContext &dc, double t, float alpha) override {
+		if (lastIndex_ == nextIndex_) {
+			CheckNext(dc, t);
+		} else if (t > nextT_) {
+			lastIndex_ = nextIndex_;
+		}
+
+		if (!g_Config.recentIsos.empty()) {
+			std::shared_ptr<GameInfo> lastInfo = GetInfo(dc, lastIndex_);
+			std::shared_ptr<GameInfo> nextInfo = GetInfo(dc, nextIndex_);
+			dc.Flush();
+
+			float lastAmount = Clamp((float)(nextT_ - t) * 1.0f / TRANSITION, 0.0f, 1.0f);
+			DrawTex(dc, lastInfo, lastAmount * alpha * 0.2f);
+
+			float nextAmount = lastAmount <= 0.0f ? 1.0f : 1.0f - lastAmount;
+			DrawTex(dc, nextInfo, nextAmount * alpha * 0.2f);
+
+			dc.RebindTexture();
+		}
+
+		FloatingSymbolsAnimation::Draw(dc, t, alpha * 0.5f);
+	}
+
+private:
+	void CheckNext(UIContext &dc, double t) {
+		if (g_Config.recentIsos.empty()) {
+			return;
+		}
+
+		for (int index = lastIndex_ + 1; index != lastIndex_; ++index) {
+			if (index < 0 || index >= (int)g_Config.recentIsos.size()) {
+				if (lastIndex_ == -1)
+					break;
+				index = 0;
+			}
+
+			std::shared_ptr<GameInfo> ginfo = GetInfo(dc, index);
+			if (ginfo && ginfo->pending) {
+				// Wait for it to load.  It might be the next one.
+				break;
+			}
+			if (ginfo && (ginfo->pic1.texture || ginfo->pic0.texture)) {
+				nextIndex_ = index;
+				nextT_ = t + INTERVAL;
+				break;
+			}
+
+			// Otherwise, keep going.  This skips games with no BG.
+		}
+	}
+
+	std::shared_ptr<GameInfo> GetInfo(UIContext &dc, int index) {
+		if (index < 0) {
+			return nullptr;
+		}
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), g_Config.recentIsos[index], GAMEINFO_WANTBG);
+	}
+
+	Draw::Texture *GetTex(std::shared_ptr<GameInfo> &ginfo) {
+		if (ginfo && ginfo->pic1.texture) {
+			return ginfo->pic1.texture->GetTexture();
+		}
+		if (ginfo && ginfo->pic0.texture) {
+			return ginfo->pic0.texture->GetTexture();
+		}
+		return nullptr;
+	}
+
+	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
+		if (!ginfo || amount <= 0.0f)
+			return;
+		Draw::Texture *tex = GetTex(ginfo);
+		if (!tex)
+			return;
+
+		dc.GetDrawContext()->BindTexture(0, tex);
+		uint32_t color = whiteAlpha(amount) & 0xFFc0c0c0;
+		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+		dc.Flush();
+	}
+
+	static constexpr double INTERVAL = 8.0;
+	static constexpr float TRANSITION = 3.0f;
+
+	int lastIndex_ = -1;
+	int nextIndex_ = -1;
+	double nextT_ = -INTERVAL;
 };
 
 // TODO: Add more styles. Remember to add to the enum in Config.cpp and the selector in GameSettings too.
@@ -136,6 +237,9 @@ void DrawBackground(UIContext &dc, float alpha) {
 		switch (g_CurBackgroundAnimation) {
 		case BackgroundAnimation::FLOATING_SYMBOLS:
 			g_Animation.reset(new FloatingSymbolsAnimation());
+			break;
+		case BackgroundAnimation::RECENT_GAMES:
+			g_Animation.reset(new RecentGamesAnimation());
 			break;
 		default:
 			g_Animation.reset(nullptr);

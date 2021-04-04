@@ -875,7 +875,7 @@ void GameSettingsScreen::CreateViews() {
 	if (backgroundChoice_ != nullptr) {
 		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
 	}
-	static const char *backgroundAnimations[] = { "No animation", "Floating Symbols" };
+	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), sy->GetName(), screenManager()));
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));

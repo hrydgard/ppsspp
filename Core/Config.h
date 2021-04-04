@@ -38,11 +38,6 @@ enum ChatPositions {
 	CENTER_RIGHT = 7,
 };
 
-enum class BackgroundAnimation {
-	OFF = 0,
-	FLOATING_SYMBOLS = 1,
-};
-
 namespace http {
 	class Download;
 	class Downloader;
