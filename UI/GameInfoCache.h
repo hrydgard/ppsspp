@@ -100,6 +100,14 @@ public:
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
 
+	GameInfoTex *GetBGPic() {
+		if (pic0.texture)
+			return &pic0;
+		if (pic1.texture)
+			return &pic1;
+		return nullptr;
+	}
+
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer

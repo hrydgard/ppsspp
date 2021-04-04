@@ -116,3 +116,9 @@ enum class UnthrottleMode {
 	SKIP_DRAW = 1,
 	SKIP_FLIP = 2,
 };
+
+enum class BackgroundAnimation {
+	OFF = 0,
+	FLOATING_SYMBOLS = 1,
+	RECENT_GAMES = 2,
+};
