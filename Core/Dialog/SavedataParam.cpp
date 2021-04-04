@@ -25,6 +25,7 @@
 #include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -645,7 +646,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 		}
 		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 	}
-	u8 *data_ = param->dataBuf;
+
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize;
@@ -664,20 +665,26 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	int prevCryptMode = GetSaveCryptMode(param, saveDirName);
 	bool isCrypted = prevCryptMode != 0 && secureMode;
 	bool saveDone = false;
+	u32 loadedSize = 0;
 	if (isCrypted) {
 		if (DetermineCryptMode(param) > 1 && !HasKey(param))
 			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 
 		u8 hash[16];
 		bool hasExpectedHash = GetExpectedHash(dirPath, filename, hash);
-		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, hasExpectedHash ? hash : nullptr, saveDone);
+		loadedSize = LoadCryptedSave(param, param->dataBuf, saveData, saveSize, prevCryptMode, hasExpectedHash ? hash : nullptr, saveDone);
 		// TODO: Should return SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN here if !saveDone.
 	}
 	if (!saveDone) {
-		LoadNotCryptedSave(param, data_, saveData, saveSize);
+		loadedSize = LoadNotCryptedSave(param, param->dataBuf, saveData, saveSize);
 	}
 	param->dataSize = (SceSize)saveSize;
 	delete[] saveData;
+
+	if (loadedSize != 0) {
+		std::string tag = "LoadSaveData/" + filePath;
+		NotifyMemInfo(MemBlockFlags::WRITE, param->dataBuf.ptr, loadedSize, tag.c_str(), tag.size());
+	}
 
 	return 0;
 }
@@ -697,7 +704,7 @@ int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) cons
 	return decryptMode;
 }
 
-void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
+u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
 	int orig_size = saveSize;
 	int align_len = align16(saveSize);
 	u8 *data_base = new u8[align_len];
@@ -761,18 +768,27 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, co
 		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
 	}
 
+	u32 sz = 0;
 	if (err == 0) {
-		if (param->dataBuf.IsValid())
-			memcpy(data, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
+		if (param->dataBuf.IsValid()) {
+			sz = std::min((u32)saveSize, (u32)param->dataBufSize);
+			memcpy(data, data_base, sz);
+		}
 		saveDone = true;
 	}
 	delete[] data_base;
 	delete[] cryptKey;
+
+	return sz;
 }
 
-void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
-	if (param->dataBuf.IsValid())
-		memcpy(data, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
+u32 SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
+	if (param->dataBuf.IsValid()) {
+		u32 sz = std::min((u32)saveSize, (u32)param->dataBufSize);
+		memcpy(data, saveData, sz);
+		return sz;
+	}
+	return 0;
 }
 
 void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
