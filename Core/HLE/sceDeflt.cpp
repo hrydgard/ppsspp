@@ -18,6 +18,7 @@
 #include "zlib.h"
 
 #include "Common/CommonTypes.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDeflt.h"
@@ -55,6 +56,11 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 		uLong crc = crc32(0L, Z_NULL, 0);
 		*crc32Addr = crc32(crc, outBufferPtr, stream.total_out);
 	}
+
+	const std::string tag = "sceDeflt/" + GetMemWriteTagAt(InBuffer, stream.total_in);
+	NotifyMemInfo(MemBlockFlags::READ, InBuffer, stream.total_in, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tag.c_str(), tag.size());
+
 	return hleLogSuccessI(HLE, stream.total_out);
 }
 
