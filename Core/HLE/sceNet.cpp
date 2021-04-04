@@ -1237,7 +1237,7 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 		else {
 			// Generate a BSSID/MAC address
 			char dummyMAC[ETHER_ADDR_LEN];
-			memset(&dummyMAC, entryId, sizeof(dummyMAC));
+			memset(dummyMAC, entryId, sizeof(dummyMAC));
 			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 			dummyMAC[0] &= 0xfc;
 			Memory::WriteStruct(resultAddr, &dummyMAC);
@@ -1261,7 +1261,7 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 		}
 		break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
-		// FIXME: Return one 1 byte value or may be 32-bit if it this is not channel?
+		// FIXME: Return one 1 byte value or may be 32-bit if this is not a channel?
 		if (entryId == 0)
 			Memory::WriteStruct(resultAddr, &netApctlInfo.channel);
 		else {
@@ -1275,7 +1275,7 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 			Memory::WriteStruct(resultAddr, &netApctlInfo.strength);
 		else {
 			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
-			Memory::Write_U8(rand()*99 + 1, resultAddr);
+			Memory::Write_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
