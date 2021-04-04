@@ -531,7 +531,8 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
+	const float AXIS_LOG_THRESHOLD = AXIS_BIND_THRESHOLD * 0.5f;
+	if (axis.value > AXIS_LOG_THRESHOLD || axis.value < -AXIS_LOG_THRESHOLD) {
 		char buf[512];
 		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
 			axis.axisId, axis.value, axis.deviceId);

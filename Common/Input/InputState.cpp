@@ -33,6 +33,7 @@ std::vector<KeyDef> confirmKeys;
 std::vector<KeyDef> cancelKeys;
 std::vector<KeyDef> tabLeftKeys;
 std::vector<KeyDef> tabRightKeys;
+static std::unordered_map<int, int> uiFlipAnalogY;
 
 static void AppendKeys(std::vector<KeyDef> &keys, const std::vector<KeyDef> &newKeys) {
 	for (auto iter = newKeys.begin(); iter != newKeys.end(); ++iter) {
@@ -60,4 +61,15 @@ void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<
 void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight) {
 	tabLeftKeys = tabLeft;
 	tabRightKeys = tabRight;
+}
+
+void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId) {
+	uiFlipAnalogY = flipYByDeviceId;
+}
+
+int GetAnalogYDirection(int deviceId) {
+	auto configured = uiFlipAnalogY.find(deviceId);
+	if (configured != uiFlipAnalogY.end())
+		return configured->second;
+	return 0;
 }

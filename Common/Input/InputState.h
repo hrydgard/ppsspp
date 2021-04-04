@@ -4,8 +4,9 @@
 // own mapping. Might later move the mapping system from PPSSPP to native.
 
 #include <map>
-#include <vector>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 
 #include "Common/Math/lin/vec3.h"
 #include "Common/Input/KeyCodes.h"
@@ -162,3 +163,7 @@ void SetDPadKeys(const std::vector<KeyDef> &leftKey, const std::vector<KeyDef> &
 		const std::vector<KeyDef> &upKey, const std::vector<KeyDef> &downKey);
 void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel);
 void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight);
+
+// 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
+void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId);
+int GetAnalogYDirection(int deviceId);

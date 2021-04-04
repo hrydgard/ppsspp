@@ -80,6 +80,18 @@ const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
+struct MappedAnalogAxis {
+	int axisId;
+	int direction;
+};
+
+struct MappedAnalogAxes {
+	MappedAnalogAxis leftX;
+	MappedAnalogAxis leftY;
+	MappedAnalogAxis rightX;
+	MappedAnalogAxis rightY;
+};
+
 // KeyMap
 // A translation layer for key assignment. Provides
 // integration with Core's config state.
@@ -129,7 +141,7 @@ namespace KeyMap {
 
 	bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
-	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
+	MappedAnalogAxes MappedAxesForDevice(int deviceId);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
