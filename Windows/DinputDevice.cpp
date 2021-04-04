@@ -306,10 +306,10 @@ int DinputDevice::UpdateState() {
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
 		auto axesToSquare = KeyMap::MappedAxesForDevice(axis.deviceId);
-		ApplyNormalization(js, axesToSquare.leftXAxisId, axesToSquare.leftYAxisId);
+		ApplyNormalization(js, axesToSquare.leftX.axisId, axesToSquare.leftY.axisId);
 		// Prevent double normalization.
-		if (axesToSquare.leftXAxisId != axesToSquare.rightXAxisId && axesToSquare.leftXAxisId != axesToSquare.rightYAxisId)
-			ApplyNormalization(js, axesToSquare.rightXAxisId, axesToSquare.rightYAxisId);
+		if (axesToSquare.leftX.axisId != axesToSquare.rightX.axisId && axesToSquare.leftX.axisId != axesToSquare.rightY.axisId)
+			ApplyNormalization(js, axesToSquare.rightX.axisId, axesToSquare.rightY.axisId);
 
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);

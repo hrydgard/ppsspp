@@ -80,11 +80,16 @@ const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
+struct MappedAnalogAxis {
+	int axisId;
+	int direction;
+};
+
 struct MappedAnalogAxes {
-	int leftXAxisId;
-	int leftYAxisId;
-	int rightXAxisId;
-	int rightYAxisId;
+	MappedAnalogAxis leftX;
+	MappedAnalogAxis leftY;
+	MappedAnalogAxis rightX;
+	MappedAnalogAxis rightY;
 };
 
 // KeyMap

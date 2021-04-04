@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
 #include <algorithm>
+#include <set>
+#include <unordered_map>
 
 #if defined(SDL)
 #include <SDL_keyboard.h>
@@ -49,6 +50,7 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
+static std::set<int> g_seenDeviceIds;
 
 bool g_swapped_keys = false;
 
@@ -352,6 +354,13 @@ void UpdateNativeMenuKeys() {
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
+
+	std::unordered_map<int, int> flipYByDeviceId;
+	for (int deviceId : g_seenDeviceIds) {
+		auto analogs = MappedAxesForDevice(deviceId);
+		flipYByDeviceId[deviceId] = analogs.leftY.direction;
+	}
+	SetAnalogFlipY(flipYByDeviceId);
 }
 
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
@@ -361,6 +370,7 @@ static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t
 		else
 			SetAxisMapping(array[i].pspKey, deviceId, array[i].key, array[i].direction, replace);
 	}
+	g_seenDeviceIds.insert(deviceId);
 }
 
 void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
@@ -853,30 +863,31 @@ MappedAnalogAxes MappedAxesForDevice(int deviceId) {
 	MappedAnalogAxes result{};
 
 	// Find the axisId mapped for a specific virtual button.
-	auto findAxisId = [&](int btn) -> int {
+	auto findAxisId = [&](int btn) -> MappedAnalogAxis {
+		MappedAnalogAxis info{ -1 };
 		for (const auto &key : g_controllerMap[btn]) {
 			if (key.deviceId == deviceId) {
-				int direction = 0;
-				return TranslateKeyCodeToAxis(key.keyCode, direction);
+				info.axisId = TranslateKeyCodeToAxis(key.keyCode, info.direction);
+				return info;
 			}
 		}
-		return -1;
+		return info;
 	};
 
 	// Find the axisId of a pair of opposing buttons.
-	auto findAxisIdPair = [&](int minBtn, int maxBtn) -> int {
-		int foundMin = findAxisId(minBtn);
-		int foundMax = findAxisId(maxBtn);
-		if (foundMin == foundMax) {
+	auto findAxisIdPair = [&](int minBtn, int maxBtn) -> MappedAnalogAxis {
+		MappedAnalogAxis foundMin = findAxisId(minBtn);
+		MappedAnalogAxis foundMax = findAxisId(maxBtn);
+		if (foundMin.axisId == foundMax.axisId) {
 			return foundMax;
 		}
-		return -1;
+		return MappedAnalogAxis{ -1 };
 	};
 
-	result.leftXAxisId = findAxisIdPair(VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-	result.leftYAxisId = findAxisIdPair(VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-	result.rightXAxisId = findAxisIdPair(VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-	result.rightYAxisId = findAxisIdPair(VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+	result.leftX = findAxisIdPair(VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+	result.leftY = findAxisIdPair(VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+	result.rightX = findAxisIdPair(VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+	result.rightY = findAxisIdPair(VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 	return result;
 }
 
@@ -905,6 +916,7 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 	}
 	g_controllerMapGeneration++;
 
+	g_seenDeviceIds.insert(key.deviceId);
 	UpdateNativeMenuKeys();
 }
 
@@ -969,6 +981,7 @@ void LoadFromIni(IniFile &file) {
 			int keyCode = atoi(parts[1].c_str());
 
 			SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
+			g_seenDeviceIds.insert(deviceId);
 		}
 	}
 
