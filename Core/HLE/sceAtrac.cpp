@@ -520,6 +520,15 @@ struct Atrac {
 		currentSample_ = sample;
 	}
 
+	uint32_t CurBufferAddress(int adjust = 0) {
+		u32 off = FileOffsetBySample(currentSample_ + adjust);
+		if (off < first_.size && ignoreDataBuf_) {
+			return first_.addr + off;
+		}
+		// If it's in dataBug, it's not in PSP memory.
+		return 0;
+	}
+
 	bool FillPacket(int adjust = 0) {
 		u32 off = FileOffsetBySample(currentSample_ + adjust);
 		if (off < first_.size) {
@@ -1208,6 +1217,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket(-skipSamples)) {
+					uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
+					int packetSize = atrac->packet_->size;
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
@@ -1246,7 +1257,13 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+								if (packetAddr != 0 && g_Config.bDebugMemInfoDetailed) {
+									const std::string tag = "AtracDecode/" + GetMemWriteTagAt(packetAddr, packetSize);
+									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tag.c_str(), tag.size());
+									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tag.c_str(), tag.size());
+								} else {
+									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+								}
 							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
