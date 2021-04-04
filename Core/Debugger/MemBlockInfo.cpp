@@ -438,6 +438,12 @@ std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
 	for (auto range : memRangeInfo) {
 		return range.tag;
 	}
+
+	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
+	memRangeInfo = FindMemInfoByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
 	return "none";
 }
 

@@ -653,8 +653,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				memcpy(dst, src, width * bpp);
 			}
 
-			NotifyMemInfo(MemBlockFlags::READ, srcBasePtr + (srcY * srcStride + srcX) * bpp, height * srcStride * bpp, "GPUBlockTransfer");
-			NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, "GPUBlockTransfer");
+			const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			const uint32_t srcSize = height * srcStride * bpp;
+			const std::string tag = "GPUBlockTransfer/" + GetMemWriteTagAt(src, srcSize);
+			NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag.c_str(), tag.size());
+			NotifyMemInfo(MemBlockFlags::WRITE, dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, tag.c_str(), tag.size());
 
 			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 			cyclesExecuted += ((height * width * bpp) * 16) / 10;
