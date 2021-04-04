@@ -866,8 +866,11 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 	u8 *buf = fileData->buf;
 	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
 	s64 readSize = -1;
-	if (ReadPSPFile(filePath, &buf, size, &readSize))
+	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;
+		const std::string tag = "SavedataLoad/" + filePath;
+		NotifyMemInfo(MemBlockFlags::WRITE, fileData->buf.ptr, fileData->size, tag.c_str(), tag.size());
+	}
 }
 
 int SavedataParam::EncryptData(unsigned int mode,
@@ -1083,6 +1086,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes, false);
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
+		NotifyMemInfo(MemBlockFlags::WRITE, param->msFree.ptr, sizeof(SceUtilitySavedataMsFreeInfo), "SavedataGetSizes");
 	}
 	if (param->msData.IsValid())
 	{
@@ -1120,6 +1124,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));
 			ret = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 		}
+		NotifyMemInfo(MemBlockFlags::WRITE, param->msData.ptr, sizeof(SceUtilitySavedataMsDataInfo), "SavedataGetSizes");
 	}
 	if (param->utilityData.IsValid())
 	{
@@ -1155,6 +1160,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		spaceTxt = SavedataParam::GetSpaceText(total_size, true);
 		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
 		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
+		NotifyMemInfo(MemBlockFlags::WRITE, param->utilityData.ptr, sizeof(SceUtilitySavedataUsedDataInfo), "SavedataGetSizes");
 	}
 	return ret;
 
@@ -1174,47 +1180,47 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		std::vector<PSPFileInfo> sfoFiles;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		if (param->idList.IsValid())
+		std::string searchString = GetGameName(param)+GetSaveName(param);
+		for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
 		{
-			std::string searchString = GetGameName(param)+GetSaveName(param);
-			for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
+			std::string dirName = allDir[i].name;
+			if(PSPMatch(dirName, searchString))
 			{
-				std::string dirName = allDir[i].name;
-				if(PSPMatch(dirName, searchString))
-				{
-					validDir.push_back(allDir[i]);
-				}
+				validDir.push_back(allDir[i]);
 			}
+		}
 
-			PSPFileInfo sfoFile;
-			for (size_t i = 0; i < validDir.size(); ++i) {
-				// GetFileName(param) == NUll here
-				// so use sfo files to set the date. 
-				sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + "PARAM.SFO");
-				sfoFiles.push_back(sfoFile);
-			}
+		PSPFileInfo sfoFile;
+		for (size_t i = 0; i < validDir.size(); ++i) {
+			// GetFileName(param) == NUll here
+			// so use sfo files to set the date.
+			sfoFile = pspFileSystem.GetFileInfo(savePath + validDir[i].name + "/" + "PARAM.SFO");
+			sfoFiles.push_back(sfoFile);
+		}
 
-			SceUtilitySavedataIdListEntry *entries = param->idList->entries;
-			for (u32 i = 0; i < (u32)validDir.size(); i++)
-			{
-				entries[i].st_mode = 0x11FF;
-				if (sfoFiles[i].exists) {
-					__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
-					__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
-					__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
-				} else {
-					__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
-					__IoCopyDate(entries[i].st_atime, validDir[i].atime);
-					__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
-				}
-				// folder name without gamename (max 20 u8)
-				std::string outName = validDir[i].name.substr(GetGameName(param).size());
-				memset(entries[i].name, 0, sizeof(entries[i].name));
-				strncpy(entries[i].name, outName.c_str(), sizeof(entries[i].name));
+		SceUtilitySavedataIdListEntry *entries = param->idList->entries;
+		for (u32 i = 0; i < (u32)validDir.size(); i++)
+		{
+			entries[i].st_mode = 0x11FF;
+			if (sfoFiles[i].exists) {
+				__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
+				__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
+				__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+			} else {
+				__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
+				__IoCopyDate(entries[i].st_atime, validDir[i].atime);
+				__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
 			}
+			// folder name without gamename (max 20 u8)
+			std::string outName = validDir[i].name.substr(GetGameName(param).size());
+			memset(entries[i].name, 0, sizeof(entries[i].name));
+			strncpy(entries[i].name, outName.c_str(), sizeof(entries[i].name));
 		}
 		// Save num of folder found
 		param->idList->resultCount = (u32)validDir.size();
+
+		NotifyMemInfo(MemBlockFlags::WRITE, param->idList.ptr, sizeof(SceUtilitySavedataIdListInfo), "SavedataGetList");
+		NotifyMemInfo(MemBlockFlags::WRITE, param->idList->entries.ptr, validDir.size() * sizeof(SceUtilitySavedataIdListEntry), "SavedataGetList");
 	}
 	return true;
 }
@@ -1323,6 +1329,14 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	// Don't know what it is, but PSP always respond this
 	param->bind = 1021;
 
+	NotifyMemInfo(MemBlockFlags::WRITE, fileList.ptr, sizeof(SceUtilitySavedataFileListInfo), "SavedataGetFilesList");
+	if (fileList->resultNumSystemEntries != 0)
+		NotifyMemInfo(MemBlockFlags::WRITE, fileList->systemEntries.ptr, fileList->resultNumSystemEntries * sizeof(SceUtilitySavedataFileListEntry), "SavedataGetFilesList");
+	if (fileList->resultNumSecureEntries != 0)
+		NotifyMemInfo(MemBlockFlags::WRITE, fileList->secureEntries.ptr, fileList->resultNumSecureEntries * sizeof(SceUtilitySavedataFileListEntry), "SavedataGetFilesList");
+	if (fileList->resultNumNormalEntries != 0)
+		NotifyMemInfo(MemBlockFlags::WRITE, fileList->normalEntries.ptr, fileList->resultNumNormalEntries * sizeof(SceUtilitySavedataFileListEntry), "SavedataGetFilesList");
+
 	return 0;
 }
 
@@ -1389,6 +1403,8 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
 			}
 		}
+
+		NotifyMemInfo(MemBlockFlags::WRITE, param->sizeInfo.ptr, sizeof(PspUtilitySavedataSizeInfo), "SavedataGetSize");
 	}
 
 	return exists;
