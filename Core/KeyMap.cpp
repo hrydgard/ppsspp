@@ -849,6 +849,37 @@ bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
 	return false;
 }
 
+MappedAnalogAxes MappedAxesForDevice(int deviceId) {
+	MappedAnalogAxes result{};
+
+	// Find the axisId mapped for a specific virtual button.
+	auto findAxisId = [&](int btn) -> int {
+		for (const auto &key : g_controllerMap[btn]) {
+			if (key.deviceId == deviceId) {
+				int direction = 0;
+				return TranslateKeyCodeToAxis(key.keyCode, direction);
+			}
+		}
+		return -1;
+	};
+
+	// Find the axisId of a pair of opposing buttons.
+	auto findAxisIdPair = [&](int minBtn, int maxBtn) -> int {
+		int foundMin = findAxisId(minBtn);
+		int foundMax = findAxisId(maxBtn);
+		if (foundMin == foundMax) {
+			return foundMax;
+		}
+		return -1;
+	};
+
+	result.leftXAxisId = findAxisIdPair(VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+	result.leftYAxisId = findAxisIdPair(VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+	result.rightXAxisId = findAxisIdPair(VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+	result.rightYAxisId = findAxisIdPair(VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+	return result;
+}
+
 void RemoveButtonMapping(int btn) {
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter)	{
 		if (iter->first == btn) {
