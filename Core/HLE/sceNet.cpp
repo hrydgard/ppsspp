@@ -1164,7 +1164,7 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 		return hleLogSuccessI(SCENET, 0);
 	}
 
-	return hleLogError(SCENET, -1, "apctl invalid arg");
+	return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 }
 
 int NetApctl_ScanUser() {
@@ -1181,14 +1181,12 @@ static int sceNetApctlScanUser() {
 	return NetApctl_ScanUser();
 }
 
-static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
-
+int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
 	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
 	int entries = 4;
-	if (!Memory::IsValidAddress(sizeAddr))
-		hleLogError(SCENET, -1, "apctl invalid arg");
+	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
+		return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	int size = Memory::Read_U32(sizeAddr);
 	// Return size required
@@ -1205,7 +1203,7 @@ static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			DEBUG_LOG(SCENET, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
 
 			// Pointer to next Network structure in list
-			Memory::Write_U32((i+1)*userInfoSize + bufAddr, bufAddr + offset);
+			Memory::Write_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
 			offset += 4;
 
 			// Entry ID
@@ -1217,14 +1215,17 @@ static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			Memory::Write_U32(0, bufAddr + offset - userInfoSize);
 	}
 
-	return hleLogWarning(SCENET, 0, "untested");
+	return 0;
 }
 
-static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
+	return NetApctl_GetBSSDescIDListUser(sizeAddr, bufAddr);
+}
 
+int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	if (!Memory::IsValidAddress(resultAddr))
-		hleLogError(SCENET, -1, "apctl invalid arg");
+		return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	// Generate an SSID name
 	char dummySSID[APCTL_SSID_MAXLEN] = "WifiAP0";
@@ -1286,11 +1287,16 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 		return hleLogError(SCENET, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
 	}
 
-	return hleLogWarning(SCENET, 0, "untested");
+	return 0;
+}
+
+static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
+	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
 static int sceNetApctlScanSSID2() {
-	ERROR_LOG(SCENET, "UNIMPL %s() at %08x", __FUNCTION__, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED %s() at %08x", __FUNCTION__, currentMIPS->pc);
 	return NetApctl_ScanUser();
 }
 
@@ -1298,11 +1304,11 @@ static int sceNetApctlScanSSID2() {
 * Arg1 = output buffer size being filled? (initially the same with Arg3 ?)
 * Arg2 = output buffer? (linked list where the 1st 32-bit is the next address? followed by entry Id? ie. 8-bytes per entry?)
 * Arg3 = max buffer size? (ie. 0x100 ?)
-* Arg4 = input flag? or output number of entries being filled? (initially 0/1 ?)
+* Arg4 = input flag? (initially 0/1 ?)
 ***************/
 static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x, %08x, %08x) at %08x", __FUNCTION__, Arg1, Arg2, Arg3, Arg4, currentMIPS->pc);
-	return hleLogError(SCENET, sceNetApctlGetBSSDescIDListUser(Arg1, Arg2), "unimplemented");
+	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x, %08x, %08x) at %08x", __FUNCTION__, Arg1, Arg2, Arg3, Arg4, currentMIPS->pc);
+	return NetApctl_GetBSSDescIDListUser(Arg1, Arg2);
 }
 
 /**************
@@ -1311,8 +1317,8 @@ static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) 
 * Arg3 = output buffer for retrieved entry data? (max size = 32 bytes? ie. APCTL_SSID_MAXLEN ? or similar to SceNetApctlInfoInternal union ?)
 ***************/
 static int sceNetApctlGetBSSDescEntry2(int entryId, int infoId, u32 resultAddr) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, currentMIPS->pc);
-	return hleLogError(SCENET, sceNetApctlGetBSSDescEntryUser(entryId, infoId, resultAddr), "unimplemented");
+	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, currentMIPS->pc);
+	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
 static int sceNetResolverInit()
