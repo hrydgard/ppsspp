@@ -153,7 +153,7 @@ struct InputBuffer {
 
 struct Atrac;
 int __AtracSetContext(Atrac *atrac);
-void _AtracGenerateContext(Atrac *atrac, SceAtracId *context);
+void _AtracGenerateContext(Atrac *atrac);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -518,6 +518,15 @@ struct Atrac {
 #endif // USE_FFMPEG
 
 		currentSample_ = sample;
+	}
+
+	uint32_t CurBufferAddress(int adjust = 0) {
+		u32 off = FileOffsetBySample(currentSample_ + adjust);
+		if (off < first_.size && ignoreDataBuf_) {
+			return first_.addr + off;
+		}
+		// If it's in dataBug, it's not in PSP memory.
+		return 0;
 	}
 
 	bool FillPacket(int adjust = 0) {
@@ -1031,7 +1040,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	if (!atrac)
 		return 0;
 	int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset);
-	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, bufPtr, addbytes);
+	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, bufPtr, addbytes, "AtracAddStreamData");
 	atrac->first_.size += bytesToAdd;
 	if (atrac->first_.size >= atrac->first_.filesize) {
 		atrac->first_.size = atrac->first_.filesize;
@@ -1041,7 +1050,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	atrac->first_.fileoffset += addbytes;
 	if (atrac->context_.IsValid()) {
 		// refresh context_
-		_AtracGenerateContext(atrac, atrac->context_);
+		_AtracGenerateContext(atrac);
 	}
 	return 0;
 }
@@ -1142,7 +1151,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		atrac->first_.fileoffset = readOffset;
 		int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset);
 		if (!atrac->ignoreDataBuf_) {
-			Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr + atrac->first_.offset, addbytes);
+			Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr + atrac->first_.offset, addbytes, "AtracAddStreamData");
 		}
 		atrac->first_.fileoffset += addbytes;
 	}
@@ -1152,7 +1161,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 		if (atrac->context_.IsValid()) {
-			_AtracGenerateContext(atrac, atrac->context_);
+			_AtracGenerateContext(atrac);
 		}
 	}
 
@@ -1208,6 +1217,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket(-skipSamples)) {
+					uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
+					int packetSize = atrac->packet_->size;
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
@@ -1246,7 +1257,13 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+								if (packetAddr != 0 && g_Config.bDebugMemInfoDetailed) {
+									const std::string tag = "AtracDecode/" + GetMemWriteTagAt(packetAddr, packetSize);
+									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tag.c_str(), tag.size());
+									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tag.c_str(), tag.size());
+								} else {
+									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+								}
 							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
@@ -1313,7 +1330,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		}
 		if (atrac->context_.IsValid()) {
 			// refresh context_
-			_AtracGenerateContext(atrac, atrac->context_);
+			_AtracGenerateContext(atrac);
 		}
 	}
 
@@ -1729,7 +1746,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			// Okay, it's a valid number of bytes.  Let's set them up.
 			if (bytesWrittenFirstBuf != 0) {
 				if (!atrac->ignoreDataBuf_) {
-					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.size, atrac->first_.addr + atrac->first_.size, bytesWrittenFirstBuf);
+					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.size, atrac->first_.addr + atrac->first_.size, bytesWrittenFirstBuf, "AtracResetPlayPosition");
 				}
 				atrac->first_.fileoffset += bytesWrittenFirstBuf;
 				atrac->first_.size += bytesWrittenFirstBuf;
@@ -1752,7 +1769,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 			if (bytesWrittenFirstBuf != 0) {
 				if (!atrac->ignoreDataBuf_) {
-					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr, bytesWrittenFirstBuf);
+					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr, bytesWrittenFirstBuf, "AtracResetPlayPosition");
 				}
 				atrac->first_.fileoffset += bytesWrittenFirstBuf;
 			}
@@ -1769,7 +1786,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		}
 
 		if (atrac->context_.IsValid()) {
-			_AtracGenerateContext(atrac, atrac->context_);
+			_AtracGenerateContext(atrac);
 		}
 
 		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
@@ -1924,7 +1941,7 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 	atrac->dataBuf_ = new u8[atrac->first_.filesize];
 	if (!atrac->ignoreDataBuf_) {
 		u32 copybytes = std::min(bufferSize, atrac->first_.filesize);
-		Memory::Memcpy(atrac->dataBuf_, buffer, copybytes);
+		Memory::Memcpy(atrac->dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	int ret = __AtracSetContext(atrac);
 	if (ret < 0) {
@@ -2083,7 +2100,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 			atrac->loopEndSample_ = atrac->endSample_ + atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
 		}
 		if (atrac->context_.IsValid()) {
-			_AtracGenerateContext(atrac, atrac->context_);
+			_AtracGenerateContext(atrac);
 		}
 	}
 	return 0;
@@ -2291,7 +2308,8 @@ int _AtracGetIDByContext(u32 contextAddr) {
 	return atracID;
 }
 
-void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
+void _AtracGenerateContext(Atrac *atrac) {
+	SceAtracId *context = atrac->context_;
 	context->info.buffer = atrac->first_.addr;
 	context->info.bufferByte = atrac->bufferMaxSize_;
 	context->info.secondBuffer = atrac->second_.addr;
@@ -2321,6 +2339,8 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 
 	u8 *buf = (u8 *)context;
 	*(u32_le *)(buf + 0xfc) = atrac->atracID_;
+
+	NotifyMemInfo(MemBlockFlags::WRITE, atrac->context_.ptr, sizeof(SceAtracId), "AtracContext");
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -2341,7 +2361,7 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 	else
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
 	if (atrac->context_.IsValid())
-		_AtracGenerateContext(atrac, atrac->context_);
+		_AtracGenerateContext(atrac);
 	return atrac->context_.ptr;
 }
 
@@ -2430,7 +2450,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	int ret = __AtracSetContext(atrac);
 
 	if (atrac->context_.IsValid()) {
-		_AtracGenerateContext(atrac, atrac->context_);
+		_AtracGenerateContext(atrac);
 	}
 
 	if (ret < 0) {

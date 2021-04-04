@@ -18,147 +18,63 @@
 #include "zlib.h"
 
 #include "Common/CommonTypes.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDeflt.h"
 #include "Core/MemMap.h"
 
-// All the decompress functions are identical with only differing window bits. Possibly should be one function
-
-static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
-	DEBUG_LOG(HLE, "sceGzipDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
-	int err;
-	uLong crc;
-	z_stream stream;
-	u8 *outBufferPtr;
-	u32_le *crc32AddrPtr = nullptr;
-
+// All the decompress functions are identical with only differing window bits.
+static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
-		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
-		return 0;
+		return hleLogError(HLE, 0, "bad address");
 	}
-	if (Crc32Addr) {
-		if (!Memory::IsValidAddress(Crc32Addr)) {
-			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
-			return 0;
-		}
-		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
+
+	auto crc32Addr = PSPPointer<u32_le>::Create(Crc32Addr);
+	if (Crc32Addr && !crc32Addr.IsValid()) {
+		return hleLogError(HLE, 0, "bad crc32 address");
 	}
-	outBufferPtr = Memory::GetPointer(OutBuffer);
+
+	z_stream stream{};
+	u8 *outBufferPtr = Memory::GetPointer(OutBuffer);
 	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
-	stream.avail_in = (uInt)OutBufferLength;
+	// We don't know the available length, just let it use as much as it wants.
+	stream.avail_in = (uInt)Memory::ValidSize(InBuffer, Memory::g_MemorySize);
 	stream.next_out = outBufferPtr;
 	stream.avail_out = (uInt)OutBufferLength;
-	stream.zalloc = (alloc_func)0;
-	stream.zfree = (free_func)0;
-	err = inflateInit2(&stream, -MAX_WBITS);
+
+	int err = inflateInit2(&stream, windowBits);
 	if (err != Z_OK) {
-		ERROR_LOG(HLE, "sceZlibDecompress: inflateInit2 failed %08x", err);
-		return 0;
+		return hleLogError(HLE, 0, "inflateInit2 failed %08x", err);
 	}
 	err = inflate(&stream, Z_FINISH);
-	if (err != Z_STREAM_END) {
-		inflateEnd(&stream);
-		ERROR_LOG(HLE, "sceZlibDecompress: inflate failed %08x", err);
-		return 0;
-	}
 	inflateEnd(&stream);
-	if (crc32AddrPtr) {
-		crc = crc32(0L, Z_NULL, 0);
-		*crc32AddrPtr = crc32(crc, outBufferPtr, stream.total_out);
+
+	if (err != Z_STREAM_END) {
+		return hleLogError(HLE, 0, "inflate failed %08x", err);
 	}
-	return stream.total_out;
+	if (crc32Addr.IsValid()) {
+		uLong crc = crc32(0L, Z_NULL, 0);
+		*crc32Addr = crc32(crc, outBufferPtr, stream.total_out);
+	}
+
+	const std::string tag = "sceDeflt/" + GetMemWriteTagAt(InBuffer, stream.total_in);
+	NotifyMemInfo(MemBlockFlags::READ, InBuffer, stream.total_in, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tag.c_str(), tag.size());
+
+	return hleLogSuccessI(HLE, stream.total_out);
 }
 
+static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
+	return CommonDecompress(-MAX_WBITS, OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
+}
 
 static int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
-	DEBUG_LOG(HLE, "sceGzipDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
-	int err;
-	uLong crc;
-	z_stream stream;
-	u8 *outBufferPtr;
-	u32_le *crc32AddrPtr = nullptr;
-
-	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
-		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
-		return 0;
-	}
-	if (Crc32Addr) {
-		if (!Memory::IsValidAddress(Crc32Addr)) {
-			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
-			return 0;
-		}
-		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
-	}
-	outBufferPtr = Memory::GetPointer(OutBuffer);
-	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
-	stream.avail_in = (uInt)OutBufferLength;
-	stream.next_out = outBufferPtr;
-	stream.avail_out = (uInt)OutBufferLength;
-	stream.zalloc = (alloc_func)0;
-	stream.zfree = (free_func)0;
-	err = inflateInit2(&stream, 16+MAX_WBITS);
-	if (err != Z_OK) {
-		ERROR_LOG(HLE, "sceZlibDecompress: inflateInit2 failed %08x", err);
-		return 0;
-	}
-	err = inflate(&stream, Z_FINISH);
-	if (err != Z_STREAM_END) {
-		inflateEnd(&stream);
-		ERROR_LOG(HLE, "sceZlibDecompress: inflate failed %08x", err);
-		return 0;
-	}
-	inflateEnd(&stream);
-	if (crc32AddrPtr) {
-		crc = crc32(0L, Z_NULL, 0);
-		*crc32AddrPtr = crc32(crc, outBufferPtr, stream.total_out);
-	}
-	return stream.total_out;
+	return CommonDecompress(16 + MAX_WBITS, OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 }
 
 static int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
-	DEBUG_LOG(HLE, "sceZlibDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
-	int err;
-	uLong crc;
-	z_stream stream;
-	u8 *outBufferPtr;
-	u32_le *crc32AddrPtr = 0;
-
-	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
-		ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x %08x", OutBuffer, InBuffer);
-		return 0;
-	}
-	if (Crc32Addr) {
-		if (!Memory::IsValidAddress(Crc32Addr)) {
-			ERROR_LOG(HLE, "sceZlibDecompress: Bad address %08x", Crc32Addr);
-			return 0;
-		}
-		crc32AddrPtr = (u32_le *)Memory::GetPointer(Crc32Addr);
-	}
-	outBufferPtr = Memory::GetPointer(OutBuffer);
-	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
-	stream.avail_in = (uInt)OutBufferLength;
-	stream.next_out = outBufferPtr;
-	stream.avail_out = (uInt)OutBufferLength;
-	stream.zalloc = (alloc_func)0;
-	stream.zfree = (free_func)0;
-	err = inflateInit2(&stream, MAX_WBITS);
-	if (err != Z_OK) {
-		ERROR_LOG(HLE, "sceZlibDecompress: inflateInit failed %08x", err);
-		return 0;
-	}
-	err = inflate(&stream, Z_FINISH);
-	if (err != Z_STREAM_END) {
-		inflateEnd(&stream);
-		ERROR_LOG(HLE, "sceZlibDecompress: inflate failed %08x", err);
-		return 0;
-	}
-	inflateEnd(&stream);
-	if (crc32AddrPtr) {
-		crc = crc32(0L, Z_NULL, 0);
-		*crc32AddrPtr = crc32(crc, outBufferPtr, stream.total_out);
-	}
-	return stream.total_out;
+	return CommonDecompress(MAX_WBITS, OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 }
 
 const HLEFunction sceDeflt[] = {
@@ -166,11 +82,11 @@ const HLEFunction sceDeflt[] = {
 	{0X106A3552, nullptr,                            "sceGzipGetName",           '?', ""    },
 	{0X1B5B82BC, nullptr,                            "sceGzipIsValid",           '?', ""    },
 	{0X2EE39A64, nullptr,                            "sceZlibAdler32",           '?', ""    },
-	{0X44054E03, &WrapI_UIUU<sceDeflateDecompress>,  "sceDeflateDecompress",     'i', "xixx"},
+	{0X44054E03, &WrapI_UIUU<sceDeflateDecompress>,  "sceDeflateDecompress",     'i', "xixp"},
 	{0X6A548477, nullptr,                            "sceZlibGetCompressedData", '?', ""    },
-	{0X6DBCF897, &WrapI_UIUU<sceGzipDecompress>,     "sceGzipDecompress",        'i', "xixx"},
+	{0X6DBCF897, &WrapI_UIUU<sceGzipDecompress>,     "sceGzipDecompress",        'i', "xixp"},
 	{0X8AA82C92, nullptr,                            "sceGzipGetInfo",           '?', ""    },
-	{0XA9E4FB28, &WrapI_UIUU<sceZlibDecompress>,     "sceZlibDecompress",        'i', "xixx"},
+	{0XA9E4FB28, &WrapI_UIUU<sceZlibDecompress>,     "sceZlibDecompress",        'i', "xixp"},
 	{0XAFE01FD3, nullptr,                            "sceZlibGetInfo",           '?', ""    },
 	{0XB767F9A0, nullptr,                            "sceGzipGetComment",        '?', ""    },
 	{0XE46EB986, nullptr,                            "sceZlibIsValid",           '?', ""    },

@@ -26,6 +26,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -777,6 +778,14 @@ void __IoShutdown() {
 	memStickFatCallbacks.clear();
 }
 
+static std::string IODetermineFilename(FileNode *f) {
+	uint64_t offset = pspFileSystem.GetSeekPos(f->handle);
+	if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
+		return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset * 2048);
+	}
+	return StringFromFormat("%s offset 0x%08llx", f->fullpath.c_str(), offset);
+}
+
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 {
 	FileNode *f = __IoGetFd(id, outError);
@@ -1026,7 +1035,8 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
-			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, "IoRead");
+			const std::string tag = "IoRead/" + IODetermineFilename(f);
+			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
 			u8 *data = (u8 *)Memory::GetPointer(data_addr);
 			u32 validSize = Memory::ValidSize(data_addr, size);
 			if (f->npdrm) {
@@ -1162,7 +1172,8 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 
-		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, "IoWrite");
+		const std::string tag = "IoWrite/" + IODetermineFilename(f);
+		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, tag.c_str(), tag.size());
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {

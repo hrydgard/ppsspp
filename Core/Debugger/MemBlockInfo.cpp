@@ -46,7 +46,7 @@ private:
 		uint64_t ticks = 0;
 		uint32_t pc = 0;
 		bool allocated = false;
-		char tag[32]{};
+		char tag[128]{};
 		Slab *prev = nullptr;
 		Slab *next = nullptr;
 
@@ -77,7 +77,7 @@ struct PendingNotifyMem {
 	uint32_t size;
 	uint64_t ticks;
 	uint32_t pc;
-	char tag[32];
+	char tag[128];
 };
 
 static constexpr size_t MAX_PENDING_NOTIFIES = 512;
@@ -199,7 +199,7 @@ void MemSlabMap::DoState(PointerWrap &p) {
 }
 
 void MemSlabMap::Slab::DoState(PointerWrap &p) {
-	auto s = p.Section("MemSlabMapSlab", 1, 2);
+	auto s = p.Section("MemSlabMapSlab", 1, 3);
 	if (!s)
 		return;
 
@@ -208,8 +208,12 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 	Do(p, ticks);
 	Do(p, pc);
 	Do(p, allocated);
-	if (s >= 2) {
+	if (s >= 3) {
 		Do(p, tag);
+	} else if (s >= 2) {
+		char shortTag[32];
+		Do(p, shortTag);
+		memcpy(tag, shortTag, sizeof(shortTag));
 	} else {
 		std::string stringTag;
 		Do(p, stringTag);
@@ -427,6 +431,20 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	if (flags & MemBlockFlags::TEXTURE)
 		textureMap.Find(MemBlockFlags::TEXTURE, start, size, results);
 	return results;
+}
+
+std::string GetMemWriteTagAt(uint32_t start, uint32_t size) {
+	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(MemBlockFlags::WRITE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
+
+	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
+	memRangeInfo = FindMemInfoByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	for (auto range : memRangeInfo) {
+		return range.tag;
+	}
+	return "none";
 }
 
 void MemBlockInfoInit() {

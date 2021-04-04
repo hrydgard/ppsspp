@@ -658,8 +658,9 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 		}
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
+	const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 
 	return dst;
 }
@@ -690,8 +691,9 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemcpy");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemcpy");
+	const std::string tag = "KernelMemcpy/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	return dst;
 }
 
@@ -790,8 +792,9 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
-	NotifyMemInfo(MemBlockFlags::READ, src, size, "KernelMemmove");
-	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, "KernelMemmove");
+	const std::string tag = "KernelMemmove/" + GetMemWriteTagAt(src, size);
+	NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
+	NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
 	return 0;
 }
 

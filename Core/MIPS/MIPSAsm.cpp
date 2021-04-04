@@ -35,7 +35,7 @@ public:
 		if (!Memory::IsValidAddress((u32)(address+length-1)))
 			return false;
 
-		Memory::Memcpy((u32)address,data,(u32)length);
+		Memory::Memcpy((u32)address, data, (u32)length, "Debugger");
 		
 		// In case this is a delay slot or combined instruction, clear cache above it too.
 		if (MIPSComp::jit)
