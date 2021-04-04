@@ -1265,8 +1265,8 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 		if (entryId == 0)
 			Memory::WriteStruct(resultAddr, &netApctlInfo.channel);
 		else {
-			// Generate channel for testing purposes, not even sure whether this is channel or not
-			Memory::Write_U32(entryId, resultAddr);
+			// Generate channel for testing purposes, not even sure whether this is channel or not, MGS:PW seems to treat the data as u8
+			Memory::Write_U8(entryId, resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
