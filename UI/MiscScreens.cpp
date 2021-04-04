@@ -118,7 +118,7 @@ private:
 	}
 };
 
-class RecentGamesAnimation : public FloatingSymbolsAnimation {
+class RecentGamesAnimation : public Animation {
 public:
 	~RecentGamesAnimation() override {}
 	void Draw(UIContext &dc, double t, float alpha) override {
@@ -141,8 +141,6 @@ public:
 
 			dc.RebindTexture();
 		}
-
-		FloatingSymbolsAnimation::Draw(dc, t, alpha * 0.5f);
 	}
 
 private:
