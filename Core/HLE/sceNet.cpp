@@ -1271,7 +1271,12 @@ static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAdd
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
 		// Return 1 byte
-		Memory::WriteStruct(resultAddr, &netApctlInfo.strength);
+		if (entryId == 0)
+			Memory::WriteStruct(resultAddr, &netApctlInfo.strength);
+		else {
+			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
+			Memory::Write_U8(rand()*99 + 1, resultAddr);
+		}
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
 		// Return one 32-bit value
