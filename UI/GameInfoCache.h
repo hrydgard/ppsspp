@@ -101,10 +101,10 @@ public:
 	void SetTitle(const std::string &newTitle);
 
 	GameInfoTex *GetBGPic() {
-		if (pic0.texture)
-			return &pic0;
 		if (pic1.texture)
 			return &pic1;
+		if (pic0.texture)
+			return &pic0;
 		return nullptr;
 	}
 
