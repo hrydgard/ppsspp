@@ -135,12 +135,20 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.writeNull("dataSymbol");
 	}
 
-	bool enabled;
+	bool enabled = false;
+	int breakpointOffset = -1;
+	for (u32 i = 0; i < l.totalSize; i += 4) {
+		if (CBreakPoints::IsAddressBreakPoint(addr + i, &enabled))
+			breakpointOffset = i;
+		if (breakpointOffset != -1 && enabled)
+			break;
+	}
 	// TODO: Account for bp inside macro?
-	if (CBreakPoints::IsAddressBreakPoint(addr, &enabled)) {
+	if (breakpointOffset != -1) {
 		json.pushDict("breakpoint");
 		json.writeBool("enabled", enabled);
-		auto cond = CBreakPoints::GetBreakPointCondition(addr);
+		json.writeUint("address", addr + breakpointOffset);
+		auto cond = CBreakPoints::GetBreakPointCondition(addr + breakpointOffset);
 		if (cond)
 			json.writeString("condition", cond->expressionString);
 		else
