@@ -68,3 +68,7 @@ std::string GetMemWriteTagAt(uint32_t start, uint32_t size);
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();
 void MemBlockInfoDoState(PointerWrap &p);
+
+void MemBlockOverrideDetailed();
+void MemBlockReleaseDetailed();
+bool MemBlockInfoDetailed();

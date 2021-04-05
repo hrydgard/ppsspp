@@ -980,6 +980,9 @@
     <ClCompile Include="Debugger\MemBlockInfo.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\MemoryInfoSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1675,6 +1678,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\MemBlockInfo.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\MemoryInfoSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

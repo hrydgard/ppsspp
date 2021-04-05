@@ -418,6 +418,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket/InputSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/LogBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/MemorySubscriber.cpp \
+  $(SRC)/Core/Debugger/WebSocket/MemoryInfoSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/SteppingBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/SteppingSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/WebSocketUtils.cpp \
