@@ -7,6 +7,7 @@ endif()
 
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't need" FORCE)
 set(SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS ON CACHE BOOL "let's not use exceptions" FORCE)
+set(ENABLE_SPVREMAPPER OFF CACHE BOOL "we don't need spvremapper" FORCE)
 
 # This is really a workaround for an NDK 20 compiler issue (PPSSPP issue #12105), but shouldn't hurt.
 if(ANDROID)
