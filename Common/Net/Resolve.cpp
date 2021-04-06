@@ -17,10 +17,13 @@
 #undef min
 #undef max
 #else
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <sys/socket.h>
+#include <ifaddrs.h>
 #include <unistd.h>
 #endif
 
@@ -136,7 +139,6 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 	}
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
 	WARN_LOG(SCENET, "GetIPList from defined(SIOCGIFCONF)");
-#include <linux/if.h>
 	static struct ifreq ifreqs[32];
 	struct ifconf ifconf;
 	memset(&ifconf, 0, sizeof(ifconf));
