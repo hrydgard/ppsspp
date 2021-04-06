@@ -395,10 +395,12 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		FlushPendingMemInfo();
 	}
 
-	if (flags & MemBlockFlags::WRITE) {
-		CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
-	} else if (flags & MemBlockFlags::READ) {
-		CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+	if (!(flags & MemBlockFlags::SKIP_MEMCHECK)) {
+		if (flags & MemBlockFlags::WRITE) {
+			CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
+		} else if (flags & MemBlockFlags::READ) {
+			CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+		}
 	}
 }
 

@@ -21,6 +21,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/MemMap.h"
 
 inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {
 	const JsonNode *value = data.get("ticket");
@@ -272,4 +273,16 @@ bool DebuggerRequest::ParamString(const char *name, std::string *out, DebuggerPa
 
 	Fail(StringFromFormat("Invalid '%s' parameter type", name));
 	return false;
+}
+
+uint32_t RoundMemAddressUp(uint32_t addr) {
+	if (addr < PSP_GetScratchpadMemoryBase())
+		return PSP_GetScratchpadMemoryBase();
+	else if (addr >= PSP_GetScratchpadMemoryEnd() && addr < PSP_GetVidMemBase())
+		return PSP_GetVidMemBase();
+	else if (addr >= PSP_GetVidMemEnd() && addr < PSP_GetKernelMemoryBase())
+		return PSP_GetKernelMemoryBase();
+	else if (addr >= PSP_GetUserMemoryEnd())
+		return PSP_GetScratchpadMemoryBase();
+	return addr;
 }
