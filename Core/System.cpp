@@ -412,7 +412,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	PSP_SetLoading("Loading game...");
 
 	if (!CPU_Init()) {
-		*error_string = "Failed initializing CPU/Memory";
+		*error_string = coreParameter.errorString;
+		if (error_string->empty()) {
+			*error_string = "Failed initializing CPU/Memory";
+		}
 		pspIsIniting = false;
 		return false;
 	}
