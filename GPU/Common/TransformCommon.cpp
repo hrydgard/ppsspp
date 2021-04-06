@@ -51,15 +51,9 @@ Lighter::Lighter(int vertType) {
 		lconv[l] = getFloat24(gstate.lconv[l]);
 		int i = l * 3;
 		if (gstate.isLightChanEnabled(l)) {
-			lpos[i] = getFloat24(gstate.lpos[i]);
-			lpos[i + 1] = getFloat24(gstate.lpos[i + 1]);
-			lpos[i + 2] = getFloat24(gstate.lpos[i + 2]);
-			ldir[i] = getFloat24(gstate.ldir[i]);
-			ldir[i + 1] = getFloat24(gstate.ldir[i + 1]);
-			ldir[i + 2] = getFloat24(gstate.ldir[i + 2]);
-			latt[i] = getFloat24(gstate.latt[i]);
-			latt[i + 1] = getFloat24(gstate.latt[i + 1]);
-			latt[i + 2] = getFloat24(gstate.latt[i + 2]);
+			lpos[l] = Vec3fFromGE(&gstate.lpos[i]);
+			ldir[l] = Vec3fFromGE(&gstate.ldir[i]);
+			latt[l] = Vec3fFromGE(&gstate.latt[i]);
 			for (int t = 0; t < 3; t++) {
 				u32 data = gstate.lcolor[l * 3 + t] & 0xFFFFFF;
 				float r = (float)(data & 0xff) * (1.0f / 255.0f);
@@ -108,9 +102,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Vec3f lightDir(0, 0, 0);
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3Packedf(&lpos[l * 3]);  // lightdir is for spotlights
+			toLight = lpos[l];  // lightdir is for spotlights
 		else
-			toLight = Vec3Packedf(&lpos[l * 3]) - pos;
+			toLight = lpos[l] - pos;
 
 		bool doSpecular = gstate.isUsingSpecularLight(l);
 		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
@@ -136,14 +130,14 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			lightScale = 1.0f;
 			break;
 		case GE_LIGHTTYPE_POINT:
-			lightScale = clamp(1.0f / (latt[l * 3] + latt[l * 3 + 1] * distanceToLight + latt[l * 3 + 2] * distanceToLight*distanceToLight), 0.0f, 1.0f);
+			lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f);
 			break;
 		case GE_LIGHTTYPE_SPOT:
 		case GE_LIGHTTYPE_UNKNOWN:
-			lightDir = Vec3Packedf(&ldir[l * 3]);
+			lightDir = ldir[l];
 			angle = Dot(toLight.NormalizedOr001(cpu_info.bSSE4_1), lightDir.NormalizedOr001(cpu_info.bSSE4_1));
 			if (angle >= lcutoff[l])
-				lightScale = clamp(1.0f / (latt[l * 3] + latt[l * 3 + 1] * distanceToLight + latt[l * 3 + 2] * distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, lconv[l]);
+				lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, lconv[l]);
 			break;
 		default:
 			// ILLEGAL

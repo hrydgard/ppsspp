@@ -69,6 +69,13 @@ public:
 	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &normal);
 
 private:
+	inline Vec3f Vec3fFromGE(const u32 *values) const {
+		float x = getFloat24(values[0]);
+		float y = getFloat24(values[1]);
+		float z = getFloat24(values[2]);
+		return Vec3f(x, y, z);
+	}
+
 	Color4 globalAmbient;
 	Color4 materialEmissive;
 	Color4 materialAmbient;
@@ -80,11 +87,9 @@ private:
 	int materialUpdate_;
 
 	// Converted light parameters
-public:
-	float lpos[12];  // Used by shade UV mapping
-private:
-	float ldir[12];
-	float latt[12];
+	Vec3f lpos[4];  // Used by shade UV mapping
+	Vec3f ldir[4];
+	Vec3f latt[4];
 	float lcutoff[4];
 	float lconv[4];
 	float lcolor[3][4][3];

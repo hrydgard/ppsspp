@@ -1219,7 +1219,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		param->idList->resultCount = (u32)validDir.size();
 
 		NotifyMemInfo(MemBlockFlags::WRITE, param->idList.ptr, sizeof(SceUtilitySavedataIdListInfo), "SavedataGetList");
-		NotifyMemInfo(MemBlockFlags::WRITE, param->idList->entries.ptr, validDir.size() * sizeof(SceUtilitySavedataIdListEntry), "SavedataGetList");
+		NotifyMemInfo(MemBlockFlags::WRITE, param->idList->entries.ptr, (uint32_t)validDir.size() * sizeof(SceUtilitySavedataIdListEntry), "SavedataGetList");
 	}
 	return true;
 }
