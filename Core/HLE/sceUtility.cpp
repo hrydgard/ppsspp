@@ -123,12 +123,12 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 // Only a single dialog is allowed at a time.
 static UtilityDialogType currentDialogType;
 bool currentDialogActive;
-static PSPSaveDialog saveDialog(UtilityDialogType::SAVEDATA);
-static PSPMsgDialog msgDialog(UtilityDialogType::MSG);
-static PSPOskDialog oskDialog(UtilityDialogType::OSK);
-static PSPNetconfDialog netDialog(UtilityDialogType::NET);
-static PSPScreenshotDialog screenshotDialog(UtilityDialogType::SCREENSHOT);
-static PSPGamedataInstallDialog gamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
+static PSPSaveDialog *saveDialog;
+static PSPMsgDialog *msgDialog;
+static PSPOskDialog *oskDialog;
+static PSPNetconfDialog *netDialog;
+static PSPScreenshotDialog *screenshotDialog;
+static PSPGamedataInstallDialog *gamedataInstallDialog;
 
 static int oldStatus = 100; //random value
 static std::map<int, u32> currentlyLoadedModules;
@@ -159,15 +159,22 @@ static void DeactivateDialog() {
 
 static void UtilityVolatileUnlock(u64 userdata, int cyclesLate) {
 	// There can only be one active, so just try each of them.
-	saveDialog.FinishVolatile();
-	msgDialog.FinishVolatile();
-	oskDialog.FinishVolatile();
-	netDialog.FinishVolatile();
-	screenshotDialog.FinishVolatile();
-	gamedataInstallDialog.FinishVolatile();
+	saveDialog->FinishVolatile();
+	msgDialog->FinishVolatile();
+	oskDialog->FinishVolatile();
+	netDialog->FinishVolatile();
+	screenshotDialog->FinishVolatile();
+	gamedataInstallDialog->FinishVolatile();
 }
 
 void __UtilityInit() {
+	saveDialog = new PSPSaveDialog(UtilityDialogType::SAVEDATA);
+	msgDialog = new PSPMsgDialog(UtilityDialogType::MSG);
+	oskDialog = new PSPOskDialog(UtilityDialogType::OSK);
+	netDialog = new PSPNetconfDialog(UtilityDialogType::NET);
+	screenshotDialog = new PSPScreenshotDialog(UtilityDialogType::SCREENSHOT);
+	gamedataInstallDialog = new PSPGamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
+
 	currentDialogType = UtilityDialogType::NONE;
 	DeactivateDialog();
 	SavedataParam::Init();
@@ -183,12 +190,12 @@ void __UtilityDoState(PointerWrap &p) {
 
 	Do(p, currentDialogType);
 	Do(p, currentDialogActive);
-	saveDialog.DoState(p);
-	msgDialog.DoState(p);
-	oskDialog.DoState(p);
-	netDialog.DoState(p);
-	screenshotDialog.DoState(p);
-	gamedataInstallDialog.DoState(p);
+	saveDialog->DoState(p);
+	msgDialog->DoState(p);
+	oskDialog->DoState(p);
+	netDialog->DoState(p);
+	screenshotDialog->DoState(p);
+	gamedataInstallDialog->DoState(p);
 
 	if (s >= 2) {
 		Do(p, currentlyLoadedModules);
@@ -225,17 +232,24 @@ void __UtilityDoState(PointerWrap &p) {
 }
 
 void __UtilityShutdown() {
-	saveDialog.Shutdown(true);
-	msgDialog.Shutdown(true);
-	oskDialog.Shutdown(true);
-	netDialog.Shutdown(true);
-	screenshotDialog.Shutdown(true);
-	gamedataInstallDialog.Shutdown(true);
+	saveDialog->Shutdown(true);
+	msgDialog->Shutdown(true);
+	oskDialog->Shutdown(true);
+	netDialog->Shutdown(true);
+	screenshotDialog->Shutdown(true);
+	gamedataInstallDialog->Shutdown(true);
 
 	if (accessThread) {
 		delete accessThread;
 		accessThread = nullptr;
 	}
+
+	delete saveDialog;
+	delete msgDialog;
+	delete oskDialog;
+	delete netDialog;
+	delete screenshotDialog;
+	delete gamedataInstallDialog;
 }
 
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
@@ -277,19 +291,19 @@ static int UtilityFinishDialog(int type) {
 	case UtilityDialogType::NONE:
 		break;
 	case UtilityDialogType::SAVEDATA:
-		return hleLogSuccessI(SCEUTILITY, saveDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, saveDialog->FinishShutdown());
 	case UtilityDialogType::MSG:
-		return hleLogSuccessI(SCEUTILITY, msgDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, msgDialog->FinishShutdown());
 	case UtilityDialogType::OSK:
-		return hleLogSuccessI(SCEUTILITY, oskDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, oskDialog->FinishShutdown());
 	case UtilityDialogType::NET:
-		return hleLogSuccessI(SCEUTILITY, netDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, netDialog->FinishShutdown());
 	case UtilityDialogType::SCREENSHOT:
-		return hleLogSuccessI(SCEUTILITY, screenshotDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, screenshotDialog->FinishShutdown());
 	case UtilityDialogType::GAMESHARING:
 		return hleLogError(SCEUTILITY, -1, "unimplemented");
 	case UtilityDialogType::GAMEDATAINSTALL:
-		return hleLogSuccessI(SCEUTILITY, gamedataInstallDialog.FinishShutdown());
+		return hleLogSuccessI(SCEUTILITY, gamedataInstallDialog->FinishShutdown());
 	}
 	return hleLogError(SCEUTILITY, 0, "invalid dialog type?");
 }
@@ -306,7 +320,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 
 	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SAVEDATA);
-	int ret = saveDialog.Init(paramAddr);
+	int ret = saveDialog->Init(paramAddr);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataInitStart(%08x)",ret,paramAddr);
 	return ret;
 }
@@ -316,7 +330,7 @@ static int sceUtilitySavedataShutdownStart() {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 
 	DeactivateDialog();
-	int ret = saveDialog.Shutdown();
+	int ret = saveDialog->Shutdown();
 	hleEatCycles(30000);
 	return hleLogSuccessX(SCEUTILITY, ret);
 }
@@ -328,7 +342,7 @@ static int sceUtilitySavedataGetStatus() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	int status = saveDialog.GetStatus();
+	int status = saveDialog->GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
@@ -344,7 +358,7 @@ static int sceUtilitySavedataUpdate(int animSpeed) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int result = saveDialog.Update(animSpeed);
+	int result = saveDialog->Update(animSpeed);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilitySavedataUpdate(%i)", result, animSpeed);
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
@@ -442,7 +456,7 @@ static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
 	
 	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::MSG);
-	int ret = msgDialog.Init(paramAddr);
+	int ret = msgDialog->Init(paramAddr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogInitStart(%08x)", ret, paramAddr);
 	return ret;
 }
@@ -454,7 +468,7 @@ static int sceUtilityMsgDialogShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	int ret = msgDialog.Shutdown();
+	int ret = msgDialog->Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogShutdownStart()", ret);
 	return ret;
 }
@@ -465,7 +479,7 @@ static int sceUtilityMsgDialogUpdate(int animSpeed) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = msgDialog.Update(animSpeed);
+	int ret = msgDialog->Update(animSpeed);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilityMsgDialogUpdate(%i)", ret, animSpeed);
 	if (ret >= 0)
 		return hleDelayResult(ret, "msgdialog update", 800);
@@ -478,7 +492,7 @@ static int sceUtilityMsgDialogGetStatus() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	int status = msgDialog.GetStatus();
+	int status = msgDialog->GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogGetStatus()", status);
@@ -493,7 +507,7 @@ static int sceUtilityMsgDialogAbort() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = msgDialog.Abort();
+	int ret = msgDialog->Abort();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogAbort()", ret);
 	return ret;
 }
@@ -508,7 +522,7 @@ static int sceUtilityOskInitStart(u32 oskPtr) {
 	
 	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::OSK);
-	int ret = oskDialog.Init(oskPtr);
+	int ret = oskDialog->Init(oskPtr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityOskInitStart(%08x)", ret, oskPtr);
 	return ret;
 }
@@ -521,7 +535,7 @@ static int sceUtilityOskShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	int ret = oskDialog.Shutdown();
+	int ret = oskDialog->Shutdown();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskShutdownStart()",ret);
 	return ret;
 }
@@ -532,7 +546,7 @@ static int sceUtilityOskUpdate(int animSpeed) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = oskDialog.Update(animSpeed);
+	int ret = oskDialog->Update(animSpeed);
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskUpdate(%i)", ret, animSpeed);
 	return ret;
 }
@@ -543,7 +557,7 @@ static int sceUtilityOskGetStatus() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	int status = oskDialog.GetStatus();
+	int status = oskDialog->GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
 		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
@@ -560,7 +574,7 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 	
 	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::NET);
-	return hleLogSuccessInfoI(SCEUTILITY, netDialog.Init(paramsAddr));
+	return hleLogSuccessInfoI(SCEUTILITY, netDialog->Init(paramsAddr));
 }
 
 static int sceUtilityNetconfShutdownStart() {
@@ -569,7 +583,7 @@ static int sceUtilityNetconfShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessI(SCEUTILITY, netDialog.Shutdown());
+	return hleLogSuccessI(SCEUTILITY, netDialog->Shutdown());
 }
 
 static int sceUtilityNetconfUpdate(int animSpeed) {
@@ -577,7 +591,7 @@ static int sceUtilityNetconfUpdate(int animSpeed) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogSuccessI(SCEUTILITY, netDialog.Update(animSpeed));
+	return hleLogSuccessI(SCEUTILITY, netDialog->Update(animSpeed));
 }
 
 static int sceUtilityNetconfGetStatus() {
@@ -586,7 +600,7 @@ static int sceUtilityNetconfGetStatus() {
 		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = netDialog.GetStatus();
+	int status = netDialog->GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
 		return hleLogSuccessI(SCEUTILITY, status);
@@ -614,7 +628,7 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr) {
 	
 	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SCREENSHOT);
-	u32 retval = screenshotDialog.Init(paramAddr);
+	u32 retval = screenshotDialog->Init(paramAddr);
 	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
 }
@@ -626,7 +640,7 @@ static int sceUtilityScreenshotShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	int ret  = screenshotDialog.Shutdown();
+	int ret  = screenshotDialog->Shutdown();
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotShutdownStart()", ret);
 	return ret;
 }
@@ -637,7 +651,7 @@ static int sceUtilityScreenshotUpdate(u32 animSpeed) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = screenshotDialog.Update(animSpeed);
+	int ret = screenshotDialog->Update(animSpeed);
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotUpdate(%i)", ret, animSpeed);
 	return ret;
 }
@@ -648,7 +662,7 @@ static int sceUtilityScreenshotGetStatus() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	int status = screenshotDialog.GetStatus(); 
+	int status = screenshotDialog->GetStatus();
 	if (oldStatus != status) {
 		oldStatus = status;
 		WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotGetStatus()", status);
@@ -663,7 +677,7 @@ static int sceUtilityScreenshotContStart(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = screenshotDialog.ContStart();
+	int ret = screenshotDialog->ContStart();
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotContStart(%08x)", ret, paramAddr);
 	return ret;
 }
@@ -675,7 +689,7 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr) {
 	}
 
 	ActivateDialog(UtilityDialogType::GAMEDATAINSTALL);
-	int ret = gamedataInstallDialog.Init(paramsAddr);
+	int ret = gamedataInstallDialog->Init(paramsAddr);
 	INFO_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallInitStart(%08x)",ret,paramsAddr);
 	return ret;
 }
@@ -688,7 +702,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 	
 	DeactivateDialog();
 	DEBUG_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart()");
-	return gamedataInstallDialog.Shutdown();
+	return gamedataInstallDialog->Shutdown();
 }
 
 static int sceUtilityGamedataInstallUpdate(int animSpeed) {
@@ -697,7 +711,7 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	int ret = gamedataInstallDialog.Update(animSpeed);
+	int ret = gamedataInstallDialog->Update(animSpeed);
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallUpdate(%i)", ret, animSpeed);
 	return ret;
 }
@@ -709,7 +723,7 @@ static int sceUtilityGamedataInstallGetStatus() {
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	int status = gamedataInstallDialog.GetStatus();
+	int status = gamedataInstallDialog->GetStatus();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallGetStatus()", status);
 	CleanupDialogThreads();
 	return status;
@@ -722,7 +736,7 @@ static int sceUtilityGamedataInstallAbort() {
 	}
 	
 	DeactivateDialog();
-	int ret = gamedataInstallDialog.Abort();
+	int ret = gamedataInstallDialog->Abort();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityGamedataInstallDialogAbort",ret);
 	return ret;
 }

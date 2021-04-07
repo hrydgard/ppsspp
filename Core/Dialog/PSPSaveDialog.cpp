@@ -62,6 +62,7 @@ PSPSaveDialog::PSPSaveDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPSaveDialog::~PSPSaveDialog() {
+	JoinIOThread();
 }
 
 int PSPSaveDialog::Init(int paramAddr)
