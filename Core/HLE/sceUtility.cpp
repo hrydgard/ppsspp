@@ -157,14 +157,32 @@ static void DeactivateDialog() {
 	CleanupDialogThreads();
 }
 
+static PSPDialog *CurrentDialog(UtilityDialogType type) {
+	switch (type) {
+	case UtilityDialogType::NONE:
+		break;
+	case UtilityDialogType::SAVEDATA:
+		return saveDialog;
+	case UtilityDialogType::MSG:
+		return msgDialog;
+	case UtilityDialogType::OSK:
+		return oskDialog;
+	case UtilityDialogType::NET:
+		return netDialog;
+	case UtilityDialogType::SCREENSHOT:
+		return screenshotDialog;
+	case UtilityDialogType::GAMESHARING:
+		break;
+	case UtilityDialogType::GAMEDATAINSTALL:
+		return gamedataInstallDialog;
+	}
+	return nullptr;
+}
+
 static void UtilityVolatileUnlock(u64 userdata, int cyclesLate) {
-	// There can only be one active, so just try each of them.
-	saveDialog->FinishVolatile();
-	msgDialog->FinishVolatile();
-	oskDialog->FinishVolatile();
-	netDialog->FinishVolatile();
-	screenshotDialog->FinishVolatile();
-	gamedataInstallDialog->FinishVolatile();
+	PSPDialog *dialog = CurrentDialog(currentDialogType);
+	if (dialog)
+		dialog->FinishVolatile();
 }
 
 void __UtilityInit() {
@@ -287,24 +305,9 @@ static int UtilityWorkUs(int us) {
 }
 
 static int UtilityFinishDialog(int type) {
-	switch ((UtilityDialogType)type) {
-	case UtilityDialogType::NONE:
-		break;
-	case UtilityDialogType::SAVEDATA:
-		return hleLogSuccessI(SCEUTILITY, saveDialog->FinishShutdown());
-	case UtilityDialogType::MSG:
-		return hleLogSuccessI(SCEUTILITY, msgDialog->FinishShutdown());
-	case UtilityDialogType::OSK:
-		return hleLogSuccessI(SCEUTILITY, oskDialog->FinishShutdown());
-	case UtilityDialogType::NET:
-		return hleLogSuccessI(SCEUTILITY, netDialog->FinishShutdown());
-	case UtilityDialogType::SCREENSHOT:
-		return hleLogSuccessI(SCEUTILITY, screenshotDialog->FinishShutdown());
-	case UtilityDialogType::GAMESHARING:
-		return hleLogError(SCEUTILITY, -1, "unimplemented");
-	case UtilityDialogType::GAMEDATAINSTALL:
-		return hleLogSuccessI(SCEUTILITY, gamedataInstallDialog->FinishShutdown());
-	}
+	PSPDialog *dialog = CurrentDialog((UtilityDialogType)type);
+	if (dialog)
+		return hleLogSuccessI(SCEUTILITY, dialog->FinishShutdown());
 	return hleLogError(SCEUTILITY, 0, "invalid dialog type?");
 }
 
