@@ -130,7 +130,7 @@ static PSPNetconfDialog *netDialog;
 static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 
-static int oldStatus = 100; //random value
+static int oldStatus = -1;
 static std::map<int, u32> currentlyLoadedModules;
 static int volatileUnlockEvent = -1;
 static HLEHelperThread *accessThread = nullptr;
@@ -146,6 +146,8 @@ static void ActivateDialog(UtilityDialogType type) {
 	if (!currentDialogActive) {
 		currentDialogType = type;
 		currentDialogActive = true;
+		// So that we log the next one.
+		oldStatus = -1;
 	}
 	CleanupDialogThreads();
 }
@@ -270,6 +272,36 @@ void __UtilityShutdown() {
 	delete gamedataInstallDialog;
 }
 
+void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
+	int partDelay = delayUs / 4;
+	const u32_le insts[] = {
+		// Make sure we don't discard/deadbeef 'em.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		// Now actually lock the volatile memory.  Maybe this should be earlier...
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A2, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_SYSCALL("sceSuspendForUser", "sceKernelVolatileMemLock"),
+
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, (int)type),
+		(u32_le)MIPS_MAKE_JR_RA(),
+		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityInitDialog"),
+	};
+
+	CleanupDialogThreads();
+	_assert_(accessThread == nullptr);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread->Start(partDelay, 0);
+}
+
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 	// Break it up so better-priority rescheduling happens.
 	// The windows aren't this regular, but close.
@@ -299,9 +331,20 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 static int UtilityWorkUs(int us) {
 	// This blocks, but other better priority threads can get time.
 	// Simulate this by allowing a reschedule.
+	if (us > 1000) {
+		hleEatMicro(us - 400);
+		return hleDelayResult(0, "utility work", 400);
+	}
 	hleEatMicro(us);
 	hleReSchedule("utility work");
 	return 0;
+}
+
+static int UtilityInitDialog(int type) {
+	PSPDialog *dialog = CurrentDialog((UtilityDialogType)type);
+	if (dialog)
+		return hleLogSuccessI(SCEUTILITY, dialog->FinishInit());
+	return hleLogError(SCEUTILITY, 0, "invalid dialog type?");
 }
 
 static int UtilityFinishDialog(int type) {
@@ -320,7 +363,6 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 		}
 	}
 
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SAVEDATA);
 	return hleLogSuccessX(SCEUTILITY, saveDialog->Init(paramAddr));
 }
@@ -450,7 +492,6 @@ static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::MSG);
 	return hleLogSuccessInfoX(SCEUTILITY, msgDialog->Init(paramAddr));
 }
@@ -504,7 +545,6 @@ static int sceUtilityOskInitStart(u32 oskPtr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::OSK);
 	return hleLogSuccessInfoX(SCEUTILITY, oskDialog->Init(oskPtr));
 }
@@ -546,7 +586,6 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::NET);
 	return hleLogSuccessInfoI(SCEUTILITY, netDialog->Init(paramsAddr));
 }
@@ -599,7 +638,6 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SCREENSHOT);
 	return hleReportWarning(SCEUTILITY, screenshotDialog->Init(paramAddr));
 }
@@ -1046,6 +1084,7 @@ const HLEFunction sceUtility[] =
 	// Fake functions for PPSSPP's use.
 	{0xC0DE0001, &WrapI_I<UtilityFinishDialog>,                    "__UtilityFinishDialog",                  'i', "i"  },
 	{0xC0DE0002, &WrapI_I<UtilityWorkUs>,                          "__UtilityWorkUs",                        'i', "i"  },
+	{0xC0DE0003, &WrapI_I<UtilityInitDialog>,                      "__UtilityInitDialog",                    'i', "i"  },
 };
 
 void Register_sceUtility()

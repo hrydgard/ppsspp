@@ -94,6 +94,7 @@ void __UtilityInit();
 void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
 
+void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority);
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority);
 
 void Register_sceUtility();
