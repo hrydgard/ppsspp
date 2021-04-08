@@ -130,7 +130,7 @@ static PSPNetconfDialog *netDialog;
 static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 
-static int oldStatus = 100; //random value
+static int oldStatus = -1;
 static std::map<int, u32> currentlyLoadedModules;
 static int volatileUnlockEvent = -1;
 static HLEHelperThread *accessThread = nullptr;
@@ -146,6 +146,8 @@ static void ActivateDialog(UtilityDialogType type) {
 	if (!currentDialogActive) {
 		currentDialogType = type;
 		currentDialogActive = true;
+		// So that we log the next one.
+		oldStatus = -1;
 	}
 	CleanupDialogThreads();
 }
@@ -361,7 +363,6 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 		}
 	}
 
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SAVEDATA);
 	return hleLogSuccessX(SCEUTILITY, saveDialog->Init(paramAddr));
 }
@@ -491,7 +492,6 @@ static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::MSG);
 	return hleLogSuccessInfoX(SCEUTILITY, msgDialog->Init(paramAddr));
 }
@@ -545,7 +545,6 @@ static int sceUtilityOskInitStart(u32 oskPtr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::OSK);
 	return hleLogSuccessInfoX(SCEUTILITY, oskDialog->Init(oskPtr));
 }
@@ -587,7 +586,6 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::NET);
 	return hleLogSuccessInfoI(SCEUTILITY, netDialog->Init(paramsAddr));
 }
@@ -640,7 +638,6 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr) {
 		return hleLogWarning(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	oldStatus = 100;
 	ActivateDialog(UtilityDialogType::SCREENSHOT);
 	return hleReportWarning(SCEUTILITY, screenshotDialog->Init(paramAddr));
 }
