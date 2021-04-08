@@ -97,6 +97,8 @@ void PSPDialog::FinishVolatile() {
 int PSPDialog::FinishInit() {
 	if (ReadStatus() != SCE_UTILITY_STATUS_INITIALIZE)
 		return -1;
+	// The thread already locked.
+	volatileLocked_ = true;
 	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
 	return 0;
 }
