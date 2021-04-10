@@ -991,10 +991,10 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
 				MIPSInterpret(op);
+				curMips->downcount -= MIPSGetInstructionCycleEstimate(op);
 
 				if (curMips->inDelaySlot)
 				{
-					curMips->downcount -= 1;
 					// The reason we have to check this is the delay slot hack in Int_Syscall.
 					if (wasInDelaySlot)
 					{
@@ -1006,7 +1006,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				}
 			}
 
-			curMips->downcount -= 1;
 			if (CoreTiming::GetTicks() > globalTicks)
 			{
 				// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
@@ -1050,11 +1049,7 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 // TODO: Do something that makes sense here.
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 {
-	MIPSInfo info = MIPSGetInfo(op);
-	if (info & DELAYSLOT)
-		return 2;
-	else
-		return 1;
+	return 1;
 }
 
 const char *MIPSDisasmAt(u32 compilerPC) {
