@@ -452,7 +452,7 @@ const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
 	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
 	INSTR("mul.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
-	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, MIPSInfo(OUT_FD|IN_FS|IN_FT|IS_FPU, 29)),
 	INSTR("sqrt.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INSTR("abs.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INSTR("mov.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
