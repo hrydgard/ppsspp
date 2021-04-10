@@ -641,8 +641,12 @@ OpenGLContext::OpenGLContext() {
 		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
+			shaderLanguageDesc_.texture = "texture";
 			shaderLanguageDesc_.bitwiseOps = true;
 			shaderLanguageDesc_.texelFetch = "texelFetch";
+			shaderLanguageDesc_.varying_vs = "out";
+			shaderLanguageDesc_.varying_fs = "in";
+			shaderLanguageDesc_.attribute = "in";
 		} else {
 			// This too...
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
