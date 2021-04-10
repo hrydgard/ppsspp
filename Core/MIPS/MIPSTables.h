@@ -20,21 +20,6 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
-struct MIPSInfo {
-	MIPSInfo() {
-		value = 0;
-	}
-
-	explicit MIPSInfo(u64 v) : value(v) {
-	}
-
-	u64 operator & (const u64 &arg) const {
-		return value & arg;
-	}
-
-	u64 value;
-};
-
 #define CONDTYPE_MASK   0x00000007
 #define CONDTYPE_EQ     0x00000001
 #define CONDTYPE_NE     0x00000002
@@ -108,6 +93,28 @@ struct MIPSInfo {
 #define CDECL
 #endif
 
+struct MIPSInfo {
+	MIPSInfo() {
+		value = 0;
+		cycles = 0;
+	}
+
+	explicit MIPSInfo(u64 v, u16 c = 0) : value(v), cycles(c) {
+		if (c == 0) {
+			cycles = 1;
+			if (v & IS_VFPU)
+				cycles++;
+		}
+	}
+
+	u64 operator & (const u64 &arg) const {
+		return value & arg;
+	}
+
+	u64 value : 48;
+	u64 cycles : 16;
+};
+
 typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
@@ -125,6 +132,3 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
 const char *MIPSDisasmAt(u32 compilerPC);
-
-void FillMIPSTables();
-

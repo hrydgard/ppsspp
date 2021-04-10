@@ -521,8 +521,8 @@ const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 
 const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
 {
-	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
+	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
 	// TODO: Disasm is wrong.
 	INSTR("vsbn", JITFUNC(Comp_Generic), Dis_VectorSet3, Int_Vsbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID, INVALID,
@@ -1049,7 +1049,8 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 // TODO: Do something that makes sense here.
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 {
-	return 1;
+	MIPSInfo info = MIPSGetInfo(op);
+	return info.cycles;
 }
 
 const char *MIPSDisasmAt(u32 compilerPC) {
