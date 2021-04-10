@@ -1184,6 +1184,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			*error_string = StringFromFormat("ELF/PRX truncated: %d > %d", (int)size, (int)elfSize);
 			module->Cleanup();
 			kernelObjects.Destroy<PSPModule>(module->GetUID());
+			// TODO: Might be the wrong error code.
+			error = SCE_KERNEL_ERROR_FILEERR;
 			return nullptr;
 		}
 		const auto maxElfSize = std::max(head->elf_size, head->psp_size);
