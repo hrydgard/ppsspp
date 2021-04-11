@@ -37,6 +37,7 @@ public:
 	std::string tag() const override { return "settings"; }
 
 protected:
+	void sendMessage(const char *message, const char *value) override;
 	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);

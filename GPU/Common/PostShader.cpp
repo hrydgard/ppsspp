@@ -126,6 +126,9 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
 
+					if (info.parent == "Off")
+						info.parent = "";
+
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];
 						section.Get(StringFromFormat("SettingName%d", i + 1).c_str(), &setting.name, "");
@@ -198,7 +201,7 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 	while (shaderInfo) {
 		backwards.push_back(shaderInfo);
 
-		if (!shaderInfo->parent.empty() && shaderInfo->parent != "Off") {
+		if (!shaderInfo->parent.empty()) {
 			shaderInfo = GetPostShaderInfo(shaderInfo->parent);
 		} else {
 			shaderInfo = nullptr;
@@ -219,8 +222,6 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names) {
 	std::vector<const ShaderInfo *> fullChain;
 	for (auto shaderName : names) {
-		if (shaderName == "Off")
-			break;
 		auto shaderChain = GetPostShaderChain(shaderName);
 		fullChain.insert(fullChain.end(), shaderChain.begin(), shaderChain.end());
 	}

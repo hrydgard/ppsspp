@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <set>
 
 #include "Common/Net/Resolve.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -77,8 +78,6 @@
 #include <shlobj.h>
 #include "Windows/W32Util/ShellUtil.h"
 #endif
-
-extern bool g_ShaderNameListChanged;
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
@@ -313,10 +312,10 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	std::vector<std::string> alreadyAddedShader;
-	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
+	std::set<std::string> alreadyAddedShader;
+	for (int i = 0; i < g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
-		shaderNames_[i] = g_Config.vPostShaderNames[i];
+		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
@@ -331,11 +330,15 @@ void GameSettingsScreen::CreateViews() {
 			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 		});
 
+		// No need for settings on the last one.
+		if (i == g_Config.vPostShaderNames.size())
+			continue;
+
 		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
 		for (auto shaderInfo : shaderChain) {
 			// Disable duplicated shader slider
-			bool duplicated = std::find(alreadyAddedShader.begin(), alreadyAddedShader.end(), shaderInfo->section) != alreadyAddedShader.end();
-			alreadyAddedShader.push_back(shaderInfo->section);
+			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.insert(shaderInfo->section);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
@@ -1255,11 +1258,6 @@ void GameSettingsScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
-	if (g_ShaderNameListChanged) {
-		g_ShaderNameListChanged = false;
-		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
-		RecreateViews();
-	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1285,6 +1283,14 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	// Wipe some caches after potentially changing settings.
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
+}
+
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "postshader_updated")) {
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		RecreateViews();
+	}
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1525,9 +1531,9 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-	g_Config.vPostShaderNames.push_back("Off");
-	g_ShaderNameListChanged = true;
+
 	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("postshader_updated", "");
 	return UI::EVENT_DONE;
 }
 
