@@ -33,7 +33,8 @@ static const char *HEADER_MAGIC = "PPSSPPGE";
 // Version 2: Uses snappy
 // Version 3: Adds FRAMEBUF0-FRAMEBUF9
 // Version 4: Expanded header with game ID
-static const int VERSION = 4;
+// Version 5: Uses zstd
+static const int VERSION = 5;
 static const int MIN_VERSION = 2;
 
 enum class CommandType : u8 {

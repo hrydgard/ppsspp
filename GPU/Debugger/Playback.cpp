@@ -21,6 +21,7 @@
 #include <mutex>
 #include <vector>
 #include <snappy-c.h>
+#include <zstd.h>
 #include "Common/Profiler/Profiler.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
@@ -637,7 +638,7 @@ bool DumpExecute::Run() {
 	return true;
 }
 
-static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
+static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 	u32 compressed_size = 0;
 	if (pspFileSystem.ReadFile(fp, (u8 *)&compressed_size, sizeof(compressed_size)) != sizeof(compressed_size)) {
 		return false;
@@ -650,7 +651,10 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
 	}
 
 	size_t real_size = sz;
-	snappy_uncompress((const char *)compressed, compressed_size, (char *)dest, &real_size);
+	if (version < 5)
+		snappy_uncompress((const char *)compressed, compressed_size, (char *)dest, &real_size);
+	else
+		real_size = ZSTD_decompress(dest, real_size, compressed, compressed_size);
 	delete[] compressed;
 
 	return real_size == sz;
@@ -699,8 +703,8 @@ bool RunMountedReplay(const std::string &filename) {
 		lastExecPushbuf.resize(bufsz);
 
 		bool truncated = false;
-		truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz);
-		truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz);
+		truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz, header.version);
+		truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz, header.version);
 
 		pspFileSystem.CloseFile(fp);
 
