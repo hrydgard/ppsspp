@@ -79,8 +79,6 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
-extern bool g_ShaderNameListChanged;
-
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -1260,11 +1258,6 @@ void GameSettingsScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
-	if (g_ShaderNameListChanged) {
-		g_ShaderNameListChanged = false;
-		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
-		RecreateViews();
-	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1290,6 +1283,14 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	// Wipe some caches after potentially changing settings.
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
+}
+
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	if (!strcmp(message, "postshader_updated")) {
+		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+		RecreateViews();
+	}
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1530,8 +1531,9 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-	g_ShaderNameListChanged = true;
+
 	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("postshader_updated", "");
 	return UI::EVENT_DONE;
 }
 

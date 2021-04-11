@@ -50,7 +50,6 @@
 #include "Core/Core.h"
 
 extern bool g_TakeScreenshot;
-extern bool g_ShaderNameListChanged;
 
 namespace MainWindow {
 	extern HINSTANCE hInst;
@@ -1069,9 +1068,10 @@ namespace MainWindow {
 				g_Config.vPostShaderNames.clear();
 				if (availableShaders[index] != "Off")
 					g_Config.vPostShaderNames.push_back(availableShaders[index]);
-				g_ShaderNameListChanged = true;
 				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
+
 				NativeMessageReceived("gpu_resized", "");
+				NativeMessageReceived("postshader_updated", "");
 				break;
 			}
 
