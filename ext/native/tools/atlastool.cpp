@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
+#include <zstd.h>
 
 #include "Common/Render/TextureAtlas.h"
 
@@ -853,6 +854,30 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 	std::sort(ranges.begin(), ranges.end());
 }
 
+static bool WriteCompressed(const void *src, size_t sz, size_t num, FILE *fp) {
+	size_t src_size = sz * num;
+	size_t compressed_size = ZSTD_compressBound(src_size);
+	uint8_t *compressed = new uint8_t[compressed_size];
+	compressed_size = ZSTD_compress(compressed, compressed_size, src, src_size, 22);
+	if (ZSTD_isError(compressed_size)) {
+		delete[] compressed;
+		return false;
+	}
+
+	uint32_t write_size = (uint32_t)compressed_size;
+	if (fwrite(&write_size, sizeof(uint32_t), 1, fp) != 1) {
+		delete[] compressed;
+		return false;
+	}
+	if (fwrite(compressed, 1, compressed_size, fp) != compressed_size) {
+		delete[] compressed;
+		return false;
+	}
+
+	delete[] compressed;
+	return true;
+}
+
 int main(int argc, char **argv) {
 	// initProgram(&argc, const_cast<const char ***>(&argv));
 	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
@@ -981,15 +1006,16 @@ int main(int argc, char **argv) {
 		FILE *meta = fopen(meta_name.c_str(), "wb");
 		AtlasHeader header;
 		header.magic = ATLAS_MAGIC;
-		header.version = 0;
+		header.version = 1;
 		header.numFonts = (int)fonts.size();
 		header.numImages = (int)images.size();
 		fwrite(&header, 1, sizeof(header), meta);
 		// For each image
+		AtlasImage *atalas_images = new AtlasImage[images.size()];
 		for (int i = 0; i < (int)images.size(); i++) {
-			AtlasImage atlas_image = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
-			fwrite(&atlas_image, 1, sizeof(atlas_image), meta);
+			atalas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
 		}
+		WriteCompressed(atalas_images, sizeof(AtlasImage), images.size(), meta);
 		// For each font
 		for (int i = 0; i < (int)fonts.size(); i++) {
 			auto &font = fonts[i];
@@ -997,9 +1023,9 @@ int main(int argc, char **argv) {
 			AtlasFontHeader font_header = font.GetHeader();
 			fwrite(&font_header, 1, sizeof(font_header), meta);
 			auto ranges = font.GetRanges();
-			fwrite(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
+			WriteCompressed(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
 			auto chars = font.GetChars((float)dest.width(), (float)dest.height(), results);
-			fwrite(chars.data(), sizeof(AtlasChar), chars.size(), meta);
+			WriteCompressed(chars.data(), sizeof(AtlasChar), chars.size(), meta);
 		}
 		fclose(meta);
 	}
