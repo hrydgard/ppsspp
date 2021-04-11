@@ -949,11 +949,15 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 }
 
 static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
+	auto iostat = PSPPointer<SceIoStat>::Create(iostatptr);
+	if (!iostat.IsValid())
+		return hleReportError(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
+
 	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
-		ERROR_LOG(SCEIO, "sceIoChstat: change mode requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
 	if (changebits & SCE_CST_ATTR)
-		ERROR_LOG(SCEIO, "sceIoChstat: change attr requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
 	if (changebits & SCE_CST_SIZE)
 		ERROR_LOG(SCEIO, "sceIoChstat: change size requested");
 	if (changebits & SCE_CST_CT)
@@ -961,7 +965,7 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (changebits & SCE_CST_AT)
 		ERROR_LOG(SCEIO, "sceIoChstat: change access time requested");
 	if (changebits & SCE_CST_MT)
-		ERROR_LOG(SCEIO, "sceIoChstat: change modification time requested");
+		ERROR_LOG_REPORT(SCEIO, "sceIoChstat: change modification time to %04d-%02d-%02d requested", iostat->st_m_time.year, iostat->st_m_time.month, iostat->st_m_time.day);
 	if (changebits & SCE_CST_PRVT)
 		ERROR_LOG(SCEIO, "sceIoChstat: change private data requested");
 	return 0;

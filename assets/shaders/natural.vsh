@@ -1,3 +1,8 @@
+#ifdef GL_ES
+precision mediump float;
+precision mediump int;
+#endif
+
 uniform vec2 u_texelDelta;
 
 attribute vec4 a_position;
