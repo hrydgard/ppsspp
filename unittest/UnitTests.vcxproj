@@ -409,6 +409,9 @@
     <ProjectReference Include="..\ext\libkirk\libkirk.vcxproj">
       <Project>{3baae095-e0ab-4b0e-b5df-ce39c8ae31de}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\libzstd.vcxproj">
+      <Project>{8bfd8150-94d5-4bf9-8a50-7bd9929a0850}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>

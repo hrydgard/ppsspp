@@ -16,6 +16,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/../../ext/libpng17 \
   $(LOCAL_PATH)/../../ext/libzip \
+  $(LOCAL_PATH)/../../ext/zstd/lib \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 

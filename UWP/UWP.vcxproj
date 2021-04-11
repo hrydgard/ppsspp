@@ -1728,6 +1728,9 @@
     <ProjectReference Include="libkirk_UWP\libkirk_UWP.vcxproj">
       <Project>{2f911c05-b341-4291-8bf5-09edecbdd5f5}</Project>
     </ProjectReference>
+    <ProjectReference Include="libzstd_UWP\libzstd_UWP.vcxproj">
+      <Project>{75286959-e7a2-4cbe-8b95-bf05c9c540fe}</Project>
+    </ProjectReference>
     <ProjectReference Include="SPIRVCross_UWP\SPIRVCross_UWP.vcxproj">
       <Project>{2b2d16bd-1d37-46af-a3f8-552900951b26}</Project>
     </ProjectReference>

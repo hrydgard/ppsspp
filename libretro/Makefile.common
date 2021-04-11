@@ -23,6 +23,7 @@ INCFLAGS += \
 	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
+	-I$(EXTDIR)/zstd/lib \
 	-I$(EXTDIR) \
 	-I$(NATIVEDIR) \
 	-I$(EXTDIR)/libpng17 \

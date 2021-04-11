@@ -584,7 +584,46 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips
+
+LIBZSTD_FILES := \
+  $(SRC)/ext/zstd/lib/common/debug.c \
+  $(SRC)/ext/zstd/lib/common/entropy_common.c \
+  $(SRC)/ext/zstd/lib/common/error_private.c \
+  $(SRC)/ext/zstd/lib/common/fse_decompress.c \
+  $(SRC)/ext/zstd/lib/common/pool.c \
+  $(SRC)/ext/zstd/lib/common/threading.c \
+  $(SRC)/ext/zstd/lib/common/xxhash.c \
+  $(SRC)/ext/zstd/lib/common/zstd_common.c \
+  $(SRC)/ext/zstd/lib/common/zstd_trace.c \
+  $(SRC)/ext/zstd/lib/compress/fse_compress.c \
+  $(SRC)/ext/zstd/lib/compress/hist.c \
+  $(SRC)/ext/zstd/lib/compress/huf_compress.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_compress.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_compress_literals.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_compress_sequences.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_compress_superblock.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_double_fast.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_fast.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_lazy.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_ldm.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_opt.c \
+  $(SRC)/ext/zstd/lib/compress/zstdmt_compress.c \
+  $(SRC)/ext/zstd/lib/decompress/huf_decompress.c \
+  $(SRC)/ext/zstd/lib/decompress/zstd_ddict.c \
+  $(SRC)/ext/zstd/lib/decompress/zstd_decompress.c \
+  $(SRC)/ext/zstd/lib/decompress/zstd_decompress_block.c \
+  $(SRC)/ext/zstd/lib/dictBuilder/cover.c \
+  $(SRC)/ext/zstd/lib/dictBuilder/divsufsort.c \
+  $(SRC)/ext/zstd/lib/dictBuilder/fastcover.c \
+  $(SRC)/ext/zstd/lib/dictBuilder/zdict.c
+
+LOCAL_MODULE := libzstd
+LOCAL_SRC_FILES := $(LIBZSTD_FILES)
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
 
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
@@ -634,7 +673,7 @@ endif
 ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
-  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips
+  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
@@ -652,7 +691,7 @@ endif
 ifeq ($(UNITTEST),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
-  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips
+  LOCAL_STATIC_LIBRARIES += ppsspp_core libarmips libzstd
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
