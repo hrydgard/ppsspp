@@ -156,8 +156,15 @@ namespace MainWindow {
 	void UpdateDynamicMenuCheckmarks(HMENU menu) {
 		int item = ID_SHADERS_BASE + 1;
 
-		for (size_t i = 0; i < availableShaders.size(); i++)
-			CheckMenuItem(menu, item++, ((g_Config.vPostShaderNames[0] == availableShaders[i] && (g_Config.vPostShaderNames[0] == "Off" || g_Config.vPostShaderNames[1] == "Off")) ? MF_CHECKED : MF_UNCHECKED));
+		for (size_t i = 0; i < availableShaders.size(); i++) {
+			bool checked = false;
+			if (g_Config.vPostShaderNames.empty() && availableShaders[i] == "Off")
+				checked = true;
+			else if (g_Config.vPostShaderNames.size() == 1 && availableShaders[i] == g_Config.vPostShaderNames[0])
+				checked = true;
+
+			CheckMenuItem(menu, item++, checked ? MF_CHECKED : MF_UNCHECKED);
+		}
 	}
 
 	bool CreateShadersSubmenu(HMENU menu) {
@@ -191,7 +198,9 @@ namespace MainWindow {
 				continue;
 			int checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
-			if (g_Config.vPostShaderNames[0] == i->section && (g_Config.vPostShaderNames[0] == "Off" || g_Config.vPostShaderNames[1] == "Off")) {
+			if (g_Config.vPostShaderNames.empty() && i->section == "Off") {
+				checkedStatus = MF_CHECKED;
+			} else if (g_Config.vPostShaderNames.size() == 1 && g_Config.vPostShaderNames[0] == i->section) {
 				checkedStatus = MF_CHECKED;
 			}
 
@@ -1060,7 +1069,6 @@ namespace MainWindow {
 				g_Config.vPostShaderNames.clear();
 				if (availableShaders[index] != "Off")
 					g_Config.vPostShaderNames.push_back(availableShaders[index]);
-				g_Config.vPostShaderNames.push_back("Off");
 				g_ShaderNameListChanged = true;
 				g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 				NativeMessageReceived("gpu_resized", "");

@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <set>
 
 #include "Common/Net/Resolve.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -313,10 +314,10 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	std::vector<std::string> alreadyAddedShader;
-	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
+	std::set<std::string> alreadyAddedShader;
+	for (int i = 0; i < g_Config.vPostShaderNames.size() + 1 && i < ARRAY_SIZE(shaderNames_); ++i) {
 		// Vector element pointer get invalidated on resize, cache name to have always a valid reference in the rendering thread
-		shaderNames_[i] = g_Config.vPostShaderNames[i];
+		shaderNames_[i] = i == g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[i];
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory("Graphics");
@@ -331,11 +332,15 @@ void GameSettingsScreen::CreateViews() {
 			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 		});
 
+		// No need for settings on the last one.
+		if (i == g_Config.vPostShaderNames.size())
+			continue;
+
 		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
 		for (auto shaderInfo : shaderChain) {
 			// Disable duplicated shader slider
-			bool duplicated = std::find(alreadyAddedShader.begin(), alreadyAddedShader.end(), shaderInfo->section) != alreadyAddedShader.end();
-			alreadyAddedShader.push_back(shaderInfo->section);
+			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.insert(shaderInfo->section);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
 				auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
@@ -1525,7 +1530,6 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-	g_Config.vPostShaderNames.push_back("Off");
 	g_ShaderNameListChanged = true;
 	NativeMessageReceived("gpu_resized", "");
 	return UI::EVENT_DONE;

@@ -1263,10 +1263,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
 	vPostShaderNames.clear();
 	for (auto it : postShaderChain) {
-		vPostShaderNames.push_back(it.second);
+		if (it.second != "Off")
+			vPostShaderNames.push_back(it.second);
 	}
-	if (vPostShaderNames.empty())
-		vPostShaderNames.push_back("Off");
 
 	// This caps the exponent 4 (so 16x.)
 	if (iAnisotropyLevel > 4) {
@@ -1699,10 +1698,9 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
 	vPostShaderNames.clear();
 	for (auto it : postShaderChain) {
-		vPostShaderNames.push_back(it.second);
+		if (it.second != "Off")
+			vPostShaderNames.push_back(it.second);
 	}
-	if (vPostShaderNames.empty())
-		vPostShaderNames.push_back("Off");
 
 	IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
 		if (setting->perGame_) {
@@ -1737,10 +1735,9 @@ void Config::unloadGameConfig() {
 		auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
 		vPostShaderNames.clear();
 		for (auto it : postShaderChain) {
-			vPostShaderNames.push_back(it.second);
+			if (it.second != "Off")
+				vPostShaderNames.push_back(it.second);
 		}
-		if (vPostShaderNames.empty())
-			vPostShaderNames.push_back("Off");
 
 		LoadStandardControllerIni();
 	}
