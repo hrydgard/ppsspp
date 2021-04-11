@@ -1,6 +1,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <zstd.h>
 
 #include "zlib.h"
 
@@ -105,6 +106,14 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 		if (outlen != total_data_size) {
 			// Shouldn't happen if return value was Z_OK.
 			ERROR_LOG(IO, "Wrong size data in ZIM: %i vs %i", (int)outlen, (int)total_data_size);
+		}
+	} else if (*flags & ZIM_ZSTD_COMPRESSED) {
+		size_t outlen = ZSTD_decompress(*image, total_data_size, zim + 16, datasize - 16);
+		if (outlen != (size_t)total_data_size) {
+			ERROR_LOG(IO, "ZIM zstd format decompression failed: %lld", (long long)outlen);
+			free(*image);
+			*image = 0;
+			return 0;
 		}
 	} else {
 		memcpy(*image, zim + 16, datasize - 16);

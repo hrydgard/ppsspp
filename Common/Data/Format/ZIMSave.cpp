@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <zstd.h>
 
 #include "zlib.h"
 
@@ -196,6 +197,16 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 			long dest_len = data_size * 2;
 			uint8_t *dest = new uint8_t[dest_len];
 			if (Z_OK == ezcompress(dest, &dest_len, data, data_size)) {
+				fwrite(dest, 1, dest_len, f);
+			} else {
+				ERROR_LOG(IO, "Zlib compression failed.\n");
+			}
+			delete [] dest;
+		} else if (flags & ZIM_ZSTD_COMPRESSED) {
+			size_t dest_len = ZSTD_compressBound(data_size);
+			uint8_t *dest = new uint8_t[dest_len];
+			dest_len = ZSTD_compress(dest, dest_len, data, data_size, 22);
+			if (!ZSTD_isError(dest_len)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
 				ERROR_LOG(IO, "Zlib compression failed.\n");

@@ -190,7 +190,7 @@ struct Image {
 			memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
 		}
 		FILE *f = fopen(zim_name, "wb");
-		// SaveZIM takes ownership voer image_data, there's no leak.
+		// SaveZIM takes ownership over image_data, there's no leak.
 		::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
 		fclose(f);
 	}
@@ -962,10 +962,10 @@ int main(int argc, char **argv) {
 	vector<Data> results = bucket.Resolve(image_width, dest);
 	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZLIB_COMPRESSED);
+		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZSTD_COMPRESSED);
 	} else {
 		printf("Writing .ZIM %ix%i RGBA4444...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZLIB_COMPRESSED);
+		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZSTD_COMPRESSED);
 	}
 
 	// Also save PNG for debugging.
