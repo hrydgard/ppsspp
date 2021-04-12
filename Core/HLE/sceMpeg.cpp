@@ -962,11 +962,10 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			pmpframes = new H264Frames;
 
 		// joint all blocks into H264Frames
-		SceMpegLLI lli;
 		for (int i = 0; i < pmp_nBlocks; i++){
-			Memory::ReadStructUnchecked(pmp_videoSource, &lli);
+			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
 			// add source block into pmpframes
-			pmpframes->add(Memory::GetPointer(lli.pSrc), lli.iSize);
+			pmpframes->add(Memory::GetPointer(lli->pSrc), lli->iSize);
 			// get next block
 			pmp_videoSource += sizeof(SceMpegLLI);
 		}
