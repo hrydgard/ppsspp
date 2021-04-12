@@ -110,7 +110,7 @@ void DNSResolveFree(addrinfo *res)
 bool GetIPList(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
 #if defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
-	WARN_LOG(SCENET, "GetIPList from defined(getifaddrs)");
+	INFO_LOG(SCENET, "GetIPList from getifaddrs");
 	struct ifaddrs* ifAddrStruct = NULL;
 	struct ifaddrs* ifa = NULL;
 
@@ -138,7 +138,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 		return true;
 	}
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
-	WARN_LOG(SCENET, "GetIPList from defined(SIOCGIFCONF)");
+	INFO_LOG(SCENET, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
 	struct ifconf ifconf;
 	memset(&ifconf, 0, sizeof(ifconf));
@@ -170,7 +170,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 	close(sd);
 	return true;
 #else // Fallback to POSIX/Cross-platform way but may not works well on Linux (ie. only shows 127.0.0.1)
-	WARN_LOG(SCENET, "GetIPList from Fallback");
+	INFO_LOG(SCENET, "GetIPList from Fallback");
 	struct addrinfo hints, * res, * p;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
