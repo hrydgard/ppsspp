@@ -2206,7 +2206,7 @@ namespace MIPSComp
 		u8 dregs[4];
 		u8 dregs2[4];
 
-		u32 nextOp = GetOffsetInstruction(1).encoding;
+		MIPSOpcode nextOp = GetOffsetInstruction(1);
 		int vd2 = -1;
 		int imm2 = -1;
 		if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
@@ -2246,7 +2246,7 @@ namespace MIPSComp
 			// If the negsin setting differs between the two joint invocations, we need to flip the second one.
 			bool negSin2 = (imm2 & 0x10) ? true : false;
 			CompVrotShuffle(dregs2, imm2, sz, negSin1 != negSin2);
-			js.compilerPC += 4;
+			EatInstruction(nextOp);
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
