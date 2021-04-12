@@ -31,3 +31,6 @@
 [submodule "ext/miniupnp"]
 	path = ext/miniupnp
 	url = https://github.com/hrydgard/miniupnp.git
+[submodule "zstd"]
+	path = ext/zstd
+	url = https://github.com/facebook/zstd.git

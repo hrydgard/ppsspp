@@ -20,7 +20,7 @@
 #include <functional>
 #include <set>
 #include <vector>
-#include <snappy-c.h>
+#include <zstd.h>
 
 #include "Common/Common.h"
 #include "Common/File/FileUtil.h"
@@ -98,9 +98,9 @@ static void BeginRecording() {
 }
 
 static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
-	size_t compressed_size = snappy_max_compressed_length(sz);
+	size_t compressed_size = ZSTD_compressBound(sz);
 	u8 *compressed = new u8[compressed_size];
-	snappy_compress((const char *)p, sz, (char *)compressed, &compressed_size);
+	compressed_size = ZSTD_compress(compressed, compressed_size, p, sz, 6);
 
 	u32 write_size = (u32)compressed_size;
 	fwrite(&write_size, sizeof(write_size), 1, fp);

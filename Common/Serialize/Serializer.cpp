@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <snappy-c.h>
+#include <zstd.h>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -287,8 +288,15 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 	if (header.Compress) {
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
-		auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
-		if (status != SNAPPY_OK) {
+		bool success = false;
+		if (header.Compress == 1) {
+			auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+			success = status == SNAPPY_OK;
+		} else {
+			auto status = ZSTD_decompress((char *)uncomp_buffer, uncomp_size, (const char *)buffer, sz);
+			success = !ZSTD_isError(status);
+		}
+		if (!success) {
 			ERROR_LOG(SAVESTATE, "ChunkReader: Failed to decompress file");
 			delete [] uncomp_buffer;
 			delete [] buffer;
@@ -328,7 +336,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Make sure we can allocate a buffer to compress before compressing.
-	size_t write_len = snappy_max_compressed_length(sz);
+	size_t write_len = ZSTD_compressBound(sz);
 	u8 *compressed_buffer = (u8 *)malloc(write_len);
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
@@ -336,7 +344,8 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 		// We'll save uncompressed.  Better than not saving...
 		write_len = sz;
 	} else {
-		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+		// TODO: If free disk space is low, we could max this out to 22?
+		write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, 1);
 		free(buffer);
 
 		write_buffer = compressed_buffer;
@@ -344,7 +353,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 
 	// Create header
 	SChunkHeader header{};
-	header.Compress = compressed_buffer ? 1 : 0;
+	header.Compress = compressed_buffer ? 2 : 0;
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)write_len;
 	header.UncompressedSize = (u32)sz;
