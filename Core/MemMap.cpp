@@ -46,10 +46,6 @@
 #include "Core/ThreadPools.h"
 #include "UI/OnScreenDisplay.h"
 
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
 namespace Memory {
 
 // The base pointer to the auto-mirrored arena.
@@ -318,51 +314,23 @@ void Reinit() {
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
 }
 
-static void CopyAlignedFast(uint8_t *dst8, const uint8_t *src8, int l, int h) {
-#ifdef _M_SSE
-	// All threads round both down, so they will still align.
-	l &= ~0x3F;
-	h &= ~0x3F;
-	const int n = (h - l) / 16;
-	const __m128i *src = (__m128i *)(src8 + l);
-	__m128i *dst = (__m128i *)(dst8 + l);
-
-	for (int i = 0; i < n; i += 4) {
-		__m128i row0 = _mm_loadu_si128(src + 0);
-		__m128i row1 = _mm_loadu_si128(src + 1);
-		__m128i row2 = _mm_loadu_si128(src + 2);
-		__m128i row3 = _mm_loadu_si128(src + 3);
-		_mm_storeu_si128(dst + 0, row0);
-		_mm_storeu_si128(dst + 1, row1);
-		_mm_storeu_si128(dst + 2, row2);
-		_mm_storeu_si128(dst + 3, row3);
-		src += 4;
-		dst += 4;
-	}
-#else
-	memcpy(dst8 + l, src8 + l, h - l);
-#endif
-}
-
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 	uint8_t *d = GetPointer(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.
-#ifdef _M_SSE
 	if ((size & 0x3F) != 0 || ((uintptr_t)d & 0x3F) != 0)
 		return p.DoVoid(d, size);
-#endif
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
 		GlobalThreadPool::Loop([&](int l, int h) {
-			CopyAlignedFast(d, storage, l, h);
+			memmove(d + l, storage + l, h - l);
 		}, 0, size);
 		break;
 	case PointerWrap::MODE_WRITE:
 		GlobalThreadPool::Loop([&](int l, int h) {
-			CopyAlignedFast(storage, d, l, h);
+			memmove(storage + l, d + l, h - l);
 		}, 0, size);
 		break;
 	case PointerWrap::MODE_MEASURE:
