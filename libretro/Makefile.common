@@ -6,6 +6,7 @@ GPUCOMMONDIR		= $(CORE_DIR)/GPU/Common
 GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
+ZSTDDIR                 = $(EXTDIR)/zstd/lib
 
 SOURCES_CXX   :=
 SOURCES_C     :=
@@ -18,6 +19,7 @@ INCFLAGS += \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/zlib \
+	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
 	-I$(FFMPEGDIR) \
 	$(FFMPEGINCFLAGS) \
@@ -700,6 +702,40 @@ SOURCES_CXX += \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
 		$(LIBRETRODIR)/LibretroGLContext.cpp \
 		$(LIBRETRODIR)/LibretroGLCoreContext.cpp
+
+SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
+               $(ZSTDDIR)/common/entropy_common.c \
+               $(ZSTDDIR)/common/error_private.c \
+               $(ZSTDDIR)/common/fse_decompress.c \
+               $(ZSTDDIR)/common/pool.c \
+               $(ZSTDDIR)/common/threading.c
+
+#SOURCES_C +=   $(ZSTDDIR)/common/xxhash.c
+
+SOURCES_C +=   \
+               $(ZSTDDIR)/common/zstd_common.c \
+               $(ZSTDDIR)/common/zstd_trace.c \
+               $(ZSTDDIR)/compress/fse_compress.c \
+               $(ZSTDDIR)/compress/hist.c \
+               $(ZSTDDIR)/compress/huf_compress.c \
+               $(ZSTDDIR)/compress/zstd_compress.c \
+               $(ZSTDDIR)/compress/zstd_compress_literals.c \
+               $(ZSTDDIR)/compress/zstd_compress_sequences.c \
+               $(ZSTDDIR)/compress/zstd_compress_superblock.c \
+               $(ZSTDDIR)/compress/zstd_double_fast.c \
+               $(ZSTDDIR)/compress/zstd_fast.c \
+               $(ZSTDDIR)/compress/zstd_lazy.c \
+               $(ZSTDDIR)/compress/zstd_ldm.c \
+               $(ZSTDDIR)/compress/zstd_opt.c \
+               $(ZSTDDIR)/compress/zstdmt_compress.c \
+               $(ZSTDDIR)/decompress/huf_decompress.c \
+               $(ZSTDDIR)/decompress/zstd_ddict.c \
+               $(ZSTDDIR)/decompress/zstd_decompress.c \
+               $(ZSTDDIR)/decompress/zstd_decompress_block.c \
+               $(ZSTDDIR)/dictBuilder/cover.c \
+               $(ZSTDDIR)/dictBuilder/divsufsort.c \
+               $(ZSTDDIR)/dictBuilder/fastcover.c \
+               $(ZSTDDIR)/dictBuilder/zdict.c
 
 ifneq ($(STATIC_LINKING), 1)
 SOURCES_C += \
