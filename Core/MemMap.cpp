@@ -30,20 +30,20 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
-#include "Core/MemMap.h"
-#include "Core/MemFault.h"
-#include "Core/HDRemaster.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/HLE/HLE.h"
-
 #include "Core/Core.h"
-#include "Core/Debugger/SymbolMap.h"
-#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/MemBlockInfo.h"
+#include "Core/HDRemaster.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MemMap.h"
+#include "Core/MemFault.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/ThreadPools.h"
 #include "UI/OnScreenDisplay.h"
 
 namespace Memory {
@@ -314,6 +314,38 @@ void Reinit() {
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
 }
 
+static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
+	uint8_t *d = GetPointer(start);
+	uint8_t *&storage = *p.ptr;
+
+	// We only handle aligned data and sizes.
+	if ((size & 0x3F) != 0 || ((uintptr_t)d & 0x3F) != 0)
+		return p.DoVoid(d, size);
+
+	switch (p.mode) {
+	case PointerWrap::MODE_READ:
+		GlobalThreadPool::Loop([&](int l, int h) {
+			memmove(d + l, storage + l, h - l);
+		}, 0, size);
+		break;
+	case PointerWrap::MODE_WRITE:
+		GlobalThreadPool::Loop([&](int l, int h) {
+			memmove(storage + l, d + l, h - l);
+		}, 0, size);
+		break;
+	case PointerWrap::MODE_MEASURE:
+		// Nothing to do here.
+		break;
+	case PointerWrap::MODE_VERIFY:
+		GlobalThreadPool::Loop([&](int l, int h) {
+			for (int i = l; i < h; i++)
+				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
+		}, 0, size);
+		break;
+	}
+	storage += size;
+}
+
 void DoState(PointerWrap &p) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
@@ -346,10 +378,10 @@ void DoState(PointerWrap &p) {
 		}
 	}
 
-	DoArray(p, GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
+	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize);
 	p.DoMarker("RAM");
 
-	DoArray(p, m_pPhysicalVRAM1, VRAM_SIZE);
+	DoMemoryVoid(p, PSP_GetVidMemBase(), VRAM_SIZE);
 	p.DoMarker("VRAM");
 	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
