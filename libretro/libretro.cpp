@@ -209,8 +209,8 @@ static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", 
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 }, { "0", 0 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
-static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
-static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { "off", "safe", "balanced", "aggressive" });
+static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { {"off", 0}, {"1x", 1}, {"2x", 2}, {"4x", 4}, {"8x", 8}, {"16x", 16} });
+static RetroOption<int> ppsspp_lower_resolution_for_effects("ppsspp_lower_resolution_for_effects", "Lower resolution for effects", { {"off", 0}, {"safe", 1}, {"balanced", 2}, {"aggressive", 3} });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
 static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement", "Texture Replacement", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
@@ -218,6 +218,12 @@ static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cach
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
 static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
 static RetroOption<bool> ppsspp_frame_duplication("ppsspp_frame_duplication", "Duplicate frames in 30hz games", false);
+static RetroOption<bool> ppsspp_software_skinning("ppsspp_software_skinning", "Software Skinning", true);
+static RetroOption<bool> ppsspp_ignore_bad_memory_access("ppsspp_ignore_bad_memory_access", "Ignore bad memory accesses", true);
+static RetroOption<bool> ppsspp_lazy_texture_caching("ppsspp_lazy_texture_caching", "Lazy texture caching (speedup)", false);
+static RetroOption<bool> ppsspp_retain_changed_textures("ppsspp_retain_changed_textures", "Retain changed textures (speedup, mem hog)", false);
+static RetroOption<bool> ppsspp_force_lag_sync("ppsspp_force_lag_sync", "Force real clock sync (slower, less lag)", false);
+static RetroOption<int> ppsspp_spline_quality("ppsspp_spline_quality", "Spline/Bezier curves quality", { {"low", 0}, {"medium", 1}, {"high", 2} });
 
 void retro_set_environment(retro_environment_t cb)
 {
@@ -245,6 +251,12 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_io_timing_method.GetOptions());
    vars.push_back(ppsspp_lower_resolution_for_effects.GetOptions());
    vars.push_back(ppsspp_frame_duplication.GetOptions());
+   vars.push_back(ppsspp_software_skinning.GetOptions());
+   vars.push_back(ppsspp_ignore_bad_memory_access.GetOptions());
+   vars.push_back(ppsspp_lazy_texture_caching.GetOptions());
+   vars.push_back(ppsspp_retain_changed_textures.GetOptions());
+   vars.push_back(ppsspp_force_lag_sync.GetOptions());
+   vars.push_back(ppsspp_spline_quality.GetOptions());
    vars.push_back({});
 
    environ_cb = cb;
@@ -316,6 +328,12 @@ static void check_variables(CoreParameter &coreParam)
    ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
    ppsspp_lower_resolution_for_effects.Update(&g_Config.iBloomHack);
    ppsspp_frame_duplication.Update(&g_Config.bRenderDuplicateFrames);
+   ppsspp_software_skinning.Update(&g_Config.bSoftwareSkinning);
+   ppsspp_ignore_bad_memory_access.Update(&g_Config.bIgnoreBadMemAccess);
+   ppsspp_lazy_texture_caching.Update(&g_Config.bTextureBackoffCache);
+   ppsspp_retain_changed_textures.Update(&g_Config.bTextureSecondaryCache);
+   ppsspp_force_lag_sync.Update(&g_Config.bForceLagSync);
+   ppsspp_spline_quality.Update(&g_Config.iSplineBezierQuality);
 
    ppsspp_language.Update(&g_Config.iLanguage);
    if (g_Config.iLanguage < 0)
@@ -365,6 +383,10 @@ void retro_init(void)
    g_Config.iMemStickSizeGB = 16;
    g_Config.bFuncReplacements = true;
    g_Config.bEncryptSave = true;
+   g_Config.bHighQualityDepth = true;
+   g_Config.bLoadPlugins = true;
+   g_Config.bFragmentTestCache = true;
+   g_Config.bSavedataUpgrade= true;
 
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
