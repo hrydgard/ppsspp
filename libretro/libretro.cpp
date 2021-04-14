@@ -242,7 +242,7 @@ void retro_set_environment(retro_environment_t cb)
    vars.push_back(ppsspp_auto_frameskip.GetOptions());
    vars.push_back(ppsspp_frameskip.GetOptions());
    vars.push_back(ppsspp_frameskiptype.GetOptions());
-   vars.push_back(ppsspp_frame_duplication.GetOptions());   
+   vars.push_back(ppsspp_frame_duplication.GetOptions());
    vars.push_back(ppsspp_vertex_cache.GetOptions());
    vars.push_back(ppsspp_fast_memory.GetOptions());
    vars.push_back(ppsspp_block_transfer_gpu.GetOptions());
