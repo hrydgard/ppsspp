@@ -394,7 +394,6 @@ void retro_init(void)
    g_Config.bFragmentTestCache = true;
    g_Config.bSavedataUpgrade= true;
    g_Config.bSeparateSASThread = true;
-   g_Config.bSeparateIOThread = true;
 
    g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
    g_Config.iPSPModel = PSP_MODEL_SLIM;
