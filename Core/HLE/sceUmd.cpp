@@ -139,7 +139,7 @@ static void UmdWakeThreads() {
 		u32 error;
 		u32 stat = __KernelGetWaitValue(threadID, error);
 		bool keep = false;
-		if (!HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1)) {
+		if (HLEKernel::VerifyWait(threadID, WAITTYPE_UMD, 1)) {
 			// Only if they are still waiting do we keep them in the list.
 			keep = (stat & __KernelUmdGetState()) == 0;
 			if (!keep) {
@@ -526,7 +526,7 @@ static u32 sceUmdReplacePermit()
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0XC6183D47, &WrapI_UC<sceUmdActivate>,               "sceUmdActivate",               'i', "xs"},
+	{0XC6183D47, &WrapI_UC<sceUmdActivate>,               "sceUmdActivate",               'i', "is"},
 	{0X6B4A146C, &WrapU_V<sceUmdGetDriveStat>,            "sceUmdGetDriveStat",           'x', ""  },
 	{0X46EBB729, &WrapI_V<sceUmdCheckMedium>,             "sceUmdCheckMedium",            'i', ""  },
 	{0XE83742BA, &WrapI_UC<sceUmdDeactivate>,             "sceUmdDeactivate",             'i', "xs"},
