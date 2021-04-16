@@ -94,7 +94,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			continue;
 		}
 
-		u32 op = Memory::Read_Instruction(addr, true).encoding;
+		u32 op = Memory::ReadUnchecked_Instruction(addr, true).encoding;
 
 		const bool log = false;
 		//log=true;
@@ -136,7 +136,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 							DEBUG_LOG(LOADER,"Corresponding lo found at %08x", corrLoAddr);
 						}
 						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s16)Memory::ReadUnchecked_U16(corrLoAddr);
+							s16 lo = (s16)Memory::ReadUnchecked_Instruction(corrLoAddr, true).encoding;
 							cur += lo;
 							cur += relocateTo;
 							addrToHiLo(cur, hi, lo);
@@ -185,7 +185,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			}
 			break;
 		}
-		Memory::Write_U32(op, addr);
+		Memory::WriteUnchecked_U32(op, addr);
 		NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
 	}
 	if (numErrors) {
