@@ -863,9 +863,11 @@ void PSPModule::Cleanup() {
 
 	if (memoryBlockAddr != 0 && nm.text_addr != 0 && memoryBlockSize >= nm.data_size + nm.bss_size + nm.text_size) {
 		DEBUG_LOG(LOADER, "Zeroing out module %s memory: %08x - %08x", nm.name, memoryBlockAddr, memoryBlockAddr + memoryBlockSize);
-		for (u32 i = 0; i < (u32)(nm.text_size + 3); i += 4) {
-			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
+		u32 clearSize = Memory::ValidSize(nm.text_addr, (u32)nm.text_size + 3);
+		for (u32 i = 0; i < clearSize; i += 4) {
+			Memory::WriteUnchecked_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
 		}
+		NotifyMemInfo(MemBlockFlags::WRITE, nm.text_addr, clearSize, "ModuleClear");
 		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size, "ModuleClear");
 
 		// Let's also invalidate, just to make sure it's cleared out for any future data.
