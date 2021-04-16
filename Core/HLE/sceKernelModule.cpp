@@ -1268,7 +1268,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	ElfReader reader((void*)ptr, elfSize);
 
 	int result = reader.LoadInto(loadAddress, fromTop);
-	if (result != SCE_KERNEL_ERROR_OK) 	{
+	if (result != SCE_KERNEL_ERROR_OK) {
 		ERROR_LOG(SCEMODULE, "LoadInto failed with error %08x",result);
 		if (newptr)
 			delete [] newptr;
