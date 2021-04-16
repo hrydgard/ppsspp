@@ -133,3 +133,10 @@ void ThreadPool::ParallelMemcpy(void *dest, const void *src, int size) {
 		memmove((uint8_t *)dest + l, (const uint8_t *)src + l, h - l);
 	}, 0, size, MIN_SIZE);
 }
+
+void ThreadPool::ParallelMemset(void *dest, uint8_t val, int size) {
+	static const int MIN_SIZE = 128 * 1024;
+	ParallelLoop([&](int l, int h) {
+		memset((uint8_t *)dest + l, val, h - l);
+	}, 0, size, MIN_SIZE);
+}

@@ -16,6 +16,11 @@ void GlobalThreadPool::Memcpy(void *dest, const void *src, int size) {
 	pool->ParallelMemcpy(dest, src, size);
 }
 
+void GlobalThreadPool::Memset(void *dest, uint8_t val, int size) {
+	std::call_once(init_flag, Inititialize);
+	pool->ParallelMemset(dest, val, size);
+}
+
 void GlobalThreadPool::Inititialize() {
 	pool = make_unique<ThreadPool>(g_Config.iNumWorkerThreads);
 }

@@ -391,15 +391,6 @@ void Shutdown() {
 	DEBUG_LOG(MEMMAP, "Memory system shut down.");
 }
 
-void Clear() {
-	if (m_pPhysicalRAM)
-		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
-	if (m_pPhysicalScratchPad)
-		memset(m_pPhysicalScratchPad, 0, SCRATCHPAD_SIZE);
-	if (m_pPhysicalVRAM1)
-		memset(m_pPhysicalVRAM1, 0, VRAM_SIZE);
-}
-
 bool IsActive() {
 	return base != nullptr;
 }

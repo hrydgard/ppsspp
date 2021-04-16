@@ -62,6 +62,7 @@ public:
 
 	void ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper, int minSize);
 	void ParallelMemcpy(void *dest, const void *src, int sz);
+	void ParallelMemset(void *dest, uint8_t val, int sz);
 
 private:
 	int numThreads_;
