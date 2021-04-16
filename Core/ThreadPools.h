@@ -6,7 +6,8 @@ class GlobalThreadPool {
 public:
 	// will execute slices of "loop" from "lower" to "upper"
 	// in parallel on the global thread pool
-	static void Loop(const std::function<void(int,int)>& loop, int lower, int upper);
+	static void Loop(const std::function<void(int,int)>& loop, int lower, int upper, int minSize = -1);
+	static void Memcpy(void *dest, const void *src, int size);
 
 private:
 	static std::unique_ptr<ThreadPool> pool;

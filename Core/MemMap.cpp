@@ -324,14 +324,10 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
-		GlobalThreadPool::Loop([&](int l, int h) {
-			memmove(d + l, storage + l, h - l);
-		}, 0, size);
+		GlobalThreadPool::Memcpy(d, storage, size);
 		break;
 	case PointerWrap::MODE_WRITE:
-		GlobalThreadPool::Loop([&](int l, int h) {
-			memmove(storage + l, d + l, h - l);
-		}, 0, size);
+		GlobalThreadPool::Memcpy(storage, d, size);
 		break;
 	case PointerWrap::MODE_MEASURE:
 		// Nothing to do here.
