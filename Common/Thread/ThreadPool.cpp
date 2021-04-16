@@ -88,9 +88,9 @@ ThreadPool::ThreadPool(int numThreads) {
 	if (numThreads <= 0) {
 		numThreads_ = 1;
 		INFO_LOG(JIT, "ThreadPool: Bad number of threads %d", numThreads);
-	} else if (numThreads > 8) {
-		INFO_LOG(JIT, "ThreadPool: Capping number of threads to 8 (was %d)", numThreads);
-		numThreads_ = 8;
+	} else if (numThreads > 16) {
+		INFO_LOG(JIT, "ThreadPool: Capping number of threads to 16 (was %d)", numThreads);
+		numThreads_ = 16;
 	} else {
 		numThreads_ = numThreads;
 	}
