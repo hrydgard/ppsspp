@@ -1170,7 +1170,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 			File::Copy(value, dest);
 		}
 		UIBackgroundShutdown();
-		UIBackgroundInit(*uiContext);
+		// It will init again automatically.  We can't init outside a frame on Vulkan.
 	}
 	if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory("System");

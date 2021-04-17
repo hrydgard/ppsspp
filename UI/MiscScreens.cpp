@@ -203,6 +203,7 @@ private:
 
 static BackgroundAnimation g_CurBackgroundAnimation = BackgroundAnimation::OFF;
 static std::unique_ptr<Animation> g_Animation;
+static bool bgTextureInited = false;
 
 void UIBackgroundInit(UIContext &dc) {
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
@@ -216,9 +217,15 @@ void UIBackgroundInit(UIContext &dc) {
 void UIBackgroundShutdown() {
 	bgTexture.reset(nullptr);
 	g_Animation.reset(nullptr);
+	g_CurBackgroundAnimation = BackgroundAnimation::OFF;
+	bgTextureInited = false;
 }
 
 void DrawBackground(UIContext &dc, float alpha) {
+	if (!bgTextureInited) {
+		UIBackgroundInit(dc);
+		bgTextureInited = true;
+	}
 	if (g_CurBackgroundAnimation != (BackgroundAnimation)g_Config.iBackgroundAnimation) {
 		g_CurBackgroundAnimation = (BackgroundAnimation)g_Config.iBackgroundAnimation;
 
