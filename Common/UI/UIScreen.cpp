@@ -226,8 +226,9 @@ bool PopupScreen::touch(const TouchInput &touch) {
 		return UIDialogScreen::touch(touch);
 	}
 
-	if (!box_->GetBounds().Contains(touch.x, touch.y))
+	if (!box_->GetBounds().Contains(touch.x, touch.y)) {
 		TriggerFinish(DR_BACK);
+	}
 
 	return UIDialogScreen::touch(touch);
 }
