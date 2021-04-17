@@ -222,7 +222,7 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 }
 
 bool PopupScreen::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0 || touch.id != 0) {
+	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
 		return UIDialogScreen::touch(touch);
 	}
 

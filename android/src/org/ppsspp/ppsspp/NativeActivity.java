@@ -1145,7 +1145,9 @@ public abstract class NativeActivity extends Activity {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
 				// Grab permanent permission so we can show it in recents list etc.
-				getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				if (Build.VERSION.SDK_INT >= 19) {
+					getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				}
 				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
 				NativeApp.sendMessage("browse_fileSelect", selectedFile.toString());
 			}

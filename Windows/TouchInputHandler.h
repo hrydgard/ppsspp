@@ -20,7 +20,6 @@ class TouchInputHandler
 {
 public:
 	TouchInputHandler();
-	~TouchInputHandler();
 	void handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	void registerTouchWindow(HWND wnd);
 	bool hasTouch();
