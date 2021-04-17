@@ -1563,8 +1563,6 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsScreen::OnRecentClearClick);
 	}
 
-	items->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-
 	scroll->Add(items);
 	parent->Add(scroll);
 }
