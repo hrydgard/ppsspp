@@ -371,7 +371,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(IO, "Code not parse HTTP status code");
+		ERROR_LOG(IO, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
 
