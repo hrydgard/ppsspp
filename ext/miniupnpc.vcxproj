@@ -35,6 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="miniupnp\miniupnpc\addr_is_reserved.h" />
     <ClInclude Include="miniupnp\miniupnpc\connecthostport.h" />
     <ClInclude Include="miniupnp\miniupnpc\igd_desc_parse.h" />
     <ClInclude Include="miniupnp\miniupnpc\minisoap.h" />
@@ -50,6 +51,7 @@
     <ClInclude Include="miniupnp\miniupnpc\upnpreplyparse.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="miniupnp\miniupnpc\addr_is_reserved.c" />
     <ClCompile Include="miniupnp\miniupnpc\connecthostport.c" />
     <ClCompile Include="miniupnp\miniupnpc\igd_desc_parse.c" />
     <ClCompile Include="miniupnp\miniupnpc\minisoap.c" />

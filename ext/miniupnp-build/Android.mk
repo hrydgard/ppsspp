@@ -7,6 +7,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := libminiupnp-build
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
+    ../miniupnp/miniupnpc/addr_is_reserved.c \
     ../miniupnp/miniupnpc/connecthostport.c \
     ../miniupnp/miniupnpc/igd_desc_parse.c \
     ../miniupnp/miniupnpc/minisoap.c \
