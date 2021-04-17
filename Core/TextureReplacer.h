@@ -198,8 +198,8 @@ protected:
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	float LookupReduceHashRange(int& w, int& h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, int level, int w, int h);
-	std::string HashName(u64 cachekey, u32 hash, int level, int w, int h);
+	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
+	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
 	SimpleBuf<u32> saveBuf;
