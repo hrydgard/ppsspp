@@ -386,8 +386,8 @@ static LocationHelper *locationHelper;
 }
 
 int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
-	// Find the id for the touch.  Avoid 0 (mouse.)
-	for (int localId = 1; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
+	// Find the id for the touch.
+	for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
 		if (g_touches[localId] == uiTouch) {
 			return localId;
 		}
@@ -395,7 +395,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 	// Allocate a new one, perhaps?
 	if (allowAllocate) {
-		for (int localId = 1; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
+		for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
 			if (g_touches[localId] == 0) {
 				g_touches[localId] = uiTouch;
 				return localId;
