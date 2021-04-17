@@ -47,7 +47,6 @@ public:
 protected:
 	void WriteDisasmLine(JsonWriter &json, const DisassemblyLineInfo &l);
 	void WriteBranchGuide(JsonWriter &json, const BranchLine &l);
-	uint32_t RoundAddressUp(uint32_t addr);
 
 	DisassemblyManager disasm_;
 };
@@ -135,12 +134,20 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.writeNull("dataSymbol");
 	}
 
-	bool enabled;
+	bool enabled = false;
+	int breakpointOffset = -1;
+	for (u32 i = 0; i < l.totalSize; i += 4) {
+		if (CBreakPoints::IsAddressBreakPoint(addr + i, &enabled))
+			breakpointOffset = i;
+		if (breakpointOffset != -1 && enabled)
+			break;
+	}
 	// TODO: Account for bp inside macro?
-	if (CBreakPoints::IsAddressBreakPoint(addr, &enabled)) {
+	if (breakpointOffset != -1) {
 		json.pushDict("breakpoint");
 		json.writeBool("enabled", enabled);
-		auto cond = CBreakPoints::GetBreakPointCondition(addr);
+		json.writeUint("address", addr + breakpointOffset);
+		auto cond = CBreakPoints::GetBreakPointCondition(addr + breakpointOffset);
 		if (cond)
 			json.writeString("condition", cond->expressionString);
 		else
@@ -238,18 +245,6 @@ void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &
 		json.writeString("direction", "right");
 	json.writeInt("lane", l.laneIndex);
 	json.pop();
-}
-
-uint32_t WebSocketDisasmState::RoundAddressUp(uint32_t addr) {
-	if (addr < PSP_GetScratchpadMemoryBase())
-		return PSP_GetScratchpadMemoryBase();
-	else if (addr >= PSP_GetScratchpadMemoryEnd() && addr < PSP_GetVidMemBase())
-		return PSP_GetVidMemBase();
-	else if (addr >= PSP_GetVidMemEnd() && addr < PSP_GetKernelMemoryBase())
-		return PSP_GetKernelMemoryBase();
-	else if (addr >= PSP_GetUserMemoryEnd())
-		return PSP_GetScratchpadMemoryBase();
-	return addr;
 }
 
 // Request the current PSP memory base address (memory.base)
@@ -375,7 +370,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id (may not affect search much.)
 //  - address: starting address as a number.
-//  - end: optional end address as a number (otherwise uses start.)
+//  - end: optional end address as a number (otherwise uses start address.)
 //  - match: string to search for.
 //  - displaySymbols: optional, specify false to hide symbols in the searched parameters.
 //
@@ -402,7 +397,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 		return;
 
 	bool loopSearch = end <= start;
-	start = RoundAddressUp(start);
+	start = RoundMemAddressUp(start);
 	if ((end <= start) != loopSearch) {
 		// We must've passed end by rounding up.
 		JsonWriter &json = req.Respond();
@@ -411,7 +406,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 	}
 
 	// We do this after the check in case both were in unused memory.
-	end = RoundAddressUp(end);
+	end = RoundMemAddressUp(end);
 
 	std::transform(match.begin(), match.end(), match.begin(), ::tolower);
 
@@ -442,7 +437,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 			break;
 		}
 
-		addr = RoundAddressUp(addr + line.totalSize);
+		addr = RoundMemAddressUp(addr + line.totalSize);
 	} while (addr != end);
 
 	JsonWriter &json = req.Respond();

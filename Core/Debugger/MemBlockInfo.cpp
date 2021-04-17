@@ -87,6 +87,7 @@ static MemSlabMap writeMap;
 static MemSlabMap textureMap;
 static std::vector<PendingNotifyMem> pendingNotifies;
 static std::mutex pendingMutex;
+static int detailedOverride;
 
 MemSlabMap::MemSlabMap() {
 	Reset();
@@ -373,7 +374,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 
 	bool needFlush = false;
 	// When the setting is off, we skip smaller info to keep things fast.
-	if (g_Config.bDebugMemInfoDetailed || size >= 0x100) {
+	if (size >= 0x100 || MemBlockInfoDetailed()) {
 		PendingNotifyMem info{ flags, start, size };
 		info.ticks = CoreTiming::GetTicks();
 		info.pc = pc;
@@ -394,10 +395,12 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		FlushPendingMemInfo();
 	}
 
-	if (flags & MemBlockFlags::WRITE) {
-		CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
-	} else if (flags & MemBlockFlags::READ) {
-		CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+	if (!(flags & MemBlockFlags::SKIP_MEMCHECK)) {
+		if (flags & MemBlockFlags::WRITE) {
+			CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
+		} else if (flags & MemBlockFlags::READ) {
+			CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+		}
 	}
 }
 
@@ -471,4 +474,17 @@ void MemBlockInfoDoState(PointerWrap &p) {
 	suballocMap.DoState(p);
 	writeMap.DoState(p);
 	textureMap.DoState(p);
+}
+
+// Used by the debugger.
+void MemBlockOverrideDetailed() {
+	detailedOverride++;
+}
+
+void MemBlockReleaseDetailed() {
+	detailedOverride--;
+}
+
+bool MemBlockInfoDetailed() {
+	return g_Config.bDebugMemInfoDetailed || detailedOverride != 0;
 }
