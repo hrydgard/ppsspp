@@ -171,8 +171,8 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 	const u8 *first_possible = haystack + off;
 	int first = *needle;
 
-	std::atomic<const u8 *> result;
-	result.store(nullptr);
+	const u8 *result = nullptr;
+	std::mutex resultLock;
 
 	int range = (int)(last_possible - first_possible);
 	GlobalThreadPool::Loop([&](int l, int h) {
@@ -190,13 +190,16 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 		};
 
 		alignp();
-		while (p <= pend && !result.load()) {
+		while (p <= pend) {
 			p = (const u8 *)memchr(p, first, pend - p + 1);
 			if (!p) {
 				return;
 			}
 			if (poffset() == 0 && !memcmp(p, needle, nlen)) {
-				result.store(p);
+				std::lock_guard<std::mutex> guard(resultLock);
+				// Take the lowest result so we get the same file for any # of threads.
+				if (!result || p < result)
+					result = p;
 				return;
 			}
 
@@ -205,7 +208,7 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 		}
 	}, 0, range, 128 * 1024);
 
-	return result.load();
+	return result;
 }
 
 static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 align) {
