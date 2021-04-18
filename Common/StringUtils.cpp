@@ -207,8 +207,10 @@ void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data
 		for (size_t j = size; j < padded_size; j++) {
 			buffer.Printf("   ");
 		}
+	}
+	if (size > 0) {
 		buffer.Printf(" ");
-		for (size_t j = size & ~UINT64_C(0xF); j < size; j++) {
+		for (size_t j = (size - 1ULL) & ~UINT64_C(0xF); j < size; j++) {
 			buffer.Printf("%c", ((data[j] < 0x20) || (data[j] > 0x7e)) ? 0x2e : data[j]);
 		}
 	}
