@@ -23,6 +23,8 @@ public:
 	void WaitForCompletion();
 
 protected:
+	virtual void WorkFunc();
+
 	std::thread thread; // the worker thread
 	std::condition_variable signal; // used to signal new work
 	std::condition_variable done; // used to signal work completion
@@ -30,11 +32,10 @@ protected:
 	bool active = true;
 	int jobsDone = 0;
 	int jobsTarget = 0;
-private:
-	virtual void WorkFunc();
 
 	std::function<void()> work_; // the work to be done by this thread
 
+private:
 	WorkerThread(const WorkerThread& other) = delete; // prevent copies
 	void operator =(const WorkerThread &other) = delete;
 };
@@ -42,14 +43,12 @@ private:
 class LoopWorkerThread final : public WorkerThread {
 public:
 	LoopWorkerThread() = default;
-	void Process(std::function<void(int, int)> work, int start, int end);
+	void ProcessLoop(std::function<void(int, int)> work, int start, int end);
 
 private:
-	virtual void WorkFunc() override;
-
 	int start_;
 	int end_;
-	std::function<void(int, int)> work_; // the work to be done by this thread
+	std::function<void(int, int)> loopWork_; // the work to be done by this thread
 };
 
 // A thread pool manages a set of worker threads, and allows the execution of parallel loops on them
@@ -61,7 +60,9 @@ public:
 	// don't need a destructor, "workers" is cleared on delete, 
 	// leading to the stopping and joining of all worker threads (RAII and all that)
 
-	void ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper);
+	void ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper, int minSize);
+	void ParallelMemcpy(void *dest, const void *src, int sz);
+	void ParallelMemset(void *dest, uint8_t val, int sz);
 
 private:
 	int numThreads_;

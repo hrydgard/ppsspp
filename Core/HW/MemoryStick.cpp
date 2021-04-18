@@ -16,6 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
@@ -31,8 +34,20 @@ static bool memStickNeedsAssign = false;
 static u64 memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
 
-const u64 normalMemstickSize = 9ULL * 1024 * 1024 * 1024;
-const u64 smallMemstickSize = 1ULL * 1024 * 1024 * 1024;
+enum FreeCalcStatus {
+	NONE,
+	RUNNING,
+	DONE,
+	CLEANED_UP,
+};
+
+static std::thread freeCalcThread;
+static std::condition_variable freeCalcCond;
+static std::mutex freeCalcMutex;
+static FreeCalcStatus freeCalcStatus = FreeCalcStatus::NONE;
+
+static const u64 normalMemstickSize = 9ULL * 1024 * 1024 * 1024;
+static const u64 smallMemstickSize = 1ULL * 1024 * 1024 * 1024;
 
 void MemoryStick_DoState(PointerWrap &p) {
 	auto s = p.Section("MemoryStick", 1, 5);
@@ -75,7 +90,31 @@ u64 MemoryStick_SectorSize() {
 	return 32 * 1024; // 32KB
 }
 
+static void MemoryStick_CalcInitialFree() {
+	std::unique_lock<std::mutex> guard(freeCalcMutex);
+	freeCalcStatus = FreeCalcStatus::RUNNING;
+	freeCalcThread = std::thread([] {
+		memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+
+		std::unique_lock<std::mutex> guard(freeCalcMutex);
+		freeCalcStatus = FreeCalcStatus::DONE;
+		freeCalcCond.notify_all();
+	});
+}
+
+static void MemoryStick_WaitInitialFree() {
+	std::unique_lock<std::mutex> guard(freeCalcMutex);
+	while (freeCalcStatus == FreeCalcStatus::RUNNING) {
+		freeCalcCond.wait(guard);
+	}
+	if (freeCalcStatus == FreeCalcStatus::DONE)
+		freeCalcThread.join();
+	freeCalcStatus = FreeCalcStatus::CLEANED_UP;
+}
+
 u64 MemoryStick_FreeSpace() {
+	MemoryStick_WaitInitialFree();
+
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
 	u64 realFreeSpace = pspFileSystem.FreeSpace("ms0:/");
 
@@ -135,5 +174,9 @@ void MemoryStick_Init() {
 	}
 
 	memStickNeedsAssign = false;
-	memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.getDirSize("ms0:/PSP/SAVEDATA/");
+	MemoryStick_CalcInitialFree();
+}
+
+void MemoryStick_Shutdown() {
+	MemoryStick_WaitInitialFree();
 }

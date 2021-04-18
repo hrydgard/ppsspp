@@ -17,6 +17,7 @@
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/ThreadPools.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -57,86 +58,83 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 {
 	int numErrors = 0;
 	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
-	for (int r = 0; r < numRelocs; r++)
-	{
-		// INFO_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
-		u32 info = rels[r].r_info;
-		u32 addr = rels[r].r_offset;
+	GlobalThreadPool::Loop([&](int l, int h) {
+		for (int r = l; r < h; r++) {
+			VERBOSE_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
+			u32 info = rels[r].r_info;
+			u32 addr = rels[r].r_offset;
 
-		int type = info & 0xf;
+			int type = info & 0xf;
 
-		int readwrite = (info>>8) & 0xff; 
-		int relative  = (info>>16) & 0xff;
+			int readwrite = (info >> 8) & 0xff;
+			int relative = (info >> 16) & 0xff;
 
-		//0 = code
-		//1 = data
+			//0 = code
+			//1 = data
 
-		if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
-			if (numErrors < 10) {
-				ERROR_LOG_REPORT(LOADER, "Bad segment number %i", readwrite);
+			if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
+				if (numErrors < 10) {
+					ERROR_LOG_REPORT(LOADER, "Bad segment number %i", readwrite);
+				}
+				numErrors++;
+				continue;
 			}
-			numErrors++;
-			continue;
-		}
 
-		addr += segmentVAddr[readwrite];
+			addr += segmentVAddr[readwrite];
 
-		// It appears that misaligned relocations are allowed.
-		// Will they work correctly on big-endian?
+			// It appears that misaligned relocations are allowed.
+			// Will they work correctly on big-endian?
 
-		if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
-			if (numErrors < 10) {
-				WARN_LOG_REPORT(LOADER, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
-			} else if (numErrors == 10) {
-				WARN_LOG(LOADER, "Too many bad relocations, skipping logging");
+			if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
+				if (numErrors < 10) {
+					WARN_LOG_REPORT(LOADER, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
+				} else if (numErrors == 10) {
+					WARN_LOG(LOADER, "Too many bad relocations, skipping logging");
+				}
+				numErrors++;
+				continue;
 			}
-			numErrors++;
-			continue;
-		}
 
-		u32 op = Memory::Read_Instruction(addr, true).encoding;
+			u32 op = Memory::ReadUnchecked_Instruction(addr, true).encoding;
 
-		const bool log = false;
-		//log=true;
-		if (log) {
-			DEBUG_LOG(LOADER,"rel at: %08x  info: %08x   type: %i",addr, info, type);
-		}
-		u32 relocateTo = segmentVAddr[relative];
+			const bool log = false;
+			//log=true;
+			if (log) {
+				DEBUG_LOG(LOADER, "rel at: %08x  info: %08x   type: %i", addr, info, type);
+			}
+			u32 relocateTo = segmentVAddr[relative];
 
-		switch (type) 
-		{
-		case R_MIPS_32:
-			if (log)
-				DEBUG_LOG(LOADER,"Full address reloc %08x", addr);
-			//full address, no problemo
-			op += relocateTo;
-			break;
+			switch (type) {
+			case R_MIPS_32:
+				if (log)
+					DEBUG_LOG(LOADER, "Full address reloc %08x", addr);
+				//full address, no problemo
+				op += relocateTo;
+				break;
 
-		case R_MIPS_26: //j, jal
-			//add on to put in correct address space
-			if (log)
-				DEBUG_LOG(LOADER,"j/jal reloc %08x", addr);
-			op = (op & 0xFC000000) | (((op&0x03FFFFFF)+(relocateTo>>2))&0x03FFFFFF);
-			break;
+			case R_MIPS_26: //j, jal
+				//add on to put in correct address space
+				if (log)
+					DEBUG_LOG(LOADER, "j/jal reloc %08x", addr);
+				op = (op & 0xFC000000) | (((op & 0x03FFFFFF) + (relocateTo >> 2)) & 0x03FFFFFF);
+				break;
 
-		case R_MIPS_HI16: //lui part of lui-addiu pairs
+			case R_MIPS_HI16: //lui part of lui-addiu pairs
 			{
 				if (log)
-					DEBUG_LOG(LOADER,"HI reloc %08x", addr);
+					DEBUG_LOG(LOADER, "HI reloc %08x", addr);
 
 				u32 cur = (op & 0xFFFF) << 16;
 				u16 hi = 0;
 				bool found = false;
-				for (int t = r + 1; t<numRelocs; t++)
-				{
-					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) 
-					{
+				for (int t = r + 1; t < numRelocs; t++) {
+					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) {
 						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
 						if (log) {
-							DEBUG_LOG(LOADER,"Corresponding lo found at %08x", corrLoAddr);
+							DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
 						}
 						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s16)Memory::ReadUnchecked_U16(corrLoAddr);
+							s16 lo = (s16)Memory::ReadUnchecked_Instruction(corrLoAddr, true).encoding;
 							cur += lo;
 							cur += relocateTo;
 							addrToHiLo(cur, hi, lo);
@@ -150,14 +148,14 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 				if (!found) {
 					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16");
 				}
-				op = (op & 0xFFFF0000) | (hi);
+				op = (op & 0xFFFF0000) | hi;
 			}
 			break;
 
-		case R_MIPS_LO16: //addiu part of lui-addiu pairs
+			case R_MIPS_LO16: //addiu part of lui-addiu pairs
 			{
 				if (log)
-					DEBUG_LOG(LOADER,"LO reloc %08x", addr);
+					DEBUG_LOG(LOADER, "LO reloc %08x", addr);
 				u32 cur = op & 0xFFFF;
 				cur += relocateTo;
 				cur &= 0xFFFF;
@@ -165,29 +163,32 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			}
 			break;
 
-		case R_MIPS_GPREL16: //gp
-			// It seems safe to ignore this, almost a notification of a gp-relative operation?
-			break;
+			case R_MIPS_GPREL16: //gp
+				// It seems safe to ignore this, almost a notification of a gp-relative operation?
+				break;
 
-		case R_MIPS_16:
-			op = (op & 0xFFFF0000) | (((int)(op & 0xFFFF) + (int)relocateTo) & 0xFFFF);
-			break;
+			case R_MIPS_16:
+				op = (op & 0xFFFF0000) | (((int)(op & 0xFFFF) + (int)relocateTo) & 0xFFFF);
+				break;
 
-		case R_MIPS_NONE:
-			// This shouldn't matter, not sure the purpose of it.
-			break;
+			case R_MIPS_NONE:
+				// This shouldn't matter, not sure the purpose of it.
+				break;
 
-		default:
+			default:
 			{
 				char temp[256];
 				MIPSDisAsm(MIPSOpcode(op), 0, temp);
-				ERROR_LOG_REPORT(LOADER,"ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
+				ERROR_LOG_REPORT(LOADER, "ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;
+			}
+
+			Memory::WriteUnchecked_U32(op, addr);
+			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
 		}
-		Memory::Write_U32(op, addr);
-		NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
-	}
+	}, 0, numRelocs, 32);
+
 	if (numErrors) {
 		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
 	}

@@ -41,6 +41,7 @@ enum MemStickDriverState {
 };
 
 void MemoryStick_Init();
+void MemoryStick_Shutdown();
 void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();

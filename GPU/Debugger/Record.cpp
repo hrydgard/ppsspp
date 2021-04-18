@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <functional>
 #include <set>
@@ -32,6 +33,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/ThreadPools.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -166,34 +168,47 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 	}
 
 	const u8 *last_possible = haystack + hlen - nlen;
+	const u8 *first_possible = haystack + off;
 	int first = *needle;
-	const u8 *p = haystack + off;
 
-	const uintptr_t align_mask = align - 1;
-	auto poffset = [&]() {
-		return ((uintptr_t)(p - haystack) & align_mask);
-	};
-	auto alignp = [&]() {
-		uintptr_t offset = poffset();
-		if (offset != 0)
-			p += align - offset;
-	};
+	const u8 *result = nullptr;
+	std::mutex resultLock;
 
-	alignp();
-	while (p <= last_possible) {
-		p = (const u8 *)memchr(p, first, last_possible - p + 1);
-		if (!p) {
-			return nullptr;
-		}
-		if (poffset() == 0 && !memcmp(p, needle, nlen)) {
-			return p;
-		}
+	int range = (int)(last_possible - first_possible);
+	GlobalThreadPool::Loop([&](int l, int h) {
+		const u8 *p = haystack + off + l;
+		const u8 *pend = haystack + off + h;
 
-		p++;
+		const uintptr_t align_mask = align - 1;
+		auto poffset = [&]() {
+			return ((uintptr_t)(p - haystack) & align_mask);
+		};
+		auto alignp = [&]() {
+			uintptr_t offset = poffset();
+			if (offset != 0)
+				p += align - offset;
+		};
+
 		alignp();
-	}
+		while (p <= pend) {
+			p = (const u8 *)memchr(p, first, pend - p + 1);
+			if (!p) {
+				return;
+			}
+			if (poffset() == 0 && !memcmp(p, needle, nlen)) {
+				std::lock_guard<std::mutex> guard(resultLock);
+				// Take the lowest result so we get the same file for any # of threads.
+				if (!result || p < result)
+					result = p;
+				return;
+			}
 
-	return nullptr;
+			p++;
+			alignp();
+		}
+	}, 0, range, 128 * 1024);
+
+	return result;
 }
 
 static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 align) {

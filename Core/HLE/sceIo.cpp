@@ -774,6 +774,7 @@ void __IoShutdown() {
 	delete flash0System;
 	flash0System = nullptr;
 
+	MemoryStick_Shutdown();
 	memStickCallbacks.clear();
 	memStickFatCallbacks.clear();
 }

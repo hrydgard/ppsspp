@@ -24,10 +24,11 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
+#include "Core/ThreadPools.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -430,8 +431,8 @@ void __KernelMemoryInit()
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
-	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
-	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), "MemInit");
+	GlobalThreadPool::Memset(Memory::GetPointer(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase());
+	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
