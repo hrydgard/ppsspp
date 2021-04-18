@@ -962,6 +962,9 @@
     <ClCompile Include="Debugger\WebSocket\MemoryInfoSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\AndroidStorageFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\libzip\zip_utf-8.c">
       <Filter>Ext\libzip</Filter>
     </ClCompile>
@@ -1873,6 +1876,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\MemoryInfoSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\AndroidStorageFileSystem.h">
+      <Filter>FileSystems</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\libzip\zip_source_file_win32.h">
       <Filter>Ext\libzip</Filter>

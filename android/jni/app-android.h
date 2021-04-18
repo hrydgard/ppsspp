@@ -26,8 +26,10 @@ extern std::string g_extFilesDir;
 
 bool Android_IsContentUri(const std::string &uri);
 int Android_OpenContentUriFd(const std::string &uri);
-std::string Android_GetContentUriParent(const std::string &uri);  // Empty string means no parent
-
+bool Android_CreateDirectory(const std::string &parentTreeUri, const std::string &dirName);
+bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName);
+bool Android_RemoveFile(const std::string &fileUri);
+bool Android_GetFileInfo(const std::string &fileUri, FileInfo *info);
 
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri);
 

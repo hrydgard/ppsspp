@@ -173,7 +173,10 @@ static jmethodID postCommand;
 
 static jmethodID openContentUri;
 static jmethodID listContentUriDir;
-static jmethodID closeContentUri;
+static jmethodID contentUriCreateFile;
+static jmethodID contentUriCreateDirectory;
+static jmethodID contentUriRemoveFile;
+static jmethodID contentUriGetFileInfo;
 
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
@@ -254,11 +257,42 @@ int Android_OpenContentUriFd(const std::string &filename) {
 	return fd;
 }
 
-// Empty string means no parent
-std::string Android_GetContentUriParent(const std::string &uri) {
-    // Might attempt to implement this with path manipulation later, but that's
-    // not reliable.
-    return "";
+bool Android_CreateDirectory(const std::string &rootTreeUri, const std::string &dirName) {
+	if (!nativeActivity) {
+		return -1;
+	}
+	auto env = getEnv();
+	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
+	jstring paramDirName = env->NewStringUTF(dirName.c_str());
+	return env->CallBooleanMethod(nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName);
+}
+
+bool Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
+	if (!nativeActivity) {
+		return -1;
+	}
+	auto env = getEnv();
+	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
+	jstring paramFileName = env->NewStringUTF(fileName.c_str());
+	return env->CallBooleanMethod(nativeActivity, contentUriCreateFile, paramRoot, paramFileName);
+}
+
+bool Android_RemoveFile(const std::string &fileUri) {
+	if (!nativeActivity) {
+		return -1;
+	}
+	auto env = getEnv();
+	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
+	return env->CallBooleanMethod(nativeActivity, contentUriRemoveFile, paramFileName);
+}
+
+bool Android_GetFileInfo(const std::string &fileUri, FileInfo *info) {
+	if (!nativeActivity) {
+		return -1;
+	}
+	auto env = getEnv();
+	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
+	return env->CallObjectMethod(nativeActivity, contentUriGetFileInfo, paramFileUri);
 }
 
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
@@ -280,7 +314,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 			INFO_LOG(FILESYS, "!! %s", file.c_str());
 			std::vector<std::string> parts;
 			SplitString(file, '|', parts);
-			if (parts.size() != 4) {
+			if (parts.size() != 5) {
 				continue;
 			}
 			File::FileInfo info;
@@ -290,6 +324,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 			sscanf(parts[1].c_str(), "%ld", &info.size);
 			info.fullName = Path(parts[3]);
 			info.isWritable = false;  // We don't yet request write access
+			sscanf(parts[4].c_str(), "%ld", &info.lastModified);
 			items.push_back(info);
         }
         env->ReleaseStringUTFChars(str, charArray);
@@ -571,10 +606,19 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *
 	nativeActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	_dbg_assert_(postCommand);
+
 	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
 	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
+	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriCreateDirectory);
+	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriCreateFile);
+	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)Z");
+	_dbg_assert_(contentUriRemoveFile);
+	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
+	_dbg_assert_(contentUriGetFileInfo);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {

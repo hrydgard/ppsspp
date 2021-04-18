@@ -131,6 +131,16 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
+	private static String fileInfoToString(DocumentFile file) {
+		String str = "F|";
+		if (file.isDirectory()) {
+			str = "D|";
+		}
+		// TODO: Should we do something with child.isVirtual()?.
+		str += file.length() + "|" + file.getName() + "|" + file.getUri() + "|" + file.lastModified();
+		return str;
+	}
+
 	public String[] listContentUriDir(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
@@ -139,13 +149,8 @@ public class PpssppActivity extends NativeActivity {
 			ArrayList<String> listing = new ArrayList<String>();
 			// Encode entries into strings for JNI simplicity.
 			for (DocumentFile file : children) {
-				String typeStr = "F|";
-				if (file.isDirectory()) {
-					typeStr = "D|";
-				}
-				// TODO: Should we do something with child.isVirtual()?.
-				typeStr += file.length() + "|" + file.getName() + "|" + file.getUri();
-				listing.add(typeStr);
+				String str = fileInfoToString(file);
+				listing.add(str);
 			}
 			// Is ArrayList weird or what?
 			String[] strings = new String[listing.size()];
@@ -153,6 +158,69 @@ public class PpssppActivity extends NativeActivity {
 		} catch (Exception e) {
 			Log.e(TAG, "Exception opening content uri: " + e.toString());
 			return new String[]{};
+		}
+	}
+
+	public boolean contentUriCreateDirectory(String rootTreeUri, String dirName) {
+		try {
+			Uri uri = Uri.parse(rootTreeUri);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			if (documentFile != null) {
+				DocumentFile createdDir = documentFile.createDirectory(dirName);
+				return createdDir != null;
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return false;
+		}
+	}
+
+	public boolean contentUriCreateFile(String rootTreeUri, String fileName) {
+		try {
+			Uri uri = Uri.parse(rootTreeUri);
+			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
+			if (documentFile != null) {
+				DocumentFile createdFile = documentFile.createFile("application/arbitrary", fileName);
+				return createdFile != null;
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return false;
+		}
+	}
+
+	public boolean contentUriRemoveFile(String fileName) {
+		try {
+			Uri uri = Uri.parse(fileName);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				return documentFile.delete();
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return false;
+		}
+	}
+
+	public String contentUriGetFileInfo(String fileName) {
+		try {
+			Uri uri = Uri.parse(fileName);
+			DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+			if (documentFile != null) {
+				String str = fileInfoToString(documentFile);
+				return str;
+			} else {
+				return null;
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception opening content uri: " + e.toString());
+			return null;
 		}
 	}
 }

@@ -58,6 +58,12 @@ public:
 		}
 	}
 
+	AndroidStorageContentURI WithFilePath(const std::string &filePath) {
+		AndroidStorageContentURI uri = *this;
+		uri.file = uri.root + "/" + filePath;
+		return uri;
+	}
+
 	bool IsTreeURI() const {
 		return file.empty();
 	}
