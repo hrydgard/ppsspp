@@ -187,7 +187,7 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 	buffer.TakeAll(output);
 }
 
-void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
+void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
 	Buffer buffer;
 	size_t i = 0;
 	for (; i < size; i++) {
@@ -199,7 +199,7 @@ void DataToHexString(const char* prefix, uint32_t startAddr, const uint8_t* data
 			buffer.Printf("\n");
 		}
 		if (!(i & 15))
-			buffer.Printf("%s%08x  ", prefix, startAddr + i);
+			buffer.Printf("%*s%08x  ", indent, "", startAddr + i);
 		buffer.Printf("%02x ", data[i]);
 	}
 	if (size & 15) {
