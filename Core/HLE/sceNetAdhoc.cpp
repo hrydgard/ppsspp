@@ -5975,8 +5975,8 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 		if (context->hellolen > 0) memcpy(hello + 5, context->hello, context->hellolen);
 
 		std::string hellohex;
-		DataToHexString("          ", 0, context->hello, context->hellolen, &hellohex);
-		DEBUG_LOG(SCENET, "HELLO Dump:\n%s", hellohex.c_str());
+		DataToHexString(10, 0, context->hello, context->hellolen, &hellohex);
+		DEBUG_LOG(SCENET, "HELLO Dump (%d bytes):\n%s", context->hellolen, hellohex.c_str());
 
 		// Send Broadcast
 		context->socketlock->lock();
@@ -6416,8 +6416,8 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 				if (peer != NULL && peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)
 				{
 					std::string hellohex;
-					DataToHexString("          ", 0, (u8*)opt, optlen, &hellohex);
-					DEBUG_LOG(SCENET, "HELLO Dump:\n%s", hellohex.c_str());
+					DataToHexString(10, 0, (u8*)opt, optlen, &hellohex);
+					DEBUG_LOG(SCENET, "HELLO Dump (%d bytes):\n%s", optlen, hellohex.c_str());
 
 					// Spawn Hello Event. FIXME: HELLO event should not be triggered in the middle of joining? This will cause Bleach 7 to Cancel the join request
 					spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_HELLO, sendermac, optlen, opt);
