@@ -439,6 +439,8 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 
 PSPDevType ISOFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
+	if (iter == entries.end())
+		return PSPDevType::FILE;
 	PSPDevType type = iter->second.isBlockSectorMode ? PSPDevType::BLOCK : PSPDevType::FILE;
 	if (iter->second.isRawSector)
 		type |= PSPDevType::EMU_LBN;

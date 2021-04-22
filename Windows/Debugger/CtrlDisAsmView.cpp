@@ -1188,7 +1188,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
-		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),L"Search for:","",searchQuery) == false
+		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"Search for:", searchQuery, searchQuery) == false
 			|| searchQuery[0] == 0)
 		{
 			SetFocus(wnd);

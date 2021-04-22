@@ -745,7 +745,7 @@ void CtrlMemView::search(bool continueSearch)
 	u8* dataPointer = 0;
 	if (continueSearch == false || searchQuery.empty())
 	{
-		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
+		if (InputBox_GetString(GetModuleHandle(NULL), wnd, L"Search for", searchQuery, searchQuery) == false)
 		{
 			SetFocus(wnd);
 			return;
