@@ -301,8 +301,8 @@ inline bool IsValidAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		return true;
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
-		return (address & 0x0000FFFF) < SCRATCHPAD_SIZE;
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return true;
 	} else {
@@ -316,8 +316,8 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		max_size = 0x04800000 - (address & 0x3FFFFFFF);
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
-		max_size = 0x00014000 - (address & 0xBFFFFFFF);
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		max_size = 0x00014000 - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
 	} else {
