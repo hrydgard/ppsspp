@@ -188,6 +188,10 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 			json.writeUint("uintValue", Memory::ReadUnchecked_U32(l.info.relevantAddress));
 		else
 			json.writeNull("uintValue");
+		if (IsLikelyStringAt(l.info.relevantAddress))
+			json.writeString("stringValue", Memory::GetCharPointer(l.info.relevantAddress));
+		else
+			json.writeNull("stringValue");
 		json.pop();
 	} else {
 		json.writeNull("relevantData");

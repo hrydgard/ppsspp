@@ -1094,6 +1094,10 @@ void CtrlDisAsmView::updateStatusBarText()
 	text[0] = 0;
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
+		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
+			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
+		}
+
 		if (line.info.isDataAccess)
 		{
 			if (!Memory::IsValidAddress(line.info.dataAddress))
