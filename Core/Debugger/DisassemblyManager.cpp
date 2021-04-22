@@ -23,6 +23,7 @@
 #include "ext/xxhash.h"
 
 #include "Common/CommonTypes.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -41,6 +42,39 @@ bool isInInterval(u32 start, u32 size, u32 value)
 	return start <= value && value <= (start+size-1);
 }
 
+bool IsLikelyStringAt(uint32_t addr) {
+	uint32_t maxLen = Memory::ValidSize(addr, 128);
+	if (maxLen <= 1)
+		return false;
+	const char *p = Memory::GetCharPointer(addr);
+	// If there's no terminator nearby, let's say no.
+	if (memchr(p, 0, maxLen) == nullptr)
+		return false;
+
+	// Allow tabs and newlines.
+	static constexpr bool validControl[] = {
+		false, false, false, false, false, false, false, false,
+		false, true, true, true, false, true, false, false,
+		false, false, false, false, false, false, false, false,
+		false, false, false, false, false, false, false, false,
+	};
+
+	// Check that there's some bytes before the terminator that look like a string.
+	UTF8 utf(p);
+	if (utf.end())
+		return false;
+
+	while (!utf.end()) {
+		if (utf.invalid())
+			return false;
+
+		uint32_t c = utf.next();
+		if (c < ARRAY_SIZE(validControl) && !validControl[c])
+			return false;
+	}
+
+	return true;
+}
 
 static HashType computeHash(u32 address, u32 size)
 {
