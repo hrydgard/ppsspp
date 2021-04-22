@@ -572,6 +572,11 @@ static bool TestMemMap() {
 		}
 	}
 
+	EXPECT_FALSE(Memory::IsValidAddress(0x00015000));
+	EXPECT_FALSE(Memory::IsValidAddress(0x04900000));
+	EXPECT_EQ_HEX(Memory::ValidSize(0x00015000, 4), 0);
+	EXPECT_EQ_HEX(Memory::ValidSize(0x04900000, 4), 0);
+
 	return true;
 }
 
