@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/ThreadPools.h"
@@ -479,7 +480,8 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			}
 
 			memcpy(dst, src, srcSize);
-			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, srcSize, "ELFLoad");
+			std::string tag = StringFromFormat("ELFLoad/%08x", writeAddr);
+			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, srcSize, tag.c_str(), tag.size());
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
@@ -498,6 +500,8 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 		if (s->sh_flags & SHF_ALLOC)
 		{
+			std::string tag = name && name[0] ? StringFromFormat("ELF/%s", name) : StringFromFormat("ELF/%08x", writeAddr);
+			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, writeAddr, s->sh_size, tag.c_str(), tag.size());
 			DEBUG_LOG(LOADER,"Data Section found: %s     Sitting at %08x, size %08x", name, writeAddr, (u32)s->sh_size);
 		}
 		else
