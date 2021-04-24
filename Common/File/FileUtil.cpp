@@ -24,6 +24,8 @@
 
 #include "ppsspp_config.h"
 
+#include "android/jni/app-android.h"
+
 #ifdef __MINGW32__
 #include <unistd.h>
 #ifndef _POSIX_THREAD_SAFE_FUNCTIONS
@@ -257,7 +259,9 @@ bool IsDirectory(const Path &filename) {
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		auto err = GetLastError();
-		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", fn.c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+		if (err != ERROR_FILE_NOT_FOUND) {
+			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", fn.c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+		}
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;

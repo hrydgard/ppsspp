@@ -9,9 +9,12 @@
 // content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO
 // content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO
 
+// This file compiles on all platforms, to reduce the need for ifdefs.
+
 // I am not 100% sure it's OK to rely on the internal format of file content URIs.
 // On the other hand, I'm sure tons of apps would break if these changed, so I think we can
-// consider them pretty stable.
+// consider them pretty stable. Additionally, the official Document library just manipulates the URIs
+// in similar ways...
 class AndroidStorageContentURI {
 private:
 	std::string provider;

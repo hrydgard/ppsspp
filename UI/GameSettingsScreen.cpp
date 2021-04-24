@@ -51,6 +51,7 @@
 #include "UI/TiltEventProcessor.h"
 #include "UI/ComboKeyMappingScreen.h"
 #include "UI/GPUDriverTestScreen.h"
+#include "UI/MemStickScreen.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
@@ -931,6 +932,7 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 #endif
+
 #if PPSSPP_PLATFORM(ANDROID)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder"), (const char *)nullptr));
@@ -1098,40 +1100,12 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-#if PPSSPP_PLATFORM(ANDROID)
-
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
-	auto sy = GetI18NCategory("System");
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
-		auto sy = GetI18NCategory("System");
-		auto di = GetI18NCategory("Dialog");
-
-		if (result) {
-			std::string newPath = value;
-			size_t pos = newPath.find_last_not_of("/");
-			// Gotta have at least something but a /, and also needs to start with a /.
-			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
-				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-				return;
-			}
-			if (pos != newPath.size() - 1) {
-				newPath = newPath.substr(0, pos + 1);
-			}
-
-			pendingMemstickFolder_ = newPath;
-			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-			if (!File::Exists(Path(newPath))) {
-				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
-			}
-			// Add the path for clarity and proper confirmation.
-			promptMessage += "\n\n" + newPath + "/";
-			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
-		}
-	});
+	screenManager()->push(new MemStickScreen());
 	return UI::EVENT_DONE;
 }
 
-#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const Path &PPSSPPpath = File::GetExeDirectory();
@@ -2005,53 +1979,4 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 void HostnameSelectScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK)
 		*value_ = StripSpaces(addrView_->GetText());
-}
-
-SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
-	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp) {
-	using namespace UI;
-	SetSpacing(0.0f);
-	Add(new UI::Spacer(10.0f));
-	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
-	Add(new UI::Spacer(10.0f));
-}
-
-void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
-	if (refView) {
-		Bounds b = refView->GetBounds();
-		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (b.y >= cutOffY_) {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
-		}
-	}
-	text_->SetText(text);
-	timeShown_ = time_now_d();
-}
-
-void SettingInfoMessage::Draw(UIContext &dc) {
-	static const double FADE_TIME = 1.0;
-	static const float MAX_ALPHA = 0.9f;
-
-	// Let's show longer messages for more time (guesstimate at reading speed.)
-	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
-	double timeToShow = std::max(1.5, text_->GetText().size() * 0.05);
-
-	double sinceShow = time_now_d() - timeShown_;
-	float alpha = MAX_ALPHA;
-	if (timeShown_ == 0.0 || sinceShow > timeToShow + FADE_TIME) {
-		alpha = 0.0f;
-	} else if (sinceShow > timeToShow) {
-		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
-	}
-
-	if (alpha >= 0.1f) {
-		UI::Style style = dc.theme->popupTitle;
-		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
-		dc.FillRect(style.background, bounds_);
-	}
-
-	text_->SetTextColor(whiteAlpha(alpha));
-	ViewGroup::Draw(dc);
 }

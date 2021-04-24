@@ -8,8 +8,11 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.os.storage.StorageManager;
 import androidx.documentfile.provider.DocumentFile;
 import java.util.ArrayList;
+import java.util.UUID;
+import java.io.File;
 
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
@@ -221,6 +224,43 @@ public class PpssppActivity extends NativeActivity {
 		} catch (Exception e) {
 			Log.e(TAG, "Exception opening content uri: " + e.toString());
 			return null;
+		}
+	}
+
+	// The example in Android documentation uses this.getFilesDir for path.
+	// There's also a way to beg the OS for more space, which might clear caches, but
+	// let's just not bother with that for now.
+	public long contentUriGetFreeStorageSpace(String uriString) {
+		try {
+			StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
+
+			// In 29 and later, we can directly get the UUID for the storage volume
+			// through the URI.
+			UUID volumeUUID;
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+				Uri uri = Uri.parse(uriString);
+				volumeUUID = UUID.fromString(storageManager.getStorageVolume(uri).getUuid());
+			} else {
+				volumeUUID = storageManager.getUuidForPath(this.getFilesDir());
+			}
+			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
+			return availableBytes;
+		}  catch (Exception e) {
+			Log.e(TAG, "Exception checking free space: " + e.toString());
+			return -1;
+		}
+	}
+
+	public long filePathGetFreeStorageSpace(String filePath) {
+		try {
+			StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
+			File file = new File(filePath);
+			UUID volumeUUID = storageManager.getUuidForPath(file);
+			long availableBytes = storageManager.getAllocatableBytes(volumeUUID);
+			return availableBytes;
+		}  catch (Exception e) {
+			Log.e(TAG, "Exception checking free space: " + e.toString());
+			return -1;
 		}
 	}
 }

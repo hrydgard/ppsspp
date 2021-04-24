@@ -27,6 +27,8 @@
 #include "Common/Common.h"
 #include "Common/File/Path.h"
 
+// Some functions here support Android content URIs. These are marked as such.
+
 #ifdef _MSC_VER
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 	if (localtime_s(result, clock) == 0)

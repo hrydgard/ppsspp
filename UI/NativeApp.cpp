@@ -511,10 +511,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		Path memstickPath(memstickDir);
 		if (!memstickPath.empty() && File::Exists(memstickPath)) {
 			g_Config.memStickDirectory = memstickPath;
+			INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: %s", g_Config.memStickDirectory.c_str());
 		} else {
-		    ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+			ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 		}
 	}
+
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = Path(user_data_path);

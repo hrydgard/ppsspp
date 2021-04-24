@@ -177,6 +177,8 @@ static jmethodID contentUriCreateFile;
 static jmethodID contentUriCreateDirectory;
 static jmethodID contentUriRemoveFile;
 static jmethodID contentUriGetFileInfo;
+static jmethodID contentUriGetFreeStorageSpace;
+static jmethodID filePathGetFreeStorageSpace;
 
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
@@ -341,6 +343,21 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path) {
 	env->DeleteLocalRef(fileList);
 	return items;
 }
+
+int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
+    auto env = getEnv();
+
+    jstring param = env->NewStringUTF(uri.c_str());
+	return env->CallLongMethod(nativeActivity, contentUriGetFreeStorageSpace, param);
+}
+
+int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
+	auto env = getEnv();
+
+	jstring param = env->NewStringUTF(filePath.c_str());
+	return env->CallLongMethod(nativeActivity, filePathGetFreeStorageSpace, param);
+}
+
 
 class ContentURIFileLoader : public ProxiedFileLoader {
 public:
@@ -627,6 +644,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *
 	_dbg_assert_(contentUriRemoveFile);
 	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
+	contentUriGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	_dbg_assert_(contentUriGetFreeStorageSpace);
+	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	_dbg_assert_(filePathGetFreeStorageSpace);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {

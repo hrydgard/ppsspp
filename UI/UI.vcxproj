@@ -51,6 +51,7 @@
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp" />
     <ClCompile Include="MainScreen.cpp" />
+    <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
@@ -85,6 +86,7 @@
     <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="HostTypes.h" />
     <ClInclude Include="MainScreen.h" />
+    <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PauseScreen.h" />
