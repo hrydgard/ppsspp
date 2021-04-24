@@ -936,26 +936,146 @@ void vfpu_sincos_single(float angle, float &sine, float &cosine) {
 	}
 }
 
-float vfpu_sin_double(float angle) {
-	return (float)sin((double)angle * M_PI_2);
+float vfpu_sin_mod2(float a) {
+	float2int val;
+	val.f = a;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		val.i = (val.i & 0xFF800001) | 1;
+		return val.f;
+	}
+
+	if (k < 0x68) {
+		val.i &= 0x80000000;
+		return val.f;
+	}
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, flip sign to inverse the wave.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		val.i ^= 0x80000000;
+		mantissa -= 1 << 23;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0) {
+		val.i &= 0x80000000;
+		return val.f;
+	}
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	return (float)sin((double)val.f * M_PI_2);
 }
 
-float vfpu_cos_double(float angle) {
-	return (float)cos((double)angle * M_PI_2);
+float vfpu_cos_mod2(float a) {
+	float2int val;
+	val.f = a;
+	bool negate = false;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		// Note: unlike sin, cos always returns +NAN.
+		val.i = (val.i & 0x7F800001) | 1;
+		return val.f;
+	}
+
+	if (k < 0x68)
+		return 1.0f;
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, negate the result value.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		mantissa -= 1 << 23;
+		negate = true;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0)
+		return negate ? -1.0f : 1.0f;
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	val.f = (float)cos((double)val.f * M_PI_2);
+	return negate ? -val.f : val.f;
 }
 
-void vfpu_sincos_double(float angle_f, float &sine, float &cosine) {
-	double angle = (double)angle_f * M_PI_2;
-#if defined(__linux__)
-	double d_sine;
-	double d_cosine;
-	sincos(angle, &d_sine, &d_cosine);
-	sine = (float)d_sine;
-	cosine = (float)d_cosine;
-#else
-	sine = (float)sin(angle);
-	cosine = (float)cos(angle);
-#endif
+void vfpu_sincos_mod2(float a, float &s, float &c) {
+	float2int val;
+	val.f = a;
+	// For sin, negate the input, for cos negate the output.
+	bool negate = false;
+
+	int32_t k = get_uexp(val.i);
+	if (k == 255) {
+		val.i = (val.i & 0xFF800001) | 1;
+		s = val.f;
+		val.i &= 0x7F800001;
+		c = val.f;
+		return;
+	}
+
+	if (k < 0x68) {
+		val.i &= 0x80000000;
+		s = val.f;
+		c = 1.0f;
+		return;
+	}
+
+	// Okay, now modulus by 4 to begin with (identical wave every 4.)
+	int32_t mantissa = get_mant(val.i);
+	if (k > 0x80) {
+		const uint8_t over = k & 0x1F;
+		mantissa = (mantissa << over) & 0x00FFFFFF;
+		k = 0x80;
+	}
+	// This subtracts off the 2.  If we do, flip signs.
+	if (k == 0x80 && mantissa >= (1 << 23)) {
+		mantissa -= 1 << 23;
+		negate = true;
+	}
+
+	int8_t norm_shift = mantissa == 0 ? 32 : (int8_t)clz32_nonzero(mantissa) - 8;
+	mantissa <<= norm_shift;
+	k -= norm_shift;
+
+	if (k <= 0 || mantissa == 0) {
+		val.i &= 0x80000000;
+		if (negate)
+			val.i ^= 0x80000000;
+		s = val.f;
+		c = 1.0f;
+		return;
+	}
+
+	// This is the value with modulus applied.
+	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	if (negate) {
+		s = (float)sin((double)-val.f * M_PI_2);
+		c = -(float)cos((double)val.f * M_PI_2);
+	} else {
+		s = (float)sin((double)val.f * M_PI_2);
+		c = (float)cos((double)val.f * M_PI_2);
+	}
 }
 
 float (*vfpu_sin)(float);
@@ -963,7 +1083,7 @@ float (*vfpu_cos)(float);
 void (*vfpu_sincos)(float, float&, float&);
 
 void InitVFPUSinCos(bool useDoublePrecision) {
-	vfpu_sin = useDoublePrecision ? vfpu_sin_double : vfpu_sin_single;
-	vfpu_cos = useDoublePrecision ? vfpu_cos_double : vfpu_cos_single;
-	vfpu_sincos = useDoublePrecision ? vfpu_sincos_double : vfpu_sincos_single;
+	vfpu_sin = useDoublePrecision ? vfpu_sin_mod2 : vfpu_sin_single;
+	vfpu_cos = useDoublePrecision ? vfpu_cos_mod2 : vfpu_cos_single;
+	vfpu_sincos = useDoublePrecision ? vfpu_sincos_mod2 : vfpu_sincos_single;
 }
