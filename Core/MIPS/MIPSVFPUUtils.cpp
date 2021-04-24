@@ -29,6 +29,11 @@
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
 
+union float2int {
+	uint32_t i;
+	float f;
+};
+
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int mtx = (vectorReg >> 2) & 7;
 	int col = vectorReg & 3;
@@ -610,10 +615,7 @@ bool GetVFPUCtrlMask(int reg, u32 *mask) {
 
 float Float16ToFloat32(unsigned short l)
 {
-	union float2int {
-		unsigned int i;
-		float f;
-	} float2int;
+	float2int f2i;
 
 	unsigned short float16 = l;
 	unsigned int sign = (float16 >> VFPU_SH_FLOAT16_SIGN) & VFPU_MASK_FLOAT16_SIGN;
@@ -623,10 +625,10 @@ float Float16ToFloat32(unsigned short l)
 	float f;
 	if (exponent == VFPU_FLOAT16_EXP_MAX)
 	{
-		float2int.i = sign << 31;
-		float2int.i |= 255 << 23;
-		float2int.i |= fraction;
-		f = float2int.f;
+		f2i.i = sign << 31;
+		f2i.i |= 255 << 23;
+		f2i.i |= fraction;
+		f = f2i.f;
 	}
 	else if (exponent == 0 && fraction == 0)
 	{
@@ -647,10 +649,10 @@ float Float16ToFloat32(unsigned short l)
 		}
 
 		/* Convert to 32-bit single-precision IEEE754. */
-		float2int.i = sign << 31;
-		float2int.i |= (exponent + 112) << 23;
-		float2int.i |= fraction << 13;
-		f=float2int.f;
+		f2i.i = sign << 31;
+		f2i.i |= (exponent + 112) << 23;
+		f2i.i |= fraction << 13;
+		f=f2i.f;
 	}
 	return f;
 }
@@ -674,10 +676,6 @@ static int32_t get_sign(uint32_t x) {
 
 float vfpu_dot(float a[4], float b[4]) {
 	static const int EXTRA_BITS = 2;
-	union float2int {
-		uint32_t i;
-		float f;
-	};
 	float2int result;
 	float2int src[2];
 
@@ -791,31 +789,27 @@ float vfpu_dot(float a[4], float b[4]) {
 
 // TODO: This is still not completely accurate compared to the PSP's vsqrt.
 float vfpu_sqrt(float a) {
-	union float2int {
-		uint32_t u;
-		float f;
-	};
 	float2int val;
 	val.f = a;
 
-	if ((val.u & 0xff800000) == 0x7f800000) {
-		if ((val.u & 0x007fffff) != 0) {
-			val.u = 0x7f800001;
+	if ((val.i & 0xff800000) == 0x7f800000) {
+		if ((val.i & 0x007fffff) != 0) {
+			val.i = 0x7f800001;
 		}
 		return val.f;
 	}
-	if ((val.u & 0x7f800000) == 0) {
+	if ((val.i & 0x7f800000) == 0) {
 		// Kill any sign.
-		val.u = 0;
+		val.i = 0;
 		return val.f;
 	}
-	if (val.u & 0x80000000) {
-		val.u = 0x7f800001;
+	if (val.i & 0x80000000) {
+		val.i = 0x7f800001;
 		return val.f;
 	}
 
-	int k = get_exp(val.u);
-	uint32_t sp = get_mant(val.u);
+	int k = get_exp(val.i);
+	uint32_t sp = get_mant(val.i);
 	int less_bits = k & 1;
 	k >>= 1;
 
@@ -826,9 +820,9 @@ float vfpu_sqrt(float a) {
 		z = (z >> 1) + (uint32_t)(halfsp / z);
 	}
 
-	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	val.i = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
 	// The lower two bits never end up set on the PSP, it seems like.
-	val.u &= 0xFFFFFFFC;
+	val.i &= 0xFFFFFFFC;
 
 	return val.f;
 }
@@ -842,31 +836,27 @@ static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
 }
 
 float vfpu_rsqrt(float a) {
-	union float2int {
-		uint32_t u;
-		float f;
-	};
 	float2int val;
 	val.f = a;
 
-	if (val.u == 0x7f800000) {
+	if (val.i == 0x7f800000) {
 		return 0.0f;
 	}
-	if ((val.u & 0x7fffffff) > 0x7f800000) {
-		val.u = (val.u & 0x80000000) | 0x7f800001;
+	if ((val.i & 0x7fffffff) > 0x7f800000) {
+		val.i = (val.i & 0x80000000) | 0x7f800001;
 		return val.f;
 	}
-	if ((val.u & 0x7f800000) == 0) {
-		val.u = (val.u & 0x80000000) | 0x7f800000;
+	if ((val.i & 0x7f800000) == 0) {
+		val.i = (val.i & 0x80000000) | 0x7f800000;
 		return val.f;
 	}
-	if (val.u & 0x80000000) {
-		val.u = 0xff800001;
+	if (val.i & 0x80000000) {
+		val.i = 0xff800001;
 		return val.f;
 	}
 
-	int k = get_exp(val.u);
-	uint32_t sp = get_mant(val.u);
+	int k = get_exp(val.i);
+	uint32_t sp = get_mant(val.i);
 	int less_bits = k & 1;
 	k = -(k >> 1);
 
@@ -889,8 +879,8 @@ float vfpu_rsqrt(float a) {
 
 	z >>= less_bits;
 
-	val.u = ((k + 127) << 23) | (z & 0x007FFFFF);
-	val.u &= 0xFFFFFFFC;
+	val.i = ((k + 127) << 23) | (z & 0x007FFFFF);
+	val.i &= 0xFFFFFFFC;
 
 	return val.f;
 }
