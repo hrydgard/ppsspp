@@ -62,6 +62,9 @@ u8 *m_pUncachedScratchPad;
 u8 *m_pPhysicalRAM[3];
 u8 *m_pUncachedRAM[3];
 u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
+// Technically starts at 0xA0000000, which we don't properly support (but we don't really support kernel code.)
+// This matches how we handle 32-bit masking.
+u8 *m_pUncachedKernelRAM[3];
 
 // VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
 // In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
@@ -93,14 +96,17 @@ static MemoryView views[] =
 	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[0],0xC0000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
 	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
 	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
 	{&m_pKernelRAM[1],        0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[1],0xC9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	// Starts at memory + 31 * 2 MB.
 	{&m_pPhysicalRAM[2],      0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
 	{&m_pUncachedRAM[2],      0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
 	{&m_pKernelRAM[2],        0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[2],0xCBE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
