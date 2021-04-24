@@ -284,7 +284,7 @@ bool CPU_Init() {
 	// likely to collide with any commercial ones.
 	coreParameter.compat.Load(g_paramSFO.GetDiscID());
 
-	InitVFPUSinCos(coreParameter.compat.flags().DoublePrecisionSinCos);
+	InitVFPUSinCos(true);
 
 	if (allowPlugins)
 		HLEPlugins::Init();
