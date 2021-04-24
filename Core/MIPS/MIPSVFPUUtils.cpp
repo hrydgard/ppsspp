@@ -1017,6 +1017,9 @@ float vfpu_cos_mod2(float a) {
 
 	// This is the value with modulus applied.
 	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
+	if (val.f == 1.0f || val.f == -1.0f) {
+		return negate ? 0.0f : -0.0f;
+	}
 	val.f = (float)cos((double)val.f * M_PI_2);
 	val.i &= 0xFFFFFFFC;
 	return negate ? -val.f : val.f;
@@ -1073,7 +1076,13 @@ void vfpu_sincos_mod2(float a, float &s, float &c) {
 	// This is the value with modulus applied.
 	val.i = (val.i & 0x80000000) | (k << 23) | (mantissa & ~(1 << 23));
 	float2int i_sine, i_cosine;
-	if (negate) {
+	if (val.f == 1.0f) {
+		i_sine.f = negate ? -1.0f : 1.0f;
+		i_cosine.f = negate ? 0.0f : -0.0f;
+	} else if (val.f == -1.0f) {
+		i_sine.f = negate ? 1.0f : -1.0f;
+		i_cosine.f = negate ? 0.0f : -0.0f;
+	} else if (negate) {
 		i_sine.f = (float)sin((double)-val.f * M_PI_2);
 		i_cosine.f = -(float)cos((double)val.f * M_PI_2);
 	} else {
