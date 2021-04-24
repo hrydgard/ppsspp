@@ -241,7 +241,7 @@ bool Android_IsContentUri(const std::string &filename) {
 	return startsWith(filename, "content://");
 }
 
-int Android_OpenContentUriFd(const std::string &filename) {
+int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUriMode mode) {
 	if (!nativeActivity) {
 		return -1;
 	}
@@ -251,9 +251,17 @@ int Android_OpenContentUriFd(const std::string &filename) {
 	// TODO: Fix that in the caller (or don't call this for directories).
 	if (fname.back() == '/')
 		fname.pop_back();
+
 	auto env = getEnv();
-	jstring param = env->NewStringUTF(fname.c_str());
-	int fd = env->CallIntMethod(nativeActivity, openContentUri, param);
+	const char *modeStr = "";
+	switch (mode) {
+	case Android_OpenContentUriMode::READ: modeStr = "r"; break;
+	case Android_OpenContentUriMode::READ_WRITE: modeStr = "rw"; break;
+	case Android_OpenContentUriMode::READ_WRITE_TRUNCATE: modeStr = "rwt"; break;
+	}
+	jstring j_filename = env->NewStringUTF(fname.c_str());
+	jstring j_mode = env->NewStringUTF(modeStr);
+	int fd = env->CallIntMethod(nativeActivity, openContentUri, j_filename, j_mode);
 	return fd;
 }
 
@@ -286,7 +294,7 @@ bool Android_RemoveFile(const std::string &fileUri) {
 	return env->CallBooleanMethod(nativeActivity, contentUriRemoveFile, paramFileName);
 }
 
-bool Android_GetFileInfo(const std::string &fileUri, FileInfo *info) {
+bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info) {
 	if (!nativeActivity) {
 		return -1;
 	}
@@ -338,7 +346,7 @@ class ContentURIFileLoader : public ProxiedFileLoader {
 public:
 	ContentURIFileLoader(const Path &filename)
 		: ProxiedFileLoader(nullptr) {  // we overwrite the nullptr below
-		int fd = Android_OpenContentUriFd(filename.ToString());
+		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
 		INFO_LOG(SYSTEM, "Fd %d for content URI: '%s'", fd, filename.c_str());
 		backend_ = new LocalFileLoader(fd, filename);
 	}
@@ -607,7 +615,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	_dbg_assert_(postCommand);
 
-	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;)I");
+	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
 	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);

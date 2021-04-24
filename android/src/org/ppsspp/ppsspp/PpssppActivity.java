@@ -116,10 +116,10 @@ public class PpssppActivity extends NativeActivity {
 		});
 	}
 
-	public int openContentUri(String uriString) {
+	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, "r");
+			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode);
 			if (filePfd == null) {
 				Log.e(TAG, "Failed to get file descriptor for " + uriString);
 				return -1;

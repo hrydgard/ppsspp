@@ -19,7 +19,7 @@
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
-#endif
+#include "android/jni/AndroidContentURI.h"
 
 #include <algorithm>
 #include <ctime>
@@ -52,6 +52,8 @@ AndroidStorageFileSystem::~AndroidStorageFileSystem() {
 bool AndroidDirectoryFileHandle::Open(const std::string &basePath, std::string &fileName, FileAccess access, u32 &error) {
 	error = 0;
 
+	AndroidStorageContentURI contentUri = AndroidStorageContentURI(basePath).WithFilePath(fileName);
+
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
 	// This is abnormal, so we deviate from the PSP's behavior and truncate on write/close.
 	// This means it's incorrectly not truncated before the write.
@@ -59,81 +61,77 @@ bool AndroidDirectoryFileHandle::Open(const std::string &basePath, std::string &
 		needsTrunc_ = 0;
 	}
 
-	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
-
-	int flags = 0;
-	if (access & FILEACCESS_APPEND) {
-		flags |= O_APPEND;
+	// Check for existance and directory, so we can make better decisions below.
+	File::FileInfo fileInfo;
+	if (!Android_GetFileInfo(contentUri.ToString(), &fileInfo)) {
+		ERROR_LOG(FILESYS, "Failed to call Android_GetFileInfo on %s", contentUri.ToString().c_str());
+		return false;
 	}
-	if ((access & FILEACCESS_READ) && (access & FILEACCESS_WRITE)) {
-		flags |= O_RDWR;
+
+	if (fileInfo.exists && fileInfo.isDirectory) {
+		ERROR_LOG(FILESYS, "AndroidDirectoryFileHandle::Open on directory %s - not allowed", contentUri.ToString().c_str());
+		return false;
+	}
+
+	// Android_OpenContentUriFd only has three modes: READ/READ_WRITE/READ_WRITE_TRUNCATE.
+	// For the modes that can create files, we have to explicitly create the file first, instead.
+	// My god, what a pain this is. Gonna need some sort of test suite.
+
+	Android_OpenContentUriMode mode = Android_OpenContentUriMode::READ;
+
+	// TODO: There are probably improvements to be made in this translation.
+	if (access & FILEACCESS_WRITE) {
+		mode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+		// Should this require EXCL too?
+		if (access & FILEACCESS_APPEND) {
+			mode = Android_OpenContentUriMode::READ_WRITE;
+			// Will also need to seek later.
+		}
 	} else if (access & FILEACCESS_READ) {
-		flags |= O_RDONLY;
-	} else if (access & FILEACCESS_WRITE) {
-		flags |= O_WRONLY;
+		mode = Android_OpenContentUriMode::READ;
 	}
+
+	bool success = true;
+
 	if (access & FILEACCESS_CREATE) {
-		flags |= O_CREAT;
-	}
-	if (access & FILEACCESS_EXCL) {
-		flags |= O_EXCL;
-	}
+		AndroidStorageContentURI parentUri(basePath);
 
-	hFile = open(fullName.c_str(), flags, 0666);
-	bool success = hFile != -1;
-
-#if HOST_IS_CASE_SENSITIVE
-	if (!success && !(access & FILEACCESS_CREATE)) {
-		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
+		// We're gonna have to explicitly create the file here.
+		if (!Android_CreateFile(parentUri.ToString(), fileName)) {
+			// Something went wrong.
+			success = false;
+		}
+	} else {
+		// Requested an existing file, doesn't exist.
+		if (!fileInfo.exists) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;
 		}
-		fullName = GetLocalPath(basePath, fileName);
-		const char *fullNameC = fullName.c_str();
-
-		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
-
-		// And try again with the correct case this time
-#ifdef _WIN32
-		hFile = CreateFile(fullNameC, desired, sharemode, 0, openmode, 0, 0);
-		success = hFile != INVALID_HANDLE_VALUE;
-#else
-		hFile = open(fullNameC, flags, 0666);
-		success = hFile != -1;
-#endif
 	}
-#endif
 
-#ifndef _WIN32
-	if (success) {
-		// Reject directories, even if we succeed in opening them.
-		// TODO: Might want to do this stat first...
-		struct stat st;
-		if (fstat(hFile, &st) == 0 && S_ISDIR(st.st_mode)) {
-			close(hFile);
-			errno = EISDIR;
-			success = false;
-		}
-	} else if (errno == ENOSPC) {
-		// This is returned when the disk is full.
-		auto err = GetI18NCategory("Error");
-		host->NotifyUserMessage(err->T("Disk full while writing data"));
-		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
-	} else {
-		error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+	// Not sure what to do with FILEACCESS_EXCL.
+
+	std::string uriString = contentUri.ToString();
+
+	INFO_LOG(FILESYS, "AndroidDirectoryFileHandle::Open(%s)", uriString.c_str());
+
+	hFile = Android_OpenContentUriFd(uriString, mode);
+	if (hFile == -1) {
+		ERROR_LOG(FILESYS, "Android_OpenContentUriFd(%s) failed", uriString.c_str());
+		success = false;
 	}
-#endif
+
+	// Seek to end if append mode.
+	Seek(0, FILEMOVE_END);
 
 	// Try to detect reads/writes to PSP/GAME to avoid them in replays.
-	if (fullName.find("/PSP/GAME/") != fullName.npos || fullName.find("\\PSP\\GAME\\") != fullName.npos) {
+	if (basePath.find("/PSP/GAME/") != std::string::npos) {
 		inGameDir_ = true;
 	}
-
 	return success;
 }
 
-size_t AndroidDirectoryFileHandle::Read(u8* pointer, s64 size)
-{
+size_t AndroidDirectoryFileHandle::Read(u8* pointer, s64 size) {
 	size_t bytesRead = 0;
 	if (needsTrunc_ != -1) {
 		// If the file was marked to be truncated, pretend there's nothing.
@@ -400,7 +398,7 @@ PSPFileInfo AndroidStorageFileSystem::GetFileInfo(std::string filename) {
 
 	std::string uri = GetLocalPath(filename);
 
-	FileInfo info;
+	File::FileInfo info;
 	if (!Android_GetFileInfo(uri, &info)) {
 		return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 	}
@@ -427,11 +425,6 @@ PSPFileInfo AndroidStorageFileSystem::GetFileInfo(std::string filename) {
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
 
-bool AndroidStorageFileSystem::GetHostPath(const std::string &inpath, std::string &outpath) {
-	outpath = GetLocalPath(inpath);
-	return true;
-}
-
 // See comment in DirectoryFileSystem.
 extern std::string SimulateVFATBug(std::string filename);
 
@@ -441,7 +434,7 @@ std::vector<PSPFileInfo> AndroidStorageFileSystem::GetDirListing(std::string pat
 
 	std::string uri = GetLocalPath(path);
 
-	std::vector<FileInfo> fileInfo = Android_ListContentUri(uri);
+	std::vector<File::FileInfo> fileInfo = Android_ListContentUri(uri);
 
 	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;
 	for (auto &info : fileInfo) {
@@ -452,8 +445,9 @@ std::vector<PSPFileInfo> AndroidStorageFileSystem::GetDirListing(std::string pat
 			entry.type = FILETYPE_NORMAL;
 		entry.access = info.isWritable ? 0777 : 0666;
 		entry.name = info.name;
-		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32) {
 			entry.name = SimulateVFATBug(entry.name);
+		}
 		entry.size = info.size;
 
 		bool hideFile = false;
@@ -461,15 +455,17 @@ std::vector<PSPFileInfo> AndroidStorageFileSystem::GetDirListing(std::string pat
 			// Workaround for DJ Max Portable, see compat.ini.
 			hideFile = true;
 		}
+
+		// TODO: Maybe do this conversion in the Android wrapper layer...
 		int64_t lastModified = info.lastModified / 1000;
 
 		time_t atime = lastModified;
 		time_t ctime = lastModified;
 		time_t mtime = lastModified;
 
-		localtime_r((time_t*)&s.st_atime, &entry.atime);
-		localtime_r((time_t*)&s.st_ctime, &entry.ctime);
-		localtime_r((time_t*)&s.st_mtime, &entry.mtime);
+		localtime_r((time_t*)&atime, &entry.atime);
+		localtime_r((time_t*)&ctime, &entry.ctime);
+		localtime_r((time_t*)&mtime, &entry.mtime);
 		if (!hideFile && (!listingRoot || (strcmp(info.name.c_str(), "..") && strcmp(info.name.c_str(), "."))))
 			myVector.push_back(entry);
 	}
@@ -537,3 +533,5 @@ void AndroidStorageFileSystem::DoState(PointerWrap &p) {
 		}
 	}
 }
+
+#endif  // PPSSPP_PLATFORM(ANDROID)

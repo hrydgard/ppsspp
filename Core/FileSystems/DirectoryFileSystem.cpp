@@ -787,7 +787,7 @@ static void tmFromFiletime(tm &dest, FILETIME &src) {
 //
 // Note: PSP-created files would stay lowercase, but this uppercases them too.
 // Hopefully no PSP games read directories after they create files in them...
-static std::string SimulateVFATBug(std::string filename) {
+std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
 	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
 	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
