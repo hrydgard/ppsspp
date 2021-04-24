@@ -629,7 +629,6 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 
 INCFLAGS += -I$(EXTDIR)/miniupnp-build
 SOURCES_C += \
-    $(EXTDIR)/miniupnp/miniupnpc/addr_is_reserved.c \
     $(EXTDIR)/miniupnp/miniupnpc/connecthostport.c \
     $(EXTDIR)/miniupnp/miniupnpc/igd_desc_parse.c \
     $(EXTDIR)/miniupnp/miniupnpc/minisoap.c \

@@ -44,9 +44,6 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="pch.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.c">
-      <Filter>src</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\connecthostport.h">
@@ -86,9 +83,6 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpreplyparse.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

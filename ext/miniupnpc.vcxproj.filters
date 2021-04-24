@@ -14,7 +14,6 @@
     <ClInclude Include="miniupnp\miniupnpc\receivedata.h" />
     <ClInclude Include="miniupnp\miniupnpc\upnpdev.h" />
     <ClInclude Include="miniupnp\miniupnpc\minissdpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\addr_is_reserved.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="miniupnp\miniupnpc\igd_desc_parse.c" />
@@ -31,7 +30,6 @@
     <ClCompile Include="miniupnp\miniupnpc\receivedata.c" />
     <ClCompile Include="miniupnp\miniupnpc\upnpdev.c" />
     <ClCompile Include="miniupnp\miniupnpc\minissdpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\addr_is_reserved.c" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="scripts">

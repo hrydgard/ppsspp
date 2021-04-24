@@ -439,7 +439,6 @@ cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.h" />
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\connecthostport.h" />
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\igd_desc_parse.h" />
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\minisoap.h" />
@@ -453,7 +452,6 @@ cd ..\..\..\..\UWP\miniupnpc_UWP</Command>
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpdev.h" />
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnperrors.h" />
     <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpreplyparse.h" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.c" />
     <ClCompile Include="..\..\ext\miniupnp\miniupnpc\connecthostport.c" />
     <ClCompile Include="..\..\ext\miniupnp\miniupnpc\igd_desc_parse.c" />
     <ClCompile Include="..\..\ext\miniupnp\miniupnpc\minisoap.c" />

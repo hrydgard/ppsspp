@@ -1886,7 +1886,6 @@ if(USE_MINIUPNPC)
 	configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
 	set(MINIUPNPC_SOURCES
         # the needed bits of miniupnpc (no python module, no tests, no cli)
-		${MINIUPNP_DIR}/addr_is_reserved.c
 		${MINIUPNP_DIR}/connecthostport.c
         ${MINIUPNP_DIR}/igd_desc_parse.c
         ${MINIUPNP_DIR}/minisoap.c
