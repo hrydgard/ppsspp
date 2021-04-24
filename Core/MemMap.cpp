@@ -59,26 +59,17 @@ u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
-u8 *m_pPhysicalRAM;
-u8 *m_pUncachedRAM;
-u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
-u8 *m_pPhysicalRAM2;
-u8 *m_pUncachedRAM2;
-u8 *m_pKernelRAM2;
-u8 *m_pPhysicalRAM3;
-u8 *m_pUncachedRAM3;
-u8 *m_pKernelRAM3;
+u8 *m_pPhysicalRAM[3];
+u8 *m_pUncachedRAM[3];
+u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
+// Technically starts at 0xA0000000, which we don't properly support (but we don't really support kernel code.)
+// This matches how we handle 32-bit masking.
+u8 *m_pUncachedKernelRAM[3];
 
 // VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
 // In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
-u8 *m_pPhysicalVRAM1;
-u8 *m_pPhysicalVRAM2;
-u8 *m_pPhysicalVRAM3;
-u8 *m_pPhysicalVRAM4;
-u8 *m_pUncachedVRAM1;
-u8 *m_pUncachedVRAM2;
-u8 *m_pUncachedVRAM3;
-u8 *m_pUncachedVRAM4;
+u8 *m_pPhysicalVRAM[4];
+u8 *m_pUncachedVRAM[4];
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
@@ -94,25 +85,28 @@ static MemoryView views[] =
 {
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
-	{&m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
-	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
+	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM[3],     0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[0],     0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[1],     0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[2],     0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM[3],     0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[0],0xC0000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
-	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
-	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
-	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pKernelRAM[1],        0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[1],0xC9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	// Starts at memory + 31 * 2 MB.
-	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
-	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
-	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pPhysicalRAM[2],      0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{&m_pUncachedRAM[2],      0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM[2],        0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[2],0xCBE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.

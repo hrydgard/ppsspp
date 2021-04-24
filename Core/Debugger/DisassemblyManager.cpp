@@ -64,12 +64,22 @@ bool IsLikelyStringAt(uint32_t addr) {
 	if (utf.end())
 		return false;
 
+	char verify[4];
 	while (!utf.end()) {
 		if (utf.invalid())
 			return false;
 
+		int pos = utf.byteIndex();
 		uint32_t c = utf.next();
+		int len = UTF8::encode(verify, c);
+		// Our decoder is a bit lax, so let's verify this is a normal encoding.
+		// This prevents us from trying to output invalid encodings in the debugger.
+		if (memcmp(p + pos, verify, len) != 0 || pos + len != utf.byteIndex())
+			return false;
+
 		if (c < ARRAY_SIZE(validControl) && !validControl[c])
+			return false;
+		if (c > 0x0010FFFF)
 			return false;
 	}
 
