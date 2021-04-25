@@ -458,7 +458,7 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 			name = "UnknownOrDeletedBlock";
 		} else if (jitAddr != (u32)-1) {
 			char temp[1024];
-			const std::string label = g_symbolMap->GetDescription(jitAddr);
+			const std::string label = g_symbolMap ? g_symbolMap->GetDescription(jitAddr) : "";
 			if (!label.empty())
 				snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
 			else

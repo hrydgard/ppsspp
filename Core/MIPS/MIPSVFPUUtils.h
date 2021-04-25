@@ -50,9 +50,9 @@ inline int Xpose(int v) {
 //
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
 
-extern float (*vfpu_sin)(float);
-extern float (*vfpu_cos)(float);
-extern void (*vfpu_sincos)(float, float&, float&);
+extern float vfpu_sin(float);
+extern float vfpu_cos(float);
+extern void vfpu_sincos(float, float&, float&);
 
 inline float vfpu_asin(float angle) {
 	return asinf(angle) / M_PI_2;
@@ -215,4 +215,4 @@ int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 bool GetVFPUCtrlMask(int reg, u32 *mask);
 
 float Float16ToFloat32(unsigned short l);
-void InitVFPUSinCos(bool useDoublePrecision);
+void InitVFPUSinCos();

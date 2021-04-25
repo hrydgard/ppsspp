@@ -23,12 +23,14 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/ConfigValues.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -82,6 +84,7 @@ static void SetupJitHarness() {
 	// This is pretty much the bare minimum required to setup jit.
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
+	g_symbolMap = new SymbolMap();
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
 	PSP_CoreParameter().cpuCore = CPUCore::INTERPRETER;
 	PSP_CoreParameter().unthrottle = true;
@@ -89,6 +92,7 @@ static void SetupJitHarness() {
 	Memory::Init();
 	mipsr4k.Reset();
 	CoreTiming::Init();
+	InitVFPUSinCos();
 }
 
 static void DestroyJitHarness() {
@@ -99,6 +103,7 @@ static void DestroyJitHarness() {
 	Memory::Shutdown();
 	coreState = CORE_POWERDOWN;
 	currentMIPS = nullptr;
+	delete g_symbolMap;
 }
 
 bool TestJit() {
