@@ -202,12 +202,12 @@ bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::Fi
 	}
 	strcat(new_path, path);
 	File::FileInfo info;
-	if (!File::getFileInfo(new_path, &info))
+	if (!File::GetFileInfo(new_path, &info))
 		return false;
 
 	if (info.isDirectory)
 	{
-		File::getFilesInDir(new_path, listing, filter);
+		File::GetFilesInDir(new_path, listing, filter);
 		return true;
 	}
 	else
@@ -227,5 +227,5 @@ bool DirectoryAssetReader::GetFileInfo(const char *path, File::FileInfo *info)
 		strcpy(new_path, path_);
 	}
 	strcat(new_path, path);
-	return File::getFileInfo(new_path, info);
+	return File::GetFileInfo(new_path, info);
 }

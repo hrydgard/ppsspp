@@ -36,7 +36,7 @@
 
 namespace File {
 
-bool getFileInfo(const char *path, FileInfo * fileInfo) {
+bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	// TODO: Expand relative paths?
 	fileInfo->fullName = path;
 
@@ -100,7 +100,7 @@ bool FileInfo::operator <(const FileInfo & other) const {
 		return false;
 }
 
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> * files, const char *filter, int flags) {
+size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const char *filter, int flags) {
 	size_t foundEntries = 0;
 	std::set<std::string> filters;
 	if (filter) {
@@ -197,12 +197,12 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 
 int64_t getDirectoryRecursiveSize(const std::string & path, const char *filter, int flags) {
 	std::vector<FileInfo> fileInfo;
-	getFilesInDir(path.c_str(), &fileInfo, filter, flags);
+	GetFilesInDir(path.c_str(), &fileInfo, filter, flags);
 	int64_t sizeSum = 0;
 	// Note: getFileInDir does not fill in fileSize properly.
 	for (size_t i = 0; i < fileInfo.size(); i++) {
 		FileInfo finfo;
-		getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+		GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 		if (!finfo.isDirectory)
 			sizeSum += finfo.size;
 		else

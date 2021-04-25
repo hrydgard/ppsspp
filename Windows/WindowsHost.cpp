@@ -274,7 +274,7 @@ static std::string SymbolMapFilename(const char *currentFilename, const char* ex
 	std::string result = currentFilename;
 
 	// can't fail, definitely exists if it gets this far
-	File::getFileInfo(currentFilename, &info);
+	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
 #ifdef _WIN32
 		const char* slash = "\\";

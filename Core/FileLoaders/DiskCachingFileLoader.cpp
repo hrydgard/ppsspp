@@ -795,7 +795,7 @@ u32 DiskCachingFileLoaderCache::CountCachedFiles() {
 	}
 
 	std::vector<File::FileInfo> files;
-	return (u32)getFilesInDir(dir.c_str(), &files, "ppdc:");
+	return (u32)GetFilesInDir(dir.c_str(), &files, "ppdc:");
 }
 
 void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
@@ -812,7 +812,7 @@ void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
 	}
 
 	std::vector<File::FileInfo> files;
-	File::getFilesInDir(dir.c_str(), &files, "ppdc:");
+	File::GetFilesInDir(dir.c_str(), &files, "ppdc:");
 
 	u64 remaining = goalBytes;
 	// TODO: Could order by LRU or etc.

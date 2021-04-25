@@ -23,13 +23,13 @@ struct FileInfo {
 };
 
 std::string getFileExtension(const std::string &fn);
-bool getFileInfo(const char *path, FileInfo *fileInfo);
+bool GetFileInfo(const char *path, FileInfo *fileInfo);
 FILE *openCFile(const std::string &filename, const char *mode);
 
 enum {
 	GETFILES_GETHIDDEN = 1
 };
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
+size_t GetFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = nullptr, int flags = 0);
 int64_t getDirectoryRecursiveSize(const std::string &path, const char *filter = nullptr, int flags = 0);
 
 #ifdef _WIN32

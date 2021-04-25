@@ -1773,7 +1773,7 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
 	std::vector<File::FileInfo> files;
-	getFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
+	GetFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
 
 	for (const File::FileInfo &file : files) {
 		std::string src = file.fullName;

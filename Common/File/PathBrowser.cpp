@@ -265,7 +265,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 		fileInfo = ApplyFilter(pendingFiles_, filter);
 		return true;
 	} else {
-		File::getFilesInDir(path_.c_str(), &fileInfo, filter);
+		File::GetFilesInDir(path_.c_str(), &fileInfo, filter);
 		return true;
 	}
 }

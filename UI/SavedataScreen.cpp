@@ -489,7 +489,7 @@ void SavedataBrowser::Refresh() {
 	std::vector<SavedataButton *> savedataButtons;
 
 	std::vector<File::FileInfo> fileInfo;
-	getFilesInDir(path_.c_str(), &fileInfo, "ppst:");
+	GetFilesInDir(path_.c_str(), &fileInfo, "ppst:");
 
 	for (size_t i = 0; i < fileInfo.size(); i++) {
 		bool isState = !fileInfo[i].isDirectory;

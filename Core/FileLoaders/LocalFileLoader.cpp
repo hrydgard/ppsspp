@@ -113,14 +113,14 @@ bool LocalFileLoader::Exists() {
 	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
 #endif
 		File::FileInfo info;
-		return File::getFileInfo(filename_.c_str(), &info);
+		return File::GetFileInfo(filename_.c_str(), &info);
 	}
 	return false;
 }
 
 bool LocalFileLoader::IsDirectory() {
 	File::FileInfo info;
-	if (File::getFileInfo(filename_.c_str(), &info)) {
+	if (File::GetFileInfo(filename_.c_str(), &info)) {
 		return info.isDirectory;
 	}
 	return false;

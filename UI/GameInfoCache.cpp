@@ -125,7 +125,7 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	std::string memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<File::FileInfo> dirs;
-	File::getFilesInDir(memc.c_str(), &dirs);
+	File::GetFilesInDir(memc.c_str(), &dirs);
 
 	std::vector<std::string> directories;
 	if (id.size() < 5) {
@@ -150,11 +150,11 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 		// Note: getFileInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -177,11 +177,11 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 		// Note: getFileInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -231,7 +231,7 @@ bool GameInfo::DeleteAllSaveData() {
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::Delete(fileInfo[i].fullName.c_str());
