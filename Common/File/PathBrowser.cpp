@@ -15,7 +15,7 @@
 
 #include "Core/System.h"
 
-bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileInfo> &files) {
+bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<File::FileInfo> &files) {
 	http::Client http;
 	Buffer result;
 	int code = 500;
@@ -77,7 +77,7 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileIn
 		if (item == baseURL.Resource())
 			continue;
 
-		FileInfo info;
+		File::FileInfo info;
 		info.name = item;
 		info.fullName = baseURL.Relative(item).ToString();
 		info.isDirectory = endsWith(item, "/");
@@ -91,7 +91,7 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileIn
 	return !files.empty();
 }
 
-std::vector<FileInfo> ApplyFilter(std::vector<FileInfo> files, const char *filter) {
+std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
 	std::set<std::string> filters;
 	if (filter) {
 		std::string tmp;
@@ -107,10 +107,10 @@ std::vector<FileInfo> ApplyFilter(std::vector<FileInfo> files, const char *filte
 			filters.insert(std::move(tmp));
 	}
 
-	auto pred = [&](const FileInfo &info) {
+	auto pred = [&](const File::FileInfo &info) {
 		if (info.isDirectory || !filter)
 			return false;
-		std::string ext = getFileExtension(info.fullName);
+		std::string ext = File::getFileExtension(info.fullName);
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
@@ -174,7 +174,7 @@ void PathBrowser::HandlePath() {
 		setCurrentThreadName("PathBrowser");
 
 		std::unique_lock<std::mutex> guard(pendingLock_);
-		std::vector<FileInfo> results;
+		std::vector<File::FileInfo> results;
 		std::string lastPath;
 		while (!pendingStop_) {
 			while (lastPath == pendingPath_ && !pendingCancel_) {
@@ -233,7 +233,7 @@ std::string PathBrowser::GetFriendlyPath() const {
 	return str;
 }
 
-bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter, bool *cancel) {
+bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep.
@@ -245,11 +245,11 @@ bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 #ifdef _WIN32
 	if (path_ == "/") {
 		// Special path that means root of file system.
-		std::vector<std::string> drives = getWindowsDrives();
+		std::vector<std::string> drives = File::getWindowsDrives();
 		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
 			if (*drive == "A:/" || *drive == "B:/")
 				continue;
-			FileInfo fake;
+			File::FileInfo fake;
 			fake.fullName = *drive;
 			fake.name = *drive;
 			fake.isDirectory = true;
@@ -265,7 +265,7 @@ bool PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 		fileInfo = ApplyFilter(pendingFiles_, filter);
 		return true;
 	} else {
-		getFilesInDir(path_.c_str(), &fileInfo, filter);
+		File::getFilesInDir(path_.c_str(), &fileInfo, filter);
 		return true;
 	}
 }

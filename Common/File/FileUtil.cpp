@@ -984,8 +984,6 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-} // namespace
-
 bool readFileToString(bool text_file, const char *filename, std::string & str)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
@@ -1056,3 +1054,5 @@ bool writeDataToFile(bool text_file, const void* data, const unsigned int size, 
 	fclose(f);
 	return true;
 }
+
+}  // namespace File

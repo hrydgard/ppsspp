@@ -113,7 +113,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return getDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, GETFILES_GETHIDDEN);
+		return File::getDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return GetFileLoader()->FileSize();
@@ -124,8 +124,8 @@ u64 GameInfo::GetGameSizeInBytes() {
 std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	std::string memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
-	std::vector<FileInfo> dirs;
-	getFilesInDir(memc.c_str(), &dirs);
+	std::vector<File::FileInfo> dirs;
+	File::getFilesInDir(memc.c_str(), &dirs);
 
 	std::vector<std::string> directories;
 	if (id.size() < 5) {
@@ -149,12 +149,12 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		std::vector<FileInfo> fileInfo;
-		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		std::vector<File::FileInfo> fileInfo;
+		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 		// Note: getFileInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			FileInfo finfo;
-			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::FileInfo finfo;
+			File::getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -176,12 +176,12 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		std::vector<FileInfo> fileInfo;
-		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		std::vector<File::FileInfo> fileInfo;
+		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 		// Note: getFileInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			FileInfo finfo;
-			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::FileInfo finfo;
+			File::getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -230,8 +230,8 @@ void GameInfo::DisposeFileLoader() {
 bool GameInfo::DeleteAllSaveData() {
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		std::vector<FileInfo> fileInfo;
-		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		std::vector<File::FileInfo> fileInfo;
+		File::getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::Delete(fileInfo[i].fullName.c_str());
@@ -402,9 +402,9 @@ public:
 					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 					else
 						// Read standard icon
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -449,9 +449,9 @@ handleELF:
 				std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 				// Try using png/jpg screenshots first
 				if (File::Exists(screenshot_png)) {
-					readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
 				} else if (File::Exists(screenshot_jpg)) {
-					readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 				} else {
 					// Read standard icon
 					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
@@ -492,7 +492,7 @@ handleELF:
 			// Let's use the screenshot as an icon, too.
 			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
-				if (readFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
+				if (File::readFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
 					info_->icon.dataLoaded = true;
 				} else {
 					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
@@ -577,9 +577,9 @@ handleELF:
 					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);

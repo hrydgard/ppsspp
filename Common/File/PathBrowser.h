@@ -21,7 +21,7 @@ public:
 
 	void SetPath(const std::string &path);
 	bool IsListingReady();
-	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
+	bool GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 
 	bool CanNavigateUp();
 	void NavigateUp();
@@ -41,7 +41,7 @@ private:
 
 	std::string path_;
 	std::string pendingPath_;
-	std::vector<FileInfo> pendingFiles_;
+	std::vector<File::FileInfo> pendingFiles_;
 	std::condition_variable pendingCond_;
 	std::mutex pendingLock_;
 	std::thread pendingThread_;

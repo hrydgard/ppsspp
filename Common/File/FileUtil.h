@@ -191,8 +191,6 @@ private:
 	bool m_good;
 };
 
-}  // namespace
-
 // TODO: Refactor, this was moved from the old file_util.cpp.
 
 // Whole-file reading/writing
@@ -202,3 +200,5 @@ bool writeDataToFile(bool text_file, const void* data, const unsigned int size, 
 bool readFileToString(bool text_file, const char *filename, std::string &str);
 // Return value must be delete[]-d.
 uint8_t *ReadLocalFile(const char *filename, size_t *size);
+
+}  // namespace

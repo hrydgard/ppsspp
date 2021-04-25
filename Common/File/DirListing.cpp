@@ -21,6 +21,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Common/File/DirListing.h"
+#include "Common/File/FileUtil.h"
 
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
@@ -33,12 +34,7 @@
 #define fileno
 #endif // HAVE_LIBNX
 
-// Returns true if filename is a directory
-bool isDirectory(const std::string & filename) {
-	FileInfo info;
-	getFileInfo(filename.c_str(), &info);
-	return info.isDirectory;
-}
+namespace File {
 
 bool getFileInfo(const char *path, FileInfo * fileInfo) {
 	// TODO: Expand relative paths?
@@ -172,7 +168,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 			dir.append("/");
 
 		info.fullName = dir + virtualName;
-		info.isDirectory = isDirectory(info.fullName);
+		info.isDirectory = IsDirectory(info.fullName);
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;  // TODO - implement some kind of check
@@ -244,3 +240,5 @@ std::vector<std::string> getWindowsDrives()
 #endif
 }
 #endif
+
+}

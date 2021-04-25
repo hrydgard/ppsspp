@@ -430,7 +430,7 @@ static time_t GetTotalSize(const SavedataButton *b) {
 	switch (Identify_File(fileLoader.get())) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return getDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, GETFILES_GETHIDDEN);
+		return File::getDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return fileLoader->FileSize();
@@ -488,7 +488,7 @@ void SavedataBrowser::Refresh() {
 	// Find games in the current directory and create new ones.
 	std::vector<SavedataButton *> savedataButtons;
 
-	std::vector<FileInfo> fileInfo;
+	std::vector<File::FileInfo> fileInfo;
 	getFilesInDir(path_.c_str(), &fileInfo, "ppst:");
 
 	for (size_t i = 0; i < fileInfo.size(); i++) {

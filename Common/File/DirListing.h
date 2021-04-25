@@ -9,6 +9,8 @@
 
 // Beginnings of a directory utility system. TODO: Improve.
 
+namespace File {
+
 struct FileInfo {
 	std::string name;
 	std::string fullName;
@@ -33,3 +35,5 @@ int64_t getDirectoryRecursiveSize(const std::string &path, const char *filter = 
 #ifdef _WIN32
 std::vector<std::string> getWindowsDrives();
 #endif
+
+}

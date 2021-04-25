@@ -1772,10 +1772,10 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
-	std::vector<FileInfo> files;
+	std::vector<File::FileInfo> files;
 	getFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
 
-	for (const FileInfo &file : files) {
+	for (const File::FileInfo &file : files) {
 		std::string src = file.fullName;
 		std::string dst = root_dir + file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());

@@ -421,7 +421,7 @@ void SetBackgroundPopupScreen::update() {
 
 		if (pic) {
 			const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-			writeStringToFile(false, pic->data, bgPng.c_str());
+			File::writeStringToFile(false, pic->data, bgPng.c_str());
 		}
 
 		NativeMessageReceived("bgImage_updated", "");

@@ -112,15 +112,15 @@ bool LocalFileLoader::Exists() {
 #else
 	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
 #endif
-		FileInfo info;
-		return getFileInfo(filename_.c_str(), &info);
+		File::FileInfo info;
+		return File::getFileInfo(filename_.c_str(), &info);
 	}
 	return false;
 }
 
 bool LocalFileLoader::IsDirectory() {
-	FileInfo info;
-	if (getFileInfo(filename_.c_str(), &info)) {
+	File::FileInfo info;
+	if (File::getFileInfo(filename_.c_str(), &info)) {
 		return info.isDirectory;
 	}
 	return false;
