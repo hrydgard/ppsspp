@@ -1541,7 +1541,9 @@ void EmuScreen::render() {
 		const ExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != ExceptionType::NONE) {
 			// Clear to blue background screen
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF900000 }, "EmuScreen_RuntimeError");
+			bool dangerousSettings = !Reporting::IsSupported();
+			uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
 			// The info is drawn later in renderUI
 		} else {
 			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
