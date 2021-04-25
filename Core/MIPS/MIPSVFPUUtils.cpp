@@ -885,58 +885,7 @@ float vfpu_rsqrt(float a) {
 	return val.f;
 }
 
-float vfpu_sin_single(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f || angle == 2.0f) {
-		return 0.0f;
-	} else if (angle == 1.0f) {
-		return 1.0f;
-	} else if (angle == 3.0f) {
-		return -1.0f;
-	}
-	angle *= (float)M_PI_2;
-	return sinf(angle);
-}
-
-float vfpu_cos_single(float angle) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 1.0f || angle == 3.0f) {
-		return 0.0f;
-	} else if (angle == 0.0f) {
-		return 1.0f;
-	} else if (angle == 2.0f) {
-		return -1.0f;
-	}
-	angle *= (float)M_PI_2;
-	return cosf(angle);
-}
-
-void vfpu_sincos_single(float angle, float &sine, float &cosine) {
-	angle -= floorf(angle * 0.25f) * 4.f;
-	if (angle == 0.0f) {
-		sine = 0.0f;
-		cosine = 1.0f;
-	} else if (angle == 1.0f) {
-		sine = 1.0f;
-		cosine = 0.0f;
-	} else if (angle == 2.0f) {
-		sine = 0.0f;
-		cosine = -1.0f;
-	} else if (angle == 3.0f) {
-		sine = -1.0f;
-		cosine = 0.0f;
-	} else {
-		angle *= (float)M_PI_2;
-#if defined(__linux__)
-		sincosf(angle, &sine, &cosine);
-#else
-		sine = sinf(angle);
-		cosine = cosf(angle);
-#endif
-	}
-}
-
-float vfpu_sin_mod2(float a) {
+float vfpu_sin(float a) {
 	float2int val;
 	val.f = a;
 
@@ -980,7 +929,7 @@ float vfpu_sin_mod2(float a) {
 	return val.f;
 }
 
-float vfpu_cos_mod2(float a) {
+float vfpu_cos(float a) {
 	float2int val;
 	val.f = a;
 	bool negate = false;
@@ -1025,7 +974,7 @@ float vfpu_cos_mod2(float a) {
 	return negate ? -val.f : val.f;
 }
 
-void vfpu_sincos_mod2(float a, float &s, float &c) {
+void vfpu_sincos(float a, float &s, float &c) {
 	float2int val;
 	val.f = a;
 	// For sin, negate the input, for cos negate the output.
@@ -1106,12 +1055,6 @@ void vfpu_sincos_mod2(float a, float &s, float &c) {
 	return ;
 }
 
-float (*vfpu_sin)(float);
-float (*vfpu_cos)(float);
-void (*vfpu_sincos)(float, float&, float&);
-
-void InitVFPUSinCos(bool useDoublePrecision) {
-	vfpu_sin = useDoublePrecision ? vfpu_sin_mod2 : vfpu_sin_single;
-	vfpu_cos = useDoublePrecision ? vfpu_cos_mod2 : vfpu_cos_single;
-	vfpu_sincos = useDoublePrecision ? vfpu_sincos_mod2 : vfpu_sincos_single;
+void InitVFPUSinCos() {
+	// TODO: Could prepare a CORDIC table here.
 }

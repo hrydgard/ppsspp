@@ -303,7 +303,7 @@ bool TestParsers() {
 
 bool TestVFPUSinCos() {
 	float sine, cosine;
-	InitVFPUSinCos(false);
+	InitVFPUSinCos();
 	EXPECT_FALSE(vfpu_sincos == nullptr);
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
