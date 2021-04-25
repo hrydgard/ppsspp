@@ -552,7 +552,7 @@ namespace Reporting
 		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
 			return false;
 #else
-		FileInfo fo;
+		File::FileInfo fo;
 		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
 			return false;
 #endif

@@ -30,8 +30,8 @@ public:
 	~ZipAssetReader();
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
-	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
-	virtual bool GetFileInfo(const char *path, FileInfo *info);
+	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter);
+	virtual bool GetFileInfo(const char *path, File::FileInfo *info);
 	virtual std::string toString() const {
 		return in_zip_path_;
 	}

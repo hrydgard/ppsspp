@@ -502,7 +502,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		readFileToString(true, memstickDirFile.c_str(), memstickDir);
+		File::readFileToString(true, memstickDirFile.c_str(), memstickDir);
 		if (!memstickDir.empty() && File::Exists(memstickDir)) {
 			g_Config.memStickDirectory = memstickDir + "/";
 		}

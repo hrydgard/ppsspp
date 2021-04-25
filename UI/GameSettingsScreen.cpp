@@ -1293,7 +1293,6 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-#if PPSSPP_PLATFORM(ANDROID)
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
@@ -1305,20 +1304,19 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		if (!File::Exists(pendingMemstickFolder_)) {
 			File::CreateFullPath(pendingMemstickFolder_);
 		}
-		if (!writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
+		if (!File::writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
 		File::Delete(testWriteFile);
 
-		writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+        File::writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
 		g_Config.Save("MemstickPathChanged");
 		screenManager()->RecreateAllViews();
 	}
 }
-#endif
 
 void GameSettingsScreen::TriggerRestart(const char *why) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
