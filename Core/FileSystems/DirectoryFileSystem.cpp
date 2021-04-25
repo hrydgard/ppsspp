@@ -753,7 +753,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	if (x.type != FILETYPE_DIRECTORY) {
 		File::FileInfo info;
 		if (!File::GetFileInfo(fullName.c_str(), &info)) {
-			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileInfo failed: %s", fullName.c_str());
 		} else {
 			x.size = info.size;
 			x.access = info.access;

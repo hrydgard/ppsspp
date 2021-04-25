@@ -151,7 +151,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
-		// Note: getFileInDir does not fill in fileSize properly.
+		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
 			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
@@ -178,7 +178,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
-		// Note: getFileInDir does not fill in fileSize properly.
+		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
 			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
