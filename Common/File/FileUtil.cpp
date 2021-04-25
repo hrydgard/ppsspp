@@ -887,7 +887,7 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool readFileToString(bool text_file, const char *filename, std::string & str)
+bool ReadFileToString(bool text_file, const char *filename, std::string & str)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
@@ -928,7 +928,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	return contents;
 }
 
-bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
+bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
@@ -943,7 +943,7 @@ bool writeStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)

@@ -450,7 +450,7 @@ namespace Reporting
 	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::readFileToString(false, filename.c_str(), data))
+		if (!filename.empty() && File::ReadFileToString(false, filename.c_str(), data))
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";

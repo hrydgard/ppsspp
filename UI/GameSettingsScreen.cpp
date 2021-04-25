@@ -1304,13 +1304,13 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		if (!File::Exists(pendingMemstickFolder_)) {
 			File::CreateFullPath(pendingMemstickFolder_);
 		}
-		if (!File::writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
+		if (!File::WriteDataToFile(true, "1", 1, testWriteFile.c_str())) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
 		File::Delete(testWriteFile);
 
-        File::writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
 		g_Config.Save("MemstickPathChanged");

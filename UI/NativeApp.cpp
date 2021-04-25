@@ -386,7 +386,7 @@ static void CheckFailedGPUBackends() {
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::readFileToString(true, cache.c_str(), data))
+		if (File::ReadFileToString(true, cache.c_str(), data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -414,7 +414,7 @@ static void CheckFailedGPUBackends() {
 		// Let's try to create, in case it doesn't exist.
 		if (!File::Exists(GetSysDirectory(DIRECTORY_APP_CACHE)))
 			File::CreateDir(GetSysDirectory(DIRECTORY_APP_CACHE));
-		File::writeStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
+		File::WriteStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
 	} else {
 		// Just save immediately, since we have storage.
 		g_Config.Save("got storage permission");
@@ -502,7 +502,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		File::readFileToString(true, memstickDirFile.c_str(), memstickDir);
+		File::ReadFileToString(true, memstickDirFile.c_str(), memstickDir);
 		if (!memstickDir.empty() && File::Exists(memstickDir)) {
 			g_Config.memStickDirectory = memstickDir + "/";
 		}

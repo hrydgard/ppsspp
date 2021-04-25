@@ -402,9 +402,9 @@ public:
 					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 					else
 						// Read standard icon
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -449,9 +449,9 @@ handleELF:
 				std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 				// Try using png/jpg screenshots first
 				if (File::Exists(screenshot_png)) {
-					File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
 				} else if (File::Exists(screenshot_jpg)) {
-					File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 				} else {
 					// Read standard icon
 					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
@@ -492,7 +492,7 @@ handleELF:
 			// Let's use the screenshot as an icon, too.
 			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
-				if (File::readFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
+				if (File::ReadFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
 					info_->icon.dataLoaded = true;
 				} else {
 					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
@@ -577,9 +577,9 @@ handleELF:
 					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
