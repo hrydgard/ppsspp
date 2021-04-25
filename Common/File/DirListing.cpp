@@ -217,7 +217,7 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 	return foundEntries;
 }
 
-int64_t getDirectoryRecursiveSize(const std::string & path, const char *filter, int flags) {
+int64_t GetDirectoryRecursiveSize(const std::string & path, const char *filter, int flags) {
 	std::vector<FileInfo> fileInfo;
 	GetFilesInDir(path.c_str(), &fileInfo, filter, flags);
 	int64_t sizeSum = 0;
@@ -228,14 +228,14 @@ int64_t getDirectoryRecursiveSize(const std::string & path, const char *filter, 
 		if (!finfo.isDirectory)
 			sizeSum += finfo.size;
 		else
-			sizeSum += getDirectoryRecursiveSize(finfo.fullName, filter, flags);
+			sizeSum += GetDirectoryRecursiveSize(finfo.fullName, filter, flags);
 	}
 	return sizeSum;
 }
 
 #ifdef _WIN32
 // Returns a vector with the device names
-std::vector<std::string> getWindowsDrives()
+std::vector<std::string> GetWindowsDrives()
 {
 #if PPSSPP_PLATFORM(UWP)
 	return std::vector<std::string>();  // TODO UWP http://stackoverflow.com/questions/37404405/how-to-get-logical-drives-names-in-windows-10

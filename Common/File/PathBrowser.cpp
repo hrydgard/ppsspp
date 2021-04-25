@@ -246,7 +246,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 #ifdef _WIN32
 	if (path_ == "/") {
 		// Special path that means root of file system.
-		std::vector<std::string> drives = File::getWindowsDrives();
+		std::vector<std::string> drives = File::GetWindowsDrives();
 		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
 			if (*drive == "A:/" || *drive == "B:/")
 				continue;

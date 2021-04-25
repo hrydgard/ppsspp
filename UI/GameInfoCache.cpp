@@ -113,7 +113,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::getDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, File::GETFILES_GETHIDDEN);
+		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return GetFileLoader()->FileSize();

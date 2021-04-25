@@ -36,7 +36,7 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 
 namespace File {
 
-// Mostly to handle utf-8 filenames better on Windows.
+// Mostly to handle UTF-8 filenames better on Windows.
 FILE *OpenCFile(const std::string &filename, const char *mode);
 bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode);
 
@@ -78,6 +78,7 @@ bool CreateFullPath(const std::string &fullPath);
 bool Delete(const std::string &filename);
 
 // Deletes a directory filename, returns true on success
+// Directory must be empty.
 bool DeleteDir(const std::string &filename);
 
 // renames file srcFilename to destFilename, returns true on success 
@@ -91,9 +92,6 @@ bool CreateEmptyFile(const std::string &filename);
 
 // deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory);
-
-// Create directory and copy contents (does not overwrite existing files)
-void CopyDir(const std::string &source_path, const std::string &dest_path);
 
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.

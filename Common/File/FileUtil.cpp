@@ -377,7 +377,6 @@ bool CreateFullPath(const std::string &path)
 	}
 }
 
-
 // Deletes a directory filename, returns true on success
 bool DeleteDir(const std::string &filename)
 {
@@ -694,48 +693,6 @@ bool DeleteDirRecursively(const std::string &directory)
 	closedir(dirp);
 #endif
 	return File::DeleteDir(directory);
-}
-
-
-// Create directory and copy contents (does not overwrite existing files)
-void CopyDir(const std::string &source_path, const std::string &dest_path)
-{
-#ifndef _WIN32
-	if (source_path == dest_path) return;
-	if (!File::Exists(source_path)) return;
-	if (!File::Exists(dest_path)) File::CreateFullPath(dest_path);
-
-	struct dirent *result = NULL;
-	DIR *dirp = opendir(source_path.c_str());
-	if (!dirp) return;
-
-	while ((result = readdir(dirp))) {
-		const std::string virtualName(result->d_name);
-		// check for "." and ".."
-		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-			((virtualName[0] == '.') && (virtualName[1] == '.') &&
-			(virtualName[2] == '\0'))) {
-			continue;
-		}
-
-		std::string source, dest;
-		source = source_path + virtualName;
-		dest = dest_path + virtualName;
-		if (IsDirectory(source)) {
-			source += '/';
-			dest += '/';
-			if (!File::Exists(dest)) {
-				File::CreateFullPath(dest);
-			}
-			CopyDir(source, dest);
-		} else if (!File::Exists(dest)) {
-			File::Copy(source, dest);
-		}
-	}
-	closedir(dirp);
-#else
-	ERROR_LOG(COMMON, "CopyDir not supported on this platform");
-#endif
 }
 
 void OpenFileInEditor(const std::string& fileName) {
