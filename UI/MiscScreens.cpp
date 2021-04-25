@@ -485,7 +485,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 #endif
 	langValuesMapping = GetLangValuesMapping();
 
-	std::vector<FileInfo> tempLangs;
+	std::vector<File::FileInfo> tempLangs;
 	VFSGetFileListing("lang", &tempLangs, "ini");
 	std::vector<std::string> listing;
 	int selected = -1;
@@ -508,7 +508,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		}
 #endif
 
-		FileInfo lang = tempLangs[i];
+		File::FileInfo lang = tempLangs[i];
 		langs_.push_back(lang);
 
 		std::string code;

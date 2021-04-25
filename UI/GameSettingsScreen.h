@@ -43,9 +43,7 @@ protected:
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
-#if PPSSPP_PLATFORM(ANDROID)
 	void CallbackMemstickFolder(bool yes);
-#endif
 	bool UseVerticalLayout() const;
 
 private:
@@ -137,9 +135,8 @@ private:
 	//edit the game-specific settings and restore the global settings after exiting
 	bool editThenRestore_;
 
-#if PPSSPP_PLATFORM(ANDROID)
+	// Android-only
 	std::string pendingMemstickFolder_;
-#endif
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

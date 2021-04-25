@@ -751,15 +751,15 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.exists = true;
 
 	if (x.type != FILETYPE_DIRECTORY) {
-		File::FileDetails details;
-		if (!File::GetFileDetails(fullName, &details)) {
-			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
+		File::FileInfo info;
+		if (!File::GetFileInfo(fullName.c_str(), &info)) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileInfo failed: %s", fullName.c_str());
 		} else {
-			x.size = details.size;
-			x.access = details.access;
-			time_t atime = details.atime;
-			time_t ctime = details.ctime;
-			time_t mtime = details.mtime;
+			x.size = info.size;
+			x.access = info.access;
+			time_t atime = info.atime;
+			time_t ctime = info.ctime;
+			time_t mtime = info.mtime;
 
 			localtime_r((time_t*)&atime, &x.atime);
 			localtime_r((time_t*)&ctime, &x.ctime);
@@ -1095,7 +1095,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	x.name = filename;
 
 	std::string fullName = GetLocalPath(filename);
-	FileInfo fo;
+	File::FileInfo fo;
 	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
 		x.exists = fo.exists;
 		if (x.exists) {

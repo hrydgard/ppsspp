@@ -377,7 +377,6 @@ bool CreateFullPath(const std::string &path)
 	}
 }
 
-
 // Deletes a directory filename, returns true on success
 bool DeleteDir(const std::string &filename)
 {
@@ -501,73 +500,6 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #endif
 }
 
-#ifdef _WIN32
-
-static int64_t FiletimeToStatTime(FILETIME ft) {
-	const int windowsTickResolution = 10000000;
-	const int64_t secToUnixEpoch = 11644473600LL;
-	int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-	return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
-}
-
-#endif
-
-// Returns file attributes.
-bool GetFileDetails(const std::string &filename, FileDetails *details) {
-#ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA attr;
-	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
-		return false;
-	details->isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-	details->size = ((uint64_t)attr.nFileSizeHigh << 32) | (uint64_t)attr.nFileSizeLow;
-	details->atime = FiletimeToStatTime(attr.ftLastAccessTime);
-	details->mtime = FiletimeToStatTime(attr.ftLastWriteTime);
-	details->ctime = FiletimeToStatTime(attr.ftCreationTime);
-	if (attr.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-		details->access = 0444;  // Read
-	} else {
-		details->access = 0666;  // Read/Write
-	}
-	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-		details->access |= 0111;  // Execute
-	}
-	return true;
-#else
-	if (!Exists(filename)) {
-		return false;
-	}
-#if __ANDROID__ && __ANDROID_API__ < 21
-	struct stat buf;
-	if (stat(filename.c_str(), &buf) == 0) {
-#else
-	struct stat64 buf;
-	if (stat64(filename.c_str(), &buf) == 0) {
-#endif
-		details->size = buf.st_size;
-		details->isDirectory = S_ISDIR(buf.st_mode);
-		details->atime = buf.st_atime;
-		details->mtime = buf.st_mtime;
-		details->ctime = buf.st_ctime;
-		details->access = buf.st_mode & 0x1ff;
-		return true;
-	} else {
-		return false;
-	}
-#endif
-}
-
-bool GetModifTime(const std::string &filename, tm &return_time) {
-	memset(&return_time, 0, sizeof(return_time));
-	FileDetails details;
-	if (GetFileDetails(filename, &details)) {
-		time_t t = details.mtime;
-		localtime_r((time_t*)&t, &return_time);
-		return true;
-	} else {
-		return false;
-	}
-}
-
 std::string GetDir(const std::string &path) {
 	if (path == "/")
 		return path;
@@ -592,6 +524,18 @@ std::string GetFilename(std::string path) {
 		return path.substr(off);
 	else
 		return path;
+}
+
+std::string GetFileExtension(const std::string & fn) {
+	size_t pos = fn.rfind(".");
+	if (pos == std::string::npos) {
+		return "";
+	}
+	std::string ext = fn.substr(pos + 1);
+	for (size_t i = 0; i < ext.size(); i++) {
+		ext[i] = tolower(ext[i]);
+	}
+	return ext;
 }
 
 // Returns the size of file (64bit)
@@ -668,7 +612,6 @@ uint64_t GetFileSize(FILE *f)
 bool CreateEmptyFile(const std::string &filename)
 {
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
-
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
@@ -752,47 +695,7 @@ bool DeleteDirRecursively(const std::string &directory)
 	return File::DeleteDir(directory);
 }
 
-
-// Create directory and copy contents (does not overwrite existing files)
-void CopyDir(const std::string &source_path, const std::string &dest_path)
-{
-#ifndef _WIN32
-	if (source_path == dest_path) return;
-	if (!File::Exists(source_path)) return;
-	if (!File::Exists(dest_path)) File::CreateFullPath(dest_path);
-
-	struct dirent *result = NULL;
-	DIR *dirp = opendir(source_path.c_str());
-	if (!dirp) return;
-
-	while ((result = readdir(dirp)))
-	{
-		const std::string virtualName(result->d_name);
-		// check for "." and ".."
-		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-			((virtualName[0] == '.') && (virtualName[1] == '.') &&
-			(virtualName[2] == '\0')))
-			continue;
-
-		std::string source, dest;
-		source = source_path + virtualName;
-		dest = dest_path + virtualName;
-		if (IsDirectory(source))
-		{
-			source += '/';
-			dest += '/';
-			if (!File::Exists(dest)) File::CreateFullPath(dest);
-			CopyDir(source, dest);
-		}
-		else if (!File::Exists(dest)) File::Copy(source, dest);
-	}
-	closedir(dirp);
-#else
-	ERROR_LOG(COMMON, "CopyDir not supported on this platform");
-#endif
-}
-
-void openIniFile(const std::string& fileName) {
+void OpenFileInEditor(const std::string& fileName) {
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
@@ -984,9 +887,7 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-} // namespace
-
-bool readFileToString(bool text_file, const char *filename, std::string & str)
+bool ReadFileToString(bool text_file, const char *filename, std::string & str)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
@@ -1027,7 +928,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	return contents;
 }
 
-bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
+bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
@@ -1042,7 +943,7 @@ bool writeStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
 {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
@@ -1056,3 +957,5 @@ bool writeDataToFile(bool text_file, const void* data, const unsigned int size, 
 	fclose(f);
 	return true;
 }
+
+}  // namespace File

@@ -136,7 +136,7 @@ std::string StorageFileLoader::Path() const {
 }
 
 std::string StorageFileLoader::Extension() {
-	return "." + getFileExtension(path_);
+	return "." + File::GetFileExtension(path_);
 }
 
 void StorageFileLoader::EnsureOpen() {

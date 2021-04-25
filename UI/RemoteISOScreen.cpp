@@ -241,7 +241,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 static bool LoadGameList(const std::string &url, std::vector<std::string> &games) {
 	PathBrowser browser(url);
-	std::vector<FileInfo> files;
+	std::vector<File::FileInfo> files;
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;

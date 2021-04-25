@@ -450,7 +450,7 @@ namespace Reporting
 	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
 	{
 		std::string data;
-		if (!filename.empty() && readFileToString(false, filename.c_str(), data))
+		if (!filename.empty() && File::ReadFileToString(false, filename.c_str(), data))
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
@@ -552,7 +552,7 @@ namespace Reporting
 		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
 			return false;
 #else
-		FileInfo fo;
+		File::FileInfo fo;
 		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
 			return false;
 #endif

@@ -39,7 +39,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	if (IsLocalPath(filename)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local file.", filename);
-		return ReadLocalFile(filename, size);
+		return File::ReadLocalFile(filename, size);
 	}
 
 	int fn_len = (int)strlen(filename);
@@ -64,11 +64,11 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	return 0;
 }
 
-bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
+bool VFSGetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
-		getFilesInDir(path, listing, filter);
+		File::GetFilesInDir(path, listing, filter);
 		return true;
 	}
 
@@ -91,11 +91,11 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 	return false;
 }
 
-bool VFSGetFileInfo(const char *path, FileInfo *info) {
+bool VFSGetFileInfo(const char *path, File::FileInfo *info) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
-		return getFileInfo(path, info);
+		return File::GetFileInfo(path, info);
 	}
 
 	bool fileSystemFound = false;

@@ -119,7 +119,7 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 	std::string data;
 	std::vector<int> results;
 
-	if (readFileToString(true, filename.c_str(), data)) {
+	if (File::ReadFileToString(true, filename.c_str(), data)) {
 		std::vector<std::string> ranges;
 		SplitString(data, ',', ranges);
 		for (auto range : ranges) {

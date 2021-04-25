@@ -122,12 +122,12 @@ void UWPHost::BootDone() {
 }
 
 static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
-	FileInfo info;
+	File::FileInfo info;
 
 	std::string result = currentFilename;
 
 	// can't fail, definitely exists if it gets this far
-	getFileInfo(currentFilename, &info);
+	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
 #ifdef _WIN32
 		char* slash = "\\";

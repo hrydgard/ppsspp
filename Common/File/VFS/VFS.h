@@ -17,5 +17,5 @@ void VFSShutdown();
 // Always allocates an extra zero byte at the end, so that it
 // can be used for text like shader sources.
 uint8_t *VFSReadFile(const char *filename, size_t *size);
-bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0);
-bool VFSGetFileInfo(const char *filename, FileInfo *fileInfo);
+bool VFSGetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0);
+bool VFSGetFileInfo(const char *filename, File::FileInfo *fileInfo);

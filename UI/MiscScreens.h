@@ -100,7 +100,7 @@ private:
 	bool ShowButtons() const override { return true; }
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
-	std::vector<FileInfo> langs_;
+	std::vector<File::FileInfo> langs_;
 };
 
 class PostProcScreen : public ListPopupScreen {

@@ -1293,7 +1293,6 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-#if PPSSPP_PLATFORM(ANDROID)
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
@@ -1305,20 +1304,19 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		if (!File::Exists(pendingMemstickFolder_)) {
 			File::CreateFullPath(pendingMemstickFolder_);
 		}
-		if (!writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
+		if (!File::WriteDataToFile(true, "1", 1, testWriteFile.c_str())) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
 		File::Delete(testWriteFile);
 
-		writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
 		g_Config.Save("MemstickPathChanged");
 		screenManager()->RecreateAllViews();
 	}
 }
-#endif
 
 void GameSettingsScreen::TriggerRestart(const char *why) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
@@ -1733,7 +1731,7 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 	std::string gameID = g_paramSFO.GetDiscID();
 	std::string generatedFilename;
 	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
-		File::openIniFile(generatedFilename);
+		File::OpenFileInEditor(generatedFilename);
 	}
 	return UI::EVENT_DONE;
 }
@@ -1772,10 +1770,10 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
-	std::vector<FileInfo> files;
-	getFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
+	std::vector<File::FileInfo> files;
+	GetFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
 
-	for (const FileInfo &file : files) {
+	for (const File::FileInfo &file : files) {
 		std::string src = file.fullName;
 		std::string dst = root_dir + file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
@@ -1784,7 +1782,6 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 
 	return UI::EVENT_DONE;
 }
-
 
 UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {
