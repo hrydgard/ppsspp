@@ -8,7 +8,7 @@ public:
 	Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent);
 	virtual ~Dialog();
 
-	virtual void Show(bool _bShow);
+	virtual void Show(bool _bShow, bool includeToTop = true);
 	virtual void Update() {}
 
 	HWND GetDlgHandle() {

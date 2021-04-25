@@ -49,7 +49,7 @@ public:
 	CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu);
 	~CDisasm();
 
-	void Show(bool bShow) override;
+	void Show(bool bShow, bool includeToTop = true) override;
 
 	void Update() override {
 		UpdateDialog(true);

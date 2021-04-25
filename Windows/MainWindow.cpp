@@ -540,7 +540,7 @@ namespace MainWindow
 	void CreateDebugWindows() {
 		disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(disasmWindow);
-		disasmWindow->Show(g_Config.bShowDebuggerOnLoad);
+		disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
 
 #if PPSSPP_API(ANY_GL)
 		geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
@@ -935,8 +935,6 @@ namespace MainWindow
 
 			if (disasmWindow)
 				disasmWindow->UpdateDialog();
-
-			SetForegroundWindow(hwndMain);
 			break;
 
 		case WM_USER_SAVESTATE_FINISH:
