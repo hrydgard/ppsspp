@@ -47,6 +47,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
+#include "Core/CwCheat.h"
 #include "Core/Host.h"
 #include "Core/KeyMap.h"
 #include "Core/MemFault.h"
@@ -66,6 +67,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/proAdhoc.h"
+#include "Core/HLE/Plugins.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
@@ -1375,10 +1377,12 @@ BREAK
 	x += columnWidth + 10;
 	y = 50;
 	snprintf(statbuf, sizeof(statbuf),
-		"CPU Core: %s\n"
-		"Locked CPU freq: %d MHz\n",
-		CPUCoreAsString(g_Config.iCpuCore),
-		g_Config.iLockedCPUSpeed);
+		"CPU Core: %s (flags: %08x)\n"
+		"Locked CPU freq: %d MHz\n"
+		"Cheats: %s, Plugins: %s\n",
+		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
+		g_Config.iLockedCPUSpeed,
+		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 }
