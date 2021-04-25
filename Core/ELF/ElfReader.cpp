@@ -55,24 +55,22 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	}
 }
 
-bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
-{
-	int numErrors = 0;
+bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
+	std::vector<u32> relocOps;
+	relocOps.resize(numRelocs);
+
 	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
+
+	int numErrors = 0;
 	GlobalThreadPool::Loop([&](int l, int h) {
 		for (int r = l; r < h; r++) {
-			VERBOSE_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
 			u32 info = rels[r].r_info;
 			u32 addr = rels[r].r_offset;
 
 			int type = info & 0xf;
 
+			// Often: 0 = code, 1 = data.
 			int readwrite = (info >> 8) & 0xff;
-			int relative = (info >> 16) & 0xff;
-
-			//0 = code
-			//1 = data
-
 			if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
 				if (numErrors < 10) {
 					ERROR_LOG_REPORT(LOADER, "Bad segment number %i", readwrite);
@@ -84,8 +82,6 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			addr += segmentVAddr[readwrite];
 
 			// It appears that misaligned relocations are allowed.
-			// Will they work correctly on big-endian?
-
 			if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
 				if (numErrors < 10) {
 					WARN_LOG_REPORT(LOADER, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
@@ -96,7 +92,30 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 				continue;
 			}
 
-			u32 op = Memory::ReadUnchecked_Instruction(addr, true).encoding;
+			relocOps[r] = Memory::ReadUnchecked_Instruction(addr, true).encoding;
+		}
+	}, 0, numRelocs, 128);
+
+	GlobalThreadPool::Loop([&](int l, int h) {
+		for (int r = l; r < h; r++) {
+			VERBOSE_LOG(LOADER, "Loading reloc %i  (%p)...", r, rels + r);
+			u32 info = rels[r].r_info;
+			u32 addr = rels[r].r_offset;
+
+			int type = info & 0xf;
+			int readwrite = (info >> 8) & 0xff;
+			int relative = (info >> 16) & 0xff;
+
+			if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
+				continue;
+			}
+
+			addr += segmentVAddr[readwrite];
+			if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
+				continue;
+			}
+
+			u32 op = relocOps[r];
 
 			const bool log = false;
 			//log=true;
@@ -135,7 +154,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 							DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
 						}
 						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s16)Memory::ReadUnchecked_Instruction(corrLoAddr, true).encoding;
+							s16 lo = (s16)relocOps[t];
 							cur += lo;
 							cur += relocateTo;
 							addrToHiLo(cur, hi, lo);
@@ -188,7 +207,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 			Memory::WriteUnchecked_U32(op, addr);
 			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation");
 		}
-	}, 0, numRelocs, 32);
+	}, 0, numRelocs, 128);
 
 	if (numErrors) {
 		WARN_LOG(LOADER, "%i bad relocations found!!!", numErrors);
