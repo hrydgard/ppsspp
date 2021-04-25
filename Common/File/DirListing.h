@@ -19,12 +19,15 @@ struct FileInfo {
 	bool isWritable;
 	uint64_t size;
 
+	uint64_t atime;
+	uint64_t mtime;
+	uint64_t ctime;
+	uint32_t access;  // st_mode & 0x1ff
+
 	bool operator <(const FileInfo &other) const;
 };
 
-std::string getFileExtension(const std::string &fn);
 bool GetFileInfo(const char *path, FileInfo *fileInfo);
-FILE *openCFile(const std::string &filename, const char *mode);
 
 enum {
 	GETFILES_GETHIDDEN = 1

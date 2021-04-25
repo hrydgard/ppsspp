@@ -176,7 +176,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 #if PPSSPP_PLATFORM(UWP)
 		LaunchBrowser(engine_->CheatFilename().c_str());
 #else
-		File::openIniFile(engine_->CheatFilename());
+		File::OpenFileInEditor(engine_->CheatFilename());
 #endif
 	}
 	return UI::EVENT_DONE;

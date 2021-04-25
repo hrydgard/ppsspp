@@ -36,15 +36,6 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 
 namespace File {
 
-struct FileDetails {
-	bool isDirectory;
-	uint64_t size;
-	uint64_t atime;
-	uint64_t mtime;
-	uint64_t ctime;
-	uint32_t access;  // st_mode & 0x1ff
-};
-
 // Mostly to handle utf-8 filenames better on Windows.
 FILE *OpenCFile(const std::string &filename, const char *mode);
 bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode);
@@ -58,8 +49,8 @@ bool Exists(const std::string &filename);
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename);
 
-// Returns file attributes.
-bool GetFileDetails(const std::string &filename, FileDetails *details);
+// Parses the extension out from a filename.
+std::string GetFileExtension(const std::string &filename);
 
 // Extracts the directory from a path.
 std::string GetDir(const std::string &path);
@@ -101,18 +92,14 @@ bool CreateEmptyFile(const std::string &filename);
 // deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory);
 
-// Returns the current directory
-std::string GetCurrentDir();
-
 // Create directory and copy contents (does not overwrite existing files)
 void CopyDir(const std::string &source_path, const std::string &dest_path);
 
 // Opens ini file (cheats, texture replacements etc.)
-void openIniFile(const std::string& fileName);
+// TODO: Belongs in System or something.
+void OpenFileInEditor(const std::string& fileName);
 
-// Set the current directory to given directory
-bool SetCurrentDir(const std::string &directory);
-
+// TODO: Belongs in System or something.
 const std::string &GetExeDirectory();
 
 

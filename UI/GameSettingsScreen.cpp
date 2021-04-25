@@ -1733,7 +1733,7 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 	std::string gameID = g_paramSFO.GetDiscID();
 	std::string generatedFilename;
 	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
-		File::openIniFile(generatedFilename);
+		File::OpenFileInEditor(generatedFilename);
 	}
 	return UI::EVENT_DONE;
 }
@@ -1784,7 +1784,6 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 
 	return UI::EVENT_DONE;
 }
-
 
 UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {

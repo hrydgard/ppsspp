@@ -41,6 +41,13 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	fileInfo->fullName = path;
 
 #ifdef _WIN32
+	auto FiletimeToStatTime = [](FILETIME ft) {
+		const int windowsTickResolution = 10000000;
+		const int64_t secToUnixEpoch = 11644473600LL;
+		int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+		return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
+	};
+
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
 	if (!GetFileAttributesExW(ConvertUTF8ToWString(path).c_str(), GetFileExInfoStandard, &attrs)) {
 		fileInfo->size = 0;
@@ -52,16 +59,25 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
 	fileInfo->exists = true;
+	fileInfo->atime = FiletimeToStatTime(attrs.ftLastAccessTime);
+	fileInfo->mtime = FiletimeToStatTime(attrs.ftLastWriteTime);
+	fileInfo->ctime = FiletimeToStatTime(attrs.ftCreationTime);
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+		fileInfo->access = 0444;  // Read
+	} else {
+		fileInfo->access = 0666;  // Read/Write
+	}
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+		fileInfo->access |= 0111;  // Execute
+	}
 #else
-
-	std::string copy(path);
 
 #if (defined __ANDROID__) && (__ANDROID_API__ < 21)
 	struct stat file_info;
-	int result = stat(copy.c_str(), &file_info);
+	int result = stat(path, &file_info);
 #else
 	struct stat64 file_info;
-	int result = stat64(copy.c_str(), &file_info);
+	int result = stat64(path, &file_info);
 #endif
 	if (result < 0) {
 		fileInfo->exists = false;
@@ -72,6 +88,10 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	fileInfo->isWritable = false;
 	fileInfo->size = file_info.st_size;
 	fileInfo->exists = true;
+	fileInfo->atime = file_info.st_atime;
+	fileInfo->mtime = file_info.st_mtime;
+	fileInfo->ctime = file_info.st_ctime;
+	fileInfo->access = file_info.st_mode & 0x1ff;
 	// HACK: approximation
 	if (file_info.st_mode & 0200)
 		fileInfo->isWritable = true;
@@ -79,14 +99,16 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	return true;
 }
 
-std::string getFileExtension(const std::string & fn) {
-	int pos = (int)fn.rfind(".");
-	if (pos < 0) return "";
-	std::string ext = fn.substr(pos + 1);
-	for (size_t i = 0; i < ext.size(); i++) {
-		ext[i] = tolower(ext[i]);
+bool GetModifTime(const std::string & filename, tm & return_time) {
+	memset(&return_time, 0, sizeof(return_time));
+	FileInfo info;
+	if (GetFileInfo(filename.c_str(), &info)) {
+		time_t t = info.mtime;
+		localtime_r((time_t*)&t, &return_time);
+		return true;
+	} else {
+		return false;
 	}
-	return ext;
 }
 
 bool FileInfo::operator <(const FileInfo & other) const {
@@ -173,7 +195,7 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 		info.size = 0;
 		info.isWritable = false;  // TODO - implement some kind of check
 		if (!info.isDirectory) {
-			std::string ext = getFileExtension(info.fullName);
+			std::string ext = GetFileExtension(info.fullName);
 			if (filter) {
 				if (filters.find(ext) == filters.end())
 					continue;
@@ -241,4 +263,4 @@ std::vector<std::string> getWindowsDrives()
 }
 #endif
 
-}
+}  // namespace File

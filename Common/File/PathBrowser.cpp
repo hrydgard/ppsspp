@@ -8,6 +8,7 @@
 #include "Common/Net/URL.h"
 
 #include "Common/File/PathBrowser.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
@@ -110,7 +111,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	auto pred = [&](const File::FileInfo &info) {
 		if (info.isDirectory || !filter)
 			return false;
-		std::string ext = File::getFileExtension(info.fullName);
+		std::string ext = File::GetFileExtension(info.fullName);
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
