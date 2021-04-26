@@ -47,6 +47,7 @@ protected:
 	void RecreateViews() override;
 
 private:
+	UI::LinearLayout *AddTab(const char *tag, const std::string &title, bool skipContents = false);
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
@@ -68,6 +69,9 @@ private:
 #endif
 
 	std::string memstickDisplay_;
+
+	UI::TabHolder *tabHolder_;
+	std::vector<UI::LinearLayout *> settingTabContents_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);

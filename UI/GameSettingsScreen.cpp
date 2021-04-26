@@ -221,20 +221,20 @@ void GameSettingsScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	TabHolder *tabHolder;
 	if (vertical) {
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
-		verticalLayout->Add(tabHolder);
+		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
+		verticalLayout->Add(tabHolder_);
 		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		root_->Add(verticalLayout);
 	} else {
-		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
-		root_->Add(tabHolder);
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+		root_->Add(tabHolder_);
 		AddStandardBack(root_);
 	}
-	tabHolder->SetTag("GameSettings");
-	root_->SetDefaultFocusView(tabHolder);
+	tabHolder_->SetTag("GameSettings");
+	root_->SetDefaultFocusView(tabHolder_);
+	settingTabContents_.clear();
 
 	float leftSide = 40.0f;
 	if (!vertical) {
@@ -252,12 +252,7 @@ void GameSettingsScreen::CreateViews() {
 	// TODO: These currently point to global settings, not game specific ones.
 
 	// Graphics
-	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	graphicsSettingsScroll->SetTag("GameSettingsGraphics");
-	LinearLayout *graphicsSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	graphicsSettings->SetSpacing(0);
-	graphicsSettingsScroll->Add(graphicsSettings);
-	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
+	LinearLayout *graphicsSettings = AddTab("GameSettingsGraphics", ms->T("Graphics"));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 
@@ -629,15 +624,9 @@ void GameSettingsScreen::CreateViews() {
 		dump->SetEnabled(false);
 
 	// Audio
-	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	audioSettingsScroll->SetTag("GameSettingsAudio");
-	LinearLayout *audioSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	audioSettings->SetSpacing(0);
-	audioSettingsScroll->Add(audioSettings);
-	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
+	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, a->T("Global volume"), screenManager()));
@@ -695,12 +684,8 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	// Control
-	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	controlsSettingsScroll->SetTag("GameSettingsControls");
-	LinearLayout *controlsSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	controlsSettings->SetSpacing(0);
-	controlsSettingsScroll->Add(controlsSettings);
-	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
+	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
+
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
@@ -795,12 +780,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
 
-	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	networkingSettingsScroll->SetTag("GameSettingsNetworking");
-	LinearLayout *networkingSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	networkingSettings->SetSpacing(0);
-	networkingSettingsScroll->Add(networkingSettings);
-	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
+	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -878,12 +858,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 
-	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	toolsScroll->SetTag("GameSettingsTools");
-	LinearLayout *tools = new LinearLayoutList(ORIENT_VERTICAL);
-	tools->SetSpacing(0);
-	toolsScroll->Add(tools);
-	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
+	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
@@ -893,12 +868,7 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
 
 	// System
-	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	systemSettingsScroll->SetTag("GameSettingsSystem");
-	LinearLayout *systemSettings = new LinearLayoutList(ORIENT_VERTICAL);
-	systemSettings->SetSpacing(0);
-	systemSettingsScroll->Add(systemSettings);
-	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
+	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
@@ -1070,6 +1040,22 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 0, 2, sy->GetName(), screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
+}
+
+UI::LinearLayout *GameSettingsScreen::AddTab(const char *tag, const std::string &title, bool skipContents) {
+	using namespace UI;
+	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	scroll->SetTag(tag);
+
+	LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
+	contents->SetSpacing(0);
+	scroll->Add(contents);
+	tabHolder_->AddTab(title, scroll);
+
+	if (!skipContents)
+		settingTabContents_.push_back(contents);
+
+	return contents;
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
