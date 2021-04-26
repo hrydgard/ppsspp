@@ -332,8 +332,8 @@ static int UtilityWorkUs(int us) {
 	// This blocks, but other better priority threads can get time.
 	// Simulate this by allowing a reschedule.
 	if (us > 1000) {
-		hleEatMicro(us - 400);
-		return hleDelayResult(0, "utility work", 400);
+		hleEatMicro(1000);
+		return hleDelayResult(0, "utility work", us - 1000);
 	}
 	hleEatMicro(us);
 	hleReSchedule("utility work");
