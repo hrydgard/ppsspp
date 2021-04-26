@@ -1170,12 +1170,8 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		if (File::Exists(bgPng)) {
-			File::Delete(bgPng);
-		}
-		if (File::Exists(bgJpg)) {
-			File::Delete(bgJpg);
-		}
+		File::Delete(bgPng);
+		File::Delete(bgJpg);
 
 		NativeMessageReceived("bgImage_updated", "");
 	} else {

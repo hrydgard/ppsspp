@@ -51,6 +51,9 @@ bool Exists(const Path &path);
 // Returns true if file filename exists in directory path.
 bool ExistsInDir(const Path &path, const std::string &filename);
 
+// Returns true if file filename exists in directory path.
+bool ExistsInDir(const std::string &path, const std::string &filename);
+
 // Returns true if filename exists, and is a directory
 // Supports Android content URIs.
 bool IsDirectory(const Path &filename);
@@ -66,6 +69,10 @@ uint64_t GetFileSize(FILE *f);
 
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &filename);
+
+// Returns true if successful, or path already exists.
+// Supports Android Content Storage URIs, unlike CreateDir.
+bool CreateDirIn(const std::string &parentDir, const std::string &newDirName);
 
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
@@ -99,7 +106,7 @@ bool CreateEmptyFile(const Path &filename);
 
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
-void OpenFileInEditor(const Path &fileName);
+bool OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();

@@ -493,7 +493,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
 
-#if defined(__ANDROID__)
+#if PPSSPP_PLATFORM(ANDROID)
 
 	// TODO: This needs to change in Android 12.
 	//
@@ -515,6 +515,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		} else {
 			ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 		}
+	} else {
+		INFO_LOG(SYSTEM, "No memstick directory file found. Using '%s'", memstickDirFile.c_str());
 	}
 
 #elif PPSSPP_PLATFORM(IOS)

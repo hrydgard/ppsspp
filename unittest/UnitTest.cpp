@@ -615,8 +615,14 @@ static bool TestAndroidContentURI() {
 
 	AndroidStorageContentURI treeURI;
 	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
+	AndroidStorageContentURI dirURI;
+	EXPECT_TRUE(dirURI.Parse(std::string(directoryURIString)));
 	AndroidStorageContentURI fileURI;
 	EXPECT_TRUE(fileURI.Parse(std::string(fileURIString)));
+
+	std::string lastPart = dirURI.GetLastPart();
+
+	EXPECT_EQ_STR(fileURI.GetLastPart(), std::string("Tekken 6.iso"));
 
 	EXPECT_TRUE(treeURI.TreeContains(fileURI));
 

@@ -6,11 +6,15 @@
 #include "Common/Log.h"
 #include "Common/Data/Encoding/Utf8.h"
 
+#include "android/jni/app-android.h"
+
 Path::Path(const std::string &str) {
 	if (str.empty()) {
 		type_ = PathType::UNDEFINED;
 	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
 		type_ = PathType::HTTP;
+	} else if (Android_IsContentUri(str)) {
+		type_ = PathType::CONTENT_URI;
 	} else {
 		type_ = PathType::NATIVE;
 	}

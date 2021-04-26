@@ -75,6 +75,26 @@ public:
 		return file.size() > root.size();
 	}
 
+	std::string GetLastPart() const {
+		if (IsTreeURI()) {
+			// Can't do anything anyway.
+			return std::string();
+		}
+
+		if (!CanNavigateUp()) {
+			// Kinda useless to get the "primary:" volume.
+			return std::string();
+		}
+
+		size_t slash = file.rfind('/');
+		if (slash == std::string::npos) {
+			return std::string();
+		}
+
+		std::string part = file.substr(slash + 1);
+		return part;
+	}
+
 	bool NavigateUp() {
 		if (!CanNavigateUp()) {
 			return false;
@@ -104,6 +124,11 @@ public:
 			// File URI
 			return StringFromFormat("content://%s/tree/%s/document/%s", provider.c_str(), UriEncode(root).c_str(), UriEncode(file).c_str());
 		}
+	}
+
+	// Never store the output of this, only show it to the user.
+	std::string ToVisualString() const {
+		return file;
 	}
 
 	const std::string &FilePath() const {
