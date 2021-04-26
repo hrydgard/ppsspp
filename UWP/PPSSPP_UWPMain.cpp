@@ -434,6 +434,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
+	case SYSPROP_HAS_KEYBOARD:
+		return true;
 	default:
 		return false;
 	}
