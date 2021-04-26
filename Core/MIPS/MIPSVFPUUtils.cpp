@@ -1018,7 +1018,7 @@ void vfpu_sincos(float a, float &s, float &c) {
 		if (negate)
 			val.i ^= 0x80000000;
 		s = val.f;
-		c = 1.0f;
+		c = negate ? -1.0f : 1.0f;
 		return;
 	}
 
