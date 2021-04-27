@@ -90,6 +90,7 @@ int IsAdhocctlInCB = 0;
 
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
+int adhocctlPollEvent = -1;
 int adhocSocketNotifyEvent = -1;
 std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
@@ -354,6 +355,33 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Event: %d, State: %d", waitID, error, (int)result, event, adhocctlState);
 }
 
+static void __AdhocctlPollEvent(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+	int event = uid - 1;
+
+	s64 result = 0;
+	u32 error = 0;
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetAdhocctl Event WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
+		return;
+	}
+
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		if (netAdhocctlInited && adhocctlEvents.empty()) {
+			// Try again in another 10ms until adhocctl terminated.
+			CoreTiming::ScheduleEvent(usToCycles(10000) - cyclesLate, adhocctlPollEvent, userdata);
+			return;
+		}
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetAdhocctl - Pending Event(s): %d", waitID, error, (int)result, adhocctlEvents.size());
+}
+
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
 int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
 	int uid = (metasocket <= 0) ? 1 : metasocket;
@@ -380,6 +408,17 @@ int ScheduleAdhocctlState(int event, int newState, int usec, const char* reason)
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
+
+	return 0;
+}
+
+// Used to poll for Adhocctl Event
+int WaitForAdhocctlEvent(int usec, const char* reason) {
+	int uid = 0x8001;
+
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
+	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlPollEvent, param);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, 0, 0, false, reason);
 
 	return 0;
 }
@@ -963,7 +1002,7 @@ void netAdhocValidateLoopMemory() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 8);
+	auto s = p.Section("sceNetAdhoc", 1, 9);
 	if (!s)
 		return;
 
@@ -1045,6 +1084,13 @@ void __NetAdhocDoState(PointerWrap &p) {
 		netAdhocGameModeEntered = false;
 		netAdhocEnterGameModeTimeout = 15000000;
 	}
+	if (s >= 9) {
+		Do(p, adhocctlPollEvent);
+	}
+	else {
+		adhocctlPollEvent = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(adhocctlPollEvent, "__AdhocctlPollEvent", __AdhocctlPollEvent);
 	
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -1092,6 +1138,7 @@ void __AdhocNotifInit() {
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
 	gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
 	adhocctlStateEvent = CoreTiming::RegisterEvent("__AdhocctlState", __AdhocctlState);
+	adhocctlPollEvent = CoreTiming::RegisterEvent("__AdhocctlPollEvent", __AdhocctlPollEvent);
 
 	adhocctlRequests.clear();
 	adhocSocketRequests.clear();
@@ -5516,7 +5563,7 @@ void __NetTriggerCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	sceKernelDelayThread(adhocDefaultDelay);
+	WaitForAdhocctlEvent(adhocDefaultDelay, "adhocctl poll event");
 }
 
 void __NetMatchingCallbacks() //(int matchingId)
