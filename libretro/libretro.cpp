@@ -927,6 +927,17 @@ float System_GetPropertyFloat(SystemProperty prop)
    return -1;
 }
 
+bool System_GetPropertyBool(SystemProperty prop)
+{
+   switch (prop)
+   {
+   case SYSPROP_CAN_JIT:
+      return true;
+   default:
+      return false;
+   }
+}
+
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
