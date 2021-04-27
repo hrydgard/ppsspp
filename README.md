@@ -25,6 +25,9 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.11.3
+====================
+* Fix for graphics glitches in the on-screen keyboard
 
 What's new in 1.11.2
 ====================
