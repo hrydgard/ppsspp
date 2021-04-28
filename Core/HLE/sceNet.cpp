@@ -74,6 +74,7 @@ u32 apctlThreadHackAddr = 0;
 u32_le apctlThreadCode[3];
 SceUID apctlThreadID = 0;
 int apctlStateEvent = -1;
+int apctlPollEvent = -1;
 int actionAfterApctlMipsCall;
 std::recursive_mutex apctlEvtMtx;
 std::deque<ApctlArgs> apctlEvents;
@@ -154,6 +155,33 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
 }
 
+static void __ApctlPollEvent(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int uid = (int)(userdata & 0xFFFFFFFF);
+	int event = uid - 1;
+
+	s64 result = 0;
+	u32 error = 0;
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
+	if (waitID == 0 || error != 0) {
+		WARN_LOG(SCENET, "sceNetApctl Event WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
+		return;
+	}
+
+	u32 waitVal = __KernelGetWaitValue(threadID, error);
+	if (error == 0) {
+		if (netApctlInited && apctlEvents.empty()) {
+			// Try again in another 10ms until adhocctl terminated.
+			CoreTiming::ScheduleEvent(usToCycles(10000) - cyclesLate, apctlPollEvent, userdata);
+			return;
+		}
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetApctl - Pending Event(s): %d", waitID, error, (int)result, apctlEvents.size());
+}
+
 // Used to change Apctl State after a delay and before executing callback mipscall (since we don't have beforeAction)
 int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
 	int uid = event + 1;
@@ -161,6 +189,17 @@ int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	CoreTiming::ScheduleEvent(usToCycles(usec), apctlStateEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, newState, 0, false, reason);
+
+	return 0;
+}
+
+// Used to poll for Apctl Event
+int WaitForApctlEvent(int usec, const char* reason) {
+	int uid = 0x8002;
+
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
+	CoreTiming::ScheduleEvent(usToCycles(usec), apctlPollEvent, param);
+	__KernelWaitCurThread(WAITTYPE_NET, uid, 0, 0, false, reason);
 
 	return 0;
 }
@@ -263,7 +302,7 @@ void netValidateLoopMemory() {
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1, 5);
+	auto s = p.Section("sceNet", 1, 6);
 	if (!s)
 		return;
 
@@ -313,6 +352,13 @@ void __NetDoState(PointerWrap &p) {
 		apctlStateEvent = -1;
 	}
 	CoreTiming::RestoreRegisterEvent(apctlStateEvent, "__ApctlState", __ApctlState);
+	if (s >= 6) {
+		Do(p, apctlPollEvent);
+	}
+	else {
+		apctlPollEvent = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(apctlPollEvent, "__ApctlPollEvent", __ApctlPollEvent);
 
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
@@ -549,7 +595,7 @@ void __NetApctlCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback to make sure previous callback & it's afterAction are fully executed
-	sceKernelDelayThread(delayus);
+	WaitForApctlEvent(delayus, "apctl poll event");
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
