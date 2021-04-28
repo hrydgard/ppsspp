@@ -208,6 +208,7 @@ void __NetApctlInit() {
 	netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 	apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
+	apctlPollEvent = CoreTiming::RegisterEvent("__ApctlPollEvent", __ApctlPollEvent);
 	apctlHandlers.clear();
 	apctlEvents.clear();
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
