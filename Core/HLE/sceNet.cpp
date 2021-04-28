@@ -171,7 +171,7 @@ static void __ApctlPollEvent(u64 userdata, int cyclesLate) {
 
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
-		if (netApctlInited && apctlEvents.empty()) {
+		if (netApctlInited && apctlEvents.empty() && npAuthEvents.empty()) {
 			// Try again in another 10ms until adhocctl terminated.
 			CoreTiming::ScheduleEvent(usToCycles(10000) - cyclesLate, apctlPollEvent, userdata);
 			return;
