@@ -1,4 +1,5 @@
-﻿#ifdef _WIN32
+#include "ppsspp_config.h"
+#ifdef _WIN32
 #include <winsock2.h>
 #undef min
 #undef max
@@ -69,7 +70,12 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, bool *c
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
-			ERROR_LOG(IO, "Error reading from buffer: %i", retval);
+#if PPSSPP_PLATFORM(WINDOWS)
+			if (WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+			if (errno != EWOULDBLOCK)
+#endif
+				ERROR_LOG(IO, "Error reading from buffer: %i", retval);
 			return false;
 		}
 		char *p = Append((size_t)retval);

@@ -147,7 +147,6 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			// Something connected.  Pick the first one that did (if multiple.)
 			for (int sock : sockets) {
 				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
-					fd_util::SetNonBlocking(sock, false);
 					sock_ = sock;
 				} else {
 					closesocket(sock);
