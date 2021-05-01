@@ -65,6 +65,8 @@ static bool RegisterServer(int port) {
 	http::Client http;
 	Buffer theVoid;
 
+	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 	char resource4[1024] = {};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
 		if (http.Connect()) {

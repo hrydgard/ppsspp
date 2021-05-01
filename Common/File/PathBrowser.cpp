@@ -22,6 +22,8 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<File::
 	int code = 500;
 	std::vector<std::string> responseHeaders;
 
+	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 	Url baseURL(url);
 	if (!baseURL.Valid()) {
 		return false;

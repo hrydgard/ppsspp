@@ -263,6 +263,8 @@ namespace Reporting
 		http::Client http;
 		Buffer theVoid;
 
+		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 		if (output == NULL)
 			output = &theVoid;
 

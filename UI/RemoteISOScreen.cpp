@@ -117,6 +117,8 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 		statusMessage_ = formatted;
 	};
 
+	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 	auto TryServer = [&](const std::string &host, int port) {
 		SetStatus("Resolving [URL]...", host, port);
 		if (!http.Resolve(host.c_str(), port)) {

@@ -181,11 +181,11 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-#define USERAGENT "NATIVEAPP 1.0"
+constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
 
 Client::Client() {
 	httpVersion_ = "1.1";
-	userAgent_ = USERAGENT;
+	userAgent_ = DEFAULT_USERAGENT;
 }
 
 Client::~Client() {
@@ -323,7 +323,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 	buffer.Printf(tpl,
 		method, resource, httpVersion_,
 		host_.c_str(),
-		userAgent_,
+		userAgent_.c_str(),
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
 	bool flushed = buffer.FlushSocket(sock(), dataTimeout_);

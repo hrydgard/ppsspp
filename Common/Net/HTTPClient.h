@@ -69,8 +69,12 @@ public:
 		dataTimeout_ = t;
 	}
 
+	void SetUserAgent(const std::string &&value) {
+		userAgent_ = value;
+	}
+
 protected:
-	const char *userAgent_;
+	std::string userAgent_;
 	const char *httpVersion_;
 	double dataTimeout_ = -1.0;
 };
