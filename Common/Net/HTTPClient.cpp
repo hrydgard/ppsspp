@@ -337,17 +337,14 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
-	double leftTimeout = dataTimeout_;
+	double endTimeout = time_now_d() + dataTimeout_;
 	while (!ready) {
 		if (cancelled && *cancelled)
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
-		if (!ready && leftTimeout >= 0.0) {
-			leftTimeout -= CANCEL_INTERVAL;
-			if (leftTimeout < 0) {
-				ERROR_LOG(IO, "HTTP headers timed out");
-				return -1;
-			}
+		if (!ready && time_now_d() > endTimeout) {
+			ERROR_LOG(IO, "HTTP headers timed out");
+			return -1;
 		}
 	};
 	// Let's hope all the headers are available in a single packet...

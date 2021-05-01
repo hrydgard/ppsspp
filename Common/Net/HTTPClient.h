@@ -75,7 +75,7 @@ public:
 protected:
 	std::string userAgent_;
 	const char *httpVersion_;
-	double dataTimeout_ = -1.0;
+	double dataTimeout_ = 900.0;
 };
 
 // Not particularly efficient, but hey - it's a background download, that's pretty cool :P

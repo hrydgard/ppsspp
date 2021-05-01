@@ -25,13 +25,12 @@
 #include <fcntl.h>
 #endif
 
-#include "Common/Log.h"
-
 #if PPSSPP_PLATFORM(WINDOWS)
-
 #include "Common/CommonWindows.h"
-
 #endif
+
+#include "Common/Log.h"
+#include "Common/SysError.h"
 
 #include <cstdint>
 
@@ -65,7 +64,8 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 		sizeof(InstanceInfo));
 
 	if (!buf) {
-		ERROR_LOG(SCENET, "Could not map view of file %s (%08x)", ID_SHM_NAME, (uint32_t)GetLastError());
+		auto err = GetLastError();
+		ERROR_LOG(SCENET, "Could not map view of file %s, %08x %s", ID_SHM_NAME, (uint32_t)err, GetStringErrorMsg(err).c_str());
 		return false;
 	}
 
@@ -137,7 +137,7 @@ void InitInstanceCounter() {
 
 	DWORD lasterr = GetLastError();
 	if (!hIDMapFile) {
-		ERROR_LOG(SCENET, "Could not create %s file mapping object (%08x)", ID_SHM_NAME, (uint32_t)lasterr);
+		ERROR_LOG(SCENET, "Could not create %s file mapping object, %08x %s", ID_SHM_NAME, (uint32_t)lasterr, GetStringErrorMsg(lasterr).c_str());
 		PPSSPP_ID = 1;
 		return;
 	}

@@ -25,17 +25,14 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	for (size_t pos = 0, end = data_.size(); pos < end; ) {
 		bool ready = false;
-		double leftTimeout = timeout;
-		while (!ready && (leftTimeout >= 0 || cancelled)) {
+		double endTimeout = time_now_d() + timeout;
+		while (!ready) {
 			if (cancelled && *cancelled)
 				return false;
 			ready = fd_util::WaitUntilReady(sock, CANCEL_INTERVAL, true);
-			if (!ready && leftTimeout >= 0.0) {
-				leftTimeout -= CANCEL_INTERVAL;
-				if (leftTimeout < 0) {
-					ERROR_LOG(IO, "FlushSocket timed out");
-					return false;
-				}
+			if (!ready && time_now_d() > endTimeout) {
+				ERROR_LOG(IO, "FlushSocket timed out");
+				return false;
 			}
 		}
 		int sent = send(sock, &data_[pos], (int)(end - pos), MSG_NOSIGNAL);
@@ -44,37 +41,8 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 			return false;
 		}
 		pos += sent;
-
-		// Buffer full, don't spin.
-		if (sent == 0 && timeout < 0.0) {
-			sleep_ms(1);
-		}
 	}
 	data_.resize(0);
-	return true;
-}
-
-bool Buffer::ReadAll(int fd, int hintSize) {
-	std::vector<char> buf;
-	if (hintSize >= 65536 * 16) {
-		buf.resize(65536);
-	} else if (hintSize >= 1024 * 16) {
-		buf.resize(hintSize / 16);
-	} else {
-		buf.resize(4096);
-	}
-
-	while (true) {
-		int retval = recv(fd, &buf[0], (int)buf.size(), MSG_NOSIGNAL);
-		if (retval == 0) {
-			break;
-		} else if (retval < 0) {
-			ERROR_LOG(IO, "Error reading from buffer: %i", retval);
-			return false;
-		}
-		char *p = Append((size_t)retval);
-		memcpy(p, &buf[0], retval);
-	}
 	return true;
 }
 
