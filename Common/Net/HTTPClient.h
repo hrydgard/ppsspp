@@ -48,6 +48,7 @@ struct RequestProgress {
 	explicit RequestProgress(bool *c) : cancelled(c) {}
 
 	float progress = 0.0f;
+	float kBps = 0.0f;
 	bool *cancelled = nullptr;
 };
 
@@ -98,6 +99,7 @@ public:
 
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_.progress; }
+	float SpeedKBps() const { return progress_.kBps; }
 
 	bool Done() const { return completed_; }
 	bool Failed() const { return failed_; }

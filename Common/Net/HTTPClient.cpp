@@ -423,11 +423,11 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 
 	if (!contentLength) {
 		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, progress->cancelled))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, &progress->kBps, progress->cancelled))
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, &progress->progress, progress->cancelled))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, &progress->progress, &progress->kBps, progress->cancelled))
 			return -1;
 	}
 

@@ -91,6 +91,12 @@ bool GameManager::CancelDownload() {
 	return true;
 }
 
+float GameManager::DownloadSpeedKBps() {
+	if (curDownload_)
+		return curDownload_->SpeedKBps();
+	return 0.0f;
+}
+
 bool GameManager::Uninstall(std::string name) {
 	if (name.empty()) {
 		ERROR_LOG(HLE, "Cannot remove an empty-named game");

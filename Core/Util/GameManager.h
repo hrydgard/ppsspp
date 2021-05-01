@@ -48,6 +48,8 @@ public:
 	// Cancels the download in progress, if any.
 	bool CancelDownload();
 
+	float DownloadSpeedKBps();
+
 	// Call from time to time to check on completed downloads from the
 	// main UI thread.
 	void Update();

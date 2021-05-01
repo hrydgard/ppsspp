@@ -227,6 +227,7 @@ private:
 	UI::Button *installButton_ = nullptr;
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
+	UI::TextView *speedView_ = nullptr;
 	bool wasInstalled_ = false;
 };
 
@@ -245,8 +246,13 @@ void ProductView::CreateViews() {
 	wasInstalled_ = IsGameInstalled();
 	if (!wasInstalled_) {
 		launchButton_ = nullptr;
-		installButton_ = Add(new Button(st->T("Install")));
+		LinearLayout *progressDisplay = new LinearLayout(ORIENT_HORIZONTAL);
+		installButton_ = progressDisplay->Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
+
+		speedView_ = progressDisplay->Add(new TextView(""));
+		speedView_->SetVisibility(V_GONE);
+		Add(progressDisplay);
 	} else {
 		installButton_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
@@ -277,8 +283,17 @@ void ProductView::Update() {
 	if (installButton_) {
 		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	}
-	if (cancelButton_ && g_GameManager.GetState() != GameManagerState::DOWNLOADING)
-		cancelButton_->SetVisibility(UI::V_GONE);
+	if (g_GameManager.GetState() == GameManagerState::DOWNLOADING) {
+		if (speedView_) {
+			float speed = g_GameManager.DownloadSpeedKBps();
+			speedView_->SetText(StringFromFormat("%0.1f KB/s", speed));
+		}
+	} else {
+		if (cancelButton_)
+			cancelButton_->SetVisibility(UI::V_GONE);
+		if (speedView_)
+			speedView_->SetVisibility(UI::V_GONE);
+	}
 	if (launchButton_)
 		launchButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	View::Update();
@@ -301,6 +316,10 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	}
 	if (cancelButton_) {
 		cancelButton_->SetVisibility(UI::V_VISIBLE);
+	}
+	if (speedView_) {
+		speedView_->SetVisibility(UI::V_VISIBLE);
+		speedView_->SetText("");
 	}
 	INFO_LOG(SYSTEM, "Triggering install of '%s'", fileUrl.c_str());
 	g_GameManager.DownloadAndInstall(fileUrl);
