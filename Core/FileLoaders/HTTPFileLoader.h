@@ -46,7 +46,7 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
 	void Cancel() override {
-		cancelConnect_ = true;
+		cancel_ = true;
 	}
 
 	std::string LatestError() const override {
@@ -70,9 +70,10 @@ private:
 	s64 filepos_ = 0;
 	Url url_;
 	http::Client client_;
+	http::RequestProgress progress_;
 	std::string filename_;
 	bool connected_ = false;
-	bool cancelConnect_ = false;
+	bool cancel_ = false;
 	const char *latestError_ = "";
 
 	std::once_flag preparedFlag_;

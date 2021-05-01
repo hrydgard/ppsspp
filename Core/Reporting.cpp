@@ -261,6 +261,7 @@ namespace Reporting
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
 		http::Client http;
+		http::RequestProgress progress;
 		Buffer theVoid;
 
 		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
@@ -274,7 +275,7 @@ namespace Reporting
 
 		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
-			int result = http.POST(uri, data, mimeType, output);
+			int result = http.POST(uri, data, mimeType, output, &progress);
 			http.Disconnect();
 
 			return result >= 200 && result < 300;

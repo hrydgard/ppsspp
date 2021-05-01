@@ -43,26 +43,34 @@ namespace http {
 
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value);
 
+struct RequestProgress {
+	RequestProgress() {}
+	explicit RequestProgress(bool *c) : cancelled(c) {}
+
+	float progress = 0.0f;
+	bool *cancelled = nullptr;
+};
+
 class Client : public net::Connection {
 public:
 	Client();
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
-	int GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
+	int GET(const char *resource, Buffer *output, RequestProgress *progress);
+	int GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress);
 
 	// Return value is the HTTP return code.
-	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress = nullptr);
-	int POST(const char *resource, const std::string &data, Buffer *output, float *progress = nullptr);
+	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress);
+	int POST(const char *resource, const std::string &data, Buffer *output, RequestProgress *progress);
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
-	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
-	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
-	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
+	int SendRequest(const char *method, const char *resource, const char *otherHeaders, RequestProgress *progress);
+	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, RequestProgress *progress);
+	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
+	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress);
 
 	void SetDataTimeout(double t) {
 		dataTimeout_ = t;
@@ -89,7 +97,7 @@ public:
 	void Join();
 
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
-	float Progress() const { return progress_; }
+	float Progress() const { return progress_.progress; }
 
 	bool Done() const { return completed_; }
 	bool Failed() const { return failed_; }
@@ -133,7 +141,7 @@ private:
 	int PerformGET(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
-	float progress_ = 0.0f;
+	RequestProgress progress_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;

@@ -50,6 +50,7 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, bool *cancelled) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	std::vector<char> buf;
+	// We're non-blocking and reading from an OS buffer, so try to read as much as we can at a time.
 	if (knownSize >= 65536 * 16) {
 		buf.resize(65536);
 	} else if (knownSize >= 1024 * 16) {
