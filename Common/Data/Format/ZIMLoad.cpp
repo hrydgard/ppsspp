@@ -128,7 +128,7 @@ int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t 
 	size_t size;
 	uint8_t *buffer = VFSReadFile(filename, &size);
 	if (!buffer) {
-		ERROR_LOG(IO, "Couldn't read data for '%s'", buffer);
+		ERROR_LOG(IO, "Couldn't read data for '%s'", filename);
 		return 0;
 	}
 
