@@ -37,10 +37,20 @@
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/Sinks.h"
 #include "Common/File/FileDescriptor.h"
-#include "Common/Thread/Executor.h"
 
 #include "Common/Buffer.h"
 #include "Common/Log.h"
+
+void NewThreadExecutor::Run(std::function<void()> &&func) {
+	threads_.push_back(std::thread(func));
+}
+
+NewThreadExecutor::~NewThreadExecutor() {
+	// If Run was ever called...
+	for (auto &thread : threads_)
+		thread.join();
+	threads_.clear();
+}
 
 namespace http {
 
@@ -126,7 +136,7 @@ void Request::Close() {
   }
 }
 
-Server::Server(threading::Executor *executor)
+Server::Server(NewThreadExecutor *executor)
   : port_(0), executor_(executor) {
   RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
   SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));

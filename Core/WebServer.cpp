@@ -249,7 +249,7 @@ static void ForwardDebuggerRequest(const http::Request &request) {
 static void ExecuteWebServer() {
 	setCurrentThreadName("HTTPServer");
 
-	auto http = new http::Server(new threading::NewThreadExecutor());
+	auto http = new http::Server(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
 	// This lists all the (current) recent ISOs.
 	http->SetFallbackHandler(&HandleFallback);

@@ -2,10 +2,19 @@
 
 #include <functional>
 #include <map>
+#include <thread>
 
 #include "Common/Net/HTTPHeaders.h"
 #include "Common/Net/Resolve.h"
-#include "Common/Thread/Executor.h"
+
+class NewThreadExecutor {
+public:
+	~NewThreadExecutor();
+	void Run(std::function<void()> &&func);
+
+private:
+	std::vector<std::thread> threads_;
+};
 
 namespace net {
 class InputSink;
@@ -61,7 +70,7 @@ private:
 class Server {
 public:
 	// Takes ownership.
-	Server(threading::Executor *executor);
+	Server(NewThreadExecutor *executor);
 	virtual ~Server();
 
 	typedef std::function<void(const Request &)> UrlHandlerFunc;
@@ -108,7 +117,7 @@ private:
 	UrlHandlerMap handlers_;
 	UrlHandlerFunc fallback_;
 
-	threading::Executor *executor_;
+	NewThreadExecutor *executor_;
 };
 
 }  // namespace http
