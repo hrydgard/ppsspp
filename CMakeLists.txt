@@ -688,7 +688,6 @@ add_library(Common STATIC
 	Common/LogManager.h
 	Common/LogReporting.cpp
 	Common/LogReporting.h
-	Common/MakeUnique.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
