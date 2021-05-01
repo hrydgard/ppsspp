@@ -16,12 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "ColorConv.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
-#include "ColorConvNEON.h"
-#include "Common.h"
-#include "CPUDetect.h"
+#include "Common/Data/Convert/ColorConvNEON.h"
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

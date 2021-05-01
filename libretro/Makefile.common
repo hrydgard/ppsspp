@@ -251,7 +251,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \
 	$(GPUCOMMONDIR)/TextureDecoder.cpp \
 	$(GPUCOMMONDIR)/PostShader.cpp \
-	$(COMMONDIR)/ColorConv.cpp \
+	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
 	$(GPUDIR)/Debugger/Playback.cpp \
@@ -543,7 +543,7 @@ ifeq ($(WITH_DYNAREC),1)
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
 					 $(COREDIR)/Util/AudioFormatNEON.cpp \
-					 $(COMMONDIR)/ColorConvNEON.cpp \
+					 $(COMMONDIR)/Data/Convert/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
@@ -572,7 +572,7 @@ ifeq ($(WITH_DYNAREC),1)
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
 					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
 					 $(COREDIR)/Util/AudioFormatNEON.cpp \
-					 $(COMMONDIR)/ColorConvNEON.cpp \
+					 $(COMMONDIR)/Data/Convert/ColorConvNEON.cpp \
 					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \

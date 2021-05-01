@@ -21,10 +21,10 @@
 
 #include "ext/xxhash.h"
 
-#include "Common/Data/Text/I18n.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
-#include "Common/ColorConv.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"

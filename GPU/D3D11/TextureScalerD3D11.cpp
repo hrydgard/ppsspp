@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include <d3d11.h>
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Core/ThreadPools.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/D3D11/TextureScalerD3D11.h"

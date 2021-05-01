@@ -23,7 +23,7 @@
 #include <vector>
 #include "headless/Compare.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"

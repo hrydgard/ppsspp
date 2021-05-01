@@ -32,8 +32,6 @@
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="ColorConv.h" />
-    <ClInclude Include="ColorConvNEON.h" />
     <ClInclude Include="GL\GLInterface\EGL.h">
       <Filter>GL\GLInterface</Filter>
     </ClInclude>
@@ -384,6 +382,12 @@
     <ClInclude Include="GPU\ShaderTranslation.h">
       <Filter>GPU</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Convert\ColorConvNEON.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Convert\ColorConv.h">
+      <Filter>Data\Convert</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -410,8 +414,6 @@
     </ClCompile>
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
-    <ClCompile Include="ColorConv.cpp" />
-    <ClCompile Include="ColorConvNEON.cpp" />
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
@@ -739,6 +741,12 @@
     </ClCompile>
     <ClCompile Include="GPU\ShaderTranslation.cpp">
       <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Convert\ColorConvNEON.cpp">
+      <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Convert\ColorConv.cpp">
+      <Filter>Data\Convert</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

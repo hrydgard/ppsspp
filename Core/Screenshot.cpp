@@ -21,7 +21,7 @@
 #include <png.h>
 #include "ext/jpge/jpge.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/System/Display.h"

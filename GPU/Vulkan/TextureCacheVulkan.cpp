@@ -26,7 +26,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

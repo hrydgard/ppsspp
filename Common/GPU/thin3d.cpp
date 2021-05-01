@@ -2,10 +2,10 @@
 #include <cstring>
 #include <cstdint>
 
-#include "Common/System/Display.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
-#include "Common/ColorConv.h"
+#include "Common/System/Display.h"
 
 namespace Draw {
 

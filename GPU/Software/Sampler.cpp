@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #include <unordered_map>
 #include <mutex>
-#include "Common/ColorConv.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"

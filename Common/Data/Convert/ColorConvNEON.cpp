@@ -23,9 +23,9 @@
 #else
 #include <arm_neon.h>
 #endif
-#include "ColorConvNEON.h"
-#include "Common.h"
-#include "CPUDetect.h"
+#include "Common/Data/Convert/ColorConvNEON.h"
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
 
 // TODO: More NEON color conversion funcs.
 

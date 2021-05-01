@@ -18,8 +18,8 @@
 #pragma once
 
 #include "ppsspp_config.h"
-#include "CommonTypes.h"
-#include "ColorConvNEON.h"
+#include "Common/CommonTypes.h"
+#include "Common/Data/Convert/ColorConvNEON.h"
 
 void SetupColorConv();
 
