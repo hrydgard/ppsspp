@@ -82,6 +82,12 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 	return true;
 }
 
+bool GameManager::IsDownloading(std::string storeZipUrl) {
+	if (curDownload_)
+		return curDownload_->url() == storeZipUrl;
+	return false;
+}
+
 bool GameManager::CancelDownload() {
 	if (!curDownload_)
 		return false;

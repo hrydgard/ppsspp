@@ -43,6 +43,7 @@ public:
 
 	// This starts off a background process.
 	bool DownloadAndInstall(std::string storeZipUrl);
+	bool IsDownloading(std::string storeZipUrl);
 	bool Uninstall(std::string name);
 
 	// Cancels the download in progress, if any.

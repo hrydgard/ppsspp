@@ -222,6 +222,7 @@ private:
 	bool IsGameInstalled() {
 		return g_GameManager.IsGameInstalled(entry_.file);
 	}
+	std::string DownloadURL();
 
 	StoreEntry entry_;
 	UI::Button *installButton_ = nullptr;
@@ -244,6 +245,7 @@ void ProductView::CreateViews() {
 	auto st = GetI18NCategory("Store");
 	auto di = GetI18NCategory("Dialog");
 	wasInstalled_ = IsGameInstalled();
+	bool isDownloading = g_GameManager.IsDownloading(DownloadURL());
 	if (!wasInstalled_) {
 		launchButton_ = nullptr;
 		LinearLayout *progressDisplay = new LinearLayout(ORIENT_HORIZONTAL);
@@ -251,7 +253,7 @@ void ProductView::CreateViews() {
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 
 		speedView_ = progressDisplay->Add(new TextView(""));
-		speedView_->SetVisibility(V_GONE);
+		speedView_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 		Add(progressDisplay);
 	} else {
 		installButton_ = nullptr;
@@ -264,7 +266,7 @@ void ProductView::CreateViews() {
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));
 	cancelButton_->OnClick.Handle(this, &ProductView::OnCancel);
-	cancelButton_->SetVisibility(V_GONE);
+	cancelButton_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 
 	// Add star rating, comments etc?
 	Add(new TextView(entry_.description, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
@@ -299,18 +301,21 @@ void ProductView::Update() {
 	View::Update();
 }
 
-UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
-	std::string fileUrl;
+std::string ProductView::DownloadURL() {
 	if (entry_.downloadURL.empty()) {
 		// Construct the URL, easy to predict from our server
 		std::string shortName = entry_.file;
 		if (shortName.find('.') == std::string::npos)
 			shortName += ".zip";
-		fileUrl = storeBaseUrl + "files/" + shortName;
+		return storeBaseUrl + "files/" + shortName;
 	} else {
 		// Use the provided URL, for external hosting.
-		fileUrl = entry_.downloadURL;
+		return entry_.downloadURL;
 	}
+}
+
+UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
+	std::string fileUrl = DownloadURL();
 	if (installButton_) {
 		installButton_->SetEnabled(false);
 	}
