@@ -172,6 +172,15 @@ void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
+void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
+	for (uint32_t x = 0; x < numPixels; ++x) {
+		uint32_t c = src[x];
+		dst[x * 3 + 0] = (c >> 16) & 0xFF;
+		dst[x * 3 + 1] = (c >> 8) & 0xFF;
+		dst[x * 3 + 2] = (c >> 0) & 0xFF;
+	}
+}
+
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 #if _M_SSE >= 0x401
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
@@ -277,6 +286,12 @@ void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels) {
 void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; ++x) {
 		dst[x] = RGBA8888toRGBA4444(src[x]);
+	}
+}
+
+void ConvertRGBA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
+	for (uint32_t x = 0; x < numPixels; ++x) {
+		memcpy(dst + x * 3, src + x, 3);
 	}
 }
 

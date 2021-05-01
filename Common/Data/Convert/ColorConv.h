@@ -110,10 +110,12 @@ typedef void (*Convert32bppTo32bppFunc)(u32 *dst, const u32 *src, u32 numPixels)
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels);
 #define ConvertRGBA8888ToBGRA8888 ConvertBGRA8888ToRGBA8888
+void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels);
 
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels);
 void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels);
 void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels);
+void ConvertRGBA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels);
 
 void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels);
 void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels);
