@@ -5,9 +5,8 @@
 #include <thread>
 #include <cstdint>
 
+#include "Common/Net/NetBuffer.h"
 #include "Common/Net/Resolve.h"
-
-#include "Common/Buffer.h"
 
 namespace net {
 
@@ -61,9 +60,9 @@ public:
 
 	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
 	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
-	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
+	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
+	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
 	void SetDataTimeout(double t) {
 		dataTimeout_ = t;

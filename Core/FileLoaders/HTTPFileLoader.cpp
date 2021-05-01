@@ -145,7 +145,7 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 		return -400;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	return client_.ReadResponseHeaders(&readbuf, responseHeaders);
 }
 
@@ -203,7 +203,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 		return 0;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	std::vector<std::string> responseHeaders;
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 206) {
@@ -235,7 +235,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	}
 
 	// TODO: Would be nice to read directly.
-	Buffer output;
+	net::Buffer output;
 	int res = client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
 	if (res != 0) {
 		ERROR_LOG(LOADER, "Unable to read HTTP response entity: %d", res);

@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "Common/Buffer.h"
+#include "Common/Net/NetBuffer.h"
 
 namespace net {
 class InputSink;

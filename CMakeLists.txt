@@ -575,6 +575,8 @@ add_library(Common STATIC
 	Common/Net/HTTPHeaders.h
 	Common/Net/HTTPServer.cpp
 	Common/Net/HTTPServer.h
+	Common/Net/NetBuffer.cpp
+	Common/Net/NetBuffer.h
 	Common/Net/Resolve.cpp
 	Common/Net/Resolve.h
 	Common/Net/Sinks.cpp

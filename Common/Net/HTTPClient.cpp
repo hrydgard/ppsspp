@@ -31,7 +31,7 @@
 #include "Common/File/FileDescriptor.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Compression.h"
-#include "Common/Buffer.h"
+#include "Common/Net/NetBuffer.h"
 #include "Common/Log.h"
 
 namespace net {
@@ -253,7 +253,7 @@ int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &
 		return err;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress, cancelled);
 	if (code < 0) {
 		return code;
@@ -284,7 +284,7 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 		return err;
 	}
 
-	Buffer readbuf;
+	net::Buffer readbuf;
 	std::vector<std::string> responseHeaders;
 	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
 	if (code < 0) {
@@ -311,7 +311,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 		*progress = 0.01f;
 	}
 
-	Buffer buffer;
+	net::Buffer buffer;
 	const char *tpl =
 		"%s %s HTTP/%s\r\n"
 		"Host: %s\r\n"
@@ -333,7 +333,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 	return 0;
 }
 
-int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
@@ -389,7 +389,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	return code;
 }
 
-int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress, bool *cancelled) {
+int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress, bool *cancelled) {
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;

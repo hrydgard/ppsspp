@@ -68,7 +68,6 @@
     </ClInclude>
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="FakeEmitter.h" />
-    <ClInclude Include="Buffer.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="..\ext\libpng17\png.h">
       <Filter>ext\libpng17</Filter>
@@ -388,6 +387,10 @@
     <ClInclude Include="Data\Convert\ColorConv.h">
       <Filter>Data\Convert</Filter>
     </ClInclude>
+    <ClInclude Include="Buffer.h" />
+    <ClInclude Include="Net\NetBuffer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -434,7 +437,6 @@
     </ClCompile>
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="Log.cpp" />
-    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <Filter>ext\libpng17</Filter>
@@ -747,6 +749,10 @@
     </ClCompile>
     <ClCompile Include="Data\Convert\ColorConv.cpp">
       <Filter>Data\Convert</Filter>
+    </ClCompile>
+    <ClCompile Include="Buffer.cpp" />
+    <ClCompile Include="Net\NetBuffer.cpp">
+      <Filter>Net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

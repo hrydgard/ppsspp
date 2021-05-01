@@ -274,6 +274,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/HTTPClient.cpp \
   $(SRC)/Common/Net/HTTPHeaders.cpp \
   $(SRC)/Common/Net/HTTPServer.cpp \
+  $(SRC)/Common/Net/NetBuffer.cpp \
   $(SRC)/Common/Net/Resolve.cpp \
   $(SRC)/Common/Net/Sinks.cpp \
   $(SRC)/Common/Net/URL.cpp \

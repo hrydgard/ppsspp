@@ -124,6 +124,7 @@
       <Filter>Crypto</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\Common\Net\NetBuffer.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
@@ -415,6 +416,7 @@
       <Filter>Crypto</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Net\NetBuffer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeList.h" />
