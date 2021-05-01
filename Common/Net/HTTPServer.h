@@ -24,40 +24,40 @@ class OutputSink;
 namespace http {
 
 class Request {
- public:
-  Request(int fd);
-  ~Request();
+public:
+	Request(int fd);
+	~Request();
 
-  const char *resource() const {
-    return header_.resource;
-  }
+	const char *resource() const {
+		return header_.resource;
+	}
 
-  RequestHeader::Method Method() const {
-	  return header_.method;
-  }
+	RequestHeader::Method Method() const {
+		return header_.method;
+	}
 
-  bool GetParamValue(const char *param_name, std::string *value) const {
-    return header_.GetParamValue(param_name, value);
-  }
-  // Use lowercase.
-  bool GetHeader(const char *name, std::string *value) const {
-	  return header_.GetOther(name, value);
-  }
+	bool GetParamValue(const char *param_name, std::string *value) const {
+		return header_.GetParamValue(param_name, value);
+	}
+	// Use lowercase.
+	bool GetHeader(const char *name, std::string *value) const {
+		return header_.GetOther(name, value);
+	}
 
-  net::InputSink *In() const { return in_; }
-  net::OutputSink *Out() const { return out_; }
+	net::InputSink *In() const { return in_; }
+	net::OutputSink *Out() const { return out_; }
 
-  // TODO: Remove, in favor of PartialWrite and friends.
-  int fd() const { return fd_; }
+	// TODO: Remove, in favor of PartialWrite and friends.
+	int fd() const { return fd_; }
 
-  void WritePartial() const;
-  void Write();
-  void Close();
+	void WritePartial() const;
+	void Write();
+	void Close();
 
-  bool IsOK() const { return fd_ > 0; }
+	bool IsOK() const { return fd_ > 0; }
 
-  // If size is negative, no Content-Length: line is written.
-  void WriteHttpResponseHeader(const char *ver, int status, int64_t size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
+	// If size is negative, no Content-Length: line is written.
+	void WriteHttpResponseHeader(const char *ver, int status, int64_t size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
 
 private:
 	net::InputSink *in_;
@@ -112,7 +112,7 @@ private:
 	void Handle404(const Request &request);
 
 	int listener_;
-	int port_;
+	int port_ = 0;
 
 	UrlHandlerMap handlers_;
 	UrlHandlerFunc fallback_;

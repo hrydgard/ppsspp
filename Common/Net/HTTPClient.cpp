@@ -36,13 +36,12 @@
 
 namespace net {
 
-Connection::Connection()
-		: port_(-1), resolved_(NULL), sock_(-1) {
+Connection::Connection() {
 }
 
 Connection::~Connection() {
 	Disconnect();
-	if (resolved_ != NULL)
+	if (resolved_ != nullptr)
 		DNSResolveFree(resolved_);
 }
 

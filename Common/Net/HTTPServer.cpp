@@ -58,7 +58,7 @@ namespace http {
 const char *const DEFAULT_MIME_TYPE = "text/html; charset=utf-8";
 
 Request::Request(int fd)
-    : fd_(fd) {
+	: fd_(fd) {
 	in_ = new net::InputSink(fd);
 	out_ = new net::OutputSink(fd);
 	header_.ParseHeaders(in_);
@@ -137,7 +137,7 @@ void Request::Close() {
 }
 
 Server::Server(NewThreadExecutor *executor)
-	: port_(0), executor_(executor) {
+	: executor_(executor) {
 	RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
 	SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }

@@ -47,12 +47,12 @@ static const size_t OUT_PRESSURE = 65536;
 static inline std::string TrimString(const std::string &s) {
 	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
 		// isspace() expects 0 - 255, so convert any sign-extended value.
-	   return std::isspace(c & 0xFF);
-   });
-   auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){
-	   return std::isspace(c & 0xFF);
-   }).base();
-   return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
+		return std::isspace(c & 0xFF);
+	});
+	auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){
+		return std::isspace(c & 0xFF);
+	}).base();
+	return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
 }
 
 static bool ListContainsNoCase(const std::string &list, const std::string value) {
