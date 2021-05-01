@@ -212,6 +212,10 @@ static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
 	return 0;
 }
 
+static int sceUsbstorBootSetCapacity(u32 capacity) {
+	return hleReportError(HLE, 0, "unimplemented");
+}
+
 const HLEFunction sceUsb[] =
 {
 	{0XAE5DE6AF, &WrapI_CUU<sceUsbStart>,            "sceUsbStart",                             'i', "sxx"},
@@ -233,7 +237,7 @@ const HLEFunction sceUsbstor[] =
 
 const HLEFunction sceUsbstorBoot[] =
 {
-	{0XE58818A8, nullptr,                            "sceUsbstorBootSetCapacity",               '?', ""   },
+	{0XE58818A8, &WrapI_U<sceUsbstorBootSetCapacity>,"sceUsbstorBootSetCapacity",               'i', "x"  },
 	{0X594BBF95, nullptr,                            "sceUsbstorBootSetLoadAddr",               '?', ""   },
 	{0X6D865ECD, nullptr,                            "sceUsbstorBootGetDataSize",               '?', ""   },
 	{0XA1119F0D, nullptr,                            "sceUsbstorBootSetStatus",                 '?', ""   },
