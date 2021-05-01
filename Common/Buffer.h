@@ -10,7 +10,14 @@
 class Buffer {
 public:
 	Buffer();
+	Buffer(Buffer &&) = default;
 	~Buffer();
+
+	static Buffer Void() {
+		Buffer buf;
+		buf.void_ = true;
+		return buf;
+	}
 
 	// Write max [length] bytes to the returned pointer.
 	// Any other operation on this Buffer invalidates the pointer.
@@ -65,10 +72,12 @@ public:
 	size_t size() const { return data_.size(); }
 	bool empty() const { return size() == 0; }
 	void clear() { data_.resize(0); }
+	bool IsVoid() { return void_; }
 
 protected:
 	// TODO: Find a better internal representation, like a cord.
 	std::vector<char> data_;
+	bool void_ = false;
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(Buffer);

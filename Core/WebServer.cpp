@@ -64,7 +64,7 @@ static bool RegisterServer(int port) {
 	bool success = false;
 	http::Client http;
 	http::RequestProgress progress;
-	Buffer theVoid;
+	Buffer theVoid = Buffer::Void();
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 

@@ -432,23 +432,25 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	// output now contains the rest of the reply. Dechunk it.
-	if (chunked) {
-		DeChunk(readbuf, output, contentLength, &progress->progress);
-	} else {
-		output->Append(*readbuf);
-	}
-
-	// If it's gzipped, we decompress it and put it back in the buffer.
-	if (gzip) {
-		std::string compressed, decompressed;
-		output->TakeAll(&compressed);
-		bool result = decompress_string(compressed, &decompressed);
-		if (!result) {
-			ERROR_LOG(IO, "Error decompressing using zlib");
-			progress->progress = 0.0f;
-			return -1;
+	if (!output->IsVoid()) {
+		if (chunked) {
+			DeChunk(readbuf, output, contentLength, &progress->progress);
+		} else {
+			output->Append(*readbuf);
 		}
-		output->Append(decompressed);
+
+		// If it's gzipped, we decompress it and put it back in the buffer.
+		if (gzip) {
+			std::string compressed, decompressed;
+			output->TakeAll(&compressed);
+			bool result = decompress_string(compressed, &decompressed);
+			if (!result) {
+				ERROR_LOG(IO, "Error decompressing using zlib");
+				progress->progress = 0.0f;
+				return -1;
+			}
+			output->Append(decompressed);
+		}
 	}
 
 	progress->progress = 1.0f;

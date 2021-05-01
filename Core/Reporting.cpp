@@ -262,11 +262,11 @@ namespace Reporting
 	{
 		http::Client http;
 		http::RequestProgress progress;
-		Buffer theVoid;
+		Buffer theVoid = Buffer::Void();
 
 		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 
-		if (output == NULL)
+		if (output == nullptr)
 			output = &theVoid;
 
 		const char *serverHost = ServerHostname();
