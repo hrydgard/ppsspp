@@ -16,12 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "ColorConv.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
-#include "ColorConvNEON.h"
-#include "Common.h"
-#include "CPUDetect.h"
+#include "Common/Data/Convert/ColorConvNEON.h"
+#include "Common/Common.h"
+#include "Common/CPUDetect.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -172,6 +172,15 @@ void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
+void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
+	for (uint32_t x = 0; x < numPixels; ++x) {
+		uint32_t c = src[x];
+		dst[x * 3 + 0] = (c >> 16) & 0xFF;
+		dst[x * 3 + 1] = (c >> 8) & 0xFF;
+		dst[x * 3 + 2] = (c >> 0) & 0xFF;
+	}
+}
+
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 #if _M_SSE >= 0x401
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
@@ -277,6 +286,12 @@ void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels) {
 void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; ++x) {
 		dst[x] = RGBA8888toRGBA4444(src[x]);
+	}
+}
+
+void ConvertRGBA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
+	for (uint32_t x = 0; x < numPixels; ++x) {
+		memcpy(dst + x * 3, src + x, 3);
 	}
 }
 
@@ -634,6 +649,21 @@ void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels) {
 		dst[i] = ((c >> 11) & 0x001F) |
 		         ((c >> 0)  & 0x07E0) |
 		         ((c << 11) & 0xF800);
+	}
+}
+
+void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
+	const u32 *src32 = (const u32 *)src;
+	u32 *dst32 = (u32 *)dst;
+	for (u32 i = 0; i < numPixels / 2; i++) {
+		const u32 c = src32[i];
+		dst32[i] = ((c >> 15) & 0x00010001) | ((c << 1) & 0xFFFEFFFE);
+	}
+
+	if (numPixels & 1) {
+		const u32 i = numPixels - 1;
+		const u16 c = src[i];
+		dst[i] = (c >> 15) | (c << 1);
 	}
 }
 

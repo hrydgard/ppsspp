@@ -20,10 +20,10 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/Log.h"
-#include "Common/CPUDetect.h"
-#include "Common/ColorConv.h"
 #include "Common/Common.h"
+#include "Common/CPUDetect.h"
+#include "Common/Data/Convert/ColorConv.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/MemMap.h"

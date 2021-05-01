@@ -3,17 +3,15 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Core/System.h"
-
-#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "GPU/GPUState.h"
 
-#include "Rasterizer.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"

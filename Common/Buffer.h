@@ -10,7 +10,14 @@
 class Buffer {
 public:
 	Buffer();
+	Buffer(Buffer &&) = default;
 	~Buffer();
+
+	static Buffer Void() {
+		Buffer buf;
+		buf.void_ = true;
+		return buf;
+	}
 
 	// Write max [length] bytes to the returned pointer.
 	// Any other operation on this Buffer invalidates the pointer.
@@ -59,25 +66,19 @@ public:
 	// Writes the entire buffer to the file descriptor. Also resets the
 	// size to zero. On failure, data remains in buffer and nothing is
 	// written.
-	bool Flush(int fd);
 	bool FlushToFile(const char *filename);
-	bool FlushSocket(uintptr_t sock, double timeout = -1.0, bool *cancelled = nullptr);  // Windows portability
-
-	bool ReadAll(int fd, int hintSize = 0);
-	bool ReadAllWithProgress(int fd, int knownSize, float *progress, bool *cancelled);
-
-	// < 0: error
-	// >= 0: number of bytes read
-	int Read(int fd, size_t sz);
 
 	// Utilities. Try to avoid checking for size.
 	size_t size() const { return data_.size(); }
 	bool empty() const { return size() == 0; }
 	void clear() { data_.resize(0); }
+	bool IsVoid() { return void_; }
 
-private:
+protected:
 	// TODO: Find a better internal representation, like a cord.
 	std::vector<char> data_;
+	bool void_ = false;
 
+private:
 	DISALLOW_COPY_AND_ASSIGN(Buffer);
 };

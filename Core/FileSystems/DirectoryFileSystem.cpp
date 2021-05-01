@@ -36,6 +36,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/DiskFree.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/SysError.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
@@ -631,7 +632,8 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	err = ReplayApplyDisk(ReplayAction::FILE_OPEN, err, CoreTiming::GetGlobalTimeUs());
 	if (err != 0) {
 #ifdef _WIN32
-		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
+		auto win32err = GetLastError();
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i, %s", (int)win32err, (int)access, GetStringErrorMsg(win32err).c_str());
 #else
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif

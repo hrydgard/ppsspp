@@ -19,8 +19,8 @@
 #include <d3d11.h>
 
 #include "Common/Common.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
-#include "Common/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"

@@ -21,8 +21,8 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

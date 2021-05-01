@@ -92,8 +92,8 @@
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
-    <ClCompile Include="..\..\Common\ColorConv.cpp" />
-    <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
+    <ClCompile Include="..\..\Common\Data\Convert\ColorConv.cpp" />
+    <ClCompile Include="..\..\Common\Data\Convert\ColorConvNEON.cpp" />
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />
@@ -124,6 +124,7 @@
       <Filter>Crypto</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\Common\Net\NetBuffer.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
@@ -381,8 +382,8 @@
     <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />
-    <ClInclude Include="..\..\Common\ColorConv.h" />
-    <ClInclude Include="..\..\Common\ColorConvNEON.h" />
+    <ClInclude Include="..\..\Common\Data\Convert\ColorConv.h" />
+    <ClInclude Include="..\..\Common\Data\Convert\ColorConvNEON.h" />
     <ClInclude Include="..\..\Common\Common.h" />
     <ClInclude Include="..\..\Common\CommonFuncs.h" />
     <ClInclude Include="..\..\Common\CommonTypes.h" />
@@ -415,6 +416,7 @@
       <Filter>Crypto</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Net\NetBuffer.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeDeque.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeFuncs.h" />
     <ClInclude Include="..\..\Common\Serialize\SerializeList.h" />

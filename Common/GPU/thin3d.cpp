@@ -2,10 +2,10 @@
 #include <cstring>
 #include <cstdint>
 
-#include "Common/System/Display.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
-#include "Common/ColorConv.h"
+#include "Common/System/Display.h"
 
 namespace Draw {
 
@@ -396,8 +396,6 @@ DrawContext::~DrawContext() {
 	DestroyPresets();
 }
 
-// TODO: Use the functions we have in Common/ColorConv.cpp.
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const uint32_t *src32 = (const uint32_t *)src;
@@ -415,9 +413,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		}
 	} else if (format == Draw::DataFormat::R8G8B8_UNORM) {
 		for (uint32_t y = 0; y < height; ++y) {
-			for (uint32_t x = 0; x < width; ++x) {
-				memcpy(dst + x * 3, src32 + x, 3);
-			}
+			ConvertRGBA8888ToRGB888(dst, src32, width);
 			src32 += srcStride;
 			dst += dstStride * 3;
 		}
@@ -455,8 +451,6 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 	}
 }
 
-// TODO: Use the functions we have in Common/ColorConv.cpp.
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const uint32_t *src32 = (const uint32_t *)src;
@@ -481,12 +475,7 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		}
 	} else if (format == Draw::DataFormat::R8G8B8_UNORM) {
 		for (uint32_t y = 0; y < height; ++y) {
-			for (uint32_t x = 0; x < width; ++x) {
-				uint32_t c = src32[x];
-				dst[x * 3 + 0] = (c >> 16) & 0xFF;
-				dst[x * 3 + 1] = (c >> 8) & 0xFF;
-				dst[x * 3 + 2] = (c >> 0) & 0xFF;
-			}
+			ConvertBGRA8888ToRGB888(dst, src32, width);
 			src32 += srcStride;
 			dst += dstStride * 3;
 		}

@@ -21,9 +21,9 @@
 #include <string>
 #include <vector>
 
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/ColorConv.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"

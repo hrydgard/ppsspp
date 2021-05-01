@@ -19,12 +19,12 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 
-#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"

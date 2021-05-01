@@ -245,7 +245,8 @@ bool IsDirectory(const std::string &filename)
 	std::wstring copy = ConvertUTF8ToWString(fn);
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
-		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), (uint32_t)GetLastError());
+		auto err = GetLastError();
+		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", fn.c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;
@@ -311,7 +312,7 @@ bool CreateDir(const std::string &path)
 		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
-	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x", path.c_str(), (uint32_t)error);
+	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
 	return false;
 #else
 	if (mkdir(fn.c_str(), 0755) == 0)

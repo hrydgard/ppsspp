@@ -23,8 +23,8 @@ extern "C" {
 
 #endif
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/FileUtil.h"
-#include "Common/ColorConv.h"
 
 #include "Core/Config.h"
 #include "Core/AVIDump.h"

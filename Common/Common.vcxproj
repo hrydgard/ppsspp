@@ -452,6 +452,7 @@
     <ClInclude Include="Math\lin\matrix4x4.h" />
     <ClInclude Include="Math\lin\vec3.h" />
     <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Net\NetBuffer.h" />
     <ClInclude Include="Net\HTTPClient.h" />
     <ClInclude Include="Net\HTTPHeaders.h" />
     <ClInclude Include="Net\HTTPServer.h" />
@@ -469,12 +470,12 @@
     <ClInclude Include="Render\Text\draw_text_win.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />
-    <ClInclude Include="ColorConvNEON.h" />
+    <ClInclude Include="Data\Convert\ColorConvNEON.h" />
     <ClInclude Include="Serialize\SerializeList.h" />
     <ClInclude Include="Serialize\SerializeMap.h" />
     <ClInclude Include="Serialize\Serializer.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="ColorConv.h" />
+    <ClInclude Include="Data\Convert\ColorConv.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -705,7 +706,7 @@
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="Buffer.cpp" />
-    <ClCompile Include="ColorConvNEON.cpp">
+    <ClCompile Include="Data\Convert\ColorConvNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -775,6 +776,7 @@
     <ClCompile Include="Math\lin\matrix4x4.cpp" />
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />
+    <ClCompile Include="Net\NetBuffer.cpp" />
     <ClCompile Include="Net\HTTPClient.cpp" />
     <ClCompile Include="Net\HTTPHeaders.cpp" />
     <ClCompile Include="Net\HTTPServer.cpp" />
@@ -791,7 +793,7 @@
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
-    <ClCompile Include="ColorConv.cpp" />
+    <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp">

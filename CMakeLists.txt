@@ -400,7 +400,7 @@ set(CommonARM
 	Common/ArmCPUDetect.cpp
 	Common/ArmEmitter.h
 	Common/ArmEmitter.cpp
-	Common/ColorConvNEON.cpp
+	Common/Data/Convert/ColorConvNEON.cpp
 )
 source_group(ARM FILES ${CommonARM})
 
@@ -460,6 +460,8 @@ add_library(Common STATIC
 	Common/Data/Collections/ThreadSafeList.h
 	Common/Data/Color/RGBAUtil.cpp
 	Common/Data/Color/RGBAUtil.h
+	Common/Data/Convert/ColorConv.cpp
+	Common/Data/Convert/ColorConv.h
 	Common/Data/Convert/SmallDataConvert.cpp
 	Common/Data/Convert/SmallDataConvert.h
 	Common/Data/Encoding/Base64.cpp
@@ -573,6 +575,8 @@ add_library(Common STATIC
 	Common/Net/HTTPHeaders.h
 	Common/Net/HTTPServer.cpp
 	Common/Net/HTTPServer.h
+	Common/Net/NetBuffer.cpp
+	Common/Net/NetBuffer.h
 	Common/Net/Resolve.cpp
 	Common/Net/Resolve.h
 	Common/Net/Sinks.cpp
@@ -624,8 +628,6 @@ add_library(Common STATIC
 	Common/Buffer.h
 	Common/Buffer.cpp
 	Common/CodeBlock.h
-	Common/ColorConv.cpp
-	Common/ColorConv.h
 	Common/Common.h
 	Common/CommonFuncs.h
 	Common/CommonTypes.h
