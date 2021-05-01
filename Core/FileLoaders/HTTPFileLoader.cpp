@@ -20,6 +20,7 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
@@ -28,6 +29,8 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 
 void HTTPFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
+		client_.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 		std::vector<std::string> responseHeaders;
 		Url resourceURL = url_;
 		int redirectsLeft = 20;

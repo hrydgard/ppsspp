@@ -597,8 +597,6 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
-	Common/Thread/Executor.cpp
-	Common/Thread/Executor.h
 	Common/Thread/PrioritizedWorkQueue.cpp
 	Common/Thread/PrioritizedWorkQueue.h
 	Common/Thread/ThreadUtil.cpp

@@ -36,13 +36,12 @@
 
 namespace net {
 
-Connection::Connection()
-		: port_(-1), resolved_(NULL), sock_(-1) {
+Connection::Connection() {
 }
 
 Connection::~Connection() {
 	Disconnect();
-	if (resolved_ != NULL)
+	if (resolved_ != nullptr)
 		DNSResolveFree(resolved_);
 }
 
@@ -182,11 +181,11 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-#define USERAGENT "NATIVEAPP 1.0"
+constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
 
 Client::Client() {
 	httpVersion_ = "1.1";
-	userAgent_ = USERAGENT;
+	userAgent_ = DEFAULT_USERAGENT;
 }
 
 Client::~Client() {
@@ -324,7 +323,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 	buffer.Printf(tpl,
 		method, resource, httpVersion_,
 		host_.c_str(),
-		userAgent_,
+		userAgent_.c_str(),
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
 	bool flushed = buffer.FlushSocket(sock(), dataTimeout_);
@@ -531,7 +530,7 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 }
 
 void Download::Do() {
-	setCurrentThreadName("Downloader::Do");
+	SetCurrentThreadName("Downloader::Do");
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;

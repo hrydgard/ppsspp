@@ -483,7 +483,6 @@
     <ClInclude Include="..\..\Common\System\Display.h" />
     <ClInclude Include="..\..\Common\System\NativeApp.h" />
     <ClInclude Include="..\..\Common\System\System.h" />
-    <ClInclude Include="..\..\Common\Thread\Executor.h" />
     <ClInclude Include="..\..\Common\Thread\PrioritizedWorkQueue.h" />
     <ClInclude Include="..\..\Common\Thread\ThreadPool.h" />
     <ClInclude Include="..\..\Common\Thread\ThreadUtil.h" />
@@ -591,7 +590,6 @@
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
     <ClCompile Include="..\..\Common\System\Display.cpp" />
-    <ClCompile Include="..\..\Common\Thread\Executor.cpp" />
     <ClCompile Include="..\..\Common\Thread\PrioritizedWorkQueue.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadPool.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp" />

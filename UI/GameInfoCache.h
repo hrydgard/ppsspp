@@ -170,8 +170,6 @@ public:
 	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
-	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
-
 	void CancelAll();
 	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 

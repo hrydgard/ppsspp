@@ -48,7 +48,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 
-AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams)
+AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams)
 	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 
 AsyncImageFileView::~AsyncImageFileView() {}
@@ -179,7 +179,7 @@ protected:
 		UI::LinearLayout *content = new UI::LinearLayout(UI::ORIENT_VERTICAL);
 		parent->Add(content);
 		UI::Margins contentMargins(10, 0);
-		content->Add(new AsyncImageFileView(filename_, UI::IS_KEEP_ASPECT, nullptr, new UI::LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
+		content->Add(new AsyncImageFileView(filename_, UI::IS_KEEP_ASPECT, new UI::LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 	}
 
 private:
@@ -230,10 +230,9 @@ SaveSlotView::SaveSlotView(const std::string &gameFilename, int slot, UI::Layout
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
-	PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 	Add(new Spacer(5));
 
-	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
+	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
 	auto pa = GetI18NCategory("Pause");

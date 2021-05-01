@@ -29,12 +29,12 @@ protected:
 	// Store the remote host here, so we can send it along through HTTP/1.1 requests.
 	// TODO: Move to http::client?
 	std::string host_;
-	int port_;
+	int port_ = -1;
 
-	addrinfo *resolved_;
+	addrinfo *resolved_ = nullptr;
 
 private:
-	uintptr_t sock_;
+	uintptr_t sock_ = -1;
 
 };
 
@@ -69,8 +69,12 @@ public:
 		dataTimeout_ = t;
 	}
 
+	void SetUserAgent(const std::string &&value) {
+		userAgent_ = value;
+	}
+
 protected:
-	const char *userAgent_;
+	std::string userAgent_;
 	const char *httpVersion_;
 	double dataTimeout_ = -1.0;
 };

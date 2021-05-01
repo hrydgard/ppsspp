@@ -223,7 +223,7 @@ cont:
 }
 
 void *v4l_loop(void *data) {
-	setCurrentThreadName("v4l_loop");
+	SetCurrentThreadName("v4l_loop");
 	while (v4l_fd >= 0) {
 		struct v4l2_buffer buf;
 		memset(&buf, 0, sizeof(buf));

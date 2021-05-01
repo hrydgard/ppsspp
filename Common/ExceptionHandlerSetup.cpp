@@ -102,7 +102,7 @@ static void CheckKR(const char* name, kern_return_t kr) {
 }
 
 static void ExceptionThread(mach_port_t port) {
-	setCurrentThreadName("Mach exception thread");
+	SetCurrentThreadName("Mach exception thread");
 #pragma pack(4)
 	struct {
 		mach_msg_header_t Head;

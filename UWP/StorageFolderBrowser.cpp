@@ -20,7 +20,7 @@ StorageFolderBrowser::StorageFolderBrowser(Windows::Storage::StorageFolder ^fold
 }
 
 void StorageFolderBrowser::threadfunc() {
-	setCurrentThreadName("StorageFileLoader");
+	SetCurrentThreadName("StorageFileLoader");
 
 	initMutex.lock();
 

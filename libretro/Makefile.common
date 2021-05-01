@@ -204,7 +204,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Render/DrawBuffer.cpp \
 	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
-	$(COMMONDIR)/Thread/Executor.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
 	$(COMMONDIR)/Thread/ThreadPool.cpp \
 	$(COMMONDIR)/Thread/PrioritizedWorkQueue.cpp \

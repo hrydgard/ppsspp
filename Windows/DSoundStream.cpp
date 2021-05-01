@@ -110,7 +110,7 @@ int DSoundAudioBackend::RunThread() {
 	dsBuffer_->Unlock(p1, num1, 0, 0);
 	totalRenderedBytes_ = -bufferSize_;
 
-	setCurrentThreadName("DSound");
+	SetCurrentThreadName("DSound");
 	currentPos_ = 0;
 	lastPos_ = 0;
 

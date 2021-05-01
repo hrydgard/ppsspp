@@ -126,7 +126,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	if (!ws)
 		return;
 
-	setCurrentThreadName("Debugger");
+	SetCurrentThreadName("Debugger");
 	UpdateConnected(1);
 	SetupDebuggerLock();
 

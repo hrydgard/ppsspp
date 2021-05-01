@@ -453,7 +453,7 @@ bool PortManager::RefreshPortList() {
 
 int upnpService(const unsigned int timeout)
 {
-	setCurrentThreadName("UPnPService");
+	SetCurrentThreadName("UPnPService");
 	INFO_LOG(SCENET, "UPnPService: Begin of UPnPService Thread");
 
 	// Service Loop

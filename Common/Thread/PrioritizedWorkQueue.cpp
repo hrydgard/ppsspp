@@ -113,7 +113,7 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 static std::thread *workThread;
 
 static void threadfunc(PrioritizedWorkQueue *wq) {
-	setCurrentThreadName("PrioQueue");
+	SetCurrentThreadName("PrioQueue");
 	while (true) {
 		PrioritizedWorkQueueItem *item = wq->Pop();
 		if (!item) {

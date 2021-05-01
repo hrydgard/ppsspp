@@ -2,10 +2,19 @@
 
 #include <functional>
 #include <map>
+#include <thread>
 
 #include "Common/Net/HTTPHeaders.h"
 #include "Common/Net/Resolve.h"
-#include "Common/Thread/Executor.h"
+
+class NewThreadExecutor {
+public:
+	~NewThreadExecutor();
+	void Run(std::function<void()> &&func);
+
+private:
+	std::vector<std::thread> threads_;
+};
 
 namespace net {
 class InputSink;
@@ -15,40 +24,40 @@ class OutputSink;
 namespace http {
 
 class Request {
- public:
-  Request(int fd);
-  ~Request();
+public:
+	Request(int fd);
+	~Request();
 
-  const char *resource() const {
-    return header_.resource;
-  }
+	const char *resource() const {
+		return header_.resource;
+	}
 
-  RequestHeader::Method Method() const {
-	  return header_.method;
-  }
+	RequestHeader::Method Method() const {
+		return header_.method;
+	}
 
-  bool GetParamValue(const char *param_name, std::string *value) const {
-    return header_.GetParamValue(param_name, value);
-  }
-  // Use lowercase.
-  bool GetHeader(const char *name, std::string *value) const {
-	  return header_.GetOther(name, value);
-  }
+	bool GetParamValue(const char *param_name, std::string *value) const {
+		return header_.GetParamValue(param_name, value);
+	}
+	// Use lowercase.
+	bool GetHeader(const char *name, std::string *value) const {
+		return header_.GetOther(name, value);
+	}
 
-  net::InputSink *In() const { return in_; }
-  net::OutputSink *Out() const { return out_; }
+	net::InputSink *In() const { return in_; }
+	net::OutputSink *Out() const { return out_; }
 
-  // TODO: Remove, in favor of PartialWrite and friends.
-  int fd() const { return fd_; }
+	// TODO: Remove, in favor of PartialWrite and friends.
+	int fd() const { return fd_; }
 
-  void WritePartial() const;
-  void Write();
-  void Close();
+	void WritePartial() const;
+	void Write();
+	void Close();
 
-  bool IsOK() const { return fd_ > 0; }
+	bool IsOK() const { return fd_ > 0; }
 
-  // If size is negative, no Content-Length: line is written.
-  void WriteHttpResponseHeader(const char *ver, int status, int64_t size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
+	// If size is negative, no Content-Length: line is written.
+	void WriteHttpResponseHeader(const char *ver, int status, int64_t size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
 
 private:
 	net::InputSink *in_;
@@ -61,7 +70,7 @@ private:
 class Server {
 public:
 	// Takes ownership.
-	Server(threading::Executor *executor);
+	Server(NewThreadExecutor *executor);
 	virtual ~Server();
 
 	typedef std::function<void(const Request &)> UrlHandlerFunc;
@@ -103,12 +112,12 @@ private:
 	void Handle404(const Request &request);
 
 	int listener_;
-	int port_;
+	int port_ = 0;
 
 	UrlHandlerMap handlers_;
 	UrlHandlerFunc fallback_;
 
-	threading::Executor *executor_;
+	NewThreadExecutor *executor_;
 };
 
 }  // namespace http

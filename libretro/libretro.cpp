@@ -487,7 +487,7 @@ namespace Libretro
 
    static void EmuThreadFunc()
    {
-      setCurrentThreadName("Emu");
+      SetCurrentThreadName("Emu");
 
       for (;;)
       {

@@ -513,7 +513,7 @@ void WASAPIAudioThread::Run() {
 
 int WASAPIAudioBackend::RunThread() {
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-	setCurrentThreadName("WASAPI_audio");
+	SetCurrentThreadName("WASAPI_audio");
 
 	if (threadData_ == 0) {
 		// This will free everything once it's done.

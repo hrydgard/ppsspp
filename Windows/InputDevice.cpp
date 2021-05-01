@@ -36,7 +36,7 @@ inline static void ExecuteInputPoll() {
 }
 
 static void RunInputThread() {
-	setCurrentThreadName("Input");
+	SetCurrentThreadName("Input");
 
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.

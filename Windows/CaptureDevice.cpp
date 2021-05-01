@@ -874,9 +874,9 @@ void WindowsCaptureDevice::messageHandler() {
 	CAPTUREDEVIDE_MESSAGE message;
 
 	if (type == CAPTUREDEVIDE_TYPE::VIDEO) {
-		setCurrentThreadName("Camera");
+		SetCurrentThreadName("Camera");
 	} else if (type == CAPTUREDEVIDE_TYPE::AUDIO) {
-		setCurrentThreadName("Microphone");
+		SetCurrentThreadName("Microphone");
 	}
 
 	while ((message = getMessage()).command != CAPTUREDEVIDE_COMMAND::SHUTDOWN) {

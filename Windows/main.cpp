@@ -517,7 +517,7 @@ static void WinMainCleanup() {
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
-	setCurrentThreadName("Main");
+	SetCurrentThreadName("Main");
 
 	WinMainInit();
 

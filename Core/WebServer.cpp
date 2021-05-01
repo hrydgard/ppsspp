@@ -65,6 +65,8 @@ static bool RegisterServer(int port) {
 	http::Client http;
 	Buffer theVoid;
 
+	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 	char resource4[1024] = {};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
 		if (http.Connect()) {
@@ -247,9 +249,9 @@ static void ForwardDebuggerRequest(const http::Request &request) {
 }
 
 static void ExecuteWebServer() {
-	setCurrentThreadName("HTTPServer");
+	SetCurrentThreadName("HTTPServer");
 
-	auto http = new http::Server(new threading::NewThreadExecutor());
+	auto http = new http::Server(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
 	// This lists all the (current) recent ISOs.
 	http->SetFallbackHandler(&HandleFallback);

@@ -308,7 +308,7 @@ static void EmuThreadFunc() {
 	JNIEnv *env;
 	gJvm->AttachCurrentThread(&env, nullptr);
 
-	setCurrentThreadName("Emu");
+	SetCurrentThreadName("Emu");
 	INFO_LOG(SYSTEM, "Entering emu thread");
 
 	// Wait for render loop to get started.
@@ -618,7 +618,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
-	setCurrentThreadName("androidInit");
+	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
 	ProcessFrameCommands(env);
@@ -1025,7 +1025,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		hasSetThreadName = true;
-		setCurrentThreadName("AndroidRender");
+		SetCurrentThreadName("AndroidRender");
 	}
 
 	if (useCPUThread) {
@@ -1416,7 +1416,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		static bool hasSetThreadName = false;
 		if (!hasSetThreadName) {
 			hasSetThreadName = true;
-			setCurrentThreadName("AndroidRender");
+			SetCurrentThreadName("AndroidRender");
 		}
 	}
 

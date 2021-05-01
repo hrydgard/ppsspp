@@ -1078,7 +1078,7 @@ void EmuScreen::CreateViews() {
 		chatButton_ = nullptr;
 	}
 
-	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
 	saveStatePreview_->SetVisibility(V_GONE);

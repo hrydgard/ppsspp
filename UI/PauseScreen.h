@@ -58,13 +58,11 @@ private:
 	std::string gamePath_;
 };
 
-class PrioritizedWorkQueue;
-
 // AsyncImageFileView loads a texture from a file, and reloads it as necessary.
 // TODO: Actually make async, doh.
 class AsyncImageFileView : public UI::Clickable {
 public:
-	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
+	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams = 0);
 	~AsyncImageFileView();
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
