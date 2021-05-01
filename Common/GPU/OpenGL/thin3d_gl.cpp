@@ -6,6 +6,7 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -812,15 +813,6 @@ public:
 	GLRFramebuffer *framebuffer_ = nullptr;
 };
 
-// TODO: SSE/NEON optimize, and move to ColorConv.cpp.
-void MoveABit(u16 *dest, const u16 *src, size_t count) {
-	for (int i = 0; i < count; i++) {
-		u16 data = src[i];
-		data = (data >> 15) | (data << 1);
-		dest[i] = data;
-	}
-}
-
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
 	if ((width != width_ || height != height_ || depth != depth_) && level == 0) {
 		// When switching to texStorage we need to handle this correctly.
@@ -843,14 +835,14 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	if (texDataPopulated) {
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
 			format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
-			MoveABit((u16 *)texData, (const u16 *)texData, width * height * depth);
+			ConvertBGRA5551ToABGR1555((u16 *)texData, (const u16 *)texData, width * height * depth);
 		}
 	} else {
 		// Emulate support for DataFormat::A1R5G5B5_UNORM_PACK16.
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
 			format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
 			for (int y = 0; y < height; y++) {
-				MoveABit((u16 *)(texData + y * width * alignment), (const u16 *)(data + y * stride * alignment), width);
+				ConvertBGRA5551ToABGR1555((u16 *)(texData + y * width * alignment), (const u16 *)(data + y * stride * alignment), width);
 			}
 		} else {
 			for (int y = 0; y < height; y++) {

@@ -637,6 +637,21 @@ void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels) {
 	}
 }
 
+void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
+	const u32 *src32 = (const u32 *)src;
+	u32 *dst32 = (u32 *)dst;
+	for (u32 i = 0; i < numPixels / 2; i++) {
+		const u32 c = src32[i];
+		dst32[i] = ((c >> 15) & 0x00010001) | ((c << 1) & 0xFFFEFFFE);
+	}
+
+	if (numPixels & 1) {
+		const u32 i = numPixels - 1;
+		const u16 c = src[i];
+		dst[i] = (c >> 15) | (c << 1);
+	}
+}
+
 // Reuse the logic from the header - if these aren't defined, we need externs.
 #ifndef ConvertRGBA4444ToABGR4444
 Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444Basic;

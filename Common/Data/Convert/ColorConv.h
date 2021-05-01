@@ -134,6 +134,7 @@ void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
 void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels);
+void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels);
 
 #if PPSSPP_ARCH(ARM64)
 #define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444NEON
