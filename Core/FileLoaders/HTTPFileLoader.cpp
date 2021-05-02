@@ -196,7 +196,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	snprintf(requestHeaders, sizeof(requestHeaders),
 		"Range: bytes=%lld-%lld\r\n", absolutePos, absoluteEnd - 1);
 
-	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, nullptr);
+	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, &progress_);
 	if (err < 0) {
 		latestError_ = "Invalid response reading data";
 		Disconnect();
