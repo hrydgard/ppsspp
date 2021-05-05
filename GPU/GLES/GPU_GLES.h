@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "Common/File/Path.h"
+
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
@@ -86,5 +88,5 @@ private:
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;
 
-	std::string shaderCachePath_;
+	Path shaderCachePath_;
 };

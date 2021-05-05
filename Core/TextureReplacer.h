@@ -21,8 +21,11 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
+#include "Common/File/Path.h"
+
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/ge_constants.h"
 
@@ -188,7 +191,7 @@ public:
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
-	static bool GenerateIni(const std::string &gameID, std::string *generatedFilename);
+	static bool GenerateIni(const std::string &gameID, Path *generatedFilename);
 
 protected:
 	bool LoadIni();
@@ -211,7 +214,7 @@ protected:
 	float reduceHashGlobalValue = 0.5; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
 	bool ignoreMipmap_ = false;
 	std::string gameID_;
-	std::string basePath_;
+	Path basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;

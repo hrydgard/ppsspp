@@ -55,12 +55,12 @@ void TextureReplacer::NotifyConfigChanged() {
 
 	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {
-		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) + gameID_ + "/";
+		basePath_ = Path(GetSysDirectory(DIRECTORY_TEXTURES)) / gameID_;
 
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists(basePath_ + NEW_TEXTURE_DIR)) {
-			File::CreateFullPath(basePath_ + NEW_TEXTURE_DIR);
-			File::CreateEmptyFile(basePath_ + NEW_TEXTURE_DIR + "/.nomedia");
+		if (g_Config.bSaveNewTextures && !File::Exists((basePath_ / NEW_TEXTURE_DIR).ToString())) {
+			File::CreateFullPath(basePath_ / NEW_TEXTURE_DIR);
+			File::CreateEmptyFile(basePath_ / NEW_TEXTURE_DIR / ".nomedia");
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
@@ -86,9 +86,9 @@ bool TextureReplacer::LoadIni() {
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
 
-	if (File::Exists(basePath_ + INI_FILENAME)) {
+	if (File::Exists(basePath_ / INI_FILENAME)) {
 		IniFile ini;
-		ini.LoadFromVFS(basePath_ + INI_FILENAME);
+		ini.LoadFromVFS((basePath_ / INI_FILENAME).ToString());
 
 		if (!LoadIniValues(ini)) {
 			return false;
@@ -100,7 +100,7 @@ bool TextureReplacer::LoadIni() {
 			if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
 				INFO_LOG(G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
 				IniFile overrideIni;
-				overrideIni.LoadFromVFS(basePath_ + overrideFilename);
+				overrideIni.LoadFromVFS((basePath_ / overrideFilename).ToString());
 
 				if (!LoadIniValues(overrideIni, true)) {
 					return false;
@@ -389,7 +389,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 
 	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
 		const std::string hashfile = LookupHashFile(cachekey, hash, i);
-		const std::string filename = basePath_ + hashfile;
+		const Path filename = basePath_ / hashfile;
 		if (hashfile.empty() || !File::Exists(filename)) {
 			// Out of valid mip levels.  Bail out.
 			break;
@@ -398,7 +398,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		bool good = false;
 		ReplacedTextureLevel level;
 		level.fmt = ReplacedTextureFormat::F_8888;
-		level.file = filename;
+		level.file = filename.ToString();
 
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
@@ -433,7 +433,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
-static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
+static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
 		ERROR_LOG(IO, "Unable to open texture file for writing.");
@@ -473,8 +473,8 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	}
 
 	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
-	const std::string filename = basePath_ + hashfile;
-	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
+	const Path filename = basePath_ / hashfile;
+	const Path saveFilename = basePath_ / NEW_TEXTURE_DIR / hashfile;
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
 	if (hashfile.empty() || File::Exists(filename)) {
@@ -498,10 +498,10 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 #endif
 	if (slash != hashfile.npos) {
 		// Create any directory structure as needed.
-		const std::string saveDirectory = basePath_ + NEW_TEXTURE_DIR + hashfile.substr(0, slash);
+		const Path saveDirectory = basePath_ / NEW_TEXTURE_DIR / hashfile.substr(0, slash);
 		if (!File::Exists(saveDirectory)) {
 			File::CreateFullPath(saveDirectory);
-			File::CreateEmptyFile(saveDirectory + "/.nomedia");
+			File::CreateEmptyFile(saveDirectory / ".nomedia");
 		}
 	}
 
@@ -567,7 +567,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	// Remember that we've saved this for next time.
 	ReplacedTextureLevel saved;
 	saved.fmt = ReplacedTextureFormat::F_8888;
-	saved.file = filename;
+	saved.file = filename.ToString();
 	saved.w = w;
 	saved.h = h;
 	savedCache_[replacementKey] = saved;
@@ -694,7 +694,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
 
-	FILE *fp = File::OpenCFile(info.file, "rb");
+	FILE *fp = File::OpenCFile(Path(info.file), "rb");
 	if (!png_image_begin_read_from_stdio(&png, fp)) {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
 		return;
@@ -727,21 +727,21 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	png_image_free(&png);
 }
 
-bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *generatedFilename) {
+bool TextureReplacer::GenerateIni(const std::string &gameID, Path *generatedFilename) {
 	if (gameID.empty())
 		return false;
 
-	std::string texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) + gameID + "/";
+	Path texturesDirectory = Path(GetSysDirectory(DIRECTORY_TEXTURES)) / gameID;
 	if (!File::Exists(texturesDirectory)) {
 		File::CreateFullPath(texturesDirectory);
 	}
 
 	if (generatedFilename)
-		*generatedFilename = texturesDirectory + INI_FILENAME;
-	if (File::Exists(texturesDirectory + INI_FILENAME))
+		*generatedFilename = texturesDirectory / INI_FILENAME;
+	if (File::Exists(*generatedFilename))
 		return true;
 
-	FILE *f = File::OpenCFile(texturesDirectory + INI_FILENAME, "wb");
+	FILE *f = File::OpenCFile(texturesDirectory / INI_FILENAME, "wb");
 	if (f) {
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
@@ -770,5 +770,5 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fprintf(f, "[reducehashranges]\n");
 		fclose(f);
 	}
-	return File::Exists(texturesDirectory + INI_FILENAME);
+	return File::Exists(texturesDirectory / INI_FILENAME);
 }

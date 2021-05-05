@@ -31,7 +31,7 @@ struct WebSocketGPURecordState : public DebuggerSubscriber {
 protected:
 	bool pending_ = false;
 	std::string lastTicket_;
-	std::string lastFilename_;
+	Path lastFilename_;
 };
 
 DebuggerSubscriber *WebSocketGPURecordInit(DebuggerEventHandlerMap &map) {
@@ -63,7 +63,7 @@ void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
 		return req.Fail("Recording already in progress");
 
 	pending_ = true;
-	GPURecord::SetCallback([=](const std::string &filename) {
+	GPURecord::SetCallback([=](const Path &filename) {
 		lastFilename_ = filename;
 		pending_ = false;
 	});

@@ -68,7 +68,7 @@ bool VFSGetFileListing(const char *path, std::vector<File::FileInfo> *listing, c
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
-		File::GetFilesInDir(path, listing, filter);
+		File::GetFilesInDir(Path(std::string(path)), listing, filter);
 		return true;
 	}
 
@@ -95,7 +95,7 @@ bool VFSGetFileInfo(const char *path, File::FileInfo *info) {
 	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
-		return File::GetFileInfo(path, info);
+		return File::GetFileInfo(Path(std::string(path)), info);
 	}
 
 	bool fileSystemFound = false;

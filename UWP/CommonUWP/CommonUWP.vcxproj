@@ -415,6 +415,7 @@
     <ClInclude Include="..\..\Common\File\DiskFree.h" />
     <ClInclude Include="..\..\Common\File\FileDescriptor.h" />
     <ClInclude Include="..\..\Common\File\FileUtil.h" />
+    <ClInclude Include="..\..\Common\File\Path.h" />
     <ClInclude Include="..\..\Common\File\PathBrowser.h" />
     <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
     <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
@@ -535,6 +536,7 @@
     <ClCompile Include="..\..\Common\File\DiskFree.cpp" />
     <ClCompile Include="..\..\Common\File\FileDescriptor.cpp" />
     <ClCompile Include="..\..\Common\File\FileUtil.cpp" />
+    <ClCompile Include="..\..\Common\File\Path.cpp" />
     <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />

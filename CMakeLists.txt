@@ -501,6 +501,8 @@ add_library(Common STATIC
 	Common/File/VFS/AssetReader.h
 	Common/File/DiskFree.h
 	Common/File/DiskFree.cpp
+	Common/File/Path.h
+	Common/File/Path.cpp
 	Common/File/PathBrowser.h
 	Common/File/PathBrowser.cpp
 	Common/File/FileUtil.cpp

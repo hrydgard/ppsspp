@@ -35,8 +35,8 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
-		std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
-		if (compat2.Load(path)) {
+		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
+		if (compat2.Load(path.ToString())) {
 			CheckSettings(compat2, gameID);
 		}
 	}

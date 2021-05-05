@@ -24,6 +24,7 @@
 #include <mutex>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
 enum SymbolType {
 	ST_NONE     = 0,
@@ -69,10 +70,10 @@ public:
 	void Clear();
 	void SortSymbols();
 
-	bool LoadSymbolMap(const char *filename);
-	void SaveSymbolMap(const char *filename) const;
-	bool LoadNocashSym(const char *ilename);
-	void SaveNocashSym(const char *filename) const;
+	bool LoadSymbolMap(const Path &filename);
+	void SaveSymbolMap(const Path &filename) const;
+	bool LoadNocashSym(const Path &filename);
+	void SaveNocashSym(const Path &filename) const;
 
 	SymbolType GetSymbolType(u32 address);
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION);

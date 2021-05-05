@@ -34,7 +34,7 @@
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
-CwCheatScreen::CwCheatScreen(const std::string &gamePath)
+CwCheatScreen::CwCheatScreen(const Path &gamePath)
 	: UIDialogScreenWithBackground() {
 	gamePath_ = gamePath;
 }
@@ -50,8 +50,8 @@ void CwCheatScreen::LoadCheatInfo() {
 		gameID = info->paramSFO.GetValueString("DISC_ID");
 	}
 	if ((info->id.empty() || !info->disc_total)
-		&& gamePath_.find("/PSP/GAME/") != std::string::npos) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_);
+		&& gamePath_.FilePathContains("PSP/GAME/")) {
+		gameID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 	}
 
 	if (engine_ == nullptr || gameID != gameID_) {
@@ -176,7 +176,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 #if PPSSPP_PLATFORM(UWP)
 		LaunchBrowser(engine_->CheatFilename().c_str());
 #else
-		File::OpenFileInEditor(engine_->CheatFilename());
+		File::OpenFileInEditor(engine_->CheatFilename().ToString());
 #endif
 	}
 	return UI::EVENT_DONE;
@@ -204,7 +204,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	bool finished = false;
 	std::vector<std::string> newList;
 
-	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	Path cheatFile = GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
 	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
 	FILE *in = File::OpenCFile(cheatFile, "rt");

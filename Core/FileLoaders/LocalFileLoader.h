@@ -18,8 +18,12 @@
 #pragma once
 
 #include <mutex>
+
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/Loaders.h"
+
+
 #ifdef _WIN32
 typedef void *HANDLE;
 #endif
@@ -44,7 +48,7 @@ private:
 	HANDLE handle_;
 #endif
 	u64 filesize_;
-	std::string filename_;
+	::Path filename_;
 	std::mutex readLock_;
 	bool isOpenedByFd_;
 };

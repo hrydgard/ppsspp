@@ -20,3 +20,4 @@ public:
 };
 
 extern std::string g_extFilesDir;
+

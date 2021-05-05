@@ -113,14 +113,14 @@ bool LocalFileLoader::Exists() {
 	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
 #endif
 		File::FileInfo info;
-		return File::GetFileInfo(filename_.c_str(), &info);
+		return File::GetFileInfo(filename_, &info);
 	}
 	return false;
 }
 
 bool LocalFileLoader::IsDirectory() {
 	File::FileInfo info;
-	if (File::GetFileInfo(filename_.c_str(), &info)) {
+	if (File::GetFileInfo(filename_, &info)) {
 		return info.isDirectory;
 	}
 	return false;
@@ -131,7 +131,7 @@ s64 LocalFileLoader::FileSize() {
 }
 
 std::string LocalFileLoader::GetPath() const {
-	return filename_;
+	return filename_.ToString();
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {

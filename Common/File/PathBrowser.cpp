@@ -219,7 +219,7 @@ bool PathBrowser::IsListingReady() {
 std::string PathBrowser::GetFriendlyPath() const {
 	std::string str = GetPath();
 	// Show relative to memstick root if there.
-	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
 	for (size_t i = 0; i < root.size(); i++) {
 		if (root[i] == '\\')
 			root[i] = '/';
@@ -270,7 +270,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 		fileInfo = ApplyFilter(pendingFiles_, filter);
 		return true;
 	} else {
-		File::GetFilesInDir(path_.c_str(), &fileInfo, filter);
+		File::GetFilesInDir(Path(path_), &fileInfo, filter);
 		return true;
 	}
 }

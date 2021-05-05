@@ -152,7 +152,7 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
 	// Kinda ugly, trying to guesstimate the test name from filename...
-	currentTestName = GetTestName(coreParameter.fileToStart);
+	currentTestName = GetTestName(coreParameter.fileToStart.ToString());
 
 	std::string output;
 	if (autoCompare)
@@ -160,7 +160,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 	std::string error_string;
 	if (!PSP_Init(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+		fprintf(stderr, "Failed to start '%s'. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		printf("TESTERROR\n");
 		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
@@ -172,7 +172,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	host->BootDone();
 
 	if (autoCompare)
-		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
+		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart.ToString()));
 
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
@@ -221,7 +221,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	headlessHost->FlushDebugOutput();
 
 	if (autoCompare && passed)
-		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
+		passed = CompareOutput(coreParameter.fileToStart.ToString(), output, verbose);
 
 	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
@@ -355,10 +355,8 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
-	if (mountIso)
-		coreParameter.mountIso = mountIso;
-	if (mountRoot)
-		coreParameter.mountRoot = mountRoot;
+	coreParameter.mountIso = mountIso ? Path(std::string(mountIso)) : Path();
+	coreParameter.mountRoot = mountRoot ? Path(std::string(mountRoot)) : Path();
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
@@ -415,14 +413,14 @@ int main(int argc, const char* argv[])
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
 	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
-		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
-			g_Config.flash0Directory += "../assets/flash0/";
+		if (File::Exists(g_Config.flash0Directory / ".." / "assets/flash0"))
+			g_Config.flash0Directory = g_Config.flash0Directory / ".." / "assets/flash0";
 		else
-			g_Config.flash0Directory += "../../flash0/";
+			g_Config.flash0Directory = g_Config.flash0Directory / ".." / ".." / "flash0";
 	}
 	// Or else, maybe in the executable's dir.
 	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() + "assets/flash0/";
+		g_Config.flash0Directory = Path(File::GetExeDirectory()) / "assets/flash0";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
@@ -446,19 +444,19 @@ int main(int argc, const char* argv[])
 	}
 
 	if (stateToLoad != NULL)
-		SaveState::Load(stateToLoad, -1);
+		SaveState::Load(Path(stateToLoad), -1);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
 	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
-		coreParameter.fileToStart = testFilenames[i];
+		coreParameter.fileToStart = Path(testFilenames[i]);
 		if (autoCompare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, verbose, timeout);
 		if (autoCompare)
 		{
-			std::string testName = GetTestName(coreParameter.fileToStart);
+			std::string testName = GetTestName(coreParameter.fileToStart.ToString());
 			if (passed)
 			{
 				passedTests.push_back(testName);

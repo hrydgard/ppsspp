@@ -23,7 +23,9 @@
 #pragma once
 
 #include <thread>
+
 #include "Common/Net/HTTPClient.h"
+#include "Common/File/Path.h"
 
 enum class GameManagerState {
 	IDLE,
@@ -79,8 +81,8 @@ private:
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
 	bool InstallRawISO(const std::string &zipFile, const std::string &originalName, bool deleteAfter);
 	void InstallDone();
-	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
-	bool DetectTexturePackDest(struct zip *z, int iniIndex, std::string *dest);
+	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes);
+	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
 	void SetInstallError(const std::string &err);
 
 	std::string GetTempFilename() const;

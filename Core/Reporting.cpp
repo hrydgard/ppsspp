@@ -171,13 +171,13 @@ namespace Reporting
 		return it->second;
 	}
 
-	static uint32_t RetrieveCRCUnlessPowerSaving(const std::string &gamePath) {
+	static uint32_t RetrieveCRCUnlessPowerSaving(const Path &gamePath) {
 		// It's okay to use it if we have it already.
-		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
+		if (Core_GetPowerSaving() && !HasCRC(gamePath.ToString())) {
 			return 0;
 		}
 
-		return RetrieveCRC(gamePath);
+		return RetrieveCRC(gamePath.ToString());
 	}
 
 	static void PurgeCRC() {
@@ -552,7 +552,7 @@ namespace Reporting
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
 #if defined(USING_WIN_UI) || defined(APPLE)
-		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
+		if (!File::Exists(g_Config.flash0Directory / "font/jpn0.pgf"))
 			return false;
 #else
 		File::FileInfo fo;

@@ -77,7 +77,7 @@ namespace std {
 
 static std::unordered_set<HashMapFunc> hashMap;
 
-static std::string hashmapFileName;
+static Path hashmapFileName;
 
 #define MIPSTABLE_IMM_MASK 0xFC000000
 
@@ -1185,7 +1185,7 @@ skip:
 	void FinalizeScan(bool insertSymbols) {
 		HashFunctions();
 
-		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
+		Path hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
 			LoadBuiltinHashMap();
 			if (g_Config.bFuncHashMap) {
@@ -1311,12 +1311,12 @@ skip:
 
 	void SetHashMapFilename(const std::string& filename) {
 		if (filename.empty())
-			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
+			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 		else
-			hashmapFileName = filename;
+			hashmapFileName = Path(filename);
 	}
 
-	void StoreHashMap(std::string filename) {
+	void StoreHashMap(Path filename) {
 		if (filename.empty())
 			filename = hashmapFileName;
 
@@ -1381,7 +1381,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(const std::string& filename) {
+	void LoadHashMap(const Path &filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

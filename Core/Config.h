@@ -22,7 +22,9 @@
 #include <vector>
 
 #include "ppsspp_config.h"
+
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/ConfigValues.h"
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -477,8 +479,8 @@ public:
 	// Various directories. Autoconfigured, not read from ini.
 	std::string currentDirectory;
 	std::string externalDirectory;
-	std::string memStickDirectory;
-	std::string flash0Directory;
+	Path memStickDirectory;
+	Path flash0Directory;
 	std::string internalDataDirectory;
 	std::string appCacheDirectory;
 
@@ -499,14 +501,14 @@ public:
 	bool loadGameConfig(const std::string &game_id, const std::string &title);
 	bool saveGameConfig(const std::string &pGameId, const std::string &title);
 	void unloadGameConfig();
-	std::string getGameConfigFile(const std::string &gameId);
+	Path getGameConfigFile(const std::string &gameId);
 	bool hasGameConfig(const std::string &game_id);
 
 	// Used when the file is not found in the search path.  Trailing slash.
-	void SetDefaultPath(const std::string &defaultPath);
+	void SetDefaultPath(const Path &defaultPath);
 	// Use a trailing slash.
-	void AddSearchPath(const std::string &path);
-	const std::string FindConfigFile(const std::string &baseFilename);
+	void AddSearchPath(const Path &path);
+	const Path FindConfigFile(const std::string &baseFilename);
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
@@ -531,11 +533,11 @@ private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
-	std::string iniFilename_;
-	std::string controllerIniFilename_;
-	std::vector<std::string> searchPath_;
-	std::string defaultPath_;
-	std::string createdPath_;
+	Path iniFilename_;
+	Path controllerIniFilename_;
+	std::vector<Path> searchPath_;
+	Path defaultPath_;
+	Path createdPath_;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();

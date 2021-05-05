@@ -22,6 +22,7 @@
 #include <mutex>
 
 #include "Common/Common.h"
+#include "Common/File/Path.h"
 #include "Common/Swap.h"
 #include "Core/Loaders.h"
 
@@ -75,7 +76,7 @@ public:
 		return --refCount_ == 0;
 	}
 
-	static void SetCacheDir(const std::string &path) {
+	static void SetCacheDir(const Path &path) {
 		cacheDir_ = path;
 	}
 
@@ -98,13 +99,13 @@ private:
 	void WriteIndexData(u32 indexPos, BlockInfo &info);
 	s64 GetBlockOffset(u32 block);
 
-	std::string MakeCacheFilePath(const std::string &path);
+	::Path MakeCacheFilePath(const std::string &filename);
 	std::string MakeCacheFilename(const std::string &path);
-	bool LoadCacheFile(const std::string &path);
+	bool LoadCacheFile(const Path &path);
 	void LoadCacheIndex();
-	void CreateCacheFile(const std::string &path);
+	void CreateCacheFile(const Path &path);
 	bool LockCacheFile(bool lockStatus);
-	bool RemoveCacheFile(const std::string &path);
+	bool RemoveCacheFile(const Path &path);
 	void CloseFileHandle();
 
 	u64 FreeDiskSpace();
@@ -146,7 +147,7 @@ private:
 	size_t cacheSize_;
 	size_t indexCount_;
 	std::mutex lock_;
-	std::string origPath_;
+	Path origPath_;
 
 	struct FileHeader {
 		char magic[8];
@@ -176,5 +177,5 @@ private:
 	FILE *f_ = nullptr;
 	int fd_ = 0;
 
-	static std::string cacheDir_;
+	static Path cacheDir_;
 };

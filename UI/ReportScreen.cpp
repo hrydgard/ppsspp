@@ -158,7 +158,7 @@ void CompatRatingChoice::SetupChoices() {
 	AddChoice(4, rp->T("Nothing"));
 }
 
-ReportScreen::ReportScreen(const std::string &gamePath)
+ReportScreen::ReportScreen(const Path &gamePath)
 	: UIDialogScreenWithGameBackground(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
@@ -168,12 +168,12 @@ void ReportScreen::postRender() {
 	// We do this after render because we need it to be within the frame (so the screenshot works).
 	// We could do it mid frame, but then we have to reapply viewport/scissor.
 	if (!tookScreenshot_) {
-		std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+		Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 		if (!File::Exists(path)) {
 			File::CreateDir(path);
 		}
-		screenshotFilename_ = path + ".reporting.jpg";
-		if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+		screenshotFilename_ = path / ".reporting.jpg";
+		if (TakeGameScreenshot(screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
 			// Redo the views already, now with a screenshot included.
 			RecreateViews();
 		} else {
@@ -270,7 +270,7 @@ void ReportScreen::CreateViews() {
 	}
 
 #ifdef MOBILE_DEVICE
-	if (!Core_GetPowerSaving() && !Reporting::HasCRC(gamePath_)) {
+	if (!Core_GetPowerSaving() && !Reporting::HasCRC(gamePath_.ToString())) {
 		auto crcWarning = new TextView(rp->T("FeedbackIncludeCRC", "Note: Battery will be used to send a disc CRC"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(12, 5, 0, 5)));
 		crcWarning->SetShadow(true);
 		crcWarning->SetEnabledPtr(&enableReporting_);
@@ -334,8 +334,8 @@ void ReportScreen::UpdateCRCInfo() {
 	auto rp = GetI18NCategory("Reporting");
 	std::string updated;
 
-	if (Reporting::HasCRC(gamePath_)) {
-		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
+	if (Reporting::HasCRC(gamePath_.ToString())) {
+		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_.ToString()));
 		updated = ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: [VALUE]"), "[VALUE]", crc);
 	} else if (showCRC_) {
 		updated = rp->T("FeedbackCRCCalculating", "Disc CRC: Calculating...");
@@ -381,7 +381,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 		g_Config.Save("ReportScreen::HandleSubmit");
 	}
 
-	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_ : "";
+	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_.ToString() : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
@@ -395,12 +395,12 @@ EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 }
 
 EventReturn ReportScreen::HandleShowCRC(EventParams &e) {
-	Reporting::QueueCRC(gamePath_);
+	Reporting::QueueCRC(gamePath_.ToString());
 	showCRC_ = true;
 	return EVENT_DONE;
 }
 
-ReportFinishScreen::ReportFinishScreen(const std::string &gamePath, ReportingOverallScore score)
+ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallScore score)
 	: UIDialogScreenWithGameBackground(gamePath), score_(score) {
 }
 

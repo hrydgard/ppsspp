@@ -348,14 +348,11 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
-	std::string path = pspGame + entry_.file;
-#ifdef _WIN32
-	path = ReplaceAll(path, "\\", "/");
-#endif
+	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
+	Path path = pspGame / entry_.file;
 	UI::EventParams e2{};
 	e2.v = e.v;
-	e2.s = path;
+	e2.s = path.ToString();
 	// Insta-update - here we know we are already on the right thread.
 	OnClickLaunch.Trigger(e2);
 	return UI::EVENT_DONE;
@@ -547,7 +544,7 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 
 UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
 	std::string path = e.s;
-	screenManager()->switchScreen(new EmuScreen(path));
+	screenManager()->switchScreen(new EmuScreen(Path(path)));
 	return UI::EVENT_DONE;
 }
 

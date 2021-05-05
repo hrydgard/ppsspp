@@ -377,7 +377,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	}
 }
 
-bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath)
+bool MetaFileSystem::GetHostPath(const std::string &inpath, Path &outpath)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;

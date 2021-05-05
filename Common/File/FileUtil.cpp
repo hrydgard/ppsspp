@@ -91,15 +91,21 @@
 // This namespace has various generic functions related to files and paths.
 // The code still needs a ton of cleanup.
 // REMEMBER: strdup considered harmful!
-namespace File
-{
+namespace File {
 
-FILE *OpenCFile(const std::string &filename, const char *mode)
-{
+FILE *OpenCFile(const Path &path, const char *mode) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break;
+	default:
+		ERROR_LOG(COMMON, "OpenCFile(%s): Not yet supported", path.c_str());
+		return nullptr;
+	}
+
 #if defined(_WIN32) && defined(UNICODE)
-	return _wfopen(ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(mode).c_str());
+	return _wfopen(path.ToWString().c_str(), ConvertUTF8ToWString(mode).c_str());
 #else
-	return fopen(filename.c_str(), mode);
+	return fopen(path.ToString().c_str(), mode);
 #endif
 }
 
@@ -140,7 +146,7 @@ std::string ResolvePath(const std::string &path) {
 	if (startsWith(path, "http://") || startsWith(path, "https://")) {
 		return path;
 	}
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE] {};
 
@@ -189,7 +195,7 @@ std::string ResolvePath(const std::string &path) {
 static void StripTailDirSlashes(std::string &fname) {
 	if (fname.length() > 1) {
 		size_t i = fname.length() - 1;
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
 			return;
 #endif
@@ -200,6 +206,10 @@ static void StripTailDirSlashes(std::string &fname) {
 }
 
 // Returns true if file filename exists. Will return true on directories.
+bool ExistsInDir(const Path &path, const std::string &filename) {
+	return Exists(path / filename);
+}
+
 bool Exists(const std::string &filename) {
 	std::string fn = filename;
 	StripTailDirSlashes(fn);
@@ -225,10 +235,21 @@ bool Exists(const std::string &filename) {
 #endif
 }
 
-// Returns true if filename is a directory
-bool IsDirectory(const std::string &filename)
-{
-	std::string fn = filename;
+bool Exists(const Path &path) {
+	// Temporary forward.
+	return Exists(path.ToString());
+}
+
+// Returns true if filename exists and is a directory
+bool IsDirectory(const Path &filename) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fn = filename.ToString();
 	StripTailDirSlashes(fn);
 
 #if defined(_WIN32)
@@ -255,7 +276,14 @@ bool IsDirectory(const std::string &filename)
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const std::string &filename) {
+bool Delete(const Path &filename) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
 	INFO_LOG(COMMON, "Delete: file %s", filename.c_str());
 
 	// Return true because we care about the file no 
@@ -272,7 +300,7 @@ bool Delete(const std::string &filename) {
 	}
 
 #ifdef _WIN32
-	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str())) {
+	if (!DeleteFile(filename.ToWString().c_str())) {
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -288,10 +316,15 @@ bool Delete(const std::string &filename) {
 }
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const std::string &path)
-{
-	std::string fn = path;
-	StripTailDirSlashes(fn);
+bool CreateDir(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fn = path.ToString();
 	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
 #ifdef _WIN32
 	if (::CreateDirectory(ConvertUTF8ToWString(fn).c_str(), NULL))
@@ -309,7 +342,6 @@ bool CreateDir(const std::string &path)
 		return true;
 
 	int err = errno;
-
 	if (err == EEXIST)
 	{
 		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fn.c_str());
@@ -322,10 +354,15 @@ bool CreateDir(const std::string &path)
 }
 
 // Creates the full path of fullPath returns true on success
-bool CreateFullPath(const std::string &path)
-{
-	std::string fullPath = path;
-	StripTailDirSlashes(fullPath);
+bool CreateFullPath(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fullPath = path.ToString();
 	int panicCounter = 100;
 	VERBOSE_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
 		
@@ -337,30 +374,29 @@ bool CreateFullPath(const std::string &path)
 	size_t position = 0;
 
 #ifdef _WIN32
-	// Skip the drive letter, no need to create C:\.
-	position = 3;
+	// Skip the drive letter when looking for slashes, no need to create C:\.
+	if (path.IsAbsolute()) {
+		position = 3;
+	}
 #endif
 
-	while (true)
-	{
+	while (true) {
 		// Find next sub path
 		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
-
 		// we're done, yay!
-		if (position == fullPath.npos)
-		{
+		if (position == fullPath.npos) {
 			if (!File::Exists(fullPath))
-				return File::CreateDir(fullPath);
+				return File::CreateDir(Path(fullPath));
 			return true;
 		}
 		std::string subPath = fullPath.substr(0, position);
-		if (position != 0 && !File::Exists(subPath))
-			File::CreateDir(subPath);
+		if (position != 0 && !File::Exists(subPath)) {
+			File::CreateDir(Path(subPath));
+		}
 
 		// A safety check
 		panicCounter--;
-		if (panicCounter <= 0)
-		{
+		if (panicCounter <= 0) {
 			ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
 			return false;
 		}
@@ -374,7 +410,7 @@ bool DeleteDir(const std::string &filename)
 	INFO_LOG(COMMON, "DeleteDir: directory %s", filename.c_str());
 
 	// check if a directory
-	if (!File::IsDirectory(filename))
+	if (!File::IsDirectory(Path(filename)))
 	{
 		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", filename.c_str());
 		return false;
@@ -600,8 +636,8 @@ uint64_t GetFileSize(FILE *f)
 }
 
 // creates an empty file filename, returns true on success 
-bool CreateEmptyFile(const std::string &filename)
-{
+bool CreateEmptyFile(const Path &filename) {
+
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
@@ -651,7 +687,7 @@ bool DeleteDirRecursively(const std::string &directory)
 			continue;
 
 		std::string newPath = directory + DIR_SEP + virtualName;
-		if (IsDirectory(newPath))
+		if (IsDirectory(Path(newPath)))
 		{
 			if (!DeleteDirRecursively(newPath))
 			{
@@ -665,7 +701,7 @@ bool DeleteDirRecursively(const std::string &directory)
 		}
 		else
 		{
-			if (!File::Delete(newPath))
+			if (!File::Delete(Path(newPath)))
 			{
 #ifndef _WIN32
 				closedir(dirp);
@@ -793,12 +829,26 @@ IOFile::IOFile(const std::string& filename, const char openmode[])
 	Open(filename, openmode);
 }
 
+IOFile::IOFile(const Path &filename, const char openmode[]) 
+	: m_file(NULL), m_good(true)
+{
+	Open(filename.ToString(), openmode);
+}
+
 IOFile::~IOFile()
 {
 	Close();
 }
 
 bool IOFile::Open(const std::string& filename, const char openmode[])
+{
+	Close();
+	m_file = File::OpenCFile(Path(filename), openmode);
+	m_good = IsOpen();
+	return m_good;
+}
+
+bool IOFile::Open(const Path& filename, const char openmode[])
 {
 	Close();
 	m_file = File::OpenCFile(filename, openmode);
@@ -879,7 +929,7 @@ bool IOFile::Resize(uint64_t size)
 }
 
 bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
-	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
+	FILE *f = File::OpenCFile(Path(filename), text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
@@ -907,7 +957,7 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 }
 
 uint8_t *ReadLocalFile(const char *filename, size_t * size) {
-	FILE *file = File::OpenCFile(filename, "rb");
+	FILE *file = File::OpenCFile(Path(filename), "rb");
 	if (!file) {
 		*size = 0;
 		return nullptr;
@@ -933,9 +983,8 @@ uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	return contents;
 }
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
-{
-	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
+bool WriteStringToFile(bool text_file, const std::string &str, const char *filename) {
+	FILE *f = File::OpenCFile(Path(filename), text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = str.size();
@@ -948,9 +997,8 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
-{
-	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename) {
+	FILE *f = File::OpenCFile(Path(filename), text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = size;

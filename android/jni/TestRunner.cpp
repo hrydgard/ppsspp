@@ -59,15 +59,15 @@ static std::string TrimNewlines(const std::string &s) {
 
 bool TestsAvailable() {
 #if PPSSPP_PLATFORM(IOS)
-	std::string testDirectory = g_Config.flash0Directory + "../";
+	Path testDirectory = Path(g_Config.flash0Directory) + "../";
 #else
-	std::string testDirectory = g_Config.memStickDirectory;
+	Path testDirectory = g_Config.memStickDirectory;
 #endif
 	// Hack to easily run the tests on Windows from the submodule
-	if (File::IsDirectory("../pspautotests")) {
-		testDirectory = "../";
+	if (File::IsDirectory(Path("../pspautotests"))) {
+		testDirectory = Path("..");
 	}
-	return File::Exists(testDirectory + "pspautotests/tests/");
+	return File::Exists(Path(testDirectory) / "pspautotests" / "tests");
 }
 
 bool RunTests() {
@@ -76,10 +76,10 @@ bool RunTests() {
 #if PPSSPP_PLATFORM(IOS)
 	std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
-	std::string baseDirectory = g_Config.memStickDirectory;
+	Path baseDirectory = g_Config.memStickDirectory;
 	// Hack to easily run the tests on Windows from the submodule
-	if (File::IsDirectory("../pspautotests")) {
-		baseDirectory = "../";
+	if (File::IsDirectory(Path("../pspautotests"))) {
+		baseDirectory = Path("..");
 	}
 #endif
 
@@ -93,7 +93,7 @@ bool RunTests() {
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.graphicsContext = nullptr;
 	coreParam.mountIso.clear();
-	coreParam.mountRoot = baseDirectory + "pspautotests/";
+	coreParam.mountRoot = baseDirectory / "pspautotests";
 	coreParam.startBreak = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = true;
@@ -110,11 +110,11 @@ bool RunTests() {
 	g_Config.sReportHost = "";
 
 	for (size_t i = 0; i < ARRAY_SIZE(testsToRun); i++) {
-		const char *testName = testsToRun[i];
-		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
-		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
+		std::string testName = testsToRun[i];
+		coreParam.fileToStart = baseDirectory / "pspautotests" / "tests" / (testName + ".prx");
+		Path expectedFile = baseDirectory / "pspautotests" / "tests" / (testName + ".expected");
 
-		INFO_LOG(SYSTEM, "Preparing to execute '%s'", testName);
+		INFO_LOG(SYSTEM, "Preparing to execute '%s'", testName.c_str());
 		std::string error_string;
 		output = "";
 		if (!PSP_Init(coreParam, &error_string)) {
@@ -138,7 +138,7 @@ bool RunTests() {
 				// set back to running for the next frame
 				coreState = CORE_RUNNING;
 			} else if (coreState == CORE_POWERDOWN)	{
-				INFO_LOG(SYSTEM, "Finished running test %s", testName);
+				INFO_LOG(SYSTEM, "Finished running test %s", testName.c_str());
 				break;
 			}
 		}

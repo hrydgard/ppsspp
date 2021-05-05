@@ -176,7 +176,6 @@ bool CheckCPUFeature(const std::string& feature)
 	if (!File::ReadFileToString(true, procfile, procdata))
 		return false;
 	std::istringstream file(procdata);
-
 	while (std::getline(file, line))
 	{
 		if (line.find(marker) != std::string::npos)

@@ -1459,7 +1459,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 }
 
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
-	std::string path = GetJavaString(env, jpath);
+	Path path = Path(GetJavaString(env, jpath));
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();

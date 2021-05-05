@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/CoreParameter.h"
 
 class MetaFileSystem;
@@ -96,7 +97,7 @@ bool IsAudioInitialised();
 
 void UpdateLoadedFile(FileLoader *fileLoader);
 
-std::string GetSysDirectory(PSPDirectories directoryType);
+Path GetSysDirectory(PSPDirectories directoryType);
 #ifdef _WIN32
 void InitSysDirectories();
 #endif

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/MIPS/MIPS.h"
 
 class DebugInterface;
@@ -114,8 +115,8 @@ namespace MIPSAnalyst
 
 	void SetHashMapFilename(const std::string& filename = "");
 	void LoadBuiltinHashMap();
-	void LoadHashMap(const std::string& filename);
-	void StoreHashMap(std::string filename = "");
+	void LoadHashMap(const Path &filename);
+	void StoreHashMap(Path filename = Path());
 
 	const char *LookupHash(u64 hash, u32 funcSize);
 	void ReplaceFunctions();

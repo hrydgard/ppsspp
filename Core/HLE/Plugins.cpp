@@ -83,7 +83,7 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 
 static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
 	std::vector<File::FileInfo> pluginDirs;
-	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS).c_str(), &pluginDirs);
+	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS), &pluginDirs);
 
 	std::vector<PluginInfo> found;
 	for (auto subdir : pluginDirs) {

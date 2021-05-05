@@ -79,7 +79,7 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
-GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
+GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -866,8 +866,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
 	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
@@ -932,7 +932,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.memStickDirectory, sy->T("Change Memory Stick folder"), (const char *)nullptr));
+	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Change Memory Stick folder"), (const char *)nullptr));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -943,14 +944,15 @@ void GameSettingsScreen::CreateViews() {
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	const std::string installedFile = PPSSPPpath + "installed.txt";
+
+	const Path PPSSPPpath = Path(File::GetExeDirectory());
+	const Path installedFile = PPSSPPpath / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
 	if (!installed_ && myDocsExists) {
-		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
+		if (File::CreateEmptyFile(PPSSPPpath / "installedTEMP.txt")) {
 			// Disable the setting whether cannot create & delete file
-			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
+			if (!(File::Delete(PPSSPPpath / "installedTEMP.txt")))
 				SavePathInMyDocumentChoice->SetEnabled(false);
 			else
 				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
@@ -1100,7 +1102,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory, [&](bool result, const std::string &value) {
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
 		auto sy = GetI18NCategory("System");
 		auto di = GetI18NCategory("Dialog");
 
@@ -1132,40 +1134,40 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	const std::string installedFile = PPSSPPpath + "installed.txt";
+	const Path PPSSPPpath = Path(File::GetExeDirectory());
+	const Path installedFile = installedFile / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
-		File::Delete(PPSSPPpath + "installed.txt");
-		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
+		File::CreateEmptyFile(PPSSPPpath / "installed.txt");
 		otherinstalled_ = false;
 		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
-		g_Config.memStickDirectory = myDocsPath;
+		g_Config.memStickDirectory = Path(myDocsPath);
 	} else if (installed_) {
-		File::Delete(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
 		installed_ = false;
-		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+		g_Config.memStickDirectory = PPSSPPpath / "memstick";
 	} else {
-		FILE *f = File::OpenCFile(PPSSPPpath + "installed.txt", "wb");
+		FILE *f = File::OpenCFile(PPSSPPpath / "installed.txt", "wb");
 		if (f) {
 			fclose(f);
 		}
 
 		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
-		g_Config.memStickDirectory = myDocsPath;
+		g_Config.memStickDirectory = Path(myDocsPath);
 		installed_ = true;
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();
+	const Path PPSSPPpath = Path(File::GetExeDirectory());
 	if (otherinstalled_) {
 		auto di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
 		if (folder.size()) {
-			g_Config.memStickDirectory = folder;
-			FILE *f = File::OpenCFile(PPSSPPpath + "installed.txt", "wb");
+			g_Config.memStickDirectory = Path(folder);
+			FILE *f = File::OpenCFile(PPSSPPpath / "installed.txt", "wb");
 			if (f) {
 				std::string utfstring("\xEF\xBB\xBF");
 				utfstring.append(folder);
@@ -1178,11 +1180,11 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 			otherinstalled_ = false;
 	}
 	else {
-		File::Delete(PPSSPPpath + "installed.txt");
+		File::Delete(PPSSPPpath / "installed.txt");
 		SavePathInMyDocumentChoice->SetEnabled(true);
 		otherinstalled_ = false;
 		installed_ = false;
-		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+		g_Config.memStickDirectory = PPSSPPpath / "memstick";
 	}
 	return UI::EVENT_DONE;
 }
@@ -1190,8 +1192,9 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 #endif
 
 UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
+
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		if (File::Exists(bgPng)) {
 			File::Delete(bgPng);
@@ -1297,17 +1300,17 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 
 		// Already, create away.
 		if (!File::Exists(pendingMemstickFolder_)) {
-			File::CreateFullPath(pendingMemstickFolder_);
+			File::CreateFullPath(Path(pendingMemstickFolder_));
 		}
 		if (!File::WriteDataToFile(true, "1", 1, testWriteFile.c_str())) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
-		File::Delete(testWriteFile);
+		File::Delete(Path(testWriteFile));
 
-		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile.c_str());
 		// Save so the settings, at least, are transferred.
-		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
+		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
 		g_Config.Save("MemstickPathChanged");
 		screenManager()->RecreateAllViews();
 	}
@@ -1322,7 +1325,7 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param = "";
 	} else if (!gamePath_.empty()) {
-		param += " \"" + ReplaceAll(ReplaceAll(gamePath_, "\\", "\\\\"), "\"", "\\\"") + "\"";
+		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}
 	// Make sure the new instance is considered the first.
 	ShutdownInstanceCounter();
@@ -1580,7 +1583,7 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
-	auto saveData = new SavedataScreen("");
+	auto saveData = new SavedataScreen(Path());
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
@@ -1724,9 +1727,9 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
-	std::string generatedFilename;
+	Path generatedFilename;
 	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
-		File::OpenFileInEditor(generatedFilename);
+		File::OpenFileInEditor(generatedFilename.ToString());
 	}
 	return UI::EVENT_DONE;
 }
@@ -1762,15 +1765,15 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 }
 
 UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
-	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
-	std::string root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	Path root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
 	std::vector<File::FileInfo> files;
-	GetFilesInDir(savestate_dir.c_str(), &files, nullptr, 0);
+	GetFilesInDir(savestate_dir, &files, nullptr, 0);
 
 	for (const File::FileInfo &file : files) {
 		std::string src = file.fullName;
-		std::string dst = root_dir + file.name;
+		std::string dst = root_dir.ToString() + file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);
 	}

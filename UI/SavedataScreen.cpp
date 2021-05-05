@@ -46,7 +46,7 @@
 
 class SavedataButton;
 
-std::string GetFileDateAsString(std::string filename) {
+std::string GetFileDateAsString(const Path &filename) {
 	tm time;
 	if (File::GetModifTime(filename, time)) {
 		char buf[256];
@@ -106,15 +106,16 @@ public:
 			topright->SetSpacing(1.0f);
 			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetTextColor(textStyle.fgColor);
 			topright->Add(new TextView(StringFromFormat("%lld kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
-			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(GetFileDateAsString(savePath_ / "PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
 			toprow->Add(topright);
 			content->Add(new Spacer(3.0));
 			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))))->SetTextColor(textStyle.fgColor);
 			content->Add(new Spacer(3.0));
 		} else {
-			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
+			// TODO(scoped): This can't work
+			Path image_path = Path(ReplaceAll(savePath_.ToString(), ".ppst", ".jpg"));
 			if (File::Exists(image_path)) {
-				toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
+				toprow->Add(new AsyncImageFileView(Path(image_path), IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 			}
@@ -133,7 +134,7 @@ protected:
 
 private:
 	UI::EventReturn OnDeleteButtonClick(UI::EventParams &e);
-	std::string savePath_;
+	Path savePath_;
 };
 
 class SortedLinearLayout : public UI::LinearLayoutList {
@@ -182,12 +183,12 @@ public:
 		h = 74;
 	}
 
-	const std::string &GamePath() const { return savePath_; }
+	const Path &GamePath() const { return savePath_; }
 
 private:
 	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
 
-	std::string savePath_;
+	Path savePath_;
 	std::string title_;
 	std::string subtitle_;
 };
@@ -345,7 +346,7 @@ std::string SavedataButton::DescribeText() const {
 	return ReplaceAll(u->T("%1 button"), "%1", title_) + "\n" + subtitle_;
 }
 
-SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParams)
+SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path) {
 	Refresh();
 }
@@ -425,11 +426,11 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 }
 
 static time_t GetTotalSize(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
+	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath().ToString()));
 	switch (Identify_File(fileLoader.get())) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
+		return File::GetDirectoryRecursiveSize(Path(ResolvePBPDirectory(b->GamePath().ToString())), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return fileLoader->FileSize();
@@ -446,11 +447,11 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 }
 
 static time_t GetDateSeconds(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
+	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath().ToString()));
 	tm datetm;
 	bool success;
 	if (Identify_File(fileLoader.get()) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
-		success = File::GetModifTime(b->GamePath() + "/PARAM.SFO", datetm);
+		success = File::GetModifTime(b->GamePath() / "PARAM.SFO", datetm);
 	} else {
 		success = File::GetModifTime(b->GamePath(), datetm);
 	}
@@ -488,13 +489,13 @@ void SavedataBrowser::Refresh() {
 	std::vector<SavedataButton *> savedataButtons;
 
 	std::vector<File::FileInfo> fileInfo;
-	GetFilesInDir(path_.c_str(), &fileInfo, "ppst:");
+	GetFilesInDir(path_, &fileInfo, "ppst:");
 
 	for (size_t i = 0; i < fileInfo.size(); i++) {
 		bool isState = !fileInfo[i].isDirectory;
 		bool isSaveData = false;
 		
-		if (!isState && File::Exists(path_ + fileInfo[i].name + "/PARAM.SFO"))
+		if (!isState && File::Exists(path_ / fileInfo[i].name / "PARAM.SFO"))
 			isSaveData = true;
 
 		if (isSaveData || isState) {
@@ -537,13 +538,13 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	SavedataButton *button = static_cast<SavedataButton *>(e.v);
 	UI::EventParams e2{};
 	e2.v = e.v;
-	e2.s = button->GamePath();
+	e2.s = button->GamePath().ToString();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
 	return UI::EVENT_DONE;
 }
 
-SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+SavedataScreen::SavedataScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 }
 
 SavedataScreen::~SavedataScreen() {
@@ -557,8 +558,8 @@ void SavedataScreen::CreateViews() {
 	using namespace UI;
 	auto sa = GetI18NCategory("Savedata");
 	auto di = GetI18NCategory("Dialog");
-	std::string savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
-	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
+	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
 	gridStyle_ = false;
 	root_ = new AnchorLayout();
@@ -627,7 +628,7 @@ UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), 0);
 	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);

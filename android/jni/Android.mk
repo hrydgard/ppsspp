@@ -250,6 +250,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/VFS/VFS.cpp \
   $(SRC)/Common/File/VFS/AssetReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
+  $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \
   $(SRC)/Common/File/FileUtil.cpp \
   $(SRC)/Common/File/DirListing.cpp \

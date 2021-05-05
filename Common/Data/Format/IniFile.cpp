@@ -598,7 +598,7 @@ bool IniFile::Load(std::istream &in) {
 
 bool IniFile::Save(const char* filename)
 {
-	FILE *file = File::OpenCFile(filename, "w");
+	FILE *file = File::OpenCFile(Path(filename), "w");
 	if (!file) {
 		return false;
 	}

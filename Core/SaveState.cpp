@@ -74,13 +74,13 @@ namespace SaveState
 	struct Operation
 	{
 		// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
-		Operation(OperationType t, const std::string &f, int slot_, Callback cb, void *cbUserData_)
+		Operation(OperationType t, const Path &f, int slot_, Callback cb, void *cbUserData_)
 			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_)
 		{
 		}
 
 		OperationType type;
-		std::string filename;
+		Path filename;
 		Callback callback;
 		int slot;
 		void *cbUserData;
@@ -322,27 +322,27 @@ namespace SaveState
 		Core_UpdateSingleStep();
 	}
 
-	void Load(const std::string &filename, int slot, Callback callback, void *cbUserData)
+	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
-	void Save(const std::string &filename, int slot, Callback callback, void *cbUserData)
+	void Save(const Path &filename, int slot, Callback callback, void *cbUserData)
 	{
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
 	void Verify(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), -1, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_VERIFY, Path(), -1, callback, cbUserData));
 	}
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), -1, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 
-	void SaveScreenshot(const std::string &filename, Callback callback, void *cbUserData)
+	void SaveScreenshot(const Path &filename, Callback callback, void *cbUserData)
 	{
 		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, callback, cbUserData));
 	}
@@ -399,7 +399,7 @@ namespace SaveState
 
 	std::string GetTitle(const std::string &filename) {
 		std::string title;
-		if (CChunkFileReader::GetFileTitle(filename, &title) == CChunkFileReader::ERROR_NONE) {
+		if (CChunkFileReader::GetFileTitle(Path(filename), &title) == CChunkFileReader::ERROR_NONE) {
 			if (title.empty()) {
 				return File::GetFilename(filename);
 			}
@@ -412,7 +412,7 @@ namespace SaveState
 		return File::GetFilename(filename) + " " + sy->T("(broken)");
 	}
 
-	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
+	Path GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
 	{
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
@@ -424,7 +424,7 @@ namespace SaveState
 		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
 
 		std::string filename = StringFromFormat("%s_%d.%s", fullDiscId.c_str(), slot, extension);
-		return GetSysDirectory(DIRECTORY_SAVESTATE) + filename;
+		return GetSysDirectory(DIRECTORY_SAVESTATE) / filename;
 	}
 
 	int GetCurrentSlot()
@@ -439,7 +439,7 @@ namespace SaveState
 
 	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Load(fn, slot, callback, cbUserData);
 		} else {
@@ -449,34 +449,34 @@ namespace SaveState
 		}
 	}
 
-	static void DeleteIfExists(const std::string &fn) {
+	static void DeleteIfExists(const Path &fn) {
 		// Just avoiding error messages.
 		if (File::Exists(fn)) {
 			File::Delete(fn);
 		}
 	}
 
-	static void RenameIfExists(const std::string &from, const std::string &to) {
+	static void RenameIfExists(const Path &from, const Path &to) {
 		if (File::Exists(from)) {
-			File::Rename(from, to);
+			File::Rename(from.ToString(), to.ToString());
 		}
 	}
 
-	static void SwapIfExists(const std::string &from, const std::string &to) {
-		std::string temp = from + ".tmp";
+	static void SwapIfExists(const Path &from, const Path &to) {
+		std::string temp = from.ToString() + ".tmp";
 		if (File::Exists(from)) {
-			File::Rename(from, temp);
-			File::Rename(to, from);
-			File::Rename(temp, to);
+			File::Rename(from.ToString(), temp);
+			File::Rename(to.ToString(), from.ToString());
+			File::Rename(temp, to.ToString());
 		}
 	}
 
 	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
-		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
-		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
 			auto renameCallback = [=](Status status, const std::string &message, void *data) {
 				if (status != Status::FAILURE) {
@@ -486,7 +486,7 @@ namespace SaveState
 					} else {
 						DeleteIfExists(fn);
 					}
-					File::Rename(fn + ".tmp", fn);
+					File::Rename(fn.WithExtraExtension("tmp").ToString(), fn.ToString());
 				}
 				if (callback) {
 					callback(status, message, data);
@@ -498,7 +498,7 @@ namespace SaveState
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
-			Save(fn + ".tmp", slot, renameCallback, cbUserData);
+			Save(fn.WithExtraExtension("tmp"), slot, renameCallback, cbUserData);
 		} else {
 			auto sy = GetI18NCategory("System");
 			if (callback)
@@ -507,17 +507,16 @@ namespace SaveState
 	}
 
 	bool UndoSaveSlot(const std::string &gameFilename, int slot) {
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
-		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
-		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
 			// Swap them so they can undo again to redo.  Mistakes happen.
 			SwapIfExists(shotUndo, shot);
 			SwapIfExists(fnUndo, fn);
-
 			return true;
 		}
 
@@ -526,19 +525,19 @@ namespace SaveState
 
 	bool HasSaveInSlot(const std::string &gameFilename, int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
 	}
 
 	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		return File::Exists(fn + ".undo");
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		return File::Exists(fn.WithExtraExtension("undo"));
 	}
 
 	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
 	}
 
@@ -583,7 +582,7 @@ namespace SaveState
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < NUM_SLOTS; i++) {
-			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;
 				bool success = File::GetModifTime(fn, time);
@@ -600,7 +599,7 @@ namespace SaveState
 		int oldestSlot = -1;
 		tm oldestDate = {0};
 		for (int i = 0; i < NUM_SLOTS; i++) {
-			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;
 				bool success = File::GetModifTime(fn, time);
@@ -614,7 +613,7 @@ namespace SaveState
 	}
 
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot) {
-		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (File::Exists(fn)) {
 			tm time;
 			if (File::GetModifTime(fn, time)) {
@@ -797,7 +796,7 @@ namespace SaveState
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title
-					title = PSP_CoreParameter().fileToStart;
+					title = PSP_CoreParameter().fileToStart.ToVisualString();
 					std::size_t lslash = title.find_last_of("/");
 					title = title.substr(lslash + 1);
 				}
@@ -864,7 +863,8 @@ namespace SaveState
 			case SAVESTATE_SAVE_SCREENSHOT:
 			{
 				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
-				tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
+				// TODO(scoped): Pass the path properly into TakeGameScreenshot.
+				tempResult = TakeGameScreenshot(Path(op.filename), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());

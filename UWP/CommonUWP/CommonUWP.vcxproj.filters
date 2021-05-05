@@ -242,6 +242,9 @@
     <ClCompile Include="..\..\Common\File\DiskFree.cpp">
       <Filter>File</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\File\Path.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\File\PathBrowser.cpp">
       <Filter>File</Filter>
     </ClCompile>
@@ -531,6 +534,9 @@
       <Filter>File</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\File\PathBrowser.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\Path.h">
       <Filter>File</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Format\RIFF.h">

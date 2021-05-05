@@ -48,7 +48,7 @@ public:
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
+	bool GetHostPath(const std::string &inpath, Path &outpath) override {return false;}
 	bool MkDir(const std::string &dirname) override {return false;}
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
@@ -146,7 +146,7 @@ public:
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override {
 		return isoFileSystem_->WriteFile(handle, pointer, size, usec);
 	}
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override { return false; }
+	bool GetHostPath(const std::string &inpath, Path &outpath) override { return false; }
 	bool MkDir(const std::string &dirname) override { return false; }
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }

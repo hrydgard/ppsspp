@@ -21,6 +21,7 @@
 
 #include "UI/MiscScreens.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/File/Path.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
@@ -30,7 +31,7 @@
 
 class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(const std::string &gamePath);
+	GameScreen(const Path &gamePath);
 	~GameScreen();
 
 	void render() override;
@@ -42,7 +43,7 @@ protected:
 	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(const std::string &gamePath);
+	bool isRecentGame(const Path &gamePath);
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);
@@ -75,5 +76,5 @@ private:
 	UI::Choice *btnDeleteSaveData_;
 	UI::Choice *btnSetBackground_;
 	std::vector<UI::Choice *> otherChoices_;
-	std::vector<std::string> saveDirs;
+	std::vector<Path> saveDirs;
 };

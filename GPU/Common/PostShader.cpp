@@ -38,7 +38,7 @@ static std::vector<TextureShaderInfo> textureShaderInfo;
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
 
-void LoadPostShaderInfo(const std::vector<std::string> &directories) {
+void LoadPostShaderInfo(const std::vector<Path> &directories) {
 	std::vector<ShaderInfo> notVisible;
 
 	shaderInfo.clear();
@@ -79,7 +79,7 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(directories[d].c_str(), &fileInfo, "ini:");
+		File::GetFilesInDir(directories[d], &fileInfo, "ini:");
 
 		if (fileInfo.size() == 0) {
 			VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
@@ -89,7 +89,7 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 			IniFile ini;
 			bool success = false;
 			std::string name = fileInfo[f].fullName;
-			std::string path = directories[d];
+			std::string path = directories[d].ToString();
 			// Hack around Android VFS path bug. really need to redesign this.
 			if (name.substr(0, 7) == "assets/")
 				name = name.substr(7);
@@ -181,9 +181,9 @@ void LoadPostShaderInfo(const std::vector<std::string> &directories) {
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
 void ReloadAllPostShaderInfo() {
-	std::vector<std::string> directories;
-	directories.push_back("shaders");
-	directories.push_back(g_Config.memStickDirectory + "PSP/shaders");
+	std::vector<Path> directories;
+	directories.push_back(Path("shaders"));  // Hm, why?
+	directories.push_back(g_Config.memStickDirectory / "PSP" / "shaders");
 	LoadPostShaderInfo(directories);
 }
 

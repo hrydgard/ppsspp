@@ -36,9 +36,16 @@
 
 namespace File {
 
-bool GetFileInfo(const char *path, FileInfo * fileInfo) {
+bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break;  // OK
+	default:
+		return false;
+	}
+
 	// TODO: Expand relative paths?
-	fileInfo->fullName = path;
+	fileInfo->fullName = path.ToString();
 
 #ifdef _WIN32
 	auto FiletimeToStatTime = [](FILETIME ft) {
@@ -49,7 +56,7 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	};
 
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
-	if (!GetFileAttributesExW(ConvertUTF8ToWString(path).c_str(), GetFileExInfoStandard, &attrs)) {
+	if (!GetFileAttributesExW(path.ToWString().c_str(), GetFileExInfoStandard, &attrs)) {
 		fileInfo->size = 0;
 		fileInfo->isDirectory = false;
 		fileInfo->exists = false;
@@ -74,10 +81,10 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 
 #if (defined __ANDROID__) && (__ANDROID_API__ < 21)
 	struct stat file_info;
-	int result = stat(path, &file_info);
+	int result = stat(path.c_str(), &file_info);
 #else
 	struct stat64 file_info;
-	int result = stat64(path, &file_info);
+	int result = stat64(path.c_str(), &file_info);
 #endif
 	if (result < 0) {
 		fileInfo->exists = false;
@@ -99,10 +106,10 @@ bool GetFileInfo(const char *path, FileInfo * fileInfo) {
 	return true;
 }
 
-bool GetModifTime(const std::string & filename, tm & return_time) {
+bool GetModifTime(const Path &filename, tm & return_time) {
 	memset(&return_time, 0, sizeof(return_time));
 	FileInfo info;
-	if (GetFileInfo(filename.c_str(), &info)) {
+	if (GetFileInfo(filename, &info)) {
 		time_t t = info.mtime;
 		localtime_r((time_t*)&t, &return_time);
 		return true;
@@ -122,7 +129,7 @@ bool FileInfo::operator <(const FileInfo & other) const {
 		return false;
 }
 
-size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const char *filter, int flags) {
+size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const char *filter, int flags) {
 	size_t foundEntries = 0;
 	std::set<std::string> filters;
 	if (filter) {
@@ -142,7 +149,7 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFileEx((ConvertUTF8ToWString(directory) + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return 0;
 	}
@@ -157,7 +164,7 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 	//if (directoryWithSlash.back() != '/')
 	//	directoryWithSlash += "/";
 
-	DIR *dirp = opendir(directory);
+	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
 		return 0;
 	// non windows loop
@@ -183,7 +190,9 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 
 		FileInfo info;
 		info.name = virtualName;
-		std::string dir = directory;
+
+		// It's OK not to use Path /-concat here.
+		std::string dir = directory.ToString();
 
 		// Only append a slash if there isn't one on the end.
 		size_t lastSlash = dir.find_last_of("/");
@@ -191,12 +200,12 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 			dir.append("/");
 
 		info.fullName = dir + virtualName;
-		info.isDirectory = IsDirectory(info.fullName);
+		info.isDirectory = IsDirectory(Path(info.fullName));
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;  // TODO - implement some kind of check
 		if (!info.isDirectory) {
-			std::string ext = GetFileExtension(info.fullName);
+			std::string ext = Path(info.fullName).GetFileExtension();
 			if (!ext.empty()) {
 				ext = ext.substr(1);  // Remove the dot.
 				if (filter && filters.find(ext) == filters.end()) {
@@ -220,18 +229,18 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 	return foundEntries;
 }
 
-int64_t GetDirectoryRecursiveSize(const std::string & path, const char *filter, int flags) {
+int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flags) {
 	std::vector<FileInfo> fileInfo;
-	GetFilesInDir(path.c_str(), &fileInfo, filter, flags);
+	GetFilesInDir(path, &fileInfo, filter, flags);
 	int64_t sizeSum = 0;
-	// Note: GetFilesInDir does not fill in fileSize properly.
+	// Note: GetFilesInDir does not fill in fileSize.
 	for (size_t i = 0; i < fileInfo.size(); i++) {
 		FileInfo finfo;
-		GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+		GetFileInfo(Path(fileInfo[i].fullName), &finfo);
 		if (!finfo.isDirectory)
 			sizeSum += finfo.size;
 		else
-			sizeSum += GetDirectoryRecursiveSize(finfo.fullName, filter, flags);
+			sizeSum += GetDirectoryRecursiveSize(Path(finfo.fullName), filter, flags);
 	}
 	return sizeSum;
 }

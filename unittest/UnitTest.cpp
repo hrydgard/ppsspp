@@ -28,12 +28,14 @@
 // Search for "availableTests".
 
 #include "ppsspp_config.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <vector>
 #include <string>
 #include <sstream>
+
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
@@ -41,7 +43,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Input/InputState.h"
-#include "ext/disarm.h"
+#include "Common/File/Path.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -580,6 +582,22 @@ static bool TestMemMap() {
 	return true;
 }
 
+static bool TestPath() {
+	// Also test the Path class while we're at it.
+	Path path("/asdf/jkl/");
+	EXPECT_EQ_STR(path.ToString(), std::string("/asdf/jkl"));
+
+	Path path2("/asdf/jkl");
+	EXPECT_EQ_STR(path2.ToString(), std::string("/asdf/jkl"));
+
+	Path path3 = path2 / "foo/bar";
+	EXPECT_EQ_STR(path3.WithExtraExtension("txt").ToString(), std::string("/asdf/jkl/foo/bar.txt"));
+
+	EXPECT_EQ_STR(Path("foo.bar/hello").GetFileExtension(), std::string(""));
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -616,6 +634,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(CLZ),
 	TEST_ITEM(MemMap),
 	TEST_ITEM(ShaderGenerators),
+	TEST_ITEM(Path),
 };
 
 int main(int argc, const char *argv[]) {

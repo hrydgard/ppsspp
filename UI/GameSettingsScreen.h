@@ -30,7 +30,7 @@ class SettingInfoMessage;
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
+	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
 	void update() override;
 	void onFinish(DialogResult result) override;
@@ -66,6 +66,8 @@ private:
 	bool installed_;
 	bool otherinstalled_;
 #endif
+
+	std::string memstickDisplay_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);

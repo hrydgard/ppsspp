@@ -312,7 +312,7 @@ void BackgroundAudio::Clear(bool hard) {
 	sndLoadPending_ = false;
 }
 
-void BackgroundAudio::SetGame(const std::string &path) {
+void BackgroundAudio::SetGame(const Path &path) {
 	if (path == bgGamePath_) {
 		// Do nothing
 		return;

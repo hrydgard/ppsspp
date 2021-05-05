@@ -94,7 +94,7 @@ public:
 	std::string NormalizePrefix(std::string prefix) const;
 
 	// Only possible if a file system is a DirectoryFileSystem or similar.
-	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
+	bool GetHostPath(const std::string &inpath, Path &outpath) override;
 
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;

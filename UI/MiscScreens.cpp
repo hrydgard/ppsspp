@@ -175,7 +175,7 @@ private:
 		if (index < 0) {
 			return nullptr;
 		}
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), g_Config.recentIsos[index], GAMEINFO_WANTBG);
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(g_Config.recentIsos[index]), GAMEINFO_WANTBG);
 	}
 
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
@@ -206,10 +206,10 @@ static std::unique_ptr<Animation> g_Animation;
 static bool bgTextureInited = false;
 
 void UIBackgroundInit(UIContext &dc) {
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		const std::string &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
+		const Path &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
 		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), DETECT, true);
 	}
 }
@@ -270,9 +270,9 @@ void DrawBackground(UIContext &dc, float alpha) {
 	}
 }
 
-void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath) {
 	std::shared_ptr<GameInfo> ginfo;
-	if (gamePath.size())
+	if (!gamePath.empty())
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
@@ -310,7 +310,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		manager->push(new DisplayLayoutScreen());
 	} else if (!strcmp(message, "settings") && isActiveScreen && activeScreen->tag() != "settings") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new GameSettingsScreen(""));
+		manager->push(new GameSettingsScreen(Path()));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
 		auto dev = GetI18NCategory("Developer");
 		auto langScreen = new NewLanguageScreen(dev->T("Language"));
@@ -554,7 +554,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	bool iniLoadedSuccessfully = false;
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) + "lang/";
+	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -579,15 +579,16 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
+		Path gamePath = Path(boot_filename);
 		if (gotoGameSettings_) {
 			if (boot_filename.size()) {
-				screenManager()->switchScreen(new EmuScreen(boot_filename));
+				screenManager()->switchScreen(new EmuScreen(gamePath));
 			} else {
 				screenManager()->switchScreen(new MainScreen());
 			}
-			screenManager()->push(new GameSettingsScreen(boot_filename));
+			screenManager()->push(new GameSettingsScreen(gamePath));
 		} else if (boot_filename.size()) {
-			screenManager()->switchScreen(new EmuScreen(boot_filename));
+			screenManager()->switchScreen(new EmuScreen(gamePath));
 		} else {
 			screenManager()->switchScreen(new MainScreen());
 		}
@@ -613,7 +614,7 @@ void LogoScreen::update() {
 
 void LogoScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "boot") && screenManager()->topScreen() == this) {
-		screenManager()->switchScreen(new EmuScreen(value));
+		screenManager()->switchScreen(new EmuScreen(Path(value)));
 	}
 }
 

@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
 
 namespace SaveState
@@ -56,17 +57,17 @@ namespace SaveState
 	int GetOldestSlot(const std::string &gameFilename);
 	
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
-	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
+	Path GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
 
 	std::string GetTitle(const std::string &filename);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const std::string &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
+	void Load(const Path &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
 
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const std::string &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
+	void Save(const Path &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);

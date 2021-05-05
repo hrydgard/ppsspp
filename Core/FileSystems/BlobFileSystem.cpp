@@ -128,8 +128,8 @@ bool BlobFileSystem::RemoveFile(const std::string &filename) {
 	return false;
 }
 
-bool BlobFileSystem::GetHostPath(const std::string &inpath, std::string &outpath) {
-	outpath = fileLoader_->GetPath();
+bool BlobFileSystem::GetHostPath(const std::string &inpath, Path &outpath) {
+	outpath = Path(fileLoader_->GetPath());
 	return true;
 }
 
