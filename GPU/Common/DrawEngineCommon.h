@@ -56,6 +56,8 @@ public:
 	DrawEngineCommon();
 	virtual ~DrawEngineCommon();
 
+	void Init();
+
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);

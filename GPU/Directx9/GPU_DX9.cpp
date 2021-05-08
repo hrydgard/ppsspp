@@ -69,6 +69,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetShaderManager(shaderManagerDX9_);
 	drawEngine_.SetTextureCache(textureCacheDX9_);
 	drawEngine_.SetFramebufferManager(framebufferManagerDX9_);
+	drawEngine_.Init();
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
 	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
