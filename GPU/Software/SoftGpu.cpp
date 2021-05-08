@@ -68,6 +68,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
+	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
 
 	if (gfxCtx && draw) {
