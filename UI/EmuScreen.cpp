@@ -597,27 +597,27 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
 	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
 	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
 		break;
 
 	case VIRTKEY_REWIND:
@@ -702,27 +702,27 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
 	case VIRTKEY_AXIS_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
 	case VIRTKEY_ANALOG_LIGHTLY:
-		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
-		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
-		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		setVKeyAnalog('X', CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX, false);
+		setVKeyAnalog('X', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, false);
+		setVKeyAnalog('Y', CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX, false);
 		break;
 
 	case VIRTKEY_RAPID_FIRE:
@@ -772,25 +772,19 @@ static void SetPSPAxis(char axis, float value, int stick) {
 		__CtrlSetAnalogY(value, stick);
 }
 
-inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float axis = 0.0f;
+inline void EmuScreen::setVKeyAnalog(char axis, int stick, int virtualKeyMin, int virtualKeyMax, bool setZero) {
 	// The down events can repeat, so just trust the virtKeys array.
-	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= value;
-	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += value;
-	SetPSPAxis('X', axis, stick);
-}
+	bool minDown = virtKeys[virtualKeyMin - VIRTKEY_FIRST];
+	bool maxDown = virtKeys[virtualKeyMax - VIRTKEY_FIRST];
 
-inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
-	float axis = 0.0f;
-	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= value;
-	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += value;
-	SetPSPAxis('Y', axis, stick);
+	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
+	float value = 0.0f;
+	if (minDown)
+		value -= scale;
+	if (maxDown)
+		value += scale;
+	if (setZero || minDown || maxDown)
+		SetPSPAxis(axis, value, stick);
 }
 
 bool EmuScreen::key(const KeyInput &key) {
@@ -906,36 +900,38 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 		return;
 	}
 
+	const float scale = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
+
 	std::vector<int> results;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
 
-	for (size_t i = 0; i < results.size(); i++) {
-		int result = results[i];
+	for (int result : results) {
+		float value = fabs(axis.value) * scale;
 		switch (result) {
 		case VIRTKEY_AXIS_X_MIN:
-			SetPSPAxis('X', -fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('X', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_X_MAX:
-			SetPSPAxis('X', fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('X', value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MIN:
-			SetPSPAxis('Y', -fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('Y', -value, CTRL_STICK_LEFT);
 			break;
 		case VIRTKEY_AXIS_Y_MAX:
-			SetPSPAxis('Y', fabs(axis.value), CTRL_STICK_LEFT);
+			SetPSPAxis('Y', value, CTRL_STICK_LEFT);
 			break;
 
 		case VIRTKEY_AXIS_RIGHT_X_MIN:
-			SetPSPAxis('X', -fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('X', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_X_MAX:
-			SetPSPAxis('X', fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('X', value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MIN:
-			SetPSPAxis('Y', -fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', -value, CTRL_STICK_RIGHT);
 			break;
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
-			SetPSPAxis('Y', fabs(axis.value), CTRL_STICK_RIGHT);
+			SetPSPAxis('Y', value, CTRL_STICK_RIGHT);
 			break;
 		}
 	}
