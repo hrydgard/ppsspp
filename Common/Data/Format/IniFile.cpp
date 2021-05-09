@@ -516,23 +516,19 @@ void IniFile::SortSections()
 	std::sort(sections.begin(), sections.end());
 }
 
-bool IniFile::Load(const char* filename)
+bool IniFile::Load(const Path &path)
 {
 	sections.clear();
 	sections.push_back(Section(""));
 	// first section consists of the comments before the first real section
 
 	// Open file
-	std::ifstream in;
-#if defined(_WIN32) && !defined(__MINGW32__)
-	in.open(ConvertUTF8ToWString(filename), std::ios::in);
-#else
-	in.open(filename, std::ios::in);
-#endif
-	if (in.fail()) return false;
-
-	bool success = Load(in);
-	in.close();
+	std::string data;
+	if (!File::ReadFileToString(true, path.ToString().c_str(), data)) {
+		return false;
+	}
+	std::stringstream sstream(data);
+	bool success = Load(sstream);
 	return success;
 }
 
@@ -559,13 +555,13 @@ bool IniFile::Load(std::istream &in) {
 		std::string line = templine;
 
 		// Remove UTF-8 byte order marks.
-		if (line.substr(0, 3) == "\xEF\xBB\xBF")
+		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
 			line = line.substr(3);
+		}
 		 
 #ifndef _WIN32
 		// Check for CRLF eol and convert it to LF
-		if (!line.empty() && line.at(line.size()-1) == '\r')
-		{
+		if (!line.empty() && line.at(line.size()-1) == '\r') {
 			line.erase(line.size()-1);
 		}
 #endif
@@ -596,7 +592,7 @@ bool IniFile::Load(std::istream &in) {
 	return true;
 }
 
-bool IniFile::Save(const char* filename)
+bool IniFile::Save(const Path &filename)
 {
 	FILE *file = File::OpenCFile(Path(filename), "w");
 	if (!file) {

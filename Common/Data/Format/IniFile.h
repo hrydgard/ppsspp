@@ -77,18 +77,15 @@ protected:
 	std::string comment;
 };
 
-class IniFile
-{
-	bool Load(const char *filename);
-	bool Save(const char *filename);
+class IniFile {
 public:
-	bool Load(const Path &path) { return Load(path.c_str()); } // TODO(scoped)
-	bool Load(const std::string &filename) { return Load(filename.c_str()); }
+	bool Load(const Path &path);
+	bool Load(const std::string &filename) { return Load(Path(filename)); }
 	bool Load(std::istream &istream);
 	bool LoadFromVFS(const std::string &filename);
 
-	bool Save(const Path &path) { return Save(path.c_str()); } // TODO(scoped)
-	bool Save(const std::string &filename) { return Save(filename.c_str()); }
+	bool Save(const Path &path);
+	bool Save(const std::string &filename) { return Save(Path(filename)); }
 
 	// Returns true if key exists in section
 	bool Exists(const char* sectionName, const char* key) const;
