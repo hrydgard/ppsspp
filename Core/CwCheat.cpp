@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
@@ -44,13 +45,12 @@ static inline std::string TrimString(const std::string &s) {
 class CheatFileParser {
 public:
 	CheatFileParser(const std::string &filename, const std::string &gameID = "") {
-#if defined(_WIN32) && !defined(__MINGW32__)
-		file_.open(ConvertUTF8ToWString(filename));
-#else
-		file_.open(filename.c_str());
-#endif
-
+		fp_ = File::OpenCFile(filename, "rt");
 		validGameID_ = ReplaceAll(gameID, "-", "");
+	}
+	~CheatFileParser() {
+		if (fp_)
+			fclose(fp_);
 	}
 
 	bool Parse();
@@ -75,7 +75,7 @@ protected:
 	void ParseDataLine(const std::string &line, CheatCodeFormat format);
 	bool ValidateGameID(const std::string &gameID);
 
-	std::ifstream file_;
+	FILE *fp_ = nullptr;
 	std::string validGameID_;
 
 	int line_ = 0;
@@ -92,10 +92,13 @@ protected:
 };
 
 bool CheatFileParser::Parse() {
-	for (line_ = 1; file_ && !file_.eof(); ++line_) {
-		std::string line;
-		getline(file_, line, '\n');
-		line = TrimString(line);
+	for (line_ = 1; fp_ && !feof(fp_); ++line_) {
+		char temp[2048];
+		char *tempLine = fgets(temp, sizeof(temp), fp_);
+		if (!tempLine)
+			continue;
+
+		std::string line = TrimString(tempLine);
 
 		// Minimum length 5 is shortest possible _ lines name of the game "_G N+"
 		// and a minimum of 1 displayable character in cheat name string "_C0 1"
