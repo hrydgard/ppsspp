@@ -21,7 +21,6 @@
 // It currently just runs one test but that can be easily changed.
 
 #include <string>
-#include <fstream>
 #include <sstream>
 #include <iostream>
 
@@ -144,13 +143,14 @@ bool RunTests() {
 			}
 		}
 		PSP_EndHostFrame();
-	
-		std::ifstream expected(expectedFile.c_str(), std::ios_base::in);
-		if (!expected) {
+
+		std::string expect_results;
+		if (!File::ReadFileToString(true, expectedFile.c_str(), expect_results)) {
 			ERROR_LOG(SYSTEM, "Error opening expectedFile %s", expectedFile.c_str());
 			break;
 		}
 
+		std::istringstream expected(expect_results);
 		std::istringstream logoutput(output);
 
 		int line = 0;
