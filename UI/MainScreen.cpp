@@ -613,11 +613,11 @@ void GameBrowser::Draw(UIContext &dc) {
 	}
 }
 
-static bool IsValidPBP(const std::string &path, bool allowHomebrew) {
+static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 	if (!File::Exists(path))
 		return false;
 
-	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path.ToString()));
 	PBPReader pbp(loader.get());
 	std::vector<u8> sfoData;
 	if (!pbp.GetSubFile(PBP_PARAM_SFO, &sfoData))
@@ -719,11 +719,11 @@ void GameBrowser::Refresh() {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;
 			// Check if eboot directory
-			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP", true))
+			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(Path(path_.GetPath()) / fileInfo[i].name / "EBOOT.PBP", true))
 				isGame = true;
-			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR"))
+			else if (!isGame && File::Exists(Path(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR")))
 				isGame = true;
-			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PARAM.SFO"))
+			else if (!isGame && File::Exists(Path(path_.GetPath() + fileInfo[i].name + "/PARAM.SFO")))
 				isSaveData = true;
 
 			if (!isGame && !isSaveData) {

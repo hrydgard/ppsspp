@@ -1120,7 +1120,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 
 			pendingMemstickFolder_ = newPath;
 			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-			if (!File::Exists(newPath)) {
+			if (!File::Exists(Path(newPath))) {
 				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
 			}
 			// Add the path for clarity and proper confirmation.
@@ -1299,16 +1299,16 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
 
 		// Already, create away.
-		if (!File::Exists(pendingMemstickFolder_)) {
+		if (!File::Exists(Path(pendingMemstickFolder_))) {
 			File::CreateFullPath(Path(pendingMemstickFolder_));
 		}
-		if (!File::WriteDataToFile(true, "1", 1, testWriteFile.c_str())) {
+		if (!File::WriteDataToFile(true, "1", 1, Path(testWriteFile))) {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
 		File::Delete(Path(testWriteFile));
 
-		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), Path(memstickDirFile));
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
 		g_Config.Save("MemstickPathChanged");
@@ -1729,7 +1729,7 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
 	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
-		File::OpenFileInEditor(generatedFilename.ToString());
+		File::OpenFileInEditor(generatedFilename);
 	}
 	return UI::EVENT_DONE;
 }
@@ -1772,8 +1772,8 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	GetFilesInDir(savestate_dir, &files, nullptr, 0);
 
 	for (const File::FileInfo &file : files) {
-		std::string src = file.fullName;
-		std::string dst = root_dir.ToString() + file.name;
+		Path src = Path(file.fullName);
+		Path dst = root_dir / file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);
 	}

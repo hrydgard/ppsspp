@@ -260,7 +260,7 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 		return false;
 	}
 
-	if (!File::Exists(fileName)) {
+	if (!File::Exists(Path(fileName))) {
 		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
 		return false;
 	}
@@ -634,9 +634,9 @@ bool GameManager::InstallGameOnThread(std::string url, std::string fileName, boo
 }
 
 bool GameManager::InstallRawISO(const std::string &file, const std::string &originalName, bool deleteAfter) {
-	std::string destPath = g_Config.currentDirectory + "/" + originalName;
+	Path destPath = Path(g_Config.currentDirectory) / originalName;
 	// TODO: To save disk space, we should probably attempt a move first.
-	if (File::Copy(file, destPath)) {
+	if (File::Copy(Path(file), destPath)) {
 		if (deleteAfter) {
 			File::Delete(Path(file));
 		}

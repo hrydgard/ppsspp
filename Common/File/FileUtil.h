@@ -44,7 +44,6 @@ FILE *OpenCFile(const Path &filename, const char *mode);
 std::string ResolvePath(const std::string &path);
 
 // Returns true if file filename exists
-bool Exists(const std::string &path);
 bool Exists(const Path &path);
 
 // Returns true if file filename exists in directory path.
@@ -89,11 +88,18 @@ bool DeleteDir(const Path &filename);
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const Path &directory);
 
-// renames file srcFilename to destFilename, returns true on success 
-bool Rename(const std::string &srcFilename, const std::string &destFilename);
+// Renames file srcFilename to destFilename, returns true on success 
+// Will usually only work with in the same partition or other unit of storage,
+// so you might have to fall back to copy/delete.
+bool Rename(const Path &srcFilename, const Path &destFilename);
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const std::string &srcFilename, const std::string &destFilename);
+bool Copy(const Path &srcFilename, const Path &destFilename);
+
+// Tries to rename srcFilename to destFilename, if that fails,
+// it tries to copy and delete the src if succeeded. If that fails too,
+// returns false, otherwise returns true.
+bool Move(const Path &srcFilename, const Path &destFilename);
 
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename);

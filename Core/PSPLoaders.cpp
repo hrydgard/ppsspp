@@ -449,15 +449,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		Path oldNamePrefix = savestateDir / StringFromFormat("%s_%d", homebrewName.c_str(), i);
 		Path oldIDPrefix = savestateDir / StringFromFormat("%s_1.00_%d", madeUpID.c_str(), i);
 
-		// TODO(scoped): ...
-		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.ToString() + ".ppst"))
-			File::Rename(oldIDPrefix.ToString() + ".ppst", newPrefix.ToString() + ".ppst");
-		else if (File::Exists(oldNamePrefix.ToString() + ".ppst"))
-			File::Rename(oldNamePrefix.ToString() + ".ppst", newPrefix.ToString() + ".ppst");
-		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.ToString() + ".jpg"))
-			File::Rename(oldIDPrefix.ToString() + ".jpg", newPrefix.ToString() + ".jpg");
-		else if (File::Exists(oldNamePrefix.ToString() + ".jpg"))
-			File::Rename(oldNamePrefix.ToString() + ".jpg", newPrefix.ToString() + ".jpg");
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension("ppst")))
+			File::Rename(oldIDPrefix.WithExtraExtension("ppst"), newPrefix.WithExtraExtension("ppst"));
+		else if (File::Exists(oldNamePrefix.WithExtraExtension("ppst")))
+			File::Rename(oldNamePrefix.WithExtraExtension("ppst"), newPrefix.WithExtraExtension("ppst"));
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension("jpg")))
+			File::Rename(oldIDPrefix.WithExtraExtension("jpg"), newPrefix.WithExtraExtension("jpg"));
+		else if (File::Exists(oldNamePrefix.WithExtraExtension("jpg")))
+			File::Rename(oldNamePrefix.WithExtraExtension("jpg"), newPrefix.WithExtraExtension("jpg"));
 	}
 
 	PSPLoaders_Shutdown();

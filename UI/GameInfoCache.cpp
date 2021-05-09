@@ -404,9 +404,9 @@ public:
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png, info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 					else
 						// Read standard icon
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -451,9 +451,9 @@ handleELF:
 				Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 				// Try using png/jpg screenshots first
 				if (File::Exists(screenshot_png)) {
-					File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_png, info_->icon.data);
 				} else if (File::Exists(screenshot_jpg)) {
-					File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 				} else {
 					// Read standard icon
 					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
@@ -492,9 +492,9 @@ handleELF:
 			std::lock_guard<std::mutex> guard(info_->lock);
 
 			// Let's use the screenshot as an icon, too.
-			std::string screenshotPath = ReplaceAll(gamePath_.ToString(), ".ppst", ".jpg");
+			Path screenshotPath = gamePath_.WithReplacedExtension("ppst", "jpg");
 			if (File::Exists(screenshotPath)) {
-				if (File::ReadFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
+				if (File::ReadFileToString(false, Path(screenshotPath), info_->icon.data)) {
 					info_->icon.dataLoaded = true;
 				} else {
 					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
@@ -579,9 +579,9 @@ handleELF:
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png, info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);

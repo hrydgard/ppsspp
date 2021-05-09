@@ -39,6 +39,10 @@ public:
 		type_ = PathType::UNDEFINED;
 		path_.clear();
 	}
+	size_t size() const {
+		return path_.size();
+	}
+
 	// WARNING: Unsafe usage.
 	const char *c_str() const {
 		return path_.c_str();
@@ -54,6 +58,7 @@ public:
 
 	// File extension manipulation.
 	Path WithExtraExtension(const std::string &ext) const;
+	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 
 	// Removes the last component.
 	Path Directory() const;

@@ -4,7 +4,9 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 Path::Path(const std::string &str) {
-	if (startsWith(str, "http://") || startsWith(str, "https://")) {
+	if (str.empty()) {
+		type_ = PathType::UNDEFINED;
+	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
 		type_ = PathType::HTTP;
 	} else {
 		type_ = PathType::NATIVE;
@@ -49,6 +51,15 @@ void Path::operator /=(const std::string &subdir) {
 
 Path Path::WithExtraExtension(const std::string &ext) const {
 	return Path(path_ + "." + ext);
+}
+
+Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
+	if (endsWithNoCase(path_, "." + oldExtension)) {
+		std::string newPath = path_.substr(path_.size() - oldExtension.size() - 1);
+		return Path(newPath + "." + newExtension);
+	} else {
+		return Path(*this);
+	}
 }
 
 std::string Path::GetFileExtension() const {

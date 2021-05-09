@@ -278,7 +278,7 @@ bool CompareOutput(const std::string &bootFilename, const std::string &output, b
 				printf("%s", output.c_str());
 				printf("============== expected output:\n");
 				std::string fullExpected;
-				if (File::ReadFileToString(true, expect_filename.c_str(), fullExpected))
+				if (File::ReadFileToString(true, Path(expect_filename), fullExpected))
 					printf("%s", fullExpected.c_str());
 				printf("===============================\n");
 			}

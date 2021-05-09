@@ -145,7 +145,7 @@ bool RunTests() {
 		PSP_EndHostFrame();
 
 		std::string expect_results;
-		if (!File::ReadFileToString(true, expectedFile.c_str(), expect_results)) {
+		if (!File::ReadFileToString(true, expectedFile, expect_results)) {
 			ERROR_LOG(SYSTEM, "Error opening expectedFile %s", expectedFile.c_str());
 			break;
 		}

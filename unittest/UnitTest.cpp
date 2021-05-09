@@ -594,7 +594,7 @@ static bool TestPath() {
 	EXPECT_EQ_STR(path3.WithExtraExtension("txt").ToString(), std::string("/asdf/jkl/foo/bar.txt"));
 
 	EXPECT_EQ_STR(Path("foo.bar/hello").GetFileExtension(), std::string(""));
-
+	EXPECT_EQ_STR(Path("foo.bar/hello.txt").WithReplacedExtension("txt", "html").ToString(), std::string("foo.bar/hello.html"));
 	return true;
 }
 

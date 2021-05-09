@@ -1212,7 +1212,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	});
 
 	iRunCount++;
-	if (!File::Exists(currentDirectory))
+	if (!File::Exists(Path(currentDirectory)))
 		currentDirectory = "";
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
@@ -1249,7 +1249,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
 		// Unpin paths that are deleted automatically.
 		const std::string &path = it->second;
-		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(path)) {
+		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(Path(path))) {
 			vPinnedPaths.push_back(File::ResolvePath(path));
 		}
 	}

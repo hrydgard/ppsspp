@@ -386,7 +386,7 @@ static void CheckFailedGPUBackends() {
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::ReadFileToString(true, cache.c_str(), data))
+		if (File::ReadFileToString(true, cache, data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -414,7 +414,7 @@ static void CheckFailedGPUBackends() {
 		// Let's try to create, in case it doesn't exist.
 		if (!File::Exists(GetSysDirectory(DIRECTORY_APP_CACHE)))
 			File::CreateDir(GetSysDirectory(DIRECTORY_APP_CACHE));
-		File::WriteStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
+		File::WriteStringToFile(true, g_Config.sFailedGPUBackends, cache);
 	} else {
 		// Just save immediately, since we have storage.
 		g_Config.Save("got storage permission");
@@ -499,13 +499,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
-	std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+	Path memstickDirFile = Path(g_Config.internalDataDirectory) / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		File::ReadFileToString(true, memstickDirFile.c_str(), memstickDir);
+		File::ReadFileToString(true, memstickDirFile, memstickDir);
 		Path memstickPath(memstickDir);
 		if (!memstickPath.empty() && File::Exists(memstickPath)) {
 			g_Config.memStickDirectory = memstickPath;
+		} else {
+		    ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 		}
 	}
 #elif PPSSPP_PLATFORM(IOS)
@@ -1165,7 +1167,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
 			Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
-			File::Copy(value, dest.ToString());
+			File::Copy(Path(value), dest);
 		}
 		UIBackgroundShutdown();
 		// It will init again automatically.  We can't init outside a frame on Vulkan.

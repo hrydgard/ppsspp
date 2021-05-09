@@ -57,10 +57,12 @@ void TextureReplacer::NotifyConfigChanged() {
 	if (enabled_) {
 		basePath_ = Path(GetSysDirectory(DIRECTORY_TEXTURES)) / gameID_;
 
+		Path newTextureDir = basePath_ / NEW_TEXTURE_DIR;
+
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists((basePath_ / NEW_TEXTURE_DIR).ToString())) {
-			File::CreateFullPath(basePath_ / NEW_TEXTURE_DIR);
-			File::CreateEmptyFile(basePath_ / NEW_TEXTURE_DIR / ".nomedia");
+		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir)) {
+			File::CreateFullPath(newTextureDir);
+			File::CreateEmptyFile(newTextureDir / ".nomedia");
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);

@@ -458,16 +458,16 @@ namespace SaveState
 
 	static void RenameIfExists(const Path &from, const Path &to) {
 		if (File::Exists(from)) {
-			File::Rename(from.ToString(), to.ToString());
+			File::Rename(from, to);
 		}
 	}
 
 	static void SwapIfExists(const Path &from, const Path &to) {
-		std::string temp = from.ToString() + ".tmp";
+		Path temp = from.WithExtraExtension("tmp");
 		if (File::Exists(from)) {
-			File::Rename(from.ToString(), temp);
-			File::Rename(to.ToString(), from.ToString());
-			File::Rename(temp, to.ToString());
+			File::Rename(from, temp);
+			File::Rename(to, from);
+			File::Rename(temp, to);
 		}
 	}
 
@@ -486,7 +486,7 @@ namespace SaveState
 					} else {
 						DeleteIfExists(fn);
 					}
-					File::Rename(fn.WithExtraExtension("tmp").ToString(), fn.ToString());
+					File::Rename(fn.WithExtraExtension("tmp"), fn);
 				}
 				if (callback) {
 					callback(status, message, data);

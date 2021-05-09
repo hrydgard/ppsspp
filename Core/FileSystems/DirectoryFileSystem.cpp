@@ -70,7 +70,7 @@
 static bool FixFilenameCase(const std::string &path, std::string &filename)
 {
 	// Are we lucky?
-	if (File::Exists(path + filename))
+	if (File::Exists(Path(path + filename)))
 		return true;
 
 	size_t filenameSize = filename.size();  // size in bytes, not characters
@@ -512,7 +512,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 #if HOST_IS_CASE_SENSITIVE
 	// Maybe we're lucky?
-	if (File::DeleteDirRecursively(fullName.ToString()))
+	if (File::DeleteDirRecursively(fullName))
 		return (bool)ReplayApplyDisk(ReplayAction::RMDIR, true, CoreTiming::GetGlobalTimeUs());
 
 	// Nope, fix case and try again.  Should we try again?

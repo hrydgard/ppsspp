@@ -427,10 +427,10 @@ int main(int argc, const char* argv[])
 
 #ifdef __ANDROID__
 	// For some reason the debugger installs it with this name?
-	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
 	}
-	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
 	}
 #endif

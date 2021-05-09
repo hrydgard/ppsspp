@@ -19,6 +19,7 @@
 #include <cstdio>
 
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/StringUtils.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
@@ -101,20 +102,20 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
-		std::string filename = fileLoader->GetPath();
+		Path filename = Path(fileLoader->GetPath());
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
-			if (File::Exists((filename + "/EBOOT.PBP").c_str())) {
+			if (File::Exists(filename / "EBOOT.PBP")) {
 				return IdentifiedFileType::PSP_PBP_DIRECTORY;
 			}
 
 			// check if it's a disc directory
-			if (File::Exists((filename + "/PSP_GAME").c_str())) {
+			if (File::Exists(filename / "PSP_GAME")) {
 				return IdentifiedFileType::PSP_DISC_DIRECTORY;
 			}
 
 			// Not that, okay, let's guess it's a savedata directory if it has a param.sfo...
-			if (File::Exists((filename + "/PARAM.SFO").c_str())) {
+			if (File::Exists(filename / "PARAM.SFO")) {
 				return IdentifiedFileType::PSP_SAVEDATA_DIRECTORY;
 			}
 		}

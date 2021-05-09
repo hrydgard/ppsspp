@@ -434,36 +434,60 @@ bool DeleteDir(const Path &path) {
 }
 
 // renames file srcFilename to destFilename, returns true on success 
-bool Rename(const std::string &srcFilename, const std::string &destFilename)
+bool Rename(const Path &srcFilename, const Path &destFilename)
 {
-	INFO_LOG(COMMON, "Rename: %s --> %s", 
-			srcFilename.c_str(), destFilename.c_str());
+	if (srcFilename.Type() != destFilename.Type()) {
+		// Impossible.
+		return false;
+	}
+
+	switch (srcFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	INFO_LOG(COMMON, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #if defined(_WIN32) && defined(UNICODE)
-	std::wstring srcw = ConvertUTF8ToWString(srcFilename);
-	std::wstring destw = ConvertUTF8ToWString(destFilename);
+	std::wstring srcw = srcFilename.ToWString();
+	std::wstring destw = destFilename.ToWString();
 	if (_wrename(srcw.c_str(), destw.c_str()) == 0)
 		return true;
 #else
 	if (rename(srcFilename.c_str(), destFilename.c_str()) == 0)
 		return true;
 #endif
+
 	ERROR_LOG(COMMON, "Rename: failed %s --> %s: %s", 
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 }
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const std::string &srcFilename, const std::string &destFilename)
+bool Copy(const Path &srcFilename, const Path &destFilename)
 {
-	INFO_LOG(COMMON, "Copy: %s --> %s", 
-			srcFilename.c_str(), destFilename.c_str());
+	switch (srcFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+	switch (destFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	INFO_LOG(COMMON, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-	if (CopyFile2(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), nullptr))
+	if (CopyFile2(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), nullptr))
 		return true;
 	return false;
 #else
-	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
+	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
 #endif
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
@@ -472,23 +496,21 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #else
 
 	// buffer size
-#define BSIZE 1024
+#define BSIZE 4096
 
 	char buffer[BSIZE];
 
 	// Open input file
-	FILE *input = fopen(srcFilename.c_str(), "rb");
-	if (!input)
-	{
+	FILE *input = OpenCFile(srcFilename, "rb");
+	if (!input) {
 		ERROR_LOG(COMMON, "Copy: input failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 
 	// open output file
-	FILE *output = fopen(destFilename.c_str(), "wb");
-	if (!output)
-	{
+	FILE *output = OpenCFile(destFilename, "wb");
+	if (!output) {
 		fclose(input);
 		ERROR_LOG(COMMON, "Copy: output failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -496,14 +518,11 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	}
 
 	// copy loop
-	while (!feof(input))
-	{
+	while (!feof(input)) {
 		// read input
 		int rnum = fread(buffer, sizeof(char), BSIZE, input);
-		if (rnum != BSIZE)
-		{
-			if (ferror(input) != 0)
-			{
+		if (rnum != BSIZE) {
+			if (ferror(input) != 0) {
 				ERROR_LOG(COMMON, 
 						"Copy: failed reading from source, %s --> %s: %s", 
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -515,8 +534,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 
 		// write output
 		int wnum = fwrite(buffer, sizeof(char), rnum, output);
-		if (wnum != rnum)
-		{
+		if (wnum != rnum) {
 			ERROR_LOG(COMMON, 
 					"Copy: failed writing to output, %s --> %s: %s", 
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -525,11 +543,21 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 			return false;
 		}
 	}
-	// close flushs
+	// close flushes
 	fclose(input);
 	fclose(output);
 	return true;
 #endif
+}
+
+bool Move(const Path &srcFilename, const Path &destFilename) {
+	if (Rename(srcFilename, destFilename)) {
+		return true;
+	} else if (Copy(srcFilename, destFilename)) {
+		return Delete(srcFilename);
+	} else {
+		return false;
+	}
 }
 
 std::string GetDir(const std::string &path) {
@@ -654,8 +682,7 @@ bool CreateEmptyFile(const Path &filename) {
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const std::string &directory)
-{	
+bool DeleteDirRecursively(const Path &directory) {	
 	//Removed check, it prevents the UWP from deleting store downloads
 	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
 
@@ -663,16 +690,13 @@ bool DeleteDirRecursively(const std::string &directory)
 
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
-
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
+	HANDLE hFind = FindFirstFile((directory.ToWString() + L"\\*").c_str(), &ffd);
+	if (hFind == INVALID_HANDLE_VALUE) {
 		return false;
 	}
 		
 	// windows loop
-	do
-	{
+	do {
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
 	struct dirent *result = NULL;
@@ -681,8 +705,7 @@ bool DeleteDirRecursively(const std::string &directory)
 		return false;
 
 	// non windows loop
-	while ((result = readdir(dirp)))
-	{
+	while ((result = readdir(dirp))) {
 		const std::string virtualName = result->d_name;
 #endif
 		// check for "." and ".."
@@ -691,11 +714,9 @@ bool DeleteDirRecursively(const std::string &directory)
 			 (virtualName[2] == '\0')))
 			continue;
 
-		std::string newPath = directory + DIR_SEP + virtualName;
-		if (IsDirectory(Path(newPath)))
-		{
-			if (!DeleteDirRecursively(newPath))
-			{
+		Path newPath = directory / virtualName;
+		if (IsDirectory(Path(newPath))) {
+			if (!DeleteDirRecursively(newPath)) {
 #ifndef _WIN32
 				closedir(dirp);
 #else
@@ -704,10 +725,8 @@ bool DeleteDirRecursively(const std::string &directory)
 				return false;
 			}
 		}
-		else
-		{
-			if (!File::Delete(Path(newPath)))
-			{
+		else {
+			if (!File::Delete(Path(newPath))) {
 #ifndef _WIN32
 				closedir(dirp);
 #else
@@ -959,6 +978,8 @@ bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	return success;
 }
 
+// This is an odd one, mainly used for asset reading, so doesn't really
+// need to support Path.
 uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	FILE *file = File::OpenCFile(Path(filename), "rb");
 	if (!file) {
