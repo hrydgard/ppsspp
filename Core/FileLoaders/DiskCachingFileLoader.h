@@ -42,7 +42,7 @@ public:
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
-	static std::vector<std::string> GetCachedPathsInUse();
+	static std::vector<Path> GetCachedPathsInUse();
 
 private:
 	void Prepare();
@@ -55,13 +55,13 @@ private:
 
 	// We don't support concurrent disk cache access (we use memory cached indexes.)
 	// So we have to ensure there's only one of these per.
-	static std::map<std::string, DiskCachingFileLoaderCache *> caches_;
+	static std::map<Path, DiskCachingFileLoaderCache *> caches_;
 	static std::mutex cachesMutex_;
 };
 
 class DiskCachingFileLoaderCache {
 public:
-	DiskCachingFileLoaderCache(const std::string &path, u64 filesize);
+	DiskCachingFileLoaderCache(const Path &path, u64 filesize);
 	~DiskCachingFileLoaderCache();
 
 	bool IsValid() {
@@ -87,7 +87,7 @@ public:
 	bool HasData() const;
 
 private:
-	void InitCache(const std::string &path);
+	void InitCache(const Path &path);
 	void ShutdownCache();
 	bool MakeCacheSpaceFor(size_t blocks);
 	void RebalanceGenerations();
@@ -99,8 +99,8 @@ private:
 	void WriteIndexData(u32 indexPos, BlockInfo &info);
 	s64 GetBlockOffset(u32 block);
 
-	::Path MakeCacheFilePath(const std::string &filename);
-	std::string MakeCacheFilename(const std::string &path);
+	Path MakeCacheFilePath(const Path &filename);
+	std::string MakeCacheFilename(const Path &path);
 	bool LoadCacheFile(const Path &path);
 	void LoadCacheIndex();
 	void CreateCacheFile(const Path &path);

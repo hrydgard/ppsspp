@@ -231,7 +231,7 @@ bool CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	Path filename = coreParameter.fileToStart;
-	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename.ToString()));
+	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
 		loadedFile = new RamCachingFileLoader(loadedFile);
@@ -241,7 +241,7 @@ bool CPU_Init() {
 
 	// TODO: Put this somewhere better?
 	if (!coreParameter.mountIso.empty()) {
-		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso.ToString());
+		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
 	}
 
 	MIPSAnalyst::Reset();

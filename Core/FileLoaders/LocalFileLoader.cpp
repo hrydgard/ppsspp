@@ -32,7 +32,7 @@
 #endif
 
 #ifndef _WIN32
-LocalFileLoader::LocalFileLoader(int fd, const std::string &filename) : fd_(fd), filename_(filename), isOpenedByFd_(fd != -1) {
+LocalFileLoader::LocalFileLoader(int fd, const Path &filename) : fd_(fd), filename_(filename), isOpenedByFd_(fd != -1) {
 	if (fd != -1) {
 		DetectSizeFd();
 	}
@@ -51,7 +51,7 @@ void LocalFileLoader::DetectSizeFd() {
 }
 #endif
 
-LocalFileLoader::LocalFileLoader(const std::string &filename)
+LocalFileLoader::LocalFileLoader(const Path &filename)
 	: filesize_(0), filename_(filename), isOpenedByFd_(false) {
 	if (filename.empty()) {
 		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
@@ -70,9 +70,9 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 
 	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
-	handle_ = CreateFile2(ConvertUTF8ToWString(filename).c_str(), access, share, mode, nullptr);
+	handle_ = CreateFile2(filename.ToWString().c_str(), access, share, mode, nullptr);
 #else
-	handle_ = CreateFile(ConvertUTF8ToWString(filename).c_str(), access, share, nullptr, mode, flags, nullptr);
+	handle_ = CreateFile(filename.ToWString().c_str(), access, share, nullptr, mode, flags, nullptr);
 #endif
 	if (handle_ == INVALID_HANDLE_VALUE) {
 		return;
@@ -128,10 +128,6 @@ bool LocalFileLoader::IsDirectory() {
 
 s64 LocalFileLoader::FileSize() {
 	return filesize_;
-}
-
-std::string LocalFileLoader::GetPath() const {
-	return filename_.ToString();
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {

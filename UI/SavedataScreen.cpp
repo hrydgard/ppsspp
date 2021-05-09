@@ -426,11 +426,11 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 }
 
 static time_t GetTotalSize(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath().ToString()));
+	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
 	switch (Identify_File(fileLoader.get())) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(Path(ResolvePBPDirectory(b->GamePath().ToString())), nullptr, File::GETFILES_GETHIDDEN);
+		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(b->GamePath()), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return fileLoader->FileSize();
@@ -447,7 +447,7 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 }
 
 static time_t GetDateSeconds(const SavedataButton *b) {
-	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath().ToString()));
+	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
 	tm datetm;
 	bool success;
 	if (Identify_File(fileLoader.get()) == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {

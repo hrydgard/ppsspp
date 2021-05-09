@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/File/Path.h"
+
 enum pspUmdState { 
 	PSP_UMD_INIT        = 0x00,
 	PSP_UMD_NOT_PRESENT = 0x01,
@@ -41,7 +43,7 @@ enum pspUmdType {
 void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
-void __UmdReplace(std::string filepath);
+void __UmdReplace(Path filepath);
 bool getUMDReplacePermit();
 
 void Register_sceUmdUser();

@@ -1,6 +1,6 @@
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
-
+#include "Common/Log.h"
 #include "Common/Data/Encoding/Utf8.h"
 
 Path::Path(const std::string &str) {
@@ -39,10 +39,22 @@ void Path::Init(const std::string &str) {
 	}
 }
 
+// We always use forward slashes internally, we convert to backslash only when
+// converted to a wstring.
 Path Path::operator /(const std::string &subdir) const {
-	// We always use forward slashes internally, we convert to backslash only when
-	// converted to a wstring.
-	return Path(path_ + "/" + subdir);
+	if (subdir.empty()) {
+		return Path(path_);
+	}
+	std::string fullPath = path_;
+	if (subdir.front() != '/') {
+		fullPath += "/";
+	}
+	fullPath += subdir;
+	// Prevent adding extra slashes.
+	if (fullPath.back() == '/') {
+		fullPath.pop_back();
+	}
+	return Path(fullPath);
 }
 
 void Path::operator /=(const std::string &subdir) {
@@ -50,16 +62,38 @@ void Path::operator /=(const std::string &subdir) {
 }
 
 Path Path::WithExtraExtension(const std::string &ext) const {
-	return Path(path_ + "." + ext);
+	_dbg_assert_(!ext.empty() && ext[0] == '.');
+	return Path(path_ + ext);
 }
 
 Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
-	if (endsWithNoCase(path_, "." + oldExtension)) {
-		std::string newPath = path_.substr(0, path_.size() - oldExtension.size() - 1);
-		return Path(newPath + "." + newExtension);
+	_dbg_assert_(!oldExtension.empty() && oldExtension[0] == '.');
+	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
+	if (endsWithNoCase(path_, oldExtension)) {
+		std::string newPath = path_.substr(0, path_.size() - oldExtension.size());
+		return Path(newPath + newExtension);
 	} else {
 		return Path(*this);
 	}
+}
+
+Path Path::WithReplacedExtension(const std::string &newExtension) const {
+	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
+	if (path_.empty()) {
+		return Path(*this);
+	}
+	std::string extension = GetFileExtension();
+	std::string newPath = path_.substr(0, path_.size() - extension.size()) + newExtension;
+	return Path(newPath);
+}
+
+std::string Path::GetFilename() const {
+	size_t pos = path_.rfind('/');
+	if (pos != std::string::npos) {
+		return path_.substr(pos + 1);
+	}
+	// No directory components, just return the full path.
+	return path_;
 }
 
 std::string Path::GetFileExtension() const {
@@ -72,17 +106,27 @@ std::string Path::GetFileExtension() const {
 		// Don't want to detect "df/file" from "/as.df/file"
 		return "";
 	}
-	std::string ext = path_.substr(pos + 1);
+	std::string ext = path_.substr(pos);
 	for (size_t i = 0; i < ext.size(); i++) {
 		ext[i] = tolower(ext[i]);
 	}
 	return ext;
 }
 
-Path Path::Directory() const {
-	std::string directory;
-	SplitPath(path_, &directory, nullptr, nullptr);
-	return Path(directory);
+std::string Path::GetDirectory() const {
+	size_t pos = path_.rfind('/');
+	if (pos != std::string::npos) {
+		return path_.substr(0, pos);
+	} else {
+		// There could be a ':', too. Unlike the slash, let's include that
+		// in the returned directory.
+		size_t c_pos = path_.rfind(':');
+		if (c_pos != std::string::npos) {
+			return path_.substr(0, c_pos + 1);
+		}
+	}
+	// No directory components, just return the full path.
+	return path_;
 }
 
 bool Path::FilePathContains(const std::string &needle) const {
@@ -123,6 +167,11 @@ bool Path::CanNavigateUp() const {
 		return false;
 	}
 	return true;
+}
+
+Path Path::NavigateUp() const {
+	std::string dir = GetDirectory();
+	return Path(dir);
 }
 
 bool Path::IsAbsolute() const {

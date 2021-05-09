@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
 struct GPUDebugBuffer;
 
@@ -27,10 +28,10 @@ extern std::string currentTestName;
 void TeamCityPrint(const char *fmt, ...);
 void GitHubActionsPrint(const char *type, const char *fmt, ...);
 
-std::string ExpectedFromFilename(const std::string &bootFilename);
-std::string ExpectedScreenshotFromFilename(const std::string &bootFilename);
-std::string GetTestName(const std::string &bootFilename);
+Path ExpectedFromFilename(const Path &bootFilename);
+Path ExpectedScreenshotFromFilename(const Path &bootFilename);
+std::string GetTestName(const Path &bootFilename);
 
-bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose);
+bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose);
 std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h);
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error);
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const Path &screenshotFilename, std::string &error);

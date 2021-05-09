@@ -27,7 +27,7 @@
 
 class VirtualDiscFileSystem: public IFileSystem {
 public:
-	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath);
 	~VirtualDiscFileSystem();
 
 	void DoState(PointerWrap &p) override;

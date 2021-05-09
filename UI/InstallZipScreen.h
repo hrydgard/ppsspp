@@ -26,7 +26,7 @@
 
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
-	InstallZipScreen(std::string zipPath) : zipPath_(zipPath) {}
+	InstallZipScreen(const Path &zipPath) : zipPath_(zipPath) {}
 	virtual void update() override;
 	virtual bool key(const KeyInput &key) override;
 
@@ -40,7 +40,7 @@ private:
 	UI::Choice *backChoice_ = nullptr;
 	UI::ProgressBar *progressBar_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
-	std::string zipPath_;
+	Path zipPath_;
 	bool returnToHomebrew_ = true;
 	bool installStarted_ = false;
 	bool deleteZipFile_ = false;

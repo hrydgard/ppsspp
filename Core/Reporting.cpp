@@ -101,8 +101,8 @@ namespace Reporting
 
 	static std::mutex crcLock;
 	static std::condition_variable crcCond;
-	static std::string crcFilename;
-	static std::map<std::string, u32> crcResults;
+	static Path crcFilename;
+	static std::map<Path, u32> crcResults;
 	static volatile bool crcPending = false;
 	static volatile bool crcCancel = false;
 	static std::thread crcThread;
@@ -126,11 +126,10 @@ namespace Reporting
 		crcResults[crcFilename] = crc;
 		crcPending = false;
 		crcCond.notify_one();
-
 		return 0;
 	}
 
-	void QueueCRC(const std::string &gamePath) {
+	void QueueCRC(const Path &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 
 		auto it = crcResults.find(gamePath);
@@ -151,12 +150,12 @@ namespace Reporting
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
-	bool HasCRC(const std::string &gamePath) {
+	bool HasCRC(const Path &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 		return crcResults.find(gamePath) != crcResults.end();
 	}
 
-	uint32_t RetrieveCRC(const std::string &gamePath) {
+	uint32_t RetrieveCRC(const Path &gamePath) {
 		QueueCRC(gamePath);
 
 		std::unique_lock<std::mutex> guard(crcLock);
@@ -173,11 +172,11 @@ namespace Reporting
 
 	static uint32_t RetrieveCRCUnlessPowerSaving(const Path &gamePath) {
 		// It's okay to use it if we have it already.
-		if (Core_GetPowerSaving() && !HasCRC(gamePath.ToString())) {
+		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
 			return 0;
 		}
 
-		return RetrieveCRC(gamePath.ToString());
+		return RetrieveCRC(gamePath);
 	}
 
 	static void PurgeCRC() {

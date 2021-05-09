@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Common/Log.h"
 
 #define DEBUG_LOG_REPORT(t,...)   do { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
@@ -88,14 +89,14 @@ namespace Reporting
 	std::vector<std::string> CompatibilitySuggestions();
 
 	// Queues game for CRC hash if needed.
-	void QueueCRC(const std::string &gamePath);
+	void QueueCRC(const Path &gamePath);
 
 	// Returns true if the hash is available, does not queue if not.
-	bool HasCRC(const std::string &gamePath);
+	bool HasCRC(const Path &gamePath);
 
 	// Blocks until the CRC hash is available for game, and returns it.
 	// To avoid stalling, call HasCRC() in update() or similar and call this if it returns true.
-	uint32_t RetrieveCRC(const std::string &gamePath);
+	uint32_t RetrieveCRC(const Path &gamePath);
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogNTimes(const char *identifier, int n);

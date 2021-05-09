@@ -29,7 +29,7 @@
 struct ShaderInfo;
 struct TextureShaderInfo;
 
-extern std::string boot_filename;
+extern Path boot_filename;
 void UIBackgroundInit(UIContext &dc);
 void UIBackgroundShutdown();
 

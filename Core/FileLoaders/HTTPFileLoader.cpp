@@ -23,8 +23,8 @@
 #include "Core/Config.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
-HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: url_(filename), progress_(&cancel_), filename_(filename) {
+HTTPFileLoader::HTTPFileLoader(const ::Path &filename)
+	: url_(filename.ToString()), progress_(&cancel_), filename_(filename) {
 }
 
 void HTTPFileLoader::Prepare() {
@@ -172,7 +172,7 @@ s64 HTTPFileLoader::FileSize() {
 	return filesize_;
 }
 
-std::string HTTPFileLoader::GetPath() const {
+Path HTTPFileLoader::GetPath() const {
 	return filename_;
 }
 

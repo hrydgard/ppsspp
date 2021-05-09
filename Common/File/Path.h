@@ -59,11 +59,12 @@ public:
 	// File extension manipulation.
 	Path WithExtraExtension(const std::string &ext) const;
 	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
+	Path WithReplacedExtension(const std::string &newExtension) const;
 
 	// Removes the last component.
-	Path Directory() const;
-
-	std::string GetFileExtension() const;
+	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory.
+	std::string GetFileExtension() const;  // Always lowercase return. Includes the dot.
+	std::string GetDirectory() const;
 
 	const std::string &ToString() const;
 
@@ -74,6 +75,8 @@ public:
 	std::string ToVisualString() const;
 
 	bool CanNavigateUp() const;
+	Path NavigateUp() const;
+
 	bool operator ==(const Path &other) const {
 		return path_ == other.path_ && type_ == other.type_;
 	}

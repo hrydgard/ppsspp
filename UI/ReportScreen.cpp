@@ -270,7 +270,7 @@ void ReportScreen::CreateViews() {
 	}
 
 #ifdef MOBILE_DEVICE
-	if (!Core_GetPowerSaving() && !Reporting::HasCRC(gamePath_.ToString())) {
+	if (!Core_GetPowerSaving() && !Reporting::HasCRC(gamePath_)) {
 		auto crcWarning = new TextView(rp->T("FeedbackIncludeCRC", "Note: Battery will be used to send a disc CRC"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(12, 5, 0, 5)));
 		crcWarning->SetShadow(true);
 		crcWarning->SetEnabledPtr(&enableReporting_);
@@ -334,8 +334,8 @@ void ReportScreen::UpdateCRCInfo() {
 	auto rp = GetI18NCategory("Reporting");
 	std::string updated;
 
-	if (Reporting::HasCRC(gamePath_.ToString())) {
-		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_.ToString()));
+	if (Reporting::HasCRC(gamePath_)) {
+		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
 		updated = ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: [VALUE]"), "[VALUE]", crc);
 	} else if (showCRC_) {
 		updated = rp->T("FeedbackCRCCalculating", "Disc CRC: Calculating...");
@@ -395,7 +395,7 @@ EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 }
 
 EventReturn ReportScreen::HandleShowCRC(EventParams &e) {
-	Reporting::QueueCRC(gamePath_.ToString());
+	Reporting::QueueCRC(gamePath_);
 	showCRC_ = true;
 	return EVENT_DONE;
 }

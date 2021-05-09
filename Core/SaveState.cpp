@@ -463,7 +463,7 @@ namespace SaveState
 	}
 
 	static void SwapIfExists(const Path &from, const Path &to) {
-		Path temp = from.WithExtraExtension("tmp");
+		Path temp = from.WithExtraExtension(".tmp");
 		if (File::Exists(from)) {
 			File::Rename(from, temp);
 			File::Rename(to, from);
@@ -486,7 +486,7 @@ namespace SaveState
 					} else {
 						DeleteIfExists(fn);
 					}
-					File::Rename(fn.WithExtraExtension("tmp"), fn);
+					File::Rename(fn.WithExtraExtension(".tmp"), fn);
 				}
 				if (callback) {
 					callback(status, message, data);
@@ -498,7 +498,7 @@ namespace SaveState
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
-			Save(fn.WithExtraExtension("tmp"), slot, renameCallback, cbUserData);
+			Save(fn.WithExtraExtension(".tmp"), slot, renameCallback, cbUserData);
 		} else {
 			auto sy = GetI18NCategory("System");
 			if (callback)
@@ -532,7 +532,7 @@ namespace SaveState
 	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		return File::Exists(fn.WithExtraExtension("undo"));
+		return File::Exists(fn.WithExtraExtension(".undo"));
 	}
 
 	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)

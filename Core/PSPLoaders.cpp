@@ -375,16 +375,10 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 			pspFileSystem.Mount("umd:", blockSystem);
 		}
 	}
-
-	std::string full_path = fileLoader->GetPath();
-	std::string path, file, extension;
-	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
-	if (!path.empty() && path.back() == '/')
-		path.resize(path.size() - 1);
-#ifdef _WIN32
-	if (!path.empty() && path.back() == '\\')
-		path.resize(path.size() - 1);
-#endif
+	Path full_path = fileLoader->GetPath();
+	std::string path = full_path.GetDirectory();
+	std::string extension = full_path.GetFileExtension();
+	std::string file = full_path.GetFilename();
 
 	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
@@ -395,11 +389,6 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		// Note that umd0:/ is actually the writable containing directory, in this case.
 		ms_path = "umd0:/";
 	}
-
-#ifdef _WIN32
-	// Turn the slashes back to the Windows way.
-	path = ReplaceAll(path, "/", "\\");
-#endif
 
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
@@ -425,7 +414,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 	pspFileSystem.Mount("umd0:", fs);
 
-	std::string finalName = ms_path + file + extension;
+	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
 	std::size_t lslash = homebrewName.find_last_of("/");
@@ -449,14 +438,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		Path oldNamePrefix = savestateDir / StringFromFormat("%s_%d", homebrewName.c_str(), i);
 		Path oldIDPrefix = savestateDir / StringFromFormat("%s_1.00_%d", madeUpID.c_str(), i);
 
-		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension("ppst")))
-			File::Rename(oldIDPrefix.WithExtraExtension("ppst"), newPrefix.WithExtraExtension("ppst"));
-		else if (File::Exists(oldNamePrefix.WithExtraExtension("ppst")))
-			File::Rename(oldNamePrefix.WithExtraExtension("ppst"), newPrefix.WithExtraExtension("ppst"));
-		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension("jpg")))
-			File::Rename(oldIDPrefix.WithExtraExtension("jpg"), newPrefix.WithExtraExtension("jpg"));
-		else if (File::Exists(oldNamePrefix.WithExtraExtension("jpg")))
-			File::Rename(oldNamePrefix.WithExtraExtension("jpg"), newPrefix.WithExtraExtension("jpg"));
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension(".ppst")))
+			File::Rename(oldIDPrefix.WithExtraExtension(".ppst"), newPrefix.WithExtraExtension(".ppst"));
+		else if (File::Exists(oldNamePrefix.WithExtraExtension(".ppst")))
+			File::Rename(oldNamePrefix.WithExtraExtension(".ppst"), newPrefix.WithExtraExtension(".ppst"));
+		if (oldIDPrefix != newPrefix && File::Exists(oldIDPrefix.WithExtraExtension(".jpg")))
+			File::Rename(oldIDPrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
+		else if (File::Exists(oldNamePrefix.WithExtraExtension(".jpg")))
+			File::Rename(oldNamePrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
 	}
 
 	PSPLoaders_Shutdown();

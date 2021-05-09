@@ -71,7 +71,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
-			Path directoryToRemove = Path(ResolvePBPDirectory(filePath_.ToString()));
+			Path directoryToRemove = ResolvePBPDirectory(filePath_);
 			INFO_LOG(SYSTEM, "Deleting %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(SYSTEM, "Failed to delete file");
@@ -115,7 +115,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::GetDirectoryRecursiveSize(Path(ResolvePBPDirectory(filePath_.ToString())), nullptr, File::GETFILES_GETHIDDEN);
+		return File::GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, File::GETFILES_GETHIDDEN);
 
 	default:
 		return GetFileLoader()->FileSize();
@@ -201,7 +201,7 @@ bool GameInfo::LoadFromPath(const Path &gamePath) {
 	std::lock_guard<std::mutex> guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
-		fileLoader.reset(ConstructFileLoader(gamePath.ToString()));
+		fileLoader.reset(ConstructFileLoader(gamePath));
 		if (!fileLoader)
 			return false;
 		filePath_ = gamePath;
@@ -220,7 +220,7 @@ std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 		return fileLoader;
 	}
 	if (!fileLoader) {
-		fileLoader.reset(ConstructFileLoader(filePath_.ToString()));
+		fileLoader.reset(ConstructFileLoader(filePath_));
 	}
 	return fileLoader;
 }
@@ -361,9 +361,9 @@ public:
 			{
 				auto pbpLoader = info_->GetFileLoader();
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-					Path ebootPath = Path(ResolvePBPFile(gamePath_.ToString()));
+					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
-						pbpLoader.reset(ConstructFileLoader(ebootPath.ToString()));
+						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
 				}
 
@@ -372,7 +372,7 @@ public:
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->GetPath().c_str());
+					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
 					info_->pending = false;
 					info_->working = false;
 					return;
@@ -466,7 +466,7 @@ handleELF:
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			SequentialHandleAllocator handles;
-			VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+			VirtualDiscFileSystem umd(&handles, gamePath_);
 
 			// Alright, let's fetch the PARAM.SFO.
 			std::string paramSFOcontents;
@@ -507,7 +507,7 @@ handleELF:
 			{
 				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
-				VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+				VirtualDiscFileSystem umd(&handles, gamePath_);
 
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;

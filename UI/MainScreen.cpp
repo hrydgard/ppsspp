@@ -69,7 +69,7 @@ bool MainScreen::showHomebrewTab = false;
 
 bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 	// Depending on the file type, we don't want to launch EmuScreen at all.
-	auto loader = ConstructFileLoader(path.ToString());
+	auto loader = ConstructFileLoader(path);
 	if (!loader) {
 		return false;
 	}
@@ -79,7 +79,7 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 
 	switch (type) {
 	case IdentifiedFileType::ARCHIVE_ZIP:
-		screenManager->push(new InstallZipScreen(path.ToString()));
+		screenManager->push(new InstallZipScreen(path));
 		break;
 	default:
 		// Let the EmuScreen take care of it.
@@ -620,7 +620,7 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 	if (!File::Exists(path))
 		return false;
 
-	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path.ToString()));
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
 	PBPReader pbp(loader.get());
 	std::vector<u8> sfoData;
 	if (!pbp.GetSubFile(PBP_PARAM_SFO, &sfoData))
@@ -1509,7 +1509,7 @@ void UmdReplaceScreen::update() {
 }
 
 UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
-	__UmdReplace(e.s);
+	__UmdReplace(Path(e.s));
 	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
@@ -1525,7 +1525,7 @@ UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn UmdReplaceScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	__UmdReplace(e.s);
+	__UmdReplace(Path(e.s));
 	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }

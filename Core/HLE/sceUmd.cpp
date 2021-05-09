@@ -482,7 +482,7 @@ static u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
-void __UmdReplace(std::string filepath) {
+void __UmdReplace(Path filepath) {
 	std::string error = "";
 	if (!UmdReplace(filepath, error)) {
 		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());

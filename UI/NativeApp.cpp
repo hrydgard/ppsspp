@@ -207,7 +207,7 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 
 // globals
 static LogListener *logger = nullptr;
-std::string boot_filename = "";
+Path boot_filename;
 
 void NativeHost::InitSound() {
 #if PPSSPP_PLATFORM(IOS)
@@ -559,7 +559,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	bool gotBootFilename = false;
 	bool gotoGameSettings = false;
 	bool gotoTouchScreenTest = false;
-	boot_filename = "";
+	boot_filename.clear();
 
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -644,10 +644,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					}
 				}
 				if (okToLoad) {
-					boot_filename = argv[i];
-#ifdef _WIN32
-					boot_filename = ReplaceAll(boot_filename, "\\", "/");
-#endif
+					boot_filename = Path(std::string(argv[i]));
 					skipLogo = true;
 				}
 				if (okToLoad && okToCheck) {
@@ -758,7 +755,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new MainScreen());
 		screenManager->push(new TouchTestScreen());
 	} else if (skipLogo) {
-		screenManager->switchScreen(new EmuScreen(Path(boot_filename)));
+		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		screenManager->switchScreen(new LogoScreen());
 	}

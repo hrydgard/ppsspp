@@ -152,7 +152,7 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool autoCompare, bool verbose, double timeout)
 {
 	// Kinda ugly, trying to guesstimate the test name from filename...
-	currentTestName = GetTestName(coreParameter.fileToStart.ToString());
+	currentTestName = GetTestName(coreParameter.fileToStart);
 
 	std::string output;
 	if (autoCompare)
@@ -172,7 +172,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	host->BootDone();
 
 	if (autoCompare)
-		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart.ToString()));
+		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart));
 
 	bool passed = true;
 	// TODO: We must have some kind of stack overflow or we're not following the ABI right.
@@ -221,7 +221,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	headlessHost->FlushDebugOutput();
 
 	if (autoCompare && passed)
-		passed = CompareOutput(coreParameter.fileToStart.ToString(), output, verbose);
+		passed = CompareOutput(coreParameter.fileToStart, output, verbose);
 
 	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
@@ -423,7 +423,7 @@ int main(int argc, const char* argv[])
 		g_Config.flash0Directory = Path(File::GetExeDirectory()) / "assets/flash0";
 
 	if (screenshotFilename != 0)
-		headlessHost->SetComparisonScreenshot(screenshotFilename);
+		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)));
 
 #ifdef __ANDROID__
 	// For some reason the debugger installs it with this name?
@@ -456,7 +456,7 @@ int main(int argc, const char* argv[])
 		bool passed = RunAutoTest(headlessHost, coreParameter, autoCompare, verbose, timeout);
 		if (autoCompare)
 		{
-			std::string testName = GetTestName(coreParameter.fileToStart.ToString());
+			std::string testName = GetTestName(coreParameter.fileToStart);
 			if (passed)
 			{
 				passedTests.push_back(testName);

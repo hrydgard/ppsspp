@@ -20,6 +20,7 @@
 #include <mutex>
 #include <vector>
 
+#include "Common/File/Path.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
@@ -28,7 +29,7 @@
 
 class HTTPFileLoader : public FileLoader {
 public:
-	HTTPFileLoader(const std::string &filename);
+	HTTPFileLoader(const ::Path &filename);
 	virtual ~HTTPFileLoader() override;
 
 	bool IsRemote() override {
@@ -38,7 +39,7 @@ public:
 	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
-	virtual std::string GetPath() const override;
+	virtual Path GetPath() const override;
 
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
@@ -71,7 +72,7 @@ private:
 	Url url_;
 	http::Client client_;
 	http::RequestProgress progress_;
-	std::string filename_;
+	::Path filename_;
 	bool connected_ = false;
 	bool cancel_ = false;
 	const char *latestError_ = "";

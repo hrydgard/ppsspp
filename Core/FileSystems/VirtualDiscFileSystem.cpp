@@ -50,8 +50,8 @@
 
 const std::string INDEX_FILENAME = ".ppsspp-index.lst";
 
-VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath)
-	: basePath(_basePath),currentBlockIndex(0) {
+VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath)
+	: basePath(_basePath), currentBlockIndex(0) {
 	hAlloc = _hAlloc;
 	LoadFileListIndex();
 }
@@ -77,13 +77,6 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 	if (!f) {
 		return;
 	}
-
-	/*
-	in.open(filename.c_str(), std::ios::in);
-	if (in.fail()) {
->>>>>>> 52a34c2de (Introduce Path, start using it all over the place.)
-		return;
-	}*/
 
 	std::string buf;
 	static const int MAX_LINE_SIZE = 2048;

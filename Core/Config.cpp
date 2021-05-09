@@ -1536,7 +1536,7 @@ void Config::RemoveRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		FileLoader *loader = ConstructFileLoader(recentIsos[i]);
+		FileLoader *loader = ConstructFileLoader(Path(recentIsos[i]));
 		if (loader->ExistsFast()) {
 			// Make sure we don't have any redundant items.
 			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
@@ -1577,7 +1577,8 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 
 	const Path filename = defaultPath_ / baseFilename;
 	if (!File::Exists(filename)) {
-		Path path = filename.Directory();
+		// Make sure at least the directory it's supposed to be in exists.
+		Path path = filename.NavigateUp();
 		if (createdPath_ != path) {
 			File::CreateFullPath(path);
 			createdPath_ = path;

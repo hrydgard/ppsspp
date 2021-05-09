@@ -450,8 +450,7 @@ namespace MainWindow {
 		}
 
 		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch UMD", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;", fn)) {
-			fn = ReplaceAll(fn, "\\", "/");
-			__UmdReplace(fn);
+			__UmdReplace(Path(fn));
 		}
 	}
 

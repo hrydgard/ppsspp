@@ -175,6 +175,6 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 	}
 }
 
-FileLoader *StorageFileLoaderFactory::ConstructFileLoader(const std::string &filename) {
+FileLoader *StorageFileLoaderFactory::ConstructFileLoader(const Path &filename) {
 	return file_ ? new StorageFileLoader(file_) : nullptr;
 }
