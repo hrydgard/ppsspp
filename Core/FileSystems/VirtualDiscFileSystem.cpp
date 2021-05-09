@@ -92,6 +92,9 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 	char linebuf[MAX_LINE_SIZE]{};
 	while (fgets(linebuf, MAX_LINE_SIZE, f)) {
 		std::string line = linebuf;
+		// Strip newline from fgets.
+		if (!line.empty() && line.back() == '\n')
+			line.resize(line.size() - 1);
 
 		// Ignore any UTF-8 BOM.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
