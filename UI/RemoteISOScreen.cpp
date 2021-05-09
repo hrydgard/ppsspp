@@ -243,7 +243,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 	return false;
 }
 
-static bool LoadGameList(const std::string &url, std::vector<Path> &games) {
+static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	PathBrowser browser(url);
 	std::vector<File::FileInfo> files;
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
@@ -482,7 +482,7 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 void RemoteISOConnectScreen::ExecuteLoad() {
 	std::string subdir = RemoteSubdir();
 	url_ = StringFromFormat("http://%s:%d%s", host_.c_str(), port_, subdir.c_str());
-	bool result = LoadGameList(url_, games_);
+	bool result = LoadGameList(Path(url_), games_);
 	if (scanAborted) {
 		return;
 	}
@@ -498,7 +498,7 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const std::string &url, const std::vector<Path> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	RemoteGameBrowser(const Path &url, const std::vector<Path> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
 		: GameBrowser(url, browseFlags, gridStyle_, screenManager, lastText, lastLink, layoutParams) {
 		games_ = games;
 		Refresh();
@@ -542,7 +542,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		url_, games_, BrowseFlags::PIN, &g_Config.bGridView1, screenManager(), "", "",
+		Path(url_), games_, BrowseFlags::PIN, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);

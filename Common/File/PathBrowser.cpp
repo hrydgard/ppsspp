@@ -16,7 +16,9 @@
 
 #include "Core/System.h"
 
-bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<File::FileInfo> &files) {
+bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
+	_dbg_assert_(url.Type() == PathType::HTTP);
+
 	http::Client http;
 	Buffer result;
 	int code = 500;
@@ -24,7 +26,7 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<File::
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 
-	Url baseURL(url);
+	Url baseURL(url.ToString());
 	if (!baseURL.Valid()) {
 		return false;
 	}
@@ -134,30 +136,20 @@ PathBrowser::~PathBrowser() {
 	}
 }
 
-// Normalize slashes.
-void PathBrowser::SetPath(const std::string &path) {
-	if (path[0] == '!') {
-		path_ = path;
-		HandlePath();
-		return;
-	}
+void PathBrowser::SetPath(const Path &path) {
 	path_ = path;
-	for (size_t i = 0; i < path_.size(); i++) {
-		if (path_[i] == '\\') path_[i] = '/';
-	}
-	if (!path_.size() || (path_[path_.size() - 1] != '/'))
-		path_ += "/";
 	HandlePath();
 }
 
 void PathBrowser::HandlePath() {
-	if (!path_.empty() && path_[0] == '!') {
+	if (!path_.empty() && path_.ToString()[0] == '!') {
 		if (pendingActive_)
 			ResetPending();
 		ready_ = true;
 		return;
 	}
-	if (!startsWith(path_, "http://") && !startsWith(path_, "https://")) {
+
+	if (path_.Type() == PathType::HTTP) {
 		if (pendingActive_)
 			ResetPending();
 		ready_ = true;
@@ -180,14 +172,14 @@ void PathBrowser::HandlePath() {
 
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;
-		std::string lastPath;
+		Path lastPath;
 		while (!pendingStop_) {
 			while (lastPath == pendingPath_ && !pendingCancel_) {
 				pendingCond_.wait(guard);
 			}
 			lastPath = pendingPath_;
 			bool success = false;
-			if (!lastPath.empty()) {
+			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
 				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
@@ -217,13 +209,9 @@ bool PathBrowser::IsListingReady() {
 }
 
 std::string PathBrowser::GetFriendlyPath() const {
-	std::string str = GetPath();
+	std::string str = GetPath().ToString();
 	// Show relative to memstick root if there.
 	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
-	for (size_t i = 0; i < root.size(); i++) {
-		if (root[i] == '\\')
-			root[i] = '/';
-	}
 
 	if (startsWith(str, root)) {
 		return std::string("ms:/") + str.substr(root.size());
@@ -248,7 +236,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	}
 
 #ifdef _WIN32
-	if (path_ == "/") {
+	if (path_.IsRoot()) {
 		// Special path that means root of file system.
 		std::vector<std::string> drives = File::GetWindowsDrives();
 		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
@@ -266,7 +254,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	}
 #endif
 
-	if (startsWith(path_, "http://") || startsWith(path_, "https://")) {
+	if (path_.Type() == PathType::HTTP) {
 		fileInfo = ApplyFilter(pendingFiles_, filter);
 		return true;
 	} else {
@@ -284,28 +272,11 @@ bool PathBrowser::CanNavigateUp() {
 	}
 #endif
 */
-	if (path_ == "/" || path_ == "") {
-		return false;
-	}
-	return true;
+	return path_.CanNavigateUp();
 }
 
 void PathBrowser::NavigateUp() {
-	// Upwards.
-	// Check for windows drives.
-	if (path_.size() == 3 && path_[1] == ':') {
-		path_ = "/";
-	} else if (startsWith(path_, "http://") || startsWith(path_, "https://")) {
-		// You can actually pin "remote disc streaming" (which I didn't even realize until recently).
-		// This prevents you from getting the path browser into very weird states:
-		path_ = "/";
-		// It's ok to just go directly to root without more checking since remote disc streaming
-		// does not yet support folders.
-	} else {
-		size_t slash = path_.rfind('/', path_.size() - 2);
-		if (slash != std::string::npos)
-			path_ = path_.substr(0, slash + 1);
-	}
+	path_ = path_.NavigateUp();
 }
 
 // TODO: Support paths like "../../hello"
@@ -315,12 +286,10 @@ void PathBrowser::Navigate(const std::string &path) {
 	if (path == "..") {
 		NavigateUp();
 	} else {
-		if (path.size() > 2 && path[1] == ':' && path_ == "/")
-			path_ = path;
+		if (path.size() >= 2 && path[1] == ':' && path_.IsRoot())
+			path_ = Path(path);
 		else
-			path_ = path_ + path;
-		if (path_[path_.size() - 1] != '/')
-			path_ += "/";
+			path_ = path_ / path;
 	}
 	HandlePath();
 }

@@ -102,7 +102,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
-		Path filename = Path(fileLoader->GetPath());
+		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
 			if (File::Exists(filename / "EBOOT.PBP")) {

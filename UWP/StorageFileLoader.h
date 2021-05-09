@@ -54,7 +54,7 @@ private:
 
 	Windows::Storage::StorageFile ^file_;
 	Windows::Storage::Streams::IRandomAccessStreamWithContentType ^stream_;
-	std::string path_;
+	Path path_;
 
 	bool operationRequested_ = false;
 	Operation operation_{ OpType::NONE, 0, 0 };

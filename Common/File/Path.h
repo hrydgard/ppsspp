@@ -32,6 +32,7 @@ public:
 	}
 
 	bool Valid() const { return !path_.empty(); }
+	bool IsRoot() const { return path_ == "/"; }  // Special value - only path that can end in a slash.
 
 	// Some std::string emulation for simplicity.
 	bool empty() const { return !Valid(); }
@@ -62,7 +63,7 @@ public:
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
 	// Removes the last component.
-	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory.
+	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory. Includes the extension.
 	std::string GetFileExtension() const;  // Always lowercase return. Includes the dot.
 	std::string GetDirectory() const;
 

@@ -491,7 +491,7 @@ void DirButton::Draw(UIContext &dc) {
 	}
 }
 
-GameBrowser::GameBrowser(const std::string &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
+GameBrowser::GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager) {
 	using namespace UI;
 	Refresh();
@@ -504,8 +504,8 @@ void GameBrowser::FocusGame(const Path &gamePath) {
 }
 
 void GameBrowser::SetPath(const Path &path) {
-	path_.SetPath(path.ToString());
-	g_Config.currentDirectory = path_.GetPath();
+	path_.SetPath(path);
+	g_Config.currentDirectory = path_.GetPath().ToString();
 	Refresh();
 }
 
@@ -551,7 +551,7 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::PinToggleClick(UI::EventParams &e) {
 	auto &pinnedPaths = g_Config.vPinnedPaths;
-	const std::string path = File::ResolvePath(path_.GetPath());
+	const std::string path = File::ResolvePath(path_.GetPath().ToString());
 	if (IsCurrentPathPinned()) {
 		pinnedPaths.erase(std::remove(pinnedPaths.begin(), pinnedPaths.end(), path), pinnedPaths.end());
 	} else {
@@ -562,11 +562,11 @@ UI::EventReturn GameBrowser::PinToggleClick(UI::EventParams &e) {
 }
 
 bool GameBrowser::DisplayTopBar() {
-	return path_.GetPath() != "!RECENT";
+	return path_.GetPath().ToString() != "!RECENT";
 }
 
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
-	if (path_.GetPath() == "!RECENT") {
+	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_Config.recentIsos) {
 			filenames.push_back(Path(str));
@@ -724,9 +724,9 @@ void GameBrowser::Refresh() {
 			// Check if eboot directory
 			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(Path(path_.GetPath()) / fileInfo[i].name / "EBOOT.PBP", true))
 				isGame = true;
-			else if (!isGame && File::Exists(Path(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR")))
+			else if (!isGame && File::Exists(path_.GetPath() / fileInfo[i].name / "PSP_GAME/SYSDIR"))
 				isGame = true;
-			else if (!isGame && File::Exists(Path(path_.GetPath() + fileInfo[i].name + "/PARAM.SFO")))
+			else if (!isGame && File::Exists(path_.GetPath() / fileInfo[i].name / "PARAM.SFO"))
 				isSaveData = true;
 
 			if (!isGame && !isSaveData) {
@@ -815,7 +815,7 @@ void GameBrowser::Refresh() {
 
 bool GameBrowser::IsCurrentPathPinned() {
 	const auto paths = g_Config.vPinnedPaths;
-	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath())) != paths.end();
+	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath().ToString())) != paths.end();
 }
 
 const std::vector<Path> GameBrowser::GetPinnedPaths() {
@@ -825,7 +825,7 @@ const std::vector<Path> GameBrowser::GetPinnedPaths() {
 	static const std::string sepChars = "/\\";
 #endif
 
-	const std::string currentPath = File::ResolvePath(path_.GetPath());
+	const std::string currentPath = File::ResolvePath(path_.GetPath().ToString());
 	const std::vector<std::string> paths = g_Config.vPinnedPaths;
 	std::vector<Path> results;
 	for (size_t i = 0; i < paths.size(); ++i) {
@@ -895,13 +895,13 @@ UI::EventReturn GameBrowser::GameButtonHighlight(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	DirButton *button = static_cast<DirButton *>(e.v);
-	std::string text = button->GetPath().ToString();
+	Path text = button->GetPath();
 	if (button->PathAbsolute()) {
 		path_.SetPath(text);
 	} else {
-		path_.Navigate(text);
+		path_.Navigate(text.ToString());
 	}
-	g_Config.currentDirectory = path_.GetPath();
+	g_Config.currentDirectory = path_.GetPath().ToString();
 	Refresh();
 	return UI::EVENT_DONE;
 }
@@ -970,7 +970,7 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("MainScreenRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
-			"!RECENT", BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
+			Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		gameBrowsers_.push_back(tabRecentGames);
@@ -988,10 +988,10 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
-		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
+		GameBrowser *tabAllGames = new GameBrowser(Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
 			mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME).ToString(), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
+		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
 			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -1467,7 +1467,7 @@ void UmdReplaceScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
-			"!RECENT", BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
+			Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
@@ -1477,7 +1477,7 @@ void UmdReplaceScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
+	GameBrowser *tabAllGames = new GameBrowser(Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
 		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 

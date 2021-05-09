@@ -11,6 +11,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/File/Path.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceUmd.h"
@@ -252,7 +253,7 @@ void MainWindow::switchUMDAct()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = info.absolutePath().toStdString();
-		__UmdReplace(filename.toStdString().c_str());
+		__UmdReplace(Path(filename.toStdString()));
 	}
 }
 

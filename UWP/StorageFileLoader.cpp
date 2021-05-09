@@ -3,6 +3,7 @@
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/File/DirListing.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "StorageFileLoader.h"
@@ -19,7 +20,7 @@ static std::mutex initMutex;
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 	active_ = false;
 	file_ = file;
-	path_ = FromPlatformString(file_->Path);
+	path_ = Path(FromPlatformString(file_->Path));
 	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
 
 	// Before we proceed, we need to block until the thread has found the size.
@@ -131,7 +132,7 @@ s64 StorageFileLoader::FileSize() {
 	return size_;
 }
 
-std::string StorageFileLoader::GetPath() const {
+Path StorageFileLoader::GetPath() const {
 	return path_;
 }
 

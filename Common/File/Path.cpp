@@ -34,7 +34,8 @@ void Path::Init(const std::string &str) {
 	}
 #endif
 
-	if (type_ == PathType::NATIVE && !path_.empty() && path_.back() == '/') {
+	// Don't pop_back if it's just "/".
+	if (type_ == PathType::NATIVE && path_.size() > 1 && path_.back() == '/') {
 		path_.pop_back();
 	}
 }
@@ -92,7 +93,6 @@ std::string Path::GetFilename() const {
 	if (pos != std::string::npos) {
 		return path_.substr(pos + 1);
 	}
-	// No directory components, just return the full path.
 	return path_;
 }
 
@@ -116,7 +116,13 @@ std::string Path::GetFileExtension() const {
 std::string Path::GetDirectory() const {
 	size_t pos = path_.rfind('/');
 	if (pos != std::string::npos) {
+		if (pos == 0) {
+			return "/";  // We're at the root.
+		}
 		return path_.substr(0, pos);
+	} else if (path_.size() == 2 && path_[1] == ':') {
+		// Windows fake-root.
+		return "/";
 	} else {
 		// There could be a ':', too. Unlike the slash, let's include that
 		// in the returned directory.
@@ -125,7 +131,7 @@ std::string Path::GetDirectory() const {
 			return path_.substr(0, c_pos + 1);
 		}
 	}
-	// No directory components, just return the full path.
+	// No directory components, we're a relative path.
 	return path_;
 }
 
