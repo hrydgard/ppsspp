@@ -84,7 +84,10 @@ bool Delete(const Path &filename);
 
 // Deletes a directory filename, returns true on success
 // Directory must be empty.
-bool DeleteDir(const std::string &filename);
+bool DeleteDir(const Path &filename);
+
+// Deletes the given directory and anything under it. Returns true on success.
+bool DeleteDirRecursively(const Path &directory);
 
 // renames file srcFilename to destFilename, returns true on success 
 bool Rename(const std::string &srcFilename, const std::string &destFilename);
@@ -95,12 +98,9 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename);
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename);
 
-// deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const std::string &directory);
-
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
-void OpenFileInEditor(const std::string& fileName);
+void OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
 const std::string &GetExeDirectory();
@@ -185,10 +185,10 @@ private:
 // TODO: Refactor, this was moved from the old file_util.cpp.
 
 // Whole-file reading/writing
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename);
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename);
+bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename);
 
-bool ReadFileToString(bool text_file, const char *filename, std::string &str);
+bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
 // Return value must be delete[]-d.
 uint8_t *ReadLocalFile(const char *filename, size_t *size);
 

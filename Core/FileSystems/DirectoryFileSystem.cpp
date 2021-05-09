@@ -528,7 +528,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 #else
 	return 0 == rmdir(fullName.c_str());
 #endif*/
-	bool result = File::DeleteDirRecursively(fullName.ToString());
+	bool result = File::DeleteDirRecursively(fullName);
 	return ReplayApplyDisk(ReplayAction::RMDIR, result, CoreTiming::GetGlobalTimeUs()) != 0;
 }
 

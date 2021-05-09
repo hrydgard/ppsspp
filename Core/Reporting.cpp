@@ -450,10 +450,10 @@ namespace Reporting
 		postdata.Add("savestate_used", SaveState::HasLoadedState());
 	}
 
-	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
+	void AddScreenshotData(MultipartFormDataEncoder &postdata, const Path &filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::ReadFileToString(false, filename.c_str(), data))
+		if (!filename.empty() && File::ReadFileToString(false, filename, data))
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
@@ -502,7 +502,7 @@ namespace Reporting
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
 			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
-			AddScreenshotData(postdata, payload.string2);
+			AddScreenshotData(postdata, Path(payload.string2));
 			payload.string1.clear();
 			payload.string2.clear();
 

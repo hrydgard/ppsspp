@@ -71,7 +71,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
-			std::string directoryToRemove = ResolvePBPDirectory(filePath_.ToString());
+			Path directoryToRemove = Path(ResolvePBPDirectory(filePath_.ToString()));
 			INFO_LOG(SYSTEM, "Deleting %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(SYSTEM, "Failed to delete file");
@@ -239,7 +239,7 @@ bool GameInfo::DeleteAllSaveData() {
 			File::Delete(Path(fileInfo[i].fullName));
 		}
 
-		File::DeleteDir(saveDataDir[j].c_str());
+		File::DeleteDir(saveDataDir[j]);
 	}
 	return true;
 }

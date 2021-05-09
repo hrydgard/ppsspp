@@ -405,25 +405,30 @@ bool CreateFullPath(const Path &path) {
 }
 
 // Deletes a directory filename, returns true on success
-bool DeleteDir(const std::string &filename)
-{
-	INFO_LOG(COMMON, "DeleteDir: directory %s", filename.c_str());
+bool DeleteDir(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
 
 	// check if a directory
-	if (!File::IsDirectory(Path(filename)))
+	if (!File::IsDirectory(path))
 	{
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", filename.c_str());
+		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
 		return false;
 	}
 
 #ifdef _WIN32
-	if (::RemoveDirectory(ConvertUTF8ToWString(filename).c_str()))
+	if (::RemoveDirectory(path.ToWString().c_str()))
 		return true;
 #else
-	if (rmdir(filename.c_str()) == 0)
+	if (rmdir(path.c_str()) == 0)
 		return true;
 #endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
 
 	return false;
 }
@@ -719,15 +724,15 @@ bool DeleteDirRecursively(const std::string &directory)
 	}
 	closedir(dirp);
 #endif
-	return File::DeleteDir(directory);
+	return File::DeleteDir(Path(directory));
 }
 
-void OpenFileInEditor(const std::string& fileName) {
+void OpenFileInEditor(const Path &fileName) {
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
 #else
-	ShellExecuteW(nullptr, L"open", ConvertUTF8ToWString(fileName).c_str(), nullptr, nullptr, SW_SHOW);
+	ShellExecuteW(nullptr, L"open", fileName.ToWString().c_str(), nullptr, nullptr, SW_SHOW);
 #endif
 #elif !defined(MOBILE_DEVICE)
 	std::string iniFile;
@@ -736,7 +741,7 @@ void OpenFileInEditor(const std::string& fileName) {
 #else
 	iniFile = "xdg-open ";
 #endif
-	iniFile.append(fileName);
+	iniFile.append(fileName.ToString());
 	NOTICE_LOG(BOOT, "Launching %s", iniFile.c_str());
 	int retval = system(iniFile.c_str());
 	if (retval != 0) {
@@ -745,8 +750,7 @@ void OpenFileInEditor(const std::string& fileName) {
 #endif
 }
 
-const std::string &GetExeDirectory()
-{
+const std::string &GetExeDirectory() {
 	static std::string ExePath;
 
 	if (ExePath.empty()) {
@@ -813,7 +817,6 @@ const std::string &GetExeDirectory()
 
 	return ExePath;
 }
-
 
 IOFile::IOFile()
 	: m_file(NULL), m_good(true)
@@ -928,8 +931,8 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
-	FILE *f = File::OpenCFile(Path(filename), text_file ? "r" : "rb");
+bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
+	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
@@ -983,8 +986,8 @@ uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	return contents;
 }
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename) {
-	FILE *f = File::OpenCFile(Path(filename), text_file ? "w" : "wb");
+bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename) {
+	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = str.size();
@@ -997,8 +1000,8 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename) {
-	FILE *f = File::OpenCFile(Path(filename), text_file ? "w" : "wb");
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename) {
+	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = size;

@@ -115,7 +115,7 @@ bool GameManager::Uninstall(std::string name) {
 		return false;
 	}
 
-	bool success = File::DeleteDirRecursively(gameDir.ToString());
+	bool success = File::DeleteDirRecursively(gameDir);
 	if (success) {
 		INFO_LOG(HLE, "Successfully deleted game '%s'", name.c_str());
 		g_Config.CleanRecent();
@@ -517,7 +517,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 	};
 
 	// Create all the directories first in one pass
-	std::set<std::string> createdDirs;
+	std::set<Path> createdDirs;
 	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
@@ -530,9 +530,11 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 		if (!isDir && outFilename.find("/") != std::string::npos) {
 			outFilename = outFilename.substr(0, outFilename.rfind('/'));
 		}
-		if (createdDirs.find(outFilename) == createdDirs.end()) {
-			File::CreateFullPath(Path(outFilename));
-			createdDirs.insert(outFilename);
+
+		Path outPath(outFilename);
+		if (createdDirs.find(outPath) == createdDirs.end()) {
+			File::CreateFullPath(Path(outPath));
+			createdDirs.insert(Path(outPath));
 		}
 		if (!isDir && fileAllowed(fn)) {
 			struct zip_stat zstat;
@@ -543,7 +545,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 	}
 
 	// Now, loop through again in a second pass, writing files.
-	std::vector<std::string> createdFiles;
+	std::vector<Path> createdFiles;
 	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
@@ -558,7 +560,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 			if (!ExtractFile(z, i, Path(outFilename), &bytesCopied, allBytes)) {
 				goto bail;
 			} else {
-				createdFiles.push_back(outFilename);
+				createdFiles.push_back(Path(outFilename));
 			}
 		}
 	}
@@ -580,10 +582,10 @@ bail:
 	zip_close(z);
 	// We don't delete the original in this case. Try to delete the files we created so far.
 	for (size_t i = 0; i < createdFiles.size(); i++) {
-		File::Delete(Path(createdFiles[i]));
+		File::Delete(createdFiles[i]);
 	}
-	for (auto iter = createdDirs.begin(); iter != createdDirs.end(); ++iter) {
-		File::DeleteDir(iter->c_str());
+	for (auto const &iter : createdDirs) {
+		File::DeleteDir(iter);
 	}
 	SetInstallError(sy->T("Storage full"));
 	return false;

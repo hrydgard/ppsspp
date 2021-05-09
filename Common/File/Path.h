@@ -80,6 +80,10 @@ public:
 
 	bool StartsWith(const Path &other) const;
 
+	bool operator <(const Path &other) const {
+		return path_ < other.path_;
+	}
+
 private:
 	// The internal representation is currently always the plain string.
 	// For CPU efficiency we could keep an AndroidStorageContentURI too,
