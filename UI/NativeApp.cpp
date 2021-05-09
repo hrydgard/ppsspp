@@ -511,11 +511,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 #elif PPSSPP_PLATFORM(IOS)
-	g_Config.memStickDirectory = user_data_path;
-	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+	g_Config.memStickDirectory = Path(user_data_path);
+	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
-	g_Config.memStickDirectory = g_Config.internalDataDirectory + "config/ppsspp/";
-	g_Config.flash0Directory = g_Config.internalDataDirectory + "assets/flash0/";
+	g_Config.memStickDirectory = Path(g_Config.internalDataDirectory) / "config/ppsspp";
+	g_Config.flash0Directory = Path(g_Config.internalDataDirectory) / "assets/flash0";
 #elif !PPSSPP_PLATFORM(WINDOWS)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)

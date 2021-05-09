@@ -13,7 +13,7 @@ namespace File {
 
 struct FileInfo {
 	std::string name;
-	std::string fullName;  // TODO: Make into Path
+	Path fullName;
 	bool exists = false;
 	bool isDirectory = false;
 	bool isWritable = false;

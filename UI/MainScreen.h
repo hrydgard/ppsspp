@@ -19,6 +19,7 @@
 
 #include <functional>
 
+#include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
@@ -55,13 +56,13 @@ public:
 
 protected:
 	virtual bool DisplayTopBar();
-	virtual bool HasSpecialFiles(std::vector<std::string> &filenames);
+	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 
 	void Refresh();
 
 private:
 	bool IsCurrentPathPinned();
-	const std::vector<std::string> GetPinnedPaths();
+	const std::vector<Path> GetPinnedPaths();
 	const std::string GetBaseName(const std::string &path);
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);

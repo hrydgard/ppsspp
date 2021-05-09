@@ -170,9 +170,9 @@ void SortedLinearLayout::Update() {
 
 class SavedataButton : public UI::Clickable {
 public:
-	SavedataButton(const std::string &gamePath, UI::LayoutParams *layoutParams = 0)
+	SavedataButton(const Path &gamePath, UI::LayoutParams *layoutParams = 0)
 		: UI::Clickable(layoutParams), savePath_(gamePath) {
-		SetTag(gamePath);
+		SetTag(gamePath.ToString());
 	}
 
 	void Draw(UIContext &dc) override;

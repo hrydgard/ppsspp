@@ -55,7 +55,7 @@ Path Path::WithExtraExtension(const std::string &ext) const {
 
 Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
 	if (endsWithNoCase(path_, "." + oldExtension)) {
-		std::string newPath = path_.substr(path_.size() - oldExtension.size() - 1);
+		std::string newPath = path_.substr(0, path_.size() - oldExtension.size() - 1);
 		return Path(newPath + "." + newExtension);
 	} else {
 		return Path(*this);

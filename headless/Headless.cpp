@@ -408,7 +408,7 @@ int main(int argc, const char* argv[])
 #endif
 
 #if !defined(__ANDROID__) && !defined(_WIN32)
-	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.

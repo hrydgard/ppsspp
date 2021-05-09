@@ -827,7 +827,7 @@ void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
 		}
 
 #ifdef _WIN32
-		const std::wstring w32path = ConvertUTF8ToWString(file.fullName);
+		const std::wstring w32path = file.fullName.ToWString();
 		bool success = DeleteFileW(w32path.c_str()) != 0;
 #else
 		bool success = unlink(file.fullName.c_str()) == 0;

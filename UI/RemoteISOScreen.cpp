@@ -243,7 +243,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 	return false;
 }
 
-static bool LoadGameList(const std::string &url, std::vector<std::string> &games) {
+static bool LoadGameList(const std::string &url, std::vector<Path> &games) {
 	PathBrowser browser(url);
 	std::vector<File::FileInfo> files;
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
@@ -498,7 +498,7 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const std::string &url, const std::vector<std::string> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	RemoteGameBrowser(const std::string &url, const std::vector<Path> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
 		: GameBrowser(url, browseFlags, gridStyle_, screenManager, lastText, lastLink, layoutParams) {
 		games_ = games;
 		Refresh();
@@ -509,18 +509,18 @@ protected:
 		return false;
 	}
 
-	bool HasSpecialFiles(std::vector<std::string> &filenames) override;
+	bool HasSpecialFiles(std::vector<Path> &filenames) override;
 
 	std::string url_;
-	std::vector<std::string> games_;
+	std::vector<Path> games_;
 };
 
-bool RemoteGameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
+bool RemoteGameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	filenames = games_;
 	return true;
 }
 
-RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<std::string> &games)
+RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games)
 	: url_(url), games_(games) {
 }
 

@@ -116,7 +116,7 @@ static bool IsTempPath(const Path &str) {
 
 class GameButton : public UI::Clickable {
 public:
-	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0)
+	GameButton(const Path &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0)
 		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
@@ -418,14 +418,14 @@ std::string GameButton::DescribeText() const {
 
 class DirButton : public UI::Button {
 public:
-	DirButton(const std::string &path, bool gridStyle, UI::LayoutParams *layoutParams)
-		: UI::Button(path, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(false) {}
-	DirButton(const std::string &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
+	DirButton(const Path &path, bool gridStyle, UI::LayoutParams *layoutParams)
+		: UI::Button(path.ToString(), layoutParams), path_(path), gridStyle_(gridStyle), absolute_(false) {}
+	DirButton(const Path &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
 		: UI::Button(text, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(true) {}
 
 	virtual void Draw(UIContext &dc);
 
-	const std::string GetPath() const {
+	const Path &GetPath() const {
 		return path_;
 	}
 
@@ -434,7 +434,7 @@ public:
 	}
 
 private:
-	std::string path_;
+	Path path_;
 	bool gridStyle_;
 	bool absolute_;
 };
@@ -565,9 +565,12 @@ bool GameBrowser::DisplayTopBar() {
 	return path_.GetPath() != "!RECENT";
 }
 
-bool GameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
+bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath() == "!RECENT") {
-		filenames = g_Config.recentIsos;
+		filenames.clear();
+		for (auto &str : g_Config.recentIsos) {
+			filenames.push_back(Path(str));
+		}
 		return true;
 	}
 	return false;
@@ -707,7 +710,7 @@ void GameBrowser::Refresh() {
 
 	listingPending_ = !path_.IsListingReady();
 
-	std::vector<std::string> filenames;
+	std::vector<Path> filenames;
 	if (HasSpecialFiles(filenames)) {
 		for (size_t i = 0; i < filenames.size(); i++) {
 			gameButtons.push_back(new GameButton(filenames[i], *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
@@ -757,14 +760,15 @@ void GameBrowser::Refresh() {
 
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		if (path_.CanNavigateUp()) {
-			gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+			gameList_->Add(new DirButton(Path(std::string("..")), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-			gameList_->Add(new DirButton(*it, GetBaseName(*it), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+			// TODO(scoped): Hmm
+			gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 	}
@@ -814,7 +818,7 @@ bool GameBrowser::IsCurrentPathPinned() {
 	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath())) != paths.end();
 }
 
-const std::vector<std::string> GameBrowser::GetPinnedPaths() {
+const std::vector<Path> GameBrowser::GetPinnedPaths() {
 #ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
@@ -823,7 +827,7 @@ const std::vector<std::string> GameBrowser::GetPinnedPaths() {
 
 	const std::string currentPath = File::ResolvePath(path_.GetPath());
 	const std::vector<std::string> paths = g_Config.vPinnedPaths;
-	std::vector<std::string> results;
+	std::vector<Path> results;
 	for (size_t i = 0; i < paths.size(); ++i) {
 		// We want to exclude the current path, and its direct children.
 		if (paths[i] == currentPath) {
@@ -837,7 +841,7 @@ const std::vector<std::string> GameBrowser::GetPinnedPaths() {
 			}
 		}
 
-		results.push_back(paths[i]);
+		results.push_back(Path(paths[i]));
 	}
 	return results;
 }
@@ -891,7 +895,7 @@ UI::EventReturn GameBrowser::GameButtonHighlight(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	DirButton *button = static_cast<DirButton *>(e.v);
-	std::string text = button->GetPath();
+	std::string text = button->GetPath().ToString();
 	if (button->PathAbsolute()) {
 		path_.SetPath(text);
 	} else {

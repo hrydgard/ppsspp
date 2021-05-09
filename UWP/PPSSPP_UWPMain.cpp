@@ -97,9 +97,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
 
-	g_Config.memStickDirectory = ReplaceAll(ConvertWStringToUTF8(memstickFolderW), "\\", "/");
-	if (g_Config.memStickDirectory.back() != '/')
-		g_Config.memStickDirectory += "/";
+	g_Config.memStickDirectory = Path(ReplaceAll(ConvertWStringToUTF8(memstickFolderW), "\\", "/"));
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -109,8 +107,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.AddSearchGetSysDirectory(DIRECTORY_SYSTEM);
-	g_Config.SetDefaultGetSysDirectory(DIRECTORY_SYSTEM);
+	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename, controlsConfigFilename);
 
 	bool debugLogLevel = false;

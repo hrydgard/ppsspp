@@ -88,18 +88,19 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 		for (size_t f = 0; f < fileInfo.size(); f++) {
 			IniFile ini;
 			bool success = false;
-			std::string name = fileInfo[f].fullName;
-			std::string path = directories[d].ToString();
+			Path name = fileInfo[f].fullName;
+			Path path = directories[d];
 			// Hack around Android VFS path bug. really need to redesign this.
-			if (name.substr(0, 7) == "assets/")
-				name = name.substr(7);
-			if (path.substr(0, 7) == "assets/")
-				path = path.substr(7);
+			if (name.ToString().substr(0, 7) == "assets/")
+				name = Path(name.ToString().substr(7));
+			if (path.ToString().substr(0, 7) == "assets/")
+				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(name) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
 				// vsh load. meh.
 			}
+
 			if (!success)
 				continue;
 
@@ -118,9 +119,9 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 					section.Get("Parent", &info.parent, "");
 					section.Get("Visible", &info.visible, true);
 					section.Get("Fragment", &temp, "");
-					info.fragmentShaderFile = path + "/" + temp;
+					info.fragmentShaderFile = path / temp;
 					section.Get("Vertex", &temp, "");
-					info.vertexShaderFile = path + "/" + temp;
+					info.vertexShaderFile = path / temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
@@ -165,7 +166,7 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 					section.Get("Name", &info.name, section.name().c_str());
 					section.Get("Compute", &temp, "");
 					section.Get("MaxScale", &info.maxScale, 255);
-					info.computeShaderFile = path + "/" + temp;
+					info.computeShaderFile = path / temp;
 
 					appendTextureShader(info);
 				}

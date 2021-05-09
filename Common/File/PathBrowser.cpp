@@ -83,7 +83,7 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<File::
 
 		File::FileInfo info;
 		info.name = item;
-		info.fullName = baseURL.Relative(item).ToString();
+		info.fullName = Path(baseURL.Relative(item).ToString());
 		info.isDirectory = endsWith(item, "/");
 		info.exists = true;
 		info.size = 0;
@@ -115,7 +115,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	auto pred = [&](const File::FileInfo &info) {
 		if (info.isDirectory || !filter)
 			return false;
-		std::string ext = File::GetFileExtension(info.fullName);
+		std::string ext = info.fullName.GetFileExtension();
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
@@ -255,7 +255,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 			if (*drive == "A:/" || *drive == "B:/")
 				continue;
 			File::FileInfo fake;
-			fake.fullName = *drive;
+			fake.fullName = Path(*drive);
 			fake.name = *drive;
 			fake.isDirectory = true;
 			fake.exists = true;

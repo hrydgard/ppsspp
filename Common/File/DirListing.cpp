@@ -45,7 +45,7 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	}
 
 	// TODO: Expand relative paths?
-	fileInfo->fullName = path.ToString();
+	fileInfo->fullName = path;
 
 #ifdef _WIN32
 	auto FiletimeToStatTime = [](FILETIME ft) {
@@ -191,15 +191,7 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 		FileInfo info;
 		info.name = virtualName;
 
-		// It's OK not to use Path /-concat here.
-		std::string dir = directory.ToString();
-
-		// Only append a slash if there isn't one on the end.
-		size_t lastSlash = dir.find_last_of("/");
-		if (lastSlash != (dir.length() - 1))
-			dir.append("/");
-
-		info.fullName = dir + virtualName;
+		info.fullName = directory / virtualName;
 		info.isDirectory = IsDirectory(Path(info.fullName));
 		info.exists = true;
 		info.size = 0;

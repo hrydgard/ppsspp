@@ -59,7 +59,7 @@ static std::string TrimNewlines(const std::string &s) {
 
 bool TestsAvailable() {
 #if PPSSPP_PLATFORM(IOS)
-	Path testDirectory = Path(g_Config.flash0Directory) + "../";
+	Path testDirectory = g_Config.flash0Directory / "..";
 #else
 	Path testDirectory = g_Config.memStickDirectory;
 #endif
@@ -74,7 +74,7 @@ bool RunTests() {
 	std::string output;
 
 #if PPSSPP_PLATFORM(IOS)
-	std::string baseDirectory = g_Config.flash0Directory + "../";
+	Path baseDirectory = g_Config.flash0Directory / "..";
 #else
 	Path baseDirectory = g_Config.memStickDirectory;
 	// Hack to easily run the tests on Windows from the submodule
