@@ -644,24 +644,21 @@ void InitSysDirectories() {
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && rootMyDocsPath.size() > 0) {
-#if defined(_WIN32) && defined(__MINGW32__)
-		std::ifstream inputFile(installedFile);
-#else
-		std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-#endif
-
-		if (!inputFile.fail() && inputFile.is_open()) {
-			std::string tempString;
-
-			std::getline(inputFile, tempString);
-
+		FILE *fp = File::OpenCFile(installedFile, "rt");
+		if (fp) {
+			char temp[2048];
+			char *tempStr = fgets(temp, sizeof(temp), fp);
 			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-			if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-				tempString = tempString.substr(3);
+			if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
+				tempStr += 3;
+			}
+			std::string tempString = tempStr ? tempStr : "";
+			if (!tempString.empty() && tempString.back() == '\n')
+				tempString.resize(tempString.size() - 1);
 
 			g_Config.memStickDirectory = tempString;
+			fclose(fp);
 		}
-		inputFile.close();
 
 		// Check if the file is empty first, before appending the slash.
 		if (g_Config.memStickDirectory.empty())
