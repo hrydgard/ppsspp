@@ -82,19 +82,16 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		return;
 	}
 
-	std::ifstream in;
-	in.open(filename.c_str(), std::ios::in);
-	if (in.fail()) {
+	FILE *f = File::OpenCFile(filename, "r");
+	if (!f) {
 		return;
 	}
 
 	std::string buf;
-	static const int MAX_LINE_SIZE = 1024;
-	while (!in.eof()) {
-		buf.resize(MAX_LINE_SIZE, '\0');
-		in.getline(&buf[0], MAX_LINE_SIZE);
-
-		std::string line = buf.data();
+	static const int MAX_LINE_SIZE = 2048;
+	char linebuf[MAX_LINE_SIZE]{};
+	while (fgets(linebuf, MAX_LINE_SIZE, f)) {
+		std::string line = linebuf;
 
 		// Ignore any UTF-8 BOM.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
@@ -163,7 +160,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		fileList.push_back(entry);
 	}
 
-	in.close();
+	fclose(f);
 }
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
