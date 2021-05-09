@@ -103,16 +103,6 @@ FILE *OpenCFile(const std::string &filename, const char *mode)
 #endif
 }
 
-bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode)
-{
-#if defined(_WIN32) && defined(UNICODE) && !defined(__MINGW32__)
-	stream.open(ConvertUTF8ToWString(filename), mode);
-#else
-	stream.open(filename.c_str(), mode);
-#endif
-	return stream.is_open();
-}
-
 #ifdef _WIN32
 static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSize) {
 	typedef DWORD(WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);
