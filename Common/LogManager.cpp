@@ -291,12 +291,13 @@ void LogManager::RemoveListener(LogListener *listener) {
 }
 
 FileLogListener::FileLogListener(const char *filename) {
-#if defined(_WIN32) && !defined(__MINGW32__)
-	m_logfile.open(ConvertUTF8ToWString(filename).c_str(), std::ios::app);
-#else
-	m_logfile.open(filename, std::ios::app);
-#endif
-	SetEnabled(true);
+	fp_ = File::OpenCFile(filename, "at");
+	SetEnabled(fp_ != nullptr);
+}
+
+FileLogListener::~FileLogListener() {
+	if (fp_)
+		fclose(fp_);
 }
 
 void FileLogListener::Log(const LogMessage &message) {
@@ -304,7 +305,8 @@ void FileLogListener::Log(const LogMessage &message) {
 		return;
 
 	std::lock_guard<std::mutex> lk(m_log_lock);
-	m_logfile << message.timestamp << " " << message.header << " " << message.msg << std::flush;
+	fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
+	fflush(fp_);
 }
 
 void OutputDebugStringLogListener::Log(const LogMessage &message) {
