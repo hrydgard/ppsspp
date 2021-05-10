@@ -63,8 +63,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		ERROR_LOG(LOADER, "Invalid fileLoader");
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
-	if (fileLoader->Path().size() == 0) {
-		ERROR_LOG(LOADER, "Invalid filename %s", fileLoader->Path().c_str());
+	if (fileLoader->GetPath().size() == 0) {
+		ERROR_LOG(LOADER, "Invalid filename %s", fileLoader->GetPath().c_str());
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
@@ -72,8 +72,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	std::string extension = fileLoader->Extension();
-	if (!strcasecmp(extension.c_str(), ".iso")) {
+	std::string extension = File::GetFileExtension(fileLoader->GetPath());
+	if (extension == ".iso") {
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0) {
 			unsigned char sync[12];
@@ -87,11 +87,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 			// maybe it also just happened to have that size, 
 		}
 		return IdentifiedFileType::PSP_ISO;
-	} else if (!strcasecmp(extension.c_str(), ".cso")) {
+	} else if (extension == ".cso") {
 		return IdentifiedFileType::PSP_ISO;
-	} else if (!strcasecmp(extension.c_str(), ".ppst")) {
+	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
-	} else if (!strcasecmp(extension.c_str(), ".ppdmp")) {
+	} else if (extension == ".ppdmp") {
 		char data[8]{};
 		fileLoader->ReadAt(0, 8, data);
 		if (memcmp(data, "PPSSPPGE", 8) == 0) {
@@ -101,7 +101,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
-		std::string filename = fileLoader->Path();
+		std::string filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
 			if (File::Exists((filename + "/EBOOT.PBP").c_str())) {
@@ -142,16 +142,14 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	}
 
 	if (id == 'FLE\x7F') {
-		std::string filename = fileLoader->Path();
+		std::string filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
-		if (!strcasecmp(extension.c_str(), ".plf") || strstr(filename.c_str(),"BOOT.BIN") ||
-				!strcasecmp(extension.c_str(), ".elf") || !strcasecmp(extension.c_str(), ".prx") ||
-				!strcasecmp(extension.c_str(), ".pbp")) {
+		if (extension == ".plf" || strstr(filename.c_str(), "BOOT.BIN") ||
+			extension == ".elf" || extension == ".prx" || extension == ".pbp") {
 			return IdentifiedFileType::PSP_ELF;
 		}
 		return IdentifiedFileType::UNKNOWN_ELF;
-	}
-	else if (id == 'PBP\x00') {
+	} else if (id == 'PBP\x00') {
 		// Do this PS1 eboot check FIRST before checking other eboot types.
 		// It seems like some are malformed and slip through the PSAR check below.
 		PBPReader pbp(fileLoader);
@@ -177,28 +175,27 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
-		std::string path = File::GetDir(fileLoader->Path());
+		std::string path = File::GetDir(fileLoader->GetPath());
 		// If loading from memstick...
-		size_t pos = path.find("/PSP/GAME/");
+		size_t pos = path.find("PSP/GAME/");
 		if (pos != std::string::npos) {
 			return IdentifiedFileType::PSP_PBP_DIRECTORY;
 		}
 		return IdentifiedFileType::PSP_PBP;
-	}
-	else if (!strcasecmp(extension.c_str(),".pbp")) {
+	} else if (extension == ".pbp") {
 		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
 		return IdentifiedFileType::PSP_PBP;
-	} else if (!strcasecmp(extension.c_str(),".bin")) {
+	} else if (extension == ".bin") {
 		return IdentifiedFileType::UNKNOWN_BIN;
-	} else if (!strcasecmp(extension.c_str(),".zip")) {
+	} else if (extension == ".zip") {
 		return IdentifiedFileType::ARCHIVE_ZIP;
-	} else if (!strcasecmp(extension.c_str(),".rar")) {
+	} else if (extension == ".rar") {
 		return IdentifiedFileType::ARCHIVE_RAR;
-	} else if (!strcasecmp(extension.c_str(),".r00")) {
+	} else if (extension == ".r00") {
 		return IdentifiedFileType::ARCHIVE_RAR;
-	} else if (!strcasecmp(extension.c_str(),".r01")) {
+	} else if (extension == ".r01") {
 		return IdentifiedFileType::ARCHIVE_RAR;
-	} else if (!extension.empty() && !strcasecmp(extension.substr(1).c_str(), ".7z")) {
+	} else if (extension == ".7z") {
 		return IdentifiedFileType::ARCHIVE_7Z;
 	}
 	return IdentifiedFileType::UNKNOWN;
@@ -207,8 +204,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 	IdentifiedFileType type = Identify_File(fileLoader);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-		const std::string ebootFilename = ResolvePBPFile(fileLoader->Path());
-		if (ebootFilename != fileLoader->Path()) {
+		const std::string ebootFilename = ResolvePBPFile(fileLoader->GetPath());
+		if (ebootFilename != fileLoader->GetPath()) {
 			// Switch fileLoader to the actual EBOOT.
 			delete fileLoader;
 			fileLoader = ConstructFileLoader(ebootFilename);
@@ -262,11 +259,11 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
-				std::string path = fileLoader->Path();
-				size_t pos = path.find("/PSP/GAME/");
+				std::string path = fileLoader->GetPath();
+				size_t pos = path.find("PSP/GAME/");
 				if (pos != std::string::npos) {
 					path = ResolvePBPDirectory(path);
-					pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
+					pspFileSystem.SetStartingDirectory("ms0:/" + path.substr(pos));
 				}
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
@@ -369,7 +366,7 @@ bool UmdReplace(std::string filepath, std::string &error) {
 
 	if (!loadedFile->Exists()) {
 		delete loadedFile;
-		error = loadedFile->Path() + " doesn't exist";
+		error = loadedFile->GetPath() + " doesn't exist";
 		return false;
 	}
 	UpdateLoadedFile(loadedFile);

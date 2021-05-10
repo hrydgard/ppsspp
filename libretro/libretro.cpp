@@ -650,7 +650,7 @@ bool retro_load_game(const struct retro_game_info *game)
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
    coreParam.fileToStart     = std::string(game->path);
-   coreParam.mountIso        = "";
+   coreParam.mountIso.clear();
    coreParam.startBreak      = false;
    coreParam.printfEmuLog    = true;
    coreParam.headLess        = true;

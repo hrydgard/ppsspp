@@ -133,7 +133,7 @@ std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 void DiskCachingFileLoader::InitCache() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
-	std::string path = ProxiedFileLoader::Path();
+	std::string path = ProxiedFileLoader::GetPath();
 	auto &entry = caches_[path];
 	if (!entry) {
 		entry = new DiskCachingFileLoaderCache(path, filesize_);
@@ -149,7 +149,7 @@ void DiskCachingFileLoader::ShutdownCache() {
 	if (cache_->Release()) {
 		// If it ran out of counts, delete it.
 		delete cache_;
-		caches_.erase(ProxiedFileLoader::Path());
+		caches_.erase(ProxiedFileLoader::GetPath());
 	}
 	cache_ = nullptr;
 }

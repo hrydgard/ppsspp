@@ -92,7 +92,7 @@ bool RunTests() {
 	coreParam.gpuCore = GPUCORE_SOFTWARE;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.graphicsContext = nullptr;
-	coreParam.mountIso = "";
+	coreParam.mountIso.clear();
 	coreParam.mountRoot = baseDirectory + "pspautotests/";
 	coreParam.startBreak = false;
 	coreParam.printfEmuLog = false;

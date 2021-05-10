@@ -33,7 +33,7 @@ public:
 	virtual bool Exists() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
-	virtual std::string Path() const override;
+	virtual std::string GetPath() const override;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:

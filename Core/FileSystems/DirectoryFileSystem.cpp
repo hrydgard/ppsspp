@@ -337,7 +337,7 @@ bool DirectoryFileHandle::Open(const std::string &basePath, std::string &fileNam
 #endif
 
 	// Try to detect reads/writes to PSP/GAME to avoid them in replays.
-	if (fullName.find("/PSP/GAME/") != fullName.npos || fullName.find("\\PSP\\GAME\\") != fullName.npos) {
+	if (fullName.find("PSP/GAME/") != fullName.npos || fullName.find("PSP\\GAME\\") != fullName.npos) {
 		inGameDir_ = true;
 	}
 

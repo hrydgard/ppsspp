@@ -84,7 +84,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem *blockSystem = nullptr;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -152,7 +152,7 @@ bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem *blockSystem = nullptr;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -328,7 +328,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;
@@ -371,14 +371,20 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		}
 	}
 
-	std::string full_path = fileLoader->Path();
+	std::string full_path = fileLoader->GetPath();
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
+	if (!path.empty() && path.back() == '/')
+		path.resize(path.size() - 1);
+#ifdef _WIN32
+	if (!path.empty() && path.back() == '\\')
+		path.resize(path.size() - 1);
+#endif
 
-	size_t pos = path.find("/PSP/GAME/");
+	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
 	if (pos != std::string::npos) {
-		ms_path = "ms0:" + path.substr(pos);
+		ms_path = "ms0:/" + path.substr(pos) + "/";
 	} else {
 		// This is wrong, but it's better than not having a working directory at all.
 		// Note that umd0:/ is actually the writable containing directory, in this case.
@@ -461,7 +467,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;
@@ -485,7 +491,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;

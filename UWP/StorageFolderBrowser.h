@@ -21,7 +21,7 @@ public:
 	StorageFolderBrowser(Windows::Storage::StorageFolder ^folder);
 	~StorageFolderBrowser();
 
-	std::string Path() const {
+	std::string GetPath() const {
 		return path_;
 	}
 

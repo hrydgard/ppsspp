@@ -239,7 +239,7 @@ bool CPU_Init() {
 	IdentifiedFileType type = Identify_File(loadedFile);
 
 	// TODO: Put this somewhere better?
-	if (coreParameter.mountIso != "") {
+	if (!coreParameter.mountIso.empty()) {
 		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
 	}
 
@@ -311,7 +311,7 @@ bool CPU_Init() {
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
 	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
-		coreParameter.fileToStart = "";
+		coreParameter.fileToStart.clear();
 		return false;
 	}
 
@@ -426,7 +426,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 	*error_string = coreParameter.errorString;
-	bool success = coreParameter.fileToStart != "";
+	bool success = !coreParameter.fileToStart.empty();
 	if (!success) {
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		pspIsIniting = false;
@@ -443,7 +443,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 		return false;
 	}
 
-	bool success = coreParameter.fileToStart != "";
+	bool success = !coreParameter.fileToStart.empty();
 	*error_string = coreParameter.errorString;
 	if (success && gpu == nullptr) {
 		PSP_SetLoading("Starting graphics...");

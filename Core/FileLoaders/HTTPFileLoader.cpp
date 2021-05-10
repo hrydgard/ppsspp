@@ -172,7 +172,7 @@ s64 HTTPFileLoader::FileSize() {
 	return filesize_;
 }
 
-std::string HTTPFileLoader::Path() const {
+std::string HTTPFileLoader::GetPath() const {
 	return filename_;
 }
 

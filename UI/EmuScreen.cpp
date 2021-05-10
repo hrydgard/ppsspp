@@ -246,8 +246,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
-	coreParam.mountIso = "";
-	coreParam.mountRoot = "";
+	coreParam.mountIso.clear();
+	coreParam.mountRoot.clear();
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;

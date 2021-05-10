@@ -74,16 +74,7 @@ public:
 	}
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
-	virtual std::string Path() const = 0;
-	virtual std::string Extension() {
-		const std::string filename = Path();
-		size_t pos = filename.find_last_of('.');
-		if (pos == filename.npos) {
-			return "";
-		} else {
-			return filename.substr(pos);
-		}
-	}
+	virtual std::string GetPath() const = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
@@ -121,8 +112,8 @@ public:
 	s64 FileSize() override {
 		return backend_->FileSize();
 	}
-	std::string Path() const override {
-		return backend_->Path();
+	std::string GetPath() const override {
+		return backend_->GetPath();
 	}
 	void Cancel() override {
 		backend_->Cancel();
