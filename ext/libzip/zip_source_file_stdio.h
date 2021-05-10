@@ -1,6 +1,9 @@
+#ifndef _HAD_ZIP_SOURCE_FILE_STDIO_H
+#define _HAD_ZIP_SOURCE_FILE_STDIO_H
+
 /*
-  zip_entry_free.c -- free struct zip_entry
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  zip_source_file_stdio.h -- common header for stdio file implementation
+  Copyright (C) 2020 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +20,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,22 +34,14 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#include <stdio.h>
 
-#include <stdlib.h>
+void _zip_stdio_op_close(zip_source_file_context_t *ctx);
+zip_int64_t _zip_stdio_op_read(zip_source_file_context_t *ctx, void *buf, zip_uint64_t len);
+bool _zip_stdio_op_seek(zip_source_file_context_t *ctx, void *f, zip_int64_t offset, int whence);
+bool _zip_stdio_op_stat(zip_source_file_context_t *ctx, zip_source_file_stat_t *st);
+zip_int64_t _zip_stdio_op_tell(zip_source_file_context_t *ctx, void *f);
 
-#include "zipint.h"
+FILE *_zip_fopen_close_on_exec(const char *name, bool writeable);
 
-
-
-void
-_zip_entry_free(struct zip_entry *ze)
-{
-    free(ze->ch_filename);
-    ze->ch_filename = NULL;
-    free(ze->ch_comment);
-    ze->ch_comment = NULL;
-    ze->ch_comment_len = -1;
-
-    _zip_unchange_data(ze);
-}
+#endif /* _HAD_ZIP_SOURCE_FILE_STDIO_H */

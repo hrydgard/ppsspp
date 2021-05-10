@@ -784,62 +784,135 @@ if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
-		ext/libzip/zip.h
-		ext/libzip/mkstemp.c
 		ext/libzip/zip_add.c
 		ext/libzip/zip_add_dir.c
+		ext/libzip/zip_add_entry.c
+		ext/libzip/zip_algorithm_deflate.c
+		ext/libzip/zip_buffer.c
 		ext/libzip/zip_close.c
 		ext/libzip/zip_delete.c
+		ext/libzip/zip_dir_add.c
 		ext/libzip/zip_dirent.c
-		ext/libzip/zip_entry_free.c
-		ext/libzip/zip_entry_new.c
-		ext/libzip/zip_err_str.c
+		ext/libzip/zip_discard.c
+		ext/libzip/zip_entry.c
 		ext/libzip/zip_error.c
 		ext/libzip/zip_error_clear.c
 		ext/libzip/zip_error_get.c
 		ext/libzip/zip_error_get_sys_type.c
 		ext/libzip/zip_error_strerror.c
 		ext/libzip/zip_error_to_str.c
+		ext/libzip/zip_extra_field.c
+		ext/libzip/zip_extra_field_api.c
 		ext/libzip/zip_fclose.c
+		ext/libzip/zip_fdopen.c
+		ext/libzip/zip_file_add.c
 		ext/libzip/zip_file_error_clear.c
 		ext/libzip/zip_file_error_get.c
+		ext/libzip/zip_file_get_comment.c
+		ext/libzip/zip_file_get_external_attributes.c
 		ext/libzip/zip_file_get_offset.c
+		ext/libzip/zip_file_rename.c
+		ext/libzip/zip_file_replace.c
+		ext/libzip/zip_file_set_comment.c
+		ext/libzip/zip_file_set_encryption.c
+		ext/libzip/zip_file_set_external_attributes.c
+		ext/libzip/zip_file_set_mtime.c
 		ext/libzip/zip_file_strerror.c
-		ext/libzip/zip_filerange_crc.c
 		ext/libzip/zip_fopen.c
+		ext/libzip/zip_fopen_encrypted.c
 		ext/libzip/zip_fopen_index.c
+		ext/libzip/zip_fopen_index_encrypted.c
 		ext/libzip/zip_fread.c
-		ext/libzip/zip_free.c
+		ext/libzip/zip_fseek.c
+		ext/libzip/zip_ftell.c
 		ext/libzip/zip_get_archive_comment.c
 		ext/libzip/zip_get_archive_flag.c
+		ext/libzip/zip_get_encryption_implementation.c
 		ext/libzip/zip_get_file_comment.c
 		ext/libzip/zip_get_name.c
+		ext/libzip/zip_get_num_entries.c
 		ext/libzip/zip_get_num_files.c
+		ext/libzip/zip_hash.c
+		ext/libzip/zip_io_util.c
+		ext/libzip/zip_libzip_version.c
 		ext/libzip/zip_memdup.c
 		ext/libzip/zip_name_locate.c
 		ext/libzip/zip_new.c
 		ext/libzip/zip_open.c
+		ext/libzip/zip_pkware.c
+		ext/libzip/zip_progress.c
 		ext/libzip/zip_rename.c
 		ext/libzip/zip_replace.c
 		ext/libzip/zip_set_archive_comment.c
 		ext/libzip/zip_set_archive_flag.c
+		ext/libzip/zip_set_default_password.c
 		ext/libzip/zip_set_file_comment.c
+		ext/libzip/zip_set_file_compression.c
 		ext/libzip/zip_set_name.c
+		ext/libzip/zip_source_accept_empty.c
+		ext/libzip/zip_source_begin_write.c
+		ext/libzip/zip_source_begin_write_cloning.c
 		ext/libzip/zip_source_buffer.c
-		ext/libzip/zip_source_file.c
-		ext/libzip/zip_source_filep.c
+		ext/libzip/zip_source_call.c
+		ext/libzip/zip_source_close.c
+		ext/libzip/zip_source_commit_write.c
+		ext/libzip/zip_source_compress.c
+		ext/libzip/zip_source_crc.c
+		ext/libzip/zip_source_error.c
+		ext/libzip/zip_source_file_common.c
+		ext/libzip/zip_source_file_stdio.c
 		ext/libzip/zip_source_free.c
 		ext/libzip/zip_source_function.c
+		ext/libzip/zip_source_get_file_attributes.c
+		ext/libzip/zip_source_is_deleted.c
+		ext/libzip/zip_source_layered.c
+		ext/libzip/zip_source_open.c
+		ext/libzip/zip_source_pkware_decode.c
+		ext/libzip/zip_source_pkware_encode.c
+		ext/libzip/zip_source_read.c
+		ext/libzip/zip_source_remove.c
+		ext/libzip/zip_source_rollback_write.c
+		ext/libzip/zip_source_seek.c
+		ext/libzip/zip_source_seek_write.c
+		ext/libzip/zip_source_stat.c
+		ext/libzip/zip_source_supports.c
+		ext/libzip/zip_source_tell.c
+		ext/libzip/zip_source_tell_write.c
+		ext/libzip/zip_source_window.c
+		ext/libzip/zip_source_write.c
 		ext/libzip/zip_source_zip.c
+		ext/libzip/zip_source_zip_new.c
 		ext/libzip/zip_stat.c
 		ext/libzip/zip_stat_index.c
 		ext/libzip/zip_stat_init.c
 		ext/libzip/zip_strerror.c
+		ext/libzip/zip_string.c
 		ext/libzip/zip_unchange.c
 		ext/libzip/zip_unchange_all.c
 		ext/libzip/zip_unchange_archive.c
 		ext/libzip/zip_unchange_data.c
+		ext/libzip/zip_utf-8.c
+		ext/libzip/zip_err_str.c
 	)
+	if(WIN32)
+		target_sources(libzip PRIVATE
+			ext/libzip/zip_source_file_win32.c
+			ext/libzip/zip_source_file_win32_named.c
+			ext/libzip/zip_source_file_win32_utf16.c
+			ext/libzip/zip_source_file_win32_utf8.c
+		)
+		if(CMAKE_SYSTEM_NAME MATCHES WindowsPhone OR CMAKE_SYSTEM_NAME MATCHES WindowsStore)
+			target_sources(libzip PRIVATE ext/libzip/zip_random_uwp.c)
+		else()
+			target_sources(libzip PRIVATE ext/libzip/zip_source_file_win32_ansi.c ext/libzip/zip_random_win32.c)
+		endif()
+	else()
+		target_sources(libzip PRIVATE
+			ext/libzip/zip_mkstempm.c
+			ext/libzip/zip_source_file_stdio_named.c
+			ext/libzip/zip_random_unix.c
+		)
+	endif()
 	target_link_libraries(libzip)
 	include_directories(ext/libzip)
 	set(LIBZIP_LIBRARY libzip)

@@ -1,6 +1,6 @@
 /*
   zip_fclose.c -- close file in zip archive
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,41 +31,24 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
 
 #include <stdlib.h>
 
 #include "zipint.h"
 
-
 
 ZIP_EXTERN int
-zip_fclose(struct zip_file *zf)
-{
-    int i, ret;
-    
-    if (zf->zstr)
-	inflateEnd(zf->zstr);
-    free(zf->buffer);
-    free(zf->zstr);
+zip_fclose(zip_file_t *zf) {
+    int ret;
 
-    for (i=0; i<zf->za->nfile; i++) {
-	if (zf->za->file[i] == zf) {
-	    zf->za->file[i] = zf->za->file[zf->za->nfile-1];
-	    zf->za->nfile--;
-	    break;
-	}
-    }
+    if (zf->src)
+	zip_source_free(zf->src);
 
     ret = 0;
     if (zf->error.zip_err)
 	ret = zf->error.zip_err;
-    else if ((zf->flags & ZIP_ZF_CRC) && (zf->flags & ZIP_ZF_EOF)) {
-	/* if EOF, compare CRC */
-	if (zf->crc_orig != zf->crc)
-	    ret = ZIP_ER_CRC;
-    }
 
+    zip_error_fini(&zf->error);
     free(zf);
     return ret;
 }

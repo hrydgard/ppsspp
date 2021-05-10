@@ -171,11 +171,7 @@ static void countSlashes(const std::string &fileName, int *slashLocation, int *s
 
 ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info) {
 	int error = 0;
-#ifdef _WIN32
-	struct zip *z = zip_open(ConvertUTF8ToWString(fileName).c_str(), 0, &error);
-#else
 	struct zip *z = zip_open(fileName.c_str(), 0, &error);
-#endif
 	if (!z) {
 		return ZipFileContents::UNKNOWN;
 	}
@@ -282,11 +278,7 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
 	std::string dest = pspGame;
 	int error = 0;
-#ifdef _WIN32
-	struct zip *z = zip_open(ConvertUTF8ToWString(fileName).c_str(), 0, &error);
-#else
 	struct zip *z = zip_open(fileName.c_str(), 0, &error);
-#endif
 	if (!z) {
 		ERROR_LOG(HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
 		return false;
@@ -340,7 +332,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, std::string
 	std::string buffer;
 	buffer.resize(zstat.size);
 	zip_file *zf = zip_fopen_index(z, iniIndex, 0);
-	if (zip_fread(zf, &buffer[0], buffer.size()) != (ssize_t)zstat.size) {
+	if (zip_fread(zf, &buffer[0], buffer.size()) != (zip_int64_t)zstat.size) {
 		SetInstallError(iz->T("Zip archive corrupt"));
 		return false;
 	}
@@ -469,7 +461,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 		u8 *buffer = new u8[blockSize];
 		while (pos < size) {
 			size_t readSize = std::min(blockSize, size - pos);
-			ssize_t retval = zip_fread(zf, buffer, readSize);
+			zip_int64_t retval = zip_fread(zf, buffer, readSize);
 			if (retval < 0 || (size_t)retval < readSize) {
 				ERROR_LOG(HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
 				delete[] buffer;
