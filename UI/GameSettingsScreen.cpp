@@ -958,25 +958,21 @@ void GameSettingsScreen::CreateViews() {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	} else {
 		if (installed_ && myDocsExists) {
-#ifdef _MSC_VER
-			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-#else
-			std::ifstream inputFile(installedFile);
-#endif
-			if (!inputFile.fail() && inputFile.is_open()) {
-				std::string tempString;
-				std::getline(inputFile, tempString);
-
+			FILE *testInstalled = File::OpenCFile(installedFile, "rt");
+			if (testInstalled) {
+				char temp[2048];
+				char *tempStr = fgets(temp, sizeof(temp), testInstalled);
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-					tempString = tempString.substr(3);
+				if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
+					tempStr += 3;
+				}
 				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
-				if (!(tempString == "")) {
+				if (tempStr && strlen(tempStr) != 0 && strcmp(tempStr, "\n") != 0) {
 					installed_ = false;
 					otherinstalled_ = true;
 				}
+				fclose(testInstalled);
 			}
-			inputFile.close();
 		} else if (!myDocsExists) {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 		}
@@ -1150,10 +1146,9 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		installed_ = false;
 		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
 	} else {
-		std::ofstream myfile;
-		myfile.open(PPSSPPpath + "installed.txt");
-		if (myfile.is_open()){
-			myfile.close();
+		FILE *f = File::OpenCFile(PPSSPPpath + "installed.txt", "wb");
+		if (f) {
+			fclose(f);
 		}
 
 		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";

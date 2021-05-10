@@ -19,7 +19,6 @@
 #include <cmath>
 #include <cstdarg>
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include "headless/Compare.h"
 
@@ -75,7 +74,7 @@ struct BufferedLineReader {
 	const static int MAX_BUFFER = 5;
 	const static int TEMP_BUFFER_SIZE = 32768;
 
-	BufferedLineReader(const std::string &data) : valid_(0), data_(data), pos_(0) {
+	BufferedLineReader(const std::string &data) : data_(data) {
 	}
 
 	void Fill() {
@@ -135,7 +134,7 @@ struct BufferedLineReader {
 	}
 
 protected:
-	BufferedLineReader() : valid_(0) {
+	BufferedLineReader() {
 	}
 
 	virtual bool HasMoreLines() {
@@ -163,28 +162,10 @@ protected:
 		return s.substr(0, p + 1);
 	}
 
-	int valid_;
+	int valid_ = 0;
 	std::string buffer_[MAX_BUFFER];
 	const std::string data_;
-	size_t pos_;
-};
-
-struct BufferedLineReaderFile : public BufferedLineReader {
-	BufferedLineReaderFile(std::ifstream &in) : BufferedLineReader(), in_(in) {
-	}
-
-protected:
-	virtual bool HasMoreLines() {
-		return !in_.eof();
-	}
-
-	virtual std::string ReadLine() {
-		char temp[TEMP_BUFFER_SIZE];
-		in_.getline(temp, TEMP_BUFFER_SIZE);
-		return temp;
-	}
-
-	std::ifstream &in_;
+	size_t pos_ = 0;
 };
 
 std::string ExpectedFromFilename(const std::string &bootFilename) {

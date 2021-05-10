@@ -74,10 +74,12 @@ const char procfile[] = "/proc/cpuinfo";
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
+	std::string procdata;
+	bool readSuccess = File::ReadFileToString(true, procfile, procdata);
+	std::istringstream file(procdata);
 	std::string cpu_string;
-	std::fstream file;
 
-	if (File::OpenCPPFile(file, procfile, std::ios::in)) {
+	if (readSuccess) {
 		std::string line, marker = "Hardware\t: ";
 		while (std::getline(file, line)) {
 			if (line.find(marker) != std::string::npos) {
@@ -95,10 +97,12 @@ std::string GetCPUString() {
 }
 
 std::string GetCPUBrandString() {
+	std::string procdata;
+	bool readSuccess = File::ReadFileToString(true, procfile, procdata);
+	std::istringstream file(procdata);
 	std::string brand_string;
-	std::fstream file;
 
-	if (File::OpenCPPFile(file, procfile, std::ios::in)) {
+	if (readSuccess) {
 		std::string line, marker = "Processor\t: ";
 		while (std::getline(file, line)) {
 			if (line.find(marker) != std::string::npos) {
@@ -122,10 +126,11 @@ unsigned char GetCPUImplementer()
 {
 	std::string line, marker = "CPU implementer\t: ";
 	unsigned char implementer = 0;
-	std::fstream file;
 
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+	std::string procdata;
+	if (!File::ReadFileToString(true, procfile, procdata))
 		return 0;
+	std::istringstream file(procdata);
 
 	while (std::getline(file, line))
 	{
@@ -144,10 +149,11 @@ unsigned short GetCPUPart()
 {
 	std::string line, marker = "CPU part\t: ";
 	unsigned short part = 0;
-	std::fstream file;
 
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+	std::string procdata;
+	if (!File::ReadFileToString(true, procfile, procdata))
 		return 0;
+	std::istringstream file(procdata);
 
 	while (std::getline(file, line))
 	{
@@ -165,10 +171,11 @@ unsigned short GetCPUPart()
 bool CheckCPUFeature(const std::string& feature)
 {
 	std::string line, marker = "Features\t: ";
-	std::fstream file;
 
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
-		return 0;
+	std::string procdata;
+	if (!File::ReadFileToString(true, procfile, procdata))
+		return false;
+	std::istringstream file(procdata);
 
 	while (std::getline(file, line))
 	{
@@ -191,12 +198,14 @@ int GetCoreCount()
 {
 	std::string line, marker = "processor\t: ";
 	int cores = 1;
-	std::fstream file;
 
-	if (File::OpenCPPFile(file, syscpupresentfile, std::ios::in))
-	{
+	std::string presentData;
+	bool presentSuccess = File::ReadFileToString(true, syscpupresentfile, presentData);
+	std::istringstream presentFile(presentData);
+
+	if (presentSuccess) {
 		int low, high, found;
-		std::getline(file, line);
+		std::getline(presentFile, line);
 		found = sscanf(line.c_str(), "%d-%d", &low, &high);
 		if (found == 1)
 			return 1;
@@ -204,8 +213,10 @@ int GetCoreCount()
 			return high - low + 1;
 	}
 
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+	std::string procdata;
+	if (!File::ReadFileToString(true, procfile, procdata))
 		return 1;
+	std::istringstream file(procdata);
 	
 	while (std::getline(file, line))
 	{

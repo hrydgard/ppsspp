@@ -743,35 +743,32 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 
 	FILE *f = File::OpenCFile(texturesDirectory + INI_FILENAME, "wb");
 	if (f) {
-		fwrite("\xEF\xBB\xBF", 0, 3, f);
-		fclose(f);
+		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
 		// Let's also write some defaults.
-		std::fstream fs;
-		File::OpenCPPFile(fs, texturesDirectory + INI_FILENAME, std::ios::out | std::ios::ate);
-		fs << "# This file is optional and describes your textures.\n";
-		fs << "# Some information on syntax available here:\n";
-		fs << "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax\n";
-		fs << "[options]\n";
-		fs << "version = 1\n";
-		fs << "hash = quick\n";
-		fs << "ignoreMipmap = false\n";
-		fs << "\n";
-		fs << "[games]\n";
-		fs << "# Used to make it easier to install, and override settings for other regions.\n";
-		fs << "# Files still have to be copied to each TEXTURES folder.";
-		fs << gameID << " = " << INI_FILENAME << "\n";
-		fs << "\n";
-		fs << "[hashes]\n";
-		fs << "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n";
-		fs << "# See wiki for more info.\n";
-		fs << "\n";
-		fs << "[hashranges]\n";
-		fs << "\n";
-		fs << "[filtering]\n";
-		fs << "\n";
-		fs << "[reducehashranges]\n";
-		fs.close();
+		fprintf(f, "# This file is optional and describes your textures.\n");
+		fprintf(f, "# Some information on syntax available here:\n");
+		fprintf(f, "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax \n");
+		fprintf(f, "[options]\n");
+		fprintf(f, "version = 1\n");
+		fprintf(f, "hash = quick\n");
+		fprintf(f, "ignoreMipmap = false\n");
+		fprintf(f, "\n");
+		fprintf(f, "[games]\n");
+		fprintf(f, "# Used to make it easier to install, and override settings for other regions.\n");
+		fprintf(f, "# Files still have to be copied to each TEXTURES folder.");
+		fprintf(f, "%s = %s\n", gameID.c_str(), INI_FILENAME.c_str());
+		fprintf(f, "\n");
+		fprintf(f, "[hashes]\n");
+		fprintf(f, "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n");
+		fprintf(f, "# See wiki for more info.\n");
+		fprintf(f, "\n");
+		fprintf(f, "[hashranges]\n");
+		fprintf(f, "\n");
+		fprintf(f, "[filtering]\n");
+		fprintf(f, "\n");
+		fprintf(f, "[reducehashranges]\n");
+		fclose(f);
 	}
 	return File::Exists(texturesDirectory + INI_FILENAME);
 }
