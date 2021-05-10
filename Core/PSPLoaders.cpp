@@ -84,7 +84,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem *blockSystem = nullptr;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -152,7 +152,7 @@ bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem *blockSystem = nullptr;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -371,7 +371,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		}
 	}
 
-	std::string full_path = fileLoader->Path();
+	std::string full_path = fileLoader->GetPath();
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
 

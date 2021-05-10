@@ -130,7 +130,7 @@ s64 LocalFileLoader::FileSize() {
 	return filesize_;
 }
 
-std::string LocalFileLoader::Path() const {
+std::string LocalFileLoader::GetPath() const {
 	return filename_;
 }
 

@@ -63,8 +63,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		ERROR_LOG(LOADER, "Invalid fileLoader");
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
-	if (fileLoader->Path().size() == 0) {
-		ERROR_LOG(LOADER, "Invalid filename %s", fileLoader->Path().c_str());
+	if (fileLoader->GetPath().size() == 0) {
+		ERROR_LOG(LOADER, "Invalid filename %s", fileLoader->GetPath().c_str());
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
@@ -101,7 +101,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
-		std::string filename = fileLoader->Path();
+		std::string filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
 			if (File::Exists((filename + "/EBOOT.PBP").c_str())) {
@@ -142,7 +142,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	}
 
 	if (id == 'FLE\x7F') {
-		std::string filename = fileLoader->Path();
+		std::string filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
 		if (!strcasecmp(extension.c_str(), ".plf") || strstr(filename.c_str(),"BOOT.BIN") ||
 				!strcasecmp(extension.c_str(), ".elf") || !strcasecmp(extension.c_str(), ".prx") ||
@@ -177,7 +177,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
-		std::string path = File::GetDir(fileLoader->Path());
+		std::string path = File::GetDir(fileLoader->GetPath());
 		// If loading from memstick...
 		size_t pos = path.find("/PSP/GAME/");
 		if (pos != std::string::npos) {
@@ -207,8 +207,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 	IdentifiedFileType type = Identify_File(fileLoader);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-		const std::string ebootFilename = ResolvePBPFile(fileLoader->Path());
-		if (ebootFilename != fileLoader->Path()) {
+		const std::string ebootFilename = ResolvePBPFile(fileLoader->GetPath());
+		if (ebootFilename != fileLoader->GetPath()) {
 			// Switch fileLoader to the actual EBOOT.
 			delete fileLoader;
 			fileLoader = ConstructFileLoader(ebootFilename);
@@ -262,7 +262,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
-				std::string path = fileLoader->Path();
+				std::string path = fileLoader->GetPath();
 				size_t pos = path.find("/PSP/GAME/");
 				if (pos != std::string::npos) {
 					path = ResolvePBPDirectory(path);
@@ -369,7 +369,7 @@ bool UmdReplace(std::string filepath, std::string &error) {
 
 	if (!loadedFile->Exists()) {
 		delete loadedFile;
-		error = loadedFile->Path() + " doesn't exist";
+		error = loadedFile->GetPath() + " doesn't exist";
 		return false;
 	}
 	UpdateLoadedFile(loadedFile);

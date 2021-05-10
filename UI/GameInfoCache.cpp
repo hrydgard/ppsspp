@@ -370,7 +370,7 @@ public:
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->Path().c_str());
+					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->GetPath().c_str());
 					info_->pending = false;
 					info_->working = false;
 					return;

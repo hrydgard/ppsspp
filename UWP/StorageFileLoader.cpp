@@ -131,7 +131,7 @@ s64 StorageFileLoader::FileSize() {
 	return size_;
 }
 
-std::string StorageFileLoader::Path() const {
+std::string StorageFileLoader::GetPath() const {
 	return path_;
 }
 
