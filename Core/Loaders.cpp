@@ -177,7 +177,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		// If so we just move up and return the directory itself as the game.
 		std::string path = File::GetDir(fileLoader->GetPath());
 		// If loading from memstick...
-		size_t pos = path.find("/PSP/GAME/");
+		size_t pos = path.find("PSP/GAME/");
 		if (pos != std::string::npos) {
 			return IdentifiedFileType::PSP_PBP_DIRECTORY;
 		}
@@ -260,10 +260,10 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					return false;
 				}
 				std::string path = fileLoader->GetPath();
-				size_t pos = path.find("/PSP/GAME/");
+				size_t pos = path.find("PSP/GAME/");
 				if (pos != std::string::npos) {
 					path = ResolvePBPDirectory(path);
-					pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
+					pspFileSystem.SetStartingDirectory("ms0:/" + path.substr(pos));
 				}
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
