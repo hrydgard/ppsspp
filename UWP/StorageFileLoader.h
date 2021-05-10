@@ -25,7 +25,6 @@ public:
 	bool IsDirectory() override;
 	s64 FileSize() override;
 	std::string GetPath() const override;
-	std::string Extension() override;
 
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 

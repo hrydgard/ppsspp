@@ -135,10 +135,6 @@ std::string StorageFileLoader::GetPath() const {
 	return path_;
 }
 
-std::string StorageFileLoader::Extension() {
-	return "." + File::GetFileExtension(path_);
-}
-
 void StorageFileLoader::EnsureOpen() {
 	while (size_ == -1)
 		Sleep(50);
