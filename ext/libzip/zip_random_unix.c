@@ -1,6 +1,6 @@
 /*
-  zip_source_file.c -- create data source from file
-  Copyright (C) 1999-2008 Dieter Baron and Thomas Klausner
+  zip_random_unix.c -- fill the user's buffer with random stuff (Unix version)
+  Copyright (C) 2016-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,25 +31,74 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
-#include <errno.h>
-#include <stdio.h>
-
 #include "zipint.h"
 
-
+#ifdef HAVE_CRYPTO
+#include "zip_crypto.h"
+#endif
 
-ZIP_EXTERN struct zip_source *
-zip_source_file(struct zip *za, const char *fname, off_t start, off_t len)
-{
-    if (za == NULL)
-	return NULL;
+#ifdef HAVE_ARC4RANDOM
 
-    if (fname == NULL || start < 0 || len < -1) {
-	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
-	return NULL;
+#include <stdlib.h>
+
+#ifndef HAVE_SECURE_RANDOM
+ZIP_EXTERN bool
+zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
+    arc4random_buf(buffer, length);
+    return true;
+}
+#endif
+
+#ifndef HAVE_RANDOM_UINT32
+zip_uint32_t
+zip_random_uint32(void) {
+    return arc4random();
+}
+#endif
+
+#else /* HAVE_ARC4RANDOM */
+
+#ifndef HAVE_SECURE_RANDOM
+#include <fcntl.h>
+#include <unistd.h>
+
+ZIP_EXTERN bool
+zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
+    int fd;
+
+    if ((fd = open("/dev/urandom", O_RDONLY)) < 0) {
+	return false;
     }
 
-    return _zip_source_file_or_p(za, fname, NULL, start, len);
+    if (read(fd, buffer, length) != length) {
+	close(fd);
+	return false;
+    }
+
+    close(fd);
+    return true;
 }
+#endif
+
+#ifndef HAVE_RANDOM_UINT32
+#include <stdlib.h>
+
+zip_uint32_t
+zip_random_uint32(void) {
+    static bool seeded = false;
+
+    zip_uint32_t value;
+
+    if (zip_secure_random((zip_uint8_t *)&value, sizeof(value))) {
+	return value;
+    }
+
+    if (!seeded) {
+	srandom((unsigned int)time(NULL));
+    }
+
+    return (zip_uint32_t)random();
+}
+#endif
+
+#endif /* HAVE_ARC4RANDOM */

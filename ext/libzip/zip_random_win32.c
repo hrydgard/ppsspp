@@ -1,6 +1,6 @@
 /*
-  zip_free.c -- free struct zip
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  zip_random_win32.c -- fill the user's buffer with random stuff (Windows version)
+  Copyright (C) 2016-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,51 +31,51 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
-#include <stdlib.h>
-
 #include "zipint.h"
 
-
+#ifdef HAVE_CRYPTO
+#include "zip_crypto.h"
+#endif
 
-/* _zip_free:
-   frees the space allocated to a zipfile struct, and closes the
-   corresponding file. */
+#include <windows.h>
 
-void
-_zip_free(struct zip *za)
-{
-    int i;
+#ifndef HAVE_SECURE_RANDOM
 
-    if (za == NULL)
-	return;
+#include <wincrypt.h>
 
-    if (za->zn)
-	free(za->zn);
-
-    if (za->zp)
-	fclose(za->zp);
-
-    _zip_cdir_free(za->cdir);
-
-    if (za->entry) {
-	for (i=0; i<za->nentry; i++) {
-	    _zip_entry_free(za->entry+i);
-	}
-	free(za->entry);
+ZIP_EXTERN bool
+zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
+    HCRYPTPROV hprov;
+    if (!CryptAcquireContext(&hprov, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+	return false;
     }
-
-    for (i=0; i<za->nfile; i++) {
-	if (za->file[i]->error.zip_err == ZIP_ER_OK) {
-	    _zip_error_set(&za->file[i]->error, ZIP_ER_ZIPCLOSED, 0);
-	    za->file[i]->za = NULL;
-	}
+    if (!CryptGenRandom(hprov, length, buffer)) {
+	return false;
     }
-
-    free(za->file);
-    
-    free(za);
-
-    return;
+    if (!CryptReleaseContext(hprov, 0)) {
+	return false;
+    }
+    return true;
 }
+#endif
+
+#ifndef HAVE_RANDOM_UINT32
+#include <stdlib.h>
+
+zip_uint32_t
+zip_random_uint32(void) {
+    static bool seeded = false;
+
+    zip_uint32_t value;
+
+    if (zip_secure_random((zip_uint8_t *)&value, sizeof(value))) {
+	return value;
+    }
+
+    if (!seeded) {
+	srand((unsigned int)time(NULL));
+    }
+
+    return (zip_uint32_t)rand();
+}
+#endif

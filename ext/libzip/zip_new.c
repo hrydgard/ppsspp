@@ -1,6 +1,6 @@
 /*
   zip_new.c -- create and init struct zip
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,40 +31,43 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
 
 #include <stdlib.h>
 
 #include "zipint.h"
 
-
 
 /* _zip_new:
    creates a new zipfile struct, and sets the contents to zero; returns
    the new struct. */
 
-struct zip *
-_zip_new(struct zip_error *error)
-{
-    struct zip *za;
+zip_t *
+_zip_new(zip_error_t *error) {
+    zip_t *za;
 
-    za = (struct zip *)malloc(sizeof(struct zip));
+    za = (zip_t *)malloc(sizeof(struct zip));
     if (!za) {
-	_zip_error_set(error, ZIP_ER_MEMORY, 0);
+	zip_error_set(error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
 
-    za->zn = NULL;
-    za->zp = NULL;
-    _zip_error_init(&za->error);
-    za->cdir = NULL;
-    za->ch_comment = NULL;
-    za->ch_comment_len = -1;
+    if ((za->names = _zip_hash_new(error)) == NULL) {
+	free(za);
+	return NULL;
+    }
+
+    za->src = NULL;
+    za->open_flags = 0;
+    zip_error_init(&za->error);
+    za->flags = za->ch_flags = 0;
+    za->default_password = NULL;
+    za->comment_orig = za->comment_changes = NULL;
+    za->comment_changed = 0;
     za->nentry = za->nentry_alloc = 0;
     za->entry = NULL;
-    za->nfile = za->nfile_alloc = 0;
-    za->file = NULL;
-    za->flags = za->ch_flags = 0;
-    
+    za->nopen_source = za->nopen_source_alloc = 0;
+    za->open_source = NULL;
+    za->progress = NULL;
+
     return za;
 }

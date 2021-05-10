@@ -1,6 +1,6 @@
 /*
   zip_name_locate.c -- get index by name
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,60 +31,62 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
-#include "zipint.h"
 
 #include <string.h>
 #ifdef HAVE_STRINGS_H
 #include <strings.h>
 #endif
-
 
-ZIP_EXTERN int
-zip_name_locate(struct zip *za, const char *fname, int flags)
-{
+#include "zipint.h"
+
+
+ZIP_EXTERN zip_int64_t
+zip_name_locate(zip_t *za, const char *fname, zip_flags_t flags) {
     return _zip_name_locate(za, fname, flags, &za->error);
 }
 
-
 
-int
-_zip_name_locate(struct zip *za, const char *fname, int flags,
-		 struct zip_error *error)
-{
+zip_int64_t
+_zip_name_locate(zip_t *za, const char *fname, zip_flags_t flags, zip_error_t *error) {
     int (*cmp)(const char *, const char *);
     const char *fn, *p;
-    int i, n;
+    zip_uint64_t i;
+
+    if (za == NULL)
+	return -1;
 
     if (fname == NULL) {
-	_zip_error_set(error, ZIP_ER_INVAL, 0);
+	zip_error_set(error, ZIP_ER_INVAL, 0);
 	return -1;
     }
-    
-    cmp = (flags & ZIP_FL_NOCASE) ? strcasecmp : strcmp;
 
-    n = (flags & ZIP_FL_UNCHANGED) ? za->cdir->nentry : za->nentry;
-    for (i=0; i<n; i++) {
-	if (flags & ZIP_FL_UNCHANGED)
-	    fn = za->cdir->entry[i].filename;
-	else
+    if (flags & (ZIP_FL_NOCASE | ZIP_FL_NODIR | ZIP_FL_ENC_CP437)) {
+	/* can't use hash table */
+	cmp = (flags & ZIP_FL_NOCASE) ? strcasecmp : strcmp;
+
+	for (i = 0; i < za->nentry; i++) {
 	    fn = _zip_get_name(za, i, flags, error);
 
-	/* newly added (partially filled) entry */
-	if (fn == NULL)
-	    continue;
-	
-	if (flags & ZIP_FL_NODIR) {
-	    p = strrchr(fn, '/');
-	    if (p)
-		fn = p+1;
+	    /* newly added (partially filled) entry or error */
+	    if (fn == NULL)
+		continue;
+
+	    if (flags & ZIP_FL_NODIR) {
+		p = strrchr(fn, '/');
+		if (p)
+		    fn = p + 1;
+	    }
+
+	    if (cmp(fname, fn) == 0) {
+		_zip_error_clear(error);
+		return (zip_int64_t)i;
+	    }
 	}
 
-	if (cmp(fname, fn) == 0)
-	    return i;
+	zip_error_set(error, ZIP_ER_NOENT, 0);
+	return -1;
     }
-
-    _zip_error_set(error, ZIP_ER_NOENT, 0);
-    return -1;
+    else {
+	return _zip_hash_lookup(za->names, (const zip_uint8_t *)fname, flags, error);
+    }
 }

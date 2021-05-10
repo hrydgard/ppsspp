@@ -1,6 +1,6 @@
 /*
   zip_get_archive_comment.c -- get archive comment
-  Copyright (C) 2006-2007 Dieter Baron and Thomas Klausner
+  Copyright (C) 2006-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -17,7 +17,7 @@
   3. The names of the authors may not be used to endorse or promote
      products derived from this software without specific prior
      written permission.
- 
+
   THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS
   OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,30 +31,28 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+
+#include <string.h>
 
 #include "zipint.h"
 
-
 
 ZIP_EXTERN const char *
-zip_get_archive_comment(struct zip *za, int *lenp, int flags)
-{
-    if ((flags & ZIP_FL_UNCHANGED)
-	|| (za->ch_comment_len == -1)) {
-	if (za->cdir) {
-	    if (lenp != NULL)
-		*lenp = za->cdir->comment_len;
-	    return za->cdir->comment;
-	}
-	else {
-	    if (lenp != NULL)
-		*lenp = -1;
-	    return NULL;
-	}
-    }
-    
-    if (lenp != NULL)
-	*lenp = za->ch_comment_len;
-    return za->ch_comment;
+zip_get_archive_comment(zip_t *za, int *lenp, zip_flags_t flags) {
+    zip_string_t *comment;
+    zip_uint32_t len;
+    const zip_uint8_t *str;
+
+    if ((flags & ZIP_FL_UNCHANGED) || (za->comment_changes == NULL))
+	comment = za->comment_orig;
+    else
+	comment = za->comment_changes;
+
+    if ((str = _zip_string_get(comment, &len, flags, &za->error)) == NULL)
+	return NULL;
+
+    if (lenp)
+	*lenp = (int)len;
+
+    return (const char *)str;
 }

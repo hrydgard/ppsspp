@@ -1,103 +1,60 @@
-/* Config header for Android */
-/* Define to 1 if you have the declaration of `tzname', and to 0 if you don't.
-   */
-/* #undef HAVE_DECL_TZNAME */
+#ifndef HAD_CONFIG_H
+#define HAD_CONFIG_H
+#ifndef _HAD_ZIPCONF_H
+#include "zipconf.h"
+#endif
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#define HAVE_DLFCN_H 0
+#if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
+#define MS_UWP
+#define _WIN32_WINNT 0x0602
+#endif
+#endif
 
-/* Define to 1 if you have the `fseeko' function. */
-#define HAVE_FSEEKO 0
-
-/* Define to 1 if you have the `ftello' function. */
-#define HAVE_FTELLO 0
-
-/* Define to 1 if you have the <inttypes.h> header file. */
-#define HAVE_INTTYPES_H 0
-
-/* Define to 1 if you have the `z' library (-lz). */
-#define HAVE_LIBZ 1
-
-/* Define to 1 if you have the <memory.h> header file. */
-#define HAVE_MEMORY_H 0
-
-/* Define to 1 if you have the `mkstemp' function. */
+/* BEGIN DEFINES */
+#ifdef _WIN32
+#define HAVE__CLOSE
+#define HAVE__DUP
+#define HAVE__FDOPEN
+#define HAVE__FILENO
+#define HAVE__SETMODE
+#define HAVE__STRDUP
+#define HAVE__STRICMP
+#define HAVE__STRTOI64
+#define HAVE__STRTOUI64
+#define HAVE__UMASK
+#define HAVE__UNLINK
+#endif
+#ifndef MS_UWP
+#define HAVE_FILENO
+#define HAVE_FSEEKO
+#define HAVE_FTELLO
+#define HAVE_GETPROGNAME
+#endif
 #ifndef _WIN32
+#define HAVE_LOCALTIME_R
 #define HAVE_MKSTEMP 1
 #endif
-
-/* Define to 1 if you have the `MoveFileExA' function. */
-#ifdef _WIN32
-#define HAVE_MOVEFILEEXA 1
+#define HAVE_SNPRINTF
+#define HAVE_STRDUP
+#if !defined(__MINGW32__) && defined(_WIN32)
+#define HAVE_STRICMP
+#else
+#define HAVE_STRCASECMP
 #endif
-
-/* Define to 1 if you have the <stdint.h> header file. */
-#define HAVE_STDINT_H 1
-
-/* Define to 1 if you have the <stdlib.h> header file. */
-#define HAVE_STDLIB_H 1
-
-/* Define to 1 if you have the <strings.h> header file. */
 #ifndef _WIN32
 #define HAVE_STRINGS_H 1
+#define HAVE_UNISTD_H
 #endif
-
-/* Define to 1 if you have the <string.h> header file. */
-#define HAVE_STRING_H 1
-
-/* Define to 1 if `tm_zone' is a member of `struct tm'. */
-// #define HAVE_STRUCT_TM_TM_ZONE 0
-
-/* Define to 1 if you have the <sys/stat.h> header file. */
-#define HAVE_SYS_STAT_H 1
-
-/* Define to 1 if you have the <sys/types.h> header file. */
-#define HAVE_SYS_TYPES_H 1
-
-/* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
-   `HAVE_STRUCT_TM_TM_ZONE' instead. */
-#define HAVE_TM_ZONE 1
-
-/* Define to 1 if you don't have `tm_zone' but do have the external array
-   `tzname'. */
-/* #undef HAVE_TZNAME */
-
-/* Define to 1 if you have the <unistd.h> header file. */
-#define HAVE_UNISTD_H 1
-
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
-#define LT_OBJDIR ".libs/"
-
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-/* #undef NO_MINUS_C_MINUS_O */
-
-/* Name of package */
+#if defined(_M_X64) || defined(__amd64__) || defined(__x86_64__) || defined(__aarch64__) || defined(_M_ARM64) || defined(__mips64__)
+#define SIZEOF_OFF_T 8
+#define SIZEOF_SIZE_T 8
+#else
+#define SIZEOF_OFF_T 4
+#define SIZEOF_SIZE_T 4
+#endif
+/* END DEFINES */
 #define PACKAGE "libzip"
+#define VERSION "1.7.3"
 
-/* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "libzip@nih.at"
-
-/* Define to the full name of this package. */
-#define PACKAGE_NAME "libzip"
-
-/* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libzip 0.9.3"
-
-/* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "libzip"
-
-/* Define to the home page for this package. */
-#define PACKAGE_URL ""
-
-/* Define to the version of this package. */
-#define PACKAGE_VERSION "0.9.3"
-
-/* Define to 1 if you have the ANSI C header files. */
-#define STDC_HEADERS 1
-
-/* Define to 1 if your <sys/time.h> declares `struct tm'. */
-/* #undef TM_IN_SYS_TIME */
-
-/* Version number of package */
-#define VERSION "0.9.3"
+#endif /* HAD_CONFIG_H */
