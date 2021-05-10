@@ -39,9 +39,9 @@
 
 #ifndef HAVE_SECURE_RANDOM
 
-#include <bcrypt.h>
 #include <ntstatus.h>
 #include <windows.h>
+#include <bcrypt.h>
 
 ZIP_EXTERN bool
 zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {

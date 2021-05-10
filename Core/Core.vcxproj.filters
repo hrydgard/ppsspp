@@ -1883,6 +1883,9 @@
     <ClInclude Include="..\ext\libzip\compat.h">
       <Filter>Ext\libzip</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\libzip\zipconf.h">
+      <Filter>Ext\libzip</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

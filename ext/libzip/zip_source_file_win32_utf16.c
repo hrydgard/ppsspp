@@ -81,6 +81,7 @@ utf16_allocate_tempname(const char *name, size_t extra_chars, size_t *lengthp) {
 static HANDLE __stdcall
 utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_ATTRIBUTES security_attributes, DWORD creation_disposition, DWORD file_attributes, HANDLE template_file) {
 #ifdef MS_UWP
+#if 0
     CREATEFILE2_EXTENDED_PARAMETERS extParams = {0};
     extParams.dwFileAttributes = file_attributes;
     extParams.dwFileFlags = FILE_FLAG_RANDOM_ACCESS;
@@ -88,8 +89,11 @@ utf16_create_file(const char *name, DWORD access, DWORD share_mode, PSECURITY_AT
     extParams.dwSize = sizeof(extParams);
     extParams.hTemplateFile = template_file;
     extParams.lpSecurityAttributes = security_attributes;
-    
+
     return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, &extParams);
+#else
+    return CreateFile2((const wchar_t *)name, access, share_mode, creation_disposition, NULL);
+#endif
 #else
     return CreateFileW((const wchar_t *)name, access, share_mode, security_attributes, creation_disposition, file_attributes, template_file);
 #endif

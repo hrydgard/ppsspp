@@ -3,6 +3,14 @@
 #ifndef _HAD_ZIPCONF_H
 #include "zipconf.h"
 #endif
+
+#if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
+#define MS_UWP
+#define _WIN32_WINNT 0x0602
+#endif
+#endif
+
 /* BEGIN DEFINES */
 #ifdef _WIN32
 #define HAVE__CLOSE
@@ -17,10 +25,12 @@
 #define HAVE__UMASK
 #define HAVE__UNLINK
 #endif
+#ifndef MS_UWP
 #define HAVE_FILENO
 #define HAVE_FSEEKO
 #define HAVE_FTELLO
 #define HAVE_GETPROGNAME
+#endif
 #ifndef _WIN32
 #define HAVE_LOCALTIME_R
 #define HAVE_MKSTEMP 1

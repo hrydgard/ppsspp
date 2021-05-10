@@ -1041,6 +1041,7 @@
     <ClInclude Include="..\ext\libzip\compat.h" />
     <ClInclude Include="..\ext\libzip\config.h" />
     <ClInclude Include="..\ext\libzip\zip.h" />
+    <ClInclude Include="..\ext\libzip\zipconf.h" />
     <ClInclude Include="..\ext\libzip\zipint.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_stdio.h" />
