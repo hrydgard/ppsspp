@@ -328,7 +328,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;
@@ -461,7 +461,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;
@@ -485,7 +485,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
-			PSP_CoreParameter().fileToStart = "";
+			PSP_CoreParameter().fileToStart.clear();
 		}
 	});
 	return true;
