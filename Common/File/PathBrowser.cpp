@@ -114,7 +114,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	auto pred = [&](const File::FileInfo &info) {
 		if (info.isDirectory || !filter)
 			return false;
-		std::string ext = "." + File::GetFileExtension(info.fullName);
+		std::string ext = File::GetFileExtension(info.fullName);
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());

@@ -72,7 +72,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	std::string extension = "." + File::GetFileExtension(fileLoader->GetPath());
+	std::string extension = File::GetFileExtension(fileLoader->GetPath());
 	if (extension == ".iso") {
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0) {

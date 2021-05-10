@@ -74,7 +74,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 	if (filter) {
 		while (*filter) {
 			if (*filter == ':') {
-				filters.insert(tmp);
+				filters.insert("." + tmp);
 				tmp = "";
 			} else {
 				tmp.push_back(*filter);
@@ -83,7 +83,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 		}
 	}
 	if (tmp.size())
-		filters.insert(tmp);
+		filters.insert("." + tmp);
 
 	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
 	std::set<std::string> files;

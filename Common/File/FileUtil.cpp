@@ -532,7 +532,7 @@ std::string GetFileExtension(const std::string & fn) {
 	if (pos == std::string::npos) {
 		return "";
 	}
-	std::string ext = fn.substr(pos + 1);
+	std::string ext = fn.substr(pos);
 	for (size_t i = 0; i < ext.size(); i++) {
 		ext[i] = tolower(ext[i]);
 	}
