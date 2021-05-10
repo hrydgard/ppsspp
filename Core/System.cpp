@@ -239,7 +239,7 @@ bool CPU_Init() {
 	IdentifiedFileType type = Identify_File(loadedFile);
 
 	// TODO: Put this somewhere better?
-	if (coreParameter.mountIso != "") {
+	if (!coreParameter.mountIso.empty()) {
 		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
 	}
 

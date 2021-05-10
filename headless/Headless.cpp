@@ -245,9 +245,9 @@ int main(int argc, const char* argv[])
 	int debuggerPort = -1;
 
 	std::vector<std::string> testFilenames;
-	const char *mountIso = 0;
-	const char *mountRoot = 0;
-	const char *screenshotFilename = 0;
+	const char *mountIso = nullptr;
+	const char *mountRoot = nullptr;
+	const char *screenshotFilename = nullptr;
 	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
@@ -355,8 +355,10 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
-	coreParameter.mountIso = mountIso ? mountIso : "";
-	coreParameter.mountRoot = mountRoot ? mountRoot : "";
+	if (mountIso)
+		coreParameter.mountIso = mountIso;
+	if (mountRoot)
+		coreParameter.mountRoot = mountRoot;
 	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
