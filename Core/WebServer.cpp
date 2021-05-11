@@ -148,14 +148,14 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	return "";
 }
 
-static std::string LocalFromRemotePath(const std::string &path) {
+static Path LocalFromRemotePath(const std::string &path) {
 	for (const std::string &filename : g_Config.recentIsos) {
 		std::string basename = RemotePathForRecent(filename);
 		if (basename == path) {
-			return filename;
+			return Path(filename);
 		}
 	}
-	return "";
+	return Path();
 }
 
 static void DiscHandler(const http::Request &request, const Path &filename) {
@@ -229,10 +229,9 @@ static void HandleListing(const http::Request &request) {
 
 static void HandleFallback(const http::Request &request) {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
-		std::string filename = LocalFromRemotePath(request.resource());
+		Path filename = LocalFromRemotePath(request.resource());
 		if (!filename.empty()) {
-			// TODO(scoped): Is this right?
-			DiscHandler(request, Path(filename));
+			DiscHandler(request, filename);
 			return;
 		}
 	}

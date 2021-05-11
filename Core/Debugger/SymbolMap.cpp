@@ -198,7 +198,7 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 #if defined(_WIN32) && defined(UNICODE)
 	gzFile f = gzopen_w(filename.ToWString().c_str(), "w9");
 #else
-	// TODO(scoped): We're screwed here
+	// TODO(scoped): Use gzdopen? If we care, otherwise just compress into a buffer.
 	gzFile f = gzopen(filename.c_str(), "w9");
 #endif
 

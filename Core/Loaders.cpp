@@ -181,8 +181,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 			return IdentifiedFileType::PSP_PBP_DIRECTORY;
 		}
 		return IdentifiedFileType::PSP_PBP;
-	}
-	else if (extension == ".pbp") {
+	} else if (extension == ".pbp") {
 		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
 		return IdentifiedFileType::PSP_PBP;
 	} else if (extension == ".bin") {

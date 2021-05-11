@@ -579,9 +579,9 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
-		Path gamePath = Path(boot_filename);
+		Path gamePath = boot_filename;
 		if (gotoGameSettings_) {
-			if (boot_filename.size()) {
+			if (!gamePath.empty()) {
 				screenManager()->switchScreen(new EmuScreen(gamePath));
 			} else {
 				screenManager()->switchScreen(new MainScreen());

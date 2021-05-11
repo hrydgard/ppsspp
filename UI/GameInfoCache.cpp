@@ -98,8 +98,7 @@ bool GameInfo::Delete() {
 		{
 			const Path &ppstPath = filePath_;
 			File::Delete(ppstPath);
-			// TODO(scoped): This doesn't work properly with Content URIs.
-			const Path screenshotPath = Path(ReplaceAll(filePath_.ToString(), ".ppst", ".jpg"));
+			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
 				File::Delete(screenshotPath);
 			}
@@ -372,7 +371,7 @@ public:
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
+					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().ToVisualString().c_str());
 					info_->pending = false;
 					info_->working = false;
 					return;

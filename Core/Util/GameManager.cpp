@@ -263,7 +263,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 		return false;
 	}
 
-	if (!File::Exists(Path(fileName))) {
+	if (!File::Exists(fileName)) {
 		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
 		return false;
 	}
@@ -272,7 +272,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	// Examine the URL to guess out what we're installing.
 	if (extension == "cso" || extension == "iso") {
 		// It's a raw ISO or CSO file. We just copy it to the destination.
-		std::string shortFilename = Path(url).GetFilename();
+		std::string shortFilename = url.GetFilename();
 		return InstallRawISO(fileName, shortFilename, deleteAfter);
 	}
 
@@ -319,7 +319,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 		zip_close(z);
 		z = nullptr;
 		if (deleteAfter)
-			File::Delete(Path(fileName));
+			File::Delete(fileName);
 		return false;
 	}
 }
@@ -473,7 +473,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 				delete[] buffer;
 				fclose(f);
 				zip_fclose(zf);
-				File::Delete(Path(outFilename));
+				File::Delete(outFilename);
 				return false;
 			}
 			size_t written = fwrite(buffer, 1, readSize, f);
@@ -482,7 +482,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 				delete[] buffer;
 				fclose(f);
 				zip_fclose(zf);
-				File::Delete(Path(outFilename));
+				File::Delete(outFilename);
 				return false;
 			}
 			pos += readSize;
@@ -531,16 +531,20 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 			continue;
 		}
 		std::string outFilename = dest + zippedName.substr(info.stripChars);
-		// TODO(scoped): Tricky logic
-		bool isDir = *outFilename.rbegin() == '/';
+
+		zip_uint32_t attrs = 0;
+		if (0 != zip_file_get_external_attributes(z, i, 0, nullptr, &attrs)) {
+			continue;
+		}
+		bool isDir = attrs & 
 		if (!isDir && outFilename.find("/") != std::string::npos) {
 			outFilename = outFilename.substr(0, outFilename.rfind('/'));
 		}
 
 		Path outPath(outFilename);
 		if (createdDirs.find(outPath) == createdDirs.end()) {
-			File::CreateFullPath(Path(outPath));
-			createdDirs.insert(Path(outPath));
+			File::CreateFullPath(outPath);
+			createdDirs.insert(outPath);
 		}
 		if (!isDir && fileAllowed(fn)) {
 			struct zip_stat zstat;

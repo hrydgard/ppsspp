@@ -112,8 +112,7 @@ public:
 			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))))->SetTextColor(textStyle.fgColor);
 			content->Add(new Spacer(3.0));
 		} else {
-			// TODO(scoped): This can't work
-			Path image_path = Path(ReplaceAll(savePath_.ToString(), ".ppst", ".jpg"));
+			Path image_path = savePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(image_path)) {
 				toprow->Add(new AsyncImageFileView(Path(image_path), IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
