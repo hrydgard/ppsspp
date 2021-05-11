@@ -107,7 +107,7 @@ bool AVIDump::CreateAVI() {
 	const char *filename = s_format_context->filename;
 	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", video_file_name.c_str());
 #endif
-	INFO_LOG(COMMON, "Recording Video to: %s", video_file_name.c_str());
+	INFO_LOG(COMMON, "Recording Video to: %s", video_file_name.ToVisualString().c_str());
 
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))

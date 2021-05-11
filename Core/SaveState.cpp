@@ -864,7 +864,7 @@ namespace SaveState
 			{
 				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
 				// TODO(scoped): Pass the path properly into TakeGameScreenshot.
-				tempResult = TakeGameScreenshot(Path(op.filename), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
+				tempResult = TakeGameScreenshot(op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());

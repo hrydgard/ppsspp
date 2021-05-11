@@ -1728,7 +1728,7 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
-	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
+	if (TextureReplacer::GenerateIni(gameID, generatedFilename)) {
 		File::OpenFileInEditor(generatedFilename);
 	}
 	return UI::EVENT_DONE;

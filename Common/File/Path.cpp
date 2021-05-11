@@ -59,7 +59,7 @@ Path Path::operator /(const std::string &subdir) const {
 }
 
 void Path::operator /=(const std::string &subdir) {
-	path_ += path_ + "/" + subdir;
+	*this = *this / subdir;
 }
 
 Path Path::WithExtraExtension(const std::string &ext) const {

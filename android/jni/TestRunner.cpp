@@ -67,7 +67,7 @@ bool TestsAvailable() {
 	if (File::IsDirectory(Path("../pspautotests"))) {
 		testDirectory = Path("..");
 	}
-	return File::Exists(Path(testDirectory) / "pspautotests" / "tests");
+	return File::Exists(testDirectory / "pspautotests" / "tests");
 }
 
 bool RunTests() {

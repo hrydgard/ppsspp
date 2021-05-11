@@ -130,8 +130,10 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
-		std::string ext = File::GetFileExtension(info.fullName.ToString());
+		std::string ext = info.fullName.GetFileExtension();
 		if (filter) {
+			if (!ext.empty())
+				ext = ext.substr(1);
 			if (filters.find(ext) == filters.end())
 				continue;
 		}

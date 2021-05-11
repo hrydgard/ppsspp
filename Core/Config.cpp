@@ -1614,13 +1614,12 @@ void Config::changeGameSpecific(const std::string &pGameId, const std::string &t
 }
 
 bool Config::createGameConfig(const std::string &pGameId) {
-	Path fullIniFilePath = Path(getGameConfigFile(pGameId));
+	Path fullIniFilePath = getGameConfigFile(pGameId);
 
 	if (hasGameConfig(pGameId)) {
 		return false;
 	}
 
-	// TODO(scoped):
 	File::CreateEmptyFile(fullIniFilePath);
 	return true;
 }

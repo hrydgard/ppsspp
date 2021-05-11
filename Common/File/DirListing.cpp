@@ -192,7 +192,7 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 		info.name = virtualName;
 
 		info.fullName = directory / virtualName;
-		info.isDirectory = IsDirectory(Path(info.fullName));
+		info.isDirectory = IsDirectory(info.fullName);
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;  // TODO - implement some kind of check
@@ -228,11 +228,11 @@ int64_t GetDirectoryRecursiveSize(const Path &path, const char *filter, int flag
 	// Note: GetFilesInDir does not fill in fileSize.
 	for (size_t i = 0; i < fileInfo.size(); i++) {
 		FileInfo finfo;
-		GetFileInfo(Path(fileInfo[i].fullName), &finfo);
+		GetFileInfo(fileInfo[i].fullName, &finfo);
 		if (!finfo.isDirectory)
 			sizeSum += finfo.size;
 		else
-			sizeSum += GetDirectoryRecursiveSize(Path(finfo.fullName), filter, flags);
+			sizeSum += GetDirectoryRecursiveSize(finfo.fullName, filter, flags);
 	}
 	return sizeSum;
 }

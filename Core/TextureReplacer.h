@@ -61,7 +61,7 @@ struct ReplacedTextureLevel {
 	int w;
 	int h;
 	ReplacedTextureFormat fmt;
-	std::string file;
+	Path file;
 };
 
 struct ReplacementCacheKey {
@@ -191,7 +191,7 @@ public:
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
-	static bool GenerateIni(const std::string &gameID, Path *generatedFilename);
+	static bool GenerateIni(const std::string &gameID, Path &generatedFilename);
 
 protected:
 	bool LoadIni();

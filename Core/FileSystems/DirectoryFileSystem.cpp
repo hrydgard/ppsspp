@@ -180,9 +180,7 @@ Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpa
 	if (localpath[0] == '/')
 		localpath.erase(0, 1);
 
-	Path result = basePath / localpath;
-	// TODO?: Windows used to translate to backslashes here.
-	return result;
+	return basePath / localpath;
 }
 
 bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &error) {

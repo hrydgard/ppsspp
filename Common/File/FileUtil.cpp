@@ -715,7 +715,7 @@ bool DeleteDirRecursively(const Path &directory) {
 			continue;
 
 		Path newPath = directory / virtualName;
-		if (IsDirectory(Path(newPath))) {
+		if (IsDirectory(newPath)) {
 			if (!DeleteDirRecursively(newPath)) {
 #ifndef _WIN32
 				closedir(dirp);
@@ -726,7 +726,7 @@ bool DeleteDirRecursively(const Path &directory) {
 			}
 		}
 		else {
-			if (!File::Delete(Path(newPath))) {
+			if (!File::Delete(newPath)) {
 #ifndef _WIN32
 				closedir(dirp);
 #else
@@ -743,7 +743,7 @@ bool DeleteDirRecursively(const Path &directory) {
 	}
 	closedir(dirp);
 #endif
-	return File::DeleteDir(Path(directory));
+	return File::DeleteDir(directory);
 }
 
 void OpenFileInEditor(const Path &fileName) {

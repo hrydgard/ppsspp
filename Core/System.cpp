@@ -621,8 +621,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())

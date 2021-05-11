@@ -55,7 +55,7 @@ void TextureReplacer::NotifyConfigChanged() {
 
 	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {
-		basePath_ = Path(GetSysDirectory(DIRECTORY_TEXTURES)) / gameID_;
+		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
 
 		Path newTextureDir = basePath_ / NEW_TEXTURE_DIR;
 
@@ -400,7 +400,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		bool good = false;
 		ReplacedTextureLevel level;
 		level.fmt = ReplacedTextureFormat::F_8888;
-		level.file = filename.ToString();
+		level.file = filename;
 
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
@@ -569,7 +569,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	// Remember that we've saved this for next time.
 	ReplacedTextureLevel saved;
 	saved.fmt = ReplacedTextureFormat::F_8888;
-	saved.file = filename.ToString();
+	saved.file = filename;
 	saved.w = w;
 	saved.h = h;
 	savedCache_[replacementKey] = saved;
@@ -729,7 +729,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	png_image_free(&png);
 }
 
-bool TextureReplacer::GenerateIni(const std::string &gameID, Path *generatedFilename) {
+bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFilename) {
 	if (gameID.empty())
 		return false;
 
@@ -738,12 +738,11 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path *generatedFile
 		File::CreateFullPath(texturesDirectory);
 	}
 
-	if (generatedFilename)
-		*generatedFilename = texturesDirectory / INI_FILENAME;
-	if (File::Exists(*generatedFilename))
+	generatedFilename = texturesDirectory / INI_FILENAME;
+	if (File::Exists(generatedFilename))
 		return true;
 
-	FILE *f = File::OpenCFile(texturesDirectory / INI_FILENAME, "wb");
+	FILE *f = File::OpenCFile(generatedFilename, "wb");
 	if (f) {
 		fwrite("\xEF\xBB\xBF", 1, 3, f);
 
@@ -772,5 +771,5 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path *generatedFile
 		fprintf(f, "[reducehashranges]\n");
 		fclose(f);
 	}
-	return File::Exists(texturesDirectory / INI_FILENAME);
+	return File::Exists(generatedFilename);
 }
