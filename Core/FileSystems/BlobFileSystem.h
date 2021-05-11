@@ -52,7 +52,6 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	bool GetHostPath(const std::string &inpath, Path &outpath) override;
 	u64 FreeSpace(const std::string &path) override;
 
 private:

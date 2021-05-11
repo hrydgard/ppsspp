@@ -646,12 +646,6 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	return x;
 }
 
-bool VirtualDiscFileSystem::GetHostPath(const std::string &inpath, Path &outpath)
-{
-	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Retrieving host path");
-	return false;
-}
-
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 

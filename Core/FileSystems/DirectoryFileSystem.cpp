@@ -764,12 +764,6 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
 
-// Same as GetLocalPath. Confusing.
-bool DirectoryFileSystem::GetHostPath(const std::string &inpath, Path &outpath) {
-	outpath = GetLocalPath(inpath);
-	return true;
-}
-
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
@@ -1172,12 +1166,6 @@ size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		ERROR_LOG(FILESYS,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
-}
-
-
-bool VFSFileSystem::GetHostPath(const std::string &inpath, Path &outpath) {
-	// NOT SUPPORTED
-	return false;
 }
 
 std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string path) {
