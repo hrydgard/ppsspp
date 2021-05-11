@@ -102,6 +102,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 		while (*filter) {
 			if (*filter == ':') {
 				filters.insert("." + tmp);
+				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
 			}

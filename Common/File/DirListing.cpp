@@ -130,6 +130,7 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 		while (*filter) {
 			if (*filter == ':') {
 				filters.insert(std::move(tmp));
+				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
 			}
@@ -196,9 +197,11 @@ size_t GetFilesInDir(const char *directory, std::vector<FileInfo> * files, const
 		info.isWritable = false;  // TODO - implement some kind of check
 		if (!info.isDirectory) {
 			std::string ext = GetFileExtension(info.fullName);
-			if (filter) {
-				if (filters.find(ext) == filters.end())
+			if (!ext.empty()) {
+				ext = ext.substr(1);  // Remove the dot.
+				if (filter && filters.find(ext) == filters.end()) {
 					continue;
+				}
 			}
 		}
 

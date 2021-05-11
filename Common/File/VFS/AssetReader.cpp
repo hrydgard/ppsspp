@@ -75,7 +75,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 		while (*filter) {
 			if (*filter == ':') {
 				filters.insert("." + tmp);
-				tmp = "";
+				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
 			}
