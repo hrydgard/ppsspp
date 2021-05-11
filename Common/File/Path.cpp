@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
@@ -120,9 +122,11 @@ std::string Path::GetDirectory() const {
 			return "/";  // We're at the root.
 		}
 		return path_.substr(0, pos);
+#if PPSSPP_PLATFORM(WINDOWS)
 	} else if (path_.size() == 2 && path_[1] == ':') {
 		// Windows fake-root.
 		return "/";
+#endif
 	} else {
 		// There could be a ':', too. Unlike the slash, let's include that
 		// in the returned directory.
@@ -185,8 +189,10 @@ bool Path::IsAbsolute() const {
 		return true;
 	else if (path_.front() == '/')
 		return true;
+#if PPSSPP_PLATFORM(WINDOWS)
 	else if (path_.size() > 3 && path_[1] == ':')
 		return true; // Windows path with drive letter
+#endif
 	else
 		return false;
 }
