@@ -878,18 +878,28 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const char *filename, std::string & str)
-{
+bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	size_t len = (size_t)File::GetFileSize(f);
-	char *buf = new char[len + 1];
-	buf[fread(buf, 1, len, f)] = 0;
-	str = std::string(buf, len);
+	bool success;
+	if (len == -1) {
+		size_t totalSize = 1024;
+		size_t totalRead = 0;
+		do {
+			totalSize *= 2;
+			str.resize(totalSize);
+			totalRead += fread(&str[totalRead], 1, totalSize - totalRead, f);
+		} while (totalRead == totalSize);
+		str.resize(totalRead);
+		success = true;
+	} else {
+		str.resize(len);
+		success = fread(&str[0], 1, len, f) == len;
+	}
 	fclose(f);
-	delete[] buf;
-	return true;
+	return success;
 }
 
 uint8_t *ReadLocalFile(const char *filename, size_t * size) {
