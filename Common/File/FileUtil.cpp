@@ -882,6 +882,7 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
+	// Warning: some files, like in /sys/, may return a fixed size like 4096.
 	size_t len = (size_t)File::GetFileSize(f);
 	bool success;
 	if (len == -1) {
@@ -896,8 +897,10 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 		success = true;
 	} else {
 		str.resize(len);
-		int read = fread(&str[0], 1, len, f);
-		success = read <= len && !ferror(f);
+		size_t totalRead = fread(&str[0], 1, len, f);
+		str.resize(totalRead);
+		// Allow less, because some system files will report incorrect lengths.
+		success = totalRead <= len;
 	}
 	fclose(f);
 	return success;
