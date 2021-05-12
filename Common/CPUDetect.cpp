@@ -396,7 +396,7 @@ void CPUInfo::Detect() {
 	}
 
 	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
-	logical_cpu_count /= num_cores;
+	logical_cpu_count /= std::max(num_cores, 1);
 #elif PPSSPP_PLATFORM(MAC)
 	int num = 0;
 	size_t sz = sizeof(num);
