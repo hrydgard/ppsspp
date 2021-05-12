@@ -312,7 +312,7 @@ void PPSSPP_UWPMain::OnSuspend() {
 void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
 	std::unique_ptr<FileLoaderFactory> factory(new StorageFileLoaderFactory(file, IdentifiedFileType::PSP_ISO));
 	RegisterFileLoaderFactory("override://", std::move(factory));
-	NativeMessageReceived("boot", "override://");
+	NativeMessageReceived("boot", "override://file");
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
