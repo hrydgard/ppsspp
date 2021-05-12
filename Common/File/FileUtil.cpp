@@ -896,7 +896,8 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 		success = true;
 	} else {
 		str.resize(len);
-		success = fread(&str[0], 1, len, f) == len;
+		int read = fread(&str[0], 1, len, f);
+		success = read <= len && !ferror(f);
 	}
 	fclose(f);
 	return success;
