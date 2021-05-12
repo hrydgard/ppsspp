@@ -532,13 +532,11 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		}
 		std::string outFilename = dest + zippedName.substr(info.stripChars);
 
-		zip_uint32_t attrs = 0;
-		if (0 != zip_file_get_external_attributes(z, i, 0, nullptr, &attrs)) {
-			continue;
-		}
-		bool isDir = attrs & 
-		if (!isDir && outFilename.find("/") != std::string::npos) {
-			outFilename = outFilename.substr(0, outFilename.rfind('/'));
+		bool isDir = zippedName.empty() || zippedName.back() == '/';
+		if (!isDir && zippedName.find("/") != std::string::npos) {
+			outFilename = dest + zippedName.substr(0, zippedName.rfind('/'));
+		} else if (!isDir) {
+			outFilename = dest;
 		}
 
 		Path outPath(outFilename);
@@ -561,9 +559,10 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		// Note that we do NOT write files that are not in a directory, to avoid random
 		// README files etc. (unless allowRoot is true.)
 		if (fileAllowed(fn) && strlen(fn) > (size_t)info.stripChars) {
+			std::string zippedName = fn;
 			fn += info.stripChars;
 			std::string outFilename = dest + fn;
-			bool isDir = *outFilename.rbegin() == '/';
+			bool isDir = zippedName.empty() || zippedName.back() == '/';
 			if (isDir)
 				continue;
 
