@@ -257,6 +257,7 @@ void ProductView::CreateViews() {
 		Add(progressDisplay);
 	} else {
 		installButton_ = nullptr;
+		speedView_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
 		launchButton_ = new Button(st->T("Launch Game"));
