@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -183,7 +184,7 @@ void LoadPostShaderInfo(const std::vector<Path> &directories) {
 // Scans the directories for shader ini files and collects info about all the shaders found.
 void ReloadAllPostShaderInfo() {
 	std::vector<Path> directories;
-	directories.push_back(Path("shaders"));  // Hm, why?
+	directories.push_back(Path("shaders"));  // For VFS
 	directories.push_back(g_Config.memStickDirectory / "PSP" / "shaders");
 	LoadPostShaderInfo(directories);
 }
