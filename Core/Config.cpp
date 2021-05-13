@@ -1425,7 +1425,7 @@ void Config::Save(const char *saveReason) {
 		{
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
-				ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", controllerIniFilename_.c_str());
+				ERROR_LOG(LOADER, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
 			}
 			KeyMap::SaveToIni(controllerIniFile);
 			if (!controllerIniFile.Save(controllerIniFilename_)) {
