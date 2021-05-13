@@ -296,7 +296,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	case ZipFileContents::PSP_GAME_DIR:
 		INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
 		// InstallMemstickGame contains code to close z.
-		return InstallMemstickGame(z, fileName, pspGame.ToString(), info, false, deleteAfter);
+		return InstallMemstickGame(z, fileName, pspGame, info, false, deleteAfter);
 	case ZipFileContents::ISO_FILE:
 		INFO_LOG(HLE, "Installing '%s' into its containing directory", fileName.c_str());
 		// InstallZippedISO contains code to close z.
@@ -307,7 +307,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 			INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
 			File::CreateEmptyFile(dest / ".nomedia");
-			return InstallMemstickGame(z, fileName, dest.ToString(), info, true, deleteAfter);
+			return InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
 		} else {
 			zip_close(z);
 			z = nullptr;
@@ -500,8 +500,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 	}
 }
 
-// TODO(scoped): This one will be slightly tricky.
-bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const std::string &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter) {
+bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
@@ -530,11 +529,11 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		if (zippedName.length() < (size_t)info.stripChars) {
 			continue;
 		}
-		std::string outFilename = dest + zippedName.substr(info.stripChars);
+		Path outFilename = dest / zippedName.substr(info.stripChars);
 
 		bool isDir = zippedName.empty() || zippedName.back() == '/';
 		if (!isDir && zippedName.find("/") != std::string::npos) {
-			outFilename = dest + zippedName.substr(0, zippedName.rfind('/'));
+			outFilename = dest / zippedName.substr(0, zippedName.rfind('/'));
 		} else if (!isDir) {
 			outFilename = dest;
 		}
@@ -561,19 +560,19 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		if (fileAllowed(fn) && strlen(fn) > (size_t)info.stripChars) {
 			std::string zippedName = fn;
 			fn += info.stripChars;
-			std::string outFilename = dest + fn;
+			Path outFilename = dest / fn;
 			bool isDir = zippedName.empty() || zippedName.back() == '/';
 			if (isDir)
 				continue;
 
-			if (!ExtractFile(z, i, Path(outFilename), &bytesCopied, allBytes)) {
+			if (!ExtractFile(z, i, outFilename, &bytesCopied, allBytes)) {
 				goto bail;
 			} else {
-				createdFiles.push_back(Path(outFilename));
+				createdFiles.push_back(outFilename);
 			}
 		}
 	}
-	INFO_LOG(HLE, "Extracted %i files (%i bytes / %i).", info.numFiles, (int)bytesCopied, (int)allBytes);
+	INFO_LOG(HLE, "Extracted %d files from zip (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
 
 	zip_close(z);
 	z = nullptr;
