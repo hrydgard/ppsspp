@@ -632,8 +632,8 @@ bool retro_load_game(const struct retro_game_info *game)
 
    g_Config.currentDirectory      = retro_base_dir;
    g_Config.externalDirectory     = retro_base_dir;
-   g_Config.memStickDirectory     = retro_save_dir;
-   g_Config.flash0Directory       = retro_base_dir + "flash0" DIR_SEP;
+   g_Config.memStickDirectory     = Path(retro_save_dir);
+   g_Config.flash0Directory       = Path(retro_base_dir) / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir.c_str()));
@@ -649,7 +649,7 @@ bool retro_load_game(const struct retro_game_info *game)
 
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
-   coreParam.fileToStart     = std::string(game->path);
+   coreParam.fileToStart     = Path(std::string(game->path));
    coreParam.mountIso.clear();
    coreParam.startBreak      = false;
    coreParam.printfEmuLog    = true;

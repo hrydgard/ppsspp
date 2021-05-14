@@ -23,6 +23,7 @@
 #include <ctime>
 
 #include "Common.h"
+#include "Common/File/Path.h"
 #include "Core/HLE/sceKernel.h"
 
 enum FileAccess {
@@ -130,7 +131,6 @@ public:
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     RemoveFile(const std::string &filename) = 0;
-	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() = 0;
@@ -156,7 +156,6 @@ public:
 	virtual bool RmDir(const std::string &dirname) override {return false;}
 	virtual int RenameFile(const std::string &from, const std::string &to) override {return -1;}
 	virtual bool RemoveFile(const std::string &filename) override {return false;}
-	virtual bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	virtual PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
 	virtual FileSystemFlags Flags() override { return FileSystemFlags::NONE; }

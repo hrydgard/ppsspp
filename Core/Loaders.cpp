@@ -19,6 +19,7 @@
 #include <cstdio>
 
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/StringUtils.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
@@ -39,8 +40,8 @@ void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFac
 	factories[prefix] = std::move(factory);
 }
 
-FileLoader *ConstructFileLoader(const std::string &filename) {
-	if (filename.find("http://") == 0 || filename.find("https://") == 0) {
+FileLoader *ConstructFileLoader(const Path &filename) {
+	if (filename.Type() == PathType::HTTP) {
 		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
 		// For headless, avoid disk caching since it's usually used for tests that might mutate.
 		if (!PSP_CoreParameter().headLess) {
@@ -50,7 +51,7 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 	}
 
 	for (auto &iter : factories) {
-		if (startsWith(filename, iter.first)) {
+		if (startsWith(filename.ToString(), iter.first)) {
 			return iter.second->ConstructFileLoader(filename);
 		}
 	}
@@ -72,7 +73,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	std::string extension = File::GetFileExtension(fileLoader->GetPath());
+	std::string extension = fileLoader->GetPath().GetFileExtension();
 	if (extension == ".iso") {
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0) {
@@ -101,20 +102,20 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
-		std::string filename = fileLoader->GetPath();
+		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
-			if (File::Exists((filename + "/EBOOT.PBP").c_str())) {
+			if (File::Exists(filename / "EBOOT.PBP")) {
 				return IdentifiedFileType::PSP_PBP_DIRECTORY;
 			}
 
 			// check if it's a disc directory
-			if (File::Exists((filename + "/PSP_GAME").c_str())) {
+			if (File::Exists(filename / "PSP_GAME")) {
 				return IdentifiedFileType::PSP_DISC_DIRECTORY;
 			}
 
 			// Not that, okay, let's guess it's a savedata directory if it has a param.sfo...
-			if (File::Exists((filename + "/PARAM.SFO").c_str())) {
+			if (File::Exists(filename / "PARAM.SFO")) {
 				return IdentifiedFileType::PSP_SAVEDATA_DIRECTORY;
 			}
 		}
@@ -142,9 +143,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	}
 
 	if (id == 'FLE\x7F') {
-		std::string filename = fileLoader->GetPath();
+		Path filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
-		if (extension == ".plf" || strstr(filename.c_str(), "BOOT.BIN") ||
+		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
 			extension == ".elf" || extension == ".prx" || extension == ".pbp") {
 			return IdentifiedFileType::PSP_ELF;
 		}
@@ -175,10 +176,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
-		std::string path = File::GetDir(fileLoader->GetPath());
 		// If loading from memstick...
-		size_t pos = path.find("PSP/GAME/");
-		if (pos != std::string::npos) {
+		if (fileLoader->GetPath().FilePathContains("PSP/GAME/")) {
 			return IdentifiedFileType::PSP_PBP_DIRECTORY;
 		}
 		return IdentifiedFileType::PSP_PBP;
@@ -204,7 +203,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 	IdentifiedFileType type = Identify_File(fileLoader);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-		const std::string ebootFilename = ResolvePBPFile(fileLoader->GetPath());
+		const Path ebootFilename = ResolvePBPFile(fileLoader->GetPath());
 		if (ebootFilename != fileLoader->GetPath()) {
 			// Switch fileLoader to the actual EBOOT.
 			delete fileLoader;
@@ -214,28 +213,20 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 	return fileLoader;
 }
 
-std::string ResolvePBPDirectory(const std::string &filename) {
-	bool hasPBP = endsWith(filename, "/EBOOT.PBP");
-#ifdef _WIN32
-	hasPBP = hasPBP || endsWith(filename, "\\EBOOT.PBP");
-#endif
-
-	if (hasPBP) {
-		return filename.substr(0, filename.length() - strlen("/EBOOT.PBP"));
+Path ResolvePBPDirectory(const Path &filename) {
+	if (filename.GetFilename() == "EBOOT.PBP") {
+		return filename.NavigateUp();
+	} else {
+		return filename;
 	}
-	return filename;
 }
 
-std::string ResolvePBPFile(const std::string &filename) {
-	bool hasPBP = endsWith(filename, "/EBOOT.PBP");
-#ifdef _WIN32
-	hasPBP = hasPBP || endsWith(filename, "\\EBOOT.PBP");
-#endif
-
-	if (!hasPBP) {
-		return filename + "/EBOOT.PBP";
+Path ResolvePBPFile(const Path &filename) {
+	if (filename.GetFilename() != "EBOOT.PBP") {
+		return filename / "EBOOT.PBP";
+	} else {
+		return filename;
 	}
-	return filename;
 }
 
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
@@ -259,11 +250,12 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
-				std::string path = fileLoader->GetPath();
-				size_t pos = path.find("PSP/GAME/");
+
+				std::string dir = fileLoader->GetPath().GetDirectory();
+				size_t pos = dir.find("PSP/GAME/");
 				if (pos != std::string::npos) {
-					path = ResolvePBPDirectory(path);
-					pspFileSystem.SetStartingDirectory("ms0:/" + path.substr(pos));
+					dir = ResolvePBPDirectory(Path(dir)).ToString();
+					pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 				}
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
@@ -354,7 +346,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	return false;
 }
 
-bool UmdReplace(std::string filepath, std::string &error) {
+bool UmdReplace(const Path &filepath, std::string &error) {
 	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
 
 	if (!currentUMD) {
@@ -366,7 +358,7 @@ bool UmdReplace(std::string filepath, std::string &error) {
 
 	if (!loadedFile->Exists()) {
 		delete loadedFile;
-		error = loadedFile->GetPath() + " doesn't exist";
+		error = loadedFile->GetPath().ToVisualString() + " doesn't exist";
 		return false;
 	}
 	UpdateLoadedFile(loadedFile);

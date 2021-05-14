@@ -44,7 +44,7 @@ static inline std::string TrimString(const std::string &s) {
 
 class CheatFileParser {
 public:
-	CheatFileParser(const std::string &filename, const std::string &gameID = "") {
+	CheatFileParser(const Path &filename, const std::string &gameID = "") {
 		fp_ = File::OpenCFile(filename, "rt");
 		validGameID_ = ReplaceAll(gameID, "-", "");
 	}
@@ -356,7 +356,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 }
 
 CWCheatEngine::CWCheatEngine(const std::string &gameID) : gameID_(gameID) {
-	filename_ = GetSysDirectory(DIRECTORY_CHEATS) + gameID_ + ".ini";
+	filename_ = GetSysDirectory(DIRECTORY_CHEATS) / (gameID_ + ".ini");
 }
 
 void CWCheatEngine::CreateCheatFile() {
@@ -375,7 +375,7 @@ void CWCheatEngine::CreateCheatFile() {
 	}
 }
 
-std::string CWCheatEngine::CheatFilename() {
+Path CWCheatEngine::CheatFilename() {
 	return filename_;
 }
 

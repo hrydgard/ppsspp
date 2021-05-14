@@ -121,44 +121,36 @@ void UWPHost::BootDone() {
 	Core_EnableStepping(false);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
+static Path SymbolMapFilename(const char *currentFilename, const char *ext) {
 	File::FileInfo info;
 
 	std::string result = currentFilename;
 
 	// can't fail, definitely exists if it gets this far
-	File::GetFileInfo(currentFilename, &info);
+	File::GetFileInfo(Path(currentFilename), &info);
 	if (info.isDirectory) {
-#ifdef _WIN32
-		char* slash = "\\";
-#else
-		char* slash = "/";
-#endif
-		if (!endsWith(result, slash))
-			result += slash;
-
-		return result + ".ppsspp-symbols" + ext;
+		return Path(result) / (std::string(".ppsspp-symbols") + ext);
 	} else {
 		size_t dot = result.rfind('.');
 		if (dot == result.npos)
-			return result + ext;
+			return Path(result + ext);
 
 		result.replace(dot, result.npos, ext);
-		return result;
+		return Path(result);
 	}
 }
 
 bool UWPHost::AttemptLoadSymbolMap() {
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap").c_str());
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap"));
 	// Load the old-style map file.
 	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".map").c_str());
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".sym").c_str());
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".map"));
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".sym"));
 	return result1 || result2;
 }
 
 void UWPHost::SaveSymbolMap() {
-	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap").c_str());
+	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap"));
 }
 
 void UWPHost::NotifySymbolMapUpdated() {

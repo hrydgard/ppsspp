@@ -120,7 +120,7 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 	std::string data;
 	std::vector<int> results;
 
-	if (File::ReadFileToString(true, filename.c_str(), data)) {
+	if (File::ReadFileToString(true, Path(filename), data)) {
 		std::vector<std::string> ranges;
 		SplitString(data, ',', ranges);
 		for (auto range : ranges) {
@@ -372,7 +372,7 @@ void CPUInfo::Detect() {
 	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
 	logical_cpu_count /= std::max(num_cores, 1);
 #elif PPSSPP_PLATFORM(LINUX)
-	if (File::Exists("/sys/devices/system/cpu/present")) {
+	if (File::Exists(Path("/sys/devices/system/cpu/present"))) {
 		// This may not count unplugged cores, but at least it's a best guess.
 		// Also, this assumes the CPU cores are heterogeneous (e.g. all cores could be active simultaneously.)
 		num_cores = 0;

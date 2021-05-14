@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/File/Path.h"
 #include "Common/UI/Root.h"
 
 class AT3PlusReader;
@@ -14,7 +15,7 @@ public:
 	BackgroundAudio();
 	~BackgroundAudio();
 
-	void SetGame(const std::string &path);
+	void SetGame(const Path &path);
 	void Update();
 	int Play();
 
@@ -29,7 +30,7 @@ private:
 	};
 
 	std::mutex mutex_;
-	std::string bgGamePath_;
+	Path bgGamePath_;
 	std::atomic<bool> sndLoadPending_;
 	int playbackOffset_ = 0;
 	AT3PlusReader *at3Reader_;

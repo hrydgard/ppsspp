@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "Common/Common.h"
+#include "Common/File/Path.h"
 
 // Reasonably thread safe.
 
@@ -76,7 +77,7 @@ public:
 	~I18NRepo();
 
 	bool IniExists(const std::string &languageID) const;
-	bool LoadIni(const std::string &languageID, const std::string &overridePath = ""); // NOT the filename!
+	bool LoadIni(const std::string &languageID, const Path &overridePath = Path()); // NOT the filename!
 	void SaveIni(const std::string &languageID);
 
 	std::string LanguageID();

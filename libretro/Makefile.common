@@ -234,6 +234,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
 	$(COMMONDIR)/File/VFS/AssetReader.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
+	$(COMMONDIR)/File/Path.cpp \
 	$(COMMONDIR)/File/PathBrowser.cpp \
 	$(COMMONDIR)/File/FileUtil.cpp \
 	$(COMMONDIR)/File/FileDescriptor.cpp \

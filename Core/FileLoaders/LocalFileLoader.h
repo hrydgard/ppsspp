@@ -18,22 +18,27 @@
 #pragma once
 
 #include <mutex>
+
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/Loaders.h"
+
 #ifdef _WIN32
 typedef void *HANDLE;
 #endif
 
 class LocalFileLoader : public FileLoader {
 public:
-	LocalFileLoader(const std::string &filename);
-	LocalFileLoader(const int fd, const std::string &filename);
+	LocalFileLoader(const Path &filename);
+	LocalFileLoader(const int fd, const Path &filename);
 	virtual ~LocalFileLoader();
 
 	virtual bool Exists() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
-	virtual std::string GetPath() const override;
+	virtual Path GetPath() const override {
+		return filename_;
+	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:
@@ -44,7 +49,7 @@ private:
 	HANDLE handle_;
 #endif
 	u64 filesize_;
-	std::string filename_;
+	Path filename_;
 	std::mutex readLock_;
 	bool isOpenedByFd_;
 };

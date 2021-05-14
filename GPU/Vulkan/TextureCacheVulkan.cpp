@@ -375,7 +375,7 @@ void TextureCacheVulkan::NotifyConfigChanged() {
 	CompileScalingShader();
 }
 
-static std::string ReadShaderSrc(const std::string &filename) {
+static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
 	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
 	if (!data)

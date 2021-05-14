@@ -83,16 +83,17 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 
 static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
 	std::vector<File::FileInfo> pluginDirs;
-	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS).c_str(), &pluginDirs);
+	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS), &pluginDirs);
 
 	std::vector<PluginInfo> found;
 	for (auto subdir : pluginDirs) {
-		if (!subdir.isDirectory || !File::Exists(subdir.fullName + "/plugin.ini"))
+		Path subdirFullName(subdir.fullName);
+		if (!subdir.isDirectory || !File::Exists(subdirFullName / "plugin.ini"))
 			continue;
 
 		IniFile ini;
-		if (!ini.Load(subdir.fullName + "/plugin.ini")) {
-			ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/plugin.ini", subdir.fullName.c_str());
+		if (!ini.Load(subdirFullName / "plugin.ini")) {
+			ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/plugin.ini", subdirFullName.c_str());
 			continue;
 		}
 
@@ -117,8 +118,8 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 
 		std::set<std::string> langMatches;
 		for (const std::string &subini : matches) {
-			if (!ini.Load(subdir.fullName + "/" + subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdir.fullName.c_str(), subini.c_str());
+			if (!ini.Load(subdirFullName / subini)) {
+				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 
@@ -132,8 +133,8 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 		}
 
 		for (const std::string &subini : langMatches) {
-			if (!ini.Load(subdir.fullName + "/" + subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdir.fullName.c_str(), subini.c_str());
+			if (!ini.Load(subdirFullName / subini)) {
+				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 

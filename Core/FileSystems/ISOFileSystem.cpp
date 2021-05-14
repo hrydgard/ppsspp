@@ -182,7 +182,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
 			blockDevice->NotifyReadError();
-			ERROR_LOG(FILESYS, "Error reading block for directory %s - skipping", root->name.c_str());
+			ERROR_LOG(FILESYS, "Error reading block for directory '%s' in sector %d - skipping", root->name.c_str(), secnum);
 			root->valid = true;  // Prevents re-reading
 			return;
 		}

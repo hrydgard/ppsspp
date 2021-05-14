@@ -113,13 +113,9 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
 		File::FileInfo info;
 		info.name = *diter;
-		info.fullName = std::string(path);
-		if (info.fullName[info.fullName.size() - 1] == '/')
-			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
 
 		// Remove the "inzip" part of the fullname.
-		info.fullName = info.fullName.substr(strlen(in_zip_path_));
-		info.fullName += "/" + *diter;
+		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *diter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
@@ -127,20 +123,18 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<File::Fil
 	}
 
 	for (auto fiter = files.begin(); fiter != files.end(); ++fiter) {
+		std::string fpath = path;
 		File::FileInfo info;
 		info.name = *fiter;
-		info.fullName = std::string(path);
-		if (info.fullName[info.fullName.size() - 1] == '/')
-			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
-		info.fullName = info.fullName.substr(strlen(in_zip_path_));
-		info.fullName += "/" + *fiter;
+		info.fullName = Path(std::string(path).substr(strlen(in_zip_path_))) / *fiter;
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = false;
-		std::string ext = File::GetFileExtension(info.fullName);
+		std::string ext = info.fullName.GetFileExtension();
 		if (filter) {
-			if (filters.find(ext) == filters.end())
+			if (filters.find(ext) == filters.end()) {
 				continue;
+			}
 		}
 		listing->push_back(info);
 	}
@@ -162,7 +156,7 @@ bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
 		return false;
 	}
 
-	info->fullName = path;
+	info->fullName = Path(path);
 	info->exists = true; // TODO
 	info->isWritable = false;
 	info->isDirectory = false;    // TODO
@@ -201,13 +195,14 @@ bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::Fi
 		strcpy(new_path, path_);
 	}
 	strcat(new_path, path);
+
 	File::FileInfo info;
-	if (!File::GetFileInfo(new_path, &info))
+	if (!File::GetFileInfo(Path(new_path), &info))
 		return false;
 
 	if (info.isDirectory)
 	{
-		File::GetFilesInDir(new_path, listing, filter);
+		File::GetFilesInDir(Path(new_path), listing, filter);
 		return true;
 	}
 	else
@@ -227,5 +222,5 @@ bool DirectoryAssetReader::GetFileInfo(const char *path, File::FileInfo *info)
 		strcpy(new_path, path_);
 	}
 	strcat(new_path, path);
-	return File::GetFileInfo(new_path, info);
+	return File::GetFileInfo(Path(new_path), info);
 }

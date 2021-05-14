@@ -639,7 +639,7 @@ void __IoInit() {
 
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();
-		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
+		const Path exdataPath = g_Config.memStickDirectory / "exdata" / gameId;
 		if (File::Exists(exdataPath)) {
 			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 			pspFileSystem.Mount("exdata0:", exdataSystem);

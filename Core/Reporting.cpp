@@ -101,8 +101,8 @@ namespace Reporting
 
 	static std::mutex crcLock;
 	static std::condition_variable crcCond;
-	static std::string crcFilename;
-	static std::map<std::string, u32> crcResults;
+	static Path crcFilename;
+	static std::map<Path, u32> crcResults;
 	static volatile bool crcPending = false;
 	static volatile bool crcCancel = false;
 	static std::thread crcThread;
@@ -126,11 +126,10 @@ namespace Reporting
 		crcResults[crcFilename] = crc;
 		crcPending = false;
 		crcCond.notify_one();
-
 		return 0;
 	}
 
-	void QueueCRC(const std::string &gamePath) {
+	void QueueCRC(const Path &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 
 		auto it = crcResults.find(gamePath);
@@ -151,12 +150,12 @@ namespace Reporting
 		crcThread = std::thread(CalculateCRCThread);
 	}
 
-	bool HasCRC(const std::string &gamePath) {
+	bool HasCRC(const Path &gamePath) {
 		std::lock_guard<std::mutex> guard(crcLock);
 		return crcResults.find(gamePath) != crcResults.end();
 	}
 
-	uint32_t RetrieveCRC(const std::string &gamePath) {
+	uint32_t RetrieveCRC(const Path &gamePath) {
 		QueueCRC(gamePath);
 
 		std::unique_lock<std::mutex> guard(crcLock);
@@ -171,7 +170,7 @@ namespace Reporting
 		return it->second;
 	}
 
-	static uint32_t RetrieveCRCUnlessPowerSaving(const std::string &gamePath) {
+	static uint32_t RetrieveCRCUnlessPowerSaving(const Path &gamePath) {
 		// It's okay to use it if we have it already.
 		if (Core_GetPowerSaving() && !HasCRC(gamePath)) {
 			return 0;
@@ -450,10 +449,10 @@ namespace Reporting
 		postdata.Add("savestate_used", SaveState::HasLoadedState());
 	}
 
-	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
+	void AddScreenshotData(MultipartFormDataEncoder &postdata, const Path &filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::ReadFileToString(false, filename.c_str(), data))
+		if (!filename.empty() && File::ReadFileToString(false, filename, data))
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
@@ -502,7 +501,7 @@ namespace Reporting
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
 			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
-			AddScreenshotData(postdata, payload.string2);
+			AddScreenshotData(postdata, Path(payload.string2));
 			payload.string1.clear();
 			payload.string2.clear();
 
@@ -552,7 +551,7 @@ namespace Reporting
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
 #if defined(USING_WIN_UI) || defined(APPLE)
-		if (!File::Exists(g_Config.flash0Directory + "/font/jpn0.pgf"))
+		if (!File::Exists(g_Config.flash0Directory / "font/jpn0.pgf"))
 			return false;
 #else
 		File::FileInfo fo;

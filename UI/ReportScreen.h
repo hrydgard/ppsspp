@@ -22,6 +22,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
+#include "Common/File/Path.h"
 
 enum class ReportingOverallScore : int {
 	PERFECT = 0,
@@ -34,7 +35,7 @@ enum class ReportingOverallScore : int {
 
 class ReportScreen : public UIDialogScreenWithGameBackground {
 public:
-	ReportScreen(const std::string &gamePath);
+	ReportScreen(const Path &gamePath);
 
 protected:
 	void postRender() override;
@@ -57,7 +58,7 @@ protected:
 	UI::TextView *overallDescription_ = nullptr;
 	UI::TextView *crcInfo_ = nullptr;
 	UI::Choice *showCrcButton_ = nullptr;
-	std::string screenshotFilename_;
+	Path screenshotFilename_;
 
 	ReportingOverallScore overall_ = ReportingOverallScore::INVALID;
 	int graphics_ = -1;
@@ -72,7 +73,7 @@ protected:
 
 class ReportFinishScreen : public UIDialogScreenWithGameBackground {
 public:
-	ReportFinishScreen(const std::string &gamePath, ReportingOverallScore score);
+	ReportFinishScreen(const Path &gamePath, ReportingOverallScore score);
 
 protected:
 	void update() override;

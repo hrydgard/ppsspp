@@ -589,7 +589,7 @@ void SystemInfoScreen::CreateViews() {
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
-	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory));
+	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
 	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory));
 	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory));
 	storage->Add(new InfoItem("ExtStorageDir", g_Config.externalDirectory));
@@ -1184,7 +1184,7 @@ UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
-	LaunchFile(screenManager(), url);
+	LaunchFile(screenManager(), Path(url));
 	return UI::EVENT_DONE;
 }
 

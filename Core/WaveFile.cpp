@@ -17,7 +17,7 @@ WaveFileWriter::~WaveFileWriter()
 	Stop();
 }
 
-bool WaveFileWriter::Start(const std::string& filename, unsigned int HLESampleRate)
+bool WaveFileWriter::Start(const Path &filename, unsigned int HLESampleRate)
 {
 	// Check if the file is already open
 	if (file) {

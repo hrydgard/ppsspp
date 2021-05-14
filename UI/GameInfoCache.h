@@ -24,6 +24,7 @@
 #include <atomic>
 
 #include "Core/ELF/ParamSFO.h"
+#include "Common/File/Path.h"
 #include "UI/TextureUtil.h"
 
 namespace Draw {
@@ -84,7 +85,7 @@ public:
 
 	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
-	bool LoadFromPath(const std::string &gamePath);
+	bool LoadFromPath(const Path &gamePath);
 
 	std::shared_ptr<FileLoader> GetFileLoader();
 	void DisposeFileLoader();
@@ -95,7 +96,7 @@ public:
 
 	void ParseParamSFO();
 
-	std::vector<std::string> GetSaveDataDirectories();
+	std::vector<Path> GetSaveDataDirectories();
 
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
@@ -148,7 +149,7 @@ protected:
 
 	// TODO: Get rid of this shared_ptr and managae lifetime better instead.
 	std::shared_ptr<FileLoader> fileLoader;
-	std::string filePath_;
+	Path filePath_;
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfo);
@@ -167,7 +168,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();

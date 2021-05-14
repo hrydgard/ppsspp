@@ -197,11 +197,13 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
 }
 
-static std::string ReadShaderSrc(const std::string &filename) {
+static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
+	// TODO(scoped): VFS paths not handled well.
 	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
-	if (!data)
+	if (!data) {
 		return "";
+	}
 
 	std::string src(data, sz);
 	delete[] data;

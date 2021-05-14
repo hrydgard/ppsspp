@@ -425,9 +425,9 @@ namespace MainWindow {
 			std::wstring src = ConvertUTF8ToWString(filename);
 			std::wstring dest;
 			if (filename.size() >= 5 && (filename.substr(filename.size() - 4) == ".jpg" || filename.substr(filename.size() - 5) == ".jpeg")) {
-				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg");
+				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg").ToWString();
 			} else {
-				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.png");
+				dest = (GetSysDirectory(DIRECTORY_SYSTEM) / "background.png").ToWString();
 			}
 
 			CopyFileW(src.c_str(), dest.c_str(), FALSE);
@@ -450,8 +450,7 @@ namespace MainWindow {
 		}
 
 		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch UMD", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;", fn)) {
-			fn = ReplaceAll(fn, "\\", "/");
-			__UmdReplace(fn);
+			__UmdReplace(Path(fn));
 		}
 	}
 
@@ -570,7 +569,7 @@ namespace MainWindow {
 			break;
 
 		case ID_FILE_LOAD_MEMSTICK:
-			BrowseAndBoot(GetSysDirectory(DIRECTORY_GAME));
+			BrowseAndBoot(GetSysDirectory(DIRECTORY_GAME).ToString());
 			break;
 
 		case ID_FILE_OPEN_NEW_INSTANCE:
@@ -578,7 +577,7 @@ namespace MainWindow {
 			break;
 
 		case ID_FILE_MEMSTICK:
-			ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memStickDirectory).c_str(), 0, 0, SW_SHOW);
+			ShellExecute(NULL, L"open", g_Config.memStickDirectory.ToWString().c_str(), 0, 0, SW_SHOW);
 			break;
 
 		case ID_TOGGLE_BREAK:
@@ -646,14 +645,13 @@ namespace MainWindow {
 		case ID_FILE_LOADSTATEFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::Load(fn, -1, SaveStateActionFinished);
+				SaveState::Load(Path(fn), -1, SaveStateActionFinished);
 			}
 			break;
-
 		case ID_FILE_SAVESTATEFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::Save(fn, -1, SaveStateActionFinished);
+				SaveState::Save(Path(fn), -1, SaveStateActionFinished);
 			}
 			break;
 
@@ -683,7 +681,7 @@ namespace MainWindow {
 		case ID_FILE_QUICKLOADSTATE:
 		{
 			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			SaveState::LoadSlot(PSP_CoreParameter().fileToStart.ToString(), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			break;
 		}
 
@@ -692,14 +690,14 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty())
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::LoadSlot(PSP_CoreParameter().fileToStart.ToString(), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 		}
 		case ID_FILE_QUICKSAVESTATE:
 		{
 			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			SaveState::SaveSlot(PSP_CoreParameter().fileToStart.ToString(), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			break;
 		}
 
@@ -708,7 +706,7 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].empty())
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::SaveSlot(PSP_CoreParameter().fileToStart.ToString(), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 				break;
 			}
 			break;
@@ -856,7 +854,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				g_symbolMap->LoadSymbolMap(fn.c_str());
+				g_symbolMap->LoadSymbolMap(Path(fn));
 
 				if (disasmWindow)
 					disasmWindow->NotifyMapLoaded();
@@ -868,12 +866,12 @@ namespace MainWindow {
 
 		case ID_DEBUG_SAVEMAPFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn))
-				g_symbolMap->SaveSymbolMap(fn.c_str());
+				g_symbolMap->SaveSymbolMap(Path(fn));
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				g_symbolMap->LoadNocashSym(fn.c_str());
+				g_symbolMap->LoadNocashSym(Path(fn));
 
 				if (disasmWindow)
 					disasmWindow->NotifyMapLoaded();
@@ -885,7 +883,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_SAVESYMFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn))
-				g_symbolMap->SaveNocashSym(fn.c_str());
+				g_symbolMap->SaveNocashSym(Path(fn));
 			break;
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
@@ -940,7 +938,7 @@ namespace MainWindow {
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
 				bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
 
-				FILE *fp = File::OpenCFile(fn, "wb");
+				FILE *fp = File::OpenCFile(Path(fn), "wb");
 				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
 				u8 buffer[4096];
 				size_t bufferSize = isBlockMode ? sizeof(buffer) / 2048 : sizeof(buffer);

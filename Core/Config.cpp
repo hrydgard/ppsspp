@@ -1202,7 +1202,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	bShowFrameProfiler = true;
 
 	IniFile iniFile;
-	if (!iniFile.Load(iniFilename_)) {
+	if (!iniFile.Load(iniFilename_.ToString())) {
 		ERROR_LOG(LOADER, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
@@ -1212,7 +1212,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	});
 
 	iRunCount++;
-	if (!File::Exists(currentDirectory))
+	if (!File::Exists(Path(currentDirectory)))
 		currentDirectory = "";
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
@@ -1249,7 +1249,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
 		// Unpin paths that are deleted automatically.
 		const std::string &path = it->second;
-		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(path)) {
+		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(Path(path))) {
 			vPinnedPaths.push_back(File::ResolvePath(path));
 		}
 	}
@@ -1353,12 +1353,12 @@ void Config::Save(const char *saveReason) {
 		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
 		g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
-	if (iniFilename_.size() && g_Config.bSaveSettings) {
+	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
 		saveGameConfig(gameId_, gameIdTitle_);
 
 		CleanRecent();
 		IniFile iniFile;
-		if (!iniFile.Load(iniFilename_.c_str())) {
+		if (!iniFile.Load(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", iniFilename_.c_str());
 		}
 
@@ -1414,7 +1414,7 @@ void Config::Save(const char *saveReason) {
 		if (LogManager::GetInstance())
 			LogManager::GetInstance()->SaveConfig(log);
 
-		if (!iniFile.Save(iniFilename_.c_str())) {
+		if (!iniFile.Save(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
 			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
 			return;
@@ -1424,11 +1424,11 @@ void Config::Save(const char *saveReason) {
 		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
 		{
 			IniFile controllerIniFile;
-			if (!controllerIniFile.Load(controllerIniFilename_.c_str())) {
-				ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", controllerIniFilename_.c_str());
+			if (!controllerIniFile.Load(controllerIniFilename_)) {
+				ERROR_LOG(LOADER, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
 			}
 			KeyMap::SaveToIni(controllerIniFile);
-			if (!controllerIniFile.Save(controllerIniFilename_.c_str())) {
+			if (!controllerIniFile.Save(controllerIniFilename_)) {
 				ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
 				return;
 			}
@@ -1536,7 +1536,7 @@ void Config::RemoveRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		FileLoader *loader = ConstructFileLoader(recentIsos[i]);
+		FileLoader *loader = ConstructFileLoader(Path(recentIsos[i]));
 		if (loader->ExistsFast()) {
 			// Make sure we don't have any redundant items.
 			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
@@ -1549,36 +1549,36 @@ void Config::CleanRecent() {
 	recentIsos = cleanedRecent;
 }
 
-void Config::SetDefaultPath(const std::string &defaultPath) {
+void Config::SetDefaultPath(const Path &defaultPath) {
 	defaultPath_ = defaultPath;
 }
 
-void Config::AddSearchPath(const std::string &path) {
+void Config::AddSearchPath(const Path &path) {
 	searchPath_.push_back(path);
 }
 
-const std::string Config::FindConfigFile(const std::string &baseFilename) {
+const Path Config::FindConfigFile(const std::string &baseFilename) {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
-		return baseFilename;
+		return Path(baseFilename);
 	}
 #ifdef _WIN32
 	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
-		return baseFilename;
+		return Path(baseFilename);
 	}
 #endif
 
 	for (size_t i = 0; i < searchPath_.size(); ++i) {
-		std::string filename = searchPath_[i] + baseFilename;
+		Path filename = searchPath_[i] / baseFilename;
 		if (File::Exists(filename)) {
 			return filename;
 		}
 	}
 
-	const std::string filename = defaultPath_.empty() ? baseFilename : defaultPath_ + baseFilename;
+	const Path filename = defaultPath_ / baseFilename;
 	if (!File::Exists(filename)) {
-		std::string path;
-		SplitPath(filename, &path, NULL, NULL);
+		// Make sure at least the directory it's supposed to be in exists.
+		Path path = filename.NavigateUp();
 		if (createdPath_ != path) {
 			File::CreateFullPath(path);
 			createdPath_ = path;
@@ -1593,7 +1593,7 @@ void Config::RestoreDefaults() {
 		createGameConfig(gameId_);
 	} else {
 		if (File::Exists(iniFilename_))
-			File::Delete(iniFilename_);
+			File::Delete(Path(iniFilename_));
 		recentIsos.clear();
 		currentDirectory = "";
 	}
@@ -1601,7 +1601,7 @@ void Config::RestoreDefaults() {
 }
 
 bool Config::hasGameConfig(const std::string &pGameId) {
-	std::string fullIniFilePath = getGameConfigFile(pGameId);
+	Path fullIniFilePath = getGameConfigFile(pGameId);
 	return File::Exists(fullIniFilePath);
 }
 
@@ -1614,27 +1614,26 @@ void Config::changeGameSpecific(const std::string &pGameId, const std::string &t
 }
 
 bool Config::createGameConfig(const std::string &pGameId) {
-	std::string fullIniFilePath = getGameConfigFile(pGameId);
+	Path fullIniFilePath = getGameConfigFile(pGameId);
 
 	if (hasGameConfig(pGameId)) {
 		return false;
 	}
 
 	File::CreateEmptyFile(fullIniFilePath);
-
 	return true;
 }
 
 bool Config::deleteGameConfig(const std::string& pGameId) {
-	std::string fullIniFilePath = getGameConfigFile(pGameId);
+	Path fullIniFilePath = Path(getGameConfigFile(pGameId));
 
 	File::Delete(fullIniFilePath);
 	return true;
 }
 
-std::string Config::getGameConfigFile(const std::string &pGameId) {
+Path Config::getGameConfigFile(const std::string &pGameId) {
 	std::string iniFileName = pGameId + "_ppsspp.ini";
-	std::string iniFileNameFull = FindConfigFile(iniFileName);
+	Path iniFileNameFull = FindConfigFile(iniFileName);
 
 	return iniFileNameFull;
 }
@@ -1644,7 +1643,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 		return false;
 	}
 
-	std::string fullIniFilePath = getGameConfigFile(pGameId);
+	Path fullIniFilePath = getGameConfigFile(pGameId);
 
 	IniFile iniFile;
 
@@ -1672,13 +1671,13 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	}
 
 	KeyMap::SaveToIni(iniFile);
-	iniFile.Save(fullIniFilePath);
+	iniFile.Save(fullIniFilePath.ToString());
 
 	return true;
 }
 
 bool Config::loadGameConfig(const std::string &pGameId, const std::string &title) {
-	std::string iniFileNameFull = getGameConfigFile(pGameId);
+	Path iniFileNameFull = getGameConfigFile(pGameId);
 
 	if (!hasGameConfig(pGameId)) {
 		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
@@ -1687,7 +1686,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	changeGameSpecific(pGameId, title);
 	IniFile iniFile;
-	iniFile.Load(iniFileNameFull);
+	iniFile.Load(iniFileNameFull.ToString());
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
@@ -1717,7 +1716,7 @@ void Config::unloadGameConfig() {
 		changeGameSpecific();
 
 		IniFile iniFile;
-		iniFile.Load(iniFilename_);
+		iniFile.Load(iniFilename_.ToString());
 
 		// Reload game specific settings back to standard.
 		IterateSettings(iniFile, [](Section *section, ConfigSetting *setting) {
@@ -1745,7 +1744,7 @@ void Config::unloadGameConfig() {
 
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename_)) {
+	if (!controllerIniFile.Load(controllerIniFilename_.ToString())) {
 		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {

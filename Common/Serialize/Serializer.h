@@ -35,6 +35,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/File/Path.h"
 
 namespace File {
 class IOFile;
@@ -172,7 +173,7 @@ public:
 
 	// Load file template
 	template<class T>
-	static Error Load(const std::string &filename, std::string *gitVersion, T& _class, std::string *failureReason)
+	static Error Load(const Path &filename, std::string *gitVersion, T& _class, std::string *failureReason)
 	{
 		*failureReason = "LoadStateWrongVersion";
 
@@ -192,7 +193,7 @@ public:
 
 	// Save file template
 	template<class T>
-	static Error Save(const std::string &filename, const std::string &title, const char *gitVersion, T& _class)
+	static Error Save(const Path &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
 		// Get data
 		size_t const sz = MeasurePtr(_class);
@@ -231,7 +232,7 @@ public:
 		return ERROR_NONE;
 	}
 
-	static Error GetFileTitle(const std::string &filename, std::string *title);
+	static Error GetFileTitle(const Path &filename, std::string *title);
 
 private:
 	struct SChunkHeader
@@ -249,7 +250,7 @@ private:
 		REVISION_CURRENT = REVISION_TITLE,
 	};
 
-	static Error LoadFile(const std::string &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
-	static Error SaveFile(const std::string &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
+	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
+	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };

@@ -65,14 +65,14 @@ public:
 	}
 	virtual bool AttemptLoadSymbolMap() override {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
-		return g_symbolMap->LoadSymbolMap(fn.c_str());
+		return g_symbolMap->LoadSymbolMap(fn);
 	}
 
 	virtual void NotifySymbolMapUpdated() override { g_symbolMap->SortSymbols(); }
 
 	void PrepareShutdown() {
 		auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
-		g_symbolMap->SaveSymbolMap(fn.c_str());
+		g_symbolMap->SaveSymbolMap(fn);
 	}
 	void SetWindowTitle(const char *message) override {
 		std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
@@ -95,6 +95,6 @@ public:
 	void NotifySwitchUMDUpdated() override {}
 
 private:
-	std::string SymbolMapFilename(std::string currentFilename);
+	Path SymbolMapFilename(Path currentFilename);
 	MainWindow* mainWindow;
 };

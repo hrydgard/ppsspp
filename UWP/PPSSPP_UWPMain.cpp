@@ -97,9 +97,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
 
-	g_Config.memStickDirectory = ReplaceAll(ConvertWStringToUTF8(memstickFolderW), "\\", "/");
-	if (g_Config.memStickDirectory.back() != '/')
-		g_Config.memStickDirectory += "/";
+	g_Config.memStickDirectory = Path(ReplaceAll(ConvertWStringToUTF8(memstickFolderW), "\\", "/"));
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -314,7 +312,7 @@ void PPSSPP_UWPMain::OnSuspend() {
 void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
 	std::unique_ptr<FileLoaderFactory> factory(new StorageFileLoaderFactory(file, IdentifiedFileType::PSP_ISO));
 	RegisterFileLoaderFactory("override://", std::move(factory));
-	NativeMessageReceived("boot", "override://");
+	NativeMessageReceived("boot", "override://file");
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {

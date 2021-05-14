@@ -129,7 +129,7 @@ static void __EmuScreenVblank()
 #endif
 }
 
-EmuScreen::EmuScreen(const std::string &filename)
+EmuScreen::EmuScreen(const Path &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
 	saveStateSlot_ = SaveState::GetCurrentSlot();
@@ -147,10 +147,11 @@ EmuScreen::EmuScreen(const std::string &filename)
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
 }
 
-bool EmuScreen::bootAllowStorage(const std::string &filename) {
+bool EmuScreen::bootAllowStorage(const Path &filename) {
 	// No permissions needed.  The easy life.
-	if (filename.find("http://") == 0 || filename.find("https://") == 0)
+	if (filename.Type() == PathType::HTTP)
 		return true;
+
 	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS))
 		return true;
 
@@ -178,7 +179,7 @@ bool EmuScreen::bootAllowStorage(const std::string &filename) {
 	return false;
 }
 
-void EmuScreen::bootGame(const std::string &filename) {
+void EmuScreen::bootGame(const Path &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		bootPending_ = !PSP_InitUpdate(&error_string);
@@ -195,7 +196,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		return;
 	}
 
-	g_BackgroundAudio.SetGame("");
+	g_BackgroundAudio.SetGame(Path());
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
@@ -413,11 +414,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
-			SaveState::Load(value, -1, &AfterStateBoot);
+			SaveState::Load(Path(value), -1, &AfterStateBoot);
 		} else {
 			PSP_Shutdown();
 			bootPending_ = true;
-			gamePath_ = value;
+			gamePath_ = Path(value);
 			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
 			Core_UpdateState(CORE_POWERUP);
 		}
@@ -628,10 +629,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		SaveState::SaveSlot(gamePath_.ToString(), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_LOAD_STATE:
-		SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_.ToString(), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		SaveState::NextSlot();
@@ -977,7 +978,7 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 
 class GameInfoBGView : public UI::InertView {
 public:
-	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
+	GameInfoBGView(const Path &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -1009,7 +1010,7 @@ public:
 	}
 
 protected:
-	std::string gamePath_;
+	Path gamePath_;
 	uint32_t color_ = 0xFFC0C0C0;
 };
 
@@ -1074,7 +1075,7 @@ void EmuScreen::CreateViews() {
 		chatButton_ = nullptr;
 	}
 
-	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
 	saveStatePreview_->SetVisibility(V_GONE);
@@ -1188,7 +1189,7 @@ void EmuScreen::update() {
 
 	if (errorMessage_.size()) {
 		auto err = GetI18NCategory("Error");
-		std::string errLoadingFile = gamePath_ + "\n";
+		std::string errLoadingFile = gamePath_.ToVisualString() + "\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
@@ -1224,9 +1225,9 @@ void EmuScreen::update() {
 		if (saveStateSlot_ != currentSlot) {
 			saveStateSlot_ = currentSlot;
 
-			std::string fn;
-			if (SaveState::HasSaveInSlot(gamePath_, currentSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePath_, currentSlot, SaveState::SCREENSHOT_EXTENSION);
+			Path fn;
+			if (SaveState::HasSaveInSlot(gamePath_.ToString(), currentSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_.ToString(), currentSlot, SaveState::SCREENSHOT_EXTENSION);
 			}
 
 			saveStatePreview_->SetFilename(fn);
@@ -1671,18 +1672,18 @@ void EmuScreen::autoLoad() {
 	case (int)AutoLoadSaveState::OFF: // "AutoLoad Off"
 		return;
 	case (int)AutoLoadSaveState::OLDEST: // "Oldest Save"
-		autoSlot = SaveState::GetOldestSlot(gamePath_);
+		autoSlot = SaveState::GetOldestSlot(gamePath_.ToString());
 		break;
 	case (int)AutoLoadSaveState::NEWEST: // "Newest Save"
-		autoSlot = SaveState::GetNewestSlot(gamePath_);
+		autoSlot = SaveState::GetNewestSlot(gamePath_.ToString());
 		break;
 	default: // try the specific save state slot specified
-		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
+		autoSlot = (SaveState::HasSaveInSlot(gamePath_.ToString(), g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
 		break;
 	}
 
 	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
-		SaveState::LoadSlot(gamePath_, autoSlot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_.ToString(), autoSlot, &AfterSaveStateAction);
 		g_Config.iCurrentStateSlot = autoSlot;
 	}
 }

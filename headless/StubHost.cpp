@@ -71,7 +71,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		};
 
-		FILE *saved = File::OpenCFile("__testfailure.bmp", "wb");
+		FILE *saved = File::OpenCFile(Path("__testfailure.bmp"), "wb");
 		if (saved) {
 			fwrite(&header, sizeof(header), 1, saved);
 			fwrite(pixels.data(), sizeof(u32), FRAME_STRIDE * FRAME_HEIGHT, saved);

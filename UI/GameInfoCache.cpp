@@ -26,6 +26,7 @@
 #include "Common/Thread/PrioritizedWorkQueue.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -61,16 +62,16 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_ISO_NP:
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
-			const char *fileToRemove = filePath_.c_str();
+			Path fileToRemove = Path(filePath_);
 			File::Delete(fileToRemove);
-			g_Config.RemoveRecent(filePath_);
+			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
 		}
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
-			std::string directoryToRemove = ResolvePBPDirectory(filePath_);
+			Path directoryToRemove = ResolvePBPDirectory(filePath_);
 			INFO_LOG(SYSTEM, "Deleting %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(SYSTEM, "Failed to delete file");
@@ -87,17 +88,17 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_7Z:
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
-			const std::string &fileToRemove = filePath_;
+			const Path &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
-			g_Config.RemoveRecent(filePath_);
+			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
 		}
 
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
-			const std::string &ppstPath = filePath_;
+			const Path &ppstPath = filePath_;
 			File::Delete(ppstPath);
-			const std::string screenshotPath = ReplaceAll(filePath_, ".ppst", ".jpg");
+			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
 				File::Delete(screenshotPath);
 			}
@@ -121,19 +122,19 @@ u64 GameInfo::GetGameSizeInBytes() {
 }
 
 // Not too meaningful if the object itself is a savedata directory...
-std::vector<std::string> GameInfo::GetSaveDataDirectories() {
-	std::string memc = GetSysDirectory(DIRECTORY_SAVEDATA);
+std::vector<Path> GameInfo::GetSaveDataDirectories() {
+	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<File::FileInfo> dirs;
-	File::GetFilesInDir(memc.c_str(), &dirs);
+	File::GetFilesInDir(memc, &dirs);
 
-	std::vector<std::string> directories;
+	std::vector<Path> directories;
 	if (id.size() < 5) {
 		return directories;
 	}
 	for (size_t i = 0; i < dirs.size(); i++) {
 		if (startsWith(dirs[i].name, id)) {
-			directories.push_back(dirs[i].fullName);
+			directories.push_back(Path(dirs[i].fullName));
 		}
 	}
 
@@ -144,17 +145,17 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
-	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
+	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j], &fileInfo);
 		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::GetFileInfo(Path(fileInfo[i].fullName), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -171,17 +172,17 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
-	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
+	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j], &fileInfo);
 		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::GetFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			File::GetFileInfo(Path(fileInfo[i].fullName), &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -195,7 +196,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	return totalSize;
 }
 
-bool GameInfo::LoadFromPath(const std::string &gamePath) {
+bool GameInfo::LoadFromPath(const Path &gamePath) {
 	std::lock_guard<std::mutex> guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
@@ -205,7 +206,7 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 		filePath_ = gamePath;
 
 		// This is a fallback title, while we're loading / if unable to load.
-		title = File::GetFilename(filePath_);
+		title = File::GetFilename(filePath_.ToString());
 	}
 
 	return true;
@@ -228,16 +229,16 @@ void GameInfo::DisposeFileLoader() {
 }
 
 bool GameInfo::DeleteAllSaveData() {
-	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
+	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		File::GetFilesInDir(saveDataDir[j], &fileInfo);
 
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			File::Delete(fileInfo[i].fullName.c_str());
+			File::Delete(Path(fileInfo[i].fullName));
 		}
 
-		File::DeleteDir(saveDataDir[j].c_str());
+		File::DeleteDir(saveDataDir[j]);
 	}
 	return true;
 }
@@ -332,7 +333,7 @@ static bool ReadVFSToString(const char *filename, std::string *contents, std::mu
 
 class GameInfoWorkItem : public PrioritizedWorkQueueItem {
 public:
-	GameInfoWorkItem(const std::string &gamePath, std::shared_ptr<GameInfo> &info)
+	GameInfoWorkItem(const Path &gamePath, std::shared_ptr<GameInfo> &info)
 		: gamePath_(gamePath), info_(info) {
 	}
 
@@ -359,7 +360,7 @@ public:
 			{
 				auto pbpLoader = info_->GetFileLoader();
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-					std::string ebootPath = ResolvePBPFile(gamePath_);
+					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
@@ -370,7 +371,7 @@ public:
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->GetPath().c_str());
+					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().ToVisualString().c_str());
 					info_->pending = false;
 					info_->working = false;
 					return;
@@ -385,9 +386,9 @@ public:
 
 					// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
 					if ((info_->id.empty() || !info_->disc_total)
-						&& gamePath_.find("/PSP/GAME/") != std::string::npos 
+						&& gamePath_.FilePathContains("PSP/GAME/")
 						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-						info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+						info_->id = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 						info_->id_version = info_->id + "_1.00";
 						info_->region = GAMEREGION_MAX + 1; // Homebrew
 					}
@@ -398,13 +399,13 @@ public:
 					std::lock_guard<std::mutex> lock(info_->lock);
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->icon.data);
 				} else {
-					std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
-					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+					Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
+					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png, info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 					else
 						// Read standard icon
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -438,20 +439,20 @@ handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+				info_->id = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 				info_->id_version = info_->id + "_1.00";
 				info_->region = GAMEREGION_MAX + 1; // Homebrew
 
 				info_->paramSFOLoaded = true;
 			}
 			{
-				std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
-				std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+				Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
+				Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 				// Try using png/jpg screenshots first
 				if (File::Exists(screenshot_png)) {
-					File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_png, info_->icon.data);
 				} else if (File::Exists(screenshot_jpg)) {
-					File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 				} else {
 					// Read standard icon
 					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
@@ -464,7 +465,7 @@ handleELF:
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			SequentialHandleAllocator handles;
-			VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+			VirtualDiscFileSystem umd(&handles, gamePath_);
 
 			// Alright, let's fetch the PARAM.SFO.
 			std::string paramSFOcontents;
@@ -485,14 +486,14 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
-			info_->SetTitle(SaveState::GetTitle(gamePath_));
+			info_->SetTitle(SaveState::GetTitle(gamePath_.ToString()));
 
 			std::lock_guard<std::mutex> guard(info_->lock);
 
 			// Let's use the screenshot as an icon, too.
-			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
+			Path screenshotPath = gamePath_.WithReplacedExtension("ppst", "jpg");
 			if (File::Exists(screenshotPath)) {
-				if (File::ReadFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
+				if (File::ReadFileToString(false, Path(screenshotPath), info_->icon.data)) {
 					info_->icon.dataLoaded = true;
 				} else {
 					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
@@ -505,7 +506,7 @@ handleELF:
 			{
 				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
-				VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+				VirtualDiscFileSystem umd(&handles, gamePath_);
 
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
@@ -573,13 +574,13 @@ handleELF:
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
 				if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
-					std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
-					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+					Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
+					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_png, info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -643,7 +644,7 @@ handleELF:
 	}
 
 private:
-	std::string gamePath_;
+	Path gamePath_;
 	std::shared_ptr<GameInfo> info_;
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
@@ -732,10 +733,12 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 
 // Runs on the main thread. Only call from render() and similar, not update()!
 // Can also be called from the audio thread for menu background music.
-std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 
-	auto iter = info_.find(gamePath);
+	std::string pathStr = gamePath.ToString();
+
+	auto iter = info_.find(pathStr);
 	if (iter != info_.end()) {
 		info = iter->second;
 	}
@@ -776,8 +779,8 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	gameInfoWQ_->Add(item);
 
 	// Don't re-insert if we already have it.
-	if (info_.find(gamePath) == info_.end())
-		info_[gamePath] = std::shared_ptr<GameInfo>(info);
+	if (info_.find(pathStr) == info_.end())
+		info_[pathStr] = std::shared_ptr<GameInfo>(info);
 	return info;
 }
 

@@ -11,6 +11,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/File/Path.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceUmd.h"
@@ -156,13 +157,13 @@ void SaveStateActionFinished(SaveState::Status status, const std::string &messag
 
 void MainWindow::qlstateAct()
 {
-	std::string gamePath = PSP_CoreParameter().fileToStart;
+	std::string gamePath = PSP_CoreParameter().fileToStart.ToString();
 	SaveState::LoadSlot(gamePath, 0, SaveStateActionFinished, this);
 }
 
 void MainWindow::qsstateAct()
 {
-	std::string gamePath = PSP_CoreParameter().fileToStart;
+	std::string gamePath = PSP_CoreParameter().fileToStart.ToString();
 	SaveState::SaveSlot(gamePath, 0, SaveStateActionFinished, this);
 }
 
@@ -177,7 +178,7 @@ void MainWindow::lstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Load(fileNames[0].toStdString(), -1, SaveStateActionFinished, this);
+		SaveState::Load(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished, this);
 	}
 }
 
@@ -192,7 +193,7 @@ void MainWindow::sstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Save(fileNames[0].toStdString(), -1, SaveStateActionFinished, this);
+		SaveState::Save(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished, this);
 	}
 }
 
@@ -252,7 +253,7 @@ void MainWindow::switchUMDAct()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = info.absolutePath().toStdString();
-		__UmdReplace(filename.toStdString().c_str());
+		__UmdReplace(Path(filename.toStdString()));
 	}
 }
 
@@ -276,7 +277,7 @@ void MainWindow::lmapAct()
 	if (fileNames.count() > 0)
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
-		g_symbolMap->LoadSymbolMap(fileName.toStdString().c_str());
+		g_symbolMap->LoadSymbolMap(Path(fileName.toStdString()));
 	}
 }
 
@@ -292,7 +293,7 @@ void MainWindow::smapAct()
 	if (dialog.exec())
 	{
 		fileNames = dialog.selectedFiles();
-		g_symbolMap->SaveSymbolMap(fileNames[0].toStdString().c_str());
+		g_symbolMap->SaveSymbolMap(Path(fileNames[0].toStdString()));
 	}
 }
 
@@ -311,7 +312,7 @@ void MainWindow::lsymAct()
 	if (fileNames.count() > 0)
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
-		g_symbolMap->LoadNocashSym(fileName.toStdString().c_str());
+		g_symbolMap->LoadNocashSym(Path(fileName.toStdString()));
 	}
 }
 
@@ -327,7 +328,7 @@ void MainWindow::ssymAct()
 	if (dialog.exec())
 	{
 		fileNames = dialog.selectedFiles();
-		g_symbolMap->SaveNocashSym(fileNames[0].toStdString().c_str());
+		g_symbolMap->SaveNocashSym(Path(fileNames[0].toStdString()));
 	}
 }
 

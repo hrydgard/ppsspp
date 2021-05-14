@@ -21,6 +21,7 @@
 #include <vector>
 #include <list>
 
+#include "Common/File/Path.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/UIScreen.h"
@@ -34,7 +35,7 @@ class OnScreenMessagesView;
 
 class EmuScreen : public UIScreen {
 public:
-	EmuScreen(const std::string &filename);
+	EmuScreen(const Path &filename);
 	~EmuScreen();
 
 	void update() override;
@@ -56,8 +57,8 @@ private:
 	UI::EventReturn OnChat(UI::EventParams &params);
 	UI::EventReturn OnResume(UI::EventParams &params);
 
-	void bootGame(const std::string &filename);
-	bool bootAllowStorage(const std::string &filename);
+	void bootGame(const Path &filename);
+	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
 	bool hasVisibleUI();
 	void renderUI();
@@ -74,7 +75,7 @@ private:
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
 	bool bootPending_;
-	std::string gamePath_;
+	Path gamePath_;
 
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;

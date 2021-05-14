@@ -76,18 +76,18 @@ protected:
 	std::string host_;
 	int port_;
 	std::string url_;
-	std::vector<std::string> games_;
+	std::vector<Path> games_;
 };
 
 class RemoteISOBrowseScreen : public MainScreen {
 public:
-	RemoteISOBrowseScreen(const std::string &url, const std::vector<std::string> &games);
+	RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games);
 
 protected:
 	void CreateViews() override;
 
 	std::string url_;
-	std::vector<std::string> games_;
+	std::vector<Path> games_;
 };
 
 class RemoteISOSettingsScreen : public UIDialogScreenWithBackground {

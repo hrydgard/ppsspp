@@ -207,7 +207,7 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 
 // globals
 static LogListener *logger = nullptr;
-std::string boot_filename = "";
+Path boot_filename;
 
 void NativeHost::InitSound() {
 #if PPSSPP_PLATFORM(IOS)
@@ -337,7 +337,7 @@ static void PostLoadConfig() {
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) + "lang/";
+	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -349,8 +349,8 @@ static void PostLoadConfig() {
 void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	File::CreateFullPath(g_Config.memStickDirectory + "PSP");
+	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory / "PSP").c_str());
+	File::CreateFullPath(g_Config.memStickDirectory / "PSP");
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
@@ -360,11 +360,11 @@ void CreateDirectoriesAndroid() {
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
 	// and in the root PSP directory as well.
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) + ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) / ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) / ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) / ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) / ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) / ".nomedia");
 }
 
 static void CheckFailedGPUBackends() {
@@ -382,11 +382,11 @@ static void CheckFailedGPUBackends() {
 	}
 	lastBackend = g_Config.iGPUBackend;
 
-	std::string cache = GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt";
+	Path cache = GetSysDirectory(DIRECTORY_APP_CACHE) / "FailedGraphicsBackends.txt";
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::ReadFileToString(true, cache.c_str(), data))
+		if (File::ReadFileToString(true, cache, data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -414,7 +414,7 @@ static void CheckFailedGPUBackends() {
 		// Let's try to create, in case it doesn't exist.
 		if (!File::Exists(GetSysDirectory(DIRECTORY_APP_CACHE)))
 			File::CreateDir(GetSysDirectory(DIRECTORY_APP_CACHE));
-		File::WriteStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
+		File::WriteStringToFile(true, g_Config.sFailedGPUBackends, cache);
 	} else {
 		// Just save immediately, since we have storage.
 		g_Config.Save("got storage permission");
@@ -429,7 +429,7 @@ static void ClearFailedGPUBackends() {
 	// In case they update drivers and have totally different problems much later, clear the failed list.
 	g_Config.sFailedGPUBackends.clear();
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt");
+		File::Delete(Path(GetSysDirectory(DIRECTORY_APP_CACHE)) / "FailedGraphicsBackends.txt");
 	} else {
 		g_Config.Save("clearFailedGPUBackends");
 	}
@@ -496,24 +496,27 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
-	g_Config.memStickDirectory = std::string(external_dir) + "/";
-	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+	g_Config.memStickDirectory = Path(external_dir);
+	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
-	std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+	Path memstickDirFile = Path(g_Config.internalDataDirectory) / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		File::ReadFileToString(true, memstickDirFile.c_str(), memstickDir);
-		if (!memstickDir.empty() && File::Exists(memstickDir)) {
-			g_Config.memStickDirectory = memstickDir + "/";
+		File::ReadFileToString(true, memstickDirFile, memstickDir);
+		Path memstickPath(memstickDir);
+		if (!memstickPath.empty() && File::Exists(memstickPath)) {
+			g_Config.memStickDirectory = memstickPath;
+		} else {
+		    ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 		}
 	}
 #elif PPSSPP_PLATFORM(IOS)
-	g_Config.memStickDirectory = user_data_path;
-	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+	g_Config.memStickDirectory = Path(user_data_path);
+	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
-	g_Config.memStickDirectory = g_Config.internalDataDirectory + "config/ppsspp/";
-	g_Config.flash0Directory = g_Config.internalDataDirectory + "assets/flash0/";
-#elif !defined(_WIN32)
+	g_Config.memStickDirectory = Path(g_Config.internalDataDirectory) / "config/ppsspp";
+	g_Config.flash0Directory = Path(g_Config.internalDataDirectory) / "assets/flash0";
+#elif !PPSSPP_PLATFORM(WINDOWS)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
 		config = getenv("XDG_CONFIG_HOME");
@@ -522,20 +525,20 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	else // Just in case
 		config = "./config";
 
-	g_Config.memStickDirectory = config + "/ppsspp/";
-	g_Config.flash0Directory = File::GetExeDirectory() + "/assets/flash0/";
+	g_Config.memStickDirectory = Path(config) / "ppsspp";
+	g_Config.flash0Directory = Path(File::GetExeDirectory()) / "assets/flash0";
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {
-		DiskCachingFileLoaderCache::SetCacheDir(cache_dir);
+		DiskCachingFileLoaderCache::SetCacheDir(Path(cache_dir));
 		g_Config.appCacheDirectory = cache_dir;
 	}
 
 	if (!LogManager::GetInstance())
 		LogManager::Init(&g_Config.bEnableLogging);
 
-#ifndef _WIN32
-	g_Config.AddSearchPath(user_data_path);
+#if !PPSSPP_PLATFORM(WINDOWS)
+	g_Config.AddSearchPath(Path(user_data_path));
 	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
@@ -545,18 +548,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	LogManager *logman = LogManager::GetInstance();
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	// On early versions of Android we don't need to ask permission.
 	CreateDirectoriesAndroid();
 #endif
 
 	const char *fileToLog = 0;
-	const char *stateToLoad = 0;
+	Path stateToLoad;
 
 	bool gotBootFilename = false;
 	bool gotoGameSettings = false;
 	bool gotoTouchScreenTest = false;
-	boot_filename = "";
+	boot_filename.clear();
 
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -597,7 +600,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = argv[i] + strlen("--state=");
+					stateToLoad = Path(std::string(argv[i] + strlen("--state=")));
 #if !defined(MOBILE_DEVICE)
 				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
@@ -641,10 +644,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					}
 				}
 				if (okToLoad) {
-					boot_filename = argv[i];
-#ifdef _WIN32
-					boot_filename = ReplaceAll(boot_filename, "\\", "/");
-#endif
+					boot_filename = Path(std::string(argv[i]));
 					skipLogo = true;
 				}
 				if (okToLoad && okToCheck) {
@@ -740,7 +740,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// TODO: Load these in the background instead of synchronously.
 	g_BackgroundAudio.LoadSamples();
 
-	if (!boot_filename.empty() && stateToLoad != NULL) {
+	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
@@ -1004,10 +1004,7 @@ void NativeShutdownGraphics() {
 void TakeScreenshot() {
 	g_TakeScreenshot = false;
 
-	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-	while (path.length() > 0 && path.back() == '/') {
-		path.resize(path.size() - 1);
-	}
+	Path path = Path(GetSysDirectory(DIRECTORY_SCREENSHOT));
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
 	}
@@ -1017,12 +1014,12 @@ void TakeScreenshot() {
 
 	std::string gameId = g_paramSFO.GetDiscID();
 
-	char filename[2048];
+	Path filename;
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			snprintf(filename, sizeof(filename), "%s/%s_%05d.png", path.c_str(), gameId.c_str(), i);
+			filename = path / StringFromFormat("%s_%05d.png", path.c_str(), gameId.c_str(), i);
 		else
-			snprintf(filename, sizeof(filename), "%s/%s_%05d.jpg", path.c_str(), gameId.c_str(), i);
+			filename = path / StringFromFormat("%s_%05d.jpg", path.c_str(), gameId.c_str(), i);
 		File::FileInfo info;
 		if (!File::Exists(filename))
 			break;
@@ -1031,7 +1028,7 @@ void TakeScreenshot() {
 
 	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		osm.Show(filename);
+		osm.Show(filename.ToVisualString());
 	} else {
 		auto err = GetI18NCategory("Error");
 		osm.Show(err->T("Could not save screenshot file"));
@@ -1166,8 +1163,8 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
-			std::string dest = GetSysDirectory(DIRECTORY_SYSTEM) + (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
-			File::Copy(value, dest);
+			Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
+			File::Copy(Path(value), dest);
 		}
 		UIBackgroundShutdown();
 		// It will init again automatically.  We can't init outside a frame on Vulkan.

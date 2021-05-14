@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "Common/File/Path.h"
+
 #include "GPU/GPUCommon.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
@@ -84,8 +86,8 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void LoadCache(std::string filename);
-	void SaveCache(std::string filename);
+	void LoadCache(const Path &filename);
+	void SaveCache(const Path &filename);
 
 	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
@@ -108,6 +110,6 @@ private:
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
-	std::string shaderCachePath_;
+	Path shaderCachePath_;
 	bool shaderCacheLoaded_ = false;
 };

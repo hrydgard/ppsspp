@@ -91,15 +91,21 @@
 // This namespace has various generic functions related to files and paths.
 // The code still needs a ton of cleanup.
 // REMEMBER: strdup considered harmful!
-namespace File
-{
+namespace File {
 
-FILE *OpenCFile(const std::string &filename, const char *mode)
-{
+FILE *OpenCFile(const Path &path, const char *mode) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break;
+	default:
+		ERROR_LOG(COMMON, "OpenCFile(%s): Not yet supported", path.c_str());
+		return nullptr;
+	}
+
 #if defined(_WIN32) && defined(UNICODE)
-	return _wfopen(ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(mode).c_str());
+	return _wfopen(path.ToWString().c_str(), ConvertUTF8ToWString(mode).c_str());
 #else
-	return fopen(filename.c_str(), mode);
+	return fopen(path.ToString().c_str(), mode);
 #endif
 }
 
@@ -140,7 +146,7 @@ std::string ResolvePath(const std::string &path) {
 	if (startsWith(path, "http://") || startsWith(path, "https://")) {
 		return path;
 	}
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE] {};
 
@@ -189,7 +195,7 @@ std::string ResolvePath(const std::string &path) {
 static void StripTailDirSlashes(std::string &fname) {
 	if (fname.length() > 1) {
 		size_t i = fname.length() - 1;
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
 			return;
 #endif
@@ -200,6 +206,10 @@ static void StripTailDirSlashes(std::string &fname) {
 }
 
 // Returns true if file filename exists. Will return true on directories.
+bool ExistsInDir(const Path &path, const std::string &filename) {
+	return Exists(path / filename);
+}
+
 bool Exists(const std::string &filename) {
 	std::string fn = filename;
 	StripTailDirSlashes(fn);
@@ -225,10 +235,21 @@ bool Exists(const std::string &filename) {
 #endif
 }
 
-// Returns true if filename is a directory
-bool IsDirectory(const std::string &filename)
-{
-	std::string fn = filename;
+bool Exists(const Path &path) {
+	// Temporary forward.
+	return Exists(path.ToString());
+}
+
+// Returns true if filename exists and is a directory
+bool IsDirectory(const Path &filename) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fn = filename.ToString();
 	StripTailDirSlashes(fn);
 
 #if defined(_WIN32)
@@ -255,7 +276,14 @@ bool IsDirectory(const std::string &filename)
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const std::string &filename) {
+bool Delete(const Path &filename) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
 	INFO_LOG(COMMON, "Delete: file %s", filename.c_str());
 
 	// Return true because we care about the file no 
@@ -272,7 +300,7 @@ bool Delete(const std::string &filename) {
 	}
 
 #ifdef _WIN32
-	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str())) {
+	if (!DeleteFile(filename.ToWString().c_str())) {
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -288,10 +316,15 @@ bool Delete(const std::string &filename) {
 }
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const std::string &path)
-{
-	std::string fn = path;
-	StripTailDirSlashes(fn);
+bool CreateDir(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fn = path.ToString();
 	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
 #ifdef _WIN32
 	if (::CreateDirectory(ConvertUTF8ToWString(fn).c_str(), NULL))
@@ -309,7 +342,6 @@ bool CreateDir(const std::string &path)
 		return true;
 
 	int err = errno;
-
 	if (err == EEXIST)
 	{
 		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fn.c_str());
@@ -322,10 +354,15 @@ bool CreateDir(const std::string &path)
 }
 
 // Creates the full path of fullPath returns true on success
-bool CreateFullPath(const std::string &path)
-{
-	std::string fullPath = path;
-	StripTailDirSlashes(fullPath);
+bool CreateFullPath(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	std::string fullPath = path.ToString();
 	int panicCounter = 100;
 	VERBOSE_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
 		
@@ -337,30 +374,29 @@ bool CreateFullPath(const std::string &path)
 	size_t position = 0;
 
 #ifdef _WIN32
-	// Skip the drive letter, no need to create C:\.
-	position = 3;
+	// Skip the drive letter when looking for slashes, no need to create C:\.
+	if (path.IsAbsolute()) {
+		position = 3;
+	}
 #endif
 
-	while (true)
-	{
+	while (true) {
 		// Find next sub path
 		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
-
 		// we're done, yay!
-		if (position == fullPath.npos)
-		{
+		if (position == fullPath.npos) {
 			if (!File::Exists(fullPath))
-				return File::CreateDir(fullPath);
+				return File::CreateDir(Path(fullPath));
 			return true;
 		}
 		std::string subPath = fullPath.substr(0, position);
-		if (position != 0 && !File::Exists(subPath))
-			File::CreateDir(subPath);
+		if (position != 0 && !File::Exists(subPath)) {
+			File::CreateDir(Path(subPath));
+		}
 
 		// A safety check
 		panicCounter--;
-		if (panicCounter <= 0)
-		{
+		if (panicCounter <= 0) {
 			ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
 			return false;
 		}
@@ -369,60 +405,89 @@ bool CreateFullPath(const std::string &path)
 }
 
 // Deletes a directory filename, returns true on success
-bool DeleteDir(const std::string &filename)
-{
-	INFO_LOG(COMMON, "DeleteDir: directory %s", filename.c_str());
+bool DeleteDir(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
 
 	// check if a directory
-	if (!File::IsDirectory(filename))
+	if (!File::IsDirectory(path))
 	{
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", filename.c_str());
+		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
 		return false;
 	}
 
 #ifdef _WIN32
-	if (::RemoveDirectory(ConvertUTF8ToWString(filename).c_str()))
+	if (::RemoveDirectory(path.ToWString().c_str()))
 		return true;
 #else
-	if (rmdir(filename.c_str()) == 0)
+	if (rmdir(path.c_str()) == 0)
 		return true;
 #endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
 
 	return false;
 }
 
 // renames file srcFilename to destFilename, returns true on success 
-bool Rename(const std::string &srcFilename, const std::string &destFilename)
+bool Rename(const Path &srcFilename, const Path &destFilename)
 {
-	INFO_LOG(COMMON, "Rename: %s --> %s", 
-			srcFilename.c_str(), destFilename.c_str());
+	if (srcFilename.Type() != destFilename.Type()) {
+		// Impossible.
+		return false;
+	}
+
+	switch (srcFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	INFO_LOG(COMMON, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #if defined(_WIN32) && defined(UNICODE)
-	std::wstring srcw = ConvertUTF8ToWString(srcFilename);
-	std::wstring destw = ConvertUTF8ToWString(destFilename);
+	std::wstring srcw = srcFilename.ToWString();
+	std::wstring destw = destFilename.ToWString();
 	if (_wrename(srcw.c_str(), destw.c_str()) == 0)
 		return true;
 #else
 	if (rename(srcFilename.c_str(), destFilename.c_str()) == 0)
 		return true;
 #endif
+
 	ERROR_LOG(COMMON, "Rename: failed %s --> %s: %s", 
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 }
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const std::string &srcFilename, const std::string &destFilename)
+bool Copy(const Path &srcFilename, const Path &destFilename)
 {
-	INFO_LOG(COMMON, "Copy: %s --> %s", 
-			srcFilename.c_str(), destFilename.c_str());
+	switch (srcFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+	switch (destFilename.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	default:
+		return false;
+	}
+
+	INFO_LOG(COMMON, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-	if (CopyFile2(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), nullptr))
+	if (CopyFile2(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), nullptr))
 		return true;
 	return false;
 #else
-	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
+	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
 #endif
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
@@ -431,23 +496,21 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #else
 
 	// buffer size
-#define BSIZE 1024
+#define BSIZE 4096
 
 	char buffer[BSIZE];
 
 	// Open input file
-	FILE *input = fopen(srcFilename.c_str(), "rb");
-	if (!input)
-	{
+	FILE *input = OpenCFile(srcFilename, "rb");
+	if (!input) {
 		ERROR_LOG(COMMON, "Copy: input failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 
 	// open output file
-	FILE *output = fopen(destFilename.c_str(), "wb");
-	if (!output)
-	{
+	FILE *output = OpenCFile(destFilename, "wb");
+	if (!output) {
 		fclose(input);
 		ERROR_LOG(COMMON, "Copy: output failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -455,14 +518,11 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	}
 
 	// copy loop
-	while (!feof(input))
-	{
+	while (!feof(input)) {
 		// read input
 		int rnum = fread(buffer, sizeof(char), BSIZE, input);
-		if (rnum != BSIZE)
-		{
-			if (ferror(input) != 0)
-			{
+		if (rnum != BSIZE) {
+			if (ferror(input) != 0) {
 				ERROR_LOG(COMMON, 
 						"Copy: failed reading from source, %s --> %s: %s", 
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -474,8 +534,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 
 		// write output
 		int wnum = fwrite(buffer, sizeof(char), rnum, output);
-		if (wnum != rnum)
-		{
+		if (wnum != rnum) {
 			ERROR_LOG(COMMON, 
 					"Copy: failed writing to output, %s --> %s: %s", 
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
@@ -484,11 +543,21 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 			return false;
 		}
 	}
-	// close flushs
+	// close flushes
 	fclose(input);
 	fclose(output);
 	return true;
 #endif
+}
+
+bool Move(const Path &srcFilename, const Path &destFilename) {
+	if (Rename(srcFilename, destFilename)) {
+		return true;
+	} else if (Copy(srcFilename, destFilename)) {
+		return Delete(srcFilename);
+	} else {
+		return false;
+	}
 }
 
 std::string GetDir(const std::string &path) {
@@ -600,8 +669,8 @@ uint64_t GetFileSize(FILE *f)
 }
 
 // creates an empty file filename, returns true on success 
-bool CreateEmptyFile(const std::string &filename)
-{
+bool CreateEmptyFile(const Path &filename) {
+
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
@@ -613,8 +682,7 @@ bool CreateEmptyFile(const std::string &filename)
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const std::string &directory)
-{	
+bool DeleteDirRecursively(const Path &directory) {	
 	//Removed check, it prevents the UWP from deleting store downloads
 	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
 
@@ -622,16 +690,13 @@ bool DeleteDirRecursively(const std::string &directory)
 
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
-
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
+	HANDLE hFind = FindFirstFile((directory.ToWString() + L"\\*").c_str(), &ffd);
+	if (hFind == INVALID_HANDLE_VALUE) {
 		return false;
 	}
 		
 	// windows loop
-	do
-	{
+	do {
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
 	struct dirent *result = NULL;
@@ -640,8 +705,7 @@ bool DeleteDirRecursively(const std::string &directory)
 		return false;
 
 	// non windows loop
-	while ((result = readdir(dirp)))
-	{
+	while ((result = readdir(dirp))) {
 		const std::string virtualName = result->d_name;
 #endif
 		// check for "." and ".."
@@ -650,11 +714,9 @@ bool DeleteDirRecursively(const std::string &directory)
 			 (virtualName[2] == '\0')))
 			continue;
 
-		std::string newPath = directory + DIR_SEP + virtualName;
-		if (IsDirectory(newPath))
-		{
-			if (!DeleteDirRecursively(newPath))
-			{
+		Path newPath = directory / virtualName;
+		if (IsDirectory(newPath)) {
+			if (!DeleteDirRecursively(newPath)) {
 #ifndef _WIN32
 				closedir(dirp);
 #else
@@ -663,10 +725,8 @@ bool DeleteDirRecursively(const std::string &directory)
 				return false;
 			}
 		}
-		else
-		{
-			if (!File::Delete(newPath))
-			{
+		else {
+			if (!File::Delete(newPath)) {
 #ifndef _WIN32
 				closedir(dirp);
 #else
@@ -686,12 +746,12 @@ bool DeleteDirRecursively(const std::string &directory)
 	return File::DeleteDir(directory);
 }
 
-void OpenFileInEditor(const std::string& fileName) {
+void OpenFileInEditor(const Path &fileName) {
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
 #else
-	ShellExecuteW(nullptr, L"open", ConvertUTF8ToWString(fileName).c_str(), nullptr, nullptr, SW_SHOW);
+	ShellExecuteW(nullptr, L"open", fileName.ToWString().c_str(), nullptr, nullptr, SW_SHOW);
 #endif
 #elif !defined(MOBILE_DEVICE)
 	std::string iniFile;
@@ -700,7 +760,7 @@ void OpenFileInEditor(const std::string& fileName) {
 #else
 	iniFile = "xdg-open ";
 #endif
-	iniFile.append(fileName);
+	iniFile.append(fileName.ToString());
 	NOTICE_LOG(BOOT, "Launching %s", iniFile.c_str());
 	int retval = system(iniFile.c_str());
 	if (retval != 0) {
@@ -709,8 +769,7 @@ void OpenFileInEditor(const std::string& fileName) {
 #endif
 }
 
-const std::string &GetExeDirectory()
-{
+const std::string &GetExeDirectory() {
 	static std::string ExePath;
 
 	if (ExePath.empty()) {
@@ -778,7 +837,6 @@ const std::string &GetExeDirectory()
 	return ExePath;
 }
 
-
 IOFile::IOFile()
 	: m_file(NULL), m_good(true)
 {}
@@ -793,12 +851,26 @@ IOFile::IOFile(const std::string& filename, const char openmode[])
 	Open(filename, openmode);
 }
 
+IOFile::IOFile(const Path &filename, const char openmode[]) 
+	: m_file(NULL), m_good(true)
+{
+	Open(filename.ToString(), openmode);
+}
+
 IOFile::~IOFile()
 {
 	Close();
 }
 
 bool IOFile::Open(const std::string& filename, const char openmode[])
+{
+	Close();
+	m_file = File::OpenCFile(Path(filename), openmode);
+	m_good = IsOpen();
+	return m_good;
+}
+
+bool IOFile::Open(const Path& filename, const char openmode[])
 {
 	Close();
 	m_file = File::OpenCFile(filename, openmode);
@@ -878,7 +950,7 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
+bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
@@ -906,8 +978,10 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str) {
 	return success;
 }
 
+// This is an odd one, mainly used for asset reading, so doesn't really
+// need to support Path.
 uint8_t *ReadLocalFile(const char *filename, size_t * size) {
-	FILE *file = File::OpenCFile(filename, "rb");
+	FILE *file = File::OpenCFile(Path(filename), "rb");
 	if (!file) {
 		*size = 0;
 		return nullptr;
@@ -933,8 +1007,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t * size) {
 	return contents;
 }
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
-{
+bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename) {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
@@ -948,8 +1021,7 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
-{
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename) {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;

@@ -169,7 +169,7 @@ void ReplayExecuteBlob(const std::vector<u8> &data) {
 	INFO_LOG(SYSTEM, "Executing replay with %lld items", (long long)replayItems.size());
 }
 
-bool ReplayExecuteFile(const std::string &filename) {
+bool ReplayExecuteFile(const Path &filename) {
 	ReplayAbort();
 
 	FILE *fp = File::OpenCFile(filename, "rb");
@@ -269,7 +269,7 @@ void ReplayFlushBlob(std::vector<u8> *data) {
 	replayItems.clear();
 }
 
-bool ReplayFlushFile(const std::string &filename) {
+bool ReplayFlushFile(const Path &filename) {
 	FILE *fp = File::OpenCFile(filename, replaySaveWroteHeader ? "ab" : "wb");
 	if (!fp) {
 		ERROR_LOG(SYSTEM, "Failed to open replay file: %s", filename.c_str());

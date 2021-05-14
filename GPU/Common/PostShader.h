@@ -25,13 +25,13 @@
 #include "Common/Data/Format/IniFile.h"
 
 struct ShaderInfo {
-	std::string iniFile;  // which ini file was this definition in? So we can write settings back later
+	Path iniFile;  // which ini file was this definition in? So we can write settings back later
 	std::string section;  // ini file section. This is saved.
 	std::string name;     // Fancy display name.
 	std::string parent;   // Parent shader ini section name.
 
-	std::string fragmentShaderFile;
-	std::string vertexShaderFile;
+	Path fragmentShaderFile;
+	Path vertexShaderFile;
 
 	// Show this shader in lists (i.e. not just for chaining.)
 	bool visible;
@@ -65,11 +65,11 @@ struct ShaderInfo {
 };
 
 struct TextureShaderInfo {
-	std::string iniFile;
+	Path iniFile;
 	std::string section;
 	std::string name;
 
-	std::string computeShaderFile;
+	Path computeShaderFile;
 	int maxScale;
 
 	bool operator == (const std::string &other) {

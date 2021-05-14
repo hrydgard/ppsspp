@@ -391,6 +391,9 @@
     <ClInclude Include="Net\NetBuffer.h">
       <Filter>Net</Filter>
     </ClInclude>
+    <ClInclude Include="File\Path.h">
+      <Filter>File</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -753,6 +756,9 @@
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Net\NetBuffer.cpp">
       <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="File\Path.cpp">
+      <Filter>File</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -18,12 +18,10 @@
 #include <string>
 #include "Qt/QtHost.h"
 
-std::string QtHost::SymbolMapFilename(std::string currentFilename) {
-	size_t dot = currentFilename.rfind('.');
-	if (dot == std::string::npos)
-		currentFilename.append(".map");
+Path QtHost::SymbolMapFilename(Path currentFilename) {
+	std::string ext = currentFilename.GetFileExtension();
+	if (ext == "")
+		return currentFilename.WithExtraExtension("map");
 	else
-		currentFilename.replace(dot, -1, ".map");
-
-	return currentFilename;
+		return currentFilename.WithReplacedExtension(ext, "map");
 }

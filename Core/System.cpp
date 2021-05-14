@@ -33,6 +33,7 @@
 #include <condition_variable>
 
 #include "Common/System/System.h"
+#include "Common/File/Path.h"
 #include "Common/Math/math_util.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -188,7 +189,7 @@ bool CPU_HasPendingAction() {
 
 void CPU_Shutdown();
 
-bool DiscIDFromGEDumpPath(const std::string &path, FileLoader *fileLoader, std::string *id) {
+bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string *id) {
 	using namespace GPURecord;
 
 	// For newer files, it's stored in the dump.
@@ -205,7 +206,7 @@ bool DiscIDFromGEDumpPath(const std::string &path, FileLoader *fileLoader, std::
 	}
 
 	// Fall back to using the filename.
-	std::string filename = File::GetFilename(path);
+	std::string filename = File::GetFilename(path.ToString());
 	// Could be more discerning, but hey..
 	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
 		*id = filename.substr(0, 9);
@@ -229,7 +230,7 @@ bool CPU_Init() {
 	g_DoubleTextureCoordinates = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
-	std::string filename = coreParameter.fileToStart;
+	Path filename = coreParameter.fileToStart;
 	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
@@ -316,7 +317,7 @@ bool CPU_Init() {
 	}
 
 	if (coreParameter.updateRecent) {
-		g_Config.AddRecent(filename);
+		g_Config.AddRecent(filename.ToString());
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);
@@ -578,39 +579,39 @@ CoreParameter &PSP_CoreParameter() {
 	return coreParameter;
 }
 
-std::string GetSysDirectory(PSPDirectories directoryType) {
+Path GetSysDirectory(PSPDirectories directoryType) {
 	switch (directoryType) {
 	case DIRECTORY_CHEATS:
-		return g_Config.memStickDirectory + "PSP/Cheats/";
+		return g_Config.memStickDirectory / "PSP/Cheats";
 	case DIRECTORY_GAME:
-		return g_Config.memStickDirectory + "PSP/GAME/";
+		return g_Config.memStickDirectory / "PSP/GAME";
 	case DIRECTORY_SAVEDATA:
-		return g_Config.memStickDirectory + "PSP/SAVEDATA/";
+		return g_Config.memStickDirectory / "PSP/SAVEDATA";
 	case DIRECTORY_SCREENSHOT:
-		return g_Config.memStickDirectory + "PSP/SCREENSHOT/";
+		return g_Config.memStickDirectory / "PSP/SCREENSHOT";
 	case DIRECTORY_SYSTEM:
-		return g_Config.memStickDirectory + "PSP/SYSTEM/";
+		return g_Config.memStickDirectory / "PSP/SYSTEM";
 	case DIRECTORY_PAUTH:
-		return g_Config.memStickDirectory + "PAUTH/";
+		return g_Config.memStickDirectory / "PAUTH";
 	case DIRECTORY_DUMP:
-		return g_Config.memStickDirectory + "PSP/SYSTEM/DUMP/";
+		return g_Config.memStickDirectory / "PSP/SYSTEM/DUMP";
 	case DIRECTORY_SAVESTATE:
-		return g_Config.memStickDirectory + "PSP/PPSSPP_STATE/";
+		return g_Config.memStickDirectory / "PSP/PPSSPP_STATE";
 	case DIRECTORY_CACHE:
-		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
+		return g_Config.memStickDirectory / "PSP/SYSTEM/CACHE";
 	case DIRECTORY_TEXTURES:
-		return g_Config.memStickDirectory + "PSP/TEXTURES/";
+		return g_Config.memStickDirectory / "PSP/TEXTURES";
 	case DIRECTORY_PLUGINS:
-		return g_Config.memStickDirectory + "PSP/PLUGINS/";
+		return g_Config.memStickDirectory / "PSP/PLUGINS";
 	case DIRECTORY_APP_CACHE:
 		if (!g_Config.appCacheDirectory.empty()) {
-			return g_Config.appCacheDirectory;
+			return Path(g_Config.appCacheDirectory);
 		}
-		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
+		return g_Config.memStickDirectory / "PSP/SYSTEM/CACHE";
 	case DIRECTORY_VIDEO:
-		return g_Config.memStickDirectory + "PSP/VIDEO/";
+		return g_Config.memStickDirectory / "PSP/VIDEO";
 	case DIRECTORY_AUDIO:
-		return g_Config.memStickDirectory + "PSP/AUDIO/";
+		return g_Config.memStickDirectory / "PSP/AUDIO";
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.
@@ -620,16 +621,16 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
-	const std::string path = File::GetExeDirectory();
+	const Path path = Path(File::GetExeDirectory());
 
 	// Mount a filesystem
-	g_Config.flash0Directory = path + "assets/flash0/";
+	g_Config.flash0Directory = path / "assets/flash0";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 #if PPSSPP_PLATFORM(UWP)
@@ -637,13 +638,13 @@ void InitSysDirectories() {
 
 #else
 	// Caller sets this to the Documents folder.
-	const std::string rootMyDocsPath = g_Config.internalDataDirectory;
-	const std::string myDocsPath = rootMyDocsPath + "/PPSSPP/";
-	const std::string installedFile = path + "installed.txt";
+	const Path rootMyDocsPath = Path(g_Config.internalDataDirectory);
+	const Path myDocsPath = rootMyDocsPath / "PPSSPP";
+	const Path installedFile = path / "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
-	if (installed && rootMyDocsPath.size() > 0) {
+	if (installed && !rootMyDocsPath.empty()) {
 		FILE *fp = File::OpenCFile(installedFile, "rt");
 		if (fp) {
 			char temp[2048];
@@ -656,19 +657,15 @@ void InitSysDirectories() {
 			if (!tempString.empty() && tempString.back() == '\n')
 				tempString.resize(tempString.size() - 1);
 
-			g_Config.memStickDirectory = tempString;
+			g_Config.memStickDirectory = Path(tempString);
 			fclose(fp);
 		}
 
 		// Check if the file is empty first, before appending the slash.
 		if (g_Config.memStickDirectory.empty())
 			g_Config.memStickDirectory = myDocsPath;
-
-		size_t lastSlash = g_Config.memStickDirectory.find_last_of("/");
-		if (lastSlash != (g_Config.memStickDirectory.length() - 1))
-			g_Config.memStickDirectory.append("/");
 	} else {
-		g_Config.memStickDirectory = path + "memstick/";
+		g_Config.memStickDirectory = path / "memstick";
 	}
 
 	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
@@ -679,7 +676,7 @@ void InitSysDirectories() {
 		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
 
-	const std::string testFile = g_Config.memStickDirectory + "_writable_test.$$$";
+	Path testFile = Path(g_Config.memStickDirectory) / "_writable_test.$$$";
 
 	// If any directory is read-only, fall back to the Documents directory.
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
@@ -693,14 +690,14 @@ void InitSysDirectories() {
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(g_Config.memStickDirectory + "PSP");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
+	File::CreateDir(g_Config.memStickDirectory / "PSP");
+	File::CreateDir(g_Config.memStickDirectory / "PSP/COMMON");
 	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
+		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME).ToString();
 	}
 }
 #endif

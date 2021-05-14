@@ -19,6 +19,7 @@
 
 #include <functional>
 
+#include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
@@ -38,30 +39,30 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
-bool LaunchFile(ScreenManager *screenManager, std::string path);
+bool LaunchFile(ScreenManager *screenManager, const Path &path);
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
 	UI::Event OnHighlight;
 
-	void FocusGame(const std::string &gamePath);
-	void SetPath(const std::string &path);
+	void FocusGame(const Path &gamePath);
+	void SetPath(const Path &path);
 	void Draw(UIContext &dc) override;
 	void Update() override;
 
 protected:
 	virtual bool DisplayTopBar();
-	virtual bool HasSpecialFiles(std::vector<std::string> &filenames);
+	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 
 	void Refresh();
 
 private:
 	bool IsCurrentPathPinned();
-	const std::vector<std::string> GetPinnedPaths();
+	const std::vector<Path> GetPinnedPaths();
 	const std::string GetBaseName(const std::string &path);
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
@@ -84,7 +85,7 @@ private:
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
-	std::string focusGamePath_;
+	Path focusGamePath_;
 	bool listingPending_ = false;
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
@@ -111,7 +112,7 @@ protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	bool UseVerticalLayout() const;
-	bool DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress);
+	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
 
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
 	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
@@ -133,11 +134,11 @@ protected:
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::Button *fullscreenButton_ = nullptr;
 
-	std::string restoreFocusGamePath_;
+	Path restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;
 
-	std::string highlightedGamePath_;
-	std::string prevHighlightedGamePath_;
+	Path highlightedGamePath_;
+	Path prevHighlightedGamePath_;
 	float highlightProgress_ = 0.0f;
 	float prevHighlightProgress_ = 0.0f;
 	bool backFromStore_ = false;

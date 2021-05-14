@@ -25,6 +25,7 @@
 #include <cstdint>
 
 #include "Common/Common.h"
+#include "Common/File/Path.h"
 
 #ifdef _MSC_VER
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
@@ -37,16 +38,20 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 namespace File {
 
 // Mostly to handle UTF-8 filenames better on Windows.
-FILE *OpenCFile(const std::string &filename, const char *mode);
+FILE *OpenCFile(const Path &filename, const char *mode);
 
 // Resolves symlinks and similar.
 std::string ResolvePath(const std::string &path);
 
 // Returns true if file filename exists
-bool Exists(const std::string &filename);
+bool Exists(const Path &path);
 
-// Returns true if filename is a directory
-bool IsDirectory(const std::string &filename);
+// Returns true if file filename exists in directory path.
+bool ExistsInDir(const Path &path, const std::string &filename);
+
+// Returns true if filename exists, and is a directory
+// Supports Android content URIs.
+bool IsDirectory(const Path &filename);
 
 // Parses the extension out from a filename.
 std::string GetFileExtension(const std::string &filename);
@@ -58,7 +63,7 @@ std::string GetDir(const std::string &path);
 std::string GetFilename(std::string path);
 
 // Returns struct with modification date of file
-bool GetModifTime(const std::string &filename, tm &return_time);
+bool GetModifTime(const Path &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
 uint64_t GetFileSize(const std::string &filename);
@@ -67,38 +72,44 @@ uint64_t GetFileSize(const std::string &filename);
 uint64_t GetFileSize(FILE *f);
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const std::string &filename);
+bool CreateDir(const Path &filename);
 
 // Creates the full path of fullPath returns true on success
-bool CreateFullPath(const std::string &fullPath);
+bool CreateFullPath(const Path &fullPath);
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const std::string &filename);
+bool Delete(const Path &filename);
 
 // Deletes a directory filename, returns true on success
 // Directory must be empty.
-bool DeleteDir(const std::string &filename);
+bool DeleteDir(const Path &filename);
 
-// renames file srcFilename to destFilename, returns true on success 
-bool Rename(const std::string &srcFilename, const std::string &destFilename);
+// Deletes the given directory and anything under it. Returns true on success.
+bool DeleteDirRecursively(const Path &directory);
+
+// Renames file srcFilename to destFilename, returns true on success 
+// Will usually only work with in the same partition or other unit of storage,
+// so you might have to fall back to copy/delete.
+bool Rename(const Path &srcFilename, const Path &destFilename);
 
 // copies file srcFilename to destFilename, returns true on success 
-bool Copy(const std::string &srcFilename, const std::string &destFilename);
+bool Copy(const Path &srcFilename, const Path &destFilename);
+
+// Tries to rename srcFilename to destFilename, if that fails,
+// it tries to copy and delete the src if succeeded. If that fails too,
+// returns false, otherwise returns true.
+bool Move(const Path &srcFilename, const Path &destFilename);
 
 // creates an empty file filename, returns true on success 
-bool CreateEmptyFile(const std::string &filename);
-
-// deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const std::string &directory);
+bool CreateEmptyFile(const Path &filename);
 
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
-void OpenFileInEditor(const std::string& fileName);
+void OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
 const std::string &GetExeDirectory();
-
 
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
@@ -108,6 +119,7 @@ public:
 	IOFile();
 	IOFile(FILE* file);
 	IOFile(const std::string& filename, const char openmode[]);
+	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 
 	// Prevent copies.
@@ -115,6 +127,7 @@ public:
 	void operator=(const IOFile &) = delete;
 
 	bool Open(const std::string& filename, const char openmode[]);
+	bool Open(const Path &filename, const char openmode[]);
 	bool Close();
 
 	template <typename T>
@@ -178,10 +191,10 @@ private:
 // TODO: Refactor, this was moved from the old file_util.cpp.
 
 // Whole-file reading/writing
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename);
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename);
+bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
+bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename);
 
-bool ReadFileToString(bool text_file, const char *filename, std::string &str);
+bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
 // Return value must be delete[]-d.
 uint8_t *ReadLocalFile(const char *filename, size_t *size);
 

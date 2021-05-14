@@ -34,7 +34,7 @@
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
-CwCheatScreen::CwCheatScreen(const std::string &gamePath)
+CwCheatScreen::CwCheatScreen(const Path &gamePath)
 	: UIDialogScreenWithBackground() {
 	gamePath_ = gamePath;
 }
@@ -50,8 +50,8 @@ void CwCheatScreen::LoadCheatInfo() {
 		gameID = info->paramSFO.GetValueString("DISC_ID");
 	}
 	if ((info->id.empty() || !info->disc_total)
-		&& gamePath_.find("/PSP/GAME/") != std::string::npos) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_);
+		&& gamePath_.FilePathContains("PSP/GAME/")) {
+		gameID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
 	}
 
 	if (engine_ == nullptr || gameID != gameID_) {
@@ -63,7 +63,7 @@ void CwCheatScreen::LoadCheatInfo() {
 
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
-	if (File::ReadFileToString(true, engine_->CheatFilename().c_str(), str)) {
+	if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
 		fileCheckHash_ = XXH3_64bits(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
@@ -120,7 +120,7 @@ void CwCheatScreen::update() {
 	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL && engine_) {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
-		if (File::ReadFileToString(true, engine_->CheatFilename().c_str(), str)) {
+		if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
 			uint64_t newHash = XXH3_64bits(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.
@@ -204,7 +204,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	bool finished = false;
 	std::vector<std::string> newList;
 
-	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	Path cheatFile = GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
 	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
 	FILE *in = File::OpenCFile(cheatFile, "rt");
