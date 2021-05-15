@@ -206,7 +206,7 @@ public:
 	}
 
 	std::string GetScreenshotTitle() const {
-		return SaveState::GetSlotDateAsString(gamePath_.ToString(), slot_);
+		return SaveState::GetSlotDateAsString(gamePath_, slot_);
 	}
 
 	UI::Event OnStateLoaded;
@@ -229,7 +229,7 @@ private:
 SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
 	using namespace UI;
 
-	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_.ToString(), slot, SaveState::SCREENSHOT_EXTENSION);
+	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
 	Add(new Spacer(5));
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
@@ -246,11 +246,11 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 
 	fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
 
-	if (SaveState::HasSaveInSlot(gamePath_.ToString(), slot)) {
+	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
 		loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 
-		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_.ToString(), slot_);
+		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_, slot_);
 		std::vector<std::string> dateStrs;
 		SplitString(dateStr, ' ', dateStrs);
 		if (!dateStrs.empty() && !dateStrs[0].empty()) {
@@ -281,7 +281,7 @@ static void AfterSaveStateAction(SaveState::Status status, const std::string &me
 
 UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
-	SaveState::LoadSlot(gamePath_.ToString(), slot_, &AfterSaveStateAction);
+	SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
 	UI::EventParams e2{};
 	e2.v = this;
 	OnStateLoaded.Trigger(e2);
@@ -290,7 +290,7 @@ UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 
 UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
-	SaveState::SaveSlot(gamePath_.ToString(), slot_, &AfterSaveStateAction);
+	SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
 	UI::EventParams e2{};
 	e2.v = this;
 	OnStateSaved.Trigger(e2);
@@ -408,7 +408,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 		ScreenshotViewScreen *s = (ScreenshotViewScreen *)dialog;
 		int slot = s->GetSlot();
 		g_Config.iCurrentStateSlot = slot;
-		SaveState::LoadSlot(gamePath_.ToString(), slot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_, slot, &AfterSaveStateAction);
 
 		finishNextFrame_ = true;
 	} else {
@@ -421,7 +421,7 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
 	int slot = v->GetSlot();
 	g_Config.iCurrentStateSlot = v->GetSlot();
-	if (SaveState::HasSaveInSlot(gamePath_.ToString(), slot)) {
+	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		Path fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
 		auto pa = GetI18NCategory("Pause");

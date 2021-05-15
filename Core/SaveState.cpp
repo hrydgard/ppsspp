@@ -397,22 +397,22 @@ namespace SaveState
 		return title + " (" + filename + ")";
 	}
 
-	std::string GetTitle(const std::string &filename) {
+	std::string GetTitle(const Path &filename) {
 		std::string title;
-		if (CChunkFileReader::GetFileTitle(Path(filename), &title) == CChunkFileReader::ERROR_NONE) {
+		if (CChunkFileReader::GetFileTitle(filename, &title) == CChunkFileReader::ERROR_NONE) {
 			if (title.empty()) {
-				return File::GetFilename(filename);
+				return filename.GetFilename();
 			}
 
-			return AppendSlotTitle(filename, title);
+			return AppendSlotTitle(filename.GetFilename(), title);
 		}
 
 		// The file can't be loaded - let's note that.
 		auto sy = GetI18NCategory("System");
-		return File::GetFilename(filename) + " " + sy->T("(broken)");
+		return filename.GetFilename() + " " + sy->T("(broken)");
 	}
 
-	Path GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
+	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
 	{
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
@@ -437,7 +437,7 @@ namespace SaveState
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
 	}
 
-	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
@@ -471,7 +471,7 @@ namespace SaveState
 		}
 	}
 
-	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
+	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
@@ -506,7 +506,7 @@ namespace SaveState
 		}
 	}
 
-	bool UndoSaveSlot(const std::string &gameFilename, int slot) {
+	bool UndoSaveSlot(const Path &gameFilename, int slot) {
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
@@ -523,19 +523,19 @@ namespace SaveState
 		return false;
 	}
 
-	bool HasSaveInSlot(const std::string &gameFilename, int slot)
+	bool HasSaveInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
 	}
 
-	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot)
+	bool HasUndoSaveInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn.WithExtraExtension(".undo"));
 	}
 
-	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)
+	bool HasScreenshotInSlot(const Path &gameFilename, int slot)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
@@ -578,7 +578,7 @@ namespace SaveState
 		return true;
 	}
 
-	int GetNewestSlot(const std::string &gameFilename) {
+	int GetNewestSlot(const Path &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < NUM_SLOTS; i++) {
@@ -595,7 +595,7 @@ namespace SaveState
 		return newestSlot;
 	}
 
-	int GetOldestSlot(const std::string &gameFilename) {
+	int GetOldestSlot(const Path &gameFilename) {
 		int oldestSlot = -1;
 		tm oldestDate = {0};
 		for (int i = 0; i < NUM_SLOTS; i++) {
@@ -612,7 +612,7 @@ namespace SaveState
 		return oldestSlot;
 	}
 
-	std::string GetSlotDateAsString(const std::string &gameFilename, int slot) {
+	std::string GetSlotDateAsString(const Path &gameFilename, int slot) {
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (File::Exists(fn)) {
 			tm time;

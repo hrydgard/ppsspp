@@ -629,10 +629,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(gamePath_.ToString(), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_LOAD_STATE:
-		SaveState::LoadSlot(gamePath_.ToString(), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		SaveState::NextSlot();
@@ -1226,8 +1226,8 @@ void EmuScreen::update() {
 			saveStateSlot_ = currentSlot;
 
 			Path fn;
-			if (SaveState::HasSaveInSlot(gamePath_.ToString(), currentSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePath_.ToString(), currentSlot, SaveState::SCREENSHOT_EXTENSION);
+			if (SaveState::HasSaveInSlot(gamePath_, currentSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_, currentSlot, SaveState::SCREENSHOT_EXTENSION);
 			}
 
 			saveStatePreview_->SetFilename(fn);
@@ -1672,18 +1672,18 @@ void EmuScreen::autoLoad() {
 	case (int)AutoLoadSaveState::OFF: // "AutoLoad Off"
 		return;
 	case (int)AutoLoadSaveState::OLDEST: // "Oldest Save"
-		autoSlot = SaveState::GetOldestSlot(gamePath_.ToString());
+		autoSlot = SaveState::GetOldestSlot(gamePath_);
 		break;
 	case (int)AutoLoadSaveState::NEWEST: // "Newest Save"
-		autoSlot = SaveState::GetNewestSlot(gamePath_.ToString());
+		autoSlot = SaveState::GetNewestSlot(gamePath_);
 		break;
 	default: // try the specific save state slot specified
-		autoSlot = (SaveState::HasSaveInSlot(gamePath_.ToString(), g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
+		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
 		break;
 	}
 
 	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
-		SaveState::LoadSlot(gamePath_.ToString(), autoSlot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_, autoSlot, &AfterSaveStateAction);
 		g_Config.iCurrentStateSlot = autoSlot;
 	}
 }

@@ -157,13 +157,13 @@ void SaveStateActionFinished(SaveState::Status status, const std::string &messag
 
 void MainWindow::qlstateAct()
 {
-	std::string gamePath = PSP_CoreParameter().fileToStart.ToString();
+	Path gamePath = PSP_CoreParameter().fileToStart;
 	SaveState::LoadSlot(gamePath, 0, SaveStateActionFinished, this);
 }
 
 void MainWindow::qsstateAct()
 {
-	std::string gamePath = PSP_CoreParameter().fileToStart.ToString();
+	Path gamePath = PSP_CoreParameter().fileToStart;
 	SaveState::SaveSlot(gamePath, 0, SaveStateActionFinished, this);
 }
 

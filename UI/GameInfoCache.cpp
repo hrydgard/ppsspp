@@ -486,7 +486,7 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
-			info_->SetTitle(SaveState::GetTitle(gamePath_.ToString()));
+			info_->SetTitle(SaveState::GetTitle(gamePath_));
 
 			std::lock_guard<std::mutex> guard(info_->lock);
 
