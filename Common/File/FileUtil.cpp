@@ -560,36 +560,6 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 	}
 }
 
-std::string GetDir(const std::string &path) {
-	if (path == "/")
-		return path;
-	int n = (int)path.size() - 1;
-	while (n >= 0 && path[n] != '\\' && path[n] != '/')
-		n--;
-	std::string cutpath = n > 0 ? path.substr(0, n) : "";
-	for (size_t i = 0; i < cutpath.size(); i++) {
-		if (cutpath[i] == '\\') cutpath[i] = '/';
-	}
-#ifndef _WIN32
-	if (!cutpath.size()) {
-		return "/";
-	}
-#endif
-	return cutpath;
-}
-
-std::string GetFileExtension(const std::string & fn) {
-	size_t pos = fn.rfind(".");
-	if (pos == std::string::npos) {
-		return "";
-	}
-	std::string ext = fn.substr(pos);
-	for (size_t i = 0; i < ext.size(); i++) {
-		ext[i] = tolower(ext[i]);
-	}
-	return ext;
-}
-
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const std::string &filename) {

@@ -53,12 +53,6 @@ bool ExistsInDir(const Path &path, const std::string &filename);
 // Supports Android content URIs.
 bool IsDirectory(const Path &filename);
 
-// Parses the extension out from a filename.
-std::string GetFileExtension(const std::string &filename);
-
-// Extracts the directory from a path.
-std::string GetDir(const std::string &path);
-
 // Returns struct with modification date of file
 bool GetModifTime(const Path &filename, tm &return_time);
 
