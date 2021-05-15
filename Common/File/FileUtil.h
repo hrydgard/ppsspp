@@ -113,8 +113,7 @@ const Path &GetExeDirectory();
 // and make forgetting an fclose() harder
 class IOFile {
 public:
-	IOFile();
-	IOFile(FILE* file);
+	IOFile() {}
 	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 
@@ -179,9 +178,6 @@ public:
 	}
 
 private:
-	IOFile(const std::string &filename, const char openmode[]);
-	bool Open(const std::string &filename, const char openmode[]);
-
 	std::FILE *m_file = nullptr;
 	bool m_good = true;
 };

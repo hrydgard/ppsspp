@@ -927,30 +927,14 @@ const Path &GetExeDirectory() {
 	return ExePath;
 }
 
-IOFile::IOFile() {}
 
-IOFile::IOFile(std::FILE* file)
-	: m_file(file)
-{}
-
-IOFile::IOFile(const std::string &filename, const char openmode[]) {
+IOFile::IOFile(const Path &filename, const char openmode[]) {
 	Open(filename, openmode);
 }
 
-IOFile::IOFile(const Path &filename, const char openmode[])  {
-	Open(filename.ToString(), openmode);
-}
-
-IOFile::~IOFile() {
-	Close();
-}
-
-bool IOFile::Open(const std::string& filename, const char openmode[])
+IOFile::~IOFile()
 {
 	Close();
-	m_file = File::OpenCFile(Path(filename), openmode);
-	m_good = IsOpen();
-	return m_good;
 }
 
 bool IOFile::Open(const Path& filename, const char openmode[])
