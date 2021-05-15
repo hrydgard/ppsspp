@@ -305,27 +305,10 @@ bool PathBrowser::CanNavigateUp() {
 	}
 #endif
 */
-#if PPSSPP_PLATFORM(ANDROID)
-	if (Android_IsContentUri(path_.ToString())) {
-		AndroidStorageContentURI uri(path_.ToString());
-		return uri.CanNavigateUp();
-	}
-#endif
-
 	return path_.CanNavigateUp();
 }
 
 void PathBrowser::NavigateUp() {
-#if PPSSPP_PLATFORM(ANDROID)
-	if (Android_IsContentUri(path_.ToString())) {
-		// Manipulate the Uri to navigate upwards.
-		AndroidStorageContentURI uri(path_.ToString());
-		if (uri.NavigateUp()) {
-			path_ = Path(uri.ToString());
-		}
-		return;
-	}
-#endif
 	path_ = path_.NavigateUp();
 }
 
