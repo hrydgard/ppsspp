@@ -1772,7 +1772,7 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	GetFilesInDir(savestate_dir, &files, nullptr, 0);
 
 	for (const File::FileInfo &file : files) {
-		Path src = Path(file.fullName);
+		Path src = file.fullName;
 		Path dst = root_dir / file.name;
 		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);

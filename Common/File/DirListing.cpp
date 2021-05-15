@@ -197,7 +197,7 @@ size_t GetFilesInDir(const Path &directory, std::vector<FileInfo> * files, const
 		info.size = 0;
 		info.isWritable = false;  // TODO - implement some kind of check
 		if (!info.isDirectory) {
-			std::string ext = Path(info.fullName).GetFileExtension();
+			std::string ext = info.fullName.GetFileExtension();
 			if (!ext.empty()) {
 				ext = ext.substr(1);  // Remove the dot.
 				if (filter && filters.find(ext) == filters.end()) {

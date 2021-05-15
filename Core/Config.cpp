@@ -1593,7 +1593,7 @@ void Config::RestoreDefaults() {
 		createGameConfig(gameId_);
 	} else {
 		if (File::Exists(iniFilename_))
-			File::Delete(Path(iniFilename_));
+			File::Delete(iniFilename_);
 		recentIsos.clear();
 		currentDirectory = "";
 	}

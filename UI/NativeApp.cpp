@@ -429,7 +429,7 @@ static void ClearFailedGPUBackends() {
 	// In case they update drivers and have totally different problems much later, clear the failed list.
 	g_Config.sFailedGPUBackends.clear();
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-		File::Delete(Path(GetSysDirectory(DIRECTORY_APP_CACHE)) / "FailedGraphicsBackends.txt");
+		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) / "FailedGraphicsBackends.txt");
 	} else {
 		g_Config.Save("clearFailedGPUBackends");
 	}
@@ -1004,7 +1004,7 @@ void NativeShutdownGraphics() {
 void TakeScreenshot() {
 	g_TakeScreenshot = false;
 
-	Path path = Path(GetSysDirectory(DIRECTORY_SCREENSHOT));
+	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
 	}

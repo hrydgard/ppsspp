@@ -86,8 +86,8 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS), &pluginDirs);
 
 	std::vector<PluginInfo> found;
-	for (auto subdir : pluginDirs) {
-		Path subdirFullName(subdir.fullName);
+	for (const auto &subdir : pluginDirs) {
+		const Path &subdirFullName = subdir.fullName;
 		if (!subdir.isDirectory || !File::Exists(subdirFullName / "plugin.ini"))
 			continue;
 

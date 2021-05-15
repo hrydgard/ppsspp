@@ -580,7 +580,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	installInProgress_ = false;
 	installError_ = "";
 	if (deleteAfter) {
-		File::Delete(Path(zipfile));
+		File::Delete(zipfile);
 	}
 	InstallDone();
 	return true;

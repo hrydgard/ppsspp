@@ -159,7 +159,7 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(Path filename, std::string title, int slot, std::shared_ptr<I18NCategory> i18n)
+	ScreenshotViewScreen(const Path &filename, std::string title, int slot, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(title, i18n->T("Load State"), "Back"), filename_(filename), slot_(slot) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {

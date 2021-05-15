@@ -114,7 +114,7 @@ public:
 		} else {
 			Path image_path = savePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(image_path)) {
-				toprow->Add(new AsyncImageFileView(Path(image_path), IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
+				toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 			}
