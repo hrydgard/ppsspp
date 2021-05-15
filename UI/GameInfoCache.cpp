@@ -491,7 +491,7 @@ handleELF:
 			std::lock_guard<std::mutex> guard(info_->lock);
 
 			// Let's use the screenshot as an icon, too.
-			Path screenshotPath = gamePath_.WithReplacedExtension("ppst", "jpg");
+			Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
 				if (File::ReadFileToString(false, screenshotPath, info_->icon.data)) {
 					info_->icon.dataLoaded = true;
