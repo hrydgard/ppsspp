@@ -109,7 +109,6 @@ class IOFile {
 public:
 	IOFile();
 	IOFile(FILE* file);
-	IOFile(const std::string& filename, const char openmode[]);
 	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 
@@ -117,7 +116,6 @@ public:
 	IOFile(const IOFile &) = delete;
 	void operator=(const IOFile &) = delete;
 
-	bool Open(const std::string& filename, const char openmode[]);
 	bool Open(const Path &filename, const char openmode[]);
 	bool Close();
 
@@ -149,11 +147,11 @@ public:
 		return WriteArray(reinterpret_cast<const char*>(data), length);
 	}
 
-	bool IsOpen() { return NULL != m_file; }
+	bool IsOpen() const { return nullptr != m_file; }
 
 	// m_good is set to false when a read, write or other function fails
-	bool IsGood() {	return m_good; }
-	operator void*() { return m_good ? m_file : NULL; }
+	bool IsGood() const { return m_good; }
+	operator bool() const { return IsGood() && IsOpen(); }
 
 	std::FILE* ReleaseHandle();
 
@@ -175,8 +173,11 @@ public:
 	}
 
 private:
-	std::FILE *m_file;
-	bool m_good;
+	IOFile(const std::string &filename, const char openmode[]);
+	bool Open(const std::string &filename, const char openmode[]);
+
+	std::FILE *m_file = nullptr;
+	bool m_good = true;
 };
 
 // TODO: Refactor, this was moved from the old file_util.cpp.

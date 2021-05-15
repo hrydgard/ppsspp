@@ -791,28 +791,21 @@ const Path &GetExeDirectory() {
 	return ExePath;
 }
 
-IOFile::IOFile()
-	: m_file(NULL), m_good(true)
-{}
+IOFile::IOFile() {}
 
 IOFile::IOFile(std::FILE* file)
-	: m_file(file), m_good(true)
+	: m_file(file)
 {}
 
-IOFile::IOFile(const std::string& filename, const char openmode[])
-	: m_file(NULL), m_good(true)
-{
+IOFile::IOFile(const std::string &filename, const char openmode[]) {
 	Open(filename, openmode);
 }
 
-IOFile::IOFile(const Path &filename, const char openmode[]) 
-	: m_file(NULL), m_good(true)
-{
+IOFile::IOFile(const Path &filename, const char openmode[])  {
 	Open(filename.ToString(), openmode);
 }
 
-IOFile::~IOFile()
-{
+IOFile::~IOFile() {
 	Close();
 }
 
