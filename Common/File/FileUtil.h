@@ -51,9 +51,6 @@ bool Exists(const Path &path);
 // Returns true if file filename exists in directory path.
 bool ExistsInDir(const Path &path, const std::string &filename);
 
-// Returns true if file filename exists in directory path.
-bool ExistsInDir(const std::string &path, const std::string &filename);
-
 // Returns true if filename exists, and is a directory
 // Supports Android content URIs.
 bool IsDirectory(const Path &filename);
