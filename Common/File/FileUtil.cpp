@@ -231,8 +231,8 @@ static void StripTailDirSlashes(std::string &fname) {
 bool ExistsInDir(const Path &path, const std::string &filename) {
 	return Exists(path / filename);
 	if (Android_IsContentUri(path.ToString())) {
-		AndroidStorageContentURI uri(path.ToString());
-		return Exists(Path(uri.WithFilePath(filename).ToString()));
+		AndroidContentURI uri(path.ToString());
+		return Exists(Path(uri.WithComponent(filename).ToString()));
 	} else {
 		return Exists(path / filename);
 	}
@@ -375,7 +375,7 @@ bool CreateDir(const Path &path) {
 	{
 		// Convert it to a CreateDirIn call, if possible, since that's
 		// what we can do with the storage API.
-		AndroidStorageContentURI uri(path.ToString());
+		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
 			return Android_CreateDirectory(uri.ToString(), newDirName);

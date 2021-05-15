@@ -7,6 +7,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "android/jni/app-android.h"
+#include "android/jni/AndroidContentURI.h"
 
 Path::Path(const std::string &str) {
 	if (str.empty()) {
@@ -50,6 +51,13 @@ void Path::Init(const std::string &str) {
 // We always use forward slashes internally, we convert to backslash only when
 // converted to a wstring.
 Path Path::operator /(const std::string &subdir) const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return Path(uri.WithComponent(subdir).ToString());
+	}
+
+	// Direct string manipulation.
+
 	if (subdir.empty()) {
 		return Path(path_);
 	}
@@ -70,11 +78,21 @@ void Path::operator /=(const std::string &subdir) {
 }
 
 Path Path::WithExtraExtension(const std::string &ext) const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return Path(uri.WithExtraExtension(ext).ToString());
+	}
+
 	_dbg_assert_(!ext.empty() && ext[0] == '.');
 	return Path(path_ + ext);
 }
 
 Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return Path(uri.WithReplacedExtension(oldExtension, newExtension).ToString());
+	}
+
 	_dbg_assert_(!oldExtension.empty() && oldExtension[0] == '.');
 	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
 	if (endsWithNoCase(path_, oldExtension)) {
@@ -96,6 +114,10 @@ Path Path::WithReplacedExtension(const std::string &newExtension) const {
 }
 
 std::string Path::GetFilename() const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return uri.GetLastPart();
+	}
 	size_t pos = path_.rfind('/');
 	if (pos != std::string::npos) {
 		return path_.substr(pos + 1);
@@ -103,24 +125,39 @@ std::string Path::GetFilename() const {
 	return path_;
 }
 
-std::string Path::GetFileExtension() const {
-	size_t pos = path_.rfind(".");
+static std::string GetExtFromString(const std::string &str) {
+	size_t pos = str.rfind(".");
 	if (pos == std::string::npos) {
 		return "";
 	}
-	size_t slash_pos = path_.rfind("/");
+	size_t slash_pos = str.rfind("/");
 	if (slash_pos != std::string::npos && slash_pos > pos) {
 		// Don't want to detect "df/file" from "/as.df/file"
 		return "";
 	}
-	std::string ext = path_.substr(pos);
+	std::string ext = str.substr(pos);
 	for (size_t i = 0; i < ext.size(); i++) {
 		ext[i] = tolower(ext[i]);
 	}
 	return ext;
 }
 
+std::string Path::GetFileExtension() const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return GetExtFromString(uri.FilePath());
+	}
+	return GetExtFromString(path_);
+}
+
 std::string Path::GetDirectory() const {
+	if (type_ == PathType::CONTENT_URI) {
+		// Unclear how meaningful this is.
+		AndroidContentURI uri(path_);
+		uri.NavigateUp();
+		return uri.ToString();
+	}
+
 	size_t pos = path_.rfind('/');
 	if (type_ == PathType::HTTP) {
 		// Things are a bit different for HTTP, because we probably ended with /.
@@ -155,7 +192,12 @@ std::string Path::GetDirectory() const {
 }
 
 bool Path::FilePathContains(const std::string &needle) const {
-	const std::string &haystack = path_;
+	std::string haystack;
+	if (type_ == PathType::CONTENT_URI) {
+		haystack = AndroidContentURI(path_).FilePath();
+	} else {
+		haystack = path_;
+	}
 	return haystack.find(needle) != std::string::npos;
 }
 
@@ -184,10 +226,17 @@ std::wstring Path::ToWString() const {
 #endif
 
 std::string Path::ToVisualString() const {
+	if (type_ == PathType::CONTENT_URI) {
+		return AndroidContentURI(path_).ToVisualString();
+	}
 	return path_;
 }
 
 bool Path::CanNavigateUp() const {
+	if (type_ == PathType::CONTENT_URI) {
+		return AndroidContentURI(path_).CanNavigateUp();
+	}
+
 	if (path_ == "/" || path_ == "") {
 		return false;
 	}
@@ -202,11 +251,21 @@ bool Path::CanNavigateUp() const {
 }
 
 Path Path::NavigateUp() const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		uri.NavigateUp();
+		return Path(uri.ToString());
+	}
 	std::string dir = GetDirectory();
 	return Path(dir);
 }
 
 bool Path::IsAbsolute() const {
+	if (type_ == PathType::CONTENT_URI) {
+		// These don't exist in relative form.
+		return true;
+	}
+
 	if (path_.empty())
 		return true;
 	else if (path_.front() == '/')

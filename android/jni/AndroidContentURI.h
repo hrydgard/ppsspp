@@ -15,14 +15,14 @@
 // On the other hand, I'm sure tons of apps would break if these changed, so I think we can
 // consider them pretty stable. Additionally, the official Document library just manipulates the URIs
 // in similar ways...
-class AndroidStorageContentURI {
+class AndroidContentURI {
 private:
 	std::string provider;
 	std::string root;
 	std::string file;
 public:
-	AndroidStorageContentURI() {}
-	explicit AndroidStorageContentURI(const std::string &path) {
+	AndroidContentURI() {}
+	explicit AndroidContentURI(const std::string &path) {
 		Parse(path);
 	}
 
@@ -61,9 +61,42 @@ public:
 		}
 	}
 
-	AndroidStorageContentURI WithFilePath(const std::string &filePath) {
-		AndroidStorageContentURI uri = *this;
+	AndroidContentURI WithRootFilePath(const std::string &filePath) {
+		AndroidContentURI uri = *this;
 		uri.file = uri.root + "/" + filePath;
+		return uri;
+	}
+
+	AndroidContentURI WithComponent(const std::string &filePath) {
+		AndroidContentURI uri = *this;
+		uri.file = uri.file + "/" + filePath;
+		return uri;
+	}
+
+	AndroidContentURI WithExtraExtension(const std::string &extension) {
+		AndroidContentURI uri = *this;
+		uri.file = uri.file + extension;
+		return uri;
+	}
+
+	AndroidContentURI WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
+		_dbg_assert_(!oldExtension.empty() && oldExtension[0] == '.');
+		_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
+		AndroidContentURI uri = *this;
+		if (endsWithNoCase(file, oldExtension)) {
+			uri.file = file.substr(0, file.size() - oldExtension.size()) + newExtension;
+		}
+		return uri;
+	}
+
+	AndroidContentURI WithReplacedExtension(const std::string &newExtension) const {
+		_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
+		AndroidContentURI uri = *this;
+		if (file.empty()) {
+			return uri;
+		}
+		std::string extension = GetFileExtension();
+		uri.file = file.substr(0, file.size() - extension.size()) + newExtension;
 		return uri;
 	}
 
@@ -73,6 +106,23 @@ public:
 
 	bool CanNavigateUp() const {
 		return file.size() > root.size();
+	}
+
+	std::string GetFileExtension() const {
+		size_t pos = file.rfind(".");
+		if (pos == std::string::npos) {
+			return "";
+		}
+		size_t slash_pos = file.rfind("/");
+		if (slash_pos != std::string::npos && slash_pos > pos) {
+			// Don't want to detect "df/file" from "/as.df/file"
+			return "";
+		}
+		std::string ext = file.substr(pos);
+		for (size_t i = 0; i < ext.size(); i++) {
+			ext[i] = tolower(ext[i]);
+		}
+		return ext;
 	}
 
 	std::string GetLastPart() const {
@@ -109,7 +159,7 @@ public:
 		return true;
 	}
 
-	bool TreeContains(const AndroidStorageContentURI &fileURI) {
+	bool TreeContains(const AndroidContentURI &fileURI) {
 		if (!IsTreeURI()) {
 			return false;
 		}
