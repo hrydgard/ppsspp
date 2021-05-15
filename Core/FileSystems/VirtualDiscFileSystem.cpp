@@ -142,7 +142,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 				ERROR_LOG(FILESYS, "Unable to open virtual file: %s", entry.fileName.c_str());
 			}
 		} else {
-			entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName).ToString());
+			entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName));
 		}
 
 		// Try to keep currentBlockIndex sane, in case there are other files.
@@ -291,7 +291,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string &fileName)
 
 	FileListEntry entry = {""};
 	entry.fileName = normalized;
-	entry.totalSize = File::GetFileSize(fullName.ToString());
+	entry.totalSize = File::GetFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;
 

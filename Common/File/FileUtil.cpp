@@ -562,10 +562,10 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
-uint64_t GetFileSize(const std::string &filename) {
+uint64_t GetFileSize(const Path &filename) {
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
-	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
 		return 0;
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;
@@ -579,14 +579,14 @@ uint64_t GetFileSize(const std::string &filename) {
 	int result = stat64(filename.c_str(), &file_info);
 #endif
 	if (result != 0) {
-		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
+		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.ToVisualString().c_str());
 		return 0;
 	}
 	if (S_ISDIR(file_info.st_mode)) {
-		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.c_str());
+		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.ToVisualString().c_str());
 		return 0;
 	}
-	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.c_str(), (long long)file_info.st_size);
+	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.ToVisualString().c_str(), (long long)file_info.st_size);
 	return file_info.st_size;
 #endif
 }

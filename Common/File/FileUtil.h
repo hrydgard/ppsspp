@@ -57,7 +57,7 @@ bool IsDirectory(const Path &filename);
 bool GetModifTime(const Path &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
-uint64_t GetFileSize(const std::string &filename);
+uint64_t GetFileSize(const Path &filename);
 
 // Overloaded GetSize, accepts FILE*
 uint64_t GetFileSize(FILE *f);

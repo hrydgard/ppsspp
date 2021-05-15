@@ -159,7 +159,7 @@ static Path LocalFromRemotePath(const std::string &path) {
 }
 
 static void DiscHandler(const http::Request &request, const Path &filename) {
-	s64 sz = File::GetFileSize(filename.ToString());
+	s64 sz = File::GetFileSize(filename);
 
 	std::string range;
 	if (request.Method() == http::RequestHeader::HEAD) {
