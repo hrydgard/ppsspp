@@ -560,42 +560,12 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 	}
 }
 
-std::string GetDir(const std::string &path) {
-	if (path == "/")
-		return path;
-	int n = (int)path.size() - 1;
-	while (n >= 0 && path[n] != '\\' && path[n] != '/')
-		n--;
-	std::string cutpath = n > 0 ? path.substr(0, n) : "";
-	for (size_t i = 0; i < cutpath.size(); i++) {
-		if (cutpath[i] == '\\') cutpath[i] = '/';
-	}
-#ifndef _WIN32
-	if (!cutpath.size()) {
-		return "/";
-	}
-#endif
-	return cutpath;
-}
-
-std::string GetFileExtension(const std::string & fn) {
-	size_t pos = fn.rfind(".");
-	if (pos == std::string::npos) {
-		return "";
-	}
-	std::string ext = fn.substr(pos);
-	for (size_t i = 0; i < ext.size(); i++) {
-		ext[i] = tolower(ext[i]);
-	}
-	return ext;
-}
-
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
-uint64_t GetFileSize(const std::string &filename) {
+uint64_t GetFileSize(const Path &filename) {
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
-	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
 		return 0;
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;
@@ -609,14 +579,14 @@ uint64_t GetFileSize(const std::string &filename) {
 	int result = stat64(filename.c_str(), &file_info);
 #endif
 	if (result != 0) {
-		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
+		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.ToVisualString().c_str());
 		return 0;
 	}
 	if (S_ISDIR(file_info.st_mode)) {
-		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.c_str());
+		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.ToVisualString().c_str());
 		return 0;
 	}
-	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.c_str(), (long long)file_info.st_size);
+	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.ToVisualString().c_str(), (long long)file_info.st_size);
 	return file_info.st_size;
 #endif
 }
@@ -761,21 +731,17 @@ void OpenFileInEditor(const Path &fileName) {
 #endif
 }
 
-const std::string &GetExeDirectory() {
-	static std::string ExePath;
+const Path &GetExeDirectory() {
+	static Path ExePath;
 
 	if (ExePath.empty()) {
 #ifdef _WIN32
-#ifdef UNICODE
 		std::wstring program_path;
-#else
-		std::string program_path;
-#endif
 		size_t sz;
 		do {
 			program_path.resize(program_path.size() + MAX_PATH);
 			// On failure, this will return the same value as passed in, but success will always be one lower.
-			sz = GetModuleFileName(nullptr, &program_path[0], (DWORD)program_path.size());
+			sz = GetModuleFileNameW(nullptr, &program_path[0], (DWORD)program_path.size());
 		} while (sz >= program_path.size());
 
 		const wchar_t *last_slash = wcsrchr(&program_path[0], '\\');
@@ -783,11 +749,7 @@ const std::string &GetExeDirectory() {
 			program_path.resize(last_slash - &program_path[0] + 1);
 		else
 			program_path.resize(sz);
-#ifdef UNICODE
-		ExePath = ConvertWStringToUTF8(program_path);
-#else
-		ExePath = program_path;
-#endif
+		ExePath = Path(program_path);
 
 #elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
 		char program_path[4096];
@@ -819,9 +781,9 @@ const std::string &GetExeDirectory() {
 		{
 			program_path[sizeof(program_path) - 1] = '\0';
 			char *last_slash = strrchr(program_path, '/');
-			if (last_slash != NULL)
-				*(last_slash + 1) = '\0';
-			ExePath = program_path;
+			if (last_slash != nullptr)
+				*last_slash = '\0';
+			ExePath = Path(program_path);
 		}
 #endif
 	}
@@ -829,28 +791,21 @@ const std::string &GetExeDirectory() {
 	return ExePath;
 }
 
-IOFile::IOFile()
-	: m_file(NULL), m_good(true)
-{}
+IOFile::IOFile() {}
 
 IOFile::IOFile(std::FILE* file)
-	: m_file(file), m_good(true)
+	: m_file(file)
 {}
 
-IOFile::IOFile(const std::string& filename, const char openmode[])
-	: m_file(NULL), m_good(true)
-{
+IOFile::IOFile(const std::string &filename, const char openmode[]) {
 	Open(filename, openmode);
 }
 
-IOFile::IOFile(const Path &filename, const char openmode[]) 
-	: m_file(NULL), m_good(true)
-{
+IOFile::IOFile(const Path &filename, const char openmode[])  {
 	Open(filename.ToString(), openmode);
 }
 
-IOFile::~IOFile()
-{
+IOFile::~IOFile() {
 	Close();
 }
 

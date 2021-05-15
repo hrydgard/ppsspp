@@ -559,8 +559,8 @@ namespace Libretro
 
 bool retro_load_game(const struct retro_game_info *game)
 {
-   static std::string retro_base_dir;
-   static std::string retro_save_dir;
+   static Path retro_base_dir;
+   static Path retro_save_dir;
    std::string error_string;
    enum retro_pixel_format fmt          = RETRO_PIXEL_FORMAT_XRGB8888;
    const char *nickname                 = NULL;
@@ -600,43 +600,30 @@ bool retro_load_game(const struct retro_game_info *game)
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) 
          && dir_ptr)
    {
-      size_t last;
-      retro_base_dir = dir_ptr;
-      // Make sure that we don't have any lingering slashes, etc, as they break Windows.
-      last = retro_base_dir.find_last_not_of(DIR_SEP_CHRS);
-      if (last != std::string::npos)
-         last++;
-
-      retro_base_dir = retro_base_dir.substr(0, last) + DIR_SEP;
+      retro_base_dir = Path(dir_ptr);
    }
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) 
          && dir_ptr)
    {
-      retro_save_dir = dir_ptr;
-      // Make sure that we don't have any lingering slashes, etc, as they break Windows.
-      size_t last = retro_save_dir.find_last_not_of(DIR_SEP_CHRS);
-      if (last != std::string::npos)
-         last++;
-
-      retro_save_dir = retro_save_dir.substr(0, last) + DIR_SEP;
+      retro_save_dir = Path(dir_ptr);
    }
 
    if (retro_base_dir.empty())
-      retro_base_dir = File::GetDir(game->path);
+      retro_base_dir = Path(game->path).NavigateUp();
 
-   retro_base_dir            += "PPSSPP" DIR_SEP;
+   retro_base_dir            /= "PPSSPP";
 
    if (retro_save_dir.empty())
-      retro_save_dir = File::GetDir(game->path);
+      retro_save_dir = Path(game->path).NavigateUp();
 
-   g_Config.currentDirectory      = retro_base_dir;
+   g_Config.currentDirectory      = retro_base_dir.ToString();
    g_Config.externalDirectory     = retro_base_dir;
-   g_Config.memStickDirectory     = Path(retro_save_dir);
-   g_Config.flash0Directory       = Path(retro_base_dir) / "flash0";
+   g_Config.memStickDirectory     = retro_save_dir;
+   g_Config.flash0Directory       = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir.c_str()));
+   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();

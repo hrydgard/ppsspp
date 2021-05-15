@@ -53,17 +53,11 @@ bool ExistsInDir(const Path &path, const std::string &filename);
 // Supports Android content URIs.
 bool IsDirectory(const Path &filename);
 
-// Parses the extension out from a filename.
-std::string GetFileExtension(const std::string &filename);
-
-// Extracts the directory from a path.
-std::string GetDir(const std::string &path);
-
 // Returns struct with modification date of file
 bool GetModifTime(const Path &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
-uint64_t GetFileSize(const std::string &filename);
+uint64_t GetFileSize(const Path &filename);
 
 // Overloaded GetSize, accepts FILE*
 uint64_t GetFileSize(FILE *f);
@@ -106,7 +100,7 @@ bool CreateEmptyFile(const Path &filename);
 void OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
-const std::string &GetExeDirectory();
+const Path &GetExeDirectory();
 
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
@@ -115,7 +109,6 @@ class IOFile {
 public:
 	IOFile();
 	IOFile(FILE* file);
-	IOFile(const std::string& filename, const char openmode[]);
 	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 
@@ -123,7 +116,6 @@ public:
 	IOFile(const IOFile &) = delete;
 	void operator=(const IOFile &) = delete;
 
-	bool Open(const std::string& filename, const char openmode[]);
 	bool Open(const Path &filename, const char openmode[]);
 	bool Close();
 
@@ -155,11 +147,11 @@ public:
 		return WriteArray(reinterpret_cast<const char*>(data), length);
 	}
 
-	bool IsOpen() { return NULL != m_file; }
+	bool IsOpen() const { return nullptr != m_file; }
 
 	// m_good is set to false when a read, write or other function fails
-	bool IsGood() {	return m_good; }
-	operator void*() { return m_good ? m_file : NULL; }
+	bool IsGood() const { return m_good; }
+	operator bool() const { return IsGood() && IsOpen(); }
 
 	std::FILE* ReleaseHandle();
 
@@ -181,8 +173,11 @@ public:
 	}
 
 private:
-	std::FILE *m_file;
-	bool m_good;
+	IOFile(const std::string &filename, const char openmode[]);
+	bool Open(const std::string &filename, const char openmode[]);
+
+	std::FILE *m_file = nullptr;
+	bool m_good = true;
 };
 
 // TODO: Refactor, this was moved from the old file_util.cpp.

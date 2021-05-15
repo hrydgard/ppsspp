@@ -605,7 +605,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory / "PSP/PLUGINS";
 	case DIRECTORY_APP_CACHE:
 		if (!g_Config.appCacheDirectory.empty()) {
-			return Path(g_Config.appCacheDirectory);
+			return g_Config.appCacheDirectory;
 		}
 		return g_Config.memStickDirectory / "PSP/SYSTEM/CACHE";
 	case DIRECTORY_VIDEO:
@@ -627,7 +627,7 @@ void InitSysDirectories() {
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
-	const Path path = Path(File::GetExeDirectory());
+	const Path &path = File::GetExeDirectory();
 
 	// Mount a filesystem
 	g_Config.flash0Directory = path / "assets/flash0";
@@ -638,7 +638,7 @@ void InitSysDirectories() {
 
 #else
 	// Caller sets this to the Documents folder.
-	const Path rootMyDocsPath = Path(g_Config.internalDataDirectory);
+	const Path rootMyDocsPath = g_Config.internalDataDirectory;
 	const Path myDocsPath = rootMyDocsPath / "PPSSPP";
 	const Path installedFile = path / "installed.txt";
 	const bool installed = File::Exists(installedFile);

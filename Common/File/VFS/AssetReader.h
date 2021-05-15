@@ -10,6 +10,7 @@
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 
 class AssetReader {
 public:
@@ -44,16 +45,16 @@ private:
 
 class DirectoryAssetReader : public AssetReader {
 public:
-	explicit DirectoryAssetReader(const char *path);
+	explicit DirectoryAssetReader(const Path &path);
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
 	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter);
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info);
 	virtual std::string toString() const {
-		return path_;
+		return path_.ToString();
 	}
 
 private:
-	char path_[512]{};
+	Path path_;
 };
 

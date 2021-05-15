@@ -321,9 +321,9 @@ static void PostLoadConfig() {
 #ifndef _WIN32
 	if (g_Config.currentDirectory.empty()) {
 #if defined(__ANDROID__)
-		g_Config.currentDirectory = g_Config.externalDirectory;
+		g_Config.currentDirectory = g_Config.externalDirectory.ToString();
 #elif PPSSPP_PLATFORM(IOS)
-		g_Config.currentDirectory = g_Config.internalDataDirectory;
+		g_Config.currentDirectory = g_Config.internalDataDirectory.ToString();
 #elif PPSSPP_PLATFORM(SWITCH)
 		g_Config.currentDirectory = "/";
 #else
@@ -460,26 +460,26 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(external_dir));
+	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	VFSRegister("", new DirectoryAssetReader(ASSETS_DIR));
+	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
-	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
-	VFSRegister("", new DirectoryAssetReader("/usr/local/share/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/local/share/games/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/share/games/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
+	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory()));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 #if PPSSPP_PLATFORM(SWITCH)
-	std::string assetPath = user_data_path + "assets/";
-	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
+	Path assetPath = Path(user_data_path) / "assets";
+	VFSRegister("", new DirectoryAssetReader(assetPath));
 #else
-	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(Path("assets")));
 #endif
-	VFSRegister("", new DirectoryAssetReader(savegame_dir));
+	VFSRegister("", new DirectoryAssetReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
@@ -487,8 +487,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	g_Config.internalDataDirectory = savegame_dir;
-	g_Config.externalDirectory = external_dir;
+	g_Config.internalDataDirectory = Path(savegame_dir);
+	g_Config.externalDirectory = Path(external_dir);
 
 #if defined(__ANDROID__)
 	// TODO: This needs to change in Android 12.
@@ -499,7 +499,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
-	Path memstickDirFile = Path(g_Config.internalDataDirectory) / "memstick_dir.txt";
+	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
 		File::ReadFileToString(true, memstickDirFile, memstickDir);
@@ -514,8 +514,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = Path(user_data_path);
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
-	g_Config.memStickDirectory = Path(g_Config.internalDataDirectory) / "config/ppsspp";
-	g_Config.flash0Directory = Path(g_Config.internalDataDirectory) / "assets/flash0";
+	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
+	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
 #elif !PPSSPP_PLATFORM(WINDOWS)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -526,12 +526,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		config = "./config";
 
 	g_Config.memStickDirectory = Path(config) / "ppsspp";
-	g_Config.flash0Directory = Path(File::GetExeDirectory()) / "assets/flash0";
+	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {
-		DiskCachingFileLoaderCache::SetCacheDir(Path(cache_dir));
-		g_Config.appCacheDirectory = cache_dir;
+		g_Config.appCacheDirectory = Path(cache_dir);
+		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
 	}
 
 	if (!LogManager::GetInstance())

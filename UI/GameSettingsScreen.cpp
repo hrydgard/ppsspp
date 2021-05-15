@@ -945,7 +945,7 @@ void GameSettingsScreen::CreateViews() {
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
 
-	const Path PPSSPPpath = Path(File::GetExeDirectory());
+	const Path &PPSSPPpath = File::GetExeDirectory();
 	const Path installedFile = PPSSPPpath / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
@@ -1134,7 +1134,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
-	const Path PPSSPPpath = Path(File::GetExeDirectory());
+	const Path &PPSSPPpath = File::GetExeDirectory();
 	const Path installedFile = installedFile / "installed.txt";
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
@@ -1161,7 +1161,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
-	const Path PPSSPPpath = Path(File::GetExeDirectory());
+	const Path &PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
 		auto di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
@@ -1295,7 +1295,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
 	if (yes) {
-		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
 
 		// Already, create away.
@@ -1308,7 +1308,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		}
 		File::Delete(Path(testWriteFile));
 
-		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), Path(memstickDirFile));
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile);
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
 		g_Config.Save("MemstickPathChanged");
