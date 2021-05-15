@@ -19,9 +19,5 @@
 #include "Qt/QtHost.h"
 
 Path QtHost::SymbolMapFilename(Path currentFilename) {
-	std::string ext = currentFilename.GetFileExtension();
-	if (ext == "")
-		return currentFilename.WithExtraExtension("map");
-	else
-		return currentFilename.WithReplacedExtension(ext, "map");
+	return currentFilename.WithReplacedExtension(".map");
 }
