@@ -5,6 +5,7 @@
 #include <thread>
 #include <cstdint>
 
+#include "Common/File/Path.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Net/Resolve.h"
 
@@ -90,7 +91,7 @@ protected:
 // Not particularly efficient, but hey - it's a background download, that's pretty cool :P
 class Download {
 public:
-	Download(const std::string &url, const std::string &outfile);
+	Download(const std::string &url, const Path &outfile);
 	~Download();
 
 	void Start();
@@ -108,7 +109,7 @@ public:
 	int ResultCode() const { return resultCode_; }
 
 	std::string url() const { return url_; }
-	std::string outfile() const { return outfile_; }
+	const Path &outfile() const { return outfile_; }
 
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
@@ -147,7 +148,7 @@ private:
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
-	std::string outfile_;
+	Path outfile_;
 	std::thread thread_;
 	int resultCode_ = 0;
 	bool completed_ = false;
@@ -166,11 +167,11 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
+	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile);
 
 	std::shared_ptr<Download> StartDownloadWithCallback(
 		const std::string &url,
-		const std::string &outfile,
+		const Path &outfile,
 		std::function<void(Download &)> callback);
 
 	// Drops finished downloads from the list.

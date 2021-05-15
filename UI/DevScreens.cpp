@@ -1192,7 +1192,7 @@ void FrameDumpTestScreen::update() {
 	UIScreen::update();
 
 	if (!listing_) {
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, "");
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path());
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {

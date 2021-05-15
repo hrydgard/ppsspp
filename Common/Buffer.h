@@ -5,6 +5,8 @@
 
 #include "Common/Common.h"
 
+class Path;
+
 // Acts as a queue. Intended to be as fast as possible for most uses.
 // Does not do synchronization, must use external mutexes.
 class Buffer {
@@ -66,7 +68,7 @@ public:
 	// Writes the entire buffer to the file descriptor. Also resets the
 	// size to zero. On failure, data remains in buffer and nothing is
 	// written.
-	bool FlushToFile(const char *filename);
+	bool FlushToFile(const Path &filename);
 
 	// Utilities. Try to avoid checking for size.
 	size_t size() const { return data_.size(); }

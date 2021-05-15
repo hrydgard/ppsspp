@@ -1301,7 +1301,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// upgrade number in the ini.
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
 		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
-			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);
+			"http://www.ppsspp.org/version.json", Path(), &DownloadCompletedCallback);
 		dl->SetHidden(true);
 	}
 
