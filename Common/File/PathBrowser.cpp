@@ -103,33 +103,6 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	return !files.empty();
 }
 
-std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
-	std::set<std::string> filters;
-	if (filter) {
-		std::string tmp;
-		while (*filter) {
-			if (*filter == ':') {
-				filters.insert("." + tmp);
-				tmp.clear();
-			} else {
-				tmp.push_back(*filter);
-			}
-			filter++;
-		}
-		if (!tmp.empty())
-			filters.insert("." + tmp);
-	}
-
-	auto pred = [&](const File::FileInfo &info) {
-		if (info.isDirectory || !filter)
-			return false;
-		std::string ext = info.fullName.GetFileExtension();
-		return filters.find(ext) == filters.end();
-	};
-	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
-	return files;
-}
-
 PathBrowser::~PathBrowser() {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	pendingCancel_ = true;
@@ -257,33 +230,6 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 			fake.isWritable = false;
 			fileInfo.push_back(fake);
 		}
-	}
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-	if (Android_IsContentUri(path_.ToString())) {
-		std::vector<File::FileInfo> files = Android_ListContentUri(path_.ToString());
-		fileInfo.clear();
-
-		std::vector<std::string> allowedExtensions;
-		SplitString(filter, ':', allowedExtensions);
-
-		for (auto &info : files) {
-			if (!info.isDirectory && allowedExtensions.size()) {
-				bool found = false;
-				for (auto &ext : allowedExtensions) {
-					if (endsWithNoCase(info.name, "." + ext)) {
-						found = true;
-						break;
-					}
-				}
-				if (!found) {
-					continue;
-				}
-			}
-			fileInfo.push_back(info);
-		}
-		return true;
 	}
 #endif
 
