@@ -623,7 +623,7 @@ bool retro_load_game(const struct retro_game_info *game)
    g_Config.flash0Directory       = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir.c_str()));
+   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();

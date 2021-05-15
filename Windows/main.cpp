@@ -527,9 +527,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	bool showLog = true;
 #endif
 
-	const std::string &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader((exePath + "/assets/").c_str()));
-	VFSRegister("", new DirectoryAssetReader(exePath.c_str()));
+	const Path exePath = Path(File::GetExeDirectory());
+	VFSRegister("", new DirectoryAssetReader(exePath / "assets"));
+	VFSRegister("", new DirectoryAssetReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();

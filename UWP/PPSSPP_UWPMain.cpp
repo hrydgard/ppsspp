@@ -76,9 +76,9 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
-	const std::string &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader((exePath + "/Content/").c_str()));
-	VFSRegister("", new DirectoryAssetReader(exePath.c_str()));
+	const Path exePath = Path(File::GetExeDirectory());
+	VFSRegister("", new DirectoryAssetReader(exePath / "Content"));
+	VFSRegister("", new DirectoryAssetReader(exePath));
 
 	wchar_t lcCountry[256];
 

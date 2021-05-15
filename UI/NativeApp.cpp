@@ -460,26 +460,26 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #if PPSSPP_PLATFORM(IOS)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(external_dir));
+	VFSRegister("", new DirectoryAssetReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	VFSRegister("", new DirectoryAssetReader(ASSETS_DIR));
+	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
-	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
-	VFSRegister("", new DirectoryAssetReader("/usr/local/share/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/local/share/games/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
-	VFSRegister("", new DirectoryAssetReader("/usr/share/games/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader(Path(File::GetExeDirectory()) / "assets"));
+	VFSRegister("", new DirectoryAssetReader(Path(File::GetExeDirectory())));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
+	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 #if PPSSPP_PLATFORM(SWITCH)
-	std::string assetPath = user_data_path + "assets/";
-	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
+	Path assetPath = Path(user_data_path) / "assets";
+	VFSRegister("", new DirectoryAssetReader(assetPath));
 #else
-	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(Path("assets")));
 #endif
-	VFSRegister("", new DirectoryAssetReader(savegame_dir));
+	VFSRegister("", new DirectoryAssetReader(Path(savegame_dir)));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {

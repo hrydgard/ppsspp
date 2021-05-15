@@ -166,61 +166,30 @@ bool ZipAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
 
 #endif
 
-DirectoryAssetReader::DirectoryAssetReader(const char *path) {
-	strncpy(path_, path, ARRAY_SIZE(path_));
-	path_[ARRAY_SIZE(path_) - 1] = '\0';
+DirectoryAssetReader::DirectoryAssetReader(const Path &path) {
+	path_ = path;
 }
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
-	char new_path[2048];
-	new_path[0] = '\0';
-	// Check if it already contains the path
-	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
-	}
-	else {
-		strcpy(new_path, path_);
-	}
-	strcat(new_path, path);
-	return File::ReadLocalFile(new_path, size);
+	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
+	return File::ReadLocalFile(new_path.c_str(), size);
 }
 
-bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = 0)
-{
-	char new_path[2048];
-	new_path[0] = '\0';
-	// Check if it already contains the path
-	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
-	}
-	else {
-		strcpy(new_path, path_);
-	}
-	strcat(new_path, path);
+bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {
+	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 
 	File::FileInfo info;
-	if (!File::GetFileInfo(Path(new_path), &info))
+	if (!File::GetFileInfo(new_path, &info))
 		return false;
 
-	if (info.isDirectory)
-	{
-		File::GetFilesInDir(Path(new_path), listing, filter);
+	if (info.isDirectory) {
+		File::GetFilesInDir(new_path, listing, filter);
 		return true;
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
-bool DirectoryAssetReader::GetFileInfo(const char *path, File::FileInfo *info)
-{
-	char new_path[2048];
-	new_path[0] = '\0';
-	// Check if it already contains the path
-	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
-	}
-	else {
-		strcpy(new_path, path_);
-	}
-	strcat(new_path, path);
-	return File::GetFileInfo(Path(new_path), info);
+bool DirectoryAssetReader::GetFileInfo(const char *path, File::FileInfo *info) {
+	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
+	return File::GetFileInfo(new_path, info);
 }
