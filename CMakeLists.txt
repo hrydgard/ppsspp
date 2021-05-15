@@ -1622,8 +1622,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
 	Core/FileSystems/tlzrc.cpp
-	Core/FileSystems/AndroidStorageFileSystem.cpp
-	Core/FileSystems/AndroidStorageFileSystem.h
 	Core/FileSystems/BlobFileSystem.cpp
 	Core/FileSystems/BlobFileSystem.h
 	Core/FileSystems/BlockDevices.cpp

@@ -529,7 +529,6 @@
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
-    <ClCompile Include="FileSystems\AndroidStorageFileSystem.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
@@ -1086,7 +1085,6 @@
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
-    <ClInclude Include="FileSystems\AndroidStorageFileSystem.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />

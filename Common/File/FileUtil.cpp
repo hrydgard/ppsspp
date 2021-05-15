@@ -932,8 +932,7 @@ IOFile::IOFile(const Path &filename, const char openmode[]) {
 	Open(filename, openmode);
 }
 
-IOFile::~IOFile()
-{
+IOFile::~IOFile() {
 	Close();
 }
 
