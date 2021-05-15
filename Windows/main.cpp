@@ -562,7 +562,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
-	g_Config.internalDataDirectory = W32Util::UserDocumentsPath();
+	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
 	InitSysDirectories();
 
 	// Check for the Vulkan workaround before any serious init.

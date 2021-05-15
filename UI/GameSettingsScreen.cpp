@@ -1295,7 +1295,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
 
 	if (yes) {
-		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
 
 		// Already, create away.
@@ -1308,7 +1308,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		}
 		File::Delete(Path(testWriteFile));
 
-		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), Path(memstickDirFile));
+		File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile);
 		// Save so the settings, at least, are transferred.
 		g_Config.memStickDirectory = Path(pendingMemstickFolder_);
 		g_Config.Save("MemstickPathChanged");

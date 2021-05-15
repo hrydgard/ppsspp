@@ -478,11 +478,11 @@ public:
 
 	// Various directories. Autoconfigured, not read from ini.
 	std::string currentDirectory;
-	std::string externalDirectory;
+	Path externalDirectory;
 	Path memStickDirectory;
 	Path flash0Directory;
-	std::string internalDataDirectory;
-	std::string appCacheDirectory;
+	Path internalDataDirectory;
+	Path appCacheDirectory;
 
 	// Data for upgrade prompt
 	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.

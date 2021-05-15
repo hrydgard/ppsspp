@@ -618,10 +618,10 @@ bool retro_load_game(const struct retro_game_info *game)
       retro_save_dir = Path(game->path).NavigateUp();
 
    g_Config.currentDirectory      = retro_base_dir.ToString();
-   g_Config.externalDirectory     = retro_base_dir.ToString();
+   g_Config.externalDirectory     = retro_base_dir;
    g_Config.memStickDirectory     = retro_save_dir;
    g_Config.flash0Directory       = retro_base_dir / "flash0";
-   g_Config.internalDataDirectory = retro_base_dir.ToString();
+   g_Config.internalDataDirectory = retro_base_dir;
 
    VFSRegister("", new DirectoryAssetReader(retro_base_dir.c_str()));
 

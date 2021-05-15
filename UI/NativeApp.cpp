@@ -321,9 +321,9 @@ static void PostLoadConfig() {
 #ifndef _WIN32
 	if (g_Config.currentDirectory.empty()) {
 #if defined(__ANDROID__)
-		g_Config.currentDirectory = g_Config.externalDirectory;
+		g_Config.currentDirectory = g_Config.externalDirectory.ToString();
 #elif PPSSPP_PLATFORM(IOS)
-		g_Config.currentDirectory = g_Config.internalDataDirectory;
+		g_Config.currentDirectory = g_Config.internalDataDirectory.ToString();
 #elif PPSSPP_PLATFORM(SWITCH)
 		g_Config.currentDirectory = "/";
 #else
@@ -487,8 +487,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	g_Config.internalDataDirectory = savegame_dir;
-	g_Config.externalDirectory = external_dir;
+	g_Config.internalDataDirectory = Path(savegame_dir);
+	g_Config.externalDirectory = Path(external_dir);
 
 #if defined(__ANDROID__)
 	// TODO: This needs to change in Android 12.
@@ -499,7 +499,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = Path(external_dir);
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
-	Path memstickDirFile = Path(g_Config.internalDataDirectory) / "memstick_dir.txt";
+	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
 		File::ReadFileToString(true, memstickDirFile, memstickDir);
@@ -514,8 +514,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = Path(user_data_path);
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
-	g_Config.memStickDirectory = Path(g_Config.internalDataDirectory) / "config/ppsspp";
-	g_Config.flash0Directory = Path(g_Config.internalDataDirectory) / "assets/flash0";
+	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
+	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
 #elif !PPSSPP_PLATFORM(WINDOWS)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -530,8 +530,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {
-		DiskCachingFileLoaderCache::SetCacheDir(Path(cache_dir));
-		g_Config.appCacheDirectory = cache_dir;
+		g_Config.appCacheDirectory = Path(cache_dir);
+		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
 	}
 
 	if (!LogManager::GetInstance())

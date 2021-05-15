@@ -403,7 +403,7 @@ int main(int argc, const char* argv[])
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
 
 #ifdef _WIN32
-	g_Config.internalDataDirectory = "";
+	g_Config.internalDataDirectory.clear();
 	InitSysDirectories();
 #endif
 
