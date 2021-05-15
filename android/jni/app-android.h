@@ -8,6 +8,7 @@
 
 #include "Common/LogManager.h"
 #include "Common/File/DirListing.h"
+#include "Common/File/Path.h"
 
 // To emphasize that Android storage mode strings are different, let's just use
 // an enum.

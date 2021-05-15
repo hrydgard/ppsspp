@@ -67,10 +67,6 @@ uint64_t GetFileSize(FILE *f);
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &filename);
 
-// Returns true if successful, or path already exists.
-// Supports Android Content Storage URIs, unlike CreateDir.
-bool CreateDirIn(const std::string &parentDir, const std::string &newDirName);
-
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
 

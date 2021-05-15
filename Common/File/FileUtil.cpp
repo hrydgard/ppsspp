@@ -230,12 +230,6 @@ static void StripTailDirSlashes(std::string &fname) {
 // Returns true if file filename exists. Will return true on directories.
 bool ExistsInDir(const Path &path, const std::string &filename) {
 	return Exists(path / filename);
-	if (Android_IsContentUri(path.ToString())) {
-		AndroidContentURI uri(path.ToString());
-		return Exists(Path(uri.WithComponent(filename).ToString()));
-	} else {
-		return Exists(path / filename);
-	}
 }
 
 bool Exists(const std::string &filename) {
@@ -248,6 +242,8 @@ bool Exists(const std::string &filename) {
 	}
 
 	std::string fn = filename;
+
+	// TODO: Remove.
 	StripTailDirSlashes(fn);
 
 #if defined(_WIN32)
@@ -373,7 +369,7 @@ bool CreateDir(const Path &path) {
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
-		// Convert it to a CreateDirIn call, if possible, since that's
+		// Convert it to a "CreateDirIn" call, if possible, since that's
 		// what we can do with the storage API.
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
@@ -415,40 +411,6 @@ bool CreateDir(const Path &path) {
 	}
 
 	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", fn.c_str(), strerror(err));
-	return false;
-#endif
-}
-
-// Returns true if successful, or path already exists.
-// Supports Android Content Storage URIs more reliably than CreateDir.
-bool CreateDirIn(const std::string &parentDir, const std::string &newDirName) {
-	if (Android_IsContentUri(parentDir)) {
-		return Android_CreateDirectory(parentDir, newDirName);
-	}
-	std::string fn = parentDir;
-	StripTailDirSlashes(fn);
-	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
-#ifdef _WIN32
-	std::string fullName = parentDir + "\\" + newDirName;
-	if (::CreateDirectory(ConvertUTF8ToWString(fullName).c_str(), NULL))
-		return true;
-	DWORD error = GetLastError();
-	if (error == ERROR_ALREADY_EXISTS) {
-		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", fullName.c_str());
-		return true;
-	}
-	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x", fullName.c_str(), (uint32_t)error);
-	return false;
-#else
-	std::string fullName = parentDir + "/" + newDirName;
-	if (mkdir(fullName.c_str(), 0755) == 0)
-		return true;
-	int err = errno;
-	if (err == EEXIST) {
-		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fullName.c_str());
-		return true;
-	}
-	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", fullName.c_str(), strerror(err));
 	return false;
 #endif
 }
