@@ -206,7 +206,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 
 	// Fall back to using the filename.
-	std::string filename = File::GetFilename(path.ToString());
+	std::string filename = path.GetFilename();
 	// Could be more discerning, but hey..
 	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
 		*id = filename.substr(0, 9);

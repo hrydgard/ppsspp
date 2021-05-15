@@ -59,9 +59,6 @@ std::string GetFileExtension(const std::string &filename);
 // Extracts the directory from a path.
 std::string GetDir(const std::string &path);
 
-// Extracts the filename from a path.
-std::string GetFilename(std::string path);
-
 // Returns struct with modification date of file
 bool GetModifTime(const Path &filename, tm &return_time);
 

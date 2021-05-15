@@ -206,7 +206,7 @@ bool GameInfo::LoadFromPath(const Path &gamePath) {
 		filePath_ = gamePath;
 
 		// This is a fallback title, while we're loading / if unable to load.
-		title = File::GetFilename(filePath_.ToString());
+		title = filePath_.GetFilename();
 	}
 
 	return true;
