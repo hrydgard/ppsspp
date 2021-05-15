@@ -527,7 +527,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	bool showLog = true;
 #endif
 
-	const Path exePath = Path(File::GetExeDirectory());
+	const Path &exePath = File::GetExeDirectory();
 	VFSRegister("", new DirectoryAssetReader(exePath / "assets"));
 	VFSRegister("", new DirectoryAssetReader(exePath));
 

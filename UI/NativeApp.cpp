@@ -466,8 +466,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
-	VFSRegister("", new DirectoryAssetReader(Path(File::GetExeDirectory()) / "assets"));
-	VFSRegister("", new DirectoryAssetReader(Path(File::GetExeDirectory())));
+	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory() / "assets"));
+	VFSRegister("", new DirectoryAssetReader(File::GetExeDirectory()));
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/ppsspp/assets")));
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/local/share/games/ppsspp/assets")));
 	VFSRegister("", new DirectoryAssetReader(Path("/usr/share/ppsspp/assets")));
@@ -526,7 +526,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		config = "./config";
 
 	g_Config.memStickDirectory = Path(config) / "ppsspp";
-	g_Config.flash0Directory = Path(File::GetExeDirectory()) / "assets/flash0";
+	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {

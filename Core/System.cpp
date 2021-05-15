@@ -627,7 +627,7 @@ void InitSysDirectories() {
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
-	const Path path = Path(File::GetExeDirectory());
+	const Path &path = File::GetExeDirectory();
 
 	// Mount a filesystem
 	g_Config.flash0Directory = path / "assets/flash0";

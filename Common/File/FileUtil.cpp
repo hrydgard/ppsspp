@@ -731,21 +731,17 @@ void OpenFileInEditor(const Path &fileName) {
 #endif
 }
 
-const std::string &GetExeDirectory() {
-	static std::string ExePath;
+const Path &GetExeDirectory() {
+	static Path ExePath;
 
 	if (ExePath.empty()) {
 #ifdef _WIN32
-#ifdef UNICODE
 		std::wstring program_path;
-#else
-		std::string program_path;
-#endif
 		size_t sz;
 		do {
 			program_path.resize(program_path.size() + MAX_PATH);
 			// On failure, this will return the same value as passed in, but success will always be one lower.
-			sz = GetModuleFileName(nullptr, &program_path[0], (DWORD)program_path.size());
+			sz = GetModuleFileNameW(nullptr, &program_path[0], (DWORD)program_path.size());
 		} while (sz >= program_path.size());
 
 		const wchar_t *last_slash = wcsrchr(&program_path[0], '\\');
@@ -753,11 +749,7 @@ const std::string &GetExeDirectory() {
 			program_path.resize(last_slash - &program_path[0] + 1);
 		else
 			program_path.resize(sz);
-#ifdef UNICODE
-		ExePath = ConvertWStringToUTF8(program_path);
-#else
-		ExePath = program_path;
-#endif
+		ExePath = Path(program_path);
 
 #elif (defined(__APPLE__) && !PPSSPP_PLATFORM(IOS)) || defined(__linux__) || defined(KERN_PROC_PATHNAME)
 		char program_path[4096];
@@ -789,9 +781,9 @@ const std::string &GetExeDirectory() {
 		{
 			program_path[sizeof(program_path) - 1] = '\0';
 			char *last_slash = strrchr(program_path, '/');
-			if (last_slash != NULL)
-				*(last_slash + 1) = '\0';
-			ExePath = program_path;
+			if (last_slash != nullptr)
+				*last_slash = '\0';
+			ExePath = Path(program_path);
 		}
 #endif
 	}

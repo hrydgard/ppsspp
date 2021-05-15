@@ -76,7 +76,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
-	const Path exePath = Path(File::GetExeDirectory());
+	const Path &exePath = File::GetExeDirectory();
 	VFSRegister("", new DirectoryAssetReader(exePath / "Content"));
 	VFSRegister("", new DirectoryAssetReader(exePath));
 

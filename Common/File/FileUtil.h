@@ -100,7 +100,7 @@ bool CreateEmptyFile(const Path &filename);
 void OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
-const std::string &GetExeDirectory();
+const Path &GetExeDirectory();
 
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
