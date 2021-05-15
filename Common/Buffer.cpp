@@ -3,6 +3,8 @@
 #include <cstring>
 
 #include "Common/Buffer.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/Log.h"
 
 Buffer::Buffer() { }
@@ -115,8 +117,8 @@ void Buffer::Printf(const char *fmt, ...) {
 	memcpy(ptr, buffer, retval);
 }
 
-bool Buffer::FlushToFile(const char *filename) {
-	FILE *f = fopen(filename, "wb");
+bool Buffer::FlushToFile(const Path &filename) {
+	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return false;
 	if (data_.size()) {

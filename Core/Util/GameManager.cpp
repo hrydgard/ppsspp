@@ -52,15 +52,15 @@ GameManager g_GameManager;
 GameManager::GameManager() {
 }
 
-std::string GameManager::GetTempFilename() const {
+Path GameManager::GetTempFilename() const {
 #ifdef _WIN32
 	wchar_t tempPath[MAX_PATH];
 	GetTempPath(MAX_PATH, tempPath);
 	wchar_t buffer[MAX_PATH];
 	GetTempFileName(tempPath, L"PSP", 1, buffer);
-	return ConvertWStringToUTF8(buffer);
+	return Path(buffer);
 #else
-	return (g_Config.memStickDirectory / "ppsspp.dl").ToString();
+	return g_Config.memStickDirectory / "ppsspp.dl";
 #endif
 }
 
@@ -79,7 +79,7 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 		return false;
 	}
 
-	std::string filename = GetTempFilename();
+	Path filename = GetTempFilename();
 	curDownload_ = g_DownloadManager.StartDownload(storeFileUrl, filename);
 	return true;
 }
@@ -580,7 +580,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	installInProgress_ = false;
 	installError_ = "";
 	if (deleteAfter) {
-		File::Delete(Path(zipfile));
+		File::Delete(zipfile);
 	}
 	InstallDone();
 	return true;

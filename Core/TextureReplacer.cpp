@@ -696,7 +696,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
 
-	FILE *fp = File::OpenCFile(Path(info.file), "rb");
+	FILE *fp = File::OpenCFile(info.file, "rb");
 	if (!png_image_begin_read_from_stdio(&png, fp)) {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
 		return;
@@ -733,7 +733,7 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFile
 	if (gameID.empty())
 		return false;
 
-	Path texturesDirectory = Path(GetSysDirectory(DIRECTORY_TEXTURES)) / gameID;
+	Path texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) / gameID;
 	if (!File::Exists(texturesDirectory)) {
 		File::CreateFullPath(texturesDirectory);
 	}

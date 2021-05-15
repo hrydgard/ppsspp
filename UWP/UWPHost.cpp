@@ -121,36 +121,27 @@ void UWPHost::BootDone() {
 	Core_EnableStepping(false);
 }
 
-static Path SymbolMapFilename(const char *currentFilename, const char *ext) {
+static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	File::FileInfo info;
-
-	std::string result = currentFilename;
-
 	// can't fail, definitely exists if it gets this far
-	File::GetFileInfo(Path(currentFilename), &info);
+	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
-		return Path(result) / (std::string(".ppsspp-symbols") + ext);
-	} else {
-		size_t dot = result.rfind('.');
-		if (dot == result.npos)
-			return Path(result + ext);
-
-		result.replace(dot, result.npos, ext);
-		return Path(result);
+		return currentFilename / (std::string(".ppsspp-symbols") + ext);
 	}
+	return currentFilename.WithReplacedExtension(ext);
 }
 
 bool UWPHost::AttemptLoadSymbolMap() {
-	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap"));
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 	// Load the old-style map file.
 	if (!result1)
-		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".map"));
-	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".sym"));
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".map"));
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".sym"));
 	return result1 || result2;
 }
 
 void UWPHost::SaveSymbolMap() {
-	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(), ".ppmap"));
+	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 }
 
 void UWPHost::NotifySymbolMapUpdated() {

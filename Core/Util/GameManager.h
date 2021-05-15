@@ -85,7 +85,7 @@ private:
 	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
 	void SetInstallError(const std::string &err);
 
-	std::string GetTempFilename() const;
+	Path GetTempFilename() const;
 	std::string GetGameID(const Path &path) const;
 	std::string GetPBPGameID(FileLoader *loader) const;
 	std::string GetISOGameID(FileLoader *loader) const;

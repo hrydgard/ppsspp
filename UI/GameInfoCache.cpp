@@ -62,7 +62,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_ISO_NP:
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
-			Path fileToRemove = Path(filePath_);
+			Path fileToRemove = filePath_;
 			File::Delete(fileToRemove);
 			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
@@ -134,7 +134,7 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() {
 	}
 	for (size_t i = 0; i < dirs.size(); i++) {
 		if (startsWith(dirs[i].name, id)) {
-			directories.push_back(Path(dirs[i].fullName));
+			directories.push_back(dirs[i].fullName);
 		}
 	}
 
@@ -155,7 +155,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::GetFileInfo(Path(fileInfo[i].fullName), &finfo);
+			File::GetFileInfo(fileInfo[i].fullName, &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -182,7 +182,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 		// Note: GetFilesInDir does not fill in fileSize properly.
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			File::FileInfo finfo;
-			File::GetFileInfo(Path(fileInfo[i].fullName), &finfo);
+			File::GetFileInfo(fileInfo[i].fullName, &finfo);
 			if (!finfo.isDirectory)
 				filesSizeInDir += finfo.size;
 		}
@@ -206,7 +206,7 @@ bool GameInfo::LoadFromPath(const Path &gamePath) {
 		filePath_ = gamePath;
 
 		// This is a fallback title, while we're loading / if unable to load.
-		title = File::GetFilename(filePath_.ToString());
+		title = filePath_.GetFilename();
 	}
 
 	return true;
@@ -235,7 +235,7 @@ bool GameInfo::DeleteAllSaveData() {
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
 
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			File::Delete(Path(fileInfo[i].fullName));
+			File::Delete(fileInfo[i].fullName);
 		}
 
 		File::DeleteDir(saveDataDir[j]);
@@ -486,14 +486,14 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
-			info_->SetTitle(SaveState::GetTitle(gamePath_.ToString()));
+			info_->SetTitle(SaveState::GetTitle(gamePath_));
 
 			std::lock_guard<std::mutex> guard(info_->lock);
 
 			// Let's use the screenshot as an icon, too.
-			Path screenshotPath = gamePath_.WithReplacedExtension("ppst", "jpg");
+			Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
-				if (File::ReadFileToString(false, Path(screenshotPath), info_->icon.data)) {
+				if (File::ReadFileToString(false, screenshotPath, info_->icon.data)) {
 					info_->icon.dataLoaded = true;
 				} else {
 					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());

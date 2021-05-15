@@ -209,9 +209,9 @@ bool PathBrowser::IsListingReady() {
 }
 
 std::string PathBrowser::GetFriendlyPath() const {
-	std::string str = GetPath().ToString();
+	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
-	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
+	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString();
 
 	if (startsWith(str, root)) {
 		return std::string("ms:/") + str.substr(root.size());
@@ -258,7 +258,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 		fileInfo = ApplyFilter(pendingFiles_, filter);
 		return true;
 	} else {
-		File::GetFilesInDir(Path(path_), &fileInfo, filter);
+		File::GetFilesInDir(path_, &fileInfo, filter);
 		return true;
 	}
 }

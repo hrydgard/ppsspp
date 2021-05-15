@@ -42,24 +42,24 @@ namespace SaveState
 
 	// Cycle through the 5 savestate slots
 	void NextSlot();
-	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
-	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
-	bool UndoSaveSlot(const std::string &gameFilename, int slot);
+	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	bool UndoSaveSlot(const Path &gameFilename, int slot);
 	// Checks whether there's an existing save in the specified slot.
-	bool HasSaveInSlot(const std::string &gameFilename, int slot);
-	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot);
-	bool HasScreenshotInSlot(const std::string &gameFilename, int slot);
+	bool HasSaveInSlot(const Path &gameFilename, int slot);
+	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);
+	bool HasScreenshotInSlot(const Path &gameFilename, int slot);
 
 	int GetCurrentSlot();
 
 	// Returns -1 if there's no oldest/newest slot.
-	int GetNewestSlot(const std::string &gameFilename);
-	int GetOldestSlot(const std::string &gameFilename);
+	int GetNewestSlot(const Path &gameFilename);
+	int GetOldestSlot(const Path &gameFilename);
 	
-	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
-	Path GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
+	std::string GetSlotDateAsString(const Path &gameFilename, int slot);
+	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension);
 
-	std::string GetTitle(const std::string &filename);
+	std::string GetTitle(const Path &filename);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.

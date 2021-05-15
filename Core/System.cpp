@@ -206,7 +206,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 
 	// Fall back to using the filename.
-	std::string filename = File::GetFilename(path.ToString());
+	std::string filename = path.GetFilename();
 	// Could be more discerning, but hey..
 	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
 		*id = filename.substr(0, 9);
@@ -676,7 +676,7 @@ void InitSysDirectories() {
 		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
 
-	Path testFile = Path(g_Config.memStickDirectory) / "_writable_test.$$$";
+	Path testFile = g_Config.memStickDirectory / "_writable_test.$$$";
 
 	// If any directory is read-only, fall back to the Documents directory.
 	// We're screwed anyway if we can't write to Documents, or can't detect it.

@@ -578,14 +578,6 @@ std::string GetDir(const std::string &path) {
 	return cutpath;
 }
 
-std::string GetFilename(std::string path) {
-	size_t off = GetDir(path).size() + 1;
-	if (off < path.size())
-		return path.substr(off);
-	else
-		return path;
-}
-
 std::string GetFileExtension(const std::string & fn) {
 	size_t pos = fn.rfind(".");
 	if (pos == std::string::npos) {
