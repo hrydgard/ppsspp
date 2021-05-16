@@ -260,7 +260,7 @@ namespace Reporting
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
 		http::Client http;
-		http::RequestProgress progress;
+		http::RequestProgress progress(&pendingMessagesDone);
 		Buffer theVoid = Buffer::Void();
 
 		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
