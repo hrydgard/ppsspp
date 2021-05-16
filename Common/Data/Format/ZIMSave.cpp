@@ -24,7 +24,7 @@ static unsigned int log2i(unsigned int val) {
 }
 
 
-int ezcompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSrc, long nSrcLen) {
+int ezcompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSrc, long nSrcLen, int compressLevel) {
 	z_stream stream;
 	int err;
 
@@ -43,7 +43,7 @@ int ezcompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSrc,
 	stream.zfree = (free_func)0;
 	stream.opaque = (voidpf)0;
 
-	err = deflateInit(&stream, Z_DEFAULT_COMPRESSION);
+	err = deflateInit(&stream, compressLevel);
 	if (err != Z_OK) return err;
 	nExtraChunks = 0;
 	do {
@@ -179,7 +179,7 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	return out;
 }
 
-void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t *image_data) {
+void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t *image_data, int compressLevel) {
 	fwrite(magic, 1, 4, f);
 	fwrite(&width, 1, 4, f);
 	fwrite(&height, 1, 4, f);
@@ -196,7 +196,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 		if (flags & ZIM_ZLIB_COMPRESSED) {
 			long dest_len = data_size * 2;
 			uint8_t *dest = new uint8_t[dest_len];
-			if (Z_OK == ezcompress(dest, &dest_len, data, data_size)) {
+			if (Z_OK == ezcompress(dest, &dest_len, data, data_size, compressLevel == 0 ? Z_DEFAULT_COMPRESSION : compressLevel)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
 				ERROR_LOG(IO, "Zlib compression failed.\n");
@@ -205,7 +205,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 		} else if (flags & ZIM_ZSTD_COMPRESSED) {
 			size_t dest_len = ZSTD_compressBound(data_size);
 			uint8_t *dest = new uint8_t[dest_len];
-			dest_len = ZSTD_compress(dest, dest_len, data, data_size, 22);
+			dest_len = ZSTD_compress(dest, dest_len, data, data_size, compressLevel == 0 ? 22 : compressLevel);
 			if (!ZSTD_isError(dest_len)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
