@@ -397,6 +397,10 @@ int StartGameModeScheduler(int bufSize) {
 
 int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	if (sock->flags & ADHOC_F_ALERTRECV) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTRECV;
@@ -495,6 +499,10 @@ int DoBlockingPdpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& pdpsocket = sock->data.pdp;
 	if (sock->flags & ADHOC_F_ALERTSEND) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -544,6 +552,10 @@ int DoBlockingPdpSend(int uid, AdhocSocketRequest& req, s64& result, AdhocSendTa
 
 int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTSEND) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -593,6 +605,10 @@ int DoBlockingPtpSend(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTRECV) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -645,6 +661,10 @@ int DoBlockingPtpRecv(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTACCEPT) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -691,6 +711,10 @@ int DoBlockingPtpAccept(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTCONNECT) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -742,6 +766,10 @@ int DoBlockingPtpConnect(int uid, AdhocSocketRequest& req, s64& result) {
 
 int DoBlockingPtpFlush(int uid, AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
+	if (!sock) {
+		result = ERROR_NET_ADHOC_SOCKET_DELETED;
+		return 0;
+	}
 	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTFLUSH) {
 		result = ERROR_NET_ADHOC_SOCKET_ALERTED;
@@ -1835,6 +1863,9 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 		// Fill in Socket ID
 		if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 			auto sock = adhocSockets[sds[i].id - 1];
+			if (!sock) {
+				return ERROR_NET_ADHOC_SOCKET_DELETED;
+			}
 			if (sock->type == SOCK_PTP) {
 				fd = sock->data.ptp.id;
 			}
