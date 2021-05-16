@@ -60,9 +60,6 @@
     <ClCompile Include="zstd\lib\decompress\zstd_decompress.c" />
     <ClCompile Include="zstd\lib\decompress\zstd_decompress_block.c" />
     <ClCompile Include="zstd\lib\decompress\zstd_ddict.c" />
-    <ClCompile Include="zstd\lib\deprecated\zbuff_common.c" />
-    <ClCompile Include="zstd\lib\deprecated\zbuff_compress.c" />
-    <ClCompile Include="zstd\lib\deprecated\zbuff_decompress.c" />
     <ClCompile Include="zstd\lib\dictBuilder\cover.c" />
     <ClCompile Include="zstd\lib\dictBuilder\fastcover.c" />
     <ClCompile Include="zstd\lib\dictBuilder\divsufsort.c" />
@@ -80,12 +77,11 @@
     <ClInclude Include="zstd\lib\common\threading.h" />
     <ClInclude Include="zstd\lib\common\bitstream.h" />
     <ClInclude Include="zstd\lib\common\error_private.h" />
-    <ClInclude Include="zstd\lib\common\zstd_errors.h" />
+    <ClInclude Include="zstd\lib\zstd_errors.h" />
     <ClInclude Include="zstd\lib\common\mem.h" />
     <ClInclude Include="zstd\lib\common\fse.h" />
     <ClInclude Include="zstd\lib\common\huf.h" />
     <ClInclude Include="zstd\lib\common\xxhash.h" />
-    <ClInclude Include="zstd\lib\deprecated\zbuff.h" />
     <ClInclude Include="zstd\lib\legacy\zstd_legacy.h" />
     <ClInclude Include="zstd\lib\legacy\zstd_v01.h" />
     <ClInclude Include="zstd\lib\legacy\zstd_v02.h" />

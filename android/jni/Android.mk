@@ -596,7 +596,6 @@ LIBZSTD_FILES := \
   $(SRC)/ext/zstd/lib/common/threading.c \
   $(SRC)/ext/zstd/lib/common/xxhash.c \
   $(SRC)/ext/zstd/lib/common/zstd_common.c \
-  $(SRC)/ext/zstd/lib/common/zstd_trace.c \
   $(SRC)/ext/zstd/lib/compress/fse_compress.c \
   $(SRC)/ext/zstd/lib/compress/hist.c \
   $(SRC)/ext/zstd/lib/compress/huf_compress.c \
