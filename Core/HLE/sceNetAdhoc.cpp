@@ -7261,7 +7261,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				}
 				else if (recvresult == 0 && rxbuflen > 0) {
 					WARN_LOG(SCENET, "InputLoop[%d]: Unknown Port[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
-					host->NotifyUserMessage(std::string(n->T("Data from incorrect Port")) + std::string(" [") + mac2str(&sendermac) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port), 1.0, 0x0080ff);
+					host->NotifyUserMessage(std::string(n->T("Data from incorrect Port")) + std::string(" [") + mac2str(&sendermac) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 1.0, 0x0080ff);
 				}
 
 				// Handle Peer Timeouts
