@@ -456,7 +456,10 @@ bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
 		fseek(fp, 4, SEEK_SET);
 		fread(&level.w, 1, 4, fp);
 		fread(&level.h, 1, 4, fp);
-		good = true;
+		int flags;
+		if (fread(&flags, 1, 4, fp) == 4) {
+			good = (flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
+		}
 	} else if (imageType == ReplacedImageType::PNG) {
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
