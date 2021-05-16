@@ -341,7 +341,7 @@ static void PostLoadConfig() {
 void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
-	INFO_LOG(IO, "Creating %s", (g_Config.memStickDirectory / "PSP").c_str());
+	INFO_LOG(IO, "Creating %s and subdirs:", (g_Config.memStickDirectory / "PSP").c_str());
 	File::CreateFullPath(g_Config.memStickDirectory / "PSP");
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
@@ -483,17 +483,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	g_Config.externalDirectory = Path(external_dir);
-#if PPSSPP_PLATFORM(ANDROID)
-	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		g_Config.externalDirectory = Path(g_extFilesDir);
-	}
-#endif
-
 	g_Config.defaultCurrentDirectory = Path("/");
 	g_Config.internalDataDirectory = Path(savegame_dir);
 
 #if PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
+		g_Config.externalDirectory = Path(g_extFilesDir);
+	} else {
+		g_Config.externalDirectory = Path(external_dir);
+	}
 
 	// TODO: This needs to change in Android 12.
 	//
@@ -507,13 +505,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		std::string memstickDir;
-		File::ReadFileToString(true, memstickDirFile, memstickDir);
-		Path memstickPath(memstickDir);
-		if (!memstickPath.empty() && File::Exists(memstickPath)) {
-			g_Config.memStickDirectory = memstickPath;
-			INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: %s", g_Config.memStickDirectory.c_str());
-		} else {
-			ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+
+			Path memstickPath(memstickDir);
+			if (!memstickPath.empty() && File::Exists(memstickPath)) {
+				g_Config.memStickDirectory = memstickPath;
+				INFO_LOG(SYSTEM, "Memstick Directory from memstick_dir.txt: %s", g_Config.memStickDirectory.c_str());
+			} else {
+				ERROR_LOG(SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+			}
 		}
 	} else {
 		INFO_LOG(SYSTEM, "No memstick directory file found. Using '%s'", memstickDirFile.c_str());

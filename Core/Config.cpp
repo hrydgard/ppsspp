@@ -1249,7 +1249,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 
-	bool debugDefaults = false;
+	bool debugDefaults = true;
 #ifdef _DEBUG
 	debugDefaults = true;
 #endif

@@ -233,49 +233,28 @@ std::string ResolvePath(const std::string &path) {
 #endif
 }
 
-// Remove any ending forward slashes from directory paths
-// Modifies argument.
-static void StripTailDirSlashes(std::string &fname) {
-	if (fname.length() > 1) {
-		size_t i = fname.length() - 1;
-#if PPSSPP_PLATFORM(WINDOWS)
-		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
-			return;
-#endif
-		while (strchr(DIR_SEP_CHRS, fname[i]))
-			fname[i--] = '\0';
-	}
-	return;
-}
-
 // Returns true if file filename exists. Will return true on directories.
 bool ExistsInDir(const Path &path, const std::string &filename) {
 	return Exists(path / filename);
 }
 
-bool Exists(const std::string &filename) {
-	if (Android_IsContentUri(filename)) {
+bool Exists(const Path &path) {
+	if (path.Type() == PathType::CONTENT_URI) {
 		FileInfo info;
-		if (!Android_GetFileInfo(filename, &info)) {
+		if (!Android_GetFileInfo(path.c_str(), &info)) {
 			return false;
 		}
 		return info.exists;
 	}
 
-	std::string fn = filename;
-
-	// TODO: Remove.
-	StripTailDirSlashes(fn);
-
 #if defined(_WIN32)
-	std::wstring copy = ConvertUTF8ToWString(fn);
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
 #if !PPSSPP_PLATFORM(UWP)
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
 	WIN32_FILE_ATTRIBUTE_DATA data{};
-	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		return false;
 	}
 #if !PPSSPP_PLATFORM(UWP)
@@ -284,13 +263,8 @@ bool Exists(const std::string &filename) {
 	return true;
 #else
 	struct stat file_info;
-	return stat(fn.c_str(), &file_info) == 0;
+	return stat(path.c_str(), &file_info) == 0;
 #endif
-}
-
-bool Exists(const Path &path) {
-	// Temporary forward.
-	return Exists(path.ToString());
 }
 
 // Returns true if filename exists and is a directory
@@ -310,27 +284,23 @@ bool IsDirectory(const Path &filename) {
 		return false;
 	}
 
-	std::string fn = filename.ToString();
-	StripTailDirSlashes(fn);
-
 #if defined(_WIN32)
-	std::wstring copy = ConvertUTF8ToWString(fn);
 	WIN32_FILE_ATTRIBUTE_DATA data{};
-	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		auto err = GetLastError();
 		if (err != ERROR_FILE_NOT_FOUND) {
-			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", fn.c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
 		}
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
-	std::string copy(fn);
+	std::string copy = filename.ToString();
 	struct stat file_info;
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
-		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", fn.c_str(), GetLastErrorMsg().c_str());
+		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	return S_ISDIR(file_info.st_mode);
@@ -398,6 +368,7 @@ bool CreateDir(const Path &path) {
 			return Android_CreateDirectory(uri.ToString(), newDirName);
 		} else {
 			// Bad path - can't create this directory.
+			WARN_LOG(COMMON, "CreateDir failed: '%s'", path.c_str());
 			return false;
 		}
 		break;
@@ -406,58 +377,54 @@ bool CreateDir(const Path &path) {
 		return false;
 	}
 
-	std::string fn = path.ToString();
-	StripTailDirSlashes(fn);
-	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
+	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
 #ifdef _WIN32
-	if (::CreateDirectory(ConvertUTF8ToWString(fn).c_str(), NULL))
+	if (::CreateDirectory(path.ToWString().c_str(), NULL))
 		return true;
 	DWORD error = GetLastError();
-	if (error == ERROR_ALREADY_EXISTS)
-	{
+	if (error == ERROR_ALREADY_EXISTS) {
 		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
 	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
 	return false;
 #else
-	if (mkdir(fn.c_str(), 0755) == 0)
-		return true;
-
-	int err = errno;
-	if (err == EEXIST)
-	{
-		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fn.c_str());
+	if (mkdir(path.ToString().c_str(), 0755) == 0) {
 		return true;
 	}
 
-	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", fn.c_str(), strerror(err));
+	int err = errno;
+	if (err == EEXIST) {
+		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		return true;
+	}
+
+	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
 	return false;
 #endif
 }
 
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
+	if (File::Exists(path)) {
+		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", path.c_str());
+		return true;
+	}
+
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		ERROR_LOG(COMMON, "CreateFullPath(%s): Not supported", path.c_str());
+		ERROR_LOG(COMMON, "CreateFullPath(%s): Not yet supported", path.c_str());
 		return false;
 	default:
 		return false;
 	}
 
 	std::string fullPath = path.ToString();
-	StripTailDirSlashes(fullPath);
 	int panicCounter = 100;
 	VERBOSE_LOG(COMMON, "CreateFullPath: '%s'", fullPath.c_str());
 		
-	if (File::Exists(fullPath)) {
-		DEBUG_LOG(COMMON, "CreateFullPath: path already exists: '%s'", fullPath.c_str());
-		return true;
-	}
-
 	size_t position = 0;
 
 #ifdef _WIN32
@@ -472,12 +439,12 @@ bool CreateFullPath(const Path &path) {
 		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
 		// we're done, yay!
 		if (position == fullPath.npos) {
-			if (!File::Exists(fullPath))
+			if (!File::Exists(Path(fullPath)))
 				return File::CreateDir(Path(fullPath));
 			return true;
 		}
 		std::string subPath = fullPath.substr(0, position);
-		if (position != 0 && !File::Exists(subPath)) {
+		if (position != 0 && !File::Exists(Path(subPath))) {
 			File::CreateDir(Path(subPath));
 		}
 
