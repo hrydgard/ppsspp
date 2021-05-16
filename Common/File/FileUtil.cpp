@@ -105,6 +105,8 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
 			if (descriptor == -1) {
+				// Set last error message?
+				// We're gonna need some error codes..
 				return nullptr;
 			}
 			return fdopen(descriptor, "rb");
@@ -123,6 +125,25 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 #else
 	return fopen(path.c_str(), mode);
 #endif
+}
+
+int OpenFD(const Path &path, OpenFlag flags) {
+	switch (path.Type()) {
+	case PathType::CONTENT_URI:
+		break;
+	default:
+		// Not yet supported.
+		return -1;
+	}
+
+	if (flags != OPEN_READ) {
+		// TODO
+		ERROR_LOG(COMMON, "Modes other than plain OPEN_READ not yet supported");
+		return -1;
+	}
+
+	int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
+	return descriptor;
 }
 
 #ifdef _WIN32
@@ -721,7 +742,7 @@ bool CreateEmptyFile(const Path &filename) {
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
-		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+		ERROR_LOG(COMMON, "CreateEmptyFile: failed to create '%s': %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	fclose(pFile);

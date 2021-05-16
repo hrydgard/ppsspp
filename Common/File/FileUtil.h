@@ -42,6 +42,21 @@ namespace File {
 // Mostly to handle UTF-8 filenames better on Windows.
 FILE *OpenCFile(const Path &filename, const char *mode);
 
+// Reminiscent of PSP's FileAccess enum, due to its use in emulating it.
+enum OpenFlag {
+	OPEN_NONE = 0,
+	OPEN_READ = 1,
+	OPEN_WRITE = 2,
+	OPEN_APPEND = 4,
+	OPEN_CREATE = 8,
+	OPEN_TRUNCATE = 16,
+	// EXCL?
+};
+
+// TODO: This currently only handles Android Content URIs, but might port the rest
+// of DirectoryFileSystem::Open here eventually for symmetry.
+int OpenFD(const Path &filename, OpenFlag flags);
+
 // Resolves symlinks and similar.
 std::string ResolvePath(const std::string &path);
 
