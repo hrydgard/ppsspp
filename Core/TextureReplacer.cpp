@@ -17,12 +17,15 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
+#include <cstring>
+#include <memory>
 #include <png.h>
 
 #include "ext/xxhash.h"
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
@@ -31,6 +34,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/TextureReplacer.h"
+#include "Core/ThreadPools.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/Common/TextureDecoder.h"
 
@@ -397,25 +401,14 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 			break;
 		}
 
-		bool good = false;
 		ReplacedTextureLevel level;
 		level.fmt = ReplacedTextureFormat::F_8888;
 		level.file = filename;
+		bool good = PopulateLevel(level);
 
-		png_image png = {};
-		png.version = PNG_IMAGE_VERSION;
-		FILE *fp = File::OpenCFile(filename, "rb");
-		if (png_image_begin_read_from_stdio(&png, fp)) {
-			// We pad files that have been hashrange'd so they are the same texture size.
-			level.w = (png.width * w) / newW;
-			level.h = (png.height * h) / newH;
-			good = true;
-		} else {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", filename.c_str(), png.message);
-		}
-		fclose(fp);
-
-		png_image_free(&png);
+		// We pad files that have been hashrange'd so they are the same texture size.
+		level.w = (level.w * w) / newW;
+		level.h = (level.h * h) / newH;
 
 		if (good && i != 0) {
 			// Check that the mipmap size is correct.  Can't load mips of the wrong size.
@@ -433,6 +426,55 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	}
 
 	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+}
+
+enum class ReplacedImageType {
+	PNG,
+	ZIM,
+	INVALID,
+};
+
+static ReplacedImageType Identify(FILE *fp) {
+	uint8_t magic[4];
+	if (fread(magic, 1, 4, fp) != 4)
+		return ReplacedImageType::INVALID;
+	rewind(fp);
+
+	if (strncmp((const char *)magic, "ZIMG", 4) == 0)
+		return ReplacedImageType::ZIM;
+	if (magic[0] == 0x89 && strncmp((const char *)&magic[1], "PNG", 3) == 0)
+		return ReplacedImageType::PNG;
+	return ReplacedImageType::INVALID;
+}
+
+bool TextureReplacer::PopulateLevel(ReplacedTextureLevel &level) {
+	bool good = false;
+
+	FILE *fp = File::OpenCFile(level.file, "rb");
+	auto imageType = Identify(fp);
+	if (imageType == ReplacedImageType::ZIM) {
+		fseek(fp, 4, SEEK_SET);
+		fread(&level.w, 1, 4, fp);
+		fread(&level.h, 1, 4, fp);
+		good = true;
+	} else if (imageType == ReplacedImageType::PNG) {
+		png_image png = {};
+		png.version = PNG_IMAGE_VERSION;
+		if (png_image_begin_read_from_stdio(&png, fp)) {
+			// We pad files that have been hashrange'd so they are the same texture size.
+			level.w = png.width;
+			level.h = png.height;
+			good = true;
+		} else {
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", level.file.ToVisualString().c_str(), png.message);
+		}
+		png_image_free(&png);
+	} else {
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format", level.file.ToVisualString().c_str());
+	}
+	fclose(fp);
+
+	return good;
 }
 
 static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
@@ -693,40 +735,64 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	const ReplacedTextureLevel &info = levels_[level];
 
-	png_image png = {};
-	png.version = PNG_IMAGE_VERSION;
-
 	FILE *fp = File::OpenCFile(info.file, "rb");
-	if (!png_image_begin_read_from_stdio(&png, fp)) {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
-		return;
-	}
+	auto imageType = Identify(fp);
+	if (imageType == ReplacedImageType::ZIM) {
+		size_t zimSize = File::GetFileSize(fp);
+		std::unique_ptr<uint8_t[]> zim(new uint8_t[zimSize]);
+		fread(&zim[0], 1, zimSize, fp);
 
-	bool checkedAlpha = false;
-	if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
-		// Well, we know for sure it doesn't have alpha.
-		if (level == 0) {
-			alphaStatus_ = ReplacedTextureAlpha::FULL;
+		int w, h, f;
+		uint8_t *image;
+		if (LoadZIMPtr(&zim[0], zimSize, &w, &h, &f, &image)) {
+			GlobalThreadPool::Loop([&](int low, int high) {
+				for (int y = low; y < high; ++y) {
+					memcpy((uint8_t *)out + rowPitch * y, image + w * 4 * y, w * 4);
+				}
+			}, 0, h);
+			free(image);
 		}
-		checkedAlpha = true;
-	}
-	png.format = PNG_FORMAT_RGBA;
 
-	if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
-		ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
-		return;
-	}
-
-	if (!checkedAlpha) {
 		// This will only check the hashed bits.
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), w, h);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
+		}
+	} else if (imageType == ReplacedImageType::PNG) {
+		png_image png = {};
+		png.version = PNG_IMAGE_VERSION;
+
+		if (!png_image_begin_read_from_stdio(&png, fp)) {
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
+			return;
+		}
+
+		bool checkedAlpha = false;
+		if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
+			// Well, we know for sure it doesn't have alpha.
+			if (level == 0) {
+				alphaStatus_ = ReplacedTextureAlpha::FULL;
+			}
+			checkedAlpha = true;
+		}
+		png.format = PNG_FORMAT_RGBA;
+
+		if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
+			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
+			return;
+		}
+		png_image_free(&png);
+
+		if (!checkedAlpha) {
+			// This will only check the hashed bits.
+			CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
+			if (res == CHECKALPHA_ANY || level == 0) {
+				alphaStatus_ = ReplacedTextureAlpha(res);
+			}
 		}
 	}
 
 	fclose(fp);
-	png_image_free(&png);
 }
 
 bool TextureReplacer::GenerateIni(const std::string &gameID, Path &generatedFilename) {
