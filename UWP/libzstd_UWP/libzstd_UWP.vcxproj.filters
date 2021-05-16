@@ -42,7 +42,7 @@
     <ClInclude Include="..\..\ext\zstd\lib\common\pool.h" />
     <ClInclude Include="..\..\ext\zstd\lib\common\threading.h" />
     <ClInclude Include="..\..\ext\zstd\lib\common\xxhash.h" />
-    <ClInclude Include="..\..\ext\zstd\lib\common\zstd_errors.h" />
+    <ClInclude Include="..\..\ext\zstd\lib\zstd_errors.h" />
     <ClInclude Include="..\..\ext\zstd\lib\common\zstd_internal.h" />
     <ClInclude Include="..\..\ext\zstd\lib\zstd.h" />
     <ClInclude Include="..\..\ext\zstd\lib\compress\zstd_compress.h" />

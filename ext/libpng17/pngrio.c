@@ -1,8 +1,8 @@
 
 /* pngrio.c - functions for data input
  *
- * Last changed in libpng 1.6.9 [February 6, 2014]
- * Copyright (c) 1998-2014 Glenn Randers-Pehrson
+ * Last changed in libpng 1.7.0 [(PENDING RELEASE)]
+ * Copyright (c) 1998-2002,2004,2006-2016 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
  *
@@ -19,6 +19,7 @@
  */
 
 #include "pngpriv.h"
+#define PNG_SRC_FILE PNG_SRC_FILE_pngrio
 
 #ifdef PNG_READ_SUPPORTED
 
@@ -26,18 +27,23 @@
  * reads from a file pointer.  Note that this routine sometimes gets called
  * with very small lengths, so you should implement some kind of simple
  * buffering if you are using unbuffered reads.  This should never be asked
- * to read more then 64K on a 16 bit machine.
+ * to read more than 64K on a 16 bit machine.
  */
 void /* PRIVATE */
-png_read_data(png_structrp png_ptr, png_bytep data, png_size_t length)
+png_read_data(png_structrp png_ptr, png_voidp data, png_size_t length)
 {
    png_debug1(4, "reading %d bytes", (int)length);
 
-   if (png_ptr->read_data_fn != NULL)
-      (*(png_ptr->read_data_fn))(png_ptr, data, length);
+   /* This was guaranteed by prior versions of libpng, so app callbacks may
+    * assume it even though it isn't documented to be the case.
+    */
+   debug(length > 0U);
+
+   if (png_ptr->rw_data_fn != NULL)
+      png_ptr->rw_data_fn(png_ptr, png_voidcast(png_bytep,data), length);
 
    else
-      png_error(png_ptr, "Call to NULL read function");
+      png_app_error(png_ptr, "No read function");
 }
 
 #ifdef PNG_STDIO_SUPPORTED
@@ -62,7 +68,7 @@ png_default_read_data(png_structp png_ptr, png_bytep data, png_size_t length)
    if (check != length)
       png_error(png_ptr, "Read Error");
 }
-#endif
+#endif /* STDIO */
 
 /* This function allows the application to supply a new input function
  * for libpng if standard C streams aren't being used.
@@ -85,36 +91,24 @@ png_default_read_data(png_structp png_ptr, png_bytep data, png_size_t length)
  */
 void PNGAPI
 png_set_read_fn(png_structrp png_ptr, png_voidp io_ptr,
-   png_rw_ptr read_data_fn)
+    png_rw_ptr read_data_fn)
 {
    if (png_ptr == NULL)
       return;
 
-   png_ptr->io_ptr = io_ptr;
-
-#ifdef PNG_STDIO_SUPPORTED
-   if (read_data_fn != NULL)
-      png_ptr->read_data_fn = read_data_fn;
-
-   else
-      png_ptr->read_data_fn = png_default_read_data;
-#else
-   png_ptr->read_data_fn = read_data_fn;
-#endif
-
-#ifdef PNG_WRITE_SUPPORTED
-   /* It is an error to write to a read device */
-   if (png_ptr->write_data_fn != NULL)
+   if (!png_ptr->read_struct)
    {
-      png_ptr->write_data_fn = NULL;
-      png_warning(png_ptr,
-          "Can't set both read_data_fn and write_data_fn in the"
-          " same structure");
+      png_app_error(png_ptr, "cannot set a read function on a write struct");
+      return;
    }
-#endif
 
-#ifdef PNG_WRITE_FLUSH_SUPPORTED
-   png_ptr->output_flush_fn = NULL;
-#endif
+   if (read_data_fn == NULL)
+   {
+      png_app_error(png_ptr, "API change: png_set_read_fn requires a function");
+      return;
+   }
+
+   png_ptr->io_ptr = io_ptr;
+   png_ptr->rw_data_fn = read_data_fn;
 }
-#endif /* PNG_READ_SUPPORTED */
+#endif /* READ */

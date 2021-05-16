@@ -786,7 +786,6 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
 
 SOURCES_C +=   \
                $(ZSTDDIR)/common/zstd_common.c \
-               $(ZSTDDIR)/common/zstd_trace.c \
                $(ZSTDDIR)/compress/fse_compress.c \
                $(ZSTDDIR)/compress/hist.c \
                $(ZSTDDIR)/compress/huf_compress.c \

@@ -1,18 +1,17 @@
 
 /* pnginfo.h - header file for PNG reference library
  *
- * Copyright (c) 1998-2013 Glenn Randers-Pehrson
+ * Last changed in libpng 1.6.1 [March 28, 2013]
+ * Copyright (c) 1998-2002,2004,2006-2013 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
- *
- * Last changed in libpng 1.6.1 [March 28, 2013]
  *
  * This code is released under the libpng license.
  * For conditions of distribution and use, see the disclaimer
  * and license in png.h
  */
 
- /* png_info is a structure that holds the information in a PNG file so
+/* png_info is a structure that holds the information in a PNG file so
  * that the application can find out the characteristics of the image.
  * If you are reading the file, this structure will tell you what is
  * in the PNG file.  If you are writing the file, fill in the information
@@ -58,24 +57,16 @@ struct png_info_def
    /* The following are necessary for every PNG file */
    png_uint_32 width;  /* width of image in pixels (from IHDR) */
    png_uint_32 height; /* height of image in pixels (from IHDR) */
-   png_uint_32 valid;  /* valid chunk data (see PNG_INFO_ below) */
-   png_size_t rowbytes; /* bytes needed to hold an untransformed row */
+   unsigned int valid;  /* valid chunk data (see PNG_INFO_ in png.h) */
    png_colorp palette;      /* array of color values (valid & PNG_INFO_PLTE) */
-   png_uint_16 num_palette; /* number of color entries in "palette" (PLTE) */
-   png_uint_16 num_trans;   /* number of transparent palette color (tRNS) */
-   png_byte bit_depth;      /* 1, 2, 4, 8, or 16 bits/channel (from IHDR) */
-   png_byte color_type;     /* see PNG_COLOR_TYPE_ below (from IHDR) */
+   unsigned int num_palette:9; /* number of color entries in "palette" (PLTE) */
+   unsigned int num_trans:9;   /* number of transparent palette color (tRNS) */
+   unsigned int bit_depth:6;   /* 1, 2, 4, 8, 16 or 32 bits/channel */
+   unsigned int format:PNG_RF_BITS; /* row format; see png_struct.h */
    /* The following three should have been named *_method not *_type */
    png_byte compression_type; /* must be PNG_COMPRESSION_TYPE_BASE (IHDR) */
    png_byte filter_type;    /* must be PNG_FILTER_TYPE_BASE (from IHDR) */
    png_byte interlace_type; /* One of PNG_INTERLACE_NONE, PNG_INTERLACE_ADAM7 */
-
-   /* The following are set by png_set_IHDR, called from the application on
-    * write, but the are never actually used by the write code.
-    */
-   png_byte channels;       /* number of data channels per pixel (1, 2, 3, 4) */
-   png_byte pixel_depth;    /* number of bits per pixel */
-   png_byte spare_byte;     /* to align the data, and for future use */
 
 #ifdef PNG_READ_SUPPORTED
    /* This is never set during write */
@@ -106,7 +97,6 @@ struct png_info_def
    /* iCCP chunk data. */
    png_charp iccp_name;     /* profile name */
    png_bytep iccp_profile;  /* International Color Consortium profile data */
-   png_uint_32 iccp_proflen;  /* ICC profile data length */
 #endif
 
 #ifdef PNG_TEXT_SUPPORTED
@@ -121,13 +111,14 @@ struct png_info_def
    int num_text; /* number of comments read or comments to write */
    int max_text; /* current size of text array */
    png_textp text; /* array of comments read or comments to write */
-#endif /* PNG_TEXT_SUPPORTED */
+#endif /* TEXT */
 
 #ifdef PNG_tIME_SUPPORTED
    /* The tIME chunk holds the last time the displayed image data was
     * modified.  See the png_time struct for the contents of this struct.
     */
    png_time mod_time;
+   png_byte time_location;
 #endif
 
 #ifdef PNG_sBIT_SUPPORTED
@@ -224,7 +215,7 @@ defined(PNG_READ_BACKGROUND_SUPPORTED)
    /* Storage for unknown chunks that the library doesn't recognize. */
    png_unknown_chunkp unknown_chunks;
 
-   /* The type of this field is limited by the type of 
+   /* The type of this field is limited by the type of
     * png_struct::user_chunk_cache_max, else overflow can occur.
     */
    int                unknown_chunks_num;
