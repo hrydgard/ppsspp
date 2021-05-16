@@ -1,8 +1,8 @@
 
 /* pngwio.c - functions for data output
  *
- * Last changed in libpng 1.6.9 [February 6, 2014]
- * Copyright (c) 1998-2014 Glenn Randers-Pehrson
+ * Last changed in libpng 1.7.0 [(PENDING RELEASE)]
+ * Copyright (c) 1998-2002,2004,2006-2016 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
  *
@@ -19,6 +19,7 @@
  */
 
 #include "pngpriv.h"
+#define PNG_SRC_FILE PNG_SRC_FILE_pngwio
 
 #ifdef PNG_WRITE_SUPPORTED
 
@@ -30,15 +31,24 @@
  */
 
 void /* PRIVATE */
-png_write_data(png_structrp png_ptr, png_const_bytep data, png_size_t length)
+png_write_data(png_structrp png_ptr, png_const_voidp data, png_size_t length)
 {
-   /* NOTE: write_data_fn must not change the buffer! */
-   if (png_ptr->write_data_fn != NULL )
-      (*(png_ptr->write_data_fn))(png_ptr, png_constcast(png_bytep,data),
-         length);
+   /* This was guaranteed by prior versions of libpng, so app callbacks may
+    * assume it even though it isn't documented to be the case.
+    */
+   debug(length > 0U);
+
+   /* NOTE: write_data_fn must not change the buffer!
+    * This cast is required because of the API; changing the type of the
+    * callback would require every app to change the callback and that change
+    * would have to be conditional on the libpng version.
+    */
+   if (png_ptr->rw_data_fn != NULL )
+      png_ptr->rw_data_fn(png_ptr,
+          png_constcast(png_bytep,png_voidcast(png_const_bytep,data)), length);
 
    else
-      png_error(png_ptr, "Call to NULL write function");
+      png_app_error(png_ptr, "No write function");
 }
 
 #ifdef PNG_STDIO_SUPPORTED
@@ -55,36 +65,22 @@ png_default_write_data(png_structp png_ptr, png_bytep data, png_size_t length)
    if (png_ptr == NULL)
       return;
 
-   check = fwrite(data, 1, length, (png_FILE_p)(png_ptr->io_ptr));
+   check = fwrite(data, 1, length, png_voidcast(png_FILE_p, png_ptr->io_ptr));
 
    if (check != length)
       png_error(png_ptr, "Write Error");
 }
 #endif
 
-/* This function is called to output any data pending writing (normally
- * to disk).  After png_flush is called, there should be no data pending
- * writing in any buffers.
- */
 #ifdef PNG_WRITE_FLUSH_SUPPORTED
-void /* PRIVATE */
-png_flush(png_structrp png_ptr)
-{
-   if (png_ptr->output_flush_fn != NULL)
-      (*(png_ptr->output_flush_fn))(png_ptr);
-}
-
 #  ifdef PNG_STDIO_SUPPORTED
 void PNGCBAPI
 png_default_flush(png_structp png_ptr)
 {
-   png_FILE_p io_ptr;
-
    if (png_ptr == NULL)
       return;
 
-   io_ptr = png_voidcast(png_FILE_p, (png_ptr->io_ptr));
-   fflush(io_ptr);
+   fflush(png_voidcast(png_FILE_p, (png_ptr->io_ptr)));
 }
 #  endif
 #endif
@@ -125,44 +121,26 @@ png_set_write_fn(png_structrp png_ptr, png_voidp io_ptr,
    if (png_ptr == NULL)
       return;
 
-   png_ptr->io_ptr = io_ptr;
-
-#ifdef PNG_STDIO_SUPPORTED
-   if (write_data_fn != NULL)
-      png_ptr->write_data_fn = write_data_fn;
-
-   else
-      png_ptr->write_data_fn = png_default_write_data;
-#else
-   png_ptr->write_data_fn = write_data_fn;
-#endif
-
-#ifdef PNG_WRITE_FLUSH_SUPPORTED
-#  ifdef PNG_STDIO_SUPPORTED
-
-   if (output_flush_fn != NULL)
-      png_ptr->output_flush_fn = output_flush_fn;
-
-   else
-      png_ptr->output_flush_fn = png_default_flush;
-
-#  else
-   png_ptr->output_flush_fn = output_flush_fn;
-#  endif
-#else
-   PNG_UNUSED(output_flush_fn)
-#endif /* PNG_WRITE_FLUSH_SUPPORTED */
-
-#ifdef PNG_READ_SUPPORTED
-   /* It is an error to read while writing a png file */
-   if (png_ptr->read_data_fn != NULL)
+   if (png_ptr->read_struct)
    {
-      png_ptr->read_data_fn = NULL;
-
-      png_warning(png_ptr,
-          "Can't set both read_data_fn and write_data_fn in the"
-          " same structure");
+      png_app_error(png_ptr, "cannot set a write function on a read struct");
+      return;
    }
-#endif
+
+   if (write_data_fn == NULL)
+   {
+      png_app_error(png_ptr,
+          "API change: png_set_write_fn requires a function");
+      return;
+   }
+
+   png_ptr->io_ptr = io_ptr;
+   png_ptr->rw_data_fn = write_data_fn;
+#  ifdef PNG_WRITE_FLUSH_SUPPORTED
+      if (output_flush_fn != NULL)
+         png_ptr->output_flush_fn = output_flush_fn;
+#  else
+      PNG_UNUSED(output_flush_fn)
+#  endif /* WRITE_FLUSH */
 }
-#endif /* PNG_WRITE_SUPPORTED */
+#endif /* WRITE */
