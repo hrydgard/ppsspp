@@ -1,4 +1,5 @@
 #include "ppsspp_config.h"
+#include <cstring>
 
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
@@ -117,6 +118,16 @@ std::string Path::GetFileExtension() const {
 
 std::string Path::GetDirectory() const {
 	size_t pos = path_.rfind('/');
+	if (type_ == PathType::HTTP) {
+		// Things are a bit different for HTTP, because we probably ended with /.
+		if (pos + 1 == path_.size()) {
+			pos = path_.rfind('/', pos - 1);
+			if (pos != path_.npos && pos > 8) {
+				return path_.substr(0, pos + 1);
+			}
+		}
+	}
+
 	if (pos != std::string::npos) {
 		if (pos == 0) {
 			return "/";  // We're at the root.
@@ -175,6 +186,13 @@ std::string Path::ToVisualString() const {
 bool Path::CanNavigateUp() const {
 	if (path_ == "/" || path_ == "") {
 		return false;
+	}
+	if (type_ == PathType::HTTP) {
+		size_t rootSlash = path_.find_first_of('/', strlen("https://"));
+		if (rootSlash == path_.npos || path_.size() < rootSlash + 1) {
+			// This means, "http://server" or "http://server/".  Can't go up.
+			return false;
+		}
 	}
 	return true;
 }
