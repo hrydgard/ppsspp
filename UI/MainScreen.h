@@ -57,6 +57,7 @@ public:
 protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
+	virtual Path HomePath();
 
 	void Refresh();
 

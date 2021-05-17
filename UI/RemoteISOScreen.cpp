@@ -251,7 +251,7 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 		return false;
 	}
 	for (auto &file : files) {
-		if (RemoteISOFileSupported(file.name)) {
+		if (file.isDirectory || RemoteISOFileSupported(file.name)) {
 			games.push_back(file.fullName);
 		}
 	}
@@ -498,27 +498,18 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const Path &url, const std::vector<Path> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	RemoteGameBrowser(const Path &url, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
 		: GameBrowser(url, browseFlags, gridStyle_, screenManager, lastText, lastLink, layoutParams) {
-		games_ = games;
-		Refresh();
+		initialPath_ = url;
 	}
 
 protected:
-	bool DisplayTopBar() override {
-		return false;
+	Path HomePath() override {
+		return initialPath_;
 	}
 
-	bool HasSpecialFiles(std::vector<Path> &filenames) override;
-
-	std::string url_;
-	std::vector<Path> games_;
+	Path initialPath_;
 };
-
-bool RemoteGameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
-	filenames = games_;
-	return true;
-}
 
 RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games)
 	: url_(url), games_(games) {
@@ -541,8 +532,8 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
-	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		Path(url_), games_, BrowseFlags::PIN, &g_Config.bGridView1, screenManager(), "", "",
+	GameBrowser *tabRemoteGames = new RemoteGameBrowser(
+		Path(url_), BrowseFlags::PIN | BrowseFlags::NAVIGATE, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
