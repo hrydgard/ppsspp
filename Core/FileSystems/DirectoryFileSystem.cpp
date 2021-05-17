@@ -151,8 +151,8 @@ bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBeha
 
 			path.replace(start, i - start, component);
 
-			fullPath.append(component);
 			fullPath.append(1, '/');
+			fullPath.append(component);
 		}
 
 		start = i + 1;
