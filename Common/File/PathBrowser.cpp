@@ -149,7 +149,7 @@ void PathBrowser::HandlePath() {
 		return;
 	}
 
-	if (path_.Type() == PathType::HTTP) {
+	if (path_.Type() != PathType::HTTP) {
 		if (pendingActive_)
 			ResetPending();
 		ready_ = true;
