@@ -14,3 +14,4 @@ relaunch the app on the device.
 
 A real Android device is strongly recommended for testing. Don't trust
 the emulator.
+A add to time hacker
