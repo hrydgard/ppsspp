@@ -1,11 +1,12 @@
 #include <iostream>
 #include <string>
 
+#include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/File/VFS/VFS.h"
 
-#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "SDL/SDLJoystick.h"
 
@@ -61,7 +62,8 @@ void SDLJoystick::setUpController(int deviceIndex) {
 		if (joystick) {
 			SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
 			// create default mapping - this is the PS3 dual shock mapping
-			std::string mapping = string(pszGUID) + "," + string(SDL_JoystickName(joystick)) + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
+			const std::string safeName = ReplaceAll(SDL_JoystickName(joystick), ",", "");
+			std::string mapping = std::string(pszGUID) + "," + safeName + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
 			if (SDL_GameControllerAddMapping(mapping.c_str()) == 1){
 				cout << "Added default mapping ok" << endl;
 			} else {
