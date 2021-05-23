@@ -200,9 +200,6 @@ DinputDevice::~DinputDevice() {
 }
 
 void SendNativeAxis(int deviceId, int value, int &lastValue, int axisId) {
-	if (value == lastValue)
-		return;
-
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;

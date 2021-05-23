@@ -17,9 +17,11 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <cstdint>
 #include <list>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "Common/File/Path.h"
 #include "Common/Input/KeyCodes.h"
@@ -113,4 +115,5 @@ private:
 
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
+	std::unordered_map<int64_t, int> lastAxis_;
 };
