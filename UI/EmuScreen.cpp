@@ -864,16 +864,6 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 bool EmuScreen::axis(const AxisInput &axis) {
 	Core_NotifyActivity();
 
-	// Ignore duplicate values to prevent axis values overwriting each other.
-	uint64_t key = ((uint64_t)axis.axisId << 32) | axis.deviceId;
-	// Center value far from zero just to ensure we send the first zero.
-	// PSP games can't see higher resolution than this.
-	int value = 128 + ceilf(axis.value * 127.5f + 127.5f);
-	if (lastAxis_[key] == value) {
-		return false;
-	}
-	lastAxis_[key] = value;
-
 	if (axis.value > 0) {
 		processAxis(axis, 1);
 		return true;
