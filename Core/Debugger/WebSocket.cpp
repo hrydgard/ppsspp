@@ -59,6 +59,7 @@
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
+#include "Core/Debugger/WebSocket/ReplaySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
 typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
@@ -73,6 +74,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketInputInit,
 	&WebSocketMemoryInfoInit,
 	&WebSocketMemoryInit,
+	&WebSocketReplayInit,
 	&WebSocketSteppingInit,
 });
 

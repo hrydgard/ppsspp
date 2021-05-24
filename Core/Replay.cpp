@@ -116,7 +116,7 @@ struct ReplayFileInfo {
 
 struct ReplayItem {
 	ReplayItemHeader info;
-	std::vector<u8> data;
+	std::vector<uint8_t> data;
 
 	ReplayItem(ReplayItemHeader h) : info(h) {
 	}
@@ -136,7 +136,7 @@ static uint8_t lastAnalog[2][2]{};
 static size_t replayDiskPos = 0;
 static bool diskFailed = false;
 
-void ReplayExecuteBlob(const std::vector<u8> &data) {
+void ReplayExecuteBlob(const std::vector<uint8_t> &data) {
 	ReplayAbort();
 
 	// Rough estimate.
@@ -178,7 +178,7 @@ bool ReplayExecuteFile(const Path &filename) {
 		return false;
 	}
 
-	std::vector<u8> data;
+	std::vector<uint8_t> data;
 	auto loadData = [&]() {
 		// TODO: Maybe stream instead.
 		size_t sz = File::GetFileSize(fp);
@@ -243,7 +243,7 @@ void ReplayBeginSave() {
 	replayState = ReplayState::SAVE;
 }
 
-void ReplayFlushBlob(std::vector<u8> *data) {
+void ReplayFlushBlob(std::vector<uint8_t> *data) {
 	size_t sz = replayItems.size() * sizeof(ReplayItemHeader);
 	// Add in any side data.
 	for (const auto &item : replayItems) {
@@ -289,7 +289,7 @@ bool ReplayFlushFile(const Path &filename) {
 	size_t c = replayItems.size();
 	if (success && c != 0) {
 		// TODO: Maybe stream instead.
-		std::vector<u8> data;
+		std::vector<uint8_t> data;
 		ReplayFlushBlob(&data);
 
 		success = fwrite(&data[0], data.size(), 1, fp) == 1;
