@@ -13,9 +13,11 @@
 
 #pragma once
 
-#include <vector>
+#include <cstdint>
 #include <mutex>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
@@ -165,4 +167,6 @@ private:
 	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
 	std::vector<Layer> stack_;
 	std::vector<Layer> nextStack_;
+
+	std::unordered_map<int64_t, int> lastAxis_;
 };

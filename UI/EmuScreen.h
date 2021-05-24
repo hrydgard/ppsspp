@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
-#include <list>
 
 #include "Common/File/Path.h"
 #include "Common/Input/KeyCodes.h"
