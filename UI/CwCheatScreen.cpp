@@ -194,7 +194,7 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 	return line;
 }
 
-void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, Path cheatFile) {
+UI::EventReturn CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, Path cheatFile) {
 	bool finished = false;
 	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
@@ -202,11 +202,12 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 
 	if (!in) {
 		WARN_LOG(COMMON, "Unable to open %s\n", cheatFile.c_str());
+		return UI::EVENT_SKIPPED;
 	}
 
 	char linebuf[2048]{};
 	while (in && !feof(in)) {
-		char *line = GetLineNoNewline(linebuf, sizeof(linebuf), in);
+		char* line = GetLineNoNewline(linebuf, sizeof(linebuf), in);
 		if (line && gameID == line) {
 			title.push_back(line);
 			line = GetLineNoNewline(linebuf, sizeof(linebuf), in);
@@ -218,7 +219,7 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 				}
 				if (line && line[0] == '_' && line[1] == 'C') {
 					// Test if cheat already exists.
-					for (const auto &existing : fileInfo_) {
+					for (const auto& existing : fileInfo_) {
 						if (std::string(line).substr(4) == existing.name) {
 							finished = false;
 							goto loop;
@@ -247,16 +248,16 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 
 	std::string title2;
 	// Hmm, this probably gets confused about BOMs?
-	FILE *inTitle2 = File::OpenCFile(engine_->CheatFilename(), "rt");
+	FILE* inTitle2 = File::OpenCFile(engine_->CheatFilename(), "rt");
 	if (inTitle2) {
 		char temp[2048];
-		char *line = GetLineNoNewline(temp, sizeof(temp), inTitle2);
+		char* line = GetLineNoNewline(temp, sizeof(temp), inTitle2);
 		if (line)
 			title2 = line;
 		fclose(inTitle2);
 	}
 
-	FILE *append = File::OpenCFile(engine_->CheatFilename(), "at");
+	FILE* append = File::OpenCFile(engine_->CheatFilename(), "at");
 	if (!append)
 		return UI::EVENT_SKIPPED;
 
@@ -277,6 +278,10 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 		}
 	}
 	fclose(append);
+
+	g_Config.bReloadCheats = true;
+	RecreateViews();
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
@@ -288,14 +293,12 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::vector<std::string> title;
 	std::vector<std::string> newList;
 
-	Path cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	Path cheatFile = GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
 	ParseCheatDB(line, title, newList, cheatFile);
-	const std::string path = File::GetExeDirectory();
-	Path patchesFile = path + "assets/patches/cheat.db";
+	Path path = File::GetExeDirectory();
+	Path patchesFile = path / "assets/patches/cheat.db";
 	ParseCheatDB(line, title, newList, patchesFile);
 
-	g_Config.bReloadCheats = true;
-	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
