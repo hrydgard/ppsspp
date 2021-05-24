@@ -206,6 +206,8 @@ bool ReplayExecuteFile(const Path &filename) {
 			WARN_LOG(SYSTEM, "Replay version %d scary and futuristic, trying anyway", fh.version);
 		}
 
+		RtcSetBaseTime((int32_t)fh.rtcBaseSeconds, 0);
+
 		data.resize(sz);
 
 		if (fread(&data[0], sz, 1, fp) != 1) {
