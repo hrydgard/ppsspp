@@ -211,6 +211,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 
 	if (!in) {
 		WARN_LOG(COMMON, "Unable to open %s\n", cheatFile.c_str());
+		return UI::EVENT_SKIPPED;
 	}
 
 	char linebuf[2048]{};
